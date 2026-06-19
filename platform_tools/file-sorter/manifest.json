@@ -5,6 +5,16 @@
   "status": "stopped",
   "enabled": true,
   "entry": "platform_tools/file-sorter/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "executable": {
+    "path": "dist/file-sorter.exe",
+    "name": "file-sorter",
+    "console": true
+  },
   "description": "支援開啟工具自動整理、偵測新檔案自動分類，既有關鍵字會自動更新並可跨硬碟分類。",
   "test_targets": [
     "tests/test_file_sorter.py"

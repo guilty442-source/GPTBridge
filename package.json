@@ -40,9 +40,11 @@
     "build:app": "npm.cmd run build:renderer && npm.cmd run build:main",
     "smoke:developer": ".venv\\Scripts\\python.exe scripts/smoke/developer_mode_ipc_smoke.py",
     "smoke:developer:full": ".venv\\Scripts\\python.exe scripts/smoke/developer_mode_ipc_smoke.py --full",
+    "package:tools": ".venv\\Scripts\\python.exe scripts/package_platform_tools.py",
+    "package:tool": ".venv\\Scripts\\python.exe scripts/package_platform_tools.py",
     "clean": ".venv\\Scripts\\python.exe run.py clean",
     "build": "npm.cmd run governance:check && npm.cmd run check:imports && npm.cmd run check:circular && npm.cmd run check:runtime && npm.cmd run type-check && npm.cmd run build:app",
-    "dist": "npm.cmd run build && electron-builder"
+    "dist": "npm.cmd run package:tools && npm.cmd run build && electron-builder"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

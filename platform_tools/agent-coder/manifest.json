@@ -5,6 +5,16 @@
   "status": "stopped",
   "enabled": true,
   "entry": "platform_tools/agent-coder/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "executable": {
+    "path": "dist/agent-coder.exe",
+    "name": "agent-coder",
+    "console": true
+  },
   "description": "系統救援工具，管理應用程式程式碼、修補指令與單元測試。",
   "window": {
     "width": 1180,

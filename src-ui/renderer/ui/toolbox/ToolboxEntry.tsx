@@ -53,13 +53,11 @@ export function ToolboxEntry({
               onToolAction={onToolAction}
               allowStartWhileActive
               startLabel={
-                tool.windowOnly
-                  ? '開啟'
-                  : tool.status === 'running' || tool.status === 'starting'
-                  ? '開啟視窗'
-                  : zhTW.toolbox.start
+                tool.status === 'running' || tool.status === 'starting'
+                  ? '重新啟動'
+                  : '開啟 EXE'
               }
-              stopLabel={tool.windowOnly ? '關閉' : zhTW.toolbox.stop}
+              stopLabel="停止 EXE"
             />
           ))}
         </div>

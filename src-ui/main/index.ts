@@ -432,72 +432,12 @@ async function createToolWindow(
     return { ok: false, message: `Invalid tool: ${toolId}` }
   }
 
-  const current = toolWindows.get(toolId)
-  if (current && !current.isDestroyed()) {
-    current.show()
-    current.focus()
-    return { ok: true, focused: true }
+  writeRuntimeLog('tool-window.removed', { toolId })
+  return {
+    ok: false,
+    message:
+      'Platform applications now run as standalone EXEs. Use toolbox_start_tool through the backend manager.',
   }
-
-  const paths = getRuntimePathLibrary()
-  writeRuntimeLog('tool-window.create.start', {
-    isPackaged: app.isPackaged,
-    sourceProduction,
-    shouldManageBackend,
-    workspaceRoot: paths.workspaceRoot,
-    resourcesRoot: paths.resourcesRoot,
-    rendererEntryHtml: paths.rendererEntryHtml,
-    pythonExecutable: paths.pythonExecutable,
-    pythonEntry: paths.pythonEntry,
-  })
-  const windowConfig = {
-    ...DEFAULT_TOOL_WINDOW_CONFIG,
-    ...readPlatformToolWindowConfig(toolId),
-  }
-  const toolWindow = new BrowserWindow({
-    width: windowConfig.width,
-    height: windowConfig.height,
-    minWidth: windowConfig.minWidth,
-    minHeight: windowConfig.minHeight,
-    show: false,
-    backgroundColor: '#0b0f17',
-    title: windowConfig.title || `Tool: ${toolId}`,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-      preload: paths.preloadEntry,
-    },
-  })
-
-  toolWindows.set(toolId, toolWindow)
-  adaptiveZoomController.register(toolWindow)
-
-  toolWindow.once('ready-to-show', () => {
-    toolWindow.show()
-    toolWindow.focus()
-  })
-
-  toolWindow.on('closed', () => {
-    toolWindows.delete(toolId)
-  })
-
-  toolWindow.webContents.on('did-fail-load', (_event, code, desc) => {
-    console.error(`[TOOL:${toolId}] Renderer load failed:`, code, desc)
-  })
-
-  if (usesBuiltRenderer) {
-    await toolWindow.loadFile(paths.rendererEntryHtml, {
-      query: {
-        toolWindow: '1',
-        tool: toolId,
-      },
-    })
-    return { ok: true }
-  }
-
-  await toolWindow.loadURL(buildToolWindowUrl(toolId))
-  return { ok: true }
 }
 
 function registerIpcHandlers(): void {

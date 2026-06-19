@@ -244,6 +244,16 @@ class ChildToolWorkspace:
             "status": "ready",
             "enabled": True,
             "entry": template["entry"],
+            "runtime": {
+                "type": "python" if template["tech_stack"].startswith("python") else template["tech_stack"],
+                "entry": template["entry"],
+                "workingDirectory": ".",
+            },
+            "executable": {
+                "path": f"dist/{sanitized}.exe",
+                "name": sanitized,
+                "console": reference == "cli_tool",
+            },
             "description": f"{sanitized} standalone platform tool.",
             "reference_type": reference,
             "target_platform": WINDOWS_TARGET,

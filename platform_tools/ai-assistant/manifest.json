@@ -5,6 +5,16 @@
   "status": "stopped",
   "enabled": true,
   "entry": "platform_tools/ai-assistant/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "executable": {
+    "path": "dist/ai-assistant.exe",
+    "name": "ai-assistant",
+    "console": true
+  },
   "description": "集中管理 AI 登入、提示內容與多來源回覆，與系統救援工具分離成獨立應用程式。",
   "window": {
     "width": 1040,

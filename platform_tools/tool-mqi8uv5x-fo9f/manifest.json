@@ -5,6 +5,16 @@
   "status": "stopped",
   "enabled": true,
   "entry": "platform_tools/tool-mqi8uv5x-fo9f/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "executable": {
+    "path": "dist/tool-mqi8uv5x-fo9f.exe",
+    "name": "tool-mqi8uv5x-fo9f",
+    "console": true
+  },
   "description": "匯入庫存檔並使用多來源連網監控報價；收盤後停止持續更新。",
   "timeout_seconds": 3600,
   "test_targets": [

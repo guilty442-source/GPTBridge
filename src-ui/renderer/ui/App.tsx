@@ -237,29 +237,7 @@ export default function App() {
         const hydratedTools = hydrateToolboxRuntimeStateFromBackend(payload.tools)
         const nextTools =
           hydratedTools.length > 0 ? hydratedTools : createInitialToolboxRuntimeState()
-        const api = window.electron
-        const openWindows = api?.invoke
-          ? ((await api.invoke('app:get-open-tool-windows')) as {
-              toolIds?: unknown
-            })
-          : null
-        const openToolIds = new Set(
-          Array.isArray(openWindows?.toolIds)
-            ? openWindows.toolIds.map((toolId) => String(toolId))
-            : []
-        )
-        const toolsWithWindowState: ToolRuntimeState[] = nextTools.map(
-          (tool): ToolRuntimeState =>
-            tool.windowOnly
-              ? {
-                  ...tool,
-                  status: openToolIds.has(tool.id) ? 'running' : 'stopped',
-                  updatedAt: Date.now(),
-                  note: openToolIds.has(tool.id) ? '獨立視窗運作中' : '未啟動',
-                }
-              : tool
-        )
-        const toolsWithLocalSizes = await mergeLocalProjectSizes(toolsWithWindowState)
+        const toolsWithLocalSizes = await mergeLocalProjectSizes(nextTools)
         setToolboxTools(toolsWithLocalSizes)
         setToolboxSyncedAt(Date.now())
       } catch {
@@ -727,7 +705,6 @@ export default function App() {
   ])
 
   const executeToolboxAction = useCallback(async (toolId: string, action: ToolAction) => {
-    const selectedTool = toolboxTools.find((tool) => tool.id === toolId)
     setToolboxTools((prev) =>
       resolveToolboxToolAction(prev, toolId, action, 'pending')
     )
@@ -737,61 +714,6 @@ export default function App() {
       action === 'start' ? 'toolbox_start_tool_result' : 'toolbox_stop_tool_result'
     const failMessage =
       action === 'start' ? '工具啟動失敗，請稍後再試。' : '工具停止失敗，請稍後再試。'
-
-    const api = (window as any).electron
-    if (action === 'start') {
-      try {
-        const windowResult = api?.invoke
-          ? ((await api.invoke('app:open-tool-window', { toolId })) as {
-              ok?: boolean
-              message?: string
-            })
-          : { ok: false, message: '目前環境不支援獨立工具視窗。' }
-
-        if (!windowResult?.ok) {
-          const message = String(windowResult?.message || failMessage)
-          setToolboxTools((prev) =>
-            prev.map((tool) =>
-              tool.id === toolId
-                ? {
-                    ...tool,
-                    status: 'error',
-                    updatedAt: Date.now(),
-                    note: message,
-                  }
-                : tool
-            )
-          )
-          return
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : failMessage
-        setToolboxTools((prev) =>
-          prev.map((tool) =>
-            tool.id === toolId
-              ? {
-                  ...tool,
-                  status: 'error',
-                  updatedAt: Date.now(),
-                  note: message,
-                }
-              : tool
-          )
-        )
-        return
-      }
-    } else if (api?.invoke) {
-      void api.invoke('app:close-tool-window', { toolId }).catch(() => {
-        // Status update below remains the source of truth.
-      })
-    }
-
-    if (selectedTool?.windowOnly) {
-      setToolboxTools((prev) =>
-        resolveToolboxToolAction(prev, toolId, action, 'settled')
-      )
-      return
-    }
 
     sendCommand(command, { tool_id: toolId })
 
@@ -828,7 +750,7 @@ export default function App() {
         )
       )
     }
-  }, [refreshToolboxTools, sendCommand, toolboxTools, waitForIpcEvent])
+  }, [refreshToolboxTools, sendCommand, waitForIpcEvent])
 
   const handleToolboxAction = (toolId: string, action: ToolAction) => {
     void executeToolboxAction(toolId, action)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 from backend.cleanup_service import ProjectCleanupService
@@ -16,7 +17,8 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.cleanup_garbage:
-        service = ProjectCleanupService(Path.cwd())
+        project_root = Path(os.environ.get("GPTBRIDGE_PROJECT_ROOT", Path.cwd()))
+        service = ProjectCleanupService(project_root)
         result = service.cleanup_garbage(scope=args.scope, dry_run=args.dry_run)
         if args.as_json:
             print(json.dumps(result, ensure_ascii=False))

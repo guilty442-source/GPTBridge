@@ -112,13 +112,13 @@ class CommandRouter:
 
         if command == "toolbox_start_tool":
             if self.toolbox_service:
-                result = await self.toolbox_service.update_status(payload.get("tool_id", ""), "running")
+                result = await self.toolbox_service.start_tool(payload)
                 return "toolbox_start_tool_result", result
             return "toolbox_start_tool_result", {"ok": False, "message": "Toolbox service not available"}
 
         if command == "toolbox_stop_tool":
             if self.toolbox_service:
-                result = await self.toolbox_service.update_status(payload.get("tool_id", ""), "stopped")
+                result = await self.toolbox_service.stop_tool(payload)
                 return "toolbox_stop_tool_result", result
             return "toolbox_stop_tool_result", {"ok": False, "message": "Toolbox service not available"}
 

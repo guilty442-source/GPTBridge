@@ -50,6 +50,15 @@ class ToolboxService:
         )
 
     def _resolve_entry_file(self, manifest: Dict[str, Any], tool_dir: Path) -> Path:
+        runtime = manifest.get("runtime")
+        if isinstance(runtime, dict):
+            runtime_entry = str(runtime.get("entry", "")).strip()
+            if runtime_entry:
+                entry_path = tool_dir / Path(runtime_entry)
+                if entry_path.suffix == "":
+                    entry_path = entry_path.with_suffix(".py")
+                return entry_path
+
         entry = str(manifest.get("entry", "")).strip()
         if entry:
             entry_path = self.project_root / Path(entry)
@@ -57,6 +66,62 @@ class ToolboxService:
                 entry_path = entry_path.with_suffix(".py")
             return entry_path
         return tool_dir / "src" / "main.py"
+
+    def _resolve_working_directory(self, manifest: Dict[str, Any], tool_dir: Path) -> Path:
+        runtime = manifest.get("runtime")
+        raw_cwd = "."
+        if isinstance(runtime, dict):
+            raw_cwd = str(runtime.get("workingDirectory", ".")).strip() or "."
+        cwd = (tool_dir / raw_cwd).resolve()
+        try:
+            cwd.relative_to(tool_dir.resolve())
+        except ValueError:
+            return tool_dir.resolve()
+        return cwd
+
+    def _resolve_executable_file(self, manifest: Dict[str, Any], tool_dir: Path) -> Path:
+        executable = manifest.get("executable")
+        raw_path = ""
+        if isinstance(executable, dict):
+            raw_path = str(executable.get("path", "")).strip()
+        if not raw_path:
+            tool_id = str(manifest.get("id", tool_dir.name)).strip() or tool_dir.name
+            raw_path = f"dist/{tool_id}.exe"
+        exe_path = (tool_dir / raw_path).resolve()
+        try:
+            exe_path.relative_to(tool_dir.resolve())
+        except ValueError:
+            return tool_dir / "dist" / f"{tool_dir.name}.exe"
+        return exe_path
+
+    def _resolve_python_executable(self, manifest: Dict[str, Any], tool_dir: Path) -> Path:
+        runtime = manifest.get("runtime")
+        candidates: list[Path] = []
+        if isinstance(runtime, dict):
+            raw_python = str(runtime.get("python", "")).strip()
+            if raw_python:
+                python_path = Path(raw_python)
+                candidates.append((tool_dir / python_path).resolve() if not python_path.is_absolute() else python_path)
+        candidates.extend(
+            [
+                tool_dir / ".venv" / "Scripts" / "python.exe",
+                tool_dir / ".venv" / "bin" / "python",
+                Path(sys.executable),
+            ]
+        )
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return Path(sys.executable)
+
+    def _tool_environment(self, tool_id: str, tool_dir: Path) -> dict[str, str]:
+        child_env = os.environ.copy()
+        child_env["PYTHONUTF8"] = "1"
+        child_env["PYTHONIOENCODING"] = "utf-8"
+        child_env["GPTBRIDGE_PROJECT_ROOT"] = str(self.project_root)
+        child_env["GPTBRIDGE_TOOL_ID"] = tool_id
+        child_env["GPTBRIDGE_TOOL_DIR"] = str(tool_dir)
+        return child_env
 
     @staticmethod
     def _project_size_bytes(tool_dir: Path) -> int:
@@ -76,10 +141,14 @@ class ToolboxService:
     def _manifest_to_record(self, tool_dir: Path, manifest: Dict[str, Any]) -> Dict[str, Any]:
         manifest_path = tool_dir / "manifest.json"
         entry_file = self._resolve_entry_file(manifest, tool_dir)
+        executable_file = self._resolve_executable_file(manifest, tool_dir)
         record = dict(manifest)
         record["folder_path"] = str(tool_dir)
         record["manifest_path"] = str(manifest_path)
         record["code_path"] = str(entry_file)
+        record["standalone"] = True
+        record["executable_path"] = str(executable_file)
+        record["executable_exists"] = executable_file.exists()
         record["project_size_bytes"] = self._project_size_bytes(tool_dir)
         return record
 
@@ -102,7 +171,7 @@ class ToolboxService:
     def _sync_database_from_manifests(self) -> list[Dict[str, Any]]:
         records = self._load_manifest_records()
         self.repository.replace_tools(records)
-        return self.repository.list_tools()
+        return records
 
     async def add_tool(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         tool_id = payload.get("tool_id", "").strip()
@@ -122,6 +191,16 @@ class ToolboxService:
             "status": "stopped",
             "enabled": True,
             "entry": f"platform_tools/{tool_id}/src/main",
+            "runtime": {
+                "type": "python",
+                "entry": "src/main.py",
+                "workingDirectory": ".",
+            },
+            "executable": {
+                "path": f"dist/{tool_id}.exe",
+                "name": tool_id,
+                "console": True,
+            },
             "description": ""
         }
         manifest_path = tool_dir / "manifest.json"
@@ -178,9 +257,26 @@ class ToolboxService:
             return {"ok": False, "message": str(e)}
 
     async def list_tools(self) -> Dict[str, Any]:
-        tools = self._sync_database_from_manifests()
+        manifest_records = self._sync_database_from_manifests()
+        tools = self.repository.list_tools()
+        records_by_id = {
+            str(record.get("id", "")).strip(): record
+            for record in manifest_records
+            if str(record.get("id", "")).strip()
+        }
         for tool in tools:
             tool_id = str(tool.get("id", "")).strip()
+            manifest_record = records_by_id.get(tool_id, {})
+            for field in (
+                "folder_path",
+                "manifest_path",
+                "code_path",
+                "standalone",
+                "executable_path",
+                "executable_exists",
+            ):
+                if field in manifest_record:
+                    tool[field] = manifest_record[field]
             manifest_path = Path(str(tool.get("manifest_path", "")))
             if manifest_path.name:
                 folder_path = manifest_path.parent
@@ -395,6 +491,97 @@ class ToolboxService:
             return {"ok": True}
         return {"ok": False, "message": "Tool not found"}
 
+    async def start_tool(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        tool_id = str(payload.get("tool_id", "")).strip()
+        if not tool_id:
+            return {"ok": False, "message": "Missing tool_id"}
+        if not re.match(r"^[a-z0-9_-]+$", tool_id):
+            return {"ok": False, "message": "Invalid tool_id format"}
+
+        running = self._running_processes.get(tool_id)
+        if running is not None and running.returncode is None:
+            return {"ok": True, "tool_id": tool_id, "message": "Tool executable is already running"}
+
+        tool_dir = (self.tools_dir / tool_id).resolve()
+        manifest_path = tool_dir / "manifest.json"
+        if not manifest_path.exists():
+            return {"ok": False, "tool_id": tool_id, "message": "Tool manifest not found"}
+
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            return {"ok": False, "tool_id": tool_id, "message": f"Invalid tool manifest: {exc}"}
+
+        if manifest.get("enabled", True) is False:
+            return {"ok": False, "tool_id": tool_id, "message": "Tool is disabled"}
+
+        executable_file = self._resolve_executable_file(manifest, tool_dir)
+        if not executable_file.exists():
+            await self.update_status(tool_id, "stopped")
+            return {
+                "ok": False,
+                "tool_id": tool_id,
+                "message": f"Standalone EXE not found. Run npm run package:tool -- {tool_id}",
+                "executable_path": str(executable_file),
+            }
+
+        raw_args = payload.get("args", [])
+        if not isinstance(raw_args, list):
+            return {"ok": False, "tool_id": tool_id, "message": "args must be a list"}
+        args = [str(item) for item in raw_args[:20]]
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                str(executable_file),
+                *args,
+                cwd=str(tool_dir),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=self._tool_environment(tool_id, tool_dir),
+            )
+        except Exception as exc:
+            await self.update_status(tool_id, "error")
+            return {"ok": False, "tool_id": tool_id, "message": str(exc)}
+
+        self._running_processes[tool_id] = process
+        asyncio.create_task(self._watch_started_tool(tool_id, process))
+        status_result = await self.update_status(tool_id, "running")
+        if not status_result.get("ok"):
+            return status_result
+        return {
+            "ok": True,
+            "tool_id": tool_id,
+            "pid": process.pid,
+            "executable_path": str(executable_file),
+            "message": "Standalone tool executable started",
+        }
+
+    async def _watch_started_tool(self, tool_id: str, process: asyncio.subprocess.Process) -> None:
+        try:
+            await process.wait()
+        finally:
+            current = self._running_processes.get(tool_id)
+            if current is process:
+                self._running_processes.pop(tool_id, None)
+                await self.update_status(tool_id, "stopped")
+
+    async def stop_tool(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        tool_id = str(payload.get("tool_id", "")).strip()
+        if not tool_id:
+            return {"ok": False, "message": "Missing tool_id"}
+        if not re.match(r"^[a-z0-9_-]+$", tool_id):
+            return {"ok": False, "message": "Invalid tool_id format"}
+
+        process = self._running_processes.get(tool_id)
+        if process is not None and process.returncode is None:
+            await terminate_process_tree(process)
+            self._running_processes.pop(tool_id, None)
+
+        status_result = await self.update_status(tool_id, "stopped")
+        if not status_result.get("ok"):
+            return status_result
+        return {"ok": True, "tool_id": tool_id, "message": "Standalone tool executable stopped"}
+
     async def run_tool(
         self,
         payload: Dict[str, Any],
@@ -451,9 +638,9 @@ class ToolboxService:
                 except Exception:
                     return b.decode("utf-8", errors="replace"), "utf-8-replace"
 
-        child_env = os.environ.copy()
-        child_env["PYTHONUTF8"] = "1"
-        child_env["PYTHONIOENCODING"] = "utf-8"
+        child_env = self._tool_environment(tool_id, tool_dir)
+        python_executable = self._resolve_python_executable(manifest, tool_dir)
+        working_directory = self._resolve_working_directory(manifest, tool_dir)
 
         if event_callback is not None:
             try:
@@ -468,6 +655,8 @@ class ToolboxService:
                     await self._run_tool_streaming(
                         tool_id=tool_id,
                         entry_file=entry_file,
+                        python_executable=python_executable,
+                        working_directory=working_directory,
                         args=args,
                         child_env=child_env,
                         timeout_seconds=timeout_seconds,
@@ -508,8 +697,8 @@ class ToolboxService:
             # Capture raw bytes and decode with best-effort to avoid mojibake on Windows
             completed = await asyncio.to_thread(
                 subprocess.run,
-                [sys.executable, str(entry_file), *args],
-                cwd=str(self.project_root),
+                [str(python_executable), str(entry_file), *args],
+                cwd=str(working_directory),
                 capture_output=True,
                 text=False,
                 timeout=timeout_seconds,
@@ -557,6 +746,8 @@ class ToolboxService:
         *,
         tool_id: str,
         entry_file: Path,
+        python_executable: Path,
+        working_directory: Path,
         args: list[str],
         child_env: dict[str, str],
         timeout_seconds: int,
@@ -573,10 +764,10 @@ class ToolboxService:
         stderr_encoding = "utf-8"
 
         process = await asyncio.create_subprocess_exec(
-            sys.executable,
+            str(python_executable),
             str(entry_file),
             *args,
-            cwd=str(self.project_root),
+            cwd=str(working_directory),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=child_env,

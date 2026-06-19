@@ -14,6 +14,8 @@ export interface ToolDefinition {
   folderPath?: string
   manifestPath?: string
   codePath?: string
+  executablePath?: string
+  executableExists?: boolean
   projectSizeBytes?: number
   launchable?: boolean
   windowOnly?: boolean

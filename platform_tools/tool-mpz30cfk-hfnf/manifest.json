@@ -5,6 +5,16 @@
   "status": "running",
   "enabled": true,
   "entry": "platform_tools/tool-mpz30cfk-hfnf/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "executable": {
+    "path": "dist/tool-mpz30cfk-hfnf.exe",
+    "name": "tool-mpz30cfk-hfnf",
+    "console": true
+  },
   "description": "掃描資料夾並顯示進度，可停止掃描，找出重複檔，並可列出未偵測到人臉的無人像候選供開啟檢查。",
   "timeout_seconds": 1800,
   "test_targets": [

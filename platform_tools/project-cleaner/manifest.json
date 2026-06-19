@@ -5,6 +5,16 @@
   "status": "stopped",
   "enabled": true,
   "entry": "platform_tools/project-cleaner/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "executable": {
+    "path": "dist/project-cleaner.exe",
+    "name": "project-cleaner",
+    "console": true
+  },
   "description": "清理專案暫存、快取、日誌與過期輸出，功能程式碼歸屬 project-cleaner 專案。",
   "timeout_seconds": 900,
   "test_targets": [

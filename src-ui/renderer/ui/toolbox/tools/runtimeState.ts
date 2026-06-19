@@ -15,6 +15,8 @@ interface ToolboxManifestPayload {
   folder_path?: unknown
   manifest_path?: unknown
   code_path?: unknown
+  executable_path?: unknown
+  executable_exists?: unknown
   project_size_bytes?: unknown
 }
 
@@ -97,9 +99,18 @@ export function hydrateToolboxRuntimeStateFromBackend(
       manifest.manifest_path ?? registryTool?.manifestPath ?? ''
     ).trim()
     const codePath = String(manifest.code_path ?? registryTool?.codePath ?? '').trim()
+    const executablePath = String(manifest.executable_path ?? registryTool?.executablePath ?? '').trim()
+    const executableExists =
+      typeof manifest.executable_exists === 'boolean'
+        ? manifest.executable_exists
+        : registryTool?.executableExists
     const projectSize =
       normalizeSizeBytes(manifest.project_size_bytes) ??
       normalizeSizeBytes(registryTool?.projectSizeBytes)
+    const note =
+      executableExists === false
+        ? '尚未打包 EXE，請先執行 npm run package:tool'
+        : noteForStatus(status, effectiveLaunchable)
 
     tools.push({
       id,
@@ -108,12 +119,14 @@ export function hydrateToolboxRuntimeStateFromBackend(
       folderPath,
       manifestPath,
       codePath,
+      executablePath,
+      executableExists,
       projectSizeBytes: projectSize,
       launchable: effectiveLaunchable,
       windowOnly: registryTool?.windowOnly,
       status,
       updatedAt: now,
-      note: noteForStatus(status, effectiveLaunchable),
+      note,
     })
   }
 

@@ -5,6 +5,16 @@
   "status": "stopped",
   "enabled": true,
   "entry": "platform_tools/vaultly/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "executable": {
+    "path": "dist/vaultly.exe",
+    "name": "vaultly",
+    "console": true
+  },
   "description": "使用正式版專屬 Edge 登入狀態，自動辨識 Instagram/X 個人檔案入口並掃描可見追蹤帳號，依條件預覽並背景下載照片與影片。",
   "test_targets": [
     "tests/test_vaultly.py"
