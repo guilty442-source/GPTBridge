@@ -15,7 +15,6 @@ import {
 import { getRuntimeEnv } from './runtime-env'
 
 let mainWindow: BrowserWindow | null = null
-const toolWindows = new Map<string, BrowserWindow>()
 let quitting = false
 let lastCpuSnapshot: { idle: number; total: number } | null = null
 let currentUiZoom = 1
@@ -46,29 +45,7 @@ const isPathInside = (basePath: string, targetPath: string) => {
   )
 }
 
-type ToolWindowConfig = {
-  width: number
-  height: number
-  minWidth: number
-  minHeight: number
-  title?: string
-}
-
-const DEFAULT_TOOL_WINDOW_CONFIG: ToolWindowConfig = {
-  width: 860,
-  height: 680,
-  minWidth: 760,
-  minHeight: 560,
-}
-
 const TOOL_ID_PATTERN = /^[a-z0-9_-]+$/
-function readJsonFile(filePath: string): Record<string, unknown> | null {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<string, unknown>
-  } catch {
-    return null
-  }
-}
 
 function resolvePlatformToolsLocation(): {
   platformToolsPath: string
@@ -172,43 +149,6 @@ function readPlatformToolSizes(): {
     platform_tools_path: platformToolsPath,
     searched_paths: searchedPaths,
   }
-}
-
-function positiveInteger(value: unknown): number | undefined {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
-  const normalized = Math.floor(value)
-  return normalized > 0 ? normalized : undefined
-}
-
-function readPlatformToolWindowConfig(toolId: string): Partial<ToolWindowConfig> {
-  if (!TOOL_ID_PATTERN.test(toolId)) return {}
-
-  const { platformToolsPath } = resolvePlatformToolsLocation()
-  const manifest = readJsonFile(
-    path.join(platformToolsPath, toolId, 'manifest.json')
-  )
-  if (!manifest) return {}
-
-  const windowConfig =
-    typeof manifest.window === 'object' && manifest.window !== null
-      ? (manifest.window as Record<string, unknown>)
-      : {}
-
-  const config: Partial<ToolWindowConfig> = {}
-  const width = positiveInteger(windowConfig.width)
-  const height = positiveInteger(windowConfig.height)
-  const minWidth = positiveInteger(windowConfig.minWidth)
-  const minHeight = positiveInteger(windowConfig.minHeight)
-  if (width !== undefined) config.width = width
-  if (height !== undefined) config.height = height
-  if (minWidth !== undefined) config.minWidth = minWidth
-  if (minHeight !== undefined) config.minHeight = minHeight
-  if (typeof windowConfig.title === 'string') {
-    config.title = windowConfig.title
-  } else if (typeof manifest.name === 'string') {
-    config.title = manifest.name
-  }
-  return config
 }
 
 function clampUiZoom(value: number): number {
@@ -342,13 +282,6 @@ function resolveRendererUrl(): string {
   return getRuntimeEnv('VITE_DEV_SERVER_URL') || 'http://127.0.0.1:5180/'
 }
 
-function buildToolWindowUrl(toolId: string): string {
-  const url = new URL(resolveRendererUrl())
-  url.searchParams.set('toolWindow', '1')
-  url.searchParams.set('tool', toolId)
-  return url.toString()
-}
-
 async function createWindow(): Promise<void> {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.focus()
@@ -425,21 +358,6 @@ async function createWindow(): Promise<void> {
   }
 }
 
-async function createToolWindow(
-  toolId: string
-): Promise<{ ok: boolean; focused?: boolean; message?: string }> {
-  if (!TOOL_ID_PATTERN.test(toolId)) {
-    return { ok: false, message: `Invalid tool: ${toolId}` }
-  }
-
-  writeRuntimeLog('tool-window.removed', { toolId })
-  return {
-    ok: false,
-    message:
-      'Platform applications now run as standalone EXEs. Use toolbox_start_tool through the backend manager.',
-  }
-}
-
 function registerIpcHandlers(): void {
   ipcMain.handle('app:get-status', async () => {
     const backendRuntime = getBackendRuntimeInfo()
@@ -500,33 +418,6 @@ function registerIpcHandlers(): void {
   ipcMain.handle('app:restart', async () => {
     app.relaunch()
     app.quit()
-  })
-
-  ipcMain.handle(
-    'app:open-tool-window',
-    async (_event, payload: { toolId?: string }) => {
-      const toolId = String(payload?.toolId || '').trim()
-      return createToolWindow(toolId)
-    }
-  )
-
-  ipcMain.handle(
-    'app:close-tool-window',
-    async (_event, payload: { toolId?: string }) => {
-      const toolId = String(payload?.toolId || '').trim()
-      const current = toolWindows.get(toolId)
-      if (!current || current.isDestroyed())
-        return { ok: true, alreadyClosed: true }
-      current.close()
-      return { ok: true }
-    }
-  )
-
-  ipcMain.handle('app:get-open-tool-windows', async () => {
-    const toolIds = Array.from(toolWindows.entries())
-      .filter(([, toolWindow]) => !toolWindow.isDestroyed())
-      .map(([toolId]) => toolId)
-    return { ok: true, toolIds }
   })
 
   ipcMain.handle('app:get-platform-tool-sizes', async () => {

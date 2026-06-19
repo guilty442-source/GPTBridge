@@ -8,6 +8,52 @@ if TYPE_CHECKING:
     from main import GPTBridgeApp
 
 
+GOVERNANCE_RULE_COMMANDS = {
+    "app:get-governance-rules",
+    "app:set-governance-rules",
+    "app:add-governance-rule",
+    "app:delete-governance-rule",
+    "app:update-governance-rule",
+}
+
+APP_CODE_COMMANDS = {
+    "app:save-code",
+    "app:delete-code",
+    "app:move-code",
+    "app:update-config",
+    "app:agent-intervention",
+    "app:agent-instruct",
+    "app:agent-execute-tool",
+    "app:run-unit-tests",
+}
+
+TOOLBOX_COMMAND_HANDLERS = {
+    "toolbox_add_tool": "add_tool",
+    "toolbox_list_tools": "list_tools",
+    "toolbox_start_tool": "start_tool",
+    "toolbox_stop_tool": "stop_tool",
+    "toolbox_run_tool": "run_tool",
+    "toolbox_cancel_tool_run": "cancel_tool_run",
+    "toolbox_open_tool_code": "open_tool_code",
+    "toolbox_save_tool_code": "save_tool_code",
+}
+
+SETTINGS_COMMANDS = {
+    "load_config",
+    "save_config",
+    "settings_health_refresh",
+    "settings_mark_updates_applied",
+    "settings_maintain_sandbox",
+    "settings_backup_records",
+    "settings_delete_backup",
+    "settings_export_logs",
+    "settings_export_error_logs",
+    "settings_reset_provider_profile",
+    "settings_open_system_browser",
+    "settings_factory_reset",
+}
+
+
 class CommandRouter:
     def __init__(self, app: "GPTBridgeApp", **kwargs: Any) -> None:
         self.app = app
@@ -36,134 +82,21 @@ class CommandRouter:
                 "message": f"Command '{command}' is blocked in {self.mode_manager.active_mode} mode.",
             }
 
-        if command in {
-            "app:get-governance-rules",
-            "app:set-governance-rules",
-            "app:add-governance-rule",
-            "app:delete-governance-rule",
-            "app:update-governance-rule",
-        }:
+        if command in GOVERNANCE_RULE_COMMANDS:
             # Governance management is strictly reserved for manual user intervention
             return await self._handle_governance_rules(command, payload)
 
-        if command == "app:save-code":
-            rel_path = payload.get("path", "")
-            content = payload.get("content", "")
-            result = await self.app.save_code_to_disk(rel_path, content)
-            return "app:save-code_result", result
+        app_code_result = await self._handle_app_code_command(command, payload)
+        if app_code_result is not None:
+            return app_code_result
 
-        if command == "app:delete-code":
-            rel_path = payload.get("path", "")
-            result = await self.app.delete_code_from_disk(rel_path)
-            return "app:delete-code_result", result
+        toolbox_result = await self._handle_toolbox_command(command, payload)
+        if toolbox_result is not None:
+            return toolbox_result
 
-        if command == "app:move-code":
-            src = payload.get("from", "")
-            dst = payload.get("to", "")
-            result = await self.app.move_code_on_disk(src, dst)
-            return "app:move-code_result", result
-
-        if command == "app:update-config":
-            key = payload.get("key", "")
-            value = payload.get("value")
-            await self.app.update_config_value(key, value)
-            return "app:update-config_result", {"ok": True, "key": key}
-
-        if command == "app:agent-intervention":
-            rel_path = payload.get("path", "")
-            content = payload.get("content", "")
-            # Agent coder takes direct control of the code block for review/fix
-            result = await self.app.request_agent_intervention(rel_path, content)
-            return "app:agent-intervention_result", result
-
-        if command == "app:agent-instruct":
-            rel_path = payload.get("path", "")
-            content = payload.get("content", "")
-            instruction = payload.get("instruction", "")
-            auto_test = payload.get("auto_test", True)
-            # Pass the user instruction to the Agent Coder
-            result = await self.app.instruct_agent_on_code(rel_path, content, instruction, auto_test)
-            return "app:agent-instruct_result", result
-
-        if command == "app:agent-execute-tool":
-            service = payload.get("service", "")
-            cmd = payload.get("tool_command", "")
-            args = payload.get("payload", {})
-            result = await self.app.execute_agent_tool_operation(service, cmd, args)
-            return "app:agent-execute-tool_result", result
-
-        if command == "app:run-unit-tests":
-            target_path = payload.get("path", "")
-            result = await self.app.run_unit_tests(target_path)
-            return "app:run-unit-tests_result", result
-
-        # Toolbox
-        if command == "toolbox_add_tool":
-            if self.toolbox_service:
-                result = await self.toolbox_service.add_tool(payload)
-                return "toolbox_add_tool_result", result
-            return "toolbox_add_tool_result", {"ok": False, "message": "Toolbox service not available"}
-
-        if command == "toolbox_list_tools":
-            if self.toolbox_service:
-                result = await self.toolbox_service.list_tools()
-                return "toolbox_list_tools_result", result
-            return "toolbox_list_tools_result", {"ok": False, "message": "Toolbox service not available"}
-
-        if command == "toolbox_start_tool":
-            if self.toolbox_service:
-                result = await self.toolbox_service.start_tool(payload)
-                return "toolbox_start_tool_result", result
-            return "toolbox_start_tool_result", {"ok": False, "message": "Toolbox service not available"}
-
-        if command == "toolbox_stop_tool":
-            if self.toolbox_service:
-                result = await self.toolbox_service.stop_tool(payload)
-                return "toolbox_stop_tool_result", result
-            return "toolbox_stop_tool_result", {"ok": False, "message": "Toolbox service not available"}
-
-        if command == "toolbox_run_tool":
-            if self.toolbox_service:
-                result = await self.toolbox_service.run_tool(payload)
-                return "toolbox_run_tool_result", result
-            return "toolbox_run_tool_result", {"ok": False, "message": "Toolbox service not available"}
-
-        if command == "toolbox_cancel_tool_run":
-            if self.toolbox_service:
-                result = await self.toolbox_service.cancel_tool_run(payload)
-                return "toolbox_cancel_tool_run_result", result
-            return "toolbox_cancel_tool_run_result", {"ok": False, "message": "Toolbox service not available"}
-
-        if command == "toolbox_open_tool_code":
-            if self.toolbox_service:
-                result = await self.toolbox_service.open_tool_code(payload)
-                return "toolbox_open_tool_code_result", result
-            return "toolbox_open_tool_code_result", {"ok": False, "message": "Toolbox service not available"}
-
-        if command == "toolbox_save_tool_code":
-            if self.toolbox_service:
-                result = await self.toolbox_service.save_tool_code(payload)
-                return "toolbox_save_tool_code_result", result
-            return "toolbox_save_tool_code_result", {"ok": False, "message": "Toolbox service not available"}
-
-        # Settings commands
-        if command in {
-            "load_config",
-            "save_config",
-            "settings_health_refresh",
-            "settings_mark_updates_applied",
-            "settings_maintain_sandbox",
-            "settings_backup_records",
-            "settings_delete_backup",
-            "settings_export_logs",
-            "settings_export_error_logs",
-            "settings_reset_provider_profile",
-            "settings_open_system_browser",
-            "settings_factory_reset",
-        }:
-            if not self.settings_service:
-                return f"{command}_result", {"ok": False, "message": "Settings service not available"}
-            return await self.settings_service.handle(command, payload)
+        settings_result = await self._handle_settings_command(command, payload)
+        if settings_result is not None:
+            return settings_result
 
         if command == "app:list-mode-services":
             return "app:list-mode-services_result", {"ok": True, "services": list(self.mode_services.keys())}
@@ -225,6 +158,101 @@ class CommandRouter:
             "ok": False,
             "message": f"Command '{command}' not handled by router.",
         }
+
+    async def _handle_app_code_command(
+        self, command: str, payload: Dict[str, Any]
+    ) -> tuple[str, Dict[str, Any]] | None:
+        if command not in APP_CODE_COMMANDS:
+            return None
+
+        if command == "app:save-code":
+            rel_path = payload.get("path", "")
+            content = payload.get("content", "")
+            result = await self.app.save_code_to_disk(rel_path, content)
+            return "app:save-code_result", result
+
+        if command == "app:delete-code":
+            rel_path = payload.get("path", "")
+            result = await self.app.delete_code_from_disk(rel_path)
+            return "app:delete-code_result", result
+
+        if command == "app:move-code":
+            src = payload.get("from", "")
+            dst = payload.get("to", "")
+            result = await self.app.move_code_on_disk(src, dst)
+            return "app:move-code_result", result
+
+        if command == "app:update-config":
+            key = payload.get("key", "")
+            value = payload.get("value")
+            await self.app.update_config_value(key, value)
+            return "app:update-config_result", {"ok": True, "key": key}
+
+        if command == "app:agent-intervention":
+            rel_path = payload.get("path", "")
+            content = payload.get("content", "")
+            result = await self.app.request_agent_intervention(rel_path, content)
+            return "app:agent-intervention_result", result
+
+        if command == "app:agent-instruct":
+            rel_path = payload.get("path", "")
+            content = payload.get("content", "")
+            instruction = payload.get("instruction", "")
+            auto_test = payload.get("auto_test", True)
+            result = await self.app.instruct_agent_on_code(
+                rel_path, content, instruction, auto_test
+            )
+            return "app:agent-instruct_result", result
+
+        if command == "app:agent-execute-tool":
+            service = payload.get("service", "")
+            cmd = payload.get("tool_command", "")
+            args = payload.get("payload", {})
+            result = await self.app.execute_agent_tool_operation(service, cmd, args)
+            return "app:agent-execute-tool_result", result
+
+        target_path = payload.get("path", "")
+        result = await self.app.run_unit_tests(target_path)
+        return "app:run-unit-tests_result", result
+
+    async def _handle_toolbox_command(
+        self, command: str, payload: Dict[str, Any]
+    ) -> tuple[str, Dict[str, Any]] | None:
+        handler_name = TOOLBOX_COMMAND_HANDLERS.get(command)
+        if handler_name is None:
+            return None
+
+        if not self.toolbox_service:
+            return f"{command}_result", {
+                "ok": False,
+                "message": "Toolbox service not available",
+            }
+
+        handler = getattr(self.toolbox_service, handler_name, None)
+        if not callable(handler):
+            return f"{command}_result", {
+                "ok": False,
+                "message": f"Toolbox handler '{handler_name}' is not available",
+            }
+
+        if command == "toolbox_list_tools":
+            result = await handler()
+        else:
+            result = await handler(payload)
+        return f"{command}_result", result
+
+    async def _handle_settings_command(
+        self, command: str, payload: Dict[str, Any]
+    ) -> tuple[str, Dict[str, Any]] | None:
+        if command not in SETTINGS_COMMANDS:
+            return None
+
+        if not self.settings_service:
+            return f"{command}_result", {
+                "ok": False,
+                "message": "Settings service not available",
+            }
+        return await self.settings_service.handle(command, payload)
 
     async def _handle_governance_rules(
         self, command: str, payload: Dict[str, Any]

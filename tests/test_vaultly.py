@@ -320,7 +320,7 @@ def test_vaultly_ui_supports_search_selected_priority_and_larger_window() -> Non
     ui_source = Path(
         "platform_tools/vaultly/src/ui/VaultlyDownloadCenter.tsx"
     ).read_text(encoding="utf-8")
-    tool_window_source = Path("src-ui/main/index.ts").read_text(encoding="utf-8")
+    main_source = Path("src-ui/main/index.ts").read_text(encoding="utf-8")
 
     assert "matchesAccountSearch" in ui_source
     assert "Number(selectedIds.has(right.account_id))" in ui_source
@@ -332,12 +332,15 @@ def test_vaultly_ui_supports_search_selected_priority_and_larger_window() -> Non
     assert "篩選名單只會加入你手動輸入的內容" in ui_source
     assert "被移除帳號紀錄（包含自動篩選）" in ui_source
     assert "removedSourceLabel" in ui_source
-    assert "readPlatformToolWindowConfig" in tool_window_source
-    assert "readChildToolWindowConfig" not in tool_window_source
-    assert "isVaultlyWindow" not in tool_window_source
+    assert "app:open-tool-window" not in main_source
+    assert "readPlatformToolWindowConfig" not in main_source
+    assert "readChildToolWindowConfig" not in main_source
+    assert "isVaultlyWindow" not in main_source
     tool_manifest = json.loads(
         Path("platform_tools/vaultly/manifest.json").read_text(encoding="utf-8")
     )
+    assert tool_manifest["runtime"]["entry"] == "src/main.py"
+    assert tool_manifest["executable"]["path"] == "dist/vaultly.exe"
     assert tool_manifest["window"]["width"] == 1280
     assert tool_manifest["window"]["height"] == 900
     assert tool_manifest["window"]["minWidth"] == 1020
