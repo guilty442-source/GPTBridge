@@ -1,0 +1,23 @@
+# GPTBridge Stable Baseline Snapshot
+
+## Version: GPTBridge_W11_Stable_Baseline_v1
+
+### Current Stable Features
+- 基于 Electron 39 和 React 19 的跨平台 UI 架构
+- 集成 Python 3.10+ (venv) 核心后端逻辑
+- 自动备份管理器（支持循环覆盖、大小限制及文件过滤）
+- 端口自动占用检测与清理机制
+
+### Recent Fixes
+- 修復 TypeScript 掃描 `.GPTBridge_RuntimeSandbox` 導致 125 項錯誤的問題
+- 修復 `clean` 指令的清理邊界，確保安全刪除殘留檔案且不誤刪沙盒根目錄
+- 驗證 `npm run dev` 正常啟動，系統無白屏且連線正常
+- 目前 Blocking Bug = 0
+
+### Current Known Issues
+- 强制关闭时 Python 后端进程可能残留，需手动检查 8765 端口
+
+### Environment Config
+- **Startup Command**: `npm run dev`
+- **Required Ports**: 8765 (Backend), 5180 (Vite Renderer)
+- **Audit URLs**: http://127.0.0.1:5180

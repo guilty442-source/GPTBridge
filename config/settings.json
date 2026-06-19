@@ -1,0 +1,47 @@
+{
+    "chatgpt_main_url": "https://chatgpt.com/c/6a19b06f-2d88-83a4-ac3e-ced307124021",
+    "gemini_main_url": "https://gemini.google.com/app/620770e7f10e50bf?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all",
+    "claude_main_url": "https://claude.ai/chat/90a55c5e-792f-4c53-a388-943552e25f85",
+    "perplexity_main_url": "https://www.perplexity.ai/search/a8ff7f2a-d3f8-4ee1-85a3-3dbaac909f07",
+    "deepseek_main_url": "https://chat.deepseek.com/a/chat/s/831e57cc-be6d-466c-a49a-f8f4e5118030",
+    "design_project_output_dir": "platform_tools",
+    "core_lock_enabled": true,
+    "target_platform": "Windows 11",
+    "ai_cost_mode": "balanced",
+    "context_limits": {
+        "chatgpt": 10,
+        "gemini": 10,
+        "rescue_a": 20,
+        "rescue_b": 10
+    },
+    "timeouts": {
+        "provider_init_seconds": 60,
+        "provider_response_seconds": 120,
+        "browser_startup_seconds": 60,
+        "build_seconds": 300,
+        "sandbox_seconds": 180,
+        "health_seconds": 180
+    },
+    "browser_behavior": {
+        "background": true,
+        "headless": false
+    },
+    "backup_policy": {
+        "design_mode_max_records": 2,
+        "mother_tool_max_records": 2
+    },
+    "display_names": {
+        "product": "GPTBridge",
+        "interface_system": "介面系統",
+        "core_system": "核心系統",
+        "design_mode": "設計模式",
+        "rescue_mode": "救援模式",
+        "developer_mode": "開發者模式",
+        "settings": "設定",
+        "shared_layer": "共用層"
+    },
+    "auto_cycle": 60,
+    "max_backup_count": 3,
+    "profile": "main",
+    "auto_start": true
+}

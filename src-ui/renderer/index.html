@@ -1,0 +1,31 @@
+﻿<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>程式庫</title>
+    <style>
+      html,
+      body,
+      #root {
+        margin: 0;
+        min-height: 100vh;
+      }
+
+      body {
+        background-color: #0f172a;
+        color: #e2e8f0;
+        font-family: 'Noto Sans TC', 'Segoe UI', sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div style="padding: 20px; color: #fbbf24">正在載入程式庫...</div>
+    </div>
+    <script>
+      console.log('HTML loaded. Root element exists:', !!document.getElementById('root'))
+    </script>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>

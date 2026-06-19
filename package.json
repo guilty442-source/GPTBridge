@@ -1,0 +1,150 @@
+{
+  "name": "gptbridge-auto-agent-ide",
+  "version": "7.0.0",
+  "description": "GPTBridge Windows 11 Stable Baseline",
+  "private": true,
+  "author": "Your Name <your.email@example.com>",
+  "main": "dist-ui/main/index.js",
+  "scripts": {
+    "start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1",
+    "launcher:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/install.ps1",
+    "launcher:prepare": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1 -PrepareOnly",
+    "launcher:start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1",
+    "kill-backend-port": "npx.cmd kill-port 8765",
+    "type-check": "npx.cmd tsc --noEmit",
+    "lint:imports": ".venv\\Scripts\\python.exe src-core/governance/enforcer.py",
+    "governance:audit": ".venv\\Scripts\\python.exe src-core/governance/enforcer.py",
+    "governance:check": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" governance/scripts/run-checkers.ts",
+    "governance:fix": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" governance/scripts/run-fixers.ts",
+    "governance:report": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" governance/scripts/generate-report.ts",
+    "audit:structure": ".venv\\Scripts\\python.exe scripts/audit_project_structure.py",
+    "version:sync": ".venv\\Scripts\\python.exe scripts/sync_version.py sync",
+    "version:set": ".venv\\Scripts\\python.exe scripts/sync_version.py set",
+    "check:circular": "npx.cmd madge --circular --extensions ts,tsx src-ui/renderer",
+    "check:imports": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" governance/scripts/run-checkers.ts --category import",
+    "check:ui": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" governance/scripts/run-checkers.ts --category ui",
+    "check:runtime": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" governance/scripts/run-checkers.ts --category runtime",
+    "app:restart": "npm.cmd run kill-ports && npm.cmd run dev",
+    "dev:restart": "npm.cmd run kill-ports && npm.cmd run dev",
+    "kill-renderer-port": "npx.cmd kill-port 5180",
+    "kill-ports": "npm.cmd run kill-backend-port && npm.cmd run kill-renderer-port",
+    "backend": ".venv\\Scripts\\python.exe src-core/main.py",
+    "dev:backend": "npm.cmd run kill-backend-port && .venv\\Scripts\\python.exe -u src-core/main.py --serve",
+    "dev:renderer": "npx.cmd vite --config vite.config.ts --host 127.0.0.1 --port 5180 --strictPort",
+    "dev:main": "npx.cmd vite build -c vite.main.config.ts",
+    "dev:electron": "npx.cmd wait-on http://127.0.0.1:5180 tcp:127.0.0.1:8765 && npm.cmd run dev:main && (set ELECTRON_RUN_AS_NODE=) && npx electron dist-ui/main/index.js",
+    "predev": "npm.cmd run kill-ports --if-present",
+    "dev": "concurrently -k -p \"[{name}]\" -n \"BACKEND,VITE,ELECTRON\" -c \"yellow,blue,green\" \"npm.cmd run dev:backend\" \"npm.cmd run dev:renderer\" \"npm.cmd run dev:electron\"",
+    "build:renderer": "vite build",
+    "build:main": "vite build -c vite.main.config.ts",
+    "build:app": "npm.cmd run build:renderer && npm.cmd run build:main",
+    "smoke:developer": ".venv\\Scripts\\python.exe scripts/smoke/developer_mode_ipc_smoke.py",
+    "smoke:developer:full": ".venv\\Scripts\\python.exe scripts/smoke/developer_mode_ipc_smoke.py --full",
+    "clean": ".venv\\Scripts\\python.exe run.py clean",
+    "build": "npm.cmd run governance:check && npm.cmd run check:imports && npm.cmd run check:circular && npm.cmd run check:runtime && npm.cmd run type-check && npm.cmd run build:app",
+    "dist": "npm.cmd run build && electron-builder"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.7",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.4",
+    "electron-builder": "^24.13.3",
+    "kill-port": "^2.0.1",
+    "madge": "^8.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.3",
+    "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "com.gptbridge.auto-agent-ide",
+    "productName": "程式庫",
+    "directories": {
+      "output": "release"
+    },
+    "extraResources": [
+      {
+        "from": ".venv",
+        "to": ".venv",
+        "filter": [
+          "**/*",
+          "!**/__pycache__",
+          "!**/*.pyc",
+          "!**/.pytest_cache/**",
+          "!**/.ruff_cache/**",
+          "!**/Scripts/black*",
+          "!**/Scripts/mypy*",
+          "!**/Scripts/pytest*",
+          "!**/Scripts/ruff*",
+          "!**/site-packages/hf_xet/**",
+          "!**/site-packages/hf_xet-*.dist-info/**",
+          "!**/site-packages/networkx/**",
+          "!**/site-packages/networkx-*.dist-info/**",
+          "!**/site-packages/scipy/**",
+          "!**/site-packages/scipy-*.dist-info/**",
+          "!**/site-packages/scipy.libs/**",
+          "!**/site-packages/sympy/**",
+          "!**/site-packages/sympy-*.dist-info/**",
+          "!**/site-packages/tokenizers/**",
+          "!**/site-packages/tokenizers-*.dist-info/**",
+          "!**/site-packages/torch/**",
+          "!**/site-packages/torch-*.dist-info/**",
+          "!**/site-packages/torchaudio/**",
+          "!**/site-packages/torchaudio-*.dist-info/**",
+          "!**/site-packages/torchvision/**",
+          "!**/site-packages/torchvision-*.dist-info/**",
+          "!**/site-packages/transformers/**",
+          "!**/site-packages/transformers-*.dist-info/**"
+        ]
+      },
+      {
+        "from": "src-core",
+        "to": "src-core",
+        "filter": [
+          "**/*",
+          "!**/__pycache__"
+        ]
+      },
+      {
+        "from": "platform_tools",
+        "to": "platform_tools",
+        "filter": [
+          "**/*",
+          "!**/__pycache__",
+          "!**/*.pyc",
+          "!**/logs/**"
+        ]
+      },
+      {
+        "from": "config",
+        "to": "config",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "publisherName": "GPTBridge Development Team",
+      "legalTrademarks": "GPTBridge"
+    },
+    "files": [
+      "dist-ui/**/*",
+      "package.json"
+    ],
+    "asar": true
+  }
+}

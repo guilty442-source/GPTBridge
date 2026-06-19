@@ -1,0 +1,50 @@
+// Example: CleanupCardUI.tsx
+import { zhTW } from '@/i18n/zhTW'
+import type { CardActions } from './createCardActions'
+import type { CardState } from './useCardState'
+
+interface CardUIProps {
+  state: CardState
+  actions: CardActions
+}
+
+export function CardUI({ state, actions }: CardUIProps) {
+  return (
+    <article className="devm-tool-card">
+      <div className="devm-tool-top">
+        <div>
+          <div className="devm-tool-name">{zhTW.settings.cleanupToolTitle}</div>
+          <div className="devm-tool-desc">{zhTW.settings.cleanupToolDesc}</div>
+        </div>
+        <span className={`devm-pill devm-pill--${state.statusTone}`}>
+          <span className="devm-pill-dot" />
+          {state.statusLabel}
+        </span>
+      </div>
+
+      <div className="devm-tool-action-row">
+        <button
+          type="button"
+          className="devm-tool-settings-action"
+          disabled={state.isBusy}
+          onClick={actions.handleStart}
+        >
+          啟動
+        </button>
+        <button
+          type="button"
+          className="devm-tool-settings-action devm-tool-settings-action--danger"
+          disabled={!state.isBusy}
+          onClick={actions.handleStop}
+        >
+          停止
+        </button>
+      </div>
+
+      {state.feedback ? (
+        <div className="devm-tool-settings-feedback">{state.feedback}</div>
+      ) : null}
+    </article>
+  )
+}
+

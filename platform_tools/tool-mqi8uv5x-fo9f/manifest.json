@@ -1,0 +1,20 @@
+{
+  "id": "tool-mqi8uv5x-fo9f",
+  "name": "投資管家",
+  "version": "1.1.0",
+  "status": "stopped",
+  "enabled": true,
+  "entry": "platform_tools/tool-mqi8uv5x-fo9f/src/main",
+  "description": "匯入庫存檔並使用多來源連網監控報價；收盤後停止持續更新。",
+  "timeout_seconds": 3600,
+  "test_targets": [
+    "tests/test_investment_manager.py"
+  ],
+  "window": {
+    "width": 1040,
+    "height": 760,
+    "minWidth": 860,
+    "minHeight": 640,
+    "title": "投資管家"
+  }
+}

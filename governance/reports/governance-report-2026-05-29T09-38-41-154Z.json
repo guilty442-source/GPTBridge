@@ -1,0 +1,31 @@
+{
+  "generatedAt": "2026-05-29T09:38:41.154Z",
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0
+  },
+  "reports": [
+    {
+      "ruleId": "G-ALIAS-001",
+      "passed": true,
+      "message": "Alias consistency check passed.",
+      "affectedFiles": [],
+      "autofixAvailable": false
+    },
+    {
+      "ruleId": "G-MODULE-001",
+      "passed": true,
+      "message": "Governance layered folders are present.",
+      "affectedFiles": [],
+      "autofixAvailable": false
+    },
+    {
+      "ruleId": "G-RUNTIME-001",
+      "passed": true,
+      "message": "Runtime path library wiring is valid.",
+      "affectedFiles": [],
+      "autofixAvailable": false
+    }
+  ]
+}

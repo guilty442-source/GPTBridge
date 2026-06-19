@@ -1,0 +1,19 @@
+{
+  "id": "vaultly",
+  "name": "影音下載自動化",
+  "version": "2.3.2",
+  "status": "stopped",
+  "enabled": true,
+  "entry": "platform_tools/vaultly/src/main",
+  "description": "使用正式版專屬 Edge 登入狀態，自動辨識 Instagram/X 個人檔案入口並掃描可見追蹤帳號，依條件預覽並背景下載照片與影片。",
+  "test_targets": [
+    "tests/test_vaultly.py"
+  ],
+  "window": {
+    "width": 1280,
+    "height": 900,
+    "minWidth": 1020,
+    "minHeight": 720,
+    "title": "影音下載自動化"
+  }
+}

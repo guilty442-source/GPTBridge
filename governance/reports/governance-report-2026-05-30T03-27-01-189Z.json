@@ -1,0 +1,58 @@
+{
+  "generatedAt": "2026-05-30T03:27:01.188Z",
+  "summary": {
+    "total": 6,
+    "passed": 5,
+    "failed": 1
+  },
+  "reports": [
+    {
+      "ruleId": "G-ALIAS-001",
+      "passed": true,
+      "message": "Alias consistency check passed.",
+      "affectedFiles": [],
+      "autofixAvailable": false
+    },
+    {
+      "ruleId": "G-MODULE-001",
+      "passed": true,
+      "message": "Governance layered folders are present.",
+      "affectedFiles": [],
+      "autofixAvailable": false
+    },
+    {
+      "ruleId": "G-I18N-001",
+      "passed": false,
+      "message": "Found 7 hardcoded rename-sensitive labels in 5 files. Rename must be changed in src-ui/renderer/locales/zh-TW.ts only.",
+      "affectedFiles": [
+        "src-ui\\renderer\\app\\App.tsx",
+        "src-ui\\renderer\\app\\DashboardView.tsx",
+        "src-ui\\renderer\\dashboard\\useInfoCenterShell.ts",
+        "src-ui\\renderer\\ui\\developer-mode\\tools\\ToolRuntimePanel.tsx",
+        "src-ui\\renderer\\ui\\toolbox\\ToolboxEntry.tsx"
+      ],
+      "autofixAvailable": false
+    },
+    {
+      "ruleId": "G-115",
+      "passed": true,
+      "message": "Child-tool runtime remains isolated from mother-tool core.",
+      "affectedFiles": [],
+      "autofixAvailable": false
+    },
+    {
+      "ruleId": "G-RUNTIME-001",
+      "passed": true,
+      "message": "Runtime path library wiring is valid.",
+      "affectedFiles": [],
+      "autofixAvailable": false
+    },
+    {
+      "ruleId": "G-SEC-002",
+      "passed": true,
+      "message": "Gemini Code Assist lockdown governance is active and build-enforced.",
+      "affectedFiles": [],
+      "autofixAvailable": false
+    }
+  ]
+}

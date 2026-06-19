@@ -1,0 +1,25 @@
+// Example: createCleanupCardActions.ts
+interface CreateCardActionsInput {
+  onStart: () => void
+  onStop: () => void
+}
+
+export interface CardActions {
+  handleStart: () => void
+  handleStop: () => void
+}
+
+export function createCardActions({
+  onStart,
+  onStop,
+}: CreateCardActionsInput): CardActions {
+  return {
+    handleStart: () => {
+      onStart()
+    },
+    handleStop: () => {
+      onStop()
+    },
+  }
+}
+

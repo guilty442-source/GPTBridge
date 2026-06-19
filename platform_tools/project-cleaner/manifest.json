@@ -1,0 +1,20 @@
+{
+  "id": "project-cleaner",
+  "name": "清理工具",
+  "version": "1.0.0",
+  "status": "stopped",
+  "enabled": true,
+  "entry": "platform_tools/project-cleaner/src/main",
+  "description": "清理專案暫存、快取、日誌與過期輸出，功能程式碼歸屬 project-cleaner 專案。",
+  "timeout_seconds": 900,
+  "test_targets": [
+    "tests/test_settings_cleanup.py"
+  ],
+  "window": {
+    "width": 920,
+    "height": 640,
+    "minWidth": 760,
+    "minHeight": 520,
+    "title": "清理工具"
+  }
+}

@@ -1,0 +1,223 @@
+.project-cleaner {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 22px;
+  color: #e8edf4;
+  background: #0a0d12;
+  font-family: "Noto Sans TC", "Segoe UI", sans-serif;
+}
+
+.project-cleaner button {
+  font: inherit;
+}
+
+.project-cleaner__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.project-cleaner__header h1 {
+  margin: 2px 0 4px;
+  color: #f8fafc;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.project-cleaner__header p {
+  margin: 0;
+  color: #a7b3c2;
+  line-height: 1.45;
+}
+
+.project-cleaner__eyebrow {
+  color: #5eead4 !important;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.project-cleaner__connection {
+  border: 1px solid #475569;
+  border-radius: 999px;
+  padding: 6px 11px;
+  color: #cbd5e1;
+  background: #111827;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.project-cleaner__connection--connected {
+  border-color: #0f766e;
+  color: #5eead4;
+}
+
+.project-cleaner__connection--error {
+  border-color: #991b1b;
+  color: #fca5a5;
+}
+
+.project-cleaner__layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.project-cleaner__panel,
+.project-cleaner__status,
+.project-cleaner__history {
+  border: 1px solid #293241;
+  border-radius: 8px;
+  background: #111722;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+.project-cleaner__panel,
+.project-cleaner__status {
+  padding: 14px;
+}
+
+.project-cleaner__history {
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+}
+
+.project-cleaner__panel-head,
+.project-cleaner__status-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.project-cleaner__panel-head span,
+.project-cleaner__status-head span,
+.project-cleaner__stats span {
+  color: #7dd3fc;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.project-cleaner__panel-head strong,
+.project-cleaner__status-head strong {
+  color: #f8fafc;
+  font-size: 14px;
+}
+
+.project-cleaner__scope-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.project-cleaner__scope,
+.project-cleaner__actions button {
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #e2e8f0;
+  background: #0d1420;
+  cursor: pointer;
+}
+
+.project-cleaner__scope {
+  display: grid;
+  gap: 3px;
+  padding: 11px;
+  text-align: left;
+}
+
+.project-cleaner__scope strong {
+  font-size: 14px;
+}
+
+.project-cleaner__scope span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.project-cleaner__scope--active {
+  border-color: #14b8a6;
+  background: #10221f;
+}
+
+.project-cleaner__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.project-cleaner__actions button {
+  min-height: 38px;
+  font-weight: 900;
+}
+
+.project-cleaner__actions button:disabled,
+.project-cleaner__scope:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.project-cleaner__primary {
+  border-color: #15803d !important;
+  background: #14532d !important;
+  color: #dcfce7 !important;
+}
+
+.project-cleaner__status p {
+  margin: 0 0 12px;
+  color: #cbd5e1;
+  line-height: 1.55;
+}
+
+.project-cleaner__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.project-cleaner__stats div {
+  border: 1px solid #263447;
+  border-radius: 8px;
+  padding: 10px;
+  background: #0c121c;
+}
+
+.project-cleaner__stats strong {
+  display: block;
+  margin-top: 6px;
+  color: #f8fafc;
+  font-size: 24px;
+}
+
+.project-cleaner__history-list {
+  display: grid;
+  gap: 6px;
+  max-height: 210px;
+  overflow: auto;
+}
+
+.project-cleaner__history-list div {
+  border-bottom: 1px solid #253044;
+  padding-bottom: 6px;
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+@media (max-width: 780px) {
+  .project-cleaner {
+    padding: 14px;
+  }
+
+  .project-cleaner__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .project-cleaner__header {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,65 @@
+.developer-mode-panel {
+  padding: 20px;
+  border: 1px solid #ccc;
+}
+
+.button-group {
+  margin-bottom: 15px;
+}
+
+.btn-start, .btn-terminate {
+  padding: 8px 16px;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-start {
+  margin-right: 10px;
+  background-color: #4CAF50;
+}
+
+.btn-terminate {
+  background-color: #f44336;
+}
+
+.btn-start:disabled, .btn-terminate:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.status-display {
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  margin-bottom: 15px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+}
+
+.progress-bar::-webkit-progress-bar {
+  background-color: #eee;
+}
+
+.progress-bar::-webkit-progress-value {
+  background-color: #2196F3;
+  transition: width 0.3s ease;
+}
+
+.progress-bar::-moz-progress-bar {
+  background-color: #2196F3;
+}
+
+.log-display {
+  background-color: #1e1e1e;
+  color: #fff;
+  padding: 10px;
+  height: 200px;
+  overflow-y: auto;
+  font-family: monospace;
+}

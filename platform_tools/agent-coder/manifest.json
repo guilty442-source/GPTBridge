@@ -1,0 +1,16 @@
+{
+  "id": "agent-coder",
+  "name": "系統救援工具",
+  "version": "1.0.0",
+  "status": "stopped",
+  "enabled": true,
+  "entry": "platform_tools/agent-coder/src/main",
+  "description": "系統救援工具，管理應用程式程式碼、修補指令與單元測試。",
+  "window": {
+    "width": 1180,
+    "height": 820,
+    "minWidth": 980,
+    "minHeight": 680,
+    "title": "系統救援工具"
+  }
+}

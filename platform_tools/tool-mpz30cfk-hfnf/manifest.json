@@ -1,0 +1,20 @@
+{
+  "id": "tool-mpz30cfk-hfnf",
+  "name": "自動檔案清理",
+  "version": "1.4.0",
+  "status": "running",
+  "enabled": true,
+  "entry": "platform_tools/tool-mpz30cfk-hfnf/src/main",
+  "description": "掃描資料夾並顯示進度，可停止掃描，找出重複檔，並可列出未偵測到人臉的無人像候選供開啟檢查。",
+  "timeout_seconds": 1800,
+  "test_targets": [
+    "tests/test_duplicate_cleaner.py"
+  ],
+  "window": {
+    "width": 1040,
+    "height": 760,
+    "minWidth": 860,
+    "minHeight": 640,
+    "title": "自動檔案清理"
+  }
+}

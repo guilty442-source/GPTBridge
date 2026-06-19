@@ -1,0 +1,32 @@
+// Example: useCleanupCardState.ts
+import { useMemo } from 'react'
+import type { BusyActions } from '../types'
+
+interface UseCardStateInput {
+  busyActions: BusyActions
+  feedback: string
+}
+
+export interface CardState {
+  isBusy: boolean
+  statusTone: 'ok' | 'warn'
+  statusLabel: string
+  feedback: string
+}
+
+export function useCardState({
+  busyActions,
+  feedback,
+}: UseCardStateInput): CardState {
+  return useMemo(() => {
+    const isBusy = busyActions.includes('your-busy-action' as never)
+
+    return {
+      isBusy,
+      statusTone: isBusy ? 'warn' : 'ok',
+      statusLabel: isBusy ? '執行中' : '待命',
+      feedback,
+    }
+  }, [busyActions, feedback])
+}
+
