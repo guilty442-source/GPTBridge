@@ -24,6 +24,10 @@ type SendCommandResult = {
   message?: string
 }
 
+function isStandaloneToolWindow(): boolean {
+  return Boolean((window as any).gptBridge?.standaloneTool)
+}
+
 function useLocalBackendSocket() {
   const [status, setStatus] = useState('Disconnected')
   const socketRef = useRef<WebSocket | null>(null)
@@ -240,6 +244,8 @@ export function useToolRunner(toolId: string, timeoutMs = 120000) {
   const queueRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
+    if (isStandaloneToolWindow()) return
+
     sendCommand('toolbox_start_tool', {
       tool_id: toolId,
       source: 'tool_window',

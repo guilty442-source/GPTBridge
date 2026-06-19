@@ -116,6 +116,7 @@ class ToolboxService:
 
     def _tool_environment(self, tool_id: str, tool_dir: Path) -> dict[str, str]:
         child_env = os.environ.copy()
+        child_env.pop("ELECTRON_RUN_AS_NODE", None)
         child_env["PYTHONUTF8"] = "1"
         child_env["PYTHONIOENCODING"] = "utf-8"
         child_env["GPTBRIDGE_PROJECT_ROOT"] = str(self.project_root)

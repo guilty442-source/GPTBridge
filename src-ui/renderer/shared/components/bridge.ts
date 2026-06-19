@@ -1,4 +1,5 @@
 export interface GPTBridgeAPI {
+  standaloneTool?: boolean
   selectFolder: () => Promise<string>
   createFile: (defaultPath?: string) => Promise<string>
   openFile: (defaultPath?: string) => Promise<string>
