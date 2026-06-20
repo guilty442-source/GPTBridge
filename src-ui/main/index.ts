@@ -46,6 +46,14 @@ const isPathInside = (basePath: string, targetPath: string) => {
 }
 
 const TOOL_ID_PATTERN = /^[a-z0-9_-]+$/
+const PLATFORM_TOOL_SIZE_EXCLUDED_DIRS = new Set([
+  '.pytest_cache',
+  '.venv',
+  '__pycache__',
+  'build',
+  'dist',
+  'node_modules',
+])
 
 function resolvePlatformToolsLocation(): {
   platformToolsPath: string
@@ -83,6 +91,7 @@ function directorySizeBytes(rootPath: string): number {
     for (const entry of entries) {
       const entryPath = path.join(currentPath, entry.name)
       if (entry.isDirectory()) {
+        if (PLATFORM_TOOL_SIZE_EXCLUDED_DIRS.has(entry.name)) continue
         visit(entryPath)
         continue
       }

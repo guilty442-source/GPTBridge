@@ -13,6 +13,15 @@ from .toolbox_repository import ToolboxRepository
 
 ToolEventCallback = Callable[[str, Dict[str, Any]], Awaitable[None]]
 
+PROJECT_SIZE_EXCLUDED_DIRS = {
+    ".pytest_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+}
+
 class ToolboxService:
     """Service for managing platform tools."""
     
@@ -131,6 +140,7 @@ class ToolboxService:
             return total
 
         for root, dirs, files in os.walk(tool_dir):
+            dirs[:] = [item for item in dirs if item not in PROJECT_SIZE_EXCLUDED_DIRS]
             for filename in files:
                 path = Path(root) / filename
                 try:
@@ -466,30 +476,18 @@ class ToolboxService:
     async def update_status(self, tool_id: str, status: str) -> Dict[str, Any]:
         manifest_path = self.tools_dir / tool_id / "manifest.json"
         updated_database = self.repository.update_status(tool_id, status)
-        if manifest_path.exists():
-            try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    manifest = json.load(f)
-                manifest["status"] = status
-                next_manifest_content = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
-
-                if self.enforcer:
-                    check = self.enforcer.can_modify_file(
-                        manifest_path,
-                        "toolbox",
-                        f"Updating status to {status}",
-                        next_manifest_content,
-                    )
-                    if not check.get("allowed", False):
-                        return self._governance_blocked(check)
-
-                manifest_path.write_text(next_manifest_content, encoding="utf-8", newline="\n")
-                self.repository.upsert_tool(self._manifest_to_record(manifest_path.parent, manifest))
-                return {"ok": True}
-            except Exception as e:
-                return {"ok": False, "message": str(e)}
         if updated_database:
             return {"ok": True}
+
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                self.repository.upsert_tool(self._manifest_to_record(manifest_path.parent, manifest))
+                if self.repository.update_status(tool_id, status):
+                    return {"ok": True}
+            except Exception as e:
+                return {"ok": False, "message": str(e)}
+
         return {"ok": False, "message": "Tool not found"}
 
     async def start_tool(self, payload: Dict[str, Any]) -> Dict[str, Any]:

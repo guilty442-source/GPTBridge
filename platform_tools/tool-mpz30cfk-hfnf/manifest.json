@@ -2,7 +2,7 @@
   "id": "tool-mpz30cfk-hfnf",
   "name": "自動檔案清理",
   "version": "1.4.0",
-  "status": "running",
+  "status": "stopped",
   "enabled": true,
   "entry": "platform_tools/tool-mpz30cfk-hfnf/src/main",
   "runtime": {

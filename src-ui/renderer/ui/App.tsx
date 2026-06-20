@@ -1,4 +1,4 @@
-﻿import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { CSSProperties, useCallback, useEffect, useMemo, useState } from 'react'
 import type { RuntimeService } from '@/shared/types/runtime'
 import type { ServiceState } from '@/services/RuntimeServiceManager'
 import {
@@ -6,11 +6,6 @@ import {
   startStartupPipeline,
 } from '@/services/RuntimeServiceManager'
 import { eventBus } from '@/shared/RuntimeEventBus'
-import {
-  INITIAL_STARTUP_MONITOR,
-  resolveStartupMonitor,
-  type StartupMonitorState,
-} from '@/shared/core-system/core/startupMonitor'
 import { useBackendSocket } from '@/hooks/useBackendSocket'
 import { zhTW } from '@/i18n/zhTW'
 import { DeveloperMode } from '@/ui/DeveloperMode'
@@ -24,44 +19,21 @@ import type {
   ToolRuntimeState,
 } from '@/ui/developer-mode/tools/types'
 import { GovernanceRulesPage } from '@/ui/governance-rules'
+import {
+  formatCheckedAt,
+  lampColor,
+  lampLabel,
+  startupLevelToLightLevel,
+  useSystemMonitor,
+} from '@/ui/system/useSystemMonitor'
 import { ToolboxEntry } from '@/ui/toolbox/ToolboxEntry'
 import { useToolboxApplications } from '@/ui/toolbox/useToolboxApplications'
 
 type ViewMode = 'info' | 'toolbox' | 'governance' | 'developer'
-type SystemHealth = 'READY' | 'STARTING' | 'ERROR'
-type LightLevel = 'green' | 'yellow' | 'red' | 'gray'
-
-interface SystemMetrics {
-  cpuUsagePercent: number | null
-  ramUsagePercent: number | null
-  ramTotalBytes: number | null
-  ramFreeBytes: number | null
-  diskUsagePercent: number | null
-  diskTotalBytes: number | null
-  diskFreeBytes: number | null
-  sampledAt: number | null
-}
-
-interface AppStatusPayload {
-  systemMetrics?: Partial<SystemMetrics>
-}
-
-const EMPTY_METRICS: SystemMetrics = {
-  cpuUsagePercent: null,
-  ramUsagePercent: null,
-  ramTotalBytes: null,
-  ramFreeBytes: null,
-  diskUsagePercent: null,
-  diskTotalBytes: null,
-  diskFreeBytes: null,
-  sampledAt: null,
-}
 
 const UI_ZOOM_STORAGE_KEY = 'gptbridge_ui_zoom_factor'
 const MIN_UI_ZOOM = 0.85
 const MAX_UI_ZOOM = 1.3
-const STARTUP_MONITOR_INTERVAL_MS = 5000
-const STARTUP_CHECK_TIMEOUT_MS = 9000
 
 function clampUiZoom(value: number): number {
   return Math.max(MIN_UI_ZOOM, Math.min(MAX_UI_ZOOM, value))
@@ -77,52 +49,6 @@ function toRuntimeService(service: ServiceState): RuntimeService {
   }
 }
 
-function lampColor(level: LightLevel): string {
-  if (level === 'green') return '#34d399'
-  if (level === 'yellow') return '#fbbf24'
-  if (level === 'red') return '#f87171'
-  return '#64748b'
-}
-
-function lampLabel(level: LightLevel): string {
-  if (level === 'green') return '運作中'
-  if (level === 'yellow') return '警示'
-  if (level === 'red') return '異常'
-  return '未啟動'
-}
-
-function formatPercent(value: number | null): string {
-  if (value === null || Number.isNaN(value)) return '--'
-  return `${Math.round(value)}%`
-}
-
-function formatGB(value: number | null): string {
-  if (value === null || Number.isNaN(value)) return '--'
-  return `${(value / 1024 / 1024 / 1024).toFixed(1)} GB`
-}
-
-function usageLevel(
-  value: number | null,
-  warningThreshold: number,
-  abnormalThreshold: number
-): LightLevel {
-  if (value === null) return 'gray'
-  if (value >= abnormalThreshold) return 'red'
-  if (value >= warningThreshold) return 'yellow'
-  return 'green'
-}
-
-function startupLevelToLightLevel(level: StartupMonitorState['level']): LightLevel {
-  if (level === 'ok') return 'green'
-  if (level === 'error') return 'red'
-  if (level === 'warn') return 'yellow'
-  return 'gray'
-}
-
-function formatCheckedAt(timestamp: number | null): string {
-  if (!timestamp) return '尚未檢查'
-  return new Date(timestamp).toLocaleTimeString('zh-TW', { hour12: false })
-}
 
 export default function App() {
   const [activeView, setActiveView] = useState<ViewMode>('toolbox')
@@ -133,15 +59,8 @@ export default function App() {
   const [developerTools, setDeveloperTools] = useState<ToolRuntimeState[]>(() =>
     createInitialDeveloperToolRuntimeState()
   )
-  const [metrics, setMetrics] = useState<SystemMetrics>(EMPTY_METRICS)
-  const [startupChecking, setStartupChecking] = useState(false)
-  const [startupMonitor, setStartupMonitor] = useState<StartupMonitorState>(
-    INITIAL_STARTUP_MONITOR
-  )
   const backendSocket = useBackendSocket()
   const sendCommand = backendSocket.sendCommand
-  const startupCheckInFlightRef = useRef(false)
-  const startupCheckTimerRef = useRef<number | null>(null)
   const developerToolControl = useToolControlCenter({ autoStartTools: true })
 
   const waitForIpcEvent = useCallback(
@@ -179,71 +98,6 @@ export default function App() {
     waitForIpcEvent,
   })
 
-  const clearStartupCheckTimer = useCallback(() => {
-    if (startupCheckTimerRef.current === null) return
-    window.clearTimeout(startupCheckTimerRef.current)
-    startupCheckTimerRef.current = null
-  }, [])
-
-  const triggerStartupStatusCheck = useCallback(
-    (source: 'manual' | 'auto' = 'auto') => {
-      if (startupCheckInFlightRef.current) return
-
-      if (backendSocket.status !== 'Connected') {
-        setStartupChecking(false)
-        setStartupMonitor((prev) => ({
-          ...prev,
-          level: 'warn',
-          label: '待檢查',
-          message:
-            source === 'manual'
-              ? '後端連線尚未就緒，系統檢查暫時無法執行。'
-              : '檢查系統預設啟動中：後端尚未連線，將自動重試。',
-          lastCheckedAt: Date.now(),
-        }))
-        return
-      }
-
-      startupCheckInFlightRef.current = true
-      setStartupChecking(true)
-      clearStartupCheckTimer()
-
-      const result = sendCommand('mother_startup_status', {
-        source: 'main_status_lights',
-        trigger: source,
-      })
-      if (!result.ok && !result.queued) {
-        startupCheckInFlightRef.current = false
-        setStartupChecking(false)
-        setStartupMonitor((prev) => ({
-          ...prev,
-          level: 'warn',
-          label: '待檢查',
-          message: '系統檢查命令送出失敗，將於下一輪自動重試。',
-          lastCheckedAt: Date.now(),
-        }))
-        return
-      }
-
-      startupCheckTimerRef.current = window.setTimeout(() => {
-        startupCheckTimerRef.current = null
-        if (!startupCheckInFlightRef.current) return
-        startupCheckInFlightRef.current = false
-        setStartupChecking(false)
-        setStartupMonitor((prev) => ({
-          ...prev,
-          level: 'warn',
-          label: '待檢查',
-          message:
-            source === 'manual'
-              ? '系統啟動狀態檢查逾時，請稍後再試。'
-              : '系統燈號自動檢查逾時，將於下一輪自動重試。',
-          lastCheckedAt: Date.now(),
-        }))
-      }, STARTUP_CHECK_TIMEOUT_MS)
-    },
-    [backendSocket.status, clearStartupCheckTimer, sendCommand]
-  )
 
   useEffect(() => {
     const api = (window as any).electron
@@ -276,118 +130,6 @@ export default function App() {
       off()
     }
   }, [])
-
-  useEffect(() => {
-    let disposed = false
-
-    const refreshStatus = async () => {
-      const api = (window as any).electron
-      if (!api?.invoke) return
-
-      try {
-        const payload = (await api.invoke('app:get-status')) as AppStatusPayload
-        const systemMetrics = payload.systemMetrics
-        if (disposed || !systemMetrics) return
-
-        setMetrics((prev) => ({
-          ...prev,
-          ...systemMetrics,
-          sampledAt: systemMetrics.sampledAt ?? Date.now(),
-        }))
-      } catch {
-        // Keep previous metrics on transient failure.
-      }
-    }
-
-    void refreshStatus()
-    const timer = window.setInterval(() => {
-      void refreshStatus()
-    }, 5000)
-
-    return () => {
-      disposed = true
-      window.clearInterval(timer)
-    }
-  }, [])
-
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const customEvent = event as CustomEvent
-      const detail = customEvent.detail || {}
-      if (detail.event !== 'mother_startup_status_result') return
-      clearStartupCheckTimer()
-      startupCheckInFlightRef.current = false
-      setStartupChecking(false)
-      setStartupMonitor(
-        resolveStartupMonitor((detail.payload || {}) as Record<string, unknown>)
-      )
-    }
-
-    window.addEventListener('ipc_event', handler)
-    return () => window.removeEventListener('ipc_event', handler)
-  }, [clearStartupCheckTimer])
-
-  useEffect(() => {
-    let disposed = false
-
-    const monitor = () => {
-      if (disposed) return
-      triggerStartupStatusCheck('auto')
-    }
-
-    monitor()
-    const timer = window.setInterval(monitor, STARTUP_MONITOR_INTERVAL_MS)
-
-    return () => {
-      disposed = true
-      window.clearInterval(timer)
-      clearStartupCheckTimer()
-      startupCheckInFlightRef.current = false
-    }
-  }, [clearStartupCheckTimer, triggerStartupStatusCheck])
-
-  const systemStatus = useMemo<SystemHealth>(() => {
-    if (services.length === 0) return 'STARTING'
-    if (services.some((s) => s.status === 'FAIL' || s.status === 'TIMEOUT')) {
-      return 'ERROR'
-    }
-    if (
-      services.some(
-        (s) =>
-          s.status === 'INIT' ||
-          s.status === 'BOOTING' ||
-          s.status === 'DEGRADED'
-      )
-    ) {
-      return 'STARTING'
-    }
-    return 'READY'
-  }, [services])
-
-  const statusColor = useMemo(() => {
-    if (systemStatus === 'ERROR') return '#f87171'
-    if (systemStatus === 'STARTING') return '#fbbf24'
-    return '#34d399'
-  }, [systemStatus])
-
-  const serviceSummary = useMemo(() => {
-    let normal = 0
-    let abnormal = 0
-    let notStarted = 0
-
-    for (const service of services) {
-      if (service.status === 'SUCCESS') {
-        normal += 1
-      } else if (service.status === 'FAIL' || service.status === 'TIMEOUT') {
-        abnormal += 1
-      } else {
-        notStarted += 1
-      }
-    }
-
-    return { normal, abnormal, notStarted }
-  }, [services])
-
   const toolboxSummary = useMemo(() => {
     let running = 0
     let stopped = 0
@@ -406,160 +148,20 @@ export default function App() {
     return { running, stopped, abnormal }
   }, [toolboxTools])
 
-  const lightSystem = useMemo<
-    Array<{ key: string; title: string; detail: string; level: LightLevel }>
-  >(() => {
-    const backend = services.find(
-      (service) =>
-        service.id === 'backend' ||
-        service.name.toLowerCase().includes('backend')
-    )
-
-    const browserLevel: LightLevel =
-      backendSocket.status === 'Connected'
-        ? 'green'
-        : backendSocket.status === 'Error'
-          ? 'red'
-          : 'gray'
-
-    const aiLevel: LightLevel =
-      backendSocket.status === 'Connected'
-        ? 'green'
-        : backendSocket.status === 'Error'
-          ? 'red'
-          : 'gray'
-
-    const toolboxLevel: LightLevel =
-      toolboxSummary.abnormal > 0
-        ? 'red'
-        : toolboxSummary.running > 0
-          ? 'green'
-          : 'gray'
-
-    return [
-      {
-        key: 'overall',
-        title: '系統整體',
-        detail:
-          systemStatus === 'READY'
-            ? '核心服務穩定運作中'
-            : systemStatus === 'STARTING'
-              ? '部分服務尚在檢查中'
-              : '偵測到系統異常，請盡快處理',
-        level:
-          systemStatus === 'READY'
-            ? 'green'
-            : systemStatus === 'STARTING'
-              ? 'yellow'
-              : 'red',
-      },
-      {
-        key: 'backend',
-        title: '後端服務',
-        detail: backend ? `${backend.name}: ${backend.status}` : '後端尚未啟動',
-        level: !backend
-          ? 'gray'
-          : backend.status === 'SUCCESS'
-            ? 'green'
-            : backend.status === 'FAIL' || backend.status === 'TIMEOUT'
-              ? 'red'
-              : 'yellow',
-      },
-      {
-        key: 'browser',
-        title: '瀏覽器',
-        detail:
-          browserLevel === 'green'
-            ? '瀏覽器通道已連線'
-            : browserLevel === 'red'
-              ? '瀏覽器通道異常'
-              : '瀏覽器未啟動',
-        level: browserLevel,
-      },
-      {
-        key: 'ai',
-        title: 'AI 連線',
-        detail:
-          aiLevel === 'green'
-            ? 'AI 通道已連線'
-            : aiLevel === 'red'
-              ? 'AI 通道異常'
-              : 'AI 通道未啟動',
-        level: aiLevel,
-      },
-      {
-        key: 'cpu',
-        title: 'CPU',
-        detail:
-          metrics.cpuUsagePercent === null
-            ? '尚未取樣（未啟動）'
-            : `使用率 ${formatPercent(metrics.cpuUsagePercent)}`,
-        level: usageLevel(metrics.cpuUsagePercent, 70, 90),
-      },
-      {
-        key: 'ram',
-        title: 'RAM',
-        detail:
-          metrics.ramUsagePercent === null
-            ? '尚未取樣（未啟動）'
-            : `使用率 ${formatPercent(metrics.ramUsagePercent)}，可用 ${formatGB(
-                metrics.ramFreeBytes
-              )}`,
-        level: usageLevel(metrics.ramUsagePercent, 75, 92),
-      },
-      {
-        key: 'disk',
-        title: '系統空間',
-        detail:
-          metrics.diskUsagePercent === null
-            ? '尚未取樣（未啟動）'
-            : `使用率 ${formatPercent(metrics.diskUsagePercent)}，可用 ${formatGB(
-                metrics.diskFreeBytes
-              )}`,
-        level: usageLevel(metrics.diskUsagePercent, 80, 95),
-      },
-      {
-        key: 'toolbox',
-        title: zhTW.toolbox.title,
-        detail:
-          toolboxSummary.abnormal > 0
-            ? `異常 ${toolboxSummary.abnormal} 項`
-            : toolboxSummary.running > 0
-              ? `運作中 ${toolboxSummary.running} 項`
-              : `未啟動 ${toolboxSummary.stopped} 項`,
-        level: toolboxLevel,
-      },
-      {
-        key: 'startup',
-        title: startupChecking ? '檢查系統' : '啟動流程',
-        detail: startupChecking
-          ? '預設啟動檢查執行中...'
-          : `${startupMonitor.label}｜後端 ${startupMonitor.backend}｜瀏覽器 ${startupMonitor.browserContext}｜${startupMonitor.message}`,
-        level: startupChecking
-          ? 'yellow'
-          : startupLevelToLightLevel(startupMonitor.level),
-      },
-    ]
-  }, [
-    backendSocket.status,
-    metrics.cpuUsagePercent,
-    metrics.diskFreeBytes,
-    metrics.diskUsagePercent,
-    metrics.ramFreeBytes,
-    metrics.ramUsagePercent,
-    services,
+  const {
+    lightSystem,
+    serviceSummary,
     startupChecking,
-    startupMonitor.backend,
-    startupMonitor.browserContext,
-    startupMonitor.label,
-    startupMonitor.level,
-    startupMonitor.message,
+    startupMonitor,
     systemStatus,
-    toolboxSummary.abnormal,
-    toolboxSummary.running,
-    toolboxSummary.stopped,
-  ])
-
+    triggerStartupStatusCheck,
+  } = useSystemMonitor({
+    services,
+    backendStatus: backendSocket.status,
+    sendCommand,
+    toolboxTitle: zhTW.toolbox.title,
+    toolboxSummary,
+  })
   const handleDeveloperToolAction = (toolId: string, action: ToolAction) => {
     setDeveloperTools((prev) =>
       resolveDeveloperToolAction(prev, toolId, action, 'pending')
