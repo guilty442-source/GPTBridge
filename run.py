@@ -57,8 +57,7 @@ def main() -> int:
     elif args.command == "generate_child_tool":
         command = [
             sys.executable,
-            str(project_root / "src-core" / "main.py"),
-            "--generate-child-tool",
+            str(project_root / "src-core" / "generate_child_tool.py"),
             args.tool_name,
         ]
         return subprocess.run(command, cwd=str(project_root)).returncode

@@ -13,13 +13,57 @@ def main() -> None:
     parser.add_argument("--cleanup-garbage", action="store_true")
     parser.add_argument("--scope", default="global")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--quarantine", action="store_true")
+    parser.add_argument("--quarantine-ttl-hours", type=int, default=24)
+    parser.add_argument("--list-quarantine", action="store_true")
+    parser.add_argument("--purge-quarantine", action="store_true")
+    parser.add_argument("--restore-quarantine", default="")
+    parser.add_argument("--status", action="store_true")
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args()
 
+    project_root = Path(os.environ.get("GPTBRIDGE_PROJECT_ROOT", Path.cwd()))
+    service = ProjectCleanupService(project_root)
+
+    if args.status:
+        result = service.get_status()
+        if args.as_json:
+            print(json.dumps(result, ensure_ascii=False))
+        else:
+            print(result.get("message", "project cleaner status ready"))
+        return
+
+    if args.list_quarantine:
+        result = service.list_quarantine_batches()
+        if args.as_json:
+            print(json.dumps(result, ensure_ascii=False))
+        else:
+            print(result.get("message", "quarantine batches listed"))
+        return
+
+    if args.purge_quarantine:
+        result = service.purge_quarantine(args.quarantine_ttl_hours)
+        if args.as_json:
+            print(json.dumps(result, ensure_ascii=False))
+        else:
+            print(result.get("message", "quarantine purge completed"))
+        return
+
+    if args.restore_quarantine:
+        result = service.restore_quarantine(args.restore_quarantine)
+        if args.as_json:
+            print(json.dumps(result, ensure_ascii=False))
+        else:
+            print(result.get("message", "quarantine restore completed"))
+        return
+
     if args.cleanup_garbage:
-        project_root = Path(os.environ.get("GPTBRIDGE_PROJECT_ROOT", Path.cwd()))
-        service = ProjectCleanupService(project_root)
-        result = service.cleanup_garbage(scope=args.scope, dry_run=args.dry_run)
+        result = service.cleanup_garbage(
+            scope=args.scope,
+            dry_run=args.dry_run,
+            quarantine=args.quarantine,
+            quarantine_ttl_hours=args.quarantine_ttl_hours,
+        )
         if args.as_json:
             print(json.dumps(result, ensure_ascii=False))
         else:

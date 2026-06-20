@@ -58,6 +58,16 @@ function findPackagedWorkspaceRoot(executableDir: string, resourcesRoot: string)
   return workspaceRoot ?? executableDir
 }
 
+function pythonExecutableCandidatesFor(root: string): string[] {
+  if (process.platform === 'win32') {
+    return [
+      toAbsolute(path.join(root, '.venv', 'Scripts', 'pythonw.exe')),
+      toAbsolute(path.join(root, '.venv', 'Scripts', 'python.exe')),
+    ]
+  }
+  return [toAbsolute(path.join(root, '.venv', 'bin', 'python'))]
+}
+
 export function getRuntimePathLibrary(): RuntimePathLibrary {
   const mode: RuntimeMode = app.isPackaged
     ? 'packaged'
@@ -81,10 +91,10 @@ export function getRuntimePathLibrary(): RuntimePathLibrary {
     : workspaceRoot
 
   const pythonExecutableCandidates = [
-    toAbsolute(path.join(resourcesRoot, '.venv', 'Scripts', 'python.exe')),
-    toAbsolute(path.join(unpackedRoot, '.venv', 'Scripts', 'python.exe')),
-    toAbsolute(path.join(appRoot, '.venv', 'Scripts', 'python.exe')),
-    toAbsolute(path.join(workspaceRoot, '.venv', 'Scripts', 'python.exe')),
+    ...pythonExecutableCandidatesFor(resourcesRoot),
+    ...pythonExecutableCandidatesFor(unpackedRoot),
+    ...pythonExecutableCandidatesFor(appRoot),
+    ...pythonExecutableCandidatesFor(workspaceRoot),
   ]
 
   const pythonEntryCandidates = [

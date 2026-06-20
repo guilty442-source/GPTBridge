@@ -28,6 +28,7 @@ export interface ToolControlCenterState {
   updateNonHotChanges: string[]
   globalUpdatePlan: GlobalUpdatePlan | null
   backupFeedback: string
+  cleanupFeedback: string
   logFeedback: string
   startupChecking: boolean
   startupMonitor: StartupMonitorState
@@ -35,10 +36,12 @@ export interface ToolControlCenterState {
   sandboxIntervalMinutes: number
   updateIntervalMinutes: number
   backupIntervalMinutes: number
+  cleanupIntervalMinutes: number
   logIntervalMinutes: number
   setSandboxIntervalMinutes: (minutes: number) => void
   setUpdateIntervalMinutes: (minutes: number) => void
   setBackupIntervalMinutes: (minutes: number) => void
+  setCleanupIntervalMinutes: (minutes: number) => void
   setLogIntervalMinutes: (minutes: number) => void
   handleUrlChange: (key: UrlConfigKey, value: string) => void
   saveUrlConfig: () => void
@@ -54,6 +57,8 @@ export interface ToolControlCenterState {
   stopUpdateTool: () => void
   startBackupTool: () => void
   stopBackupTool: () => void
+  startCleanupTool: () => void
+  stopCleanupTool: () => void
   startLogTool: () => void
   stopLogTool: () => void
   maintainSandbox: () => void
@@ -83,20 +88,22 @@ const AUTO_TOOLS_DEFAULT_START_STORAGE_KEY =
 const MIN_AUTO_INTERVAL_MINUTES = 1
 const MAX_AUTO_INTERVAL_MINUTES = 24 * 60
 
-type AutoToolKey = 'sandbox' | 'update' | 'backup' | 'logs'
+type AutoToolKey = 'sandbox' | 'update' | 'backup' | 'cleanup' | 'logs'
 type AutoToolIntervalMinutes = Record<AutoToolKey, number>
 
 const DEFAULT_AUTO_TOOL_INTERVAL_MINUTES: AutoToolIntervalMinutes = {
   sandbox: 5,
   update: 3,
   backup: 20,
-  logs: 10,
+  cleanup: 60,
+  logs: 120,
 }
 
 const AUTO_TOOL_BUSY_ACTION: Record<AutoToolKey, BusyAction> = {
   sandbox: 'sandbox-auto',
   update: 'update-auto',
   backup: 'backup-auto',
+  cleanup: 'cleanup-auto',
   logs: 'logs-auto',
 }
 
@@ -131,6 +138,7 @@ function readSavedAutoToolIntervals(): AutoToolIntervalMinutes {
       sandbox: clampAutoIntervalMinutes(Number(parsed.sandbox ?? DEFAULT_AUTO_TOOL_INTERVAL_MINUTES.sandbox)),
       update: clampAutoIntervalMinutes(Number(parsed.update ?? DEFAULT_AUTO_TOOL_INTERVAL_MINUTES.update)),
       backup: clampAutoIntervalMinutes(Number(parsed.backup ?? DEFAULT_AUTO_TOOL_INTERVAL_MINUTES.backup)),
+      cleanup: clampAutoIntervalMinutes(Number(parsed.cleanup ?? DEFAULT_AUTO_TOOL_INTERVAL_MINUTES.cleanup)),
       logs: clampAutoIntervalMinutes(Number(parsed.logs ?? DEFAULT_AUTO_TOOL_INTERVAL_MINUTES.logs)),
     }
   } catch {
@@ -163,6 +171,7 @@ export function useToolControlCenter({
   const autoToolsTimersRef = useRef<number[]>([])
   const autoToolIntervalsRef = useRef<Partial<Record<AutoToolKey, number>>>({})
   const autoToolRunHandlersRef = useRef<Partial<Record<AutoToolKey, () => void>>>({})
+  const cleanupRunRequestIdsRef = useRef<Set<string>>(new Set())
 
   const [baseConfig, setBaseConfig] = useState<Record<string, unknown>>({})
   const [urlDraft, setUrlDraft] = useState<Record<UrlConfigKey, string>>(initialUrlDraft)
@@ -177,6 +186,7 @@ export function useToolControlCenter({
   const [updateNonHotChanges, setUpdateNonHotChanges] = useState<string[]>([])
   const [globalUpdatePlan, setGlobalUpdatePlan] = useState<GlobalUpdatePlan | null>(null)
   const [backupFeedback, setBackupFeedback] = useState('')
+  const [cleanupFeedback, setCleanupFeedback] = useState('')
   const [logFeedback, setLogFeedback] = useState('')
   const [startupChecking, setStartupChecking] = useState(false)
   const [startupMonitor, setStartupMonitor] = useState<StartupMonitorState>(INITIAL_STARTUP_MONITOR)
@@ -185,6 +195,30 @@ export function useToolControlCenter({
   const appendRecord = (message: string) => {
     const ts = new Date().toLocaleTimeString('zh-TW', { hour12: false })
     setOperationRecords((prev) => [`${ts} | ${message}`, ...prev].slice(0, 40))
+  }
+
+  const formatBytes = (value: unknown): string => {
+    const bytes = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    if (bytes < 1024 * 1024 * 1024) {
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    }
+    return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
+  }
+
+  const parseCleanupResult = (stdout: unknown): Record<string, unknown> | null => {
+    const text = String(stdout || '').trim()
+    if (!text) return null
+    try {
+      const parsed = JSON.parse(text)
+      return parsed && typeof parsed === 'object'
+        ? (parsed as Record<string, unknown>)
+        : null
+    } catch {
+      return null
+    }
   }
 
   const commitBusyActions = (next: BusyActions) => {
@@ -764,6 +798,26 @@ export function useToolControlCenter({
         return
       }
 
+      if (eventName === 'toolbox_run_tool_result') {
+        const toolId = String(payload.tool_id || '')
+        const requestId = String(payload.request_id || '')
+        if (toolId !== 'project-cleaner' || !cleanupRunRequestIdsRef.current.has(requestId)) {
+          return
+        }
+
+        cleanupRunRequestIdsRef.current.delete(requestId)
+        removeBusyAction('cleanup-run')
+
+        const cleanupResult = parseCleanupResult(payload.stdout)
+        const cleanupOk = cleanupResult?.ok ?? payload.ok
+        const message = cleanupOk
+          ? `清理工具完成：隔離 ${cleanupResult?.cleaned_files ?? 0} 檔、${cleanupResult?.cleaned_dirs ?? 0} 夾，${formatBytes(cleanupResult?.cleaned_bytes)}`
+          : String(cleanupResult?.message || payload.message || '清理工具執行失敗')
+        setCleanupFeedback(message)
+        appendRecord(message)
+        return
+      }
+
       if (eventName === 'unhandled_command_result') {
         const message = String(payload.message || '指令未被後端處理')
         const pending = busyActionsRef.current
@@ -774,6 +828,7 @@ export function useToolControlCenter({
               item === 'sandbox-auto' ||
               item === 'update-auto' ||
               item === 'backup-auto' ||
+              item === 'cleanup-auto' ||
               item === 'logs-auto'
           )
         )
@@ -784,6 +839,8 @@ export function useToolControlCenter({
           setUpdateFeedback(message)
         } else if (action === 'backup-record' || action === 'backup-delete') {
           setBackupFeedback(message)
+        } else if (action === 'cleanup-run') {
+          setCleanupFeedback(message)
         } else if (action === 'logs-export' || action === 'logs-export-errors') {
           setLogFeedback(message)
         } else {
@@ -1065,6 +1122,24 @@ export function useToolControlCenter({
     }, TOOL_CHAIN_STEP_DELAY_MS)
   }
 
+  const runCleanupCycle = () => {
+    if (hasBusyAction('cleanup-run')) return
+
+    const requestId = `developer-cleanup:${Date.now()}:${Math.random()
+      .toString(16)
+      .slice(2)}`
+    cleanupRunRequestIdsRef.current.add(requestId)
+    setCleanupFeedback('')
+    addBusyAction('cleanup-run')
+    appendRecord('執行清理工具：Runtime 隔離清理')
+    sendCommand('toolbox_run_tool', {
+      tool_id: 'project-cleaner',
+      args: ['--cleanup-garbage', '--scope', 'runtime', '--quarantine', '--json'],
+      source: 'developer_cleanup_tool',
+      request_id: requestId,
+    })
+  }
+
   const setAutoToolFeedback = (tool: AutoToolKey, message: string) => {
     if (tool === 'sandbox') {
       setSandboxFeedback(message)
@@ -1078,6 +1153,10 @@ export function useToolControlCenter({
       setBackupFeedback(message)
       return
     }
+    if (tool === 'cleanup') {
+      setCleanupFeedback(message)
+      return
+    }
     setLogFeedback(message)
   }
 
@@ -1085,6 +1164,7 @@ export function useToolControlCenter({
     if (tool === 'sandbox') return '沙箱工具'
     if (tool === 'update') return '更新工具'
     if (tool === 'backup') return '備份工具'
+    if (tool === 'cleanup') return '清理工具'
     return '日誌工具'
   }
 
@@ -1209,6 +1289,24 @@ export function useToolControlCenter({
     })
   }
 
+  const startCleanupTool = () => {
+    startAutoToolLoop('cleanup', {
+      onRun: runCleanupCycle,
+      setFeedback: setCleanupFeedback,
+      notReadyMessage: '後端連線尚未就緒，清理工具無法啟動全自動執行。',
+      startRecord: '清理工具已啟動全自動執行',
+    })
+  }
+
+  const stopCleanupTool = () => {
+    cleanupRunRequestIdsRef.current.clear()
+    stopAutoToolLoop('cleanup', {
+      clearBusy: ['cleanup-run'],
+      setFeedback: setCleanupFeedback,
+      stopMessage: '清理工具已停止全自動執行',
+    })
+  }
+
   const startLogTool = () => {
     startAutoToolLoop('logs', {
       onRun: runLogCycle,
@@ -1249,6 +1347,10 @@ export function useToolControlCenter({
 
   const setBackupIntervalMinutes = (minutes: number) => {
     applyAutoToolInterval('backup', minutes)
+  }
+
+  const setCleanupIntervalMinutes = (minutes: number) => {
+    applyAutoToolInterval('cleanup', minutes)
   }
 
   const setLogIntervalMinutes = (minutes: number) => {
@@ -1293,6 +1395,7 @@ export function useToolControlCenter({
     setSandboxFeedback('')
     setUpdateFeedback('')
     setBackupFeedback('')
+    setCleanupFeedback('')
     setLogFeedback('')
     addBusyAction('tools-auto-start')
     appendRecord('已啟動工具執行層自動流程')
@@ -1317,7 +1420,7 @@ export function useToolControlCenter({
       startSandboxTool,
       startUpdateTool,
       startBackupTool,
-      startLogTool,
+      startCleanupTool,
     ]
 
     tasks.forEach((task, index) => {
@@ -1379,6 +1482,7 @@ export function useToolControlCenter({
     autoRecoveringGeminiRef.current = false
     pendingChatgptHealthCheckRef.current = false
     pendingGeminiHealthCheckRef.current = false
+    cleanupRunRequestIdsRef.current.clear()
 
     const message = current.length > 0
       ? `已停止目前操作：${current.join(', ')}`
@@ -1399,6 +1503,7 @@ export function useToolControlCenter({
     updateNonHotChanges,
     globalUpdatePlan,
     backupFeedback,
+    cleanupFeedback,
     logFeedback,
     startupChecking,
     startupMonitor,
@@ -1406,10 +1511,12 @@ export function useToolControlCenter({
     sandboxIntervalMinutes: autoToolIntervalMinutes.sandbox,
     updateIntervalMinutes: autoToolIntervalMinutes.update,
     backupIntervalMinutes: autoToolIntervalMinutes.backup,
+    cleanupIntervalMinutes: autoToolIntervalMinutes.cleanup,
     logIntervalMinutes: autoToolIntervalMinutes.logs,
     setSandboxIntervalMinutes,
     setUpdateIntervalMinutes,
     setBackupIntervalMinutes,
+    setCleanupIntervalMinutes,
     setLogIntervalMinutes,
     handleUrlChange,
     saveUrlConfig,
@@ -1423,6 +1530,8 @@ export function useToolControlCenter({
     stopUpdateTool,
     startBackupTool,
     stopBackupTool,
+    startCleanupTool,
+    stopCleanupTool,
     startLogTool,
     stopLogTool,
     maintainSandbox,

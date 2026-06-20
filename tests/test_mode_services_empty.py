@@ -1,6 +1,7 @@
 import os
 import sys
 import pytest
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.getcwd(), "src-core"))
 
@@ -61,3 +62,65 @@ def test_safe_mode_allows_agent_coder_ai_commands():
     assert mm.can_execute_command("app:agent-instruct")
     assert mm.can_execute_command("app:agent-intervention")
     assert mm.can_execute_command("app:run-unit-tests")
+
+
+@pytest.mark.asyncio
+async def test_safe_mode_registers_and_allows_child_tool_services(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    class ChildService:
+        def __init__(self):
+            self.started = False
+
+        def owns(self, command: str) -> bool:
+            return command == "vaultly_get_state"
+
+        async def start(self) -> None:
+            self.started = True
+
+        async def handle(self, command: str, payload: dict, latest_ai_answer=None):
+            return f"{command}_result", {"ok": True, "platforms": []}
+
+    class Definition:
+        service_name = "vaultly"
+        tool_dir_name = "vaultly"
+        package_name = "vaultly"
+        class_name = "VaultlyService"
+
+    child_service = ChildService()
+
+    class FakeRegistry:
+        def __init__(self, _project_root):
+            pass
+
+        def discover(self):
+            return [Definition()]
+
+        def create_service(self, _definition, _project_root):
+            return child_service
+
+    class App:
+        def __init__(self):
+            self.project_root = tmp_path
+            self.command_router = None
+            self.core_code_service = None
+            self.toolbox_service = None
+            self.rescue_service = None
+            self.history_manager = None
+            self.core_logger = None
+            self._log = lambda *_: None
+
+    monkeypatch.setattr("modes.mode_manager.ChildToolServiceRegistry", FakeRegistry)
+    app = App()
+    mm = ModeManager(app)
+    app.mode_manager = mm
+
+    await mm.initialize_safe_mode()
+    event, payload = await app.command_router.handle("vaultly_get_state", {})
+
+    assert child_service.started is True
+    assert mm.can_execute_command("vaultly_get_state") is True
+    assert "vaultly" in mm._mode_services
+    assert event == "vaultly_get_state_result"
+    assert payload["ok"] is True

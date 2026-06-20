@@ -17,6 +17,13 @@ export interface ToolDefinition {
   executablePath?: string
   executableExists?: boolean
   projectSizeBytes?: number
+  description?: string
+  has_custom_ui?: boolean
+  hasCustomUi?: boolean
+  hiddenFromToolbox?: boolean
+  hidden_from_toolbox?: boolean
+  mergedInto?: string
+  merged_into?: string
   launchable?: boolean
   windowOnly?: boolean
 }

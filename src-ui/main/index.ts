@@ -46,7 +46,6 @@ const isPathInside = (basePath: string, targetPath: string) => {
 }
 
 const TOOL_ID_PATTERN = /^[a-z0-9_-]+$/
-
 function resolvePlatformToolsLocation(): {
   platformToolsPath: string
   searchedPaths: string[]
@@ -253,16 +252,6 @@ function getSystemMetrics() {
       : 0
 
   const paths = getRuntimePathLibrary()
-  writeRuntimeLog('window.create.start', {
-    isPackaged: app.isPackaged,
-    sourceProduction,
-    shouldManageBackend,
-    workspaceRoot: paths.workspaceRoot,
-    resourcesRoot: paths.resourcesRoot,
-    rendererEntryHtml: paths.rendererEntryHtml,
-    pythonExecutable: paths.pythonExecutable,
-    pythonEntry: paths.pythonEntry,
-  })
   const disk =
     readDiskMetrics(paths.workspaceRoot) ?? readDiskMetrics(process.cwd())
 
@@ -289,6 +278,16 @@ async function createWindow(): Promise<void> {
   }
 
   const paths = getRuntimePathLibrary()
+  writeRuntimeLog('window.create.start', {
+    isPackaged: app.isPackaged,
+    sourceProduction,
+    shouldManageBackend,
+    workspaceRoot: paths.workspaceRoot,
+    resourcesRoot: paths.resourcesRoot,
+    rendererEntryHtml: paths.rendererEntryHtml,
+    pythonExecutable: paths.pythonExecutable,
+    pythonEntry: paths.pythonEntry,
+  })
 
   mainWindow = new BrowserWindow({
     width: 1400,

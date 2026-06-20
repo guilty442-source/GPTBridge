@@ -1,627 +1,758 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocalBackendSocket } from './backendSocket'
+import {
+  formatInvestmentClock,
+  formatInvestmentNumber,
+  investmentRunLabel,
+  investmentStatusLabel,
+  useInvestmentWatchFeature,
+} from './investmentWatchFeature'
 import './ai-assistant.css'
 
-type AssistMode =
-  | 'gpt_first'
-  | 'gemini_first'
-  | 'ask_both'
-  | 'all_ai'
-  | 'claude_first'
-  | 'perplexity_first'
-  | 'deepseek_first'
-
-type ProviderKey = 'chatgpt' | 'gemini' | 'claude' | 'perplexity' | 'deepseek'
-
-const AI_DRAFT_KEY = 'gptbridge_ai_assistant_draft'
-const AI_CONTEXT_KEY = 'gptbridge_ai_assistant_context'
-const ALL_PROVIDERS: ProviderKey[] = [
-  'chatgpt',
-  'gemini',
-  'claude',
-  'perplexity',
-  'deepseek',
-]
-const BROWSER_ONLY_PROVIDERS: ProviderKey[] = [
-  'claude',
-  'perplexity',
-  'deepseek',
-]
-const AI_RULES = [
-  '請用繁體中文回答。',
-  '先指出最可能的根因，再給可執行的修補步驟。',
-  '涉及程式碼時，請保留必要上下文，避免只回覆片段。',
-  '不確定時要明確標示假設，不要假裝已驗證。',
-].join('\n')
-
-function formatClock(timestamp: number): string {
-  return new Date(timestamp).toLocaleTimeString('zh-TW', { hour12: false })
+type Agent = {
+  agent_id: string
+  name: string
+  provider: string
+  home_url: string
+  enabled: number
+  selected: number
+  status: string
+  last_error: string
 }
 
-function assistLabel(mode: AssistMode): string {
-  if (mode === 'gpt_first') return 'GPT 優先'
-  if (mode === 'gemini_first') return 'Gemini 優先'
-  if (mode === 'ask_both') return 'ChatGPT + Gemini'
-  if (mode === 'all_ai') return '同時詢問全 AI'
-  if (mode === 'claude_first') return 'Claude'
-  if (mode === 'perplexity_first') return 'Perplexity'
-  return 'DeepSeek'
+type AgentResponse = {
+  response_id: string
+  message_id: string
+  agent_id: string
+  status: string
+  content: string
+  error: string
+  created_at: string
+  updated_at: string
 }
 
-function providerLabel(provider: ProviderKey): string {
-  if (provider === 'chatgpt') return 'ChatGPT'
-  if (provider === 'gemini') return 'Gemini'
-  if (provider === 'claude') return 'Claude'
-  if (provider === 'perplexity') return 'Perplexity'
-  return 'DeepSeek'
+type GroupMessage = {
+  message_id: string
+  role: string
+  content: string
+  selected_agents: string[]
+  created_at: string
+  responses: AgentResponse[]
 }
 
-function backendMode(mode: AssistMode): 'chatgpt_first' | 'gemini_first' | 'ask_both' {
-  if (mode === 'gemini_first') return 'gemini_first'
-  if (mode === 'ask_both' || mode === 'all_ai') return 'ask_both'
-  return 'chatgpt_first'
+type MemoryItem = {
+  memory_id: string
+  kind: string
+  title: string
+  content: string
 }
 
-function manualProvider(mode: AssistMode): ProviderKey | null {
-  if (mode === 'claude_first') return 'claude'
-  if (mode === 'perplexity_first') return 'perplexity'
-  if (mode === 'deepseek_first') return 'deepseek'
-  return null
+type NexusState = {
+  ok?: boolean
+  message?: string
+  agents?: Agent[]
+  messages?: GroupMessage[]
+  memory_items?: MemoryItem[]
+  database_path?: string
+  workspace_path?: string
+  browser_profile_path?: string
+  safety_notice?: string
 }
 
-function requiredProviders(mode: AssistMode): ProviderKey[] {
-  if (mode === 'gpt_first') return ['chatgpt']
-  if (mode === 'gemini_first') return ['gemini']
-  if (mode === 'ask_both') return ['chatgpt', 'gemini']
-  if (mode === 'all_ai') return ALL_PROVIDERS
-  const provider = manualProvider(mode)
-  return provider ? [provider] : ['chatgpt']
+function formatClock(value: string): string {
+  const timestamp = Date.parse(value)
+  if (!Number.isFinite(timestamp)) return ''
+  return new Date(timestamp).toLocaleString('zh-TW', {
+    hour12: false,
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
-function isProviderReady(status: unknown): boolean {
-  const value = String(status ?? '').toUpperCase()
-  return value === 'AUTHENTICATED' || value === 'READY' || value === 'UNOPENED'
+function responseLabel(status: string): string {
+  if (status === 'completed') return '完成'
+  if (status === 'running') return '執行中'
+  if (status === 'waiting_verification') return '等待驗證'
+  if (status === 'failed') return '失敗'
+  return '等待'
 }
 
-function buildPrompt(draft: string, context: string): string {
-  const parts = [AI_RULES, draft.trim()]
-  const trimmedContext = context.trim()
-  if (trimmedContext) {
-    parts.push(`參考內容：\n${trimmedContext}`)
-  }
-  return parts.filter(Boolean).join('\n\n')
+function socketStatusLabel(status: string): string {
+  if (status === 'Connected') return '已連線'
+  if (status === 'Connecting') return '連線中'
+  if (status === 'Disconnected') return '未連線'
+  if (status === 'Error') return '連線錯誤'
+  return status
+}
+
+function waitForIpcEvent<T = Record<string, unknown>>(
+  eventName: string,
+  timeoutMs: number,
+  requestId: string
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    let timer = 0
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent
+      const detail = customEvent.detail || {}
+      const payload = (detail.payload || {}) as Record<string, unknown>
+      if (detail.event !== eventName) return
+      if (requestId && String(payload.request_id || '') !== requestId) return
+      window.clearTimeout(timer)
+      window.removeEventListener('ipc_event', handler)
+      resolve(payload as T)
+    }
+    timer = window.setTimeout(() => {
+      window.removeEventListener('ipc_event', handler)
+      reject(new Error(`等待 ${eventName} 逾時`))
+    }, timeoutMs)
+    window.addEventListener('ipc_event', handler)
+  })
 }
 
 export function AiAssistantWindowApp() {
   const { sendCommand, status: socketStatus } = useLocalBackendSocket()
-  const [assistMode, setAssistMode] = useState<AssistMode>('gpt_first')
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [messages, setMessages] = useState<GroupMessage[]>([])
+  const [memoryItems, setMemoryItems] = useState<MemoryItem[]>([])
+  const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set())
+  const [agentListCollapsed, setAgentListCollapsed] = useState(true)
   const [draft, setDraft] = useState('')
-  const [context, setContext] = useState('')
-  const [answer, setAnswer] = useState('')
-  const [message, setMessage] = useState('AI 協作工具已就緒')
-  const [busy, setBusy] = useState(false)
-  const [urlDraft, setUrlDraft] = useState({
-    chatgpt_main_url: '',
-    gemini_main_url: '',
-    claude_main_url: '',
-    perplexity_main_url: '',
-    deepseek_main_url: '',
-  })
-  const [baseConfig, setBaseConfig] = useState<Record<string, unknown>>({})
+  const [memoryDraft, setMemoryDraft] = useState('')
+  const [message, setMessage] = useState('AI投資管家已就緒')
+  const [busyAction, setBusyAction] = useState('')
+  const [paths, setPaths] = useState({ workspace: '', database: '', profile: '' })
+  const [safetyNotice, setSafetyNotice] = useState('')
+  const loadedSelectionRef = useRef(false)
 
-  const prompt = useMemo(() => buildPrompt(draft, context), [context, draft])
-
-  const waitForIpcEvent = useCallback(
-    (
-      eventName: string,
-      timeoutMs: number,
-      options: { command?: string } = {}
-    ): Promise<Record<string, unknown>> =>
-      new Promise((resolve, reject) => {
-        const timer = window.setTimeout(() => {
-          window.removeEventListener('ipc_event', handler)
-          reject(new Error(`等待事件逾時：${eventName}`))
-        }, timeoutMs)
-
-        const handler = (event: Event) => {
-          const customEvent = event as CustomEvent
-          const detail = customEvent.detail || {}
-          const payload = (detail.payload || {}) as Record<string, unknown>
-          if (detail.event !== eventName) {
-            if (detail.event !== 'command_blocked_result') return
-            const blockedCommand = String(payload.command || '')
-            if (
-              options.command &&
-              blockedCommand &&
-              blockedCommand !== options.command
-            ) {
-              return
-            }
-          }
-          window.clearTimeout(timer)
-          window.removeEventListener('ipc_event', handler)
-          resolve(payload)
-        }
-
-        window.addEventListener('ipc_event', handler)
-      }),
-    []
+  const selectedAgentList = useMemo(
+    () => agents.filter((agent) => selectedAgents.has(agent.agent_id)),
+    [agents, selectedAgents]
+  )
+  const agentsById = useMemo(
+    () => new Map(agents.map((agent) => [agent.agent_id, agent])),
+    [agents]
   )
 
-  const waitForSocketReady = useCallback(
-    (timeoutMs: number): Promise<boolean> => {
-      if (socketStatus === 'Connected') return Promise.resolve(true)
-
-      return new Promise((resolve) => {
-        void window.electron?.invoke('app:ensure-backend-started').catch(() => {
-          // The socket event below remains the source of truth.
-        })
-
-        const timer = window.setTimeout(() => {
-          window.removeEventListener('socket_connected', handler)
-          resolve(false)
-        }, timeoutMs)
-
-        const handler = (event: Event) => {
-          const customEvent = event as CustomEvent<{ connected?: boolean }>
-          if (!customEvent.detail?.connected) return
-          window.clearTimeout(timer)
-          window.removeEventListener('socket_connected', handler)
-          resolve(true)
-        }
-
-        window.addEventListener('socket_connected', handler)
-      })
-    },
-    [socketStatus]
-  )
-
-  const sendCommandAndWait = useCallback(
+  const request = useCallback(
     async (
       command: string,
-      eventName: string,
-      payload: Record<string, unknown>,
-      timeoutMs: number
-    ): Promise<Record<string, unknown>> => {
-      const connected = await waitForSocketReady(Math.min(timeoutMs, 12000))
-      if (!connected) throw new Error('後端尚未連線，請稍後再試。')
-
-      const waitPromise = waitForIpcEvent(eventName, timeoutMs, { command })
-      const sendResult = sendCommand(command, payload)
-      if (!sendResult.ok && !sendResult.queued) {
-        throw new Error(sendResult.message || `送出命令失敗：${command}`)
+      payload: Record<string, unknown> = {},
+      timeoutMs = 30000
+    ) => {
+      const requestId = `${command}:${Date.now()}:${Math.random().toString(16).slice(2)}`
+      const waitPromise = waitForIpcEvent<Record<string, unknown>>(
+        `${command}_result`,
+        timeoutMs,
+        requestId
+      )
+      const sent = sendCommand(command, { ...payload, request_id: requestId })
+      if (!sent.ok && !sent.queued) {
+        throw new Error(sent.message || '後端尚未接收指令')
       }
-      return waitPromise
+      const response = await waitPromise
+      const maybeMemoryItems = (response as NexusState).memory_items
+      if (Array.isArray(maybeMemoryItems)) {
+        setMemoryItems(maybeMemoryItems)
+      }
+      return response
     },
-    [sendCommand, waitForIpcEvent, waitForSocketReady]
+    [sendCommand]
   )
 
-  const loadConfig = useCallback(async () => {
-    try {
-      const result = await sendCommandAndWait(
-        'load_config',
-        'load_config_result',
-        {},
-        10000
-      )
-      if (result.ok === false) return
-      const config = (result.config as Record<string, unknown>) || {}
-      setBaseConfig(config)
-      setUrlDraft({
-        chatgpt_main_url: String(config.chatgpt_main_url ?? ''),
-        gemini_main_url: String(config.gemini_main_url ?? ''),
-        claude_main_url: String(config.claude_main_url ?? ''),
-        perplexity_main_url: String(config.perplexity_main_url ?? ''),
-        deepseek_main_url: String(config.deepseek_main_url ?? ''),
-      })
-    } catch {
-      // Keep the AI panel usable even if settings are not ready yet.
-    }
-  }, [sendCommandAndWait])
-
-  useEffect(() => {
-    try {
-      setDraft(localStorage.getItem(AI_DRAFT_KEY) || '')
-      setContext(localStorage.getItem(AI_CONTEXT_KEY) || '')
-    } catch {
-      // Ignore localStorage restriction in locked environments.
-    }
-    void loadConfig()
-  }, [loadConfig])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(AI_DRAFT_KEY, draft)
-    } catch {
-      // Ignore localStorage restriction in locked environments.
-    }
-  }, [draft])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(AI_CONTEXT_KEY, context)
-    } catch {
-      // Ignore localStorage restriction in locked environments.
-    }
-  }, [context])
-
-  const saveConfig = async () => {
-    const trimmed = {
-      chatgpt_main_url: urlDraft.chatgpt_main_url.trim(),
-      gemini_main_url: urlDraft.gemini_main_url.trim(),
-      claude_main_url: urlDraft.claude_main_url.trim(),
-      perplexity_main_url: urlDraft.perplexity_main_url.trim(),
-      deepseek_main_url: urlDraft.deepseek_main_url.trim(),
-    }
-    const invalid = Object.values(trimmed).some(
-      (value) => value.length > 0 && !/^https?:\/\//i.test(value)
-    )
-    if (invalid) {
-      setMessage('URL 必須以 http:// 或 https:// 開頭。')
-      return
-    }
-
-    setBusy(true)
-    setMessage('正在儲存 URL 設定...')
-    try {
-      const result = await sendCommandAndWait(
-        'save_config',
-        'save_config_result',
-        { config: { ...baseConfig, ...trimmed } },
-        15000
-      )
-      if (result.ok === false) {
-        throw new Error(String(result.message || '儲存設定失敗'))
-      }
-      setMessage(`URL 設定已儲存 (${formatClock(Date.now())})`)
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '儲存設定失敗')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const openProvider = async (
-    provider: ProviderKey,
-    options: { manageBusy?: boolean; quiet?: boolean } = {}
-  ) => {
-    const manageBusy = options.manageBusy ?? true
-    if (manageBusy) setBusy(true)
-    if (!options.quiet) setMessage(`正在開啟 ${providerLabel(provider)}...`)
-    try {
-      const result = await sendCommandAndWait(
-        'settings_open_system_browser',
-        'settings_open_system_browser_result',
-        { provider },
-        10000
-      )
-      if (result.ok === false) {
-        throw new Error(String(result.message || '開啟 AI 瀏覽器失敗'))
-      }
-      if (!options.quiet) setMessage(`${providerLabel(provider)} 已開啟`)
-    } catch (error) {
-      if (!options.quiet) {
-        setMessage(error instanceof Error ? error.message : '開啟 AI 瀏覽器失敗')
-      }
-      throw error
-    } finally {
-      if (manageBusy) setBusy(false)
-    }
-  }
-
-  const ensureProvidersReady = async (): Promise<boolean> => {
-    const providers = requiredProviders(assistMode)
-    const manual = manualProvider(assistMode)
-    if (manual) {
-      await openProvider(manual)
-      return true
-    }
-
-    const browserOnlyProviders = providers.filter((provider) =>
-      BROWSER_ONLY_PROVIDERS.includes(provider)
-    )
-    if (browserOnlyProviders.length > 0) {
-      setMessage(
-        `正在開啟 ${browserOnlyProviders
-          .map((provider) => providerLabel(provider))
-          .join('、')}...`
-      )
-      for (const provider of browserOnlyProviders) {
-        await openProvider(provider, { manageBusy: false, quiet: true })
-      }
-    }
-
-    const backendProviders = providers.filter(
-      (provider) => provider === 'chatgpt' || provider === 'gemini'
-    )
-    if (backendProviders.length === 0) return true
-
-    const result = await sendCommandAndWait(
-      'mother_provider_status',
-      'mother_provider_status_result',
-      { source: 'ai_assistant' },
-      9000
-    )
-    if (result.ok === false) return false
-
-    const chatgptReady = !backendProviders.includes('chatgpt') || isProviderReady(result.chatgpt_status)
-    const geminiReady = !backendProviders.includes('gemini') || isProviderReady(result.gemini_status)
-    if (chatgptReady && geminiReady) return true
-
-    if (!chatgptReady) sendCommand('settings_open_system_browser', { provider: 'chatgpt' })
-    if (!geminiReady) sendCommand('settings_open_system_browser', { provider: 'gemini' })
-    setMessage('AI 瀏覽器尚未就緒，已開啟 Edge，請完成登入後再送出。')
-    return false
-  }
-
-  const submitToAi = async () => {
-    if (busy) return
-    if (!draft.trim()) {
-      setMessage('請先輸入 AI 需求。')
-      return
-    }
-
-    setBusy(true)
-    setAnswer('')
-    setMessage('正在送出 AI 需求...')
-    try {
-      let allAiClipboardReady = false
-      if (assistMode === 'all_ai') {
-        try {
-          await navigator.clipboard.writeText(prompt)
-          allAiClipboardReady = true
-        } catch {
-          allAiClipboardReady = false
-        }
-      }
-
-      const manual = manualProvider(assistMode)
-      if (manual) {
-        await openProvider(manual)
-        await navigator.clipboard.writeText(prompt)
-        setAnswer(prompt)
-        setMessage(
-          `${providerLabel(manual)} 已開啟，完整提示已複製到剪貼簿。`
+  const applyState = useCallback((state: NexusState) => {
+    const nextAgents = Array.isArray(state.agents) ? state.agents : []
+    setAgents(nextAgents)
+    setMessages(Array.isArray(state.messages) ? state.messages : [])
+    setMemoryItems(Array.isArray(state.memory_items) ? state.memory_items : [])
+    setPaths({
+      workspace: String(state.workspace_path || ''),
+      database: String(state.database_path || ''),
+      profile: String(state.browser_profile_path || ''),
+    })
+    setSafetyNotice(String(state.safety_notice || ''))
+    if (!loadedSelectionRef.current && nextAgents.length > 0) {
+      loadedSelectionRef.current = true
+      setSelectedAgents(
+        new Set(
+          nextAgents
+            .filter((agent) => Number(agent.selected) === 1)
+            .map((agent) => agent.agent_id)
         )
-        return
-      }
+      )
+    }
+  }, [])
 
-      const ready = await ensureProvidersReady()
-      if (!ready) {
-        if (assistMode === 'all_ai') {
-          setAnswer(prompt)
-          setMessage(
-            allAiClipboardReady
-              ? '已開啟全 AI 瀏覽器，完整提示已複製；請完成 ChatGPT/Gemini 登入後再送出。'
-              : '已開啟全 AI 瀏覽器；剪貼簿不可用，請從回答內容複製完整提示。'
-          )
+  const loadState = useCallback(
+    async (silent = false) => {
+      try {
+        const result = (await request('ai_nexus_get_state', {}, 15000)) as NexusState
+        if (result.ok === false) throw new Error(String(result.message || '載入失敗'))
+        applyState(result)
+        if (!silent) setMessage('AI投資管家已載入')
+      } catch (error) {
+        if (!silent) {
+          setMessage(error instanceof Error ? error.message : '載入 AI投資管家失敗')
         }
-        return
       }
+    },
+    [applyState, request]
+  )
 
-      const result = await sendCommandAndWait(
-        'discussion_query',
-        'discussion_result',
+  const investmentWatch = useInvestmentWatchFeature({
+    request,
+    setBusyAction,
+    setMessage,
+  })
+  const { loadInvestmentState } = investmentWatch
+  const portfolio = investmentWatch.investmentState.portfolio
+  const visibleHoldings = investmentWatch.investmentHoldings.slice(0, 30)
+  const hiddenHoldingCount = Math.max(0, investmentWatch.investmentHoldings.length - visibleHoldings.length)
+  const latestInvestmentRuns = investmentWatch.investmentRuns.slice(0, 5)
+  const portfolioUpdatedAt = formatInvestmentClock(portfolio?.imported_at) || '未更新'
+  const selectedAgentSummary = `${selectedAgentList.length} / ${agents.length}`
+  const selectedAgentNames = selectedAgentList.map((agent) => agent.name).join('、')
+  const socketLabel = socketStatusLabel(socketStatus)
+  const workbookScan = investmentWatch.investmentState.workbook_scan
+  const workbookQuality = investmentWatch.investmentState.workbook_scan_quality
+  const selectedWorkbookSheet = workbookScan?.selected_sheet || null
+  const workbookScanLabel = selectedWorkbookSheet?.sheet_name
+    ? `${selectedWorkbookSheet.sheet_name} · 第 ${selectedWorkbookSheet.header_row_number || '-'} 列`
+    : workbookScan?.sheet_count
+      ? `已掃描 ${workbookScan.sheet_count} 個工作表`
+      : '未掃描'
+  const localAiStatus = investmentWatch.localAiProductStatus
+  const localAiStatusLabel = localAiStatus?.state_label || (
+    investmentWatch.investmentHoldings.length > 0 ? '等待監測' : '待匯入'
+  )
+  const localAiScore = typeof localAiStatus?.score === 'number' ? String(localAiStatus.score) : '-'
+  const localAiActions = (localAiStatus?.next_actions || []).filter(Boolean).slice(0, 3)
+  const localAiCommands = (localAiStatus?.command_suggestions || []).filter(Boolean).slice(0, 6)
+  const localAiWarnings = investmentWatch.localAiRiskWarnings.slice(0, 6)
+  const localAiCommandResult = investmentWatch.localAiCommandResult
+  const localAiCommandPreview = (localAiCommandResult?.text || '').trim()
+  const localAiRecommendation = localAiStatus?.recommendation || (
+    investmentWatch.investmentHoldings.length > 0
+      ? '本地AI會在匯入後自動監測，也可直接輸入命令。'
+      : '上傳 Excel 後自動啟動本地AI。'
+  )
+
+  useEffect(() => {
+    void loadState()
+    void loadInvestmentState(true)
+    const timer = window.setInterval(() => {
+      void loadState(true)
+      void loadInvestmentState(true)
+    }, 5000)
+    return () => window.clearInterval(timer)
+  }, [loadInvestmentState, loadState])
+
+  const toggleAgent = async (agentId: string) => {
+    const next = new Set(selectedAgents)
+    if (next.has(agentId)) next.delete(agentId)
+    else next.add(agentId)
+    setSelectedAgents(next)
+    try {
+      const result = (await request('ai_nexus_set_agent_selection', {
+        agent_ids: Array.from(next),
+      })) as NexusState
+      if (Array.isArray(result.agents)) setAgents(result.agents)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '儲存 AI 選擇失敗')
+    }
+  }
+
+  const openAgent = async (agentId: string) => {
+    setBusyAction(`open:${agentId}`)
+    try {
+      const result = await request('ai_nexus_open_agent', { agent_id: agentId }, 30000)
+      if (result.ok === false) throw new Error(String(result.message || '開啟失敗'))
+      setMessage(`${agentId} 已在 Microsoft Edge 開啟`)
+      await loadState(true)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '開啟 AI 視窗失敗')
+    } finally {
+      setBusyAction('')
+    }
+  }
+
+  const sendGroupMessage = async () => {
+    if (!draft.trim()) {
+      setMessage('請先輸入問題。')
+      return
+    }
+    if (selectedAgents.size === 0) {
+      setMessage('請至少選擇一個 AI。')
+      return
+    }
+    setBusyAction('send')
+    setMessage(`正在同步送給 ${selectedAgents.size} 個 AI...`)
+    try {
+      const result = (await request(
+        'ai_nexus_send_message',
         {
-          text: prompt,
-          mode: backendMode(assistMode),
-          source: 'ai_assistant',
+          content: draft,
+          agent_ids: Array.from(selectedAgents),
         },
-        45000
-      )
-      if (result.ok === false) {
-        throw new Error(String(result.message || 'AI 回答失敗'))
-      }
-      const finalText = String(
-        result.final_summary || result.message || '目前沒有可顯示的 AI 回答。'
-      )
-      if (assistMode === 'all_ai') {
-        const manualLabels = BROWSER_ONLY_PROVIDERS.map((provider) =>
-          providerLabel(provider)
-        ).join('、')
-        setAnswer(
-          [
-            finalText,
-            '',
-            '---',
-            `已同時開啟：${manualLabels}`,
-            allAiClipboardReady
-              ? '完整提示已複製到剪貼簿，可貼到已開啟的 AI 對話框。'
-              : '剪貼簿不可用，請手動複製完整提示貼到已開啟的 AI 對話框。',
-          ].join('\n')
-        )
-        setMessage(`全 AI 已送出/開啟 (${formatClock(Date.now())})`)
-      } else {
-        setAnswer(finalText)
-        setMessage(`AI 回答已更新 (${formatClock(Date.now())})`)
-      }
+        180000
+      )) as NexusState
+      if (result.ok === false) throw new Error(String(result.message || '送出失敗'))
+      setDraft('')
+      if (Array.isArray(result.messages)) setMessages(result.messages)
+      if (Array.isArray(result.agents)) setAgents(result.agents)
+      setMessage(String(result.message || '已收集 AI 回覆'))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'AI 送出失敗')
+      setMessage(error instanceof Error ? error.message : 'AI投資管家送出失敗')
     } finally {
-      setBusy(false)
+      setBusyAction('')
     }
   }
 
-  const copyPrompt = async () => {
-    if (!draft.trim()) {
-      setMessage('目前沒有可複製的 AI 需求。')
+  const saveMemory = async () => {
+    if (!memoryDraft.trim()) {
+      setMessage('請輸入共享記憶內容。')
       return
     }
+    setBusyAction('memory')
     try {
-      await navigator.clipboard.writeText(prompt)
-      setMessage(`AI 需求已複製 (${formatClock(Date.now())})`)
-    } catch {
-      setMessage('複製失敗，請手動選取內容。')
+      const result = (await request('ai_nexus_add_memory', {
+        kind: 'note',
+        content: memoryDraft,
+      })) as NexusState
+      if (result.ok === false) throw new Error(String(result.message || '儲存失敗'))
+      setMemoryDraft('')
+      if (Array.isArray(result.memory_items)) setMemoryItems(result.memory_items)
+      setMessage('已儲存共享記憶')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '儲存共享記憶失敗')
+    } finally {
+      setBusyAction('')
     }
   }
 
   return (
-    <main className="ai-app">
-      <header className="ai-app__header">
-        <div>
-          <p className="ai-app__eyebrow">GPTBridge Application</p>
-          <h1>AI 協作工具</h1>
-          <p>集中管理 AI 登入、提示內容與多來源回覆。</p>
+    <main className="nexus-app">
+      <header className="nexus-topbar">
+        <div className="nexus-title-block">
+          <p className="nexus-eyebrow">工作台</p>
+          <h1>AI投資管家</h1>
+          <div className="nexus-top-meta">
+            <span>{socketLabel}</span>
+            <span>{selectedAgentSummary} AI</span>
+            <span>{investmentWatch.investmentHoldings.length} 持股</span>
+          </div>
         </div>
-        <span className={`ai-app__connection ai-app__connection--${socketStatus.toLowerCase()}`}>
-          {socketStatus}
-        </span>
+        <div className="nexus-toolbar" aria-label="主要操作">
+          <button
+            type="button"
+            className="nexus-primary"
+            onClick={() => void investmentWatch.importPortfolio()}
+            disabled={Boolean(busyAction)}
+          >
+            {busyAction === 'investment:import' ? '匯入中...' : '上傳 Excel'}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              void investmentWatch.runInvestmentCommand(
+                'investment_watch_run_all_primary_agents',
+                '全部主要 AI',
+                600000
+              )
+            }
+            disabled={Boolean(busyAction)}
+          >
+            全部主要 AI
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void loadState()
+              void loadInvestmentState()
+            }}
+            disabled={Boolean(busyAction)}
+          >
+            重新整理
+          </button>
+          <button
+            type="button"
+            className="nexus-danger"
+            onClick={() => void investmentWatch.clearInvestmentData()}
+            disabled={Boolean(busyAction)}
+          >
+            {busyAction === 'investment:clear' ? '刪除中...' : '刪除舊資料'}
+          </button>
+        </div>
       </header>
 
-      <section className="ai-app__layout">
-        <aside className="ai-app__settings">
-          <section className="ai-app__panel">
-            <div className="ai-app__panel-head">
-              <span>AI 來源</span>
-              <strong>{assistLabel(assistMode)}</strong>
-            </div>
-            <select
-              value={assistMode}
-              onChange={(event) => setAssistMode(event.target.value as AssistMode)}
-              disabled={busy}
-            >
-              <option value="gpt_first">GPT 優先</option>
-              <option value="gemini_first">Gemini 優先</option>
-              <option value="ask_both">ChatGPT + Gemini</option>
-              <option value="all_ai">同時詢問全 AI</option>
-              <option value="claude_first">Claude</option>
-              <option value="perplexity_first">Perplexity</option>
-              <option value="deepseek_first">DeepSeek</option>
-            </select>
-          </section>
+      <section className="nexus-status-strip" aria-label="工作台狀態">
+        <div>
+          <span>檔案</span>
+          <strong>{portfolio?.file_name || '未匯入'}</strong>
+        </div>
+        <div>
+          <span>掃描</span>
+          <strong>{workbookScanLabel}</strong>
+        </div>
+        <div>
+          <span>更新</span>
+          <strong>{portfolioUpdatedAt}</strong>
+        </div>
+        <div>
+          <span>訊息</span>
+          <strong>{messages.length}</strong>
+        </div>
+        <div>
+          <span>本地AI</span>
+          <strong>{localAiStatusLabel} · {localAiScore}</strong>
+        </div>
+        <div className="nexus-status-message">
+          <span>狀態</span>
+          <strong>{message}</strong>
+        </div>
+      </section>
 
-          <section className="ai-app__panel">
-            <div className="ai-app__panel-head">
-              <span>URL 與登入</span>
-              <button type="button" onClick={() => void loadConfig()} disabled={busy}>
-                重新載入
+      <section className="nexus-workbench">
+        <aside className="nexus-column nexus-column--left">
+          <section className="nexus-surface nexus-agent-panel">
+            <div className="nexus-section-head nexus-section-head--button">
+              <div>
+                <span>AI 名單</span>
+                <strong>{selectedAgentSummary}</strong>
+              </div>
+              <button
+                type="button"
+                className="nexus-toggle-button"
+                onClick={() => setAgentListCollapsed((value) => !value)}
+                aria-expanded={!agentListCollapsed}
+              >
+                {agentListCollapsed ? '展開' : '收合'}
               </button>
             </div>
-            <div className="ai-app__url-grid">
-              <input
-                type="url"
-                placeholder="ChatGPT URL"
-                value={urlDraft.chatgpt_main_url}
-                onChange={(event) =>
-                  setUrlDraft((current) => ({
-                    ...current,
-                    chatgpt_main_url: event.target.value,
-                  }))
-                }
-                disabled={busy}
-              />
-              <input
-                type="url"
-                placeholder="Gemini URL"
-                value={urlDraft.gemini_main_url}
-                onChange={(event) =>
-                  setUrlDraft((current) => ({
-                    ...current,
-                    gemini_main_url: event.target.value,
-                  }))
-                }
-                disabled={busy}
-              />
-              <input
-                type="url"
-                placeholder="Claude URL"
-                value={urlDraft.claude_main_url}
-                onChange={(event) =>
-                  setUrlDraft((current) => ({
-                    ...current,
-                    claude_main_url: event.target.value,
-                  }))
-                }
-                disabled={busy}
-              />
-              <input
-                type="url"
-                placeholder="Perplexity URL"
-                value={urlDraft.perplexity_main_url}
-                onChange={(event) =>
-                  setUrlDraft((current) => ({
-                    ...current,
-                    perplexity_main_url: event.target.value,
-                  }))
-                }
-                disabled={busy}
-              />
-              <input
-                type="url"
-                placeholder="DeepSeek URL"
-                value={urlDraft.deepseek_main_url}
-                onChange={(event) =>
-                  setUrlDraft((current) => ({
-                    ...current,
-                    deepseek_main_url: event.target.value,
-                  }))
-                }
-                disabled={busy}
-              />
-            </div>
-            <div className="ai-app__button-grid">
-              <button type="button" className="ai-app__primary" onClick={() => void saveConfig()} disabled={busy}>
-                儲存 URL
-              </button>
-              {(['chatgpt', 'gemini', 'claude', 'perplexity', 'deepseek'] as ProviderKey[]).map(
-                (provider) => (
-                  <button
-                    key={provider}
-                    type="button"
-                    onClick={() => void openProvider(provider)}
-                    disabled={busy}
-                  >
-                    登入 {providerLabel(provider)}
-                  </button>
-                )
-              )}
-            </div>
+            {agentListCollapsed ? (
+              <p className="nexus-agent-summary">
+                {selectedAgentNames || '尚未選取 AI'}
+              </p>
+            ) : (
+              <div className="nexus-agent-list">
+                {agents.map((agent) => (
+                  <article key={agent.agent_id} className="nexus-agent-row">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={selectedAgents.has(agent.agent_id)}
+                        onChange={() => void toggleAgent(agent.agent_id)}
+                        disabled={Boolean(busyAction)}
+                      />
+                      <span>
+                        <strong>{agent.name}</strong>
+                        <em>{agent.provider}</em>
+                      </span>
+                    </label>
+                    <span className={`nexus-chip nexus-chip--${agent.status}`}>
+                      {responseLabel(agent.status)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void openAgent(agent.agent_id)}
+                      disabled={Boolean(busyAction)}
+                    >
+                      {busyAction === `open:${agent.agent_id}` ? '開啟中...' : '開啟'}
+                    </button>
+                    {agent.last_error ? <p>{agent.last_error}</p> : null}
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         </aside>
 
-        <section className="ai-app__workspace">
-          <section className="ai-app__panel ai-app__composer">
-            <div className="ai-app__panel-head">
-              <span>AI 需求</span>
-              <strong>{draft.length.toLocaleString('zh-TW')} 字</strong>
+        <section className="nexus-column nexus-column--main">
+          <section className="nexus-surface nexus-holdings-surface">
+            <div className="nexus-section-head">
+              <span>持股資料</span>
+              <strong>{investmentWatch.investmentHoldings.length}</strong>
+            </div>
+            <p className="nexus-scan-note">
+              {workbookScanLabel}
+              {selectedWorkbookSheet?.header_mode ? ` · ${selectedWorkbookSheet.header_mode}` : ''}
+            </p>
+            {workbookQuality ? (
+              <div className="nexus-scan-quality">
+                <span>
+                  掃描品質
+                  <strong>{workbookQuality.state_label || '-'}</strong>
+                </span>
+                <span>
+                  分數
+                  <strong>{workbookQuality.score ?? '-'}</strong>
+                </span>
+                <span>
+                  資料列
+                  <strong>{workbookQuality.valid_data_row_count ?? '-'}</strong>
+                </span>
+                <span>
+                  表頭
+                  <strong>{workbookQuality.header_depth || 1} 列</strong>
+                </span>
+                <p>{workbookQuality.recommendation}</p>
+              </div>
+            ) : null}
+            <div className="nexus-holding-table">
+              <div className="nexus-holding-head">
+                <span>代號</span>
+                <span>名稱</span>
+                <span>市場</span>
+                <span>數量</span>
+                <span>平均成本</span>
+                <span>幣別</span>
+              </div>
+              {visibleHoldings.length === 0 ? (
+                <p className="nexus-empty-line">尚無持股</p>
+              ) : (
+                visibleHoldings.map((holding, index) => (
+                  <div
+                    key={`${holding.symbol || 'holding'}:${index}`}
+                    className="nexus-holding-row"
+                  >
+                    <strong>{holding.symbol || '-'}</strong>
+                    <span>{holding.name || '-'}</span>
+                    <span>{holding.market || '-'}</span>
+                    <span>{formatInvestmentNumber(holding.quantity, 4)}</span>
+                    <span>{formatInvestmentNumber(holding.average_cost, 4)}</span>
+                    <span>{holding.currency || '-'}</span>
+                  </div>
+                ))
+              )}
+              {hiddenHoldingCount > 0 ? (
+                <p className="nexus-empty-line">其餘 {hiddenHoldingCount} 檔已納入分析</p>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="nexus-surface nexus-composer">
+            <div className="nexus-section-head">
+              <span>投資分析</span>
+              <strong>{selectedAgentNames || '未選 AI'}</strong>
             </div>
             <textarea
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="輸入需求、錯誤訊息、想請 AI 協助整理或分析的內容..."
-              disabled={busy}
+              placeholder="輸入要交給 AI 群組的投資問題"
+              disabled={Boolean(busyAction)}
             />
-            <textarea
-              className="ai-app__context"
-              value={context}
-              onChange={(event) => setContext(event.target.value)}
-              placeholder="可選：貼上程式碼、日誌或額外背景..."
-              disabled={busy}
-            />
-            <div className="ai-app__actions">
+            <div className="nexus-action-row">
               <button
                 type="button"
-                className="ai-app__primary"
-                onClick={() => void submitToAi()}
-                disabled={busy}
+                className="nexus-primary"
+                onClick={() => void sendGroupMessage()}
+                disabled={Boolean(busyAction)}
               >
-                {busy ? '處理中...' : '送出 AI'}
+                {busyAction === 'send' ? '收集中...' : '送給選取 AI'}
               </button>
-              <button type="button" onClick={() => void copyPrompt()} disabled={busy || !draft.trim()}>
-                複製完整提示
+              <button
+                type="button"
+                onClick={() =>
+                  void investmentWatch.runInvestmentCommand(
+                    'investment_watch_gemini_quote_search',
+                    'Gemini 報價/搜尋'
+                  )
+                }
+                disabled={Boolean(busyAction)}
+              >
+                Gemini 報價
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void investmentWatch.runInvestmentCommand(
+                    'investment_watch_gpt_extract_filter',
+                    'GPT 特徵萃取'
+                  )
+                }
+                disabled={Boolean(busyAction)}
+              >
+                GPT 萃取
               </button>
             </div>
-            <p className="ai-app__message">{message}</p>
           </section>
 
-          <section className="ai-app__panel ai-app__answer">
-            <div className="ai-app__panel-head">
-              <span>回答內容</span>
-              <strong>{answer ? formatClock(Date.now()) : '待回覆'}</strong>
-            </div>
-            <pre>{answer || '送出 AI 需求後，回答會顯示在這裡。'}</pre>
+          <section className="nexus-thread" aria-label="群組訊息">
+            {messages.length === 0 ? (
+              <div className="nexus-empty">尚無訊息</div>
+            ) : (
+              messages.map((item) => (
+                <article key={item.message_id} className="nexus-message">
+                  <div className="nexus-message-head">
+                    <strong>你</strong>
+                    <span>{formatClock(item.created_at)}</span>
+                  </div>
+                  <p>{item.content}</p>
+                  <div className="nexus-response-list">
+                    {item.responses.map((response) => {
+                      const agent = agentsById.get(response.agent_id)
+                      return (
+                        <section key={response.response_id} className="nexus-response">
+                          <div>
+                            <strong>{agent?.name || response.agent_id}</strong>
+                            <span className={`nexus-chip nexus-chip--${response.status}`}>
+                              {responseLabel(response.status)}
+                            </span>
+                          </div>
+                          <pre>{response.content || response.error || '等待回覆'}</pre>
+                        </section>
+                      )
+                    })}
+                  </div>
+                </article>
+              ))
+            )}
           </section>
         </section>
+
+        <aside className="nexus-column nexus-column--right">
+          <section className="nexus-surface nexus-local-ai-status">
+            <div className="nexus-section-head">
+              <span>本地AI狀態</span>
+              <strong>{localAiStatus?.watch_status_label || '自動監測'}</strong>
+            </div>
+            <div className={`nexus-ai-score nexus-ai-score--${localAiStatus?.state || 'empty'}`}>
+              <strong>{localAiScore}</strong>
+              <span>{localAiStatusLabel}</span>
+            </div>
+            <p>{localAiRecommendation}</p>
+            <div className="nexus-local-ai-meta">
+              <span>{localAiStatus?.coverage_label || '等待持股資料'}</span>
+              <span>風險 {localAiStatus?.warning_count ?? 0}</span>
+              <span>重大 {localAiStatus?.critical_count ?? 0}</span>
+            </div>
+            {localAiActions.length > 0 ? (
+              <ul className="nexus-local-ai-actions">
+                {localAiActions.map((action) => (
+                  <li key={action}>{action}</li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="nexus-risk-board">
+              <span>風險預告</span>
+              {localAiWarnings.length === 0 ? (
+                <p>尚無風險預告</p>
+              ) : (
+                localAiWarnings.map((warning, index) => (
+                  <article
+                    key={`${warning.code || 'risk'}:${warning.symbol || index}`}
+                    className={`nexus-risk-row nexus-risk-row--${warning.severity || 'info'}`}
+                  >
+                    <strong>{warning.title || warning.code || '風險項目'}</strong>
+                    <span>{warning.detail || warning.action || '-'}</span>
+                  </article>
+                ))
+              )}
+            </div>
+            <div className="nexus-command-suggestions">
+              <span>命令提示</span>
+              <div>
+                {localAiCommands.length === 0 ? (
+                  <code>摘要 持股 離線</code>
+                ) : (
+                  localAiCommands.map((command) => <code key={command}>{command}</code>)
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="nexus-surface">
+            <div className="nexus-section-head">
+              <span>AI 分析紀錄</span>
+              <strong>{investmentWatch.investmentRuns.length}</strong>
+            </div>
+            <form
+              className="nexus-local-ai-command"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void investmentWatch.sendLocalRiskCommand()
+              }}
+            >
+              <label htmlFor="local-risk-command">本地輔助AI命令</label>
+              <input
+                id="local-risk-command"
+                value={investmentWatch.localRiskCommand}
+                onChange={(event) => investmentWatch.setLocalRiskCommand(event.target.value)}
+                placeholder={
+                  investmentWatch.investmentHoldings.length === 0
+                    ? '先上傳 Excel'
+                    : '輸入本地命令'
+                }
+                disabled={Boolean(busyAction) || investmentWatch.investmentHoldings.length === 0}
+              />
+              <button type="submit" className="nexus-sr-only">
+                送出本地輔助AI命令
+              </button>
+            </form>
+            {localAiCommandPreview ? (
+              <div className="nexus-command-result">
+                <span>最近命令結果</span>
+                <pre>{localAiCommandPreview}</pre>
+              </div>
+            ) : null}
+            <div className="nexus-run-list">
+              {latestInvestmentRuns.length === 0 ? (
+                <p className="nexus-empty-line">尚無紀錄</p>
+              ) : (
+                latestInvestmentRuns.map((run) => {
+                  const preview = (run.content || run.error || '').trim()
+                  return (
+                    <article key={run.run_id} className="nexus-run-row">
+                      <strong>{investmentRunLabel(run)}</strong>
+                      <span>
+                        {investmentStatusLabel(run.status)} · {formatInvestmentClock(run.created_at)}
+                      </span>
+                      {preview ? <pre className="nexus-run-preview">{preview}</pre> : null}
+                    </article>
+                  )
+                })
+              )}
+            </div>
+          </section>
+
+          <section className="nexus-surface">
+            <div className="nexus-section-head">
+              <span>共享記憶</span>
+              <strong>{memoryItems.length}</strong>
+            </div>
+            <textarea
+              className="nexus-memory-input"
+              value={memoryDraft}
+              onChange={(event) => setMemoryDraft(event.target.value)}
+              placeholder="輸入要保留的規則或背景"
+              disabled={Boolean(busyAction)}
+            />
+            <button type="button" onClick={() => void saveMemory()} disabled={Boolean(busyAction)}>
+              儲存記憶
+            </button>
+            <div className="nexus-memory-list">
+              {memoryItems.slice(0, 5).map((item) => (
+                <article key={item.memory_id} className="nexus-memory-row">
+                  <strong>{item.title}</strong>
+                  <p>{item.content}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="nexus-surface nexus-system">
+            <div className="nexus-section-head">
+              <span>系統</span>
+              <strong>{socketLabel}</strong>
+            </div>
+            <span>資料庫：{paths.database || '載入中'}</span>
+            <span>工作區：{paths.workspace || '載入中'}</span>
+            <span>Edge：{paths.profile || '載入中'}</span>
+            {safetyNotice ? <p>{safetyNotice}</p> : null}
+          </section>
+        </aside>
       </section>
     </main>
   )

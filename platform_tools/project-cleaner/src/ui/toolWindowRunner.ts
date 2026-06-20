@@ -24,10 +24,6 @@ type SendCommandResult = {
   message?: string
 }
 
-function isStandaloneToolWindow(): boolean {
-  return Boolean((window as any).gptBridge?.standaloneTool)
-}
-
 function useLocalBackendSocket() {
   const [status, setStatus] = useState('Disconnected')
   const socketRef = useRef<WebSocket | null>(null)
@@ -206,14 +202,16 @@ export function formatRunOutput(result: ToolRunResult | null): string {
     result.stderr ? `錯誤\n${result.stderr.trim()}` : '',
   ].filter(Boolean)
   if (parts.length > 0) return parts.join('\n\n')
-  return result.message || '工具已完成，沒有額外輸出。'
+  return result.message || '工具已完成，但沒有輸出。'
 }
 
 export function formatFileSize(size: number | null | undefined): string {
   if (typeof size !== 'number' || !Number.isFinite(size) || size < 0) return ''
   if (size < 1024) return `${size} B`
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`
+  if (size < 1024 * 1024 * 1024) {
+    return `${(size / 1024 / 1024).toFixed(1)} MB`
+  }
   return `${(size / 1024 / 1024 / 1024).toFixed(1)} GB`
 }
 
@@ -235,35 +233,13 @@ export async function openPath(payload: Record<string, unknown>): Promise<OpenPa
   if (window.gptBridge?.openPath) return await window.gptBridge.openPath(payload)
   return ((await (window as any).electron?.invoke?.('app:open-path', payload)) || {
     ok: false,
-    message: '目前環境不支援開啟路徑',
+    message: '目前環境不支援開啟路徑。',
   }) as OpenPathResult
 }
 
 export function useToolRunner(toolId: string, timeoutMs = 120000) {
   const { sendCommand, status: socketStatus } = useLocalBackendSocket()
   const queueRef = useRef<Promise<void>>(Promise.resolve())
-
-  useEffect(() => {
-    if (isStandaloneToolWindow()) return
-
-    sendCommand('toolbox_start_tool', {
-      tool_id: toolId,
-      source: 'tool_window',
-    })
-
-    const stopTool = () => {
-      sendCommand('toolbox_stop_tool', {
-        tool_id: toolId,
-        source: 'tool_window',
-      })
-    }
-
-    window.addEventListener('beforeunload', stopTool)
-    return () => {
-      window.removeEventListener('beforeunload', stopTool)
-      stopTool()
-    }
-  }, [sendCommand, toolId])
 
   const requestToolRun = useCallback(
     async (args: string[]) => {
@@ -289,7 +265,7 @@ export function useToolRunner(toolId: string, timeoutMs = 120000) {
             ok: false,
             tool_id: toolId,
             request_id: requestId,
-            message: sent.message || '後端尚未接收工具指令',
+            message: sent.message || '無法送出工具執行請求。',
           }
         }
         return await resultPromise
@@ -316,7 +292,7 @@ export function useToolRunner(toolId: string, timeoutMs = 120000) {
       source: 'tool_window',
     })
     if (!sent.ok && !sent.queued) {
-      return { ok: false, message: sent.message || '後端尚未接收停止指令' }
+      return { ok: false, message: sent.message || '無法送出停止工具請求。' }
     }
     return await resultPromise
   }, [sendCommand, toolId])

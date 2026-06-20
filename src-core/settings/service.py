@@ -13,6 +13,13 @@ from managers.subsystem_backup import ScopedBackupStore, directory_size_bytes
 from settings.config import load_config, save_config
 from settings.global_update_coordinator import GlobalUpdateCoordinator
 
+MAX_EXPORT_SOURCE_BYTES = 1024 * 1024
+MAX_EXPORT_LOG_FILES = 50
+MAX_ERROR_EXPORT_LINES = 2000
+MAX_ERROR_LINE_CHARS = 2000
+MAX_RUNTIME_EXPORT_FILES_PER_PREFIX = 5
+MAX_RUNTIME_EXPORT_TOTAL_BYTES = 128 * 1024 * 1024
+
 
 class SharedSettingsManager:
     """Shared settings and maintenance commands for developer-mode cards."""
@@ -518,35 +525,113 @@ class SharedSettingsManager:
             "message": "backup record deleted",
         }
 
-    def _export_logs(self) -> dict[str, Any]:
-        self.logs_root.mkdir(parents=True, exist_ok=True)
+    def _runtime_exports_dir(self) -> Path:
         export_dir = self.project_root / "runtime" / "exports"
         export_dir.mkdir(parents=True, exist_ok=True)
+        return export_dir
 
+    def _iter_runtime_logs(self) -> list[Path]:
+        self.logs_root.mkdir(parents=True, exist_ok=True)
+        return [
+            path
+            for path in sorted(self.logs_root.rglob("*"))
+            if path.is_file()
+        ][:MAX_EXPORT_LOG_FILES]
+
+    @staticmethod
+    def _read_tail_text(path: Path, max_bytes: int | None = None) -> tuple[str, bool]:
+        limit = max_bytes or MAX_EXPORT_SOURCE_BYTES
+        try:
+            size = path.stat().st_size
+            truncated = size > limit
+            with path.open("rb") as handle:
+                if truncated:
+                    handle.seek(-limit, os.SEEK_END)
+                data = handle.read(limit)
+        except OSError:
+            return "", False
+
+        text = data.decode("utf-8", errors="ignore")
+        if truncated:
+            text = f"[truncated to last {limit} bytes]\n{text}"
+        return text, truncated
+
+    def _prune_runtime_exports(self, export_dir: Path) -> dict[str, Any]:
+        patterns = (
+            "operation-logs-*.zip",
+            "error-logs-*.zip",
+            "error-lines-*.log",
+        )
+        candidates: list[Path] = []
+        deleted_files = 0
+        deleted_bytes = 0
+
+        for pattern in patterns:
+            files = sorted(
+                (path for path in export_dir.glob(pattern) if path.is_file()),
+                key=lambda path: path.stat().st_mtime,
+                reverse=True,
+            )
+            for old in files[MAX_RUNTIME_EXPORT_FILES_PER_PREFIX:]:
+                try:
+                    deleted_bytes += old.stat().st_size
+                    old.unlink()
+                    deleted_files += 1
+                except OSError:
+                    continue
+            candidates.extend(files[:MAX_RUNTIME_EXPORT_FILES_PER_PREFIX])
+
+        candidates = [path for path in candidates if path.exists()]
+        total_bytes = sum(path.stat().st_size for path in candidates if path.exists())
+        for old in sorted(candidates, key=lambda path: path.stat().st_mtime):
+            if total_bytes <= MAX_RUNTIME_EXPORT_TOTAL_BYTES:
+                break
+            try:
+                size = old.stat().st_size
+                old.unlink()
+                total_bytes -= size
+                deleted_bytes += size
+                deleted_files += 1
+            except OSError:
+                continue
+
+        return {"deleted_files": deleted_files, "deleted_bytes": deleted_bytes}
+
+    def _export_logs(self) -> dict[str, Any]:
+        export_dir = self._runtime_exports_dir()
         ts = time.strftime("%Y%m%d_%H%M%S")
         archive_path = export_dir / f"operation-logs-{ts}.zip"
         file_count = 0
+        truncated_files = 0
 
         with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as archive:
-            for path in sorted(self.logs_root.rglob("*")):
-                if not path.is_file():
-                    continue
-                rel = path.relative_to(self.logs_root)
-                archive.write(path, arcname=rel.as_posix())
+            archive.writestr(
+                "README.txt",
+                (
+                    "Runtime log export.\n"
+                    f"Each source log is limited to the last {MAX_EXPORT_SOURCE_BYTES} bytes.\n"
+                ),
+            )
+            for path in self._iter_runtime_logs():
+                rel = path.relative_to(self.logs_root).as_posix()
+                content, truncated = self._read_tail_text(path)
+                archive.writestr(rel, content)
                 file_count += 1
+                if truncated:
+                    truncated_files += 1
 
+        pruned = self._prune_runtime_exports(export_dir)
         return {
             "ok": True,
             "archive": str(archive_path),
             "file_count": file_count,
+            "truncated_files": truncated_files,
+            "pruned_exports": pruned,
             "message": "operation logs exported",
         }
 
     def _export_error_logs(self) -> dict[str, Any]:
-        self.logs_root.mkdir(parents=True, exist_ok=True)
-        export_dir = self.project_root / "runtime" / "exports"
-        export_dir.mkdir(parents=True, exist_ok=True)
-
+        export_dir = self._runtime_exports_dir()
         ts = time.strftime("%Y%m%d_%H%M%S")
         summary_path = export_dir / f"error-lines-{ts}.log"
         archive_path = export_dir / f"error-logs-{ts}.zip"
@@ -559,32 +644,38 @@ class SharedSettingsManager:
             "failure",
             "critical",
         )
-        matched_files: list[Path] = []
+        matched_sources: list[tuple[str, str]] = []
         matched_line_count = 0
+        truncated_files = 0
 
         with summary_path.open("w", encoding="utf-8", newline="\n") as summary:
             summary.write(f"# Error Log Export ({ts})\n")
+            summary.write(
+                f"# Scanned the last {MAX_EXPORT_SOURCE_BYTES} bytes of each log file.\n"
+            )
 
-            for path in sorted(self.logs_root.rglob("*")):
-                if not path.is_file():
-                    continue
+            for path in self._iter_runtime_logs():
+                if matched_line_count >= MAX_ERROR_EXPORT_LINES:
+                    break
 
-                try:
-                    content = path.read_text(encoding="utf-8", errors="ignore")
-                except OSError:
-                    continue
+                content, truncated = self._read_tail_text(path)
+                if truncated:
+                    truncated_files += 1
 
                 matches: list[str] = []
                 for line in content.splitlines():
                     lowered = line.lower()
-                    if any(marker in lowered for marker in markers):
-                        matches.append(line)
+                    if not any(marker in lowered for marker in markers):
+                        continue
+                    matches.append(line[:MAX_ERROR_LINE_CHARS])
+                    if matched_line_count + len(matches) >= MAX_ERROR_EXPORT_LINES:
+                        break
 
                 if not matches:
                     continue
 
                 rel = path.relative_to(self.logs_root).as_posix()
-                matched_files.append(path)
+                matched_sources.append((rel, content))
                 matched_line_count += len(matches)
                 summary.write(f"\n## {rel}\n")
                 for line in matches:
@@ -592,19 +683,23 @@ class SharedSettingsManager:
 
             if matched_line_count == 0:
                 summary.write("\nNo error lines found in current runtime logs.\n")
+            elif matched_line_count >= MAX_ERROR_EXPORT_LINES:
+                summary.write("\n[truncated: maximum error line count reached]\n")
 
         with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as archive:
             archive.write(summary_path, arcname=summary_path.name)
-            for path in matched_files:
-                rel = path.relative_to(self.logs_root).as_posix()
-                archive.write(path, arcname=f"source/{rel}")
+            for rel, content in matched_sources:
+                archive.writestr(f"source/{rel}", content)
 
+        pruned = self._prune_runtime_exports(export_dir)
         return {
             "ok": True,
             "archive": str(archive_path),
             "summary": str(summary_path),
-            "matched_files": len(matched_files),
+            "matched_files": len(matched_sources),
             "matched_lines": matched_line_count,
+            "truncated_files": truncated_files,
+            "pruned_exports": pruned,
             "message": "error logs exported",
         }
 

@@ -53,7 +53,19 @@ export const applicationInterfaceChecker: GovernanceChecker = {
     }
 
     const appContent = await fs.readFile(appEntry, 'utf8')
-    if (!appContent.includes("useState<ViewMode>('toolbox')")) {
+    const importsStandaloneToolUi =
+      appContent.includes("@/ui/DeveloperMode") ||
+      appContent.includes("@/ui/governance-rules") ||
+      appContent.includes('@platform-ui/ai-assistant')
+    const keepsLegacyViewSwitch =
+      appContent.includes('ViewMode') || appContent.includes('activeView')
+    if (
+      !appContent.includes('useToolboxApplications') ||
+      !appContent.includes('<ToolboxEntry') ||
+      !appContent.includes('應用程式啟動器') ||
+      importsStandaloneToolUi ||
+      keepsLegacyViewSwitch
+    ) {
       affectedFiles.push(path.relative(process.cwd(), appEntry))
     }
 
@@ -86,8 +98,8 @@ export const applicationInterfaceChecker: GovernanceChecker = {
       ruleId: 'G-UI-APP-001',
       passed,
       message: passed
-        ? 'Application interface is governed: UI shows 應用程式, loads ui/App, and renders through the developer-mode execution card layer.'
-        : 'Application interface drift detected. User-facing UI must use 應用程式, render through RuntimeToolCard, and avoid 工具箱 wording; internal toolbox IPC names may remain technical.',
+        ? 'Application interface is governed: GPTBridge is launcher-only, UI shows 應用程式, and standalone applications render through RuntimeToolCard.'
+        : 'Application interface drift detected. GPTBridge must stay launcher-only, user-facing UI must use 應用程式, render through RuntimeToolCard, and avoid 工具箱 wording; internal toolbox IPC names may remain technical.',
       affectedFiles: uniqueFiles,
       autofixAvailable: false,
     }

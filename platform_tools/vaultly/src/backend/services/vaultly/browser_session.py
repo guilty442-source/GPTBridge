@@ -91,6 +91,10 @@ class BrowserSessionManager:
             raise RuntimeError("Playwright is not available")
 
         self.shared_profile_dir.mkdir(parents=True, exist_ok=True)
+        browser_args = ["--disable-blink-features=AutomationControlled"]
+        if self.headless:
+            browser_args.append("--start-minimized")
+
         try:
             self.context = await self.playwright.chromium.launch_persistent_context(
                 user_data_dir=str(self.shared_profile_dir),
@@ -98,12 +102,13 @@ class BrowserSessionManager:
                 channel="msedge",
                 locale="zh-TW",
                 viewport=None,
-                args=["--disable-blink-features=AutomationControlled", "--start-minimized"],
+                args=browser_args,
             )
         except Exception as exc:
             if "profile" in str(exc).lower() or "used by another" in str(exc).lower():
                 raise RuntimeError(
-                    "BROWSER_LOCKED: Vaultly Edge profile is already in use. Close the existing Edge window first."
+                    "BROWSER_LOCKED: Vaultly 專用 Edge 登入工作階段正在被另一個視窗使用，"
+                    "請先關閉先前開啟的 Vaultly Edge 視窗後再重試。"
                 ) from exc
             raise
         self.context.on("close", lambda _context=None: self._mark_closed())

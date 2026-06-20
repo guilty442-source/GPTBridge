@@ -9,6 +9,22 @@ interface ApplicationOption {
   status: string
 }
 
+interface RescueDiagnostic {
+  ok?: boolean
+  path?: string
+  language?: string
+  size_bytes?: number
+  character_count?: number
+  line_count?: number
+  risk_level?: string
+  warnings?: string[]
+  test_targets?: string[]
+  test_command?: string
+  recommendations?: string[]
+  protected?: boolean
+  message?: string
+}
+
 type Operation =
   | 'idle'
   | 'loading'
@@ -22,8 +38,74 @@ type Operation =
 const DEFAULT_INSTRUCTION =
   '請檢查並優化此應用程式程式碼，修正錯誤並確保可在 Windows 11 穩定執行。若需要，請同時調整相關測試與專案設定。'
 
+const QUICK_INSTRUCTIONS = [
+  {
+    label: '錯誤修復',
+    value:
+      '請優先找出目前檔案會造成執行失敗、IPC 失敗、型別錯誤或測試失敗的原因，做最小必要修補並保留既有架構。',
+  },
+  {
+    label: '效能優化',
+    value:
+      '請檢查是否有重複計算、過度渲染、低效率 I/O 或可快取的流程，改成更高效但容易維護的寫法。',
+  },
+  {
+    label: '架構整理',
+    value:
+      '請依照現有專案分層規則整理此檔案責任邊界，降低耦合，不新增不必要抽象，並同步相關測試。',
+  },
+  {
+    label: '前端體驗',
+    value:
+      '請檢查此畫面的狀態、錯誤提示、按鈕可用性與版面密度，修正讓操作流程更清楚且不破壞現有設計。',
+  },
+]
+
 function formatClock(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString('zh-TW', { hour12: false })
+}
+
+function formatBytes(value?: number): string {
+  if (!Number.isFinite(value || 0) || !value) return '0 B'
+  if (value < 1024) return `${value} B`
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`
+  return `${(value / 1024 / 1024).toFixed(2)} MB`
+}
+
+function editorLanguage(path: string): string {
+  const extension = path.split('.').pop()?.toLowerCase()
+  if (extension === 'tsx' || extension === 'ts') return 'typescript'
+  if (extension === 'py') return 'python'
+  if (extension === 'json') return 'json'
+  if (extension === 'css') return 'css'
+  if (extension === 'html') return 'html'
+  return 'javascript'
+}
+
+function riskLabel(level?: string): string {
+  if (level === 'blocked') return '受保護'
+  if (level === 'warning') return '高風險'
+  if (level === 'attention') return '需注意'
+  if (level === 'ready') return '可救援'
+  return '未診斷'
+}
+
+function formatTestSummary(result: Record<string, unknown>): string {
+  const targets = Array.isArray(result.targets)
+    ? result.targets.map((item) => String(item)).filter(Boolean)
+    : []
+  const command = String(result.command || '')
+  const duration =
+    typeof result.duration_ms === 'number'
+      ? `${(result.duration_ms / 1000).toFixed(2)}s`
+      : ''
+  return [
+    targets.length ? `測試目標：${targets.join(', ')}` : '',
+    command ? `命令：${command}` : '',
+    duration ? `耗時：${duration}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 function normalizeApplications(payload: unknown): ApplicationOption[] {
@@ -70,17 +152,30 @@ export function AgentCoderWindowApp() {
   const [isDirty, setIsDirty] = useState(false)
   const [autoTest, setAutoTest] = useState(true)
   const [testOutput, setTestOutput] = useState('')
+  const [diagnostic, setDiagnostic] = useState<RescueDiagnostic | null>(null)
+  const [lastTestTargets, setLastTestTargets] = useState<string[]>([])
   const [operation, setOperation] = useState<Operation>('idle')
   const [message, setMessage] = useState('正在載入系統與應用程式清單...')
 
-  const selectedApplication = useMemo(
+  const applicationsById = useMemo(
     () =>
-      applications.find(
-        (application) => application.id === selectedApplicationId
+      new Map(
+        applications.map((application) => [application.id, application])
       ),
-    [applications, selectedApplicationId]
+    [applications]
+  )
+  const selectedApplication = useMemo(
+    () => applicationsById.get(selectedApplicationId),
+    [applicationsById, selectedApplicationId]
   )
   const busy = operation !== 'idle'
+  const draftLineCount = useMemo(
+    () => (codeDraft ? codeDraft.split(/\r\n|\r|\n/).length : 0),
+    [codeDraft]
+  )
+  const diagnosticTargets = diagnostic?.test_targets || lastTestTargets
+  const diagnosticWarnings = diagnostic?.warnings || []
+  const riskTone = diagnostic?.risk_level || 'unknown'
 
   const waitForIpcEvent = useCallback(
     (
@@ -165,6 +260,43 @@ export function AgentCoderWindowApp() {
     [sendCommand, waitForIpcEvent, waitForSocketReady]
   )
 
+  const diagnoseCode = useCallback(
+    async (path: string, content: string, options: { quiet?: boolean } = {}) => {
+      if (!path) return null
+      try {
+        const result = await sendCommandAndWait(
+          'app:diagnose-code',
+          'app:diagnose-code_result',
+          {
+            path,
+            content,
+          },
+          10000
+        )
+        const nextDiagnostic = result as RescueDiagnostic
+        setDiagnostic(nextDiagnostic)
+        if (!options.quiet) {
+          setMessage(
+            nextDiagnostic.ok === false
+              ? String(nextDiagnostic.message || '診斷失敗')
+              : `診斷完成：${riskLabel(nextDiagnostic.risk_level)} (${formatClock(Date.now())})`
+          )
+        }
+        return nextDiagnostic
+      } catch (error) {
+        const fallback = {
+          ok: false,
+          risk_level: 'warning',
+          message: error instanceof Error ? error.message : '診斷失敗',
+        }
+        setDiagnostic(fallback)
+        if (!options.quiet) setMessage(fallback.message)
+        return fallback
+      }
+    },
+    [sendCommandAndWait]
+  )
+
   const refreshApplications = useCallback(async () => {
     setOperation('loading')
     try {
@@ -220,10 +352,15 @@ export function AgentCoderWindowApp() {
           throw new Error(String(result.message || '開啟應用程式程式碼失敗'))
         }
 
+        const openedPath = String(result.file_path || '')
+        const openedContent = String(result.content || '')
         setSelectedApplicationId(application.id)
-        setCodePath(String(result.file_path || ''))
-        setCodeDraft(String(result.content || ''))
+        setCodePath(openedPath)
+        setCodeDraft(openedContent)
         setIsDirty(false)
+        setTestOutput('')
+        setLastTestTargets([])
+        void diagnoseCode(openedPath, openedContent, { quiet: true })
         setMessage(
           `已開啟 ${application.name} 程式碼 (${formatClock(Date.now())})`
         )
@@ -237,7 +374,7 @@ export function AgentCoderWindowApp() {
         setOperation('idle')
       }
     },
-    [sendCommandAndWait]
+    [diagnoseCode, sendCommandAndWait]
   )
 
   const handleOpenCode = () => {
@@ -302,6 +439,9 @@ export function AgentCoderWindowApp() {
 
       setCodePath(String(result.file_path || codePath))
       setIsDirty(false)
+      void diagnoseCode(String(result.file_path || codePath), codeDraft, {
+        quiet: true,
+      })
       setMessage(`程式碼已儲存 (${formatClock(Date.now())})`)
       return true
     } catch (error) {
@@ -338,9 +478,20 @@ export function AgentCoderWindowApp() {
       if (typeof suggestedFix === 'string' && suggestedFix !== codeDraft) {
         setCodeDraft(suggestedFix)
         setIsDirty(true)
+        void diagnoseCode(codePath, suggestedFix, { quiet: true })
       }
       const testOutputText = String(result.test_output || '')
-      if (testOutputText) setTestOutput(testOutputText)
+      if (testOutputText) {
+        const testResult =
+          typeof result.test_result === 'object' && result.test_result
+            ? (result.test_result as Record<string, unknown>)
+            : {}
+        setTestOutput(
+          [formatTestSummary(testResult), testOutputText]
+            .filter(Boolean)
+            .join('\n\n')
+        )
+      }
 
       setMessage(
         `${String(result.message || '強制介入完成')} (${formatClock(Date.now())})`
@@ -367,10 +518,19 @@ export function AgentCoderWindowApp() {
         },
         120000
       )
-      setTestOutput(String(result.output || ''))
+      const targets = Array.isArray(result.targets)
+        ? result.targets.map((item) => String(item)).filter(Boolean)
+        : []
+      setLastTestTargets(targets)
+      setTestOutput(
+        [formatTestSummary(result), String(result.output || '')]
+          .filter(Boolean)
+          .join('\n\n')
+      )
       if (result.ok === false) {
         throw new Error(String(result.message || '單元測試未通過'))
       }
+      void diagnoseCode(codePath, codeDraft, { quiet: true })
       setMessage(`單元測試已通過 (${formatClock(Date.now())})`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '單元測試失敗')
@@ -414,9 +574,24 @@ export function AgentCoderWindowApp() {
       if (typeof suggestedFix === 'string' && suggestedFix !== codeDraft) {
         setCodeDraft(suggestedFix)
         setIsDirty(true)
+        void diagnoseCode(codePath, suggestedFix, { quiet: true })
       }
       const testOutputText = String(result.test_output || '')
-      if (testOutputText) setTestOutput(testOutputText)
+      if (testOutputText) {
+        const testResult =
+          typeof result.test_result === 'object' && result.test_result
+            ? (result.test_result as Record<string, unknown>)
+            : {}
+        const targets = Array.isArray(testResult.targets)
+          ? testResult.targets.map((item) => String(item)).filter(Boolean)
+          : []
+        setLastTestTargets(targets)
+        setTestOutput(
+          [formatTestSummary(testResult), testOutputText]
+            .filter(Boolean)
+            .join('\n\n')
+        )
+      }
       const testOk =
         typeof result.test_ok === 'boolean'
           ? result.test_ok
@@ -433,132 +608,190 @@ export function AgentCoderWindowApp() {
     }
   }
 
+  const handleManualDiagnose = () => {
+    if (!codePath || busy) return
+    void diagnoseCode(codePath, codeDraft)
+  }
+
+  const applyQuickInstruction = (value: string) => {
+    setInstruction(value)
+  }
+
+  const diagnosticRows = [
+    ['狀態', riskLabel(riskTone)],
+    ['語言', diagnostic?.language || editorLanguage(codePath)],
+    ['行數', draftLineCount.toLocaleString('zh-TW')],
+    ['大小', formatBytes(diagnostic?.size_bytes)],
+    ['測試', diagnosticTargets.length ? diagnosticTargets.join(', ') : '尚未判定'],
+  ]
+
   return (
     <main className="agent-app">
       <header className="agent-app__header">
         <div>
-          <p className="agent-app__eyebrow">GPTBridge Application</p>
+          <p className="agent-app__eyebrow">GPTBridge Rescue</p>
           <h1>系統救援工具</h1>
-          <p>獨立管理應用程式程式碼、修補指令與單元測試。</p>
         </div>
-        <span
-          className={`agent-app__connection agent-app__connection--${socketStatus.toLowerCase()}`}
-        >
-          {socketStatus}
-        </span>
+        <div className="agent-app__header-status">
+          <span
+            className={`agent-app__connection agent-app__connection--${socketStatus.toLowerCase()}`}
+          >
+            {socketStatus}
+          </span>
+          <span
+            className={`agent-app__sync agent-app__sync--${isDirty ? 'dirty' : 'clean'}`}
+          >
+            {isDirty ? '未儲存' : '已同步'}
+          </span>
+        </div>
       </header>
 
       <section className="agent-app__workspace">
         <aside className="agent-app__sidebar">
-          <section className="agent-app__panel agent-app__combined-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Target Application */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="agent-app__panel-head" style={{ marginBottom: '0' }}>
-                <div>
-                  <span>目標應用程式</span>
-                  <strong>{selectedApplication?.name || '尚未選擇'}</strong>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void refreshApplications()}
-                  disabled={busy}
-                >
-                  重新整理
-                </button>
+          <section className={`agent-app__panel agent-app__panel--${riskTone}`}>
+            <div className="agent-app__panel-head">
+              <div>
+                <span>救援診斷</span>
+                <strong>{riskLabel(riskTone)}</strong>
               </div>
+              <button
+                type="button"
+                onClick={handleManualDiagnose}
+                disabled={busy || !codePath}
+              >
+                重新診斷
+              </button>
+            </div>
+            <dl className="agent-app__diagnostics">
+              {diagnosticRows.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+            {diagnosticWarnings.length ? (
+              <ul className="agent-app__warning-list">
+                {diagnosticWarnings.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : null}
+            {diagnostic?.recommendations?.length ? (
+              <p className="agent-app__hint">
+                {diagnostic.recommendations[0]}
+              </p>
+            ) : null}
+          </section>
 
-              <label>
-                <select
-                  value={selectedApplicationId}
-                  onChange={(event) =>
-                    setSelectedApplicationId(event.target.value)
-                  }
-                  disabled={busy || applications.length === 0}
-                  style={{ width: '100%', padding: '6px 10px' }}
-                >
-                  {applications.length === 0 ? (
-                    <option value="">尚無應用程式</option>
-                  ) : (
-                    applications.map((application) => (
-                      <option key={application.id} value={application.id}>
-                        {application.name}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </label>
+          <section className="agent-app__panel">
+            <div className="agent-app__panel-head">
+              <div>
+                <span>目標應用程式</span>
+                <strong>{selectedApplication?.name || '尚未選擇'}</strong>
+              </div>
+              <button
+                type="button"
+                onClick={() => void refreshApplications()}
+                disabled={busy}
+              >
+                重新整理
+              </button>
+            </div>
 
-              <div className="agent-app__create-row">
-                <input
-                  value={newApplicationName}
-                  onChange={(event) => setNewApplicationName(event.target.value)}
-                  placeholder="新應用程式中文名稱"
-                  disabled={busy}
-                  style={{ flex: 1 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleCreateApplication()}
-                  disabled={busy || !newApplicationName.trim()}
-                >
-                  建立
-                </button>
+            <label>
+              <select
+                value={selectedApplicationId}
+                onChange={(event) =>
+                  setSelectedApplicationId(event.target.value)
+                }
+                disabled={busy || applications.length === 0}
+              >
+                {applications.length === 0 ? (
+                  <option value="">尚無應用程式</option>
+                ) : (
+                  applications.map((application) => (
+                    <option key={application.id} value={application.id}>
+                      {application.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+
+            <div className="agent-app__create-row">
+              <input
+                value={newApplicationName}
+                onChange={(event) => setNewApplicationName(event.target.value)}
+                placeholder="新應用程式中文名稱"
+                disabled={busy}
+              />
+              <button
+                type="button"
+                onClick={() => void handleCreateApplication()}
+                disabled={busy || !newApplicationName.trim()}
+              >
+                建立
+              </button>
+            </div>
+          </section>
+
+          <section className="agent-app__panel">
+            <div className="agent-app__panel-head">
+              <div>
+                <span>修補指令</span>
+                <strong>指令控制</strong>
               </div>
             </div>
 
-            {/* 修補指令 */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="agent-app__panel-head" style={{ marginBottom: '0' }}>
-                <div>
-                  <span>修補指令</span>
-                  <strong>指令控制</strong>
-                </div>
-              </div>
-
-              <label>
-                <textarea
-                  value={instruction}
-                  onChange={(event) => setInstruction(event.target.value)}
-                  placeholder={DEFAULT_INSTRUCTION}
-                  disabled={busy}
-                  style={{ minHeight: '130px', resize: 'vertical' }}
-                />
-              </label>
-
-              <label className="agent-app__checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={autoTest}
-                  onChange={() => setAutoTest((current) => !current)}
-                  disabled={busy}
-                />
-                <span>修補後自動執行單元測試</span>
-              </label>
-
-              <div className="agent-app__action-row">
+            <div className="agent-app__quick-actions">
+              {QUICK_INSTRUCTIONS.map((item) => (
                 <button
+                  key={item.label}
                   type="button"
-                  className="agent-app__primary"
-                  onClick={() => void handleAgentReview()}
-                  disabled={busy || !codePath}
-                >
-                  {operation === 'reviewing' ? '系統救援工具處理中...' : '交給系統救援工具'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleAgentIntervention()}
-                  disabled={busy || !codePath}
-                >
-                  {operation === 'intervening' ? '介入中...' : '強制介入'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleRunUnitTests()}
+                  onClick={() => applyQuickInstruction(item.value)}
                   disabled={busy}
                 >
-                  {operation === 'testing' ? '測試中...' : '單元測試'}
+                  {item.label}
                 </button>
-              </div>
+              ))}
+            </div>
+
+            <label>
+              <textarea
+                value={instruction}
+                onChange={(event) => setInstruction(event.target.value)}
+                placeholder={DEFAULT_INSTRUCTION}
+                disabled={busy}
+              />
+            </label>
+
+            <label className="agent-app__checkbox-label">
+              <input
+                type="checkbox"
+                checked={autoTest}
+                onChange={() => setAutoTest((current) => !current)}
+                disabled={busy}
+              />
+              <span>修補後自動執行單元測試</span>
+            </label>
+
+            <div className="agent-app__action-row">
+              <button
+                type="button"
+                className="agent-app__primary"
+                onClick={() => void handleAgentReview()}
+                disabled={busy || !codePath}
+              >
+                {operation === 'reviewing' ? '處理中...' : '交給系統救援工具'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleAgentIntervention()}
+                disabled={busy || !codePath}
+              >
+                {operation === 'intervening' ? '介入中...' : '強制介入'}
+              </button>
             </div>
           </section>
 
@@ -600,12 +833,19 @@ export function AgentCoderWindowApp() {
                     ? '測試中...'
                     : '儲存並測試'}
               </button>
+              <button
+                type="button"
+                onClick={() => void handleRunUnitTests()}
+                disabled={busy || !codePath}
+              >
+                {operation === 'testing' ? '測試中...' : '單元測試'}
+              </button>
             </div>
           </div>
 
-          <div className="agent-app__code" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div className="agent-app__code">
             {!codePath ? (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+              <div className="agent-app__empty-editor">
                 開啟應用程式後，程式碼會顯示在這裡。
               </div>
             ) : (
@@ -613,7 +853,7 @@ export function AgentCoderWindowApp() {
                 height="100%"
                 theme="vs-dark"
                 path={codePath}
-                language={codePath.split('.').pop() === 'tsx' || codePath.split('.').pop() === 'ts' ? 'typescript' : codePath.split('.').pop() === 'py' ? 'python' : codePath.split('.').pop() === 'json' ? 'json' : codePath.split('.').pop() === 'css' ? 'css' : codePath.split('.').pop() === 'html' ? 'html' : 'javascript'}
+                language={editorLanguage(codePath)}
                 value={codeDraft}
                 onChange={(value) => {
                   if (value !== undefined) {
@@ -634,7 +874,7 @@ export function AgentCoderWindowApp() {
                   wordWrap: 'on',
                   formatOnPaste: true,
                   formatOnType: true,
-                  padding: { top: 16, bottom: 16 }
+                  padding: { top: 16, bottom: 16 },
                 }}
               />
             )}
@@ -642,6 +882,7 @@ export function AgentCoderWindowApp() {
 
           <footer className="agent-app__editor-foot">
             <span>{isDirty ? '有未儲存變更' : '程式碼已同步'}</span>
+            <span>{draftLineCount.toLocaleString('zh-TW')} 行</span>
             <span>{codeDraft.length.toLocaleString('zh-TW')} 字元</span>
           </footer>
         </section>
@@ -649,7 +890,12 @@ export function AgentCoderWindowApp() {
 
       {testOutput ? (
         <section className="agent-app__results">
-          <h2>測試結果</h2>
+          <div className="agent-app__results-head">
+            <div>
+              <h2>測試結果</h2>
+              <p>{lastTestTargets.length ? lastTestTargets.join(', ') : '最近一次執行結果'}</p>
+            </div>
+          </div>
           <pre>{testOutput}</pre>
         </section>
       ) : null}

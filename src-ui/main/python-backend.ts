@@ -125,6 +125,7 @@ function spawnBackendProcess(
         GPTBRIDGE_PROJECT_ROOT: paths.workspaceRoot,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     }
   )
 

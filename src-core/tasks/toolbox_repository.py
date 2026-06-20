@@ -80,7 +80,6 @@ class ToolboxRepository:
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     version = excluded.version,
-                    status = excluded.status,
                     enabled = excluded.enabled,
                     entry = excluded.entry,
                     description = excluded.description,
@@ -120,7 +119,6 @@ class ToolboxRepository:
                     ON CONFLICT(id) DO UPDATE SET
                         name = excluded.name,
                         version = excluded.version,
-                        status = excluded.status,
                         enabled = excluded.enabled,
                         entry = excluded.entry,
                         description = excluded.description,

@@ -28,6 +28,8 @@ export type BusyAction =
   | 'backup-auto'
   | 'backup-record'
   | 'backup-delete'
+  | 'cleanup-auto'
+  | 'cleanup-run'
   | 'logs-auto'
   | 'logs-export'
   | 'logs-export-errors'

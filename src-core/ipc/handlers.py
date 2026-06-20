@@ -19,6 +19,7 @@ GOVERNANCE_RULE_COMMANDS = {
 APP_CODE_COMMANDS = {
     "app:save-code",
     "app:delete-code",
+    "app:diagnose-code",
     "app:move-code",
     "app:update-config",
     "app:agent-intervention",
@@ -61,6 +62,7 @@ class CommandRouter:
         self._log_reporter: Any = None
 
         self.toolbox_service = kwargs.get("toolbox_service")
+        self.core_code_service = kwargs.get("core_code_service")
         self.developer_service = kwargs.get("developer_service")
         self.rescue_service = kwargs.get("rescue_service")
         self.settings_service = kwargs.get("settings_service")
@@ -76,7 +78,7 @@ class CommandRouter:
 
     async def handle(self, command: str, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
         if self.mode_manager and not self.mode_manager.can_execute_command(command):
-            return "command_blocked_result", {
+            return f"{command}_result", {
                 "ok": False,
                 "command": command,
                 "message": f"Command '{command}' is blocked in {self.mode_manager.active_mode} mode.",
@@ -165,33 +167,49 @@ class CommandRouter:
         if command not in APP_CODE_COMMANDS:
             return None
 
+        service = self.core_code_service
+        if service is None:
+            return f"{command}_result", {
+                "ok": False,
+                "message": "Core code service not available",
+            }
+
         if command == "app:save-code":
             rel_path = payload.get("path", "")
             content = payload.get("content", "")
-            result = await self.app.save_code_to_disk(rel_path, content)
+            result = await service.save_code_to_disk(rel_path, content)
             return "app:save-code_result", result
 
         if command == "app:delete-code":
             rel_path = payload.get("path", "")
-            result = await self.app.delete_code_from_disk(rel_path)
+            result = await service.delete_code_from_disk(rel_path)
             return "app:delete-code_result", result
+
+        if command == "app:diagnose-code":
+            rel_path = payload.get("path", "")
+            content = payload.get("content")
+            result = service.diagnose_code(
+                rel_path,
+                content if isinstance(content, str) else None,
+            )
+            return "app:diagnose-code_result", result
 
         if command == "app:move-code":
             src = payload.get("from", "")
             dst = payload.get("to", "")
-            result = await self.app.move_code_on_disk(src, dst)
+            result = await service.move_code_on_disk(src, dst)
             return "app:move-code_result", result
 
         if command == "app:update-config":
             key = payload.get("key", "")
             value = payload.get("value")
-            await self.app.update_config_value(key, value)
-            return "app:update-config_result", {"ok": True, "key": key}
+            result = await service.update_config_value(key, value)
+            return "app:update-config_result", result
 
         if command == "app:agent-intervention":
             rel_path = payload.get("path", "")
             content = payload.get("content", "")
-            result = await self.app.request_agent_intervention(rel_path, content)
+            result = await service.request_agent_intervention(rel_path, content)
             return "app:agent-intervention_result", result
 
         if command == "app:agent-instruct":
@@ -199,20 +217,24 @@ class CommandRouter:
             content = payload.get("content", "")
             instruction = payload.get("instruction", "")
             auto_test = payload.get("auto_test", True)
-            result = await self.app.instruct_agent_on_code(
+            result = await service.instruct_agent_on_code(
                 rel_path, content, instruction, auto_test
             )
             return "app:agent-instruct_result", result
 
         if command == "app:agent-execute-tool":
-            service = payload.get("service", "")
+            target_service_name = payload.get("service", "")
             cmd = payload.get("tool_command", "")
             args = payload.get("payload", {})
-            result = await self.app.execute_agent_tool_operation(service, cmd, args)
+            result = await service.execute_agent_tool_operation(
+                target_service_name,
+                cmd,
+                args,
+            )
             return "app:agent-execute-tool_result", result
 
         target_path = payload.get("path", "")
-        result = await self.app.run_unit_tests(target_path)
+        result = await service.run_unit_tests(target_path)
         return "app:run-unit-tests_result", result
 
     async def _handle_toolbox_command(

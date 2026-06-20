@@ -1,7 +1,7 @@
 {
   "id": "ai-assistant",
-  "name": "AI 協作工具",
-  "version": "1.0.0",
+  "name": "AI投資管家",
+  "version": "1.4.0",
   "status": "stopped",
   "enabled": true,
   "entry": "platform_tools/ai-assistant/src/main",
@@ -15,12 +15,16 @@
     "name": "ai-assistant",
     "console": true
   },
-  "description": "集中管理 AI 登入、提示內容與多來源回覆，與系統救援工具分離成獨立應用程式。",
+  "description": "AI投資管家：Excel 持股掃描品質、本地輔助AI風險預告、AI 群組推理與自動共享記憶。",
+  "has_custom_ui": true,
+  "test_targets": [
+    "tests/test_ai_assistant.py"
+  ],
   "window": {
-    "width": 1040,
-    "height": 760,
-    "minWidth": 860,
-    "minHeight": 620,
-    "title": "AI 協作工具"
+    "width": 1440,
+    "height": 920,
+    "minWidth": 1120,
+    "minHeight": 760,
+    "title": "AI投資管家"
   }
 }

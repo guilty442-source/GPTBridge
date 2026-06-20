@@ -137,6 +137,7 @@ COMMAND_RESULT_EVENTS = {
     "app:agent-instruct": "app:agent-instruct_result",
     "app:agent-intervention": "app:agent-intervention_result",
     "app:delete-code": "app:delete-code_result",
+    "app:diagnose-code": "app:diagnose-code_result",
     "app:delete-governance-rule": "app:delete-governance-rule_result",
     "app:get-governance-rules": "app:get-governance-rules_result",
     "app:set-governance-rules": "app:set-governance-rules_result",
@@ -477,10 +478,26 @@ async def run_server(app_instance, profile: str = "main", headless: bool = False
                 mode_manager = getattr(app_instance, "mode_manager", None)
                 active_mode = getattr(mode_manager, "active_mode", None)
                 ready = getattr(app_instance, "command_router", None) is not None and active_mode in {"safe", "full"}
+                services_info: dict[str, dict[str, str]] = {}
+                try:
+                    command_router = getattr(app_instance, "command_router", None)
+                    mode_services = getattr(command_router, "mode_services", {}) or {}
+                    for name, svc in mode_services.items():
+                        info: dict[str, str] = {
+                            "class": svc.__class__.__name__,
+                            "module": svc.__class__.__module__,
+                        }
+                        version = getattr(svc, "VERSION", None)
+                        if version:
+                            info["version"] = str(version)
+                        services_info[str(name)] = info
+                except Exception:
+                    services_info = {}
                 body = json.dumps(
                     {
                         "ok": ready,
                         "mode": active_mode,
+                        "services": services_info,
                         **startup_status,
                     },
                     ensure_ascii=False,

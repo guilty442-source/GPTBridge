@@ -2,6 +2,8 @@
 
 Project ID: `vaultly`
 
+新增：參考 Video Downloader & Story Saver 的「複製連結 / 貼上連結 / 批次快存」體驗，Vaultly 現在可直接貼上 Instagram / X 的貼文、Reel、Story 或 status 連結，預覽或下載到指定資料夾。
+
 Vaultly 2.3.2 是正式版主程式內的獨立下載中心。它使用 Vaultly 專屬的 Microsoft Edge 工作階段保留登入狀態；只有開啟「影音下載自動化」視窗後，才會啟動專屬瀏覽器；登入 Instagram 或 X 後，背景服務會自動開啟追蹤名單、掃描帳號、套用篩選，再讓使用者勾選帳號、設定條件並建立背景下載工作。
 
 ## 使用流程

@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.join(os.getcwd(), "src-core"))
 from orchestrator.autonomous_coder import AutonomousCodingAgent
 from orchestrator.development_rules import with_development_rules
 from main import GPTBridgeApp
+from tasks.core_code_service import CoreCodeService
 
 
 class FakeProvider:
@@ -62,6 +63,14 @@ def create_app(tmp_path, monkeypatch: pytest.MonkeyPatch) -> GPTBridgeApp:
     return app
 
 
+def create_core_code_service(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> CoreCodeService:
+    app = create_app(tmp_path, monkeypatch)
+    return CoreCodeService(app, tmp_path)
+
+
 def test_development_rules_are_idempotent() -> None:
     prompt = "請修正這個錯誤。"
     with_rules = with_development_rules(prompt)
@@ -110,7 +119,7 @@ async def test_run_unit_tests_maps_source_file_to_matching_test(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = create_app(tmp_path, monkeypatch)
+    service = create_core_code_service(tmp_path, monkeypatch)
     source = tmp_path / "src" / "sample.py"
     source.parent.mkdir()
     source.write_text("def answer():\n    return 42\n", encoding="utf-8")
@@ -121,11 +130,12 @@ async def test_run_unit_tests_maps_source_file_to_matching_test(
         encoding="utf-8",
     )
 
-    result = await app.run_unit_tests("src/sample.py")
+    result = await service.run_unit_tests("src/sample.py")
 
     assert result["ok"] is True
     assert result["targets"] == ["tests/test_sample.py"]
     assert "test_sample.py" in result["command"]
+    assert result["duration_ms"] >= 0
 
 
 @pytest.mark.asyncio
@@ -133,7 +143,7 @@ async def test_run_unit_tests_falls_back_to_project_tests(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = create_app(tmp_path, monkeypatch)
+    service = create_core_code_service(tmp_path, monkeypatch)
     source = tmp_path / "src" / "feature.py"
     source.parent.mkdir()
     source.write_text("VALUE = 1\n", encoding="utf-8")
@@ -144,10 +154,54 @@ async def test_run_unit_tests_falls_back_to_project_tests(
         encoding="utf-8",
     )
 
-    result = await app.run_unit_tests("src/feature.py")
+    result = await service.run_unit_tests("src/feature.py")
 
     assert result["ok"] is True
     assert result["targets"] == ["tests"]
+    assert result["duration_ms"] >= 0
+
+
+def test_diagnose_code_reports_rescue_metadata(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = create_core_code_service(tmp_path, monkeypatch)
+    source = tmp_path / "src" / "sample.py"
+    source.parent.mkdir()
+    source.write_text("def answer():\n    return 42\n", encoding="utf-8")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_sample.py").write_text(
+        "def test_sample():\n    assert True\n",
+        encoding="utf-8",
+    )
+
+    result = service.diagnose_code("src/sample.py")
+
+    assert result["ok"] is True
+    assert result["risk_level"] == "ready"
+    assert result["language"] == "python"
+    assert result["line_count"] == 2
+    assert result["test_targets"] == ["tests/test_sample.py"]
+    assert "pytest" in result["test_command"]
+    assert result["recommendations"]
+
+
+def test_diagnose_code_uses_type_check_for_tsx(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = create_core_code_service(tmp_path, monkeypatch)
+    source = tmp_path / "platform_tools" / "sample" / "src" / "ui" / "Sample.tsx"
+    source.parent.mkdir(parents=True)
+    source.write_text("export function Sample() { return null }\n", encoding="utf-8")
+
+    result = service.diagnose_code(str(source), content="export const value = 1\n")
+
+    assert result["ok"] is True
+    assert result["language"] == "typescript"
+    assert result["test_targets"] == ["type-check"]
+    assert "type-check" in result["test_command"]
 
 
 @pytest.mark.asyncio
@@ -157,6 +211,7 @@ async def test_agent_instruction_attaches_auto_test_result(
 ) -> None:
     app = create_app(tmp_path, monkeypatch)
     app.autonomous_agent = FakeAutonomousAgent()
+    service = CoreCodeService(app, tmp_path)
     source = tmp_path / "src" / "sample.py"
     source.parent.mkdir()
     source.write_text("print('old')\n", encoding="utf-8")
@@ -167,7 +222,7 @@ async def test_agent_instruction_attaches_auto_test_result(
         encoding="utf-8",
     )
 
-    result = await app.instruct_agent_on_code(
+    result = await service.instruct_agent_on_code(
         "src/sample.py",
         "print('old')\n",
         "fix it",

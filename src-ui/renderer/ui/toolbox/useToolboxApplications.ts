@@ -23,11 +23,11 @@ type SendCommand = (
 
 type WaitForIpcEvent = (
   eventName: string,
-  timeoutMs: number
+  timeoutMs: number,
+  predicate?: (payload: Record<string, unknown>) => boolean
 ) => Promise<Record<string, unknown>>
 
 type UseToolboxApplicationsOptions = {
-  activeView: string
   backendStatus: string
   sendCommand: SendCommand
   waitForIpcEvent: WaitForIpcEvent
@@ -52,7 +52,6 @@ function hasMissingProjectSizes(tools: ToolRuntimeState[]): boolean {
 }
 
 export function useToolboxApplications({
-  activeView,
   backendStatus,
   sendCommand,
   waitForIpcEvent,
@@ -169,11 +168,6 @@ export function useToolboxApplications({
   }, [refreshToolboxTools])
 
   useEffect(() => {
-    if (activeView !== 'toolbox' && activeView !== 'developer') return
-    void refreshToolboxTools()
-  }, [activeView, refreshToolboxTools])
-
-  useEffect(() => {
     const reloadEvents = new Set([
       'toolbox_add_tool_result',
       'toolbox_start_tool_result',
@@ -198,6 +192,23 @@ export function useToolboxApplications({
 
   const executeToolboxAction = useCallback(
     async (toolId: string, action: ToolAction) => {
+      const target = toolboxToolsRef.current.find((tool) => tool.id === toolId)
+      if (target?.launchable === false) {
+        setToolboxTools((prev) =>
+          prev.map((tool) =>
+            tool.id === toolId
+              ? {
+                  ...tool,
+                  status: 'stopped',
+                  updatedAt: Date.now(),
+                  note: '此項目不是可啟動的獨立應用程式。',
+                }
+              : tool
+          )
+        )
+        return
+      }
+
       setToolboxTools((prev) =>
         resolveToolboxToolAction(prev, toolId, action, 'pending')
       )
@@ -212,11 +223,24 @@ export function useToolboxApplications({
         action === 'start'
           ? '工具啟動失敗，請稍後再試。'
           : '工具停止失敗，請稍後再試。'
-
-      sendCommand(command, { tool_id: toolId })
+      const requestId = `${toolId}:${action}:${Date.now()}:${Math.random()
+        .toString(16)
+        .slice(2)}`
 
       try {
-        const result = await waitForIpcEvent(resultEvent, 10000)
+        const waitPromise = waitForIpcEvent(
+          resultEvent,
+          15000,
+          (payload) => String(payload.request_id || '') === requestId
+        )
+        const sendResult = sendCommand(command, {
+          tool_id: toolId,
+          request_id: requestId,
+        })
+        if (!sendResult.ok && !sendResult.queued) {
+          throw new Error(sendResult.message || failMessage)
+        }
+        const result = await waitPromise
         if (result.ok === false) {
           const message = String(result.message || failMessage)
           setToolboxTools((prev) =>

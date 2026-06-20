@@ -794,9 +794,11 @@ INSPECT_POST_SCRIPT = """
   }
   const elementVideos = [];
   const videoIds = new Set();
+  let videoPoster = '';
   for (const video of root?.querySelectorAll('video, video source') || []) {
     const src = video.currentSrc || video.src || video.getAttribute?.('src') || '';
     const poster = video.poster || video.getAttribute?.('poster') || '';
+    if (!videoPoster && poster) videoPoster = poster;
     for (const value of [src, poster]) {
       const match = value.match(/\\/(?:amplify_video(?:_thumb)?|ext_tw_video)\\/(\\d+)\\//i);
       if (match) videoIds.add(match[1]);
@@ -804,7 +806,7 @@ INSPECT_POST_SCRIPT = """
     const isInitSegment = /\\/(?:aud\\/mp4a|vid\\/avc1)\\/0\\/0\\//i.test(src);
     if (!src || src.startsWith('blob:') || isInitSegment || seen.has(src)) continue;
     seen.add(src);
-    elementVideos.push({ source_url: src, delivery: 'direct', observed_size: 0 });
+    elementVideos.push({ source_url: src, delivery: 'direct', observed_size: 0, thumbnail_url: poster });
   }
   const networkVideos = [];
   const networkPlaylists = [];
@@ -847,6 +849,7 @@ INSPECT_POST_SCRIPT = """
       media_type: 'video',
       source_url: primary.source_url,
       delivery: primary.delivery,
+      thumbnail_url: primary.thumbnail_url || videoPoster,
       fallback_urls: fallbackUrls
     });
   }

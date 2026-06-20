@@ -1,4 +1,4 @@
-# AI 協作工具
+# AI投資管家
 
 Project ID: `ai-assistant`
 
@@ -6,13 +6,14 @@ Project ID: `ai-assistant`
 
 `platform_tools/ai-assistant/src/ui/`
 
-此資料夾保留 AI 協作工具的應用程式 manifest、執行入口、前端視窗程式碼、設定、資產、紀錄與建置輸出，讓「應用程式」清單可以用標準 `platform_tools/<tool-id>/` 結構管理。
+此資料夾保留 AI投資管家的應用程式 manifest、執行入口、前端視窗程式碼、設定、資產、紀錄與建置輸出，讓「應用程式」清單可以用標準 `platform_tools/<tool-id>/` 結構管理。
 
 ## 角色
 
 - `manifest.json`：應用程式清單與入口定義。
 - `src/main.py`：正式子專案入口與診斷輸出。
-- `src/ui/`：AI 協作工具的視窗 TSX/CSS。
+- `src/ui/`：AI投資管家的視窗 TSX/CSS。
+- `src/backend/services/ai_nexus/`：群組 AI、共享記憶、任務看板與 Edge Session 後端服務。
 - `config/`：預留本工具專屬設定。
 - `assets/`：預留本工具專屬素材。
 - `logs/`：預留本工具專屬紀錄。
@@ -21,5 +22,6 @@ Project ID: `ai-assistant`
 ## 分離規則
 
 - AI 協作、登入網址、提示內容、多來源回覆都歸此應用程式。
+- AI Nexus 的群組聊天室能力已併入本工具，不再以獨立工具出現在應用程式清單。
 - 系統救援工具只負責應用程式程式碼修補、儲存與單元測試。
 - 後端入口盡量使用英文輸出，避免命令列環境產生中文亂碼。

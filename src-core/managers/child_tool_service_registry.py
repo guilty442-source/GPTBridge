@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +29,8 @@ class ChildToolServiceRegistry:
         definitions: list[ChildToolServiceDefinition] = []
         for tool_dir in sorted(self.workspace_root.iterdir(), key=lambda item: item.name.lower()):
             if not tool_dir.is_dir():
+                continue
+            if self._is_merged_tool(tool_dir):
                 continue
 
             services_root = tool_dir / "src" / "backend" / "services"
@@ -68,3 +71,14 @@ class ChildToolServiceRegistry:
     def _class_prefix(package_name: str) -> str:
         parts = re.split(r"[^0-9A-Za-z]+", package_name)
         return "".join(part[:1].upper() + part[1:] for part in parts if part)
+
+    @staticmethod
+    def _is_merged_tool(tool_dir: Path) -> bool:
+        manifest_path = tool_dir / "manifest.json"
+        if not manifest_path.exists():
+            return False
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        return bool(str(manifest.get("merged_into") or "").strip())

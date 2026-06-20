@@ -21,5 +21,5 @@ Project ID: `agent-coder`
 ## 分離規則
 
 - 系統救援工具只負責應用程式程式碼檢視、儲存、修補指令、強制介入與單元測試。
-- AI 協作功能歸 `platform_tools/ai-assistant` 與 AI 協作工具視窗。
+- AI 投資管理功能歸 `platform_tools/ai-assistant` 與 AI投資管家視窗。
 - 後端入口盡量使用英文輸出，避免命令列環境產生中文亂碼。

@@ -1,11 +1,12 @@
-﻿import { BackupToolCard } from './cards/BackupToolCard'
+import { zhTW } from '@/i18n/zhTW'
+import { BackupToolCard } from './cards/BackupToolCard'
+import { CleanupToolCard } from './cards/CleanupToolCard'
 import { LogToolCard } from './cards/LogToolCard'
 import { RuntimeToolCard } from './cards/RuntimeToolCard'
 import { SandboxToolCard } from './cards/SandboxToolCard'
 import { SystemSettingsCard } from './cards/SystemSettingsCard'
 import { UpdateToolCard } from './cards/UpdateToolCard'
 import type { ToolControlCenterState } from './controllers/useToolControlCenter'
-import { zhTW } from '@/i18n/zhTW'
 import type { ToolAction, ToolRuntimeState } from './types'
 
 interface ToolRuntimePanelProps {
@@ -68,6 +69,15 @@ export function ToolRuntimePanel({
           onDeleteBackupRecord={control.deleteBackupRecord}
           onStop={control.stopBackupTool}
           feedback={control.backupFeedback}
+        />
+
+        <CleanupToolCard
+          busyActions={control.busyActions}
+          intervalMinutes={control.cleanupIntervalMinutes}
+          onIntervalChange={control.setCleanupIntervalMinutes}
+          onStart={control.startCleanupTool}
+          onStop={control.stopCleanupTool}
+          feedback={control.cleanupFeedback}
         />
 
         <LogToolCard

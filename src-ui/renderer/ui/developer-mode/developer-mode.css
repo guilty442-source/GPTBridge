@@ -622,6 +622,22 @@
   padding: 10px;
 }
 
+.devm-tool-custom-launch {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.devm-tool-custom-launch:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.85);
+  outline-offset: 4px;
+}
+
 .devm-tool-top {
   display: flex;
   justify-content: space-between;
@@ -717,6 +733,18 @@
 .devm-tool-actions button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.devm-tool-inline-entry {
+  flex: 0 0 auto;
+  border: 1px solid rgba(125, 211, 252, 0.36);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #bae6fd;
+  background: rgba(14, 116, 144, 0.22);
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .devm-input-window {

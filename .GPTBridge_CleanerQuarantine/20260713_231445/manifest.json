@@ -1,0 +1,479 @@
+{
+  "created_at": "2026-07-13T15:14:45.898853+00:00",
+  "project_root": "E:\\GPTBridge",
+  "scope": "global",
+  "items": [
+    {
+      "original_path": ".pytest_cache",
+      "quarantine_path": ".pytest_cache",
+      "type": "directory",
+      "size_bytes": 12142,
+      "reason": "tool cache directory",
+      "risk": "low"
+    },
+    {
+      "original_path": ".GPTBridge_RuntimeSandbox/cache",
+      "quarantine_path": ".GPTBridge_RuntimeSandbox/cache",
+      "type": "directory",
+      "size_bytes": 0,
+      "reason": "generated cache directory",
+      "risk": "low"
+    },
+    {
+      "original_path": ".GPTBridge_RuntimeSandbox/temp",
+      "quarantine_path": ".GPTBridge_RuntimeSandbox/temp",
+      "type": "directory",
+      "size_bytes": 0,
+      "reason": "temporary working directory",
+      "risk": "low"
+    },
+    {
+      "original_path": "launcher/logs/launcher.log",
+      "quarantine_path": "launcher/logs/launcher.log",
+      "type": "file",
+      "size_bytes": 23144,
+      "reason": "log file older than 7 days",
+      "risk": "low"
+    },
+    {
+      "original_path": "platform_tools/ai-assistant/src/__pycache__",
+      "quarantine_path": "platform_tools/ai-assistant/src/__pycache__",
+      "type": "directory",
+      "size_bytes": 2063,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "platform_tools/ai-assistant/src/backend/services/ai_nexus/__pycache__",
+      "quarantine_path": "platform_tools/ai-assistant/src/backend/services/ai_nexus/__pycache__",
+      "type": "directory",
+      "size_bytes": 208077,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "platform_tools/ai-assistant/src/backend/services/ai_nexus/local_risk_ai/__pycache__",
+      "quarantine_path": "platform_tools/ai-assistant/src/backend/services/ai_nexus/local_risk_ai/__pycache__",
+      "type": "directory",
+      "size_bytes": 71261,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "platform_tools/file-sorter/src/__pycache__",
+      "quarantine_path": "platform_tools/file-sorter/src/__pycache__",
+      "type": "directory",
+      "size_bytes": 143283,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "platform_tools/project-cleaner/src/backend/__pycache__",
+      "quarantine_path": "platform_tools/project-cleaner/src/backend/__pycache__",
+      "type": "directory",
+      "size_bytes": 30262,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "platform_tools/vaultly/src/backend/services/vaultly/__pycache__",
+      "quarantine_path": "platform_tools/vaultly/src/backend/services/vaultly/__pycache__",
+      "type": "directory",
+      "size_bytes": 277901,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/AutofillAiModelCache/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/AutofillAiModelCache/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/AutofillStrikeDatabase/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/AutofillStrikeDatabase/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/BudgetDatabase/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/BudgetDatabase/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/ClientCertificates/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/ClientCertificates/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/commerce_subscription_db/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/commerce_subscription_db/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/discounts_db/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/discounts_db/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/discount_infos_db/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/discount_infos_db/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/EdgeCoupons/coupons_data.db/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/EdgeCoupons/coupons_data.db/LOG.old",
+      "type": "file",
+      "size_bytes": 512,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/EdgePushStorageWithConnectTokenAndKey/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/EdgePushStorageWithConnectTokenAndKey/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/Extension State/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/Extension State/LOG.old",
+      "type": "file",
+      "size_bytes": 320,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/Feature Engagement Tracker/AvailabilityDB/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/Feature Engagement Tracker/AvailabilityDB/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/Feature Engagement Tracker/EventDB/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/Feature Engagement Tracker/EventDB/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/File System/000/t/Paths/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/File System/000/t/Paths/LOG.old",
+      "type": "file",
+      "size_bytes": 295,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/File System/Origins/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/File System/Origins/LOG.old",
+      "type": "file",
+      "size_bytes": 328,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/IndexedDB/https_x.com_0.indexeddb.leveldb/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/IndexedDB/https_x.com_0.indexeddb.leveldb/LOG.old",
+      "type": "file",
+      "size_bytes": 372,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/Local Storage/leveldb/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/Local Storage/leveldb/LOG.old",
+      "type": "file",
+      "size_bytes": 359,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/optimization_guide_hint_cache_store/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/optimization_guide_hint_cache_store/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/parcel_tracking_db/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/parcel_tracking_db/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/PersistentOriginTrials/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/PersistentOriginTrials/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/Segmentation Platform/SegmentInfoDB/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/Segmentation Platform/SegmentInfoDB/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/Segmentation Platform/SignalDB/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/Segmentation Platform/SignalDB/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/Segmentation Platform/SignalStorageConfigDB/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/Segmentation Platform/SignalStorageConfigDB/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/Service Worker/Database/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/Service Worker/Database/LOG.old",
+      "type": "file",
+      "size_bytes": 336,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/Session Storage/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/Session Storage/LOG.old",
+      "type": "file",
+      "size_bytes": 582,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/shared_proto_db/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/shared_proto_db/LOG.old",
+      "type": "file",
+      "size_bytes": 320,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/shared_proto_db/metadata/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/shared_proto_db/metadata/LOG.old",
+      "type": "file",
+      "size_bytes": 338,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/Site Characteristics Database/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/Site Characteristics Database/LOG.old",
+      "type": "file",
+      "size_bytes": 348,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/Sync Data/LevelDB/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/Sync Data/LevelDB/LOG.old",
+      "type": "file",
+      "size_bytes": 324,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/browser-profiles/vaultly/shared/Default/VideoDecodeStats/LOG.old",
+      "quarantine_path": "runtime/browser-profiles/vaultly/shared/Default/VideoDecodeStats/LOG.old",
+      "type": "file",
+      "size_bytes": 0,
+      "reason": ".old file older than 14 days",
+      "risk": "medium"
+    },
+    {
+      "original_path": "runtime/logs/error.log",
+      "quarantine_path": "runtime/logs/error.log",
+      "type": "file",
+      "size_bytes": 7958,
+      "reason": "log file older than 7 days",
+      "risk": "low"
+    },
+    {
+      "original_path": "runtime/logs/info.log",
+      "quarantine_path": "runtime/logs/info.log",
+      "type": "file",
+      "size_bytes": 11106,
+      "reason": "log file older than 7 days",
+      "risk": "low"
+    },
+    {
+      "original_path": "scripts/__pycache__",
+      "quarantine_path": "scripts/__pycache__",
+      "type": "directory",
+      "size_bytes": 17606,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/__pycache__",
+      "quarantine_path": "src-core/__pycache__",
+      "type": "directory",
+      "size_bytes": 42574,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/core/__pycache__",
+      "quarantine_path": "src-core/core/__pycache__",
+      "type": "directory",
+      "size_bytes": 18749,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/core_system/__pycache__",
+      "quarantine_path": "src-core/core_system/__pycache__",
+      "type": "directory",
+      "size_bytes": 10060,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/governance/__pycache__",
+      "quarantine_path": "src-core/governance/__pycache__",
+      "type": "directory",
+      "size_bytes": 12184,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/governance/rules/__pycache__",
+      "quarantine_path": "src-core/governance/rules/__pycache__",
+      "type": "directory",
+      "size_bytes": 14405,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/ipc/__pycache__",
+      "quarantine_path": "src-core/ipc/__pycache__",
+      "type": "directory",
+      "size_bytes": 101798,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/managers/__pycache__",
+      "quarantine_path": "src-core/managers/__pycache__",
+      "type": "directory",
+      "size_bytes": 143172,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/modes/__pycache__",
+      "quarantine_path": "src-core/modes/__pycache__",
+      "type": "directory",
+      "size_bytes": 14998,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/modes/design/__pycache__",
+      "quarantine_path": "src-core/modes/design/__pycache__",
+      "type": "directory",
+      "size_bytes": 18221,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/orchestrator/__pycache__",
+      "quarantine_path": "src-core/orchestrator/__pycache__",
+      "type": "directory",
+      "size_bytes": 42710,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/patch_engine/__pycache__",
+      "quarantine_path": "src-core/patch_engine/__pycache__",
+      "type": "directory",
+      "size_bytes": 6081,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/providers/__pycache__",
+      "quarantine_path": "src-core/providers/__pycache__",
+      "type": "directory",
+      "size_bytes": 50649,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/settings/__pycache__",
+      "quarantine_path": "src-core/settings/__pycache__",
+      "type": "directory",
+      "size_bytes": 115775,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/tasks/__pycache__",
+      "quarantine_path": "src-core/tasks/__pycache__",
+      "type": "directory",
+      "size_bytes": 195510,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "src-core/utils/__pycache__",
+      "quarantine_path": "src-core/utils/__pycache__",
+      "type": "directory",
+      "size_bytes": 10891,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    },
+    {
+      "original_path": "tests/__pycache__",
+      "quarantine_path": "tests/__pycache__",
+      "type": "directory",
+      "size_bytes": 781605,
+      "reason": "python bytecode cache",
+      "risk": "low"
+    }
+  ]
+}

@@ -9,6 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src-ui/renderer'),
+      '@platform-ui': resolve(__dirname, 'src-ui/platform-tools'),
       '@resources': resolve(__dirname, 'resources'),
     },
   },

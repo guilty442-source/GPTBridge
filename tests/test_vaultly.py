@@ -29,6 +29,7 @@ from vaultly.adapters import (
     PlatformAdapter,
     is_star_candidate_account,
 )
+from vaultly.browser_session import BrowserSessionManager
 from vaultly.repository import VaultlyRepository
 from vaultly.rules import (
     build_download_filename,
@@ -97,6 +98,323 @@ def test_repository_persists_accounts_selection_and_jobs(tmp_path: Path) -> None
     assert job is not None
     assert job["preview_only"] is True
     assert job["conditions"]["max_items_per_account"] == 7
+
+    link_conditions = normalize_conditions({"media_types": ["video"]})
+    link_conditions["source"] = "links"
+    link_conditions["link_targets"] = [
+        {
+            "platform": "instagram",
+            "url": "https://www.instagram.com/reel/abc123",
+        }
+    ]
+    repository.create_link_job(
+        "link-job-1",
+        ["https://www.instagram.com/reel/abc123"],
+        link_conditions,
+        "",
+        True,
+    )
+    link_job = repository.get_job("link-job-1")
+
+    assert link_job is not None
+    assert link_job["preview_only"] is True
+    assert link_job["progress_total"] == 1
+    assert link_job["account_ids"] == ["https://www.instagram.com/reel/abc123"]
+    assert link_job["conditions"]["source"] == "links"
+
+
+def test_service_reports_download_automation_summary(tmp_path: Path) -> None:
+    service = VaultlyService(tmp_path, session=object())
+    service.repository.create_job(
+        "job-running",
+        ["instagram:sample.user", "instagram:verified.star"],
+        normalize_conditions({"media_types": ["video"]}),
+        "",
+        False,
+    )
+    service.repository.update_job(
+        "job-running",
+        status="running",
+        progress_current=1,
+        progress_total=2,
+        matched=5,
+        downloaded=3,
+        skipped=1,
+        failed=1,
+        started_at=datetime(2026, 6, 4, 12, 0, tzinfo=timezone.utc).isoformat(),
+    )
+    job = service.repository.get_job("job-running")
+
+    assert job is not None
+    summary = service._job_automation_summary(job)
+    assert summary["progress_percent"] == 50
+    assert summary["success_rate"] == 75
+    assert summary["failure_rate"] == 25
+
+    jobs = service._jobs_with_automation([job])
+    automation = service._download_automation_summary(jobs, [])
+    assert automation["running_jobs"] == 1
+    assert automation["queue_depth"] == 0
+    assert automation["total_downloaded"] == 3
+    assert automation["total_failed"] == 1
+    assert automation["retry_attempts"] == service.DOWNLOAD_RETRY_ATTEMPTS
+    assert automation["max_media_bytes"] == service.MAX_MEDIA_BYTES
+
+
+def test_service_unique_download_path_preserves_existing_file(tmp_path: Path) -> None:
+    service = VaultlyService(tmp_path, session=object())
+    original = tmp_path / "sample.mp4"
+    first_conflict = tmp_path / "sample-1.mp4"
+    original.write_bytes(b"original")
+    first_conflict.write_bytes(b"conflict")
+
+    candidate = service._unique_download_path(original)
+
+    assert candidate == tmp_path / "sample-2.mp4"
+    assert original.read_bytes() == b"original"
+    assert first_conflict.read_bytes() == b"conflict"
+
+
+def test_service_destination_health_reports_writable_folder(tmp_path: Path) -> None:
+    service = VaultlyService(tmp_path, session=object())
+
+    healthy = service._destination_health(str(tmp_path))
+    missing = service._destination_health(str(tmp_path / "missing"))
+
+    assert healthy["ok"] is True
+    assert healthy["exists"] is True
+    assert healthy["is_dir"] is True
+    assert healthy["writable"] is True
+    assert healthy["free_bytes"] >= 0
+    assert missing["ok"] is False
+    assert missing["message"] == "下載資料夾不存在"
+
+
+@pytest.mark.asyncio
+async def test_service_retry_job_requeues_original_conditions(tmp_path: Path) -> None:
+    service = VaultlyService(tmp_path, session=object())
+    service.repository.upsert_accounts([sample_account()])
+    service.repository.create_job(
+        "job-failed",
+        ["instagram:sample.user"],
+        normalize_conditions({"media_types": ["video"], "max_items_per_account": 3}),
+        str(tmp_path),
+        False,
+    )
+    service.repository.update_job(
+        "job-failed",
+        status="failed",
+        message="network failed",
+        finished_at=datetime(2026, 6, 4, 12, 0, tzinfo=timezone.utc).isoformat(),
+    )
+    scheduled: list[str] = []
+    service._schedule_job = scheduled.append  # type: ignore[method-assign]
+
+    result = await service._retry_job({"job_id": "job-failed"})
+
+    assert result["ok"] is True
+    assert scheduled == [result["job_id"]]
+    retry = service.repository.get_job(str(result["job_id"]))
+    assert retry is not None
+    assert retry["status"] == "queued"
+    assert retry["destination"] == str(tmp_path.resolve())
+    assert retry["account_ids"] == ["instagram:sample.user"]
+    assert retry["conditions"]["max_items_per_account"] == 3
+
+
+def test_repository_persists_post_library_and_media(tmp_path: Path) -> None:
+    repository = VaultlyRepository(tmp_path)
+    account = sample_account()
+    repository.upsert_accounts([account])
+    post_url = "https://www.instagram.com/p/post-1/"
+
+    post_id = repository.upsert_post(
+        account,
+        {
+            "post_url": post_url,
+            "text": "New music post",
+            "published_at": "2026-06-21T12:00:00Z",
+            "likes": "1.2K likes",
+            "views": "4K views",
+        },
+        media_items=[
+            {
+                "media_type": "photo",
+                "source_url": "https://scontent.cdninstagram.com/media/photo.jpg",
+                "fallback_urls": [],
+            },
+            {
+                "media_type": "video",
+                "source_url": "https://scontent.cdninstagram.com/media/video.mp4",
+                "thumbnail_url": "https://scontent.cdninstagram.com/media/poster.jpg",
+                "fallback_urls": ["https://scontent.cdninstagram.com/media/master.m3u8"],
+                "delivery": "direct",
+            },
+        ],
+        scan_status="ready",
+    )
+    repository.record_download(
+        "downloaded-post-media",
+        "instagram",
+        account["account_id"],
+        post_url,
+        "https://scontent.cdninstagram.com/media/video.mp4",
+        str(tmp_path / "video.mp4"),
+        "sha",
+    )
+
+    posts = repository.list_posts()
+
+    assert len(posts) == 1
+    assert posts[0]["post_id"] == post_id
+    assert posts[0]["account_handle"] == "sample.user"
+    assert posts[0]["text"] == "New music post"
+    assert posts[0]["scan_status"] == "ready"
+    assert posts[0]["media_count"] == 2
+    assert posts[0]["downloadable_count"] == 2
+    assert posts[0]["downloaded_count"] == 1
+    assert posts[0]["thumbnail_url"] == "https://scontent.cdninstagram.com/media/poster.jpg"
+    assert [media["media_type"] for media in posts[0]["media"]] == ["photo", "video"]
+    assert posts[0]["media"][1]["fallback_urls"] == [
+        "https://scontent.cdninstagram.com/media/master.m3u8"
+    ]
+
+    repository.upsert_post(
+        account,
+        {
+            "post_url": "https://www.instagram.com/p/post-2/",
+            "text": "Photo only post",
+        },
+        media_items=[
+            {
+                "media_type": "photo",
+                "source_url": "https://scontent.cdninstagram.com/media/second.jpg",
+            }
+        ],
+        scan_status="ready",
+    )
+
+    assert repository.count_posts(query="music") == 1
+    assert repository.count_posts(platform="instagram", status="ready") == 2
+    assert len(repository.list_posts(limit=1, offset=0)) == 1
+    assert len(repository.list_posts(limit=1, offset=1)) == 1
+    assert repository.queue_account_scans([account["account_id"]]) == 1
+    schedule = repository.get_account_scan_schedule(account["account_id"])
+    assert schedule is not None
+    assert schedule["status"] == "queued"
+    assert schedule["priority"] >= 90
+
+
+def test_vaultly_quick_save_link_normalization() -> None:
+    links = VaultlyService._payload_links(
+        "\n".join(
+            [
+                "https://www.instagram.com/reel/abc123/?utm_source=copy",
+                "https://x.com/sample/status/12345",
+                "https://example.com/not-supported",
+                "https://www.instagram.com/reel/abc123/?utm_source=copy",
+            ]
+        )
+    )
+    targets = VaultlyService._normalize_link_targets(links)
+
+    assert targets == [
+        {
+            "platform": "instagram",
+            "url": "https://www.instagram.com/reel/abc123",
+        },
+        {
+            "platform": "x",
+            "url": "https://x.com/sample/status/12345",
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_service_scan_posts_indexes_browsable_posts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeSession:
+        async def ensure_external_page(self, *_args: object) -> object:
+            return object()
+
+    class FakeAdapter:
+        def __init__(self) -> None:
+            self.requested_limit = 0
+
+        async def discover_posts(
+            self,
+            _page: object,
+            profile_url: str,
+            limit: int,
+        ) -> list[dict[str, str]]:
+            assert profile_url == "https://www.instagram.com/sample.user/"
+            self.requested_limit = limit
+            return [
+                {
+                    "post_url": "https://www.instagram.com/p/post-1/",
+                    "text": "Preview text",
+                    "published_at": "2026-06-21T12:00:00Z",
+                }
+            ]
+
+        async def inspect_post(
+            self,
+            _page: object,
+            post: dict[str, str],
+        ) -> dict[str, object]:
+            return {
+                **post,
+                "text": "Inspected post text",
+                "likes": "12 likes",
+                "views": "400 views",
+                "media": [
+                    {
+                        "media_type": "video",
+                        "source_url": "https://scontent.cdninstagram.com/media/video.mp4",
+                        "thumbnail_url": "https://scontent.cdninstagram.com/media/poster.jpg",
+                        "fallback_urls": [
+                            "https://scontent.cdninstagram.com/media/master.m3u8"
+                        ],
+                    }
+                ],
+            }
+
+    adapter = FakeAdapter()
+    monkeypatch.setattr("vaultly.service.get_adapter", lambda _platform: adapter)
+    service = VaultlyService(tmp_path, session=FakeSession())
+    service.repository.upsert_accounts([sample_account()])
+
+    result = await service._scan_posts(
+        {
+            "account_ids": ["instagram:sample.user"],
+            "limit_per_account": 5,
+        }
+    )
+    scan_task = service._post_scan_tasks[str(result["scan_job_id"])]
+    await asyncio.wait_for(scan_task, timeout=2)
+
+    posts = service.repository.list_posts()
+    scan_job = service.repository.get_post_scan_job(str(result["scan_job_id"]))
+    schedule = service.repository.get_account_scan_schedule("instagram:sample.user")
+    assert result["ok"] is True
+    assert result["status"] == "queued"
+    assert result["account_count"] == 1
+    assert scan_job is not None
+    assert scan_job["status"] == "completed"
+    assert scan_job["discovered"] == 1
+    assert scan_job["inspected"] == 1
+    assert scan_job["skipped_existing"] == 0
+    assert schedule is not None
+    assert schedule["status"] == "idle"
+    assert schedule["last_seen_post_url"] == "https://www.instagram.com/p/post-1/"
+    assert adapter.requested_limit == 5
+    assert len(posts) == 1
+    assert posts[0]["text"] == "Inspected post text"
+    assert posts[0]["downloadable_count"] == 1
+    assert posts[0]["scan_status"] == "ready"
+    assert posts[0]["media"][0]["media_type"] == "video"
 
 
 def test_repository_manages_filter_terms_removed_accounts_and_restore(
@@ -273,6 +591,7 @@ def test_inspect_script_supports_instagram_and_x_hls_without_init_segments() -> 
     assert "m3u8" in INSPECT_POST_SCRIPT
     assert "isInitSegment" in INSPECT_POST_SCRIPT
     assert "videoIds" in INSPECT_POST_SCRIPT
+    assert "thumbnail_url" in INSPECT_POST_SCRIPT
     assert "platform === 'x'" in INSPECT_POST_SCRIPT
     assert "fallback_urls" in INSPECT_POST_SCRIPT
 
@@ -321,8 +640,22 @@ def test_vaultly_ui_supports_search_selected_priority_and_larger_window() -> Non
         "platform_tools/vaultly/src/ui/VaultlyDownloadCenter.tsx"
     ).read_text(encoding="utf-8")
     main_source = Path("src-ui/main/index.ts").read_text(encoding="utf-8")
+    vaultly_html = Path("src-ui/platform-tools/entries/vaultly.html").read_text(
+        encoding="utf-8"
+    )
 
     assert "matchesAccountSearch" in ui_source
+    assert "貼文瀏覽" in ui_source
+    assert "vaultly_scan_posts" in ui_source
+    assert "vaultly_cancel_post_scan" in ui_source
+    assert "vaultly_check_destination" in ui_source
+    assert "vaultly_retry_job" in ui_source
+    assert "下載位置可用" in ui_source
+    assert "重跑" in ui_source
+    assert "post_scan_jobs" in ui_source
+    assert "索引已勾選貼文" in ui_source
+    assert "下一頁" in ui_source
+    assert "createPostJob" in ui_source
     assert "Number(selectedIds.has(right.account_id))" in ui_source
     assert "搜尋帳號、顯示名稱或平台" in ui_source
     assert "帳號搜尋" in ui_source
@@ -332,6 +665,7 @@ def test_vaultly_ui_supports_search_selected_priority_and_larger_window() -> Non
     assert "篩選名單只會加入你手動輸入的內容" in ui_source
     assert "被移除帳號紀錄（包含自動篩選）" in ui_source
     assert "removedSourceLabel" in ui_source
+    assert "img-src 'self' data: file: https:" in vaultly_html
     assert "app:open-tool-window" not in main_source
     assert "readPlatformToolWindowConfig" not in main_source
     assert "readChildToolWindowConfig" not in main_source
@@ -339,6 +673,7 @@ def test_vaultly_ui_supports_search_selected_priority_and_larger_window() -> Non
     tool_manifest = json.loads(
         Path("platform_tools/vaultly/manifest.json").read_text(encoding="utf-8")
     )
+    assert tool_manifest["version"] == "2.5.0"
     assert tool_manifest["runtime"]["entry"] == "src/main.py"
     assert tool_manifest["executable"]["path"] == "dist/vaultly.exe"
     assert tool_manifest["window"]["width"] == 1280
@@ -1031,6 +1366,7 @@ async def test_service_requires_existing_destination_without_creating_folders(
     tmp_path: Path,
 ) -> None:
     service = VaultlyService(tmp_path, session=None)
+    assert service.session.headless is False
     assert service.session.shared_profile_dir == (
         tmp_path / "runtime" / "browser-profiles" / "vaultly" / "shared"
     )
@@ -1074,7 +1410,7 @@ async def test_service_start_enables_background_auto_scan(tmp_path: Path) -> Non
 
 
 @pytest.mark.asyncio
-async def test_service_waits_for_vaultly_window_before_browser_work(
+async def test_service_waits_for_browser_request_before_browser_work(
     tmp_path: Path,
 ) -> None:
     scheduled_jobs: list[str] = []
@@ -1099,11 +1435,80 @@ async def test_service_waits_for_vaultly_window_before_browser_work(
 
     assert state["ok"] is True
     assert service._user_opened is True
-    assert scheduled_jobs == ["job-waiting"]
-    assert service._pending_start_job_ids == set()
+    assert scheduled_jobs == []
+    assert service._pending_start_job_ids == {"job-waiting"}
     assert service._auto_scan_state["instagram"]["message"] == "等待登入後自動掃描"
 
+    service._mark_browser_session_requested()
+
+    assert scheduled_jobs == ["job-waiting"]
+    assert service._pending_start_job_ids == set()
+
     await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_auto_scan_does_not_launch_browser_before_request(
+    tmp_path: Path,
+) -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.is_initialized = False
+            self.ensure_calls = 0
+
+        async def ensure_initialized(self) -> None:
+            self.ensure_calls += 1
+            self.is_initialized = True
+
+    session = FakeSession()
+    service = VaultlyService(tmp_path, session=session)
+    service._mark_user_opened()
+
+    before_request = await service._ensure_auto_scan_session()
+
+    assert before_request is False
+    assert session.ensure_calls == 0
+    assert service._auto_scan_state["instagram"]["message"] == "等待開啟登入頁後自動掃描"
+
+    service._mark_browser_session_requested()
+    after_request = await service._ensure_auto_scan_session()
+
+    assert after_request is True
+    assert session.ensure_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_browser_session_keeps_headed_login_window_visible(
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeContext:
+        pages: list[object] = []
+
+        def on(self, _event: str, _callback: object) -> None:
+            return None
+
+    class FakeChromium:
+        async def launch_persistent_context(self, **kwargs: object) -> FakeContext:
+            captured.update(kwargs)
+            return FakeContext()
+
+    class FakePlaywright:
+        chromium = FakeChromium()
+
+    manager = BrowserSessionManager(
+        profile_name="vaultly",
+        headless=False,
+        profile_root=tmp_path,
+    )
+    manager.playwright = FakePlaywright()
+    manager._initialized = True
+
+    await manager._ensure_context()
+
+    assert captured["headless"] is False
+    assert "--start-minimized" not in captured["args"]
 
 
 @pytest.mark.asyncio
@@ -1740,6 +2145,69 @@ def test_invalid_download_history_is_not_treated_as_completed(tmp_path: Path) ->
     assert is_valid_media_file(valid_video, "video")
     assert service._has_valid_download("invalid", "video") is False
     assert service._has_valid_download("valid", "video") is True
+
+
+@pytest.mark.asyncio
+async def test_service_retries_transient_direct_download_failure(tmp_path: Path) -> None:
+    valid_jpeg = sample_jpeg()
+
+    class FakeResponse:
+        def __init__(self, ok: bool, status: int, body: bytes) -> None:
+            self.ok = ok
+            self.status = status
+            self.headers = {
+                "content-type": "image/jpeg" if ok else "text/plain",
+                "content-length": str(len(body)),
+            }
+            self._body = body
+
+        async def body(self) -> bytes:
+            return self._body
+
+    class FakeRequest:
+        attempts = 0
+
+        async def get(
+            self,
+            _url: str,
+            headers: dict[str, str],
+            timeout: int,
+        ) -> FakeResponse:
+            assert headers["Referer"] == "https://www.instagram.com/p/post-1/"
+            assert timeout == 60_000
+            self.__class__.attempts += 1
+            if self.__class__.attempts == 1:
+                return FakeResponse(False, 500, b"temporary")
+            return FakeResponse(True, 200, valid_jpeg)
+
+    class FakePage:
+        class Context:
+            request = FakeRequest()
+
+        context = Context()
+
+    destination = tmp_path / "downloads"
+    destination.mkdir()
+    service = VaultlyService(tmp_path, session=object())
+    service.DOWNLOAD_RETRY_BACKOFF_SECONDS = 0
+
+    await service._download_media(
+        FakePage(),
+        {"destination": str(destination)},
+        sample_account(),
+        {"post_url": "https://www.instagram.com/p/post-1/"},
+        {
+            "media_type": "photo",
+            "source_url": "https://scontent.cdninstagram.com/media/photo.jpg",
+        },
+        "retry-photo",
+    )
+
+    downloaded_files = list(destination.iterdir())
+    assert FakeRequest.attempts == 2
+    assert len(downloaded_files) == 1
+    assert downloaded_files[0].read_bytes() == valid_jpeg
+    assert service.repository.get_download("retry-photo") is not None
 
 
 @pytest.mark.asyncio

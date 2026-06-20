@@ -14,7 +14,8 @@
     "types": ["node", "react", "react-dom", "vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src-ui/renderer/*"]
+      "@/*": ["src-ui/renderer/*"],
+      "@platform-ui/*": ["src-ui/platform-tools/*"]
     }
   },
   "include": [

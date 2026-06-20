@@ -4,6 +4,7 @@
   | 'app:agent-instruct'
   | 'app:agent-intervention'
   | 'app:delete-code'
+  | 'app:diagnose-code'
   | 'app:delete-governance-rule'
   | 'app:get-governance-rules'
   | 'app:get-mode-services-status'

@@ -1,7 +1,7 @@
 {
   "id": "file-sorter",
   "name": "自動化檔案管理",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "status": "stopped",
   "enabled": true,
   "entry": "platform_tools/file-sorter/src/main",
@@ -15,13 +15,14 @@
     "name": "file-sorter",
     "console": true
   },
-  "description": "支援開啟工具自動整理、偵測新檔案自動分類，既有關鍵字會自動更新並可跨硬碟分類。",
+  "description": "支援自動分類、關鍵字規則、跨硬碟目的地、媒體問題掃描與相似影片偵測；不再包含完全重複檔或相似圖片偵測。",
   "test_targets": [
-    "tests/test_file_sorter.py"
+    "tests/test_file_sorter.py",
+    "tests/test_file_sorter_cleanup.py"
   ],
   "window": {
-    "width": 920,
-    "height": 680,
+    "width": 1040,
+    "height": 780,
     "minWidth": 760,
     "minHeight": 560,
     "title": "自動化檔案管理"

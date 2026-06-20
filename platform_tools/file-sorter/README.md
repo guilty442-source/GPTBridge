@@ -13,6 +13,8 @@ Project ID: file-sorter
 - 外部指定資料夾不會被自動建立，必須先存在。
 - 自訂規則永久寫入工具設定 `src/keyword_rules.json`，由所有目標資料夾共用。
 - 無法分類的檔案會保留原位、不移動；同名檔案會自動加流水號避免覆蓋。
+- 已合併原清理工具的媒體掃描能力，可列出圖片方向候選、影片問題候選與相似影片。
+- 完全重複檔與相似圖片偵測已移除，不再提供相關 UI、CLI 或獨立工具入口。
 
 ```powershell
 .venv\Scripts\python.exe platform_tools/file-sorter/src/main.py <目標資料夾>
@@ -20,4 +22,5 @@ Project ID: file-sorter
 .venv\Scripts\python.exe platform_tools/file-sorter/src/main.py <目標資料夾> --upsert-keyword idol --folder E:\Archive\偶像
 .venv\Scripts\python.exe platform_tools/file-sorter/src/main.py <目標資料夾> --update-keyword old --new-keyword new --folder E:\Archive\new
 .venv\Scripts\python.exe platform_tools/file-sorter/src/main.py <目標資料夾> --list-source-files
+.venv\Scripts\python.exe platform_tools/file-sorter/src/main.py <目標資料夾> --cleanup-scan --similar-video-analysis --json
 ```

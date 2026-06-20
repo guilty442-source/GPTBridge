@@ -13,6 +13,31 @@ from .toolbox_repository import ToolboxRepository
 
 ToolEventCallback = Callable[[str, Dict[str, Any]], Awaitable[None]]
 
+def _background_subprocess_kwargs() -> dict[str, Any]:
+    if os.name != "nt":
+        return {}
+    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    if not creationflags:
+        return {}
+    return {"creationflags": creationflags}
+
+
+def _run_hidden_subprocess(
+    args: list[str],
+    *,
+    env: dict[str, str] | None = None,
+    timeout: float = 4,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        args,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=env,
+        **_background_subprocess_kwargs(),
+    )
+
+
 class ToolboxService:
     """Service for managing platform tools."""
     
@@ -114,6 +139,19 @@ class ToolboxService:
                 return candidate
         return Path(sys.executable)
 
+    def _forget_missing_tool(self, tool_id: str) -> None:
+        if re.match(r"^[a-z0-9_-]+$", tool_id):
+            self.repository.delete_tool(tool_id)
+
+    @staticmethod
+    def _missing_tool_result(tool_id: str) -> Dict[str, Any]:
+        return {
+            "ok": False,
+            "tool_id": tool_id,
+            "message": "舊應用程式資料已移除，請重新整理應用程式清單。",
+            "removed": True,
+        }
+
     def _tool_environment(self, tool_id: str, tool_dir: Path) -> dict[str, str]:
         child_env = os.environ.copy()
         child_env.pop("ELECTRON_RUN_AS_NODE", None)
@@ -130,7 +168,7 @@ class ToolboxService:
         if not tool_dir.exists() or not tool_dir.is_dir():
             return total
 
-        for root, dirs, files in os.walk(tool_dir):
+        for root, _dirs, files in os.walk(tool_dir):
             for filename in files:
                 path = Path(root) / filename
                 try:
@@ -320,18 +358,13 @@ class ToolboxService:
 
         tool_dir = self.tools_dir / tool_id
         if not tool_dir.exists():
-            create_result = await self.add_tool(
-                {
-                    "tool_id": tool_id,
-                    "tool_name": tool_name or tool_id,
-                }
-            )
-            if not create_result.get("ok"):
-                return create_result
+            self._forget_missing_tool(tool_id)
+            return self._missing_tool_result(tool_id)
 
         manifest_path = tool_dir / "manifest.json"
         if not manifest_path.exists():
-            return {"ok": False, "message": "Tool manifest not found"}
+            self._forget_missing_tool(tool_id)
+            return self._missing_tool_result(tool_id)
 
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -465,32 +498,104 @@ class ToolboxService:
 
     async def update_status(self, tool_id: str, status: str) -> Dict[str, Any]:
         manifest_path = self.tools_dir / tool_id / "manifest.json"
+        if not manifest_path.exists():
+            self._forget_missing_tool(tool_id)
+            return self._missing_tool_result(tool_id)
+
         updated_database = self.repository.update_status(tool_id, status)
-        if manifest_path.exists():
-            try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    manifest = json.load(f)
-                manifest["status"] = status
-                next_manifest_content = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
-
-                if self.enforcer:
-                    check = self.enforcer.can_modify_file(
-                        manifest_path,
-                        "toolbox",
-                        f"Updating status to {status}",
-                        next_manifest_content,
-                    )
-                    if not check.get("allowed", False):
-                        return self._governance_blocked(check)
-
-                manifest_path.write_text(next_manifest_content, encoding="utf-8", newline="\n")
-                self.repository.upsert_tool(self._manifest_to_record(manifest_path.parent, manifest))
-                return {"ok": True}
-            except Exception as e:
-                return {"ok": False, "message": str(e)}
         if updated_database:
             return {"ok": True}
+
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                self.repository.upsert_tool(self._manifest_to_record(manifest_path.parent, manifest))
+                if self.repository.update_status(tool_id, status):
+                    return {"ok": True}
+            except Exception as e:
+                return {"ok": False, "message": str(e)}
+
         return {"ok": False, "message": "Tool not found"}
+
+    @staticmethod
+    def _running_executable_process_ids(executable_file: Path) -> list[int]:
+        if os.name != "nt":
+            return []
+
+        env = os.environ.copy()
+        env["GPTBRIDGE_EXECUTABLE_PATH"] = str(executable_file.resolve())
+        command = (
+            "$target = [System.IO.Path]::GetFullPath($env:GPTBRIDGE_EXECUTABLE_PATH);"
+            "Get-CimInstance Win32_Process | "
+            "Where-Object { $_.ExecutablePath -and "
+            "([System.IO.Path]::GetFullPath($_.ExecutablePath)).Equals("
+            "$target, [System.StringComparison]::OrdinalIgnoreCase) } | "
+            "Select-Object -ExpandProperty ProcessId"
+        )
+
+        try:
+            completed = _run_hidden_subprocess(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    command,
+                ],
+                env=env,
+            )
+        except Exception:
+            return []
+
+        if completed.returncode != 0:
+            return []
+
+        process_ids: list[int] = []
+        for line in completed.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                process_ids.append(int(line))
+            except ValueError:
+                continue
+        return process_ids
+
+    @staticmethod
+    def _stop_running_executable(executable_file: Path) -> list[int]:
+        process_ids = ToolboxService._running_executable_process_ids(executable_file)
+        if os.name != "nt" or not process_ids:
+            return []
+
+        env = os.environ.copy()
+        env["GPTBRIDGE_PROCESS_IDS"] = ",".join(str(pid) for pid in process_ids)
+        command = (
+            "$ids = $env:GPTBRIDGE_PROCESS_IDS -split ',' | "
+            "Where-Object { $_ } | ForEach-Object { [int]$_ };"
+            "foreach ($id in $ids) { "
+            "Stop-Process -Id $id -Force -ErrorAction SilentlyContinue "
+            "};"
+            "$ids"
+        )
+
+        try:
+            _run_hidden_subprocess(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    command,
+                ],
+                env=env,
+            )
+        except Exception:
+            return []
+        return process_ids
 
     async def start_tool(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         tool_id = str(payload.get("tool_id", "")).strip()
@@ -506,7 +611,8 @@ class ToolboxService:
         tool_dir = (self.tools_dir / tool_id).resolve()
         manifest_path = tool_dir / "manifest.json"
         if not manifest_path.exists():
-            return {"ok": False, "tool_id": tool_id, "message": "Tool manifest not found"}
+            self._forget_missing_tool(tool_id)
+            return self._missing_tool_result(tool_id)
 
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -524,6 +630,19 @@ class ToolboxService:
                 "tool_id": tool_id,
                 "message": f"Standalone EXE not found. Run npm run package:tool -- {tool_id}",
                 "executable_path": str(executable_file),
+            }
+
+        running_process_ids = self._running_executable_process_ids(executable_file)
+        if running_process_ids:
+            status_result = await self.update_status(tool_id, "running")
+            if not status_result.get("ok"):
+                return status_result
+            return {
+                "ok": True,
+                "tool_id": tool_id,
+                "pid": running_process_ids[0],
+                "executable_path": str(executable_file),
+                "message": "Tool executable is already running",
             }
 
         raw_args = payload.get("args", [])
@@ -578,6 +697,24 @@ class ToolboxService:
             await terminate_process_tree(process)
             self._running_processes.pop(tool_id, None)
 
+        tool_dir = (self.tools_dir / tool_id).resolve()
+        manifest_path = tool_dir / "manifest.json"
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                executable_file = self._resolve_executable_file(manifest, tool_dir)
+                self._stop_running_executable(executable_file)
+            except Exception:
+                pass
+        else:
+            self._forget_missing_tool(tool_id)
+            return {
+                "ok": True,
+                "tool_id": tool_id,
+                "message": "舊應用程式資料已移除。",
+                "removed": True,
+            }
+
         status_result = await self.update_status(tool_id, "stopped")
         if not status_result.get("ok"):
             return status_result
@@ -597,7 +734,8 @@ class ToolboxService:
         tool_dir = (self.tools_dir / tool_id).resolve()
         manifest_path = tool_dir / "manifest.json"
         if not manifest_path.exists():
-            return {"ok": False, "message": "Tool manifest not found"}
+            self._forget_missing_tool(tool_id)
+            return self._missing_tool_result(tool_id)
 
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -620,6 +758,7 @@ class ToolboxService:
         if not isinstance(raw_args, list):
             return {"ok": False, "message": "args must be a list"}
         args = [str(item) for item in raw_args[:20]]
+        request_id = str(payload.get("request_id", "")).strip()
 
         try:
             timeout_seconds = int(manifest.get("timeout_seconds", 120))
@@ -662,6 +801,7 @@ class ToolboxService:
                         child_env=child_env,
                         timeout_seconds=timeout_seconds,
                         decode_bytes=_decode_bytes,
+                        request_id=request_id,
                         event_callback=event_callback,
                     )
                 )
@@ -704,6 +844,7 @@ class ToolboxService:
                 text=False,
                 timeout=timeout_seconds,
                 env=child_env,
+                **_background_subprocess_kwargs(),
             )
         except subprocess.TimeoutExpired as exc:
             return {
@@ -753,10 +894,11 @@ class ToolboxService:
         child_env: dict[str, str],
         timeout_seconds: int,
         decode_bytes: Callable[[bytes], tuple[str, str]],
+        request_id: str,
         event_callback: ToolEventCallback,
     ) -> tuple[int, str, str, str, str, bool]:
         progress_prefixes = (
-            "DUPLICATE_CLEANER_PROGRESS_JSON=",
+            "FILE_SORTER_CLEANUP_PROGRESS_JSON=",
             "INVESTMENT_MANAGER_PROGRESS_JSON=",
         )
         stdout_chunks: list[str] = []
@@ -772,6 +914,7 @@ class ToolboxService:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=child_env,
+            **_background_subprocess_kwargs(),
         )
         if process.pid:
             self._running_processes[tool_id] = process
@@ -800,13 +943,16 @@ class ToolboxService:
                     except json.JSONDecodeError:
                         continue
                     if isinstance(progress, dict):
+                        progress_payload = {
+                            "ok": True,
+                            "tool_id": tool_id,
+                            **progress,
+                        }
+                        if request_id:
+                            progress_payload["request_id"] = request_id
                         await event_callback(
                             "toolbox_run_tool_progress",
-                            {
-                                "ok": True,
-                                "tool_id": tool_id,
-                                **progress,
-                            },
+                            progress_payload,
                         )
                     continue
                 stdout_encoding = encoding
@@ -861,4 +1007,5 @@ class ToolboxService:
             shutil.rmtree(tool_dir)
             self.repository.delete_tool(tool_id)
             return {"ok": True, "message": f"Tool {tool_id} deleted successfully"}
-        return {"ok": False, "message": "Tool not found"}
+        self.repository.delete_tool(tool_id)
+        return {"ok": True, "message": f"Tool {tool_id} record removed", "removed": True}

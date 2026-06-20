@@ -22,6 +22,7 @@ class ModeManager:
     SAFE_MODE_ALLOWED_COMMANDS = {
         "app:agent-instruct",
         "app:agent-intervention",
+        "app:diagnose-code",
         "app:run-unit-tests",
         "app:get-governance-rules",
         "app:get-mode-services-status",
@@ -104,6 +105,12 @@ class ModeManager:
 
     def can_execute_command(self, command: str) -> bool:
         if self._active_mode == "safe":
+            for service in self._mode_services.values():
+                try:
+                    if hasattr(service, "owns") and service.owns(command):
+                        return True
+                except Exception:
+                    continue
             return command in self.SAFE_MODE_ALLOWED_COMMANDS
         return True
 
@@ -184,6 +191,7 @@ class ModeManager:
             history_manager=self.app.history_manager,
             orchestrator=self.app.orchestrator,
             autonomous_agent=self.app.autonomous_agent,
+            core_code_service=self.app.core_code_service,
             toolbox_service=self.app.toolbox_service,
             developer_service=self.app.developer_service,
             rescue_service=self.app.rescue_service,
@@ -226,6 +234,7 @@ class ModeManager:
             pass
 
     async def initialize_safe_mode(self) -> None:
+        await self.initialize_child_tool_services()
         self.app.command_router = CommandRouter(
             app=self.app,
             session=None,
@@ -235,6 +244,7 @@ class ModeManager:
             history_manager=self.app.history_manager,
             orchestrator=None,
             autonomous_agent=None,
+            core_code_service=self.app.core_code_service,
             toolbox_service=self.app.toolbox_service,
             developer_service=None,
             rescue_service=self.app.rescue_service,

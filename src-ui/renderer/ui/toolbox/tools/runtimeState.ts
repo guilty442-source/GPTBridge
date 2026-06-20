@@ -1,9 +1,9 @@
+import { zhTW } from '@/i18n/zhTW'
 import type {
   ToolAction,
-  ToolRuntimeStatus,
   ToolRuntimeState,
+  ToolRuntimeStatus,
 } from '@/ui/developer-mode/tools/types'
-import { zhTW } from '@/i18n/zhTW'
 import { toolboxToolRegistry } from './registry'
 
 interface ToolboxManifestPayload {
@@ -18,6 +18,9 @@ interface ToolboxManifestPayload {
   executable_path?: unknown
   executable_exists?: unknown
   project_size_bytes?: unknown
+  has_custom_ui?: unknown
+  hidden_from_toolbox?: unknown
+  merged_into?: unknown
 }
 
 interface ToolboxProjectSizePayload {
@@ -39,7 +42,7 @@ function normalizeStatus(status: unknown): ToolRuntimeStatus {
 }
 
 function noteForStatus(status: ToolRuntimeStatus, launchable: boolean): string {
-  if (!launchable) return '此工具僅供顯示，無法直接啟動'
+  if (!launchable) return '此功能在主程式內開啟，無需單獨啟動。'
   if (status === 'running') return zhTW.toolbox.status_running
   if (status === 'starting') return zhTW.toolbox.status_starting
   if (status === 'stopping') return zhTW.toolbox.status_stopping
@@ -60,14 +63,31 @@ function normalizeSizeBytes(value: unknown): number | undefined {
   return undefined
 }
 
+function normalizeBoolean(value: unknown): boolean {
+  if (value === true) return true
+  if (typeof value === 'string') {
+    return value.trim().toLowerCase() === 'true'
+  }
+  return false
+}
+
 export function createInitialToolboxRuntimeState(): ToolRuntimeState[] {
   const now = Date.now()
-  return toolboxToolRegistry.map((tool) => ({
-    ...tool,
-    status: 'stopped',
-    updatedAt: now,
-    note: noteForStatus('stopped', tool.launchable !== false),
-  }))
+  return toolboxToolRegistry
+    .filter(
+      (tool) =>
+        tool.hiddenFromToolbox !== true &&
+        tool.hidden_from_toolbox !== true &&
+        String(tool.mergedInto ?? tool.merged_into ?? '').trim() === ''
+    )
+    .map((tool) => ({
+      ...tool,
+      description: tool.description || tool.summary,
+      hasCustomUi: tool.hasCustomUi === true || tool.has_custom_ui === true,
+      status: 'stopped',
+      updatedAt: now,
+      note: noteForStatus('stopped', tool.launchable !== false),
+    }))
 }
 
 export function hydrateToolboxRuntimeStateFromBackend(
@@ -84,13 +104,24 @@ export function hydrateToolboxRuntimeStateFromBackend(
     if (!id) continue
 
     const registryTool = registryById.get(id)
+    if (
+      normalizeBoolean(manifest.hidden_from_toolbox) ||
+      String(manifest.merged_into ?? '').trim() !== '' ||
+      registryTool?.hiddenFromToolbox === true ||
+      registryTool?.hidden_from_toolbox === true ||
+      String(registryTool?.mergedInto ?? registryTool?.merged_into ?? '').trim() !== ''
+    ) {
+      continue
+    }
     const launchable = manifest.enabled !== false
     const effectiveLaunchable =
       registryTool?.launchable === false ? false : launchable
     const status = effectiveLaunchable
       ? normalizeStatus(manifest.status)
       : 'stopped'
-    const description = String(manifest.description ?? '').trim()
+    const description = String(
+      manifest.description ?? registryTool?.description ?? ''
+    ).trim()
     const name = String(manifest.name ?? registryTool?.name ?? id).trim() || id
     const folderPath = String(
       manifest.folder_path ?? registryTool?.folderPath ?? ''
@@ -98,8 +129,12 @@ export function hydrateToolboxRuntimeStateFromBackend(
     const manifestPath = String(
       manifest.manifest_path ?? registryTool?.manifestPath ?? ''
     ).trim()
-    const codePath = String(manifest.code_path ?? registryTool?.codePath ?? '').trim()
-    const executablePath = String(manifest.executable_path ?? registryTool?.executablePath ?? '').trim()
+    const codePath = String(
+      manifest.code_path ?? registryTool?.codePath ?? ''
+    ).trim()
+    const executablePath = String(
+      manifest.executable_path ?? registryTool?.executablePath ?? ''
+    ).trim()
     const executableExists =
       typeof manifest.executable_exists === 'boolean'
         ? manifest.executable_exists
@@ -107,21 +142,28 @@ export function hydrateToolboxRuntimeStateFromBackend(
     const projectSize =
       normalizeSizeBytes(manifest.project_size_bytes) ??
       normalizeSizeBytes(registryTool?.projectSizeBytes)
+    const hasCustomUi =
+      normalizeBoolean(manifest.has_custom_ui) ||
+      registryTool?.hasCustomUi === true ||
+      registryTool?.has_custom_ui === true
     const note =
       executableExists === false
-        ? '尚未打包 EXE，請先執行 npm run package:tool'
+        ? '找不到 EXE，請先執行 npm run package:tool。'
         : noteForStatus(status, effectiveLaunchable)
+    const summary = description || registryTool?.summary || `已載入工具：${id}`
 
     tools.push({
       id,
       name,
-      summary: description || registryTool?.summary || `已載入工具：${id}`,
+      summary,
+      description: description || summary,
       folderPath,
       manifestPath,
       codePath,
       executablePath,
       executableExists,
       projectSizeBytes: projectSize,
+      hasCustomUi,
       launchable: effectiveLaunchable,
       windowOnly: registryTool?.windowOnly,
       status,
@@ -131,9 +173,18 @@ export function hydrateToolboxRuntimeStateFromBackend(
   }
 
   for (const reserved of toolboxToolRegistry) {
+    if (
+      reserved.hiddenFromToolbox === true ||
+      reserved.hidden_from_toolbox === true ||
+      String(reserved.mergedInto ?? reserved.merged_into ?? '').trim() !== ''
+    ) {
+      continue
+    }
     if (tools.some((tool) => tool.id === reserved.id)) continue
     tools.push({
       ...reserved,
+      description: reserved.description || reserved.summary,
+      hasCustomUi: reserved.hasCustomUi === true || reserved.has_custom_ui === true,
       status: 'stopped',
       updatedAt: now,
       note: noteForStatus('stopped', reserved.launchable !== false),

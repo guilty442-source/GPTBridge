@@ -78,10 +78,9 @@ export const governanceRulesInterfaceChecker: GovernanceChecker = {
 
     const appContent = await readIfExists(appEntry)
     if (
-      !appContent.includes("@/ui/governance-rules") ||
-      !appContent.includes("'governance'") ||
-      !appContent.includes("activeView === 'governance'") ||
-      !appContent.includes('zhTW.governanceRulesPage.title')
+      appContent.includes("@/ui/governance-rules") ||
+      appContent.includes('GovernanceRulesPage') ||
+      appContent.includes("activeView === 'governance'")
     ) {
       affectedFiles.push(path.relative(process.cwd(), appEntry))
     }
@@ -142,8 +141,8 @@ export const governanceRulesInterfaceChecker: GovernanceChecker = {
       ruleId: 'G-UI-GOV-001',
       passed,
       message: passed
-        ? 'Governance rules are standalone, Chinese-visible, code-converting, and globally active.'
-        : 'Governance rules drift detected. Keep rules in ui/governance-rules, expose Chinese UI, convert Chinese input to code, and enforce global activation.',
+        ? 'Governance rules remain modular, Chinese-visible, code-converting, globally active, and detached from the launcher-only App.'
+        : 'Governance rules drift detected. Keep rules in ui/governance-rules, keep App launcher-only, preserve Chinese UI, convert Chinese input to code, and enforce global activation.',
       affectedFiles: uniqueFiles,
       autofixAvailable: false,
     }

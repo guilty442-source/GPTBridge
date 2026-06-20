@@ -1,7 +1,7 @@
 {
   "id": "project-cleaner",
   "name": "清理工具",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "status": "stopped",
   "enabled": true,
   "entry": "platform_tools/project-cleaner/src/main",
@@ -15,16 +15,16 @@
     "name": "project-cleaner",
     "console": true
   },
-  "description": "清理專案暫存、快取、日誌與過期輸出，功能程式碼歸屬 project-cleaner 專案。",
+  "description": "清理專案暫存、快取、日誌與過期輸出，支援 dry-run、隔離區、還原、健康分數、安全建議與隔離區 TTL 管理。",
   "timeout_seconds": 900,
   "test_targets": [
     "tests/test_settings_cleanup.py"
   ],
   "window": {
-    "width": 920,
-    "height": 640,
+    "width": 980,
+    "height": 720,
     "minWidth": 760,
-    "minHeight": 520,
+    "minHeight": 560,
     "title": "清理工具"
   }
 }

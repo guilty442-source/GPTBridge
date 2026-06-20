@@ -13,6 +13,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
+from cleanup import (  # noqa: E402
+    DEFAULT_ANALYSIS_SPEED,
+    DEFAULT_SIMILAR_VIDEO_THRESHOLD,
+    print_progress_event,
+    run_cleanup_scan,
+)
+
 
 RULES_VARIABLE_NAME = "KEYWORD_RULES"
 JSON_RULES_FILE_PATH = Path(__file__).with_name("keyword_rules.json")
@@ -528,6 +539,45 @@ def create_argument_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="列出目前目標資料夾根目錄中可整理的檔案，供自動偵測使用。",
     )
+    parser.add_argument(
+        "--cleanup-scan",
+        action="store_true",
+        help="執行合併後的清理掃描，不包含完全重複檔或相似圖片偵測。",
+    )
+    parser.add_argument(
+        "--image-cleanup",
+        action="store_true",
+        help="列出橫向或非直式圖片候選。",
+    )
+    parser.add_argument(
+        "--video-cleanup",
+        action="store_true",
+        help="列出影片問題候選。",
+    )
+    parser.add_argument(
+        "--similar-video-analysis",
+        action="store_true",
+        help="保留的相似影片偵測功能。",
+    )
+    parser.add_argument(
+        "--similar-video-threshold",
+        type=int,
+        default=DEFAULT_SIMILAR_VIDEO_THRESHOLD,
+        help="相似影片門檻，1 到 100。",
+    )
+    parser.add_argument(
+        "--analysis-speed",
+        type=int,
+        default=DEFAULT_ANALYSIS_SPEED,
+        help="分析速度，1 到 100；越高採樣越少。",
+    )
+    parser.add_argument("--no-parallel-analysis", action="store_true")
+    parser.add_argument("--json", action="store_true", help="輸出 JSON 報告。")
+    parser.add_argument(
+        "--progress-jsonl",
+        action="store_true",
+        help="輸出清理掃描進度事件。",
+    )
     return parser
 
 
@@ -535,6 +585,33 @@ def main() -> int:
     args = create_argument_parser().parse_args()
     try:
         target = resolve_target_dir(args.target_dir)
+        if args.cleanup_scan:
+            selected_cleanup = bool(
+                args.image_cleanup
+                or args.video_cleanup
+                or args.similar_video_analysis
+            )
+            report = run_cleanup_scan(
+                target,
+                image_cleanup=bool(args.image_cleanup),
+                video_cleanup=bool(
+                    args.video_cleanup
+                    or args.similar_video_analysis
+                    or not selected_cleanup
+                ),
+                similar_video_analysis=bool(
+                    args.similar_video_analysis or not selected_cleanup
+                ),
+                similar_video_threshold=args.similar_video_threshold,
+                analysis_speed=args.analysis_speed,
+                parallel_analysis=not bool(args.no_parallel_analysis),
+                progress_event_callback=(
+                    print_progress_event if args.progress_jsonl else None
+                ),
+            )
+            print(json.dumps(report, ensure_ascii=False, indent=2 if args.json else None))
+            return 0 if report.get("ok") is not False else 1
+
         if args.upsert_keyword:
             if not args.folder:
                 raise FileSorterError("新增或更新關鍵字時必須指定分類資料夾。")

@@ -46,6 +46,7 @@ export function RuntimeToolCard({
   stopLabel = '停止',
 }: RuntimeToolCardProps) {
   const active = tool.status === 'running' || tool.status === 'starting'
+  const launchable = tool.launchable !== false
   const startDisabled = active && !allowStartWhileActive
   const folderPath = tool.folderPath?.trim()
   const projectSize = formatBytes(tool.projectSizeBytes)
@@ -85,24 +86,28 @@ export function RuntimeToolCard({
         <span className="devm-tool-time">
           {tool.note} | 更新於 {formatClock(tool.updatedAt)}
         </span>
-        <div className="devm-tool-actions">
-          <button
-            type="button"
-            className="devm-tool-start"
-            disabled={startDisabled}
-            onClick={() => onToolAction(tool.id, 'start')}
-          >
-            {startLabel}
-          </button>
-          <button
-            type="button"
-            className="devm-tool-stop"
-            disabled={!active}
-            onClick={() => onToolAction(tool.id, 'stop')}
-          >
-            {stopLabel}
-          </button>
-        </div>
+        {launchable ? (
+          <div className="devm-tool-actions">
+            <button
+              type="button"
+              className="devm-tool-start"
+              disabled={startDisabled}
+              onClick={() => onToolAction(tool.id, 'start')}
+            >
+              {startLabel}
+            </button>
+            <button
+              type="button"
+              className="devm-tool-stop"
+              disabled={!active}
+              onClick={() => onToolAction(tool.id, 'stop')}
+            >
+              {stopLabel}
+            </button>
+          </div>
+        ) : (
+          <span className="devm-tool-inline-entry">內嵌入口</span>
+        )}
       </div>
     </article>
   )
