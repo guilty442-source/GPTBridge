@@ -161,6 +161,62 @@ def test_service_reports_download_automation_summary(tmp_path: Path) -> None:
     assert automation["max_media_bytes"] == service.MAX_MEDIA_BYTES
 
 
+def test_service_reports_product_diagnostics_and_failure_categories(tmp_path: Path) -> None:
+    service = VaultlyService(tmp_path, session=object())
+    service.repository.create_job(
+        "job-failed",
+        ["instagram:sample.user"],
+        normalize_conditions({"media_types": ["video"]}),
+        "",
+        False,
+    )
+    service.repository.update_job(
+        "job-failed",
+        status="failed",
+        failed=2,
+        message="ffmpeg HLS media merge failed",
+    )
+    job = service.repository.get_job("job-failed")
+    assert job is not None
+
+    diagnostics = service._diagnostics(
+        [],
+        [],
+        service._jobs_with_automation([job]),
+        [],
+        service._destination_health(""),
+    )
+
+    assert diagnostics["state"] == "attention"
+    assert diagnostics["failure_summary"]["total_failures"] == 1
+    assert diagnostics["failure_summary"]["total_failed_items"] == 2
+    assert diagnostics["failure_summary"]["categories"]["media"] == 1
+    assert diagnostics["platforms"][0]["health"] == "login_required"
+
+
+@pytest.mark.asyncio
+async def test_service_exports_diagnostic_report(tmp_path: Path) -> None:
+    service = VaultlyService(tmp_path, session=object())
+
+    event, payload = await service.handle("vaultly_export_report", {})
+
+    assert event == "vaultly_export_report_result"
+    assert payload["ok"] is True
+    report_path = Path(str(payload["report_path"]))
+    assert report_path.exists()
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["version"] == service.VERSION
+    assert report["diagnostics"]["state"] in {
+        "attention",
+        "ready",
+        "running",
+        "setup",
+        "waiting_login",
+    }
+    assert "browser" in report["diagnostics"]
+
+
 def test_service_unique_download_path_preserves_existing_file(tmp_path: Path) -> None:
     service = VaultlyService(tmp_path, session=object())
     original = tmp_path / "sample.mp4"
@@ -449,6 +505,91 @@ def test_repository_manages_filter_terms_removed_accounts_and_restore(
     assert repository.get_accounts(["instagram:verified.star"])[0]["verified"] is True
 
 
+def test_repository_never_deletes_and_can_restore_superseded_records(
+    tmp_path: Path,
+) -> None:
+    repository = VaultlyRepository(tmp_path)
+    account = sample_account()
+    repository.upsert_accounts([account])
+    post_url = "https://www.instagram.com/p/history/"
+    post_id = repository.upsert_post(
+        account,
+        {"post_url": post_url, "text": "first"},
+        media_items=[
+            {
+                "media_type": "photo",
+                "source_url": "https://cdn.example/first.jpg",
+            }
+        ],
+        scan_status="ready",
+    )
+    repository.upsert_post(
+        account,
+        {"post_url": post_url, "text": "second"},
+        media_items=[
+            {
+                "media_type": "video",
+                "source_url": "https://cdn.example/second.mp4",
+            }
+        ],
+        scan_status="ready",
+    )
+    repository.record_download(
+        "download-history",
+        "instagram",
+        account["account_id"],
+        post_url,
+        "https://cdn.example/first.jpg",
+        str(tmp_path / "first.jpg"),
+        "first-sha",
+    )
+    repository.record_download(
+        "download-history",
+        "instagram",
+        account["account_id"],
+        post_url,
+        "https://cdn.example/second.mp4",
+        str(tmp_path / "second.mp4"),
+        "second-sha",
+    )
+
+    with repository._connect() as connection:
+        media_rows = connection.execute(
+            """
+            SELECT source_url, is_active
+            FROM vaultly_post_media
+            WHERE post_id = ?
+            ORDER BY source_url
+            """,
+            (post_id,),
+        ).fetchall()
+    assert [(row["source_url"], row["is_active"]) for row in media_rows] == [
+        ("https://cdn.example/first.jpg", 0),
+        ("https://cdn.example/second.mp4", 1),
+    ]
+    current = repository.get_download("download-history")
+    assert current is not None
+    assert current["file_path"] == str(tmp_path / "second.mp4")
+
+    versions = repository.list_entity_history(
+        "media_history",
+        "download-history",
+    )
+    assert versions
+    assert versions[0]["snapshot"]["file_path"] == str(tmp_path / "first.jpg")
+    restored = repository.restore_entity_history(versions[0]["history_id"])
+    assert restored is not None
+    assert repository.get_download("download-history")["file_path"] == str(
+        tmp_path / "first.jpg"
+    )
+
+    source = Path(
+        "platform_tools/vaultly/src/backend/services/vaultly/repository.py"
+    ).read_text(encoding="utf-8")
+    assert "DELETE FROM" not in source
+    assert "INSERT OR REPLACE" not in source
+
+
 def test_repository_preserves_verified_state_and_cached_avatar(tmp_path: Path) -> None:
     repository = VaultlyRepository(tmp_path)
     account = {
@@ -650,6 +791,10 @@ def test_vaultly_ui_supports_search_selected_priority_and_larger_window() -> Non
     assert "vaultly_cancel_post_scan" in ui_source
     assert "vaultly_check_destination" in ui_source
     assert "vaultly_retry_job" in ui_source
+    assert "vaultly_export_report" in ui_source
+    assert "系統診斷" in ui_source
+    assert "匯出診斷報告" in ui_source
+    assert "failureCategoryText" in ui_source
     assert "下載位置可用" in ui_source
     assert "重跑" in ui_source
     assert "post_scan_jobs" in ui_source
@@ -673,7 +818,7 @@ def test_vaultly_ui_supports_search_selected_priority_and_larger_window() -> Non
     tool_manifest = json.loads(
         Path("platform_tools/vaultly/manifest.json").read_text(encoding="utf-8")
     )
-    assert tool_manifest["version"] == "2.5.0"
+    assert tool_manifest["version"] == "1.0.0"
     assert tool_manifest["runtime"]["entry"] == "src/main.py"
     assert tool_manifest["executable"]["path"] == "dist/vaultly.exe"
     assert tool_manifest["window"]["width"] == 1280

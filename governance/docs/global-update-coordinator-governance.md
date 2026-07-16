@@ -6,15 +6,15 @@
 
 ## Purpose
 
-全域更新不能只依賴前端 HMR。系統必須能分類變更，並決定使用介面熱更新、資料重新載入、後端重啟或應用程式重啟。
+更新不能只依賴前端 HMR。v1.0 必須以檔案指紋找出受影響的獨立工具，先執行宣告式自動修正，再只重啟仍在運行且受影響的工具。
 
 ## Requirements
 
 1. Backend owns change classification in `src-core/settings/global_update_coordinator.py`.
-2. Settings health refresh returns `global_update_plan`.
-3. Renderer owns update application in `src-ui/renderer/shared/services/globalUpdateCoordinator.ts`.
-4. Electron exposes `app:restart-backend` for managed backend processes.
-5. Update UI must expose a visible `套用全域更新` action.
+2. `src-core/settings/update_repository.py` persists fingerprints and repair results in the main-only database.
+3. `src-core/core_system/hot_update_service.py` applies repair before restart.
+4. Only affected running tools are restarted; unrelated tools remain online.
+5. Runtime-contract or EXE payload changes require verified repackaging.
 
 ## Enforcement
 

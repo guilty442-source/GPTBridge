@@ -8,15 +8,20 @@ plus lightweight image/video issue reporting.
 from __future__ import annotations
 
 import concurrent.futures
+import hashlib
 import json
 import os
+import sqlite3
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
 
 PROGRESS_JSON_PREFIX = "FILE_SORTER_CLEANUP_PROGRESS_JSON="
-VIDEO_FINGERPRINT_METHOD = "file-sampled-video-fingerprint-v1"
+VIDEO_FINGERPRINT_METHOD = "ffmpeg-frame-dhash-v2"
+VIDEO_FINGERPRINT_FALLBACK_METHOD = "file-sampled-video-fingerprint-v1"
+VIDEO_FINGERPRINT_CACHE_SCHEMA = 1
 VIDEO_FINGERPRINT_MIN_BYTES = 1024
 VIDEO_FINGERPRINT_CHUNK_SIZE = 64 * 1024
 VIDEO_FINGERPRINT_MAX_BYTES = 4 * 1024 * 1024 * 1024
@@ -56,6 +61,115 @@ class CleanupError(Exception):
     """Raised when cleanup scanning cannot be completed."""
 
 
+def _default_state_root() -> Path:
+    explicit = str(os.environ.get("FILE_SORTER_STATE_ROOT") or "").strip()
+    if explicit:
+        return Path(explicit).expanduser().resolve()
+    local_app_data = str(os.environ.get("LOCALAPPDATA") or "").strip()
+    if local_app_data:
+        return Path(local_app_data).expanduser().resolve() / "GPTBridge" / "file-sorter"
+    xdg_state = str(os.environ.get("XDG_STATE_HOME") or "").strip()
+    state_home = (
+        Path(xdg_state).expanduser().resolve()
+        if xdg_state
+        else Path.home().resolve() / ".local" / "state"
+    )
+    return state_home / "GPTBridge" / "file-sorter"
+
+
+class VideoFingerprintCache:
+    """Small SQLite cache keyed by a privacy-preserving canonical-path digest."""
+
+    def __init__(self, database_path: Path | None = None) -> None:
+        self.database_path = database_path or (_default_state_root() / "video-fingerprints.sqlite3")
+        self._ready = False
+
+    def _connect(self) -> sqlite3.Connection:
+        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        connection = sqlite3.connect(self.database_path, timeout=5)
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("PRAGMA synchronous=NORMAL")
+        if not self._ready:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS video_fingerprints (
+                    path_digest TEXT PRIMARY KEY,
+                    size INTEGER NOT NULL,
+                    mtime_ns INTEGER NOT NULL,
+                    schema_version INTEGER NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            connection.commit()
+            self._ready = True
+        return connection
+
+    @staticmethod
+    def _path_digest(path: Path) -> str:
+        canonical = os.path.normcase(str(path.expanduser().resolve(strict=False)))
+        return hashlib.sha256(canonical.encode("utf-8", errors="surrogatepass")).hexdigest()
+
+    def get(self, path: Path, *, size: int, mtime_ns: int) -> dict[str, Any] | None:
+        try:
+            with self._connect() as connection:
+                row = connection.execute(
+                    """
+                    SELECT payload_json
+                    FROM video_fingerprints
+                    WHERE path_digest = ? AND size = ? AND mtime_ns = ?
+                      AND schema_version = ?
+                    """,
+                    (
+                        self._path_digest(path),
+                        int(size),
+                        int(mtime_ns),
+                        VIDEO_FINGERPRINT_CACHE_SCHEMA,
+                    ),
+                ).fetchone()
+            if row is None:
+                return None
+            payload = json.loads(str(row[0]))
+            return payload if isinstance(payload, dict) else None
+        except (OSError, sqlite3.Error, ValueError, TypeError, json.JSONDecodeError):
+            return None
+
+    def put(
+        self,
+        path: Path,
+        *,
+        size: int,
+        mtime_ns: int,
+        payload: dict[str, Any],
+    ) -> None:
+        try:
+            payload_json = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+            with self._connect() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO video_fingerprints (
+                        path_digest, size, mtime_ns, schema_version, payload_json
+                    ) VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(path_digest) DO UPDATE SET
+                        size = excluded.size,
+                        mtime_ns = excluded.mtime_ns,
+                        schema_version = excluded.schema_version,
+                        payload_json = excluded.payload_json,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (
+                        self._path_digest(path),
+                        int(size),
+                        int(mtime_ns),
+                        VIDEO_FINGERPRINT_CACHE_SCHEMA,
+                        payload_json,
+                    ),
+                )
+        except (OSError, sqlite3.Error, ValueError, TypeError):
+            return
+
+
 def _configure_utf8_stdio() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -73,7 +187,7 @@ def _clamp_percent(value: int | float | None, default: int) -> int:
 def _safe_relative_path(path: Path, root: Path) -> Path:
     try:
         relative = path.resolve().relative_to(root.resolve())
-    except ValueError:
+    except (OSError, ValueError):
         return Path(path.name)
     return Path(*[part for part in relative.parts if part not in {"", ".", ".."}])
 
@@ -82,8 +196,29 @@ def _relative_path_text(path: Path, root: Path) -> str:
     return str(_safe_relative_path(path, root))
 
 
+def _is_link_or_reparse(path: Path) -> bool:
+    try:
+        path_stat = path.lstat()
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+    attributes = int(getattr(path_stat, "st_file_attributes", 0) or 0)
+    return path.is_symlink() or bool(attributes & 0x400)
+
+
 def _resolve_target_dir(target_dir: str | Path) -> Path:
-    target = Path(target_dir).expanduser().resolve()
+    requested = Path(target_dir).expanduser()
+    if _is_link_or_reparse(requested):
+        raise CleanupError("Target folder cannot be a link or reparse point.")
+    try:
+        target = requested.resolve(strict=True)
+    except OSError as error:
+        raise CleanupError(
+            f"Target folder cannot be resolved: {requested}: {error}"
+        ) from error
+    if _is_link_or_reparse(target):
+        raise CleanupError("Target folder cannot be a link or reparse point.")
     if not target.is_dir():
         raise CleanupError(f"Target folder does not exist: {target}")
     return target
@@ -122,6 +257,7 @@ class CleanupScanner:
         self.parallel_analysis = bool(parallel_analysis)
         self.progress_event_callback = progress_event_callback
         self._found_files: dict[str, dict[str, Any]] = {}
+        self._fingerprint_cache = VideoFingerprintCache()
 
     def run(self) -> dict[str, Any]:
         folders = self._list_scan_folders()
@@ -159,7 +295,7 @@ class CleanupScanner:
                     continue
 
                 for path in entries:
-                    if not path.is_file() or self._is_excluded(path):
+                    if not self._is_contained_regular_file(path) or self._is_excluded(path):
                         continue
                     source_file_count += 1
                     report["source_file_count"] = source_file_count
@@ -253,6 +389,9 @@ class CleanupScanner:
             "similar_video_duplicate_count": 0,
             "similar_video_groups": [],
             "similar_video_duplicates": [],
+            "similar_video_candidate_pair_count": 0,
+            "similar_video_comparison_count": 0,
+            "video_fingerprint_cache_hit_count": 0,
             "video_analysis_method": (
                 VIDEO_FINGERPRINT_METHOD if self.similar_video_analysis else "disabled"
             ),
@@ -262,12 +401,26 @@ class CleanupScanner:
         }
 
     def _list_scan_folders(self) -> list[Path]:
-        folders = [self.target_dir]
-        folders.extend(
-            path
-            for path in self.target_dir.rglob("*")
-            if path.is_dir() and not self._is_excluded_folder(path)
-        )
+        folders: list[Path] = []
+        for current_root, directory_names, _file_names in os.walk(
+            self.target_dir,
+            topdown=True,
+            followlinks=False,
+        ):
+            current = Path(current_root)
+            if current != self.target_dir and _is_link_or_reparse(current):
+                directory_names[:] = []
+                continue
+            if self._is_excluded_folder(current):
+                directory_names[:] = []
+                continue
+            folders.append(current)
+            directory_names[:] = [
+                name
+                for name in directory_names
+                if not self._is_excluded_folder(current / name)
+                and not _is_link_or_reparse(current / name)
+            ]
         return sorted(
             folders,
             key=lambda item: _relative_path_text(item, self.target_dir).casefold(),
@@ -284,13 +437,28 @@ class CleanupScanner:
     def _is_excluded_folder(self, path: Path) -> bool:
         try:
             relative = path.resolve().relative_to(self.target_dir)
-        except ValueError:
+        except (OSError, ValueError):
             return True
-        excluded_names = {".git", "__pycache__", "_cleaner_backup", ".GPTBridge_CleanerQuarantine"}
-        return bool(relative.parts and relative.parts[0] in excluded_names)
+        excluded_names = {
+            ".git",
+            "__pycache__",
+            "_cleaner_backup",
+            ".gptbridge_cleanerquarantine",
+        }
+        return any(part.casefold() in excluded_names for part in relative.parts)
 
     def _is_excluded(self, path: Path) -> bool:
         return self._is_excluded_folder(path.parent)
+
+    def _is_contained_regular_file(self, path: Path) -> bool:
+        if _is_link_or_reparse(path):
+            return False
+        try:
+            resolved = path.resolve(strict=True)
+            resolved.relative_to(self.target_dir)
+        except (OSError, ValueError):
+            return False
+        return resolved.is_file()
 
     def _create_executor(self) -> concurrent.futures.ThreadPoolExecutor | None:
         if not self.parallel_analysis:
@@ -341,6 +509,8 @@ class CleanupScanner:
             return
 
         try:
+            if not self._is_contained_regular_file(path):
+                raise CleanupError(f"File escaped the scan target: {path}")
             with image_helpers["Image"].open(path) as opened_image:
                 image = image_helpers["ImageOps"].exif_transpose(opened_image)
                 width, height = image.size
@@ -460,6 +630,8 @@ class CleanupScanner:
         detail: dict[str, Any],
         report: dict[str, Any],
     ) -> None:
+        if detail.get("cache_hit"):
+            report["video_fingerprint_cache_hit_count"] += 1
         report["video_details"].append(
             {
                 "path": _relative_path_text(path, self.target_dir),
@@ -482,22 +654,29 @@ class CleanupScanner:
             if isinstance(detail, dict) and detail.get("path")
         ]
         candidates.sort(key=lambda item: item["path"].casefold())
+        candidate_neighbors = self._video_candidate_neighbors(candidates)
+        report["similar_video_candidate_pair_count"] = (
+            sum(len(neighbors) for neighbors in candidate_neighbors) // 2
+        )
 
         used_duplicates: set[str] = set()
         groups: list[dict[str, Any]] = []
         duplicates: list[dict[str, Any]] = []
+        comparison_count = 0
 
-        for base in candidates:
+        for base_index, base in enumerate(candidates):
             base_path = base["path"]
             if base_path.casefold() in used_duplicates:
                 continue
             matches: list[dict[str, Any]] = []
-            for candidate in candidates:
-                candidate_path = candidate["path"]
-                if candidate_path == base_path:
+            for candidate_index in sorted(candidate_neighbors[base_index]):
+                if candidate_index <= base_index:
                     continue
+                candidate = candidates[candidate_index]
+                candidate_path = candidate["path"]
                 if candidate_path.casefold() in used_duplicates:
                     continue
+                comparison_count += 1
                 similarity, distance = self._hash_sequence_similarity(
                     base["hashes"],
                     candidate["hashes"],
@@ -531,6 +710,40 @@ class CleanupScanner:
         report["similar_video_groups"] = groups
         report["similar_video_duplicates"] = duplicates
         report["similar_video_duplicate_count"] = len(duplicates)
+        report["similar_video_comparison_count"] = comparison_count
+
+    def _video_candidate_neighbors(
+        self,
+        candidates: Sequence[dict[str, Any]],
+    ) -> list[set[int]]:
+        """Return likely pairs using LSH bands for large, high-threshold scans."""
+        candidate_count = len(candidates)
+        neighbors = [set() for _ in range(candidate_count)]
+        if candidate_count <= 64 or self.similar_video_threshold < 90:
+            for left in range(candidate_count):
+                for right in range(left + 1, candidate_count):
+                    neighbors[left].add(right)
+                    neighbors[right].add(left)
+            return neighbors
+
+        buckets: dict[tuple[int, int], set[int]] = {}
+        for candidate_index, candidate in enumerate(candidates):
+            for raw_hash in candidate.get("hashes", []):
+                try:
+                    hash_value = int(str(raw_hash), 16)
+                except ValueError:
+                    continue
+                for band in range(4):
+                    key = (band, (hash_value >> (band * 16)) & 0xFFFF)
+                    buckets.setdefault(key, set()).add(candidate_index)
+
+        for bucket in buckets.values():
+            indexes = sorted(bucket)
+            for position, left in enumerate(indexes):
+                for right in indexes[position + 1 :]:
+                    neighbors[left].add(right)
+                    neighbors[right].add(left)
+        return neighbors
 
     @staticmethod
     def _hash_sequence_similarity(
@@ -585,6 +798,11 @@ class CleanupScanner:
         path: Path,
         size: int | None = None,
     ) -> dict[str, Any] | None:
+        if not self._is_contained_regular_file(path):
+            return self._video_issue(
+                CATEGORY_BAD_VIDEO_FILE,
+                "escaped_scan_target",
+            )
         try:
             actual_size = path.stat().st_size if size is None else int(size)
         except OSError as exc:
@@ -611,7 +829,125 @@ class CleanupScanner:
         return None
 
     def _video_fingerprint(self, path: Path) -> dict[str, Any]:
-        size = path.stat().st_size
+        if not self._is_contained_regular_file(path):
+            raise CleanupError(f"File escaped the scan target: {path}")
+        stat = path.stat()
+        size = stat.st_size
+        cached = self._fingerprint_cache.get(
+            path,
+            size=size,
+            mtime_ns=stat.st_mtime_ns,
+        )
+        if cached is not None:
+            return {**cached, "cache_hit": True}
+
+        frame_fingerprint = self._ffmpeg_frame_fingerprint(path, size=size)
+        if frame_fingerprint is not None:
+            self._fingerprint_cache.put(
+                path,
+                size=size,
+                mtime_ns=stat.st_mtime_ns,
+                payload=frame_fingerprint,
+            )
+            return frame_fingerprint
+
+        fallback = self._sampled_file_fingerprint(path, size=size)
+        self._fingerprint_cache.put(
+            path,
+            size=size,
+            mtime_ns=stat.st_mtime_ns,
+            payload=fallback,
+        )
+        return fallback
+
+    def _ffmpeg_frame_fingerprint(
+        self,
+        path: Path,
+        *,
+        size: int,
+    ) -> dict[str, Any] | None:
+        if not self._is_contained_regular_file(path):
+            return None
+        try:
+            import imageio_ffmpeg
+
+            ffmpeg_executable = imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            return None
+
+        sample_count = self._video_sample_count()
+        frame_width = 9
+        frame_height = 8
+        frame_size = frame_width * frame_height
+        command = [
+            str(ffmpeg_executable),
+            "-nostdin",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(path),
+            "-an",
+            "-vf",
+            f"fps=1/15,scale={frame_width}:{frame_height}:flags=area,format=gray",
+            "-frames:v",
+            str(sample_count),
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "gray",
+            "pipe:1",
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                check=False,
+                timeout=90,
+                **({"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)} if os.name == "nt" else {}),
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if completed.returncode != 0 or len(completed.stdout) < frame_size:
+            return None
+
+        hashes = [
+            self._frame_difference_hash(completed.stdout[offset : offset + frame_size])
+            for offset in range(0, len(completed.stdout) - frame_size + 1, frame_size)
+        ]
+        hashes = [value for value in hashes if value]
+        if not hashes:
+            return None
+        return {
+            "method": VIDEO_FINGERPRINT_METHOD,
+            "byte_size": size,
+            "sampled_byte_count": len(completed.stdout),
+            "perceptual_hashes": hashes,
+            "sample_count": len(hashes),
+            "cache_hit": False,
+        }
+
+    @staticmethod
+    def _frame_difference_hash(frame: bytes) -> str | None:
+        if len(frame) != 72:
+            return None
+        value = 0
+        for row in range(8):
+            offset = row * 9
+            for column in range(8):
+                value = (value << 1) | int(
+                    frame[offset + column] >= frame[offset + column + 1]
+                )
+        return f"{value:016x}"
+
+    def _sampled_file_fingerprint(
+        self,
+        path: Path,
+        *,
+        size: int,
+    ) -> dict[str, Any]:
+        if not self._is_contained_regular_file(path):
+            raise CleanupError(f"File escaped the scan target: {path}")
         chunk_size = min(VIDEO_FINGERPRINT_CHUNK_SIZE, size)
         positions = self._video_sample_positions(
             size,
@@ -632,11 +968,12 @@ class CleanupScanner:
                     hashes.append(chunk_hash)
 
         return {
-            "method": VIDEO_FINGERPRINT_METHOD,
+            "method": VIDEO_FINGERPRINT_FALLBACK_METHOD,
             "byte_size": size,
             "sampled_byte_count": sampled_byte_count,
             "perceptual_hashes": hashes,
             "sample_count": len(hashes),
+            "cache_hit": False,
         }
 
     @staticmethod

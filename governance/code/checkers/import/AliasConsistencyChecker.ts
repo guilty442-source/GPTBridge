@@ -57,7 +57,7 @@ export const aliasConsistencyChecker: GovernanceChecker = {
   enforceLevel: EnforceLevel.WARNING,
   target: 'src-ui/renderer',
   coverage: CoverageStatus.PARTIALLY_ENFORCED,
-  version: '2026.05.29',
+  version: '1.0.0',
   run: async (): Promise<GovernanceReport> => {
     const root = path.resolve(process.cwd(), 'src-ui', 'renderer')
     const files = await collectSourceFiles(root)

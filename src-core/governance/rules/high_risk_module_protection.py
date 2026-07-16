@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict
 
 
@@ -17,12 +18,26 @@ class HighRiskModuleProtectionRule:
         "src-core/settings",
     )
 
+    def __init__(self, project_root: Path) -> None:
+        self.project_root = Path(project_root).resolve()
+
     def evaluate(self, operation: Dict[str, Any]) -> bool:
         action = str(operation.get("action", ""))
         target = str(operation.get("target", ""))
         actor = str(operation.get("actor", ""))
 
-        if not any(target.replace('\\', '/').startswith(prefix) for prefix in self.PROTECTED_PREFIXES):
+        try:
+            candidate = Path(target)
+            if not candidate.is_absolute():
+                candidate = self.project_root / candidate
+            relative_target = candidate.resolve(strict=False).relative_to(
+                self.project_root
+            )
+            normalized_target = relative_target.as_posix()
+        except (OSError, RuntimeError, ValueError):
+            return True
+
+        if not any(normalized_target.startswith(prefix) for prefix in self.PROTECTED_PREFIXES):
             return True
 
         if action in {"delete_file", "delete_folder", "move_file"}:

@@ -1,23 +1,40 @@
-# 清理工具
+# 專案清理與系統救援工具
 
-Project ID: `project-cleaner`
+Project ID: `project-cleaner` · Version: `1.0.0`
 
-清理工具負責 GPTBridge 專案內的暫存、快取、過期日誌與輸出檔。規則與執行邏輯保留在本工具內，主系統只負責啟動工具或接收結果。
+這是獨立安裝與執行的專案維護工具，也是 GPTBridge 唯一的清理、異常修復與系統救援實作。
 
-## 功能
+## 能力
 
-- 產生清理計畫：列出路徑、大小、原因、風險與略過項目。
-- Dry-run 預覽：不改動檔案，只回傳預計處理項目。
-- TTL 規則：近期日誌與備份類檔案不會立即被刪除。
-- 隔離區：可先移入 `.GPTBridge_CleanerQuarantine`，預設保留 24 小時。
-- 還原隔離批次：可依批次名稱把隔離項目移回原路徑。
-- 安全邊界：跳過 Profile、依賴目錄、備份目錄、符號連結與 Windows reparse point。
+- 全專案唯讀掃描與清理預覽
+- 低風險異常自動修正
+- 系統救援檢查與可復原修復
+- 隔離、還原與 SHA-256 復原紀錄
+- 儲存空間分析與保留政策
+
+## 權限邊界
+
+工具的變更權限僅限清單綁定的專案根目錄。以下目標禁止自動變更：
+
+- 專案外路徑
+- Git 追蹤的原始碼
+- 相依套件與瀏覽器設定檔
+- 使用中的發行檔與封裝鎖
+- 無法確認為低風險的檔案
+
+永久刪除只接受完整、未過期且低風險的預覽計畫。一般清理與修復優先使用隔離區，並保留可還原紀錄。
 
 ## CLI
 
 ```powershell
-python platform_tools/project-cleaner/src/main.py --cleanup-garbage --scope runtime --dry-run --json
-python platform_tools/project-cleaner/src/main.py --cleanup-garbage --scope runtime --quarantine --json
-python platform_tools/project-cleaner/src/main.py --purge-quarantine --json
-python platform_tools/project-cleaner/src/main.py --restore-quarantine 20260625_120000 --json
+python platform_tools/project-cleaner/src/main.py --status --json
+python platform_tools/project-cleaner/src/main.py --cleanup-garbage --scope global --dry-run --json
+python platform_tools/project-cleaner/src/main.py --system-rescue-check --json
+python platform_tools/project-cleaner/src/main.py --system-rescue-repair --json
+```
+
+封裝單一工具：
+
+```powershell
+npm run package:tool -- project-cleaner
 ```

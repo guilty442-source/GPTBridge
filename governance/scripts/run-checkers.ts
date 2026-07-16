@@ -10,11 +10,8 @@ import { rootPurityChecker } from '../code/checkers/modules/RootPurityChecker'
 import { localizationRenameChecker } from '../code/checkers/modules/LocalizationRenameChecker'
 import { childToolIsolationChecker } from '../code/checkers/modules/ChildToolIsolationChecker'
 import { applicationInterfaceChecker } from '../code/checkers/ui/ApplicationInterfaceChecker'
-import { governanceRulesInterfaceChecker } from '../code/checkers/ui/GovernanceRulesInterfaceChecker'
 import { pathLibraryChecker } from '../code/checkers/runtime/PathLibraryChecker'
-import { singleEdgeBrowserChecker } from '../code/checkers/runtime/SingleEdgeBrowserChecker'
 import { windows11BaselineChecker } from '../code/checkers/runtime/Windows11BaselineChecker'
-import { geminiCodeAssistLockdownChecker } from '../code/checkers/security/GeminiCodeAssistLockdownChecker'
 
 function registerBuiltInCheckers() {
   if (registry.getCheckers().length > 0) return
@@ -24,11 +21,8 @@ function registerBuiltInCheckers() {
   registry.register(localizationRenameChecker)
   registry.register(childToolIsolationChecker)
   registry.register(applicationInterfaceChecker)
-  registry.register(governanceRulesInterfaceChecker)
   registry.register(pathLibraryChecker)
-  registry.register(singleEdgeBrowserChecker)
   registry.register(windows11BaselineChecker)
-  registry.register(geminiCodeAssistLockdownChecker)
 }
 
 function parseCategoryArg(): CheckerCategory | undefined {

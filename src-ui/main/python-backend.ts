@@ -1,8 +1,15 @@
 import { ChildProcess, spawn } from 'child_process'
 import fs from 'node:fs'
 import http from 'node:http'
+import { app } from 'electron'
+import {
+  getBackendSessionToken,
+  getIpcStateRoot,
+  getWorkspaceInstanceId,
+} from './ipcSession'
 import { getRuntimePathLibrary } from './pathLibrary'
 import { getRuntimeEnvMap } from './runtime-env'
+import { PRODUCT_VERSION } from './product-version'
 
 let pythonProcess: ChildProcess | null = null
 type BackendStatus = 'idle' | 'starting' | 'listening' | 'running' | 'stopping' | 'error'
@@ -13,7 +20,7 @@ let backendReadyAt: number | null = null
 let backendMessage = 'backend idle'
 let healthTimer: NodeJS.Timeout | null = null
 let startSequence = 0
-type HealthProbeState = 'ready' | 'starting' | 'unreachable'
+type HealthProbeState = 'ready' | 'starting' | 'foreign' | 'unreachable'
 
 export function getBackendStatus(): BackendStatus {
   return backendStatus
@@ -38,6 +45,7 @@ function clearHealthTimer() {
 }
 
 function probeBackendHealth(timeoutMs = 700): Promise<HealthProbeState> {
+  const expectedInstanceId = getWorkspaceInstanceId()
   return new Promise((resolve) => {
     let settled = false
     const finish = (state: HealthProbeState) => {
@@ -54,17 +62,33 @@ function probeBackendHealth(timeoutMs = 700): Promise<HealthProbeState> {
         timeout: timeoutMs,
       },
       (response) => {
-        response.resume()
-        const statusCode = response.statusCode ?? 0
-        if (statusCode >= 200 && statusCode < 300) {
-          finish('ready')
-          return
-        }
-        if (statusCode === 503) {
-          finish('starting')
-          return
-        }
-        finish('unreachable')
+        let body = ''
+        response.setEncoding('utf-8')
+        response.on('data', (chunk: string) => {
+          if (body.length <= 65_536) body += chunk
+        })
+        response.on('end', () => {
+          let instanceId = ''
+          try {
+            const payload = JSON.parse(body) as { workspace_instance_id?: unknown }
+            instanceId = String(payload.workspace_instance_id || '')
+          } catch {}
+          if (instanceId !== expectedInstanceId) {
+            finish('foreign')
+            return
+          }
+
+          const statusCode = response.statusCode ?? 0
+          if (statusCode >= 200 && statusCode < 300) {
+            finish('ready')
+            return
+          }
+          if (statusCode === 503) {
+            finish('starting')
+            return
+          }
+          finish('unreachable')
+        })
       }
     )
 
@@ -94,6 +118,12 @@ function startHealthPolling(sequence: number) {
       backendMessage = 'backend socket listening; waiting for safe router'
       return
     }
+    if (healthState === 'foreign') {
+      backendStatus = 'error'
+      backendMessage = 'port 8765 belongs to a different GPTBridge workspace'
+      clearHealthTimer()
+      return
+    }
     if (healthState !== 'ready') return
 
     backendStatus = 'running'
@@ -115,14 +145,21 @@ function spawnBackendProcess(
   backendMessage = 'spawning backend process'
   console.log(`[Python Backend Manager] Spawning Python backend (${paths.mode})...`)
 
+  const backendArgs = ['-u', paths.pythonEntry, '--serve']
+  backendMessage = 'spawning backend process'
+
   pythonProcess = spawn(
     paths.pythonExecutable,
-    ['-u', paths.pythonEntry, '--serve'],
+    backendArgs,
     {
       cwd: paths.workspaceRoot,
       env: {
         ...getRuntimeEnvMap(),
         GPTBRIDGE_PROJECT_ROOT: paths.workspaceRoot,
+        GPTBRIDGE_APP_VERSION: PRODUCT_VERSION,
+        GPTBRIDGE_BACKEND_HOT_RELOAD: '0',
+        GPTBRIDGE_IPC_STATE_ROOT: getIpcStateRoot(),
+        GPTBRIDGE_IPC_SESSION_TOKEN: getBackendSessionToken(),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
@@ -167,6 +204,11 @@ function spawnBackendProcess(
         backendStatus = 'listening'
         backendMessage = 'existing backend is starting on port 8765'
         startHealthPolling(sequence)
+        return
+      }
+      if (healthState === 'foreign') {
+        backendStatus = 'error'
+        backendMessage = 'port 8765 belongs to a different GPTBridge workspace'
         return
       }
 
@@ -250,6 +292,11 @@ export function startBackend() {
       startHealthPolling(sequence)
       return
     }
+    if (healthState === 'foreign') {
+      backendStatus = 'error'
+      backendMessage = 'port 8765 belongs to a different GPTBridge workspace'
+      return
+    }
 
     spawnBackendProcess(paths, sequence)
   })
@@ -280,20 +327,46 @@ export async function stopBackend() {
   startSequence += 1
   clearHealthTimer()
   console.log('[Python Backend Manager] Stopping Python backend...')
-  pythonProcess.kill('SIGTERM')
-
-  await new Promise<void>((resolve) => {
-    if (!pythonProcess) {
-      resolve()
+  const processToStop = pythonProcess
+  const processId = processToStop.pid
+  const paths = getRuntimePathLibrary()
+  const exitedGracefully = await new Promise<boolean>((resolve) => {
+    if (processToStop.exitCode !== null || processToStop.signalCode !== null) {
+      resolve(true)
       return
     }
-
-    pythonProcess.once('exit', () => {
-      pythonProcess = null
-      backendStatus = 'idle'
-      resolve()
-    })
+    let settled = false
+    const finish = (value: boolean) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(value)
+    }
+    processToStop.once('exit', () => finish(true))
+    const timer = setTimeout(() => finish(false), 1_500)
   })
+
+  if (!exitedGracefully) {
+    if (process.platform === 'win32' && processId) {
+      await new Promise<void>((resolve) => {
+        const terminator = spawn(
+          'taskkill.exe',
+          ['/PID', String(processId), '/T', '/F'],
+          { windowsHide: true, stdio: 'ignore' }
+        )
+        terminator.once('exit', () => resolve())
+        terminator.once('error', () => resolve())
+      })
+    } else {
+      processToStop.kill('SIGTERM')
+    }
+  }
+
+  if (pythonProcess === processToStop) pythonProcess = null
+  backendStatus = 'idle'
+  backendMessage = exitedGracefully
+    ? 'backend stopped gracefully'
+    : 'backend process tree stopped after graceful timeout'
 }
 
 export async function restartBackend() {

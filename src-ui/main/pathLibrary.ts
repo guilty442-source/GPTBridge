@@ -42,20 +42,17 @@ function hasWorkspaceMarkers(candidate: string): boolean {
 }
 
 function findPackagedWorkspaceRoot(executableDir: string, resourcesRoot: string): string {
-  const explicitRoot = getRuntimeEnv('GPTBRIDGE_WORKSPACE_ROOT')
-  if (explicitRoot && fs.existsSync(explicitRoot)) {
-    return toAbsolute(explicitRoot)
-  }
-
+  // A packaged process must stay inside its own resources directory. Looking
+  // at process.cwd() or a nearby source checkout lets an installed EXE bind to
+  // unrelated code and was the reason packaged startup selected the source
+  // hot-reload supervisor instead of the bundled backend.
   const candidates = [
-    executableDir,
-    path.join(executableDir, '..', '..'),
-    process.cwd(),
     resourcesRoot,
+    executableDir,
   ].map(toAbsolute)
 
   const workspaceRoot = candidates.find(hasWorkspaceMarkers)
-  return workspaceRoot ?? executableDir
+  return workspaceRoot ?? resourcesRoot
 }
 
 function pythonExecutableCandidatesFor(root: string): string[] {

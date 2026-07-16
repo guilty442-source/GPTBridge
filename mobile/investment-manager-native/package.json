@@ -1,0 +1,33 @@
+{
+  "name": "gptbridge-investment-manager-native",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "expo": {
+    "doctor": {
+      "appConfigFieldsNotSyncedCheck": {
+        "enabled": false
+      }
+    }
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "type-check": "tsc --noEmit",
+    "doctor": "expo-doctor"
+  },
+  "dependencies": {
+    "expo": "~57.0.9",
+    "expo-build-properties": "~57.0.8",
+    "expo-secure-store": "~57.0.1",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.2",
+    "react": "19.2.3",
+    "react-native": "0.86.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "expo-doctor": "^1.20.1",
+    "typescript": "~6.0.3"
+  }
+}

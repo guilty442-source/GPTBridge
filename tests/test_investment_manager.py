@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 import zipfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape
@@ -183,6 +184,219 @@ def test_load_portfolio_accepts_chinese_headers(tmp_path: Path) -> None:
     assert holdings[0].quantity == 1000
     assert holdings[0].average_cost == 600
     assert holdings[1].market == "US"
+
+
+def test_xlsx_manual_column_mapping_supports_custom_headers_and_order(tmp_path: Path) -> None:
+    portfolio = tmp_path / "custom-columns.xlsx"
+    _write_minimal_xlsx(
+        portfolio,
+        [
+            (
+                "我的庫存",
+                [
+                    ["券商庫存明細"],
+                    ["持有單位", "顯示名稱", "商品鍵值", "交易區", "買進均價", "報價幣", "分類"],
+                    [1000, "台積電", "2330", "台股", 600, "TWD", "STOCK"],
+                    [10, "Apple", "AAPL", "美股", 190, "USD", "STOCK"],
+                    ["", "合計", "TOTAL", "", "", "", ""],
+                ],
+            )
+        ],
+    )
+
+    preview = investment_manager.xlsx_mapping_preview(portfolio)
+    holdings, details = investment_manager.load_xlsx_portfolio_with_mapping(
+        portfolio,
+        sheet_name="我的庫存",
+        header_row_number=2,
+        column_mapping={
+            "quantity": 0,
+            "name": 1,
+            "symbol": 2,
+            "market": 3,
+            "average_cost": 4,
+            "currency": 5,
+            "asset_type": 6,
+        },
+    )
+
+    assert preview["selected_sheet_name"] == "我的庫存"
+    assert preview["sheets"][0]["rows"][1][2] == "商品鍵值"
+    assert [holding.symbol for holding in holdings] == ["2330", "AAPL"]
+    assert holdings[0].name == "台積電"
+    assert holdings[0].quantity == 1000
+    assert holdings[0].average_cost == 600
+    assert holdings[0].source_row == 3
+    assert holdings[1].market == "US"
+    assert details["skipped_row_count"] == 1
+    assert details["profile"]["mapped_columns"]["symbol"]["column_letter"] == "C"
+    assert details["workbook_scan"]["selected_sheet"]["header_mode"] == "manual_mapping"
+
+
+def test_xlsx_manual_column_mapping_requires_symbol_and_quantity(tmp_path: Path) -> None:
+    portfolio = tmp_path / "missing-required-column.xlsx"
+    _write_minimal_xlsx(portfolio, [("持股", [["代號"], ["AAPL"]])])
+
+    with pytest.raises(investment_manager.InvestmentManagerError, match="quantity"):
+        investment_manager.load_xlsx_portfolio_with_mapping(
+            portfolio,
+            sheet_name="持股",
+            header_row_number=1,
+            column_mapping={"symbol": 0},
+        )
+
+
+def test_xlsx_manual_mapping_can_start_data_on_selected_header_row(tmp_path: Path) -> None:
+    portfolio = tmp_path / "headerless-manual.xlsx"
+    _write_minimal_xlsx(
+        portfolio,
+        [("無標題", [["AAPL", 2, 180], ["MSFT", 3, 420]])],
+    )
+
+    holdings, details = investment_manager.load_xlsx_portfolio_with_mapping(
+        portfolio,
+        sheet_name="無標題",
+        header_row_number=1,
+        data_start_row_number=1,
+        column_mapping={"symbol": 0, "quantity": 1, "average_cost": 2},
+    )
+
+    assert [holding.symbol for holding in holdings] == ["AAPL", "MSFT"]
+    assert details["profile"]["data_start_row_number"] == 1
+
+
+def test_xlsx_consolidated_report_imports_all_asset_classes_and_dividends(
+    tmp_path: Path,
+) -> None:
+    portfolio = tmp_path / "consolidated-report.xlsx"
+
+    def row(**values: Any) -> list[Any]:
+        columns = {
+            "b": 1,
+            "c": 2,
+            "d": 3,
+            "e": 4,
+            "f": 5,
+            "g": 6,
+            "h": 7,
+            "n": 13,
+            "o": 14,
+            "s": 18,
+            "v": 21,
+        }
+        output: list[Any] = [""] * 22
+        for key, value in values.items():
+            output[columns[key]] = value
+        return output
+
+    _write_minimal_xlsx(
+        portfolio,
+        [
+            (
+                "報酬 ",
+                [
+                    (2, row(c="名稱", n="總單位數", s="最新淨值")),
+                    (
+                        3,
+                        row(
+                            c="全球收益基金美元",
+                            d=100,
+                            e=0.5,
+                            f=10,
+                            g=0.12,
+                            h=0.2,
+                            n=5,
+                            o=500,
+                            s=20,
+                            v=1000,
+                        ),
+                    ),
+                    (4, row(c="台幣基金", g=0.05, n=0, s=10, v=0)),
+                    (44, row(c="名稱", s="即時股價")),
+                    (
+                        45,
+                        row(
+                            b="0050",
+                            c="元大台灣50",
+                            e=1,
+                            f=12,
+                            g=0.04,
+                            n=2,
+                            o=300,
+                            s=180,
+                            v=360,
+                        ),
+                    ),
+                    (
+                        46,
+                        row(
+                            b="Apple",
+                            c="AAPL",
+                            e=0.25,
+                            g=0.01,
+                            n=3,
+                            o=600,
+                            s=200,
+                            v=19500,
+                        ),
+                    ),
+                    (47, row(b="現金", c="國泰", n=1, v=5000)),
+                ],
+            )
+        ],
+    )
+
+    preview = investment_manager.xlsx_mapping_preview(portfolio)
+    holdings, details = investment_manager.load_xlsx_portfolio_consolidated_report(
+        portfolio
+    )
+
+    assert preview["consolidated_layout"]["sheet_name"] == "報酬 "
+    assert preview["consolidated_layout"]["holding_count"] == 4
+    assert len(holdings) == 4
+    assert [holding.market for holding in holdings] == ["FUND", "FUND", "TW", "US"]
+    assert holdings[1].quantity == 0
+    assert holdings[2].symbol == "0050"
+    assert holdings[2].asset_type == "ETF"
+    assert holdings[3].symbol == "AAPL"
+    assert holdings[0].principal_amount == 500
+    assert holdings[0].principal_currency == "TWD"
+    assert holdings[0].principal_twd == 500
+    assert holdings[0].average_cost is None
+    assert holdings[2].principal_amount == 300
+    assert holdings[2].principal_currency == "TWD"
+    assert holdings[2].principal_twd == 300
+    assert holdings[3].principal_amount == 600
+    assert holdings[3].principal_currency == "TWD"
+    assert holdings[3].principal_twd == 600
+    assert holdings[3].average_cost is None
+    assert holdings[0].annual_dividend_yield_percent == 12
+    assert holdings[0].estimated_annual_dividend_twd == 120
+    assert holdings[0].estimated_weekly_dividend_twd == pytest.approx(120 / 52)
+    assert details["profile"]["layout"] == "consolidated_report"
+    assert details["workbook_scan"]["selected_sheet"]["header_mode"] == "consolidated_report"
+
+    native_holdings, _details = (
+        investment_manager.load_xlsx_portfolio_consolidated_report(
+            portfolio,
+            config={
+                "fund_principal_currency": "AUTO",
+                "us_principal_currency": "USD",
+            },
+        )
+    )
+    assert native_holdings[0].principal_currency == "USD"
+    assert native_holdings[0].principal_twd is None
+    assert native_holdings[0].average_cost == 100
+    assert native_holdings[3].principal_currency == "USD"
+    assert native_holdings[3].average_cost == 200
+
+
+def test_portfolio_symbol_rejects_decimal_prices() -> None:
+    assert investment_manager.looks_like_portfolio_symbol("17.24") is False
+    assert investment_manager.looks_like_portfolio_symbol("164.94") is False
+    assert investment_manager.looks_like_portfolio_symbol("0050") is True
+    assert investment_manager.looks_like_portfolio_symbol("AAPL") is True
 
 
 def test_xlsx_portfolio_scans_header_below_title_rows(tmp_path: Path) -> None:
@@ -491,7 +705,174 @@ def test_excel_import_returns_actionable_error(tmp_path: Path) -> None:
     assert "conversion to CSV or JSON" in str(exc_info.value)
 
 
-def test_investment_watch_repository_clear_state_removes_old_data(tmp_path: Path) -> None:
+def test_portfolio_snapshot_is_atomic_and_releases_source(tmp_path: Path) -> None:
+    portfolio = tmp_path / "holdings.xlsx"
+    portfolio.write_bytes(b"portfolio snapshot bytes")
+    imports_root = tmp_path / "imports"
+
+    snapshot = investment_manager.create_portfolio_file_snapshot(
+        portfolio,
+        imports_root,
+    )
+
+    assert snapshot.read_bytes() == b"portfolio snapshot bytes"
+    assert list(imports_root.glob("*.partial")) == []
+    moved_portfolio = tmp_path / "holdings-moved.xlsx"
+    portfolio.replace(moved_portfolio)
+    assert moved_portfolio.read_bytes() == b"portfolio snapshot bytes"
+
+
+def test_portfolio_snapshot_retries_when_source_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    portfolio = tmp_path / "holdings.xlsx"
+    portfolio.write_bytes(b"stable bytes")
+    imports_root = tmp_path / "imports"
+    original_copy = investment_manager._copy_portfolio_snapshot_once
+    attempts = 0
+
+    def unstable_once(source: Path, partial_target: Path) -> bool:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            partial_target.write_bytes(b"incomplete bytes")
+            return False
+        return original_copy(source, partial_target)
+
+    monkeypatch.setattr(
+        investment_manager,
+        "_copy_portfolio_snapshot_once",
+        unstable_once,
+    )
+    monkeypatch.setattr(investment_manager.time, "sleep", lambda _seconds: None)
+
+    snapshot = investment_manager.create_portfolio_file_snapshot(
+        portfolio,
+        imports_root,
+    )
+
+    assert attempts == 2
+    assert snapshot.read_bytes() == b"stable bytes"
+    assert list(imports_root.glob("*.partial")) == []
+
+
+def test_snapshot_retention_never_deletes_completed_or_partial_files(
+    tmp_path: Path,
+) -> None:
+    imports_root = tmp_path / "imports"
+    imports_root.mkdir()
+    completed = imports_root / "completed.xlsx"
+    completed.write_bytes(b"completed")
+    in_progress = imports_root / ".incoming.xlsx.partial"
+    in_progress.write_bytes(b"in progress")
+
+    retention = investment_manager.prune_portfolio_file_snapshots(
+        imports_root,
+        keep=0,
+    )
+
+    assert completed.read_bytes() == b"completed"
+    assert in_progress.read_bytes() == b"in progress"
+    assert retention["retained_count"] == 1
+    assert retention["logical_archive_count"] == 1
+    assert retention["automatic_delete"] is False
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows sharing semantics")
+def test_windows_portfolio_reader_allows_excel_style_replacement(tmp_path: Path) -> None:
+    portfolio = tmp_path / "holdings.xlsx"
+    portfolio.write_bytes(b"original workbook")
+    replacement = tmp_path / "replacement.xlsx"
+    replacement.write_bytes(b"saved workbook")
+    previous = tmp_path / "holdings.previous.xlsx"
+
+    with investment_manager._open_portfolio_source_shared(portfolio) as source_file:
+        portfolio.replace(previous)
+        replacement.replace(portfolio)
+        assert source_file.read() == b"original workbook"
+
+    assert portfolio.read_bytes() == b"saved workbook"
+    previous.unlink()
+
+
+def test_xlsx_parser_closes_source_before_processing_workbook(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    portfolio = tmp_path / "holdings.xlsx"
+    _write_minimal_xlsx(
+        portfolio,
+        [("Holdings", [["symbol", "quantity"], ["AAPL", 2]])],
+    )
+    real_shared_open = investment_manager._open_portfolio_source_shared
+    real_zip_file = investment_manager.zipfile.ZipFile
+    source_state = {"open": False}
+    workbook_inputs: list[Any] = []
+
+    @contextmanager
+    def tracked_shared_open(source: Path):
+        with real_shared_open(source) as source_file:
+            source_state["open"] = True
+            try:
+                yield source_file
+            finally:
+                source_state["open"] = False
+
+    def tracked_zip_file(source: Any, *args: Any, **kwargs: Any):
+        assert source_state["open"] is False
+        assert not isinstance(source, (str, Path))
+        workbook_inputs.append(source)
+        return real_zip_file(source, *args, **kwargs)
+
+    monkeypatch.setattr(
+        investment_manager,
+        "_open_portfolio_source_shared",
+        tracked_shared_open,
+    )
+    monkeypatch.setattr(investment_manager.zipfile, "ZipFile", tracked_zip_file)
+
+    scan = investment_manager.scan_xlsx_workbook(portfolio)
+
+    assert scan["selected_sheet"]["sheet_name"] == "Holdings"
+    assert len(workbook_inputs) == 1
+
+
+def test_text_portfolio_loaders_use_shared_source_reader(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    csv_portfolio = tmp_path / "holdings.csv"
+    csv_portfolio.write_text("symbol,quantity\nAAPL,2\n", encoding="utf-8")
+    json_portfolio = tmp_path / "holdings.json"
+    json_portfolio.write_text(
+        '[{"symbol": "MSFT", "quantity": 3}]',
+        encoding="utf-8",
+    )
+    real_reader = investment_manager._read_portfolio_source_bytes
+    source_reads: list[Path] = []
+
+    def tracked_reader(source: Path) -> bytes:
+        source_reads.append(source)
+        return real_reader(source)
+
+    monkeypatch.setattr(
+        investment_manager,
+        "_read_portfolio_source_bytes",
+        tracked_reader,
+    )
+
+    csv_holdings = investment_manager.load_portfolio(csv_portfolio)
+    json_holdings = investment_manager.load_portfolio(json_portfolio)
+
+    assert [holding.symbol for holding in csv_holdings] == ["AAPL"]
+    assert [holding.symbol for holding in json_holdings] == ["MSFT"]
+    assert source_reads == [csv_portfolio, json_portfolio]
+
+
+def test_investment_watch_repository_clear_state_preserves_recovery_version(
+    tmp_path: Path,
+) -> None:
     repository = investment_watch_repository.InvestmentWatchRepository(tmp_path)
     state = repository.save_portfolio(
         tmp_path / "holdings.xlsx",
@@ -511,10 +892,12 @@ def test_investment_watch_repository_clear_state_removes_old_data(tmp_path: Path
 
     cleared = repository.clear_state()
 
-    assert repository.state_path.exists() is False
+    assert repository.state_path.exists() is True
     assert cleared["portfolio"] is None
     assert cleared["holdings"] == []
     assert cleared["ai_runs"] == []
+    versions = repository.list_state_versions(limit=20)
+    assert any(item["reason"] == "before_clear" for item in versions)
     assert "尚未匯入持股" in cleared["shared_memory"]
 
 

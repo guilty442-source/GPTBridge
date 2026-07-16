@@ -1,0 +1,20 @@
+{
+  "contract_version": 1,
+  "protocol_version": 1,
+  "minimum_supported_contract_version": 1,
+  "description": "Versioned boundary between GPTBridge and standalone platform applications.",
+  "authority": {
+    "governance_rules": "main-system",
+    "backups": "project-cleaner",
+    "audit_records": "project-cleaner",
+    "runtime_logs": "project-cleaner"
+  },
+  "managed_storage": {
+    "root": "platform_tools/project-cleaner/data",
+    "backups": "platform_tools/project-cleaner/data/backups",
+    "audit": "platform_tools/project-cleaner/data/audit",
+    "logs": "platform_tools/project-cleaner/data/logs",
+    "backup_max_records": 1,
+    "delete_backup_overflow": true
+  }
+}

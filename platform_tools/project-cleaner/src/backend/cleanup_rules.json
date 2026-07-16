@@ -1,0 +1,112 @@
+{
+  "schema_version": 2,
+  "plan_ttl_minutes": 15,
+  "quarantine_ttl_hours": 24,
+  "excluded_directory_names": [
+    ".git",
+    ".venv",
+    "node_modules",
+    "browser-profile",
+    "browser-profiles",
+    "edge-profile",
+    "backups",
+    ".GPTBridge_CleanerQuarantine"
+  ],
+  "protected_relative_paths": [
+    "runtime/profiles",
+    "runtime/state",
+    "runtime/browser-profiles",
+    "runtime/project-cleaner",
+    "runtime/file-sorter",
+    "runtime/ipc",
+    "dist-ui",
+    "release",
+    "browser-profile",
+    "edge-profile",
+    "backups",
+    "platform_tools/project-cleaner/data",
+    ".GPTBridge_CleanerQuarantine"
+  ],
+  "directory_rules": [
+    {
+      "id": "visual-smoke-sandbox",
+      "patterns": ["gptbridge-ai-assistant-visual-*"],
+      "reason": "isolated visual smoke sandbox",
+      "risk": "low",
+      "min_age_days": 0,
+      "protect_user_content": false,
+      "sandbox_only": true
+    },
+    {
+      "id": "python-bytecode",
+      "names": ["__pycache__"],
+      "reason": "python bytecode cache",
+      "risk": "low",
+      "min_age_days": 0,
+      "protect_user_content": false
+    },
+    {
+      "id": "tool-cache",
+      "names": [".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", ".nox"],
+      "reason": "tool cache directory",
+      "risk": "low",
+      "min_age_days": 0,
+      "protect_user_content": false
+    },
+    {
+      "id": "generic-cache",
+      "names": ["cache", "temp", "tmp"],
+      "reason": "generated working directory",
+      "risk": "low",
+      "min_age_days": 0,
+      "protect_user_content": true
+    },
+    {
+      "id": "coverage-output",
+      "names": ["coverage", "htmlcov", ".nyc_output"],
+      "reason": "generated coverage output",
+      "risk": "low",
+      "min_age_days": 1,
+      "protect_user_content": false
+    },
+    {
+      "id": "frontend-cache",
+      "names": [".vite", ".parcel-cache", ".turbo"],
+      "reason": "frontend build cache",
+      "risk": "low",
+      "min_age_days": 1,
+      "protect_user_content": false
+    },
+    {
+      "id": "build-output",
+      "names": ["dist-ui", "build", "out"],
+      "reason": "generated build output",
+      "risk": "medium",
+      "min_age_days": 7,
+      "protect_user_content": true
+    }
+  ],
+  "file_rules": [
+    {"id": "temporary", "patterns": ["*.tmp", "*.temp"], "reason": "temporary file", "risk": "low", "min_age_days": 1},
+    {"id": "old-copy", "patterns": ["*.old"], "reason": "old file copy", "risk": "medium", "min_age_days": 14},
+    {"id": "backup-copy", "patterns": ["*.bak"], "reason": "backup file copy", "risk": "medium", "min_age_days": 30},
+    {"id": "old-log", "patterns": ["*.log"], "reason": "expired log file", "risk": "low", "min_age_days": 7},
+    {"id": "coverage-data", "patterns": [".coverage", ".coverage.*"], "reason": "generated coverage data", "risk": "low", "min_age_days": 1},
+    {"id": "crash-output", "patterns": ["*.dmp", "*.mdmp", "*.stackdump", "*.crash"], "reason": "crash diagnostic output", "risk": "medium", "min_age_days": 3},
+    {"id": "trace-output", "patterns": ["*.trace", "*.trace.json"], "reason": "expired trace output", "risk": "low", "min_age_days": 7},
+    {"id": "platform-metadata", "patterns": [".DS_Store", "Thumbs.db"], "reason": "platform metadata file", "risk": "low", "min_age_days": 0}
+  ],
+  "analysis": {
+    "duplicate_min_size_bytes": 1048576,
+    "large_file_min_size_bytes": 10485760,
+    "large_file_min_age_days": 14,
+    "hash_chunk_bytes": 1048576
+  },
+  "automation": {
+    "enabled": false,
+    "scope": "global",
+    "interval_hours": 24,
+    "disk_free_threshold_percent": 15,
+    "max_bytes_per_run": 536870912
+  }
+}

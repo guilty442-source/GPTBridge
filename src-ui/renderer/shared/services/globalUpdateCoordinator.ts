@@ -6,6 +6,7 @@ export type GlobalUpdateStrategy =
   | 'data_reload'
   | 'window_reload'
   | 'backend_restart'
+  | 'tool_restart'
   | 'app_restart'
 
 export interface GlobalUpdateChange {
@@ -40,6 +41,7 @@ const STRATEGIES = new Set<GlobalUpdateStrategy>([
   'data_reload',
   'window_reload',
   'backend_restart',
+  'tool_restart',
   'app_restart',
 ])
 
@@ -53,32 +55,25 @@ function normalizeChange(item: unknown): GlobalUpdateChange | null {
   const source = item as Record<string, unknown>
   const path = String(source.path || '').trim()
   if (!path) return null
-
   return {
     path,
     strategy: toStrategy(source.strategy),
     scope: String(source.scope || 'unknown'),
     label: String(source.label || '全域更新'),
-    reason: String(source.reason || '偵測到專案變更。'),
+    reason: String(source.reason || '偵測到需要更新的檔案'),
   }
 }
 
 async function invokeElectron(channel: string): Promise<Record<string, unknown>> {
-  const api = (window as any).electron
-  if (!api?.invoke) {
-    return { ok: false, message: 'Electron IPC 尚未就緒。' }
-  }
-
+  const api = window.electron
+  if (!api?.invoke) return { ok: false, message: 'Electron IPC 尚未就緒。' }
   try {
     const result = await api.invoke(channel)
     return result && typeof result === 'object'
       ? (result as Record<string, unknown>)
       : { ok: true }
   } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : String(error),
-    }
+    return { ok: false, message: error instanceof Error ? error.message : String(error) }
   }
 }
 
@@ -88,8 +83,8 @@ export function normalizeGlobalUpdatePlan(payload: unknown): GlobalUpdatePlan {
       changed: false,
       changedCount: 0,
       highestStrategy: 'none',
-      actionLabel: '無需套用',
-      message: '目前沒有待套用的全域更新。',
+      actionLabel: '無需更新',
+      message: '目前沒有待套用的更新。',
       counts: {},
       changes: [],
       generatedAt: 0,
@@ -100,8 +95,7 @@ export function normalizeGlobalUpdatePlan(payload: unknown): GlobalUpdatePlan {
   const changes = Array.isArray(source.changes)
     ? source.changes.map(normalizeChange).filter((item): item is GlobalUpdateChange => Boolean(item))
     : []
-
-  const changedCount = Number(source.changed_count ?? changes.length)
+  const rawCount = Number(source.changed_count ?? changes.length)
   const counts =
     source.counts && typeof source.counts === 'object'
       ? Object.fromEntries(
@@ -114,10 +108,10 @@ export function normalizeGlobalUpdatePlan(payload: unknown): GlobalUpdatePlan {
 
   return {
     changed: Boolean(source.changed ?? changes.length > 0),
-    changedCount: Number.isFinite(changedCount) ? Math.max(0, changedCount) : changes.length,
+    changedCount: Number.isFinite(rawCount) ? Math.max(0, rawCount) : changes.length,
     highestStrategy: toStrategy(source.highest_strategy),
-    actionLabel: String(source.action_label || '全域更新'),
-    message: String(source.message || '更新狀態檢查完成。'),
+    actionLabel: String(source.action_label || '套用更新'),
+    message: String(source.message || '更新狀態已就緒。'),
     counts,
     changes,
     generatedAt: Number(source.generated_at ?? Date.now()) || Date.now(),
@@ -130,77 +124,40 @@ export async function applyGlobalUpdatePlan(
   const strategy = plan.highestStrategy
 
   if (!plan.changed || strategy === 'none') {
-    hmrService.reportHealthy('全域更新協調：沒有待套用變更')
-    return {
-      ok: true,
-      strategy,
-      message: '目前沒有待套用的全域更新。',
-      markApplied: true,
-    }
+    hmrService.reportHealthy('全域更新檢查完成')
+    return { ok: true, strategy, message: '目前沒有待套用的更新。', markApplied: true }
   }
-
   if (strategy === 'renderer_hmr') {
-    hmrService.reportHealthy('全域更新協調：介面 HMR 已套用')
-    return {
-      ok: true,
-      strategy,
-      message: '介面熱更新已交由 Vite HMR 套用。',
-      markApplied: true,
-    }
+    hmrService.reportHealthy('前端熱更新已套用')
+    return { ok: true, strategy, message: '前端變更已透過熱更新套用。', markApplied: true }
   }
-
   if (strategy === 'data_reload') {
-    window.dispatchEvent(
-      new CustomEvent('gptbridge:global-data-reload', { detail: plan })
-    )
-    return {
-      ok: true,
-      strategy,
-      message: '已通知各模組重新載入資料。',
-      markApplied: true,
-    }
+    window.dispatchEvent(new CustomEvent('gptbridge:global-data-reload', { detail: plan }))
+    return { ok: true, strategy, message: '資料已重新載入。', markApplied: true }
   }
-
   if (strategy === 'window_reload') {
     const result = await invokeElectron('app:reload-window')
-    if (result.ok === false) {
-      window.location.reload()
-    }
-    return {
-      ok: true,
-      strategy,
-      message: '正在重載視窗以套用變更。',
-      markApplied: true,
-    }
+    if (result.ok === false) window.location.reload()
+    return { ok: true, strategy, message: '應用視窗已重新載入。', markApplied: true }
   }
-
   if (strategy === 'backend_restart') {
     const result = await invokeElectron('app:restart-backend')
     if (result.ok === false) {
       return {
         ok: false,
         strategy,
-        message: String(
-          result.message ||
-            '後端需要重啟，但目前無法由 Electron 單獨重啟；請重啟 dev 流程。'
-        ),
+        message: String(result.message || '後端重新啟動失敗。'),
         markApplied: false,
       }
     }
     await invokeElectron('app:reload-window')
-    return {
-      ok: true,
-      strategy,
-      message: '後端已重啟，視窗正在重新連線。',
-      markApplied: true,
-    }
+    return { ok: true, strategy, message: '後端已重新啟動。', markApplied: true }
+  }
+  if (strategy === 'tool_restart') {
+    window.dispatchEvent(new CustomEvent('gptbridge:global-data-reload', { detail: plan }))
+    return { ok: true, strategy, message: '受影響的獨立工具已更新。', markApplied: true }
   }
 
   await invokeElectron('app:restart')
-  return {
-    ok: true,
-    strategy,
-    message: '正在重啟應用程式以套用全域更新。',
-    markApplied: false,
-  }
+  return { ok: true, strategy, message: '主程式正在重新啟動以完成更新。', markApplied: false }
 }

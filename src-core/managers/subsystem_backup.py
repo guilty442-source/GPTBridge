@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import os
+import shutil
+import uuid
 import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable
+
+from utils.cleanup import quarantine_path
 
 
 EXCLUDED_DIRS = {
@@ -68,40 +72,60 @@ class ScopedBackupStore:
         self.backup_root.mkdir(parents=True, exist_ok=True)
 
     def create(self, label: str) -> dict[str, object]:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         safe_label = "".join(ch if ch.isalnum() or ch in ("-", "_") else "-" for ch in label).strip("-")
         zip_path = self.backup_root / f"{timestamp}_{safe_label or 'backup'}.zip"
+        partial_path = zip_path.with_name(
+            f".{zip_path.name}.{uuid.uuid4().hex}.partial"
+        )
         file_count = 0
 
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-            for root, dirs, files in os.walk(self.source_dir):
-                root_path = Path(root)
-                rel_root = root_path.relative_to(self.source_dir)
-                if self._has_excluded_dir(rel_root):
-                    dirs.clear()
-                    continue
-
-                dirs[:] = [name for name in dirs if not self._is_excluded_name(name)]
-                for name in files:
-                    path = root_path / name
-                    rel_path = rel_root / name
-                    if path.suffix.lower() in EXCLUDED_SUFFIXES:
+        try:
+            with zipfile.ZipFile(
+                partial_path,
+                "x",
+                zipfile.ZIP_DEFLATED,
+            ) as archive:
+                for root, dirs, files in os.walk(self.source_dir):
+                    root_path = Path(root)
+                    rel_root = root_path.relative_to(self.source_dir)
+                    if self._has_excluded_dir(rel_root):
+                        dirs.clear()
                         continue
-                    try:
-                        if path.stat().st_size > MAX_FILE_BYTES:
+
+                    dirs[:] = [name for name in dirs if not self._is_excluded_name(name)]
+                    for name in files:
+                        path = root_path / name
+                        rel_path = rel_root / name
+                        if path.suffix.lower() in EXCLUDED_SUFFIXES:
                             continue
-                        archive.write(path, rel_path)
-                        file_count += 1
-                    except OSError:
-                        continue
+                        try:
+                            if path.stat().st_size > MAX_FILE_BYTES:
+                                continue
+                            archive.write(path, rel_path)
+                            file_count += 1
+                        except OSError:
+                            continue
+            # Publish with an exclusive hard link. Unlike os.replace, this
+            # cannot overwrite an independently created backup with the same
+            # name. Removing the transaction-owned partial afterward leaves
+            # the published link and all archive bytes intact.
+            os.link(partial_path, zip_path)
+        finally:
+            # This unpublished partial belongs only to this backup transaction.
+            try:
+                partial_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
-        self.prune()
+        retention = self.prune()
         return {
             "ok": True,
             "backup_file": str(zip_path),
             "backup_root": str(self.backup_root),
             "max_records": self.max_records,
             "file_count": file_count,
+            "retention": retention,
             "records": self.records(),
         }
 
@@ -120,6 +144,8 @@ class ScopedBackupStore:
             }
 
         restored_files = 0
+        recoveries: list[dict[str, object]] = []
+        errors: list[dict[str, str]] = []
         source_root = self.source_dir.resolve()
         with zipfile.ZipFile(latest, "r") as archive:
             for member in archive.infolist():
@@ -130,27 +156,89 @@ class ScopedBackupStore:
                 if source_root not in target.parents and target != source_root:
                     continue
 
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with archive.open(member, "r") as source, open(target, "wb") as destination:
-                    destination.write(source.read())
-                restored_files += 1
+                partial = target.with_name(
+                    f".{target.name}.{uuid.uuid4().hex}.restore-partial"
+                )
+                try:
+                    if target.exists():
+                        recoveries.append(
+                            quarantine_path(
+                                target,
+                                self.backup_root / "restore-recovery",
+                                operation="scoped-backup-restore",
+                                allowed_root=source_root,
+                                original_path=member.filename,
+                            )
+                        )
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with archive.open(member, "r") as source, partial.open(
+                        "xb"
+                    ) as destination:
+                        shutil.copyfileobj(source, destination)
+                        destination.flush()
+                        os.fsync(destination.fileno())
+                    # Exclusive publication refuses to overwrite a target
+                    # created concurrently after the recovery move.
+                    os.link(partial, target)
+                    restored_files += 1
+                except (OSError, ValueError, zipfile.BadZipFile) as exc:
+                    errors.append(
+                        {"path": member.filename, "error": str(exc)}
+                    )
+                finally:
+                    try:
+                        partial.unlink(missing_ok=True)
+                    except OSError:
+                        pass
 
         return {
-            "ok": True,
+            "ok": not errors,
             "message": f"latest backup restored; files={restored_files}",
             "backup_file": str(latest),
             "backup_root": str(self.backup_root),
             "max_records": self.max_records,
             "file_count": restored_files,
+            "recoveries": recoveries,
+            "errors": errors,
+            "permanently_deleted": 0,
             "records": self.records(),
         }
 
-    def prune(self) -> None:
-        for old_file in self._backup_files()[self.max_records:]:
+    def prune(self) -> dict[str, object]:
+        """Delete published ZIP backups beyond the configured retention limit."""
+
+        records = self._backup_files()
+        overflow = records[self.max_records :]
+        deleted_records: list[str] = []
+        deleted_bytes = 0
+        errors: list[dict[str, str]] = []
+        for old_file in overflow:
             try:
+                size = int(old_file.stat().st_size)
                 old_file.unlink()
-            except OSError:
-                pass
+                deleted_records.append(str(old_file))
+                deleted_bytes += size
+            except OSError as exc:
+                errors.append({"path": str(old_file), "error": str(exc)})
+
+        remaining = self._backup_files()
+        return {
+            "pressure": len(remaining) > self.max_records,
+            "configured_max_records": self.max_records,
+            "record_count": len(remaining),
+            "overflow_count": max(0, len(remaining) - self.max_records),
+            "overflow_bytes": 0,
+            "retained_records": [str(path) for path in remaining],
+            "deleted_records": deleted_records,
+            "deleted_bytes": deleted_bytes,
+            "permanently_deleted": len(deleted_records),
+            "errors": errors,
+            "message": (
+                f"backup retention pruned {len(deleted_records)} old record(s)"
+                if deleted_records
+                else "backup retention healthy"
+            ),
+        }
 
     def total_size_bytes(self) -> int:
         total = 0

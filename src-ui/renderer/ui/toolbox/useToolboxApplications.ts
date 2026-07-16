@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type {
-  ToolAction,
-  ToolRuntimeState,
-} from '@/ui/developer-mode/tools/types'
+import type { ToolAction, ToolRuntimeState } from './tools/types'
 import {
   createInitialToolboxRuntimeState,
   hydrateToolboxRuntimeStateFromBackend,
@@ -10,17 +7,8 @@ import {
   resolveToolboxToolAction,
 } from '@/ui/toolbox/tools/runtimeState'
 
-type SendCommandResult = {
-  ok: boolean
-  queued: boolean
-  message?: string
-}
-
-type SendCommand = (
-  command: string,
-  payload?: unknown
-) => SendCommandResult
-
+type SendCommandResult = { ok: boolean; queued: boolean; message?: string }
+type SendCommand = (command: string, payload?: unknown) => SendCommandResult
 type WaitForIpcEvent = (
   eventName: string,
   timeoutMs: number,
@@ -33,12 +21,10 @@ type UseToolboxApplicationsOptions = {
   waitForIpcEvent: WaitForIpcEvent
 }
 
-type PlatformToolSizesPayload = {
-  ok?: boolean
-  tools?: unknown
-}
+type PlatformToolSizesPayload = { ok?: boolean; tools?: unknown }
 
 const TOOLBOX_LIST_TIMEOUT_MS = 20000
+const TOOLBOX_ACTION_TIMEOUT_MS = 120000
 const LOCAL_TOOL_SIZE_RETRY_LIMIT = 6
 const LOCAL_TOOL_SIZE_RETRY_MS = 1500
 
@@ -59,10 +45,11 @@ export function useToolboxApplications({
   const [toolboxTools, setToolboxTools] = useState<ToolRuntimeState[]>(() =>
     createInitialToolboxRuntimeState()
   )
-  const toolboxToolsRef = useRef<ToolRuntimeState[]>(toolboxTools)
+  const toolboxToolsRef = useRef(toolboxTools)
   const [toolboxSyncing, setToolboxSyncing] = useState(false)
   const [toolboxSyncedAt, setToolboxSyncedAt] = useState<number | null>(null)
-  const toolboxRefreshPromiseRef = useRef<Promise<void> | null>(null)
+  const refreshPromiseRef = useRef<Promise<void> | null>(null)
+  const actionRevisionRef = useRef(0)
 
   useEffect(() => {
     toolboxToolsRef.current = toolboxTools
@@ -72,7 +59,6 @@ export function useToolboxApplications({
     async (tools: ToolRuntimeState[]): Promise<ToolRuntimeState[]> => {
       const api = window.electron
       if (!api?.invoke) return tools
-
       try {
         const payload = (await api.invoke(
           'app:get-platform-tool-sizes'
@@ -87,46 +73,41 @@ export function useToolboxApplications({
   )
 
   const refreshToolboxTools = useCallback(async () => {
-    if (toolboxRefreshPromiseRef.current) {
-      return toolboxRefreshPromiseRef.current
-    }
+    if (refreshPromiseRef.current) return refreshPromiseRef.current
 
+    const refreshRevision = actionRevisionRef.current
     const refreshPromise = (async () => {
       setToolboxSyncing(true)
-
       try {
-        const result = sendCommand('toolbox_list_tools', {
+        const sent = sendCommand('toolbox_list_tools', {
           source: 'app_toolbox_sync',
         })
-        if (!result.ok && !result.queued) return
+        if (!sent.ok) return
         const payload = await waitForIpcEvent(
           'toolbox_list_tools_result',
           TOOLBOX_LIST_TIMEOUT_MS
         )
         if (payload.ok === false) return
-        const hydratedTools = hydrateToolboxRuntimeStateFromBackend(payload.tools)
-        const nextTools =
-          hydratedTools.length > 0
-            ? hydratedTools
-            : createInitialToolboxRuntimeState()
-        const toolsWithLocalSizes = await mergeLocalProjectSizes(nextTools)
-        setToolboxTools(toolsWithLocalSizes)
+        const hydrated = hydrateToolboxRuntimeStateFromBackend(payload.tools)
+        const next = hydrated.length ? hydrated : createInitialToolboxRuntimeState()
+        const withSizes = await mergeLocalProjectSizes(next)
+        if (refreshRevision !== actionRevisionRef.current) return
+        setToolboxTools(withSizes)
         setToolboxSyncedAt(Date.now())
       } catch {
-        // Keep current toolbox state on transient refresh failure.
+        // Preserve the last authoritative state on a transient failure.
       } finally {
         setToolboxSyncing(false)
-        toolboxRefreshPromiseRef.current = null
+        refreshPromiseRef.current = null
       }
     })()
 
-    toolboxRefreshPromiseRef.current = refreshPromise
+    refreshPromiseRef.current = refreshPromise
     return refreshPromise
   }, [mergeLocalProjectSizes, sendCommand, waitForIpcEvent])
 
   useEffect(() => {
-    if (backendStatus !== 'Connected') return
-    void refreshToolboxTools()
+    if (backendStatus === 'Connected') void refreshToolboxTools()
   }, [backendStatus, refreshToolboxTools])
 
   useEffect(() => {
@@ -136,22 +117,32 @@ export function useToolboxApplications({
 
     const hydrateLocalSizes = async () => {
       attempts += 1
-      const currentTools = toolboxToolsRef.current
-      const toolsWithLocalSizes = await mergeLocalProjectSizes(currentTools)
+      const withSizes = await mergeLocalProjectSizes(toolboxToolsRef.current)
       if (disposed) return
-      setToolboxTools(toolsWithLocalSizes)
+      const sizesById = new Map(withSizes.map((tool) => [tool.id, tool]))
+      setToolboxTools((current) =>
+        current.map((tool) => {
+          const sized = sizesById.get(tool.id)
+          if (!sized) return tool
+          return {
+            ...tool,
+            folderPath: sized.folderPath,
+            manifestPath: sized.manifestPath,
+            codePath: sized.codePath,
+            projectSizeBytes: sized.projectSizeBytes,
+          }
+        })
+      )
       setToolboxSyncedAt((current) => current ?? Date.now())
-
       if (
         attempts < LOCAL_TOOL_SIZE_RETRY_LIMIT &&
-        hasMissingProjectSizes(toolsWithLocalSizes)
+        hasMissingProjectSizes(withSizes)
       ) {
         retryTimer = window.setTimeout(hydrateLocalSizes, LOCAL_TOOL_SIZE_RETRY_MS)
       }
     }
 
     void hydrateLocalSizes()
-
     return () => {
       disposed = true
       if (retryTimer !== null) window.clearTimeout(retryTimer)
@@ -159,115 +150,60 @@ export function useToolboxApplications({
   }, [mergeLocalProjectSizes])
 
   useEffect(() => {
-    const handler = () => {
-      void refreshToolboxTools()
-    }
-
-    window.addEventListener('gptbridge:global-data-reload', handler)
-    return () => window.removeEventListener('gptbridge:global-data-reload', handler)
-  }, [refreshToolboxTools])
-
-  useEffect(() => {
-    const reloadEvents = new Set([
-      'toolbox_add_tool_result',
-      'toolbox_start_tool_result',
-      'toolbox_stop_tool_result',
-      'toolbox_save_tool_code_result',
-    ])
-
-    const handler = (event: Event) => {
-      const customEvent = event as CustomEvent
-      const detail = (customEvent.detail || {}) as Record<string, unknown>
-      const eventName = String(detail.event || '')
-      if (!reloadEvents.has(eventName)) return
-
-      const payload = (detail.payload || {}) as Record<string, unknown>
-      if (payload.ok === false) return
-      void refreshToolboxTools()
-    }
-
-    window.addEventListener('ipc_event', handler)
-    return () => window.removeEventListener('ipc_event', handler)
+    const reload = () => void refreshToolboxTools()
+    window.addEventListener('gptbridge:global-data-reload', reload)
+    return () => window.removeEventListener('gptbridge:global-data-reload', reload)
   }, [refreshToolboxTools])
 
   const executeToolboxAction = useCallback(
     async (toolId: string, action: ToolAction) => {
       const target = toolboxToolsRef.current.find((tool) => tool.id === toolId)
       if (target?.launchable === false) {
-        setToolboxTools((prev) =>
-          prev.map((tool) =>
+        setToolboxTools((previous) =>
+          previous.map((tool) =>
             tool.id === toolId
-              ? {
-                  ...tool,
-                  status: 'stopped',
-                  updatedAt: Date.now(),
-                  note: '此項目不是可啟動的獨立應用程式。',
-                }
+              ? { ...tool, status: 'stopped', updatedAt: Date.now(), note: '此工具已停用，無法由主程式啟動。' }
               : tool
           )
         )
         return
       }
 
-      setToolboxTools((prev) =>
-        resolveToolboxToolAction(prev, toolId, action, 'pending')
+      actionRevisionRef.current += 1
+      setToolboxTools((previous) =>
+        resolveToolboxToolAction(previous, toolId, action, 'pending')
       )
 
-      const command =
-        action === 'start' ? 'toolbox_start_tool' : 'toolbox_stop_tool'
-      const resultEvent =
-        action === 'start'
-          ? 'toolbox_start_tool_result'
-          : 'toolbox_stop_tool_result'
+      const command = action === 'start' ? 'toolbox_start_tool' : 'toolbox_stop_tool'
+      const resultEvent = `${command}_result`
       const failMessage =
         action === 'start'
-          ? '工具啟動失敗，請稍後再試。'
-          : '工具停止失敗，請稍後再試。'
-      const requestId = `${toolId}:${action}:${Date.now()}:${Math.random()
-        .toString(16)
-        .slice(2)}`
+          ? '工具啟動失敗，請確認後端連線與封裝狀態。'
+          : '工具停止失敗，請確認後端連線後再試。'
+      const requestId = `${toolId}:${action}:${Date.now()}:${Math.random().toString(16).slice(2)}`
 
       try {
-        const waitPromise = waitForIpcEvent(
+        const waitResult = waitForIpcEvent(
           resultEvent,
-          15000,
+          TOOLBOX_ACTION_TIMEOUT_MS,
           (payload) => String(payload.request_id || '') === requestId
         )
-        const sendResult = sendCommand(command, {
-          tool_id: toolId,
-          request_id: requestId,
-        })
-        if (!sendResult.ok && !sendResult.queued) {
-          throw new Error(sendResult.message || failMessage)
-        }
-        const result = await waitPromise
-        if (result.ok === false) {
-          const message = String(result.message || failMessage)
-          setToolboxTools((prev) =>
-            prev.map((tool) =>
-              tool.id === toolId
-                ? {
-                    ...tool,
-                    status: 'error',
-                    updatedAt: Date.now(),
-                    note: message,
-                  }
-                : tool
-            )
-          )
-          return
-        }
+        const sent = sendCommand(command, { tool_id: toolId, request_id: requestId })
+        if (!sent.ok) throw new Error(sent.message || failMessage)
+        const result = await waitResult
+        if (result.ok === false) throw new Error(String(result.message || failMessage))
+        setToolboxTools((previous) =>
+          resolveToolboxToolAction(previous, toolId, action, 'settled')
+        )
+        const staleRefresh = refreshPromiseRef.current
+        if (staleRefresh) await staleRefresh
         await refreshToolboxTools()
-      } catch {
-        setToolboxTools((prev) =>
-          prev.map((tool) =>
+      } catch (error) {
+        const message = error instanceof Error ? error.message : failMessage
+        setToolboxTools((previous) =>
+          previous.map((tool) =>
             tool.id === toolId
-              ? {
-                  ...tool,
-                  status: 'error',
-                  updatedAt: Date.now(),
-                  note: failMessage,
-                }
+              ? { ...tool, status: 'error', updatedAt: Date.now(), note: message }
               : tool
           )
         )
@@ -277,9 +213,7 @@ export function useToolboxApplications({
   )
 
   const handleToolboxAction = useCallback(
-    (toolId: string, action: ToolAction) => {
-      void executeToolboxAction(toolId, action)
-    },
+    (toolId: string, action: ToolAction) => void executeToolboxAction(toolId, action),
     [executeToolboxAction]
   )
 
@@ -287,6 +221,7 @@ export function useToolboxApplications({
     toolboxTools,
     toolboxSyncing,
     toolboxSyncedAt,
+    refreshToolboxTools,
     handleToolboxAction,
   }
 }

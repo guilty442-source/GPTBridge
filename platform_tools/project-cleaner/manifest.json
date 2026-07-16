@@ -1,9 +1,15 @@
 {
   "id": "project-cleaner",
-  "name": "清理工具",
-  "version": "1.2.0",
+  "name": "專案清理與系統救援",
+  "version": "1.0.0",
   "status": "stopped",
   "enabled": true,
+  "permissions": {
+    "code_scope": "tool-root-only",
+    "database_scope": "tool-database-only",
+    "allow_modify": ["own-data", "authorized-project"],
+    "deny": ["outside-authorized-project"]
+  },
   "entry": "platform_tools/project-cleaner/src/main",
   "runtime": {
     "type": "python",
@@ -15,16 +21,42 @@
     "name": "project-cleaner",
     "console": true
   },
-  "description": "清理專案暫存、快取、日誌與過期輸出，支援 dry-run、隔離區、還原、健康分數、安全建議與隔離區 TTL 管理。",
+  "description": "專案範圍內的清理、可復原異常修正、升級前後驗證與系統救援工具；不強制解鎖，也不操作專案外路徑。",
   "timeout_seconds": 900,
+  "capabilities": {
+    "auto-repair": {
+      "entry": "src/auto_repair.py",
+      "arguments": ["--json"],
+      "authority": "tool-root-only"
+    },
+    "upgrade-repair": {
+      "entry": "src/main.py",
+      "arguments": ["--system-rescue-repair", "--json"],
+      "authority": "project-root-only"
+    },
+    "system-rescue": {
+      "operations": {
+        "check": ["--system-rescue-check", "--json"],
+        "repair": ["--system-rescue-repair", "--json"]
+      },
+      "authority": "project-root-only"
+    }
+  },
+  "environment": {
+    "allow": ["GPTBRIDGE_CLEANER_TARGET_ROOT"],
+    "bindings": {
+      "GPTBRIDGE_CLEANER_TARGET_ROOT": "project_root"
+    }
+  },
   "test_targets": [
-    "tests/test_settings_cleanup.py"
+    "tests/test_settings_cleanup.py",
+    "tests/test_platform_tool_template.py"
   ],
   "window": {
-    "width": 980,
-    "height": 720,
-    "minWidth": 760,
-    "minHeight": 560,
-    "title": "清理工具"
+    "width": 1040,
+    "height": 760,
+    "minWidth": 800,
+    "minHeight": 600,
+    "title": "專案清理與系統救援"
   }
 }

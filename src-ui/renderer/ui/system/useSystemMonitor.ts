@@ -42,6 +42,7 @@ interface SystemMetrics {
   diskUsagePercent: number | null
   diskTotalBytes: number | null
   diskFreeBytes: number | null
+  diskRoot?: string
   sampledAt: number | null
 }
 
@@ -156,7 +157,7 @@ export function useSystemMonitor({
       setStartupChecking(true)
       clearStartupCheckTimer()
 
-      const result = sendCommand('mother_startup_status', {
+      const result = sendCommand('app:get-runtime-status', {
         source: 'main_status_lights',
         trigger: source,
       })
@@ -230,7 +231,7 @@ export function useSystemMonitor({
     const handler = (event: Event) => {
       const customEvent = event as CustomEvent
       const detail = customEvent.detail || {}
-      if (detail.event !== 'mother_startup_status_result') return
+      if (detail.event !== 'app:get-runtime-status_result') return
       clearStartupCheckTimer()
       startupCheckInFlightRef.current = false
       setStartupChecking(false)
@@ -401,13 +402,13 @@ export function useSystemMonitor({
       },
       {
         key: 'disk',
-        title: '系統空間',
+        title: `主系統硬碟${metrics.diskRoot ? ` ${metrics.diskRoot}` : ''}`,
         detail:
           metrics.diskUsagePercent === null
             ? '尚未取樣（未啟動）'
-            : `使用率 ${formatPercent(metrics.diskUsagePercent)}，可用 ${formatGB(
-                metrics.diskFreeBytes
-              )}`,
+            : `總容量 ${formatGB(metrics.diskTotalBytes)}，使用率 ${formatPercent(
+                metrics.diskUsagePercent
+              )}，可用 ${formatGB(metrics.diskFreeBytes)}`,
         level: usageLevel(metrics.diskUsagePercent, 80, 95),
       },
       {
@@ -436,6 +437,8 @@ export function useSystemMonitor({
     backendStatus,
     metrics.cpuUsagePercent,
     metrics.diskFreeBytes,
+    metrics.diskRoot,
+    metrics.diskTotalBytes,
     metrics.diskUsagePercent,
     metrics.ramFreeBytes,
     metrics.ramUsagePercent,

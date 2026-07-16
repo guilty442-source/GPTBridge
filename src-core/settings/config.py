@@ -13,24 +13,16 @@ CONFIG_PATH = PROJECT_ROOT / "config" / "settings.json"
 
 OFFICIAL_NAMES = (
     "GPTBridge",
-    "\u4ecb\u9762\u7cfb\u7d71",
-    "\u6838\u5fc3\u7cfb\u7d71",
-    "\u8a2d\u8a08\u6a21\u5f0f",
-    "\u6551\u63f4\u6a21\u5f0f",
-    "\u958b\u767c\u8005\u6a21\u5f0f",
+    "\u4e3b\u7a0b\u5f0f",
+    "\u7368\u7acb\u5de5\u5177",
     "\u8a2d\u5b9a",
-    "\u5171\u7528\u5c64",
 )
 
 DEFAULT_DISPLAY_NAMES = {
     "product": "GPTBridge",
-    "interface_system": "\u4ecb\u9762\u7cfb\u7d71",
-    "core_system": "\u6838\u5fc3\u7cfb\u7d71",
-    "design_mode": "\u8a2d\u8a08\u6a21\u5f0f",
-    "rescue_mode": "\u6551\u63f4\u6a21\u5f0f",
-    "developer_mode": "\u958b\u767c\u8005\u6a21\u5f0f",
+    "main_program": "\u4e3b\u7a0b\u5f0f",
+    "independent_tools": "\u7368\u7acb\u5de5\u5177",
     "settings": "\u8a2d\u5b9a",
-    "shared_layer": "\u5171\u7528\u5c64",
 }
 
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -62,12 +54,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "headless": False,
     },
     "backup_policy": {
-        "design_mode_max_records": 2,
-        "mother_tool_max_records": 2,
+        "main_program_max_records": 1,
+        "independent_tool_max_records": 1,
     },
     "display_names": DEFAULT_DISPLAY_NAMES,
     "auto_cycle": 60,
-    "max_backup_count": 3,
+    "max_backup_count": 1,
     "profile": "main",
     "auto_start": False,
 }

@@ -30,6 +30,8 @@
     "dist-ui",
     "release",
     "build",
+    "platform_tools/**/build/**",
+    "platform_tools/**/dist/**",
     ".GPTBridge_RuntimeSandbox",
     "backups"
   ]

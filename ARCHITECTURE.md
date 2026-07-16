@@ -1,43 +1,42 @@
-# GPTBridge Architecture Boundaries
+# GPTBridge v1.0 架構與能力邊界
 
-Target platform: Windows 11.
+GPTBridge 採用「精簡主程式 + 獨立工具」架構。正式環境沒有開發模式或其他模式切換。
 
-## Fixed Systems
+## 主程式
 
-- GPTBridge
-- 介面系統
-- 核心系統
-- 設計模式
-- 救援模式
-- 開發者模式
-- 設定
-- 共用層
+主程式只負責：
 
-## Folder Boundaries
+- 探索工具並顯示狀態。
+- 啟動與停止獨立工具 EXE。
+- 依版本與檔案指紋協調熱更新、升級修復及受影響工具重啟。
 
-| System | Backend | Frontend | Responsibility |
-| --- | --- | --- | --- |
-| 介面系統 | `src-ui/renderer/info-center` | `src-ui/renderer/info-center` | Mode switching, system lights, lightweight status overview. |
-| 核心系統 | `src-core`, `src-core/core_system` | `src-ui/renderer/core-system`, shared renderer helpers | Mother-tool core, shared layer, architecture rules, engines. |
-| 設計模式 | `src-core/modes/design` | `src-ui/renderer/modes/design` | Child-tool project development only. |
-| 救援模式 | `src-core/modes/rescue` | `src-ui/renderer/modes/rescue` | Mother-tool diagnosis, rescue, rollback preparation. |
-| 開發者模式 | `src-core/modes/developer` | `src-ui/renderer/modes/developer` | Sandbox-only mother-tool development and deploy approval. |
-| 設定 | `src-core/modes/settings` | `src-ui/renderer/modes/settings` | Governance, URL, account, storage, backup, cleanup, import/export. |
+主程式不得承載投資、AI、檔案整理、影音下載或清理等業務功能，也不提供新增工具、編輯工具原始碼或跨工具資料庫存取。
 
-## Storage Boundaries
+## 分層
 
-- Sandbox root: `.GPTBridge_RuntimeSandbox`
-- Backup root: `backups`
-- Design-mode backups: `backups/design-mode`
-- Main-system backups: `backups/main-system`
+1. Electron 桌面層：視窗、工作階段取得與程序啟動。
+2. 驗證 IPC 層：loopback WebSocket、session token、instance ID；斷線時指令失敗且不排隊。
+3. 主程式應用層：工具生命週期、狀態與熱更新。
+4. 獨立工具層：各工具自己的 UI、後端服務、資料庫、權限與自動修正。
 
-Backups and sandbox must never be nested inside each other. Legacy backup folders are migrated into `backups/main-system`.
+每一層只透過公開命令契約互動，不直接匯入其他工具的業務程式碼。
 
-## Core Rules
+## 工具隔離
 
-- Core system and shared layer are governed together.
-- Design mode must not modify GPTBridge mother-tool files.
-- Rescue mode must not create or build child tools.
-- Rescue mode is for saving the GPTBridge mother tool only; it must not run AI workflows or show AI answer panes.
-- Settings must not edit code or deploy.
-- Developer mode is the only mode allowed to modify the mother tool, and only through sandbox validation plus user approval.
+- 工具程式碼只能位於 `platform_tools/<tool-id>/`。
+- 工具執行資料與 SQLite 資料庫位於自己的 `runtime/`，不得共用資料庫或繼承其他工具權限。
+- 每個啟用工具必須在 manifest 宣告 `auto-repair`，修正範圍預設限於自己的工具根目錄。
+- `project-cleaner` 是唯一例外：其 manifest 明確授權後，才能在目前 GPTBridge 專案根目錄內執行清理、升級修復與系統救援；不得越出專案。
+- 執行期間沒有新增工具入口。重構期的新增／修改授權不會留在正式能力中。
+
+## AI 連線
+
+- 本地 AI 是獨立工具 `local-ai`，名稱為「星澄」，只連接本機模型。
+- 外部 AI 是獨立工具 `ai-collaboration`，只連接遠端 AI。
+- AI 投資管家 `ai-assistant` 透過 manifest 宣告的驗證 WebSocket 分別連接兩者。
+- 主程式只在啟動工具時傳遞短期連線能力；不代理 AI 內容、不共用 AI 資料庫，也不保存離線命令。
+- 未來新增 AI 功能必須沿用 `config/ai-connection-contract.json`：獨立身份、loopback 驗證、無離線佇列、無資料庫或權限共享。
+
+## 版本與更新
+
+產品版本為 SemVer `1.0.0`，介面顯示 `v1.0`。EXE 封裝會寫入版本、來源指紋與 runtime contract；啟動前會驗證封裝完整性。熱更新只重啟受影響工具，跨 contract 或 EXE 本體的變更仍需重新封裝。

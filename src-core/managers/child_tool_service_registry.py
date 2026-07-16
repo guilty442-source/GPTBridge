@@ -22,7 +22,11 @@ class ChildToolServiceRegistry:
         self.project_root = project_root
         self.workspace_root = project_root / "platform_tools"
 
-    def discover(self) -> list[ChildToolServiceDefinition]:
+    def discover(
+        self,
+        *,
+        allowed_tool_ids: set[str] | None = None,
+    ) -> list[ChildToolServiceDefinition]:
         if not self.workspace_root.exists():
             return []
 
@@ -30,7 +34,9 @@ class ChildToolServiceRegistry:
         for tool_dir in sorted(self.workspace_root.iterdir(), key=lambda item: item.name.lower()):
             if not tool_dir.is_dir():
                 continue
-            if self._is_merged_tool(tool_dir):
+            if allowed_tool_ids is not None and tool_dir.name not in allowed_tool_ids:
+                continue
+            if self._is_merged_tool(tool_dir) or not self._is_enabled_tool(tool_dir):
                 continue
 
             services_root = tool_dir / "src" / "backend" / "services"
@@ -82,3 +88,14 @@ class ChildToolServiceRegistry:
         except (OSError, json.JSONDecodeError):
             return False
         return bool(str(manifest.get("merged_into") or "").strip())
+
+    @staticmethod
+    def _is_enabled_tool(tool_dir: Path) -> bool:
+        manifest_path = tool_dir / "manifest.json"
+        if not manifest_path.exists():
+            return True
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return True
+        return manifest.get("enabled", True) is not False

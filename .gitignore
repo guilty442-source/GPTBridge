@@ -8,6 +8,7 @@ edge-profile/
 .ruff_cache/
 .GPTBridge_RuntimeSandbox/
 .GPTBridge_CleanerQuarantine/
+.GPTBridge_CleanerRecovery/
 dist/
 dist-ui/
 release/*
@@ -17,6 +18,7 @@ release/child-tools/**/build/
 runtime/
 src-core/runtime/
 backups/
+platform_tools/project-cleaner/data/
 __pycache__/
 .vite/
 build/

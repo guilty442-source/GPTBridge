@@ -81,9 +81,8 @@ const storageLevel = (check?: AuditCheckItem): CheckLevel => {
 const systemSizeLabels: Record<string, string> = {
   info_center: "\u4ecb\u9762\u7cfb\u7d71\u5927\u5c0f",
   core_system: "\u6838\u5fc3\u7cfb\u7d71\u5927\u5c0f",
-  design_mode: "\u8a2d\u8a08\u6a21\u5f0f\u5927\u5c0f",
-  rescue_mode: "\u6551\u63f4\u6a21\u5f0f\u5927\u5c0f",
-  developer_mode: "\u958b\u767c\u8005\u6a21\u5f0f\u5927\u5c0f",
+  main_program: "\u4e3b\u7a0b\u5f0f\u5927\u5c0f",
+  independent_tools: "\u7368\u7acb\u5de5\u5177\u5927\u5c0f",
   settings_system: "\u8a2d\u5b9a\u5927\u5c0f",
   child_tools: "\u5b50\u5de5\u5177\u5217\u8868\u5927\u5c0f",
 };

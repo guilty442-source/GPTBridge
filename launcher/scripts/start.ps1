@@ -166,14 +166,65 @@ function Get-LatestSourceWriteTime {
     return $latest
 }
 
+function Get-ProductionSourceSignature {
+    $sourceRoots = @(
+        (Join-Path $ProjectRoot "src-ui"),
+        (Join-Path $ProjectRoot "src-core"),
+        (Join-Path $ProjectRoot "config\tool-runtime-contract.json"),
+        (Join-Path $ProjectRoot "package.json"),
+        (Join-Path $ProjectRoot "package-lock.json"),
+        (Join-Path $ProjectRoot "requirements.txt"),
+        (Join-Path $ProjectRoot "vite.config.ts"),
+        (Join-Path $ProjectRoot "vite.main.config.ts"),
+        (Join-Path $ProjectRoot "tsconfig.json"),
+        (Join-Path $ProjectRoot "tsconfig.main.json")
+    )
+    $files = foreach ($sourceRoot in $sourceRoots) {
+        if (-not (Test-Path -LiteralPath $sourceRoot)) {
+            continue
+        }
+        $item = Get-Item -LiteralPath $sourceRoot
+        if ($item.PSIsContainer) {
+            Get-ChildItem -LiteralPath $sourceRoot -Recurse -File |
+                Where-Object {
+                    $_.FullName -notmatch '\\(?:__pycache__|runtime|dist-ui|build)\\'
+                }
+        } else {
+            $item
+        }
+    }
+    $lines = foreach ($file in ($files | Sort-Object FullName)) {
+        $relative = $file.FullName.Substring($ProjectRoot.Length).TrimStart('\')
+        $digest = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+        "$relative`0$digest"
+    }
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha.ComputeHash($bytes))).Replace("-", "")
+    } finally {
+        $sha.Dispose()
+    }
+}
+
 function Ensure-ProductionBuild {
     $mainOutput = Join-Path $ProjectRoot "dist-ui\main\index.js"
     $rendererOutput = Join-Path $ProjectRoot "dist-ui\renderer\index.html"
+    $buildSignaturePath = Join-Path $StateRoot "production-build.sha256"
+    $currentSignature = Get-ProductionSourceSignature
+    $recordedSignature = if (Test-Path -LiteralPath $buildSignaturePath) {
+        (Get-Content -LiteralPath $buildSignaturePath -Raw).Trim()
+    } else {
+        ""
+    }
     $outputsReady =
         (Test-Path -LiteralPath $mainOutput) -and
         (Test-Path -LiteralPath $rendererOutput)
 
-    $needsBuild = $ForceBuild -or -not $outputsReady
+    $needsBuild =
+        $ForceBuild -or
+        -not $outputsReady -or
+        $recordedSignature -ne $currentSignature
     if (-not $needsBuild) {
         $latestSource = Get-LatestSourceWriteTime
         $oldestOutput = @(
@@ -192,12 +243,13 @@ function Ensure-ProductionBuild {
     $npm = (Get-Command npm.cmd -ErrorAction Stop).Source
     try {
         Invoke-LoggedCommand $npm @("run", "build:app")
+        Set-Content -LiteralPath $buildSignaturePath -Value $currentSignature -Encoding ASCII
     } catch {
-        if ($outputsReady) {
-            Write-LauncherLog "Build failed; launching last known good production build. $($_.Exception.Message)"
+        if ($outputsReady -and $recordedSignature -eq $currentSignature) {
+            Write-LauncherLog "Build failed; launching the last compatible production generation. $($_.Exception.Message)"
             return
         }
-        throw
+        throw "Production build failed and the previous generation is not source-compatible. Refusing a mixed-version launch. $($_.Exception.Message)"
     }
 }
 
@@ -214,8 +266,8 @@ try {
     Write-LauncherLog "Launcher start. ProjectRoot=$ProjectRoot PrepareOnly=$PrepareOnly ForceBuild=$ForceBuild"
 
     $electronExe = Ensure-NodeRuntime
-    $pythonExe = Ensure-PythonRuntime
     Ensure-ProductionBuild
+    $pythonExe = Ensure-PythonRuntime
 
     if ($PrepareOnly) {
         Write-LauncherLog "Preparation complete."

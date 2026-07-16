@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from patch_engine.patch_engine import PatchEngine
+from utils.cleanup import quarantine_path
 
 from .process_utils import terminate_process_tree
 from .subsystem_backup import directory_size_bytes
@@ -503,9 +504,35 @@ class ChildToolWorkspace:
         tool_dir = self.project_dir(tool_name)
         if not tool_dir.exists():
             return {"ok": False, "toolName": sanitize_tool_name(tool_name), "message": "child tool project not found"}
-        shutil.rmtree(tool_dir)
-        self._unregister_project(sanitize_tool_name(tool_name))
-        return {"ok": True, "toolName": sanitize_tool_name(tool_name), "message": "child tool deleted"}
+        self._validate_project_root(tool_dir)
+        sanitized = sanitize_tool_name(tool_name)
+        try:
+            recovery = quarantine_path(
+                tool_dir,
+                self.project_root / "backups" / "recovery" / "child-tools",
+                operation=f"child-tool-delete-{sanitized}",
+                allowed_root=self.output_root,
+                original_path=tool_dir.relative_to(self.project_root).as_posix(),
+            )
+        except (OSError, ValueError) as exc:
+            return {
+                "ok": False,
+                "toolName": sanitized,
+                "message": f"child tool recovery failed: {exc}",
+            }
+        self._unregister_project(
+            sanitized,
+            reason="user_requested_delete",
+            recovery_path=str(recovery["recovery_path"]),
+        )
+        return {
+            "ok": True,
+            "toolName": sanitized,
+            "removed": True,
+            "permanently_deleted": 0,
+            "recovery": recovery,
+            "message": "child tool moved to recoverable storage",
+        }
 
     def rename_project(self, tool_name: str, new_name: str) -> dict[str, Any]:
         old_name = sanitize_tool_name(tool_name)
@@ -525,7 +552,11 @@ class ChildToolWorkspace:
             metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         except Exception:
             pass
-        self._unregister_project(old_name)
+        self._unregister_project(
+            old_name,
+            reason="renamed",
+            recovery_path=str(new_dir),
+        )
         self._register_project(sanitized_new, new_dir)
         return {
             "ok": True,
@@ -559,15 +590,33 @@ class ChildToolWorkspace:
         conn.execute('''
             CREATE TABLE IF NOT EXISTS child_tool_index (
                 name TEXT PRIMARY KEY,
-                path TEXT NOT NULL
+                path TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                recovery_path TEXT NOT NULL DEFAULT '',
+                tombstoned_at TEXT NOT NULL DEFAULT ''
             )
         ''')
+        columns = {
+            str(row[1])
+            for row in conn.execute("PRAGMA table_info(child_tool_index)").fetchall()
+        }
+        for column, declaration in (
+            ("status", "TEXT NOT NULL DEFAULT 'active'"),
+            ("recovery_path", "TEXT NOT NULL DEFAULT ''"),
+            ("tombstoned_at", "TEXT NOT NULL DEFAULT ''"),
+        ):
+            if column not in columns:
+                conn.execute(
+                    f"ALTER TABLE child_tool_index ADD COLUMN {column} {declaration}"
+                )
         return conn
 
     def _load_index(self) -> dict[str, str]:
         try:
             with self._connect_db() as conn:
-                cursor = conn.execute("SELECT name, path FROM child_tool_index")
+                cursor = conn.execute(
+                    "SELECT name, path FROM child_tool_index WHERE status = 'active'"
+                )
                 return {row[0]: row[1] for row in cursor.fetchall()}
         except Exception:
             return {}
@@ -575,11 +624,31 @@ class ChildToolWorkspace:
     def _save_index(self, data: dict[str, str]) -> None:
         try:
             with self._connect_db() as conn:
-                conn.execute("DELETE FROM child_tool_index")
+                conn.execute(
+                    """
+                    UPDATE child_tool_index
+                    SET status = 'missing',
+                        tombstoned_at = CASE
+                            WHEN tombstoned_at = '' THEN CURRENT_TIMESTAMP
+                            ELSE tombstoned_at
+                        END
+                    WHERE status = 'active'
+                    """
+                )
                 for name, path in data.items():
                     conn.execute(
-                        "INSERT INTO child_tool_index (name, path) VALUES (?, ?)", 
-                        (name, path)
+                        """
+                        INSERT INTO child_tool_index (
+                            name, path, status, recovery_path, tombstoned_at
+                        )
+                        VALUES (?, ?, 'active', '', '')
+                        ON CONFLICT(name) DO UPDATE SET
+                            path = excluded.path,
+                            status = 'active',
+                            recovery_path = '',
+                            tombstoned_at = ''
+                        """,
+                        (name, path),
                     )
         except Exception as e:
             print(f"Error saving child tool index: {e}")
@@ -603,10 +672,39 @@ class ChildToolWorkspace:
         index[sanitize_tool_name(tool_name)] = str(tool_dir.resolve())
         self._save_index(index)
 
-    def _unregister_project(self, tool_name: str) -> None:
-        index = self._load_index()
-        index.pop(sanitize_tool_name(tool_name), None)
-        self._save_index(index)
+    def _unregister_project(
+        self,
+        tool_name: str,
+        *,
+        reason: str = "unregistered",
+        recovery_path: str = "",
+    ) -> None:
+        sanitized = sanitize_tool_name(tool_name)
+        try:
+            with self._connect_db() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO child_tool_index (
+                        name, path, status, recovery_path, tombstoned_at
+                    )
+                    VALUES (?, '', ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(name) DO UPDATE SET
+                        status = excluded.status,
+                        recovery_path = excluded.recovery_path,
+                        tombstoned_at = CASE
+                            WHEN child_tool_index.tombstoned_at = ''
+                            THEN CURRENT_TIMESTAMP
+                            ELSE child_tool_index.tombstoned_at
+                        END
+                    """,
+                    (
+                        sanitized,
+                        f"tombstone:{str(reason or 'unregistered')}",
+                        str(recovery_path or ""),
+                    ),
+                )
+        except Exception as exc:
+            print(f"Error tombstoning child tool index: {exc}")
 
     def _validate_project_root(self, tool_dir: Path) -> None:
         resolved = tool_dir.resolve()

@@ -1,7 +1,7 @@
 # Governance Version Authority
 
-**Current Version**: v7.0.0
-**Date**: 2024-05-24
+**Current Version**: v1.0.0
+**Date**: 2026-08-02
 
 ### Major Changes
 - Migration to `resources/governance/` root authority.

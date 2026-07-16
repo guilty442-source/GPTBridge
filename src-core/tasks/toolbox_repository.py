@@ -10,7 +10,9 @@ class ToolboxRepository:
 
     def __init__(self, project_root: Path) -> None:
         self.project_root = project_root
-        self.db_path = self.project_root / "runtime" / "state" / "gptbridge.sqlite3"
+        self.db_path = (
+            self.project_root / "runtime" / "state" / "main" / "gptbridge.sqlite3"
+        )
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._ensure_schema()
 
@@ -33,6 +35,9 @@ class ToolboxRepository:
                     description TEXT NOT NULL DEFAULT '',
                     manifest_path TEXT NOT NULL DEFAULT '',
                     code_path TEXT NOT NULL DEFAULT '',
+                    tombstoned_at TEXT NOT NULL DEFAULT '',
+                    tombstone_reason TEXT NOT NULL DEFAULT '',
+                    recovery_path TEXT NOT NULL DEFAULT '',
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """
@@ -43,6 +48,21 @@ class ToolboxRepository:
                 ON toolbox_tools(enabled)
                 """
             )
+            columns = {
+                str(row["name"])
+                for row in connection.execute(
+                    "PRAGMA table_info(toolbox_tools)"
+                ).fetchall()
+            }
+            for column, declaration in (
+                ("tombstoned_at", "TEXT NOT NULL DEFAULT ''"),
+                ("tombstone_reason", "TEXT NOT NULL DEFAULT ''"),
+                ("recovery_path", "TEXT NOT NULL DEFAULT ''"),
+            ):
+                if column not in columns:
+                    connection.execute(
+                        f"ALTER TABLE toolbox_tools ADD COLUMN {column} {declaration}"
+                    )
 
     @staticmethod
     def _normalize_tool(tool: Dict[str, Any]) -> Dict[str, Any]:
@@ -80,11 +100,15 @@ class ToolboxRepository:
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     version = excluded.version,
+                    status = excluded.status,
                     enabled = excluded.enabled,
                     entry = excluded.entry,
                     description = excluded.description,
                     manifest_path = excluded.manifest_path,
                     code_path = excluded.code_path,
+                    tombstoned_at = '',
+                    tombstone_reason = '',
+                    recovery_path = '',
                     updated_at = CURRENT_TIMESTAMP
                 """,
                 normalized,
@@ -102,11 +126,34 @@ class ToolboxRepository:
             if active_ids:
                 placeholders = ",".join("?" for _ in active_ids)
                 connection.execute(
-                    f"DELETE FROM toolbox_tools WHERE id NOT IN ({placeholders})",
+                    f"""
+                    UPDATE toolbox_tools
+                    SET status = 'missing',
+                        enabled = 0,
+                        tombstoned_at = CASE
+                            WHEN tombstoned_at = '' THEN CURRENT_TIMESTAMP
+                            ELSE tombstoned_at
+                        END,
+                        tombstone_reason = 'manifest_missing',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id NOT IN ({placeholders})
+                    """,
                     tuple(sorted(active_ids)),
                 )
             else:
-                connection.execute("DELETE FROM toolbox_tools")
+                connection.execute(
+                    """
+                    UPDATE toolbox_tools
+                    SET status = 'missing',
+                        enabled = 0,
+                        tombstoned_at = CASE
+                            WHEN tombstoned_at = '' THEN CURRENT_TIMESTAMP
+                            ELSE tombstoned_at
+                        END,
+                        tombstone_reason = 'manifest_missing',
+                        updated_at = CURRENT_TIMESTAMP
+                    """
+                )
 
             for tool in normalized_tools:
                 connection.execute(
@@ -119,11 +166,18 @@ class ToolboxRepository:
                     ON CONFLICT(id) DO UPDATE SET
                         name = excluded.name,
                         version = excluded.version,
+                        status = CASE
+                            WHEN toolbox_tools.tombstoned_at <> '' THEN excluded.status
+                            ELSE toolbox_tools.status
+                        END,
                         enabled = excluded.enabled,
                         entry = excluded.entry,
                         description = excluded.description,
                         manifest_path = excluded.manifest_path,
                         code_path = excluded.code_path,
+                        tombstoned_at = '',
+                        tombstone_reason = '',
+                        recovery_path = '',
                         updated_at = CURRENT_TIMESTAMP
                     """,
                     (
@@ -139,13 +193,16 @@ class ToolboxRepository:
                     ),
                 )
 
-    def list_tools(self) -> list[Dict[str, Any]]:
+    def list_tools(self, *, include_tombstones: bool = False) -> list[Dict[str, Any]]:
         with self._connect() as connection:
+            where = "" if include_tombstones else "WHERE tombstoned_at = ''"
             rows = connection.execute(
-                """
+                f"""
                 SELECT id, name, version, status, enabled, entry,
-                       description, manifest_path, code_path, updated_at
+                       description, manifest_path, code_path,
+                       tombstoned_at, tombstone_reason, recovery_path, updated_at
                 FROM toolbox_tools
+                {where}
                 ORDER BY name COLLATE NOCASE, id COLLATE NOCASE
                 """
             ).fetchall()
@@ -161,6 +218,9 @@ class ToolboxRepository:
                 "description": row["description"],
                 "manifest_path": row["manifest_path"],
                 "code_path": row["code_path"],
+                "tombstoned_at": row["tombstoned_at"],
+                "tombstone_reason": row["tombstone_reason"],
+                "recovery_path": row["recovery_path"],
                 "updated_at": row["updated_at"],
             }
             for row in rows
@@ -178,6 +238,47 @@ class ToolboxRepository:
             )
             return cursor.rowcount > 0
 
-    def delete_tool(self, tool_id: str) -> None:
+    def tombstone_tool(
+        self,
+        tool_id: str,
+        *,
+        reason: str = "user_requested",
+        recovery_path: str = "",
+    ) -> None:
+        normalized_id = str(tool_id).strip()
+        if not normalized_id:
+            return
         with self._connect() as connection:
-            connection.execute("DELETE FROM toolbox_tools WHERE id = ?", (tool_id,))
+            connection.execute(
+                """
+                INSERT INTO toolbox_tools (
+                    id, name, version, status, enabled, entry, description,
+                    manifest_path, code_path, tombstoned_at,
+                    tombstone_reason, recovery_path, updated_at
+                )
+                VALUES (?, ?, '1.0.0', 'missing', 0, '', '', '', '',
+                        CURRENT_TIMESTAMP, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(id) DO UPDATE SET
+                    status = 'missing',
+                    enabled = 0,
+                    tombstoned_at = CASE
+                        WHEN toolbox_tools.tombstoned_at = ''
+                        THEN CURRENT_TIMESTAMP
+                        ELSE toolbox_tools.tombstoned_at
+                    END,
+                    tombstone_reason = excluded.tombstone_reason,
+                    recovery_path = excluded.recovery_path,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    normalized_id,
+                    normalized_id,
+                    str(reason or "user_requested"),
+                    str(recovery_path or ""),
+                ),
+            )
+
+    def delete_tool(self, tool_id: str) -> None:
+        """Compatibility alias: records are tombstoned, never deleted."""
+
+        self.tombstone_tool(tool_id)

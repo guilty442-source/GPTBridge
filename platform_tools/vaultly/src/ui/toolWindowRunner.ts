@@ -27,21 +27,16 @@ type SendCommandResult = {
 function useLocalBackendSocket() {
   const [status, setStatus] = useState('Disconnected')
   const socketRef = useRef<WebSocket | null>(null)
-  const queueRef = useRef<Array<{ command: string; payload: unknown }>>([])
   const reconnectTimerRef = useRef<number | null>(null)
 
   const sendCommand = useCallback(
     (command: string, payload: unknown = {}): SendCommandResult => {
       const socket = socketRef.current
       if (!socket || socket.readyState !== WebSocket.OPEN) {
-        queueRef.current.push({ command, payload })
-        if (queueRef.current.length > 100) {
-          queueRef.current.splice(0, queueRef.current.length - 100)
-        }
         return {
           ok: false,
-          queued: true,
-          message: 'WebSocket is not connected, command queued',
+          queued: false,
+          message: '後端連線尚未就緒，指令未送出，請稍後再試。',
         }
       }
 
@@ -70,6 +65,17 @@ function useLocalBackendSocket() {
       }
     }
 
+    const backendWebSocketUrl = async () => {
+      const api = (window as any).electron
+      if (!api?.invoke) throw new Error('Electron IPC bridge is unavailable')
+      const session = await api.invoke('app:get-backend-session')
+      const websocketUrl = String(session?.websocketUrl || '')
+      if (!websocketUrl.startsWith('ws://127.0.0.1:8765/')) {
+        throw new Error('Backend session capability is unavailable')
+      }
+      return websocketUrl
+    }
+
     const scheduleReconnect = () => {
       if (disposed || reconnectTimerRef.current !== null) return
       reconnectTimerRef.current = window.setTimeout(() => {
@@ -93,16 +99,21 @@ function useLocalBackendSocket() {
       await ensureBackendStarted()
       if (disposed) return
 
-      const socket = new WebSocket('ws://127.0.0.1:8765')
+      let websocketUrl = ''
+      try {
+        websocketUrl = await backendWebSocketUrl()
+      } catch {
+        setStatus('Error')
+        scheduleReconnect()
+        return
+      }
+      if (disposed) return
+      const socket = new WebSocket(websocketUrl)
       socketRef.current = socket
 
       socket.onopen = () => {
         setStatus('Connected')
         clearReconnectTimer()
-        const queued = queueRef.current.splice(0)
-        for (const item of queued) {
-          socket.send(JSON.stringify({ command: item.command, payload: item.payload }))
-        }
         window.dispatchEvent(
           new CustomEvent('socket_connected', { detail: { connected: true } })
         )

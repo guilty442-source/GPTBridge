@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BootLogger } from '../BootLogger'
 import { eventBus } from '../RuntimeEventBus'
+import { getAuthenticatedBackendWebSocketUrl } from '../services/backendSession'
 import type { AuditCheckItem } from '../types/health'
 
 type TaskProgressEntry = {
@@ -93,7 +94,7 @@ const INITIAL_STATE: BackendSocketState = {
 
 const WS_RECONNECT_BASE_DELAY_MS = 1200
 const WS_RECONNECT_MAX_DELAY_MS = 6000
-
+const WS_REPAIR_AFTER_ATTEMPTS = 3
 const openBackendSockets = new Set<WebSocket>()
 
 let backendConnectionSnapshot: BackendConnectionSnapshot = {
@@ -135,25 +136,29 @@ export const useBackendSocket = () => {
   const [state, setState] = useState<BackendSocketState>(INITIAL_STATE)
   const [lastError, setLastError] = useState<string | null>(null)
   const socketRef = useRef<WebSocket | null>(null)
-  const pendingCommandsRef = useRef<Array<{ command: string; payload: unknown }>>([])
   const reconnectTimerRef = useRef<number | null>(null)
   const reconnectAttemptRef = useRef(0)
 
   const sendCommand = useCallback(
     (command: string, payload: unknown = {}): SendCommandResult => {
       if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-        const queued = pendingCommandsRef.current
-        queued.push({ command, payload })
-        if (queued.length > 100) queued.splice(0, queued.length - 100)
-        const errorMsg = 'WebSocket is not connected, command queued'
+        const errorMsg =
+          '後端連線尚未就緒，指令未送出，請稍後再試。'
         setLastError(errorMsg)
-        BootLogger.log('WebSocket', 'SEND_QUEUE', { command, queueSize: queued.length }, 'warn')
-        return { ok: false, queued: true, message: errorMsg }
+        BootLogger.log('WebSocket', 'SEND_REJECTED_OFFLINE', { command }, 'warn')
+        return { ok: false, queued: false, message: errorMsg }
       }
 
-      socketRef.current.send(JSON.stringify({ command, payload }))
-      BootLogger.log('WebSocket', 'SEND', { command })
-      return { ok: true, queued: false }
+      try {
+        socketRef.current.send(JSON.stringify({ command, payload }))
+        BootLogger.log('WebSocket', 'SEND', { command })
+        return { ok: true, queued: false }
+      } catch {
+        const errorMsg =
+          'WebSocket closed before the command was sent; command was not queued'
+        setLastError(errorMsg)
+        return { ok: false, queued: false, message: errorMsg }
+      }
     },
     []
   )
@@ -171,7 +176,6 @@ export const useBackendSocket = () => {
   }, [])
 
   useEffect(() => {
-    const wsUrl = 'ws://127.0.0.1:8765'
     let disposed = false
     let ensureStartPromise: Promise<void> | null = null
 
@@ -194,7 +198,30 @@ export const useBackendSocket = () => {
       )
       reconnectTimerRef.current = window.setTimeout(() => {
         reconnectTimerRef.current = null
-        void connect()
+        void (async () => {
+          if (nextAttempt >= WS_REPAIR_AFTER_ATTEMPTS) {
+            const api = window.electron
+            if (api?.invoke) {
+              setState((prev) => ({ ...prev, status: 'Repairing' }))
+              BootLogger.log('WebSocket', 'AUTO_REPAIR_BACKEND', {
+                attempt: nextAttempt,
+              })
+              try {
+                await api.invoke('app:restart-backend')
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error)
+                BootLogger.log(
+                  'WebSocket',
+                  'AUTO_REPAIR_BACKEND_FAILED',
+                  { error: message },
+                  'warn'
+                )
+              }
+            }
+            reconnectAttemptRef.current = 0
+          }
+          await connect()
+        })()
       }, delay)
       BootLogger.log('WebSocket', 'RECONNECT_SCHEDULED', {
         attempt: nextAttempt,
@@ -233,10 +260,23 @@ export const useBackendSocket = () => {
         status: 'Connecting',
       }))
       updateBackendConnectionSnapshot('Connecting')
-      BootLogger.log('WebSocket', 'CONNECTING', { url: wsUrl })
       await ensureBackendStarted()
       if (disposed) return
 
+      let wsUrl = ''
+      try {
+        wsUrl = await getAuthenticatedBackendWebSocketUrl()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setLastError(message)
+        updateBackendConnectionSnapshot('Error')
+        setState((prev) => ({ ...prev, status: 'Error', lastError: message }))
+        BootLogger.log('WebSocket', 'SESSION_FAILED', { error: message }, 'error')
+        scheduleReconnect()
+        return
+      }
+      if (disposed) return
+      BootLogger.log('WebSocket', 'CONNECTING', { endpoint: '127.0.0.1:8765' })
       const socket = new WebSocket(wsUrl)
       socketRef.current = socket
 
@@ -250,12 +290,7 @@ export const useBackendSocket = () => {
           status: 'Connected',
           lastStatusAt: Date.now(),
         }))
-        BootLogger.log('WebSocket', 'OPEN', { url: wsUrl })
-        const queued = pendingCommandsRef.current.splice(0)
-        for (const item of queued) {
-          socket.send(JSON.stringify({ command: item.command, payload: item.payload }))
-          BootLogger.log('WebSocket', 'SEND_FLUSH', { command: item.command })
-        }
+        BootLogger.log('WebSocket', 'OPEN', { endpoint: '127.0.0.1:8765' })
         eventBus.emit('socket_connected', { connected: true })
       }
 
@@ -295,7 +330,7 @@ export const useBackendSocket = () => {
       }
 
       socket.onerror = () => {
-        const errorMsg = 'WebSocket error'
+        const errorMsg = '後端連線中斷，系統正在自動修復。'
         setLastError(errorMsg)
         updateBackendConnectionSnapshot('Error')
         setState((prev) => ({
@@ -314,6 +349,7 @@ export const useBackendSocket = () => {
         setState((prev) => ({
           ...prev,
           status: 'Disconnected',
+          lastError: '後端連線中斷，系統正在自動重新連線。',
         }))
         BootLogger.log('WebSocket', 'CLOSED')
         eventBus.emit('socket_connected', { connected: snapshot.connected })

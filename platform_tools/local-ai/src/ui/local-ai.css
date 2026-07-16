@@ -1,0 +1,23 @@
+:root {
+  color: #eaf3ff;
+  background: #07111f;
+  font-family: Inter, "Noto Sans TC", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+button, textarea { font: inherit; }
+
+.local-ai-shell { max-width: 920px; margin: 0 auto; padding: 40px; }
+.local-ai-shell header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+.local-ai-shell h1 { margin: 4px 0 0; font-size: 42px; }
+.eyebrow { margin: 0; color: #75c7ff; letter-spacing: .12em; }
+.status { padding: 8px 14px; border-radius: 999px; background: #352031; color: #ffb4c8; }
+.status.ready { background: #123a34; color: #83f4cc; }
+.model-card, .prompt-card { border: 1px solid #203b5a; border-radius: 18px; padding: 22px; margin-bottom: 18px; background: #0d1b2c; }
+.model-card h2 { margin-top: 0; }
+textarea { width: 100%; min-height: 150px; margin: 10px 0 14px; padding: 14px; color: inherit; background: #07111f; border: 1px solid #365675; border-radius: 12px; resize: vertical; }
+button { border: 0; border-radius: 10px; padding: 10px 16px; color: #061321; background: #75c7ff; cursor: pointer; }
+button:disabled { opacity: .55; cursor: wait; }
+pre { min-height: 130px; padding: 16px; white-space: pre-wrap; overflow-wrap: anywhere; background: #07111f; border-radius: 12px; color: #d8e9fa; }
+footer { color: #88a2bc; font-size: 13px; }

@@ -16,41 +16,10 @@ const backendCoordinator = path.join(
   'settings',
   'global_update_coordinator.py'
 )
-const settingsService = path.join(projectRoot, 'src-core', 'settings', 'service.py')
+const updateRepository = path.join(projectRoot, 'src-core', 'settings', 'update_repository.py')
+const hotUpdateService = path.join(projectRoot, 'src-core', 'core_system', 'hot_update_service.py')
 const commandRouter = path.join(projectRoot, 'src-core', 'ipc', 'handlers.py')
-const ipcServer = path.join(projectRoot, 'src-core', 'ipc', 'server.py')
-const electronMain = path.join(projectRoot, 'src-ui', 'main', 'index.ts')
-const electronPreload = path.join(projectRoot, 'src-ui', 'main', 'preload.ts')
-const pythonBackend = path.join(projectRoot, 'src-ui', 'main', 'python-backend.ts')
-const frontendCoordinator = path.join(
-  projectRoot,
-  'src-ui',
-  'renderer',
-  'shared',
-  'services',
-  'globalUpdateCoordinator.ts'
-)
-const updateCard = path.join(
-  projectRoot,
-  'src-ui',
-  'renderer',
-  'ui',
-  'developer-mode',
-  'tools',
-  'cards',
-  'update',
-  'UpdateCardUI.tsx'
-)
-const toolControlCenter = path.join(
-  projectRoot,
-  'src-ui',
-  'renderer',
-  'ui',
-  'developer-mode',
-  'tools',
-  'controllers',
-  'useToolControlCenter.ts'
-)
+const mainEntry = path.join(projectRoot, 'src-core', 'main.py')
 
 async function read(filePath: string): Promise<string> {
   try {
@@ -68,77 +37,55 @@ export const globalUpdateCoordinatorChecker: GovernanceChecker = {
   enforceLevel: EnforceLevel.BLOCKING,
   target: 'src-ui/renderer/shared/services/globalUpdateCoordinator.ts',
   coverage: CoverageStatus.BUILD_ENFORCED,
-  version: '2026.06.02',
+  version: '1.0.0',
   run: async (): Promise<GovernanceReport> => {
     const affectedFiles: string[] = []
 
     const backendContent = await read(backendCoordinator)
     if (
       !backendContent.includes('GlobalUpdateCoordinator') ||
-      !backendContent.includes('renderer_hmr') ||
-      !backendContent.includes('data_reload') ||
-      !backendContent.includes('backend_restart') ||
-      !backendContent.includes('app_restart')
+      !backendContent.includes('tool_restart') ||
+      !backendContent.includes('mark_applied') ||
+      !backendContent.includes('platform_tools')
     ) {
       affectedFiles.push(path.relative(projectRoot, backendCoordinator))
     }
 
-    const serviceContent = await read(settingsService)
+    const serviceContent = await read(updateRepository)
     if (
-      !serviceContent.includes('global_update_coordinator') ||
-      !serviceContent.includes('global_update_plan') ||
-      !serviceContent.includes('settings_mark_updates_applied')
+      !serviceContent.includes('updates.sqlite3') ||
+      !serviceContent.includes('update_snapshot') ||
+      !serviceContent.includes('repair_run')
     ) {
-      affectedFiles.push(path.relative(projectRoot, settingsService))
+      affectedFiles.push(path.relative(projectRoot, updateRepository))
     }
 
     const routerContent = await read(commandRouter)
-    const serverContent = await read(ipcServer)
-    if (!routerContent.includes('"settings_mark_updates_applied"')) {
+    if (
+      !routerContent.includes('"settings_mark_updates_applied"') ||
+      routerContent.includes('"app:restart-backend"')
+    ) {
       affectedFiles.push(path.relative(projectRoot, commandRouter))
     }
-    if (!serverContent.includes('"settings_mark_updates_applied"')) {
-      affectedFiles.push(path.relative(projectRoot, ipcServer))
-    }
 
-    const mainContent = await read(electronMain)
-    const preloadContent = await read(electronPreload)
-    const pythonBackendContent = await read(pythonBackend)
-    if (!mainContent.includes("ipcMain.handle('app:restart-backend'")) {
-      affectedFiles.push(path.relative(projectRoot, electronMain))
-    }
-    if (!preloadContent.includes("'app:restart-backend'")) {
-      affectedFiles.push(path.relative(projectRoot, electronPreload))
-    }
-    if (!pythonBackendContent.includes('restartBackend')) {
-      affectedFiles.push(path.relative(projectRoot, pythonBackend))
-    }
-
-    const frontendContent = await read(frontendCoordinator)
+    const hotUpdateContent = await read(hotUpdateService)
     if (
-      !frontendContent.includes('applyGlobalUpdatePlan') ||
-      !frontendContent.includes('gptbridge:global-data-reload') ||
-      !frontendContent.includes('app:restart-backend') ||
-      !frontendContent.includes('app:restart')
+      !hotUpdateContent.includes('HotUpdateService') ||
+      !hotUpdateContent.includes('_run_declared_auto_repairs') ||
+      !hotUpdateContent.includes('_synchronize_tool_source') ||
+      !hotUpdateContent.includes('_install_renderer_overlay') ||
+      !hotUpdateContent.includes('service.stop_tool') ||
+      !hotUpdateContent.includes('service.start_tool')
     ) {
-      affectedFiles.push(path.relative(projectRoot, frontendCoordinator))
+      affectedFiles.push(path.relative(projectRoot, hotUpdateService))
     }
 
-    const cardContent = await read(updateCard)
+    const mainContent = await read(mainEntry)
     if (
-      !cardContent.includes('globalUpdatePlan') ||
-      !cardContent.includes('globalUpdateApplyAction')
+      !mainContent.includes('self.hot_update_service.start()') ||
+      !mainContent.includes('_run_declared_auto_repairs')
     ) {
-      affectedFiles.push(path.relative(projectRoot, updateCard))
-    }
-
-    const controllerContent = await read(toolControlCenter)
-    if (
-      !controllerContent.includes('applyDetectedUpdates') ||
-      !controllerContent.includes('normalizeGlobalUpdatePlan') ||
-      !controllerContent.includes('settings_mark_updates_applied')
-    ) {
-      affectedFiles.push(path.relative(projectRoot, toolControlCenter))
+      affectedFiles.push(path.relative(projectRoot, mainEntry))
     }
 
     const uniqueFiles = Array.from(new Set(affectedFiles)).sort()
@@ -148,8 +95,8 @@ export const globalUpdateCoordinatorChecker: GovernanceChecker = {
       ruleId: 'G-HMR-GLOBAL-001',
       passed,
       message: passed
-        ? 'Global update coordinator is enforced: renderer HMR, data reload, backend restart, and app restart are classified and actionable.'
-        : 'Global update coordinator drift detected. Keep classification, UI action, backend restart IPC, and data reload event wired.',
+        ? 'Hot update coordinator is enforced: backend source and renderer overlays synchronize directly before restarting only affected tools.'
+        : 'Hot update coordinator drift detected. Keep fingerprinting, repair, direct backend synchronization, renderer overlay installation, persistence, and affected-tool restart wired.',
       affectedFiles: uniqueFiles,
       autofixAvailable: false,
     }

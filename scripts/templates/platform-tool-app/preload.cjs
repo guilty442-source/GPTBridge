@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 
 const allowedInvokeChannels = new Set([
   'app:ensure-backend-started',
+  'app:get-backend-session',
   'app:open-path',
   'dialog:select-folder',
   'dialog:create-file',

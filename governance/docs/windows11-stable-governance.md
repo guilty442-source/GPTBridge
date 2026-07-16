@@ -18,7 +18,7 @@ The project must keep a stable Windows 11 runtime baseline and fail fast when ba
 3. Main runtime CLI must not expose `--headless`.
 4. Project scripts must keep baseline validation commands:
    - `kill-backend-port` script for port cleanup
-   - `smoke:developer` script for developer IPC smoke validation
+   - `governance:audit` for runtime boundary validation
 
 ## CI Gate (Mandatory)
 

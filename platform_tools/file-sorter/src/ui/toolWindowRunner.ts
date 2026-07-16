@@ -21,32 +21,55 @@ export interface OpenPathResult {
 type SendCommandResult = {
   ok: boolean
   queued: boolean
+  queueId?: string
   message?: string
 }
+
+export type SendCommandOptions = {
+  allowOfflineQueue?: boolean
+  queueTtlMs?: number
+  onQueueExpired?: (error: Error) => void
+}
+
+type BackendSession = {
+  token?: string
+  websocketUrl?: string
+}
+
+const RUN_CANCELLATION_GRACE_MS = 10_000
 
 function useLocalBackendSocket() {
   const [status, setStatus] = useState('Disconnected')
   const socketRef = useRef<WebSocket | null>(null)
-  const queueRef = useRef<Array<{ command: string; payload: unknown }>>([])
   const reconnectTimerRef = useRef<number | null>(null)
 
+  const removeQueuedCommand = useCallback((_queueId: string): boolean => false, [])
+
   const sendCommand = useCallback(
-    (command: string, payload: unknown = {}): SendCommandResult => {
+    (
+      command: string,
+      payload: unknown = {},
+      _options: SendCommandOptions = {}
+    ): SendCommandResult => {
       const socket = socketRef.current
       if (!socket || socket.readyState !== WebSocket.OPEN) {
-        queueRef.current.push({ command, payload })
-        if (queueRef.current.length > 100) {
-          queueRef.current.splice(0, queueRef.current.length - 100)
-        }
         return {
           ok: false,
-          queued: true,
-          message: 'WebSocket is not connected, command queued',
+          queued: false,
+          message: '後端連線尚未就緒，指令未送出，請稍後再試。',
         }
       }
 
-      socket.send(JSON.stringify({ command, payload }))
-      return { ok: true, queued: false }
+      try {
+        socket.send(JSON.stringify({ command, payload }))
+        return { ok: true, queued: false }
+      } catch {
+        return {
+          ok: false,
+          queued: false,
+          message: 'WebSocket 連線在送出前中斷；指令未加入佇列。',
+        }
+      }
     },
     []
   )
@@ -62,12 +85,47 @@ function useLocalBackendSocket() {
 
     const ensureBackendStarted = async () => {
       const api = (window as any).electron
-      if (!api?.invoke) return
-      try {
-        await api.invoke('app:ensure-backend-started')
-      } catch {
-        // Tool windows can still connect if the backend is already running.
+      if (!api?.invoke) {
+        throw new Error('目前環境無法啟動後端服務。')
       }
+      const result = await api.invoke('app:ensure-backend-started')
+      if (!result || result.ok !== true) {
+        throw new Error(
+          String(result?.message || '後端啟動失敗，且未提供原因。')
+        )
+      }
+    }
+
+    const getAuthenticatedSocketUrl = async (): Promise<string> => {
+      const api = (window as any).electron
+      if (!api?.invoke) {
+        throw new Error('目前環境無法取得後端連線憑證。')
+      }
+      const session = (await api.invoke('app:get-backend-session')) as
+        | BackendSession
+        | null
+        | undefined
+      const token = String(session?.token || '').trim()
+      const websocketUrl = String(session?.websocketUrl || '').trim()
+      if (!token || !websocketUrl) {
+        throw new Error('後端連線憑證尚未就緒。')
+      }
+
+      const url = new URL(websocketUrl)
+      const backendPort = Number(url.port)
+      if (
+        url.protocol !== 'ws:' ||
+        url.hostname !== '127.0.0.1' ||
+        url.username ||
+        url.password ||
+        !Number.isInteger(backendPort) ||
+        backendPort < 1024 ||
+        backendPort > 65535
+      ) {
+        throw new Error('後端提供了不支援的 WebSocket 位址。')
+      }
+      url.searchParams.set('token', token)
+      return url.toString()
     }
 
     const scheduleReconnect = () => {
@@ -90,19 +148,39 @@ function useLocalBackendSocket() {
       }
 
       setStatus('Connecting')
-      await ensureBackendStarted()
+      try {
+        await ensureBackendStarted()
+      } catch {
+        if (disposed) return
+        setStatus('Error')
+        scheduleReconnect()
+        return
+      }
       if (disposed) return
 
-      const socket = new WebSocket('ws://127.0.0.1:8765')
+      let socketUrl = ''
+      try {
+        socketUrl = await getAuthenticatedSocketUrl()
+      } catch {
+        setStatus('Error')
+        scheduleReconnect()
+        return
+      }
+      if (disposed) return
+
+      let socket: WebSocket
+      try {
+        socket = new WebSocket(socketUrl)
+      } catch {
+        setStatus('Error')
+        scheduleReconnect()
+        return
+      }
       socketRef.current = socket
 
       socket.onopen = () => {
         setStatus('Connected')
         clearReconnectTimer()
-        const queued = queueRef.current.splice(0)
-        for (const item of queued) {
-          socket.send(JSON.stringify({ command: item.command, payload: item.payload }))
-        }
         window.dispatchEvent(
           new CustomEvent('socket_connected', { detail: { connected: true } })
         )
@@ -153,32 +231,59 @@ function useLocalBackendSocket() {
     }
   }, [])
 
-  return { sendCommand, status }
+  return { removeQueuedCommand, sendCommand, status }
 }
 
 export function waitForIpcEvent<T = Record<string, unknown>>(
   eventName: string,
   timeoutMs: number,
-  predicate?: (payload: Record<string, unknown>) => boolean
+  predicate?: (payload: Record<string, unknown>) => boolean,
+  signal?: AbortSignal
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     let timer = 0
+    let settled = false
+
+    const cleanup = () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('ipc_event', handler)
+      signal?.removeEventListener('abort', handleAbort)
+    }
+
+    const rejectOnce = (error: Error) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      reject(error)
+    }
+
     const handler = (event: Event) => {
       const customEvent = event as CustomEvent
       const detail = customEvent.detail || {}
       if (detail.event !== eventName) return
       const payload = (detail.payload || {}) as Record<string, unknown>
       if (predicate && !predicate(payload)) return
-      window.clearTimeout(timer)
-      window.removeEventListener('ipc_event', handler)
+      if (settled) return
+      settled = true
+      cleanup()
       resolve(payload as T)
     }
 
+    const handleAbort = () => {
+      const reason = signal?.reason
+      rejectOnce(reason instanceof Error ? reason : new Error(`已撤銷等待 ${eventName}`))
+    }
+
+    if (signal?.aborted) {
+      handleAbort()
+      return
+    }
+
     timer = window.setTimeout(() => {
-      window.removeEventListener('ipc_event', handler)
-      reject(new Error(`等待 ${eventName} 逾時`))
+      rejectOnce(new Error(`等待 ${eventName} 逾時`))
     }, timeoutMs)
     window.addEventListener('ipc_event', handler)
+    signal?.addEventListener('abort', handleAbort, { once: true })
   })
 }
 
@@ -235,38 +340,161 @@ export async function openPath(payload: Record<string, unknown>): Promise<OpenPa
   }) as OpenPathResult
 }
 
+export type ToolRunMode = 'mutation' | 'read-only'
+
+export type ToolRunOptions = {
+  mode?: ToolRunMode
+  queueTtlMs?: number
+  timeoutMs?: number
+  onRequestId?: (requestId: string) => void
+  signal?: AbortSignal
+}
+
+const OFFLINE_QUEUE_SAFE_FLAGS = new Set([
+  '--cleanup-scan',
+  '--history-json',
+  '--list-folders',
+  '--list-keywords',
+  '--list-source-files',
+  '--preview-json',
+  '--profiles-json',
+])
+
+const OFFLINE_QUEUE_MUTATION_FLAGS = new Set([
+  '--apply-plan',
+  '--delete-keyword',
+  '--folder',
+  '--new-keyword',
+  '--remove-keyword',
+  '--set-profile-enabled',
+  '--undo-last',
+  '--update-keyword',
+  '--upsert-keyword',
+])
+
+function isKnownReadOnlyToolRun(args: string[]): boolean {
+  return (
+    args.some((arg) => OFFLINE_QUEUE_SAFE_FLAGS.has(arg)) &&
+    !args.some((arg) => OFFLINE_QUEUE_MUTATION_FLAGS.has(arg))
+  )
+}
+
 export function useToolRunner(toolId: string, timeoutMs = 120000) {
-  const { sendCommand, status: socketStatus } = useLocalBackendSocket()
+  const {
+    removeQueuedCommand,
+    sendCommand,
+    status: socketStatus,
+  } = useLocalBackendSocket()
   const queueRef = useRef<Promise<void>>(Promise.resolve())
+  const activeRequestIdRef = useRef('')
+  const activeAbortRef = useRef<AbortController | null>(null)
+  const activeQueueIdRef = useRef('')
 
   const requestToolRun = useCallback(
-    async (args: string[]) => {
+    async (
+      args: string[],
+      options: ToolRunOptions = {}
+    ): Promise<ToolRunResult> => {
       const runRequest = async (): Promise<ToolRunResult> => {
         const requestId = `${toolId}:${Date.now()}:${Math.random()
           .toString(16)
           .slice(2)}`
+        if (options.signal?.aborted) {
+          return {
+            ok: false,
+            cancelled: true,
+            tool_id: toolId,
+            request_id: requestId,
+            message: '請求在送出前已撤銷。',
+          }
+        }
+        activeRequestIdRef.current = requestId
+        options.onRequestId?.(requestId)
+        const requestTimeoutMs = Math.max(1, options.timeoutMs || timeoutMs)
+        const abortController = new AbortController()
+        let cancellationGraceTimer: number | null = null
+        activeAbortRef.current = abortController
+        const handleExternalAbort = () => {
+          const queueId = activeQueueIdRef.current
+          if (queueId && removeQueuedCommand(queueId)) {
+            abortController.abort(new Error('請求已撤銷。'))
+            return
+          }
+          const cancellation = sendCommand('toolbox_cancel_tool_run', {
+            tool_id: toolId,
+            source: 'tool_window',
+            request_id: requestId,
+          })
+          if (!cancellation.ok && !cancellation.queued) {
+            abortController.abort(
+              new Error(cancellation.message || '無法撤銷工具請求。')
+            )
+            return
+          }
+          cancellationGraceTimer = window.setTimeout(() => {
+            abortController.abort(new Error('等待工具停止逾時。'))
+          }, RUN_CANCELLATION_GRACE_MS)
+        }
+        options.signal?.addEventListener('abort', handleExternalAbort, { once: true })
         const resultPromise = waitForIpcEvent<ToolRunResult>(
           'toolbox_run_tool_result',
-          timeoutMs,
+          requestTimeoutMs,
           (payload) =>
             String(payload.tool_id || '') === toolId &&
-            String(payload.request_id || '') === requestId
+            String(payload.request_id || '') === requestId,
+          abortController.signal
         )
+        const allowOfflineQueue =
+          options.mode === 'read-only' && isKnownReadOnlyToolRun(args)
         const sent = sendCommand('toolbox_run_tool', {
           tool_id: toolId,
           args,
           source: 'tool_window',
           request_id: requestId,
+        }, {
+          allowOfflineQueue,
+          queueTtlMs: options.queueTtlMs,
+          onQueueExpired: (error) => abortController.abort(error),
         })
+        activeQueueIdRef.current = sent.queueId || ''
         if (!sent.ok && !sent.queued) {
-          return {
+          const failure = {
             ok: false,
             tool_id: toolId,
             request_id: requestId,
             message: sent.message || '後端尚未接收工具指令',
           }
+          abortController.abort(new Error(failure.message))
+          try {
+            await resultPromise
+          } catch {
+            // The waiter was intentionally revoked because nothing was sent.
+          }
+          options.signal?.removeEventListener('abort', handleExternalAbort)
+          activeAbortRef.current = null
+          activeQueueIdRef.current = ''
+          if (activeRequestIdRef.current === requestId) {
+            activeRequestIdRef.current = ''
+          }
+          return failure
         }
-        return await resultPromise
+
+        try {
+          return await resultPromise
+        } catch (error) {
+          if (sent.queueId) removeQueuedCommand(sent.queueId)
+          throw error
+        } finally {
+          if (cancellationGraceTimer !== null) {
+            window.clearTimeout(cancellationGraceTimer)
+          }
+          options.signal?.removeEventListener('abort', handleExternalAbort)
+          activeAbortRef.current = null
+          activeQueueIdRef.current = ''
+          if (activeRequestIdRef.current === requestId) {
+            activeRequestIdRef.current = ''
+          }
+        }
       }
 
       const queued = queueRef.current.then(runRequest, runRequest)
@@ -276,24 +504,54 @@ export function useToolRunner(toolId: string, timeoutMs = 120000) {
       )
       return queued
     },
-    [sendCommand, timeoutMs, toolId]
+    [removeQueuedCommand, sendCommand, timeoutMs, toolId]
   )
 
-  const cancelToolRun = useCallback(async () => {
+  const cancelToolRun = useCallback(async (requestId?: string) => {
+    const targetRequestId = requestId || activeRequestIdRef.current
+    if (!targetRequestId) {
+      return { ok: false, message: 'There is no active File Sorter request.' }
+    }
+    const queuedId = activeQueueIdRef.current
+    if (queuedId && removeQueuedCommand(queuedId)) {
+      activeAbortRef.current?.abort(new Error('Queued tool run was cancelled.'))
+      return {
+        ok: true,
+        cancelled: true,
+        tool_id: toolId,
+        request_id: targetRequestId,
+        message: 'Queued read-only command cancelled.',
+      }
+    }
+    const abortController = new AbortController()
     const resultPromise = waitForIpcEvent<OpenPathResult>(
       'toolbox_cancel_tool_run_result',
       10000,
-      (payload) => !payload.tool_id || String(payload.tool_id) === toolId
+      (payload) =>
+        (!payload.tool_id || String(payload.tool_id) === toolId) &&
+        String(payload.request_id || '') === targetRequestId,
+      abortController.signal
     )
     const sent = sendCommand('toolbox_cancel_tool_run', {
       tool_id: toolId,
       source: 'tool_window',
+      request_id: targetRequestId,
     })
     if (!sent.ok && !sent.queued) {
-      return { ok: false, message: sent.message || '後端尚未接收停止指令' }
+      const failure = {
+        ok: false,
+        message: sent.message || '後端尚未接收停止指令',
+      }
+      abortController.abort(new Error(failure.message))
+      try {
+        await resultPromise
+      } catch {
+        // The waiter was intentionally revoked because nothing was sent.
+      }
+      return failure
     }
     return await resultPromise
-  }, [sendCommand, toolId])
+  }, [removeQueuedCommand, sendCommand, toolId])
 
   return {
     cancelToolRun,

@@ -9,58 +9,26 @@ class SystemBoundary:
     key: str
     role: str
     roots: tuple[str, ...]
-    may_modify_mother_tool: bool
-    may_modify_child_tools: bool
+    may_modify_main_program: bool
+    may_modify_independent_tools: bool
     may_run_tasks: bool
 
 
 SYSTEM_BOUNDARIES: tuple[SystemBoundary, ...] = (
     SystemBoundary(
-        key="interface_system",
-        role="daily monitor and mode switching",
-        roots=("src-ui/renderer/info-center",),
-        may_modify_mother_tool=False,
-        may_modify_child_tools=False,
-        may_run_tasks=False,
-    ),
-    SystemBoundary(
-        key="core_system",
-        role="mother-tool core, shared services, architecture, and engines",
-        roots=("src-core", "src-ui/renderer/core-system", "src-ui/renderer/components", "src-ui/renderer/hooks", "src-ui/renderer/types", "src-ui/renderer/shared"),
-        may_modify_mother_tool=False,
-        may_modify_child_tools=False,
+        key="main_program",
+        role="launcher, status, IPC broker, governance, and tool lifecycle",
+        roots=("src-core", "src-ui", "config"),
+        may_modify_main_program=False,
+        may_modify_independent_tools=False,
         may_run_tasks=True,
     ),
     SystemBoundary(
-        key="design_mode",
-        role="child-tool development only",
-        roots=("src-core/modes/design", "src-ui/renderer/modes/design"),
-        may_modify_mother_tool=False,
-        may_modify_child_tools=True,
-        may_run_tasks=True,
-    ),
-    SystemBoundary(
-        key="rescue_mode",
-        role="mother-tool diagnosis, rescue, cleanup, and rollback",
-        roots=("src-core/modes/rescue", "src-ui/renderer/modes/rescue"),
-        may_modify_mother_tool=False,
-        may_modify_child_tools=False,
-        may_run_tasks=True,
-    ),
-    SystemBoundary(
-        key="developer_mode",
-        role="sandbox-only mother-tool development and deployment approval",
-        roots=("src-core/modes/developer", "src-ui/renderer/modes/developer"),
-        may_modify_mother_tool=True,
-        may_modify_child_tools=False,
-        may_run_tasks=True,
-    ),
-    SystemBoundary(
-        key="settings",
-        role="governance, configuration, maintenance, and cleanup",
-        roots=("src-core/modes/settings", "src-ui/renderer/modes/settings", "config"),
-        may_modify_mother_tool=False,
-        may_modify_child_tools=False,
+        key="independent_tools",
+        role="standalone applications that own their UI, runtime, data, and capabilities",
+        roots=("platform_tools",),
+        may_modify_main_program=False,
+        may_modify_independent_tools=True,
         may_run_tasks=True,
     ),
 )
@@ -92,10 +60,9 @@ def boundary_manifest() -> list[dict[str, object]]:
             "key": item.key,
             "role": item.role,
             "roots": list(item.roots),
-            "may_modify_mother_tool": item.may_modify_mother_tool,
-            "may_modify_child_tools": item.may_modify_child_tools,
+            "may_modify_main_program": item.may_modify_main_program,
+            "may_modify_independent_tools": item.may_modify_independent_tools,
             "may_run_tasks": item.may_run_tasks,
         }
         for item in SYSTEM_BOUNDARIES
     ]
-

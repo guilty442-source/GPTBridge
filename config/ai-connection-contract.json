@@ -1,0 +1,32 @@
+{
+  "contract_version": 1,
+  "transport": "authenticated-websocket",
+  "requirements": {
+    "session_token": true,
+    "workspace_instance_id": true,
+    "loopback_peer_connection": true,
+    "queue_when_offline": false,
+    "share_database": false,
+    "inherit_peer_permissions": false
+  },
+  "discovery": {
+    "source": "main-lifecycle-launch-environment-or-validated-loopback-descriptor",
+    "manifest_declared_bindings": true,
+    "persist_credentials": false,
+    "refresh": "resolve-current-descriptor-before-each-command"
+  },
+  "providers": {
+    "local-ai": {
+      "tool_id": "local-ai",
+      "display_name": "星澄",
+      "scope": "star-native-language-model-plus-public-investment-search-and-analysis",
+      "third_party_models": false
+    },
+    "external-ai": {
+      "tool_id": "ai-collaboration",
+      "display_name": "外部AI協作",
+      "scope": "authenticated-browser-session-only",
+      "api": false
+    }
+  }
+}

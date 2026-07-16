@@ -10,18 +10,11 @@ export type IPCSendHandler = (message: IPCTransportMessage) => void | Promise<vo
 export class IPCTransport {
   private connected = false
   private handler: IPCSendHandler | null = null
-  private queue: IPCTransportMessage[] = []
 
   connect(handler?: IPCSendHandler): { ok: boolean; queued: number } {
     if (handler) this.handler = handler
     this.connected = true
-    const queued = this.queue.length
-    const pending = [...this.queue]
-    this.queue = []
-    for (const message of pending) {
-      void this.dispatch(message)
-    }
-    return { ok: true, queued }
+    return { ok: true, queued: 0 }
   }
 
   disconnect(): void {
@@ -35,8 +28,7 @@ export class IPCTransport {
   send(command: string, payload: IPCPayload = {}): { ok: boolean; queued: boolean } {
     const message = { command, payload }
     if (!this.connected) {
-      this.queue.push(message)
-      return { ok: false, queued: true }
+      return { ok: false, queued: false }
     }
     void this.dispatch(message)
     return { ok: true, queued: false }

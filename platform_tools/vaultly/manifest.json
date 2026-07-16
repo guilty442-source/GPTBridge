@@ -1,14 +1,27 @@
 {
   "id": "vaultly",
   "name": "影音下載自動化",
-  "version": "2.5.0",
+  "version": "1.0.0",
   "status": "stopped",
   "enabled": true,
+  "permissions": {
+    "code_scope": "tool-root-only",
+    "database_scope": "tool-database-only",
+    "allow_modify": ["own-data"],
+    "deny": ["main-program", "other-tools"]
+  },
   "entry": "platform_tools/vaultly/src/main",
   "runtime": {
     "type": "python",
     "entry": "src/main.py",
     "workingDirectory": "."
+  },
+  "capabilities": {
+    "auto-repair": {
+      "entry": "src/auto_repair.py",
+      "arguments": ["--json"],
+      "authority": "tool-root-only"
+    }
   },
   "executable": {
     "path": "dist/vaultly.exe",

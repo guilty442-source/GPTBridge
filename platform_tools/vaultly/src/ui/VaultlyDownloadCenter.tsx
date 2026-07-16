@@ -169,6 +169,51 @@ interface VaultlyState {
   workspace_path?: string
   browser_profile_path?: string
   safety_notice?: string
+  diagnostics?: VaultlyDiagnostics
+}
+
+interface VaultlyFailureItem {
+  kind?: string
+  id?: string
+  status?: string
+  failed?: number
+  message?: string
+  category?: string
+}
+
+interface VaultlyFailureSummary {
+  total_failures: number
+  total_failed_items: number
+  categories: Record<string, number>
+  latest?: VaultlyFailureItem
+  items?: VaultlyFailureItem[]
+}
+
+interface VaultlyPlatformDiagnostic {
+  id: string
+  name: string
+  health: string
+  status: string
+  message: string
+  last_scan_at: string
+  account_count: number
+  selected_count: number
+  removed_count: number
+}
+
+interface VaultlyDiagnostics {
+  state: string
+  message: string
+  browser?: {
+    initialized?: boolean
+    requested?: boolean
+    user_opened?: boolean
+    page_count?: number
+    profile_path?: string
+  }
+  platforms?: VaultlyPlatformDiagnostic[]
+  failure_summary?: VaultlyFailureSummary
+  generated_at?: string
 }
 
 const DEFAULT_PLATFORMS: Platform[] = [
@@ -296,9 +341,52 @@ function isDestinationHealth(value: unknown): value is DestinationHealth {
   return Boolean(value && typeof value === 'object')
 }
 
+function isVaultlyDiagnostics(value: unknown): value is VaultlyDiagnostics {
+  return Boolean(value && typeof value === 'object' && 'state' in value)
+}
+
 function destinationHealthTone(health: DestinationHealth | null): CSSProperties {
   if (!health) return styles.healthNeutral
   return health.ok ? styles.healthOk : styles.healthBad
+}
+
+function diagnosticTone(state?: string): CSSProperties {
+  if (state === 'ready') return styles.healthOk
+  if (state === 'attention' || state === 'setup') return styles.healthBad
+  return styles.healthNeutral
+}
+
+function platformHealthTone(health?: string): CSSProperties {
+  if (health === 'ready') return styles.healthOk
+  if (health === 'attention') return styles.healthBad
+  return styles.healthNeutral
+}
+
+function diagnosticStateText(state?: string): string {
+  if (state === 'ready') return '可用'
+  if (state === 'running') return '執行中'
+  if (state === 'attention') return '需檢查'
+  if (state === 'setup') return '待設定'
+  if (state === 'waiting_login') return '等待登入'
+  return '待命'
+}
+
+function platformHealthText(health?: string): string {
+  if (health === 'ready') return '可用'
+  if (health === 'running') return '掃描中'
+  if (health === 'attention') return '需檢查'
+  if (health === 'login_required') return '等待登入'
+  return '待命'
+}
+
+function failureCategoryText(category?: string): string {
+  if (category === 'destination') return '下載位置'
+  if (category === 'login') return '登入狀態'
+  if (category === 'network') return '網路'
+  if (category === 'media') return '媒體解析'
+  if (category === 'platform') return '平台版面'
+  if (category === 'cancelled') return '已取消'
+  return '未分類'
 }
 
 function autoScanLabel(status?: AutoScanStatus): string {
@@ -433,6 +521,7 @@ export function VaultlyDownloadCenter({
   const [busyAction, setBusyAction] = useState('')
   const [paths, setPaths] = useState({ workspace: '', database: '', browserProfile: '' })
   const [safetyNotice, setSafetyNotice] = useState('')
+  const [diagnostics, setDiagnostics] = useState<VaultlyDiagnostics | null>(null)
   const loadingRef = useRef(false)
   const selectionLoadedRef = useRef(false)
 
@@ -478,6 +567,7 @@ export function VaultlyDownloadCenter({
         ? state.destination_health
         : null
     )
+    setDiagnostics(isVaultlyDiagnostics(state.diagnostics) ? state.diagnostics : null)
     setVersion(String(state.version || ''))
     const nextPosts = Array.isArray(state.posts) ? state.posts : []
     setPosts(nextPosts)
@@ -643,6 +733,10 @@ export function VaultlyDownloadCenter({
     downloadAutomation?.total_failed ??
     jobs.reduce((total, job) => total + Number(job.failed || 0), 0)
   const automationSuccessRate = downloadAutomation?.success_rate ?? 0
+  const platformDiagnostics = diagnostics?.platforms || []
+  const failureSummary = diagnostics?.failure_summary
+  const failureCategories = Object.entries(failureSummary?.categories || {})
+  const latestFailure = failureSummary?.latest
   const activeDownloadProgress = activeDownloadJob
     ? progressPercent(
         activeDownloadJob.automation_summary,
@@ -733,6 +827,23 @@ export function VaultlyDownloadCenter({
       void checkDestination(selected)
     }
   }, [checkDestination])
+
+  const exportReport = useCallback(async () => {
+    setBusyAction('diagnostic-report')
+    try {
+      const result = await request('vaultly_export_report', {}, 10000)
+      if (result.ok === false) {
+        throw new Error(String(result.message || '診斷報告匯出失敗'))
+      }
+      const reportPath = String(result.report_path || '')
+      setMessage(reportPath ? `診斷報告已匯出：${reportPath}` : '診斷報告已匯出')
+      await loadState(true)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '診斷報告匯出失敗')
+    } finally {
+      setBusyAction('')
+    }
+  }, [loadState, request])
 
   const pasteQuickLinks = useCallback(async () => {
     try {
@@ -985,7 +1096,7 @@ export function VaultlyDownloadCenter({
             <p style={styles.hint}>背景下載、連結快存與貼文索引會自動回報進度與風險。</p>
           </div>
           <span style={styles.counter}>
-            v{version || '2.5.0'} · {downloadAutomation?.has_active_work ? '執行中' : '待命'}
+            v{version || '1.0.0'} · {downloadAutomation?.has_active_work ? '執行中' : '待命'}
           </span>
         </div>
         <div style={styles.automationStats}>
@@ -1028,6 +1139,72 @@ export function VaultlyDownloadCenter({
             {destinationHealth?.message || '尚未選擇下載資料夾'} · 剩餘空間{' '}
             {formatBytes(destinationHealth?.free_bytes)}
           </span>
+        </div>
+        <div style={styles.diagnosticsPanel}>
+          <div style={styles.diagnosticsHeader}>
+            <span style={styles.diagnosticsTitle}>
+              <strong>系統診斷</strong>
+              <span>{diagnostics?.message || '等待診斷資料'}</span>
+            </span>
+            <button
+              type="button"
+              style={styles.secondaryButton}
+              disabled={Boolean(busyAction)}
+              onClick={() => void exportReport()}
+            >
+              {busyAction === 'diagnostic-report' ? '匯出中…' : '匯出診斷報告'}
+            </button>
+          </div>
+          <div style={styles.diagnosticsGrid}>
+            <span style={{ ...styles.diagnosticStat, ...diagnosticTone(diagnostics?.state) }}>
+              <small>整體狀態</small>
+              <strong>{diagnosticStateText(diagnostics?.state)}</strong>
+            </span>
+            <span style={styles.diagnosticStat}>
+              <small>登入瀏覽器</small>
+              <strong>{diagnostics?.browser?.initialized ? '已啟動' : '待啟動'}</strong>
+            </span>
+            <span style={styles.diagnosticStat}>
+              <small>失敗工作</small>
+              <strong>{failureSummary?.total_failures || 0}</strong>
+            </span>
+            <span style={styles.diagnosticStat}>
+              <small>失敗項目</small>
+              <strong>{failureSummary?.total_failed_items || 0}</strong>
+            </span>
+          </div>
+          <div style={styles.platformHealthGrid}>
+            {platformDiagnostics.length === 0 ? (
+              <span style={styles.smallText}>等待平台健康資料</span>
+            ) : (
+              platformDiagnostics.map((platform) => (
+                <span
+                  key={platform.id}
+                  style={{ ...styles.platformHealthChip, ...platformHealthTone(platform.health) }}
+                >
+                  <strong>{platform.name}</strong>
+                  <span>{platformHealthText(platform.health)} · {platform.account_count} 個帳號</span>
+                  <small>{platform.message || '等待掃描狀態'}</small>
+                </span>
+              ))
+            )}
+          </div>
+          <div style={styles.failureCategoryRow}>
+            {failureCategories.length === 0 ? (
+              <span style={styles.smallText}>沒有失敗分類</span>
+            ) : (
+              failureCategories.map(([category, count]) => (
+                <span key={category} style={styles.failureCategoryChip}>
+                  {failureCategoryText(category)}：{count}
+                </span>
+              ))
+            )}
+          </div>
+          {latestFailure?.message && (
+            <span style={styles.failureNote}>
+              最新失敗：{failureCategoryText(latestFailure.category)} · {latestFailure.message}
+            </span>
+          )}
         </div>
         {activeDownloadJob && (
           <div style={styles.automationProgress}>
@@ -1678,6 +1855,16 @@ const styles: Record<string, CSSProperties> = {
   automationStat: { display: 'grid', gap: 3, minWidth: 0, padding: '8px 0', color: '#cbd5e1' },
   automationProgress: { display: 'grid', gap: 8, padding: 10, borderRadius: 9, background: '#111827', border: '1px solid #334155' },
   destinationHealth: { display: 'grid', gap: 3, marginBottom: 10, padding: 10, borderRadius: 9, fontSize: 12, lineHeight: 1.45 },
+  diagnosticsPanel: { display: 'grid', gap: 10, marginBottom: 10, padding: 12, borderRadius: 9, border: '1px solid #334155', background: '#101827', color: '#e2e8f0' },
+  diagnosticsHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
+  diagnosticsTitle: { display: 'grid', gap: 3, minWidth: 0, color: '#cbd5e1', fontSize: 12 },
+  diagnosticsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 },
+  diagnosticStat: { display: 'grid', gap: 3, minWidth: 0, padding: 9, borderRadius: 8, border: '1px solid #334155', background: '#111827', color: '#cbd5e1', fontSize: 12 },
+  platformHealthGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8 },
+  platformHealthChip: { display: 'grid', gap: 3, minWidth: 0, padding: 9, borderRadius: 8, fontSize: 12, lineHeight: 1.45 },
+  failureCategoryRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  failureCategoryChip: { padding: '5px 7px', borderRadius: 999, background: '#1e293b', border: '1px solid #475569', color: '#e2e8f0', fontSize: 11, fontWeight: 800 },
+  failureNote: { padding: 9, borderRadius: 8, background: '#2b1a13', border: '1px solid #f97316', color: '#fed7aa', fontSize: 12, lineHeight: 1.45, overflowWrap: 'anywhere' },
   healthNeutral: { background: '#111827', border: '1px solid #334155', color: '#cbd5e1' },
   healthOk: { background: '#052e2b', border: '1px solid #10b981', color: '#d1fae5' },
   healthBad: { background: '#3f1111', border: '1px solid #ef4444', color: '#fecaca' },

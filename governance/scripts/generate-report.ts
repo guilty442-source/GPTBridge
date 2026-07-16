@@ -36,7 +36,15 @@ async function run() {
     reports,
   }
 
-  const reportDir = path.resolve(process.cwd(), 'governance', 'reports')
+  const reportDir = path.resolve(
+    process.cwd(),
+    'platform_tools',
+    'project-cleaner',
+    'data',
+    'audit',
+    'main-system',
+    'governance'
+  )
   await fs.mkdir(reportDir, { recursive: true })
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')

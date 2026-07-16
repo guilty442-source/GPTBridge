@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -11,16 +12,17 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_CORE = PROJECT_ROOT / "src-core"
 TOOLS_DIR = PROJECT_ROOT / "platform_tools"
-DATABASE_PATH = PROJECT_ROOT / "runtime" / "state" / "gptbridge.sqlite3"
+DATABASE_PATH = PROJECT_ROOT / "runtime" / "state" / "main" / "gptbridge.sqlite3"
 TOOLBOX_REGISTRY_PATH = (
     PROJECT_ROOT / "src-ui" / "renderer" / "ui" / "toolbox" / "tools" / "registry.ts"
 )
+RUNTIME_CONTRACT_PATH = PROJECT_ROOT / "config" / "tool-runtime-contract.json"
 GENERIC_LAYER_SCAN_PATHS = (
     PROJECT_ROOT / "src-core" / "ipc" / "server.py",
     PROJECT_ROOT / "src-core" / "ipc" / "handlers.py",
     PROJECT_ROOT / "src-core" / "main.py",
-    PROJECT_ROOT / "src-core" / "modes" / "mode_manager.py",
-    PROJECT_ROOT / "src-core" / "settings" / "service.py",
+    PROJECT_ROOT / "src-core" / "core_system" / "runtime_bootstrap.py",
+    PROJECT_ROOT / "src-core" / "core_system" / "hot_update_service.py",
     PROJECT_ROOT / "src-ui" / "main" / "index.ts",
 )
 PLATFORM_TOOL_FORBIDDEN_IMPORTS = (
@@ -64,7 +66,8 @@ def audit_tool_modules(issues: list[str]) -> set[str]:
         tool_id = tool_dir.name
         manifest_path = tool_dir / "manifest.json"
         if not manifest_path.exists():
-            fail(issues, f"{tool_id} manifest.json is missing")
+            # Unregistered folders are handled by the cleanup pass; only a
+            # manifest turns a directory into a runtime application.
             continue
 
         try:
@@ -163,16 +166,57 @@ def audit_project_size_source(issues: list[str]) -> None:
         )
 
 
+def audit_storage_authority(issues: list[str]) -> None:
+    try:
+        contract = load_json(RUNTIME_CONTRACT_PATH)
+    except (OSError, json.JSONDecodeError) as exc:
+        fail(issues, f"tool runtime contract cannot be read: {exc}")
+        return
+
+    authority = contract.get("authority")
+    expected = {
+        "governance_rules": "main-system",
+        "backups": "project-cleaner",
+        "audit_records": "project-cleaner",
+        "runtime_logs": "project-cleaner",
+    }
+    if authority != expected:
+        fail(issues, f"storage authority contract must equal {expected}")
+
+    managed = contract.get("managed_storage")
+    if not isinstance(managed, dict):
+        fail(issues, "managed storage contract is missing")
+        return
+    if managed.get("root") != "platform_tools/project-cleaner/data":
+        fail(issues, "managed storage root must belong to project-cleaner")
+    if managed.get("backup_max_records") != 1:
+        fail(issues, "project-cleaner backup retention must be exactly one record")
+    if managed.get("delete_backup_overflow") is not True:
+        fail(issues, "project-cleaner must delete backup overflow automatically")
+
+
 def iter_source_files(path: Path) -> list[Path]:
     if path.is_file():
         return [path]
     if not path.exists():
         return []
+    excluded_parts = {
+        ".git",
+        ".venv",
+        "__pycache__",
+        "backups",
+        "build",
+        "dist",
+        "node_modules",
+        "release",
+        "runtime",
+    }
     return [
         item
         for item in path.rglob("*")
         if item.is_file()
         and item.suffix.lower() in {".py", ".ts", ".tsx", ".js", ".md"}
+        and not excluded_parts.intersection(item.relative_to(path).parts)
     ]
 
 
@@ -222,10 +266,18 @@ def audit_platform_tools_do_not_import_shared_code(issues: list[str]) -> None:
                 fail(issues, f"{source_path.relative_to(PROJECT_ROOT)} is not valid UTF-8: {exc}")
                 continue
 
+            import_source = "\n".join(
+                line
+                for line in source.splitlines()
+                if re.match(
+                    r"^\s*(?:from\s+|import\s+|.*\brequire\s*\(|.*\bimport\s*\()",
+                    line,
+                )
+            )
             offenders = [
                 token
                 for token in PLATFORM_TOOL_FORBIDDEN_IMPORTS
-                if token in source
+                if token in import_source
             ]
             if offenders:
                 relative = source_path.relative_to(PROJECT_ROOT).as_posix()
@@ -276,6 +328,7 @@ async def main() -> int:
     audit_tool_database(issues, manifest_ids)
     audit_mother_core_isolation(issues)
     audit_project_size_source(issues)
+    audit_storage_authority(issues)
     audit_no_legacy_child_tool_output(issues)
     audit_no_root_import_shims(issues)
     audit_no_shared_platform_tool_code(issues, manifest_ids)

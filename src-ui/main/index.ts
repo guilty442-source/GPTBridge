@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { AdaptiveZoomController } from './adaptiveZoom'
+import { getBackendSessionDescriptor } from './ipcSession'
 import { getRuntimePathLibrary } from './pathLibrary'
 import {
   ensureBackendStarted,
@@ -13,6 +14,7 @@ import {
   stopBackend,
 } from './python-backend'
 import { getRuntimeEnv } from './runtime-env'
+import { PRODUCT_VERSION } from './product-version'
 
 let mainWindow: BrowserWindow | null = null
 let quitting = false
@@ -21,7 +23,7 @@ let currentUiZoom = 1
 const sourceProduction = getRuntimeEnv('GPTBRIDGE_SOURCE_PRODUCTION') === '1'
 
 if (sourceProduction) {
-  app.setName('程式庫')
+  app.setName('GPTBridge')
   app.setPath(
     'userData',
     path.join(app.getPath('appData'), 'gptbridge-auto-agent-ide')
@@ -46,6 +48,7 @@ const isPathInside = (basePath: string, targetPath: string) => {
 }
 
 const TOOL_ID_PATTERN = /^[a-z0-9_-]+$/
+
 function resolvePlatformToolsLocation(): {
   platformToolsPath: string
   searchedPaths: string[]
@@ -159,10 +162,35 @@ function writeRuntimeLog(
   payload: Record<string, unknown> = {}
 ): void {
   try {
-    const logsRoot = path.join(app.getPath('userData'), 'logs')
+    const logsRoot = path.join(
+      getRuntimePathLibrary().workspaceRoot,
+      'platform_tools',
+      'project-cleaner',
+      'data',
+      'logs',
+      'main-system'
+    )
     fs.mkdirSync(logsRoot, { recursive: true })
+    const logPath = path.join(logsRoot, 'exe-runtime.log')
+    const maxLogBytes = 5 * 1024 * 1024
+    const maxBackups = 1
+    try {
+      if (fs.existsSync(logPath) && fs.statSync(logPath).size >= maxLogBytes) {
+        const oldest = `${logPath}.${maxBackups}`
+        if (fs.existsSync(oldest)) fs.rmSync(oldest, { force: true })
+        for (let index = maxBackups - 1; index >= 1; index -= 1) {
+          const current = `${logPath}.${index}`
+          if (fs.existsSync(current)) {
+            fs.renameSync(current, `${logPath}.${index + 1}`)
+          }
+        }
+        fs.renameSync(logPath, `${logPath}.1`)
+      }
+    } catch {
+      // A failed rotation must not block startup diagnostics.
+    }
     fs.appendFileSync(
-      path.join(logsRoot, 'exe-runtime.log'),
+      logPath,
       `[${new Date().toISOString()}] ${event} ${JSON.stringify(payload)}\n`,
       'utf-8'
     )
@@ -243,6 +271,15 @@ function readDiskMetrics(
   }
 }
 
+function resolveSystemDiskRoot(): string {
+  if (process.platform !== 'win32') return path.parse(os.homedir()).root || '/'
+
+  const configuredDrive = (getRuntimeEnv('SystemDrive') || '').trim()
+  if (/^[a-z]:$/i.test(configuredDrive)) return `${configuredDrive}\\`
+  if (configuredDrive) return path.parse(path.resolve(configuredDrive)).root
+  return path.parse(os.homedir()).root || path.parse(process.cwd()).root
+}
+
 function getSystemMetrics() {
   const totalMemBytes = os.totalmem()
   const freeMemBytes = os.freemem()
@@ -251,9 +288,8 @@ function getSystemMetrics() {
       ? ((totalMemBytes - freeMemBytes) / totalMemBytes) * 100
       : 0
 
-  const paths = getRuntimePathLibrary()
-  const disk =
-    readDiskMetrics(paths.workspaceRoot) ?? readDiskMetrics(process.cwd())
+  const diskRoot = resolveSystemDiskRoot()
+  const disk = readDiskMetrics(diskRoot)
 
   return {
     cpuUsagePercent: readCpuUsagePercent(),
@@ -263,6 +299,7 @@ function getSystemMetrics() {
     diskUsagePercent: disk?.usagePercent ?? null,
     diskTotalBytes: disk?.totalBytes ?? null,
     diskFreeBytes: disk?.freeBytes ?? null,
+    diskRoot,
     sampledAt: Date.now(),
   }
 }
@@ -308,7 +345,7 @@ async function createWindow(): Promise<void> {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
       preload: paths.preloadEntry,
     },
   })
@@ -363,12 +400,13 @@ function registerIpcHandlers(): void {
 
     return {
       isPackaged: app.isPackaged,
-      version: app.getVersion(),
+      version: PRODUCT_VERSION,
       backendStatus: backendRuntime.status,
+      backendManaged: shouldManageBackend,
       backendReady: backendRuntime.ready,
       backendStartupMs: backendRuntime.startupMs,
       backendMessage: backendRuntime.message,
-      environment: getRuntimeEnv('NODE_ENV') || 'development',
+      environment: app.isPackaged || sourceProduction ? 'production' : 'source',
       sourceProduction,
       systemReady: shouldManageBackend
         ? backendRuntime.ready
@@ -394,6 +432,10 @@ function registerIpcHandlers(): void {
       managed: true,
       backendStatus,
     }
+  })
+
+  ipcMain.handle('app:get-backend-session', async () => {
+    return getBackendSessionDescriptor()
   })
 
   ipcMain.handle('app:restart-backend', async () => {
@@ -475,6 +517,7 @@ function registerIpcHandlers(): void {
       const relativePath = String(payload?.relativePath || '').trim()
       const mode = payload?.mode === 'reveal' ? 'reveal' : 'open'
 
+      const workspaceRoot = path.resolve(getRuntimePathLibrary().workspaceRoot)
       let targetPath = rawPath ? path.resolve(rawPath) : ''
       if (basePath && relativePath) {
         const resolvedBase = path.resolve(basePath)
@@ -486,6 +529,9 @@ function registerIpcHandlers(): void {
       }
 
       if (!targetPath) return { ok: false, message: 'Missing path' }
+      if (!isPathInside(workspaceRoot, targetPath)) {
+        return { ok: false, message: 'Path is outside the project workspace' }
+      }
       if (!fs.existsSync(targetPath)) {
         return { ok: false, message: 'File no longer exists' }
       }

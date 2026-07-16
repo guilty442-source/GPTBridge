@@ -3,7 +3,8 @@ import asyncio
 import contextlib
 import json
 import os
-import shutil
+import re
+import stat as stat_module
 import sys
 import time
 from pathlib import Path
@@ -17,48 +18,16 @@ from governance.rule_catalog import (
     DEFAULT_ACTIVE_GOVERNANCE_RULES,
     GOVERNANCE_RULE_CATALOG,
 )
-from managers.backup_manager import BackupManager
-from managers.browser_session import BrowserSessionManager
-from core.paths import ensure_backup_layout
-from managers.optimization_history import OptimizationHistoryManager
-from core.project_agent import ProjectAgent
-from orchestrator.state_machine import MultiAgentOrchestrator
-from orchestrator.autonomous_coder import AutonomousCodingAgent
+from core_system.runtime_bootstrap import RuntimeBootstrap
+from core_system.hot_update_service import HotUpdateService
+from core_system.versioning import application_version
 from ipc.server import run_server
-from ipc.handlers import CommandRouter
 from core_logger import CoreLogger
-from tasks.core_code_service import CoreCodeService
+from tasks.platform_automation import PlatformAutomationManager
 from tasks.queue import TaskQueue
 from tasks.toolbox_service import ToolboxService
-from tasks.developer_service import DeveloperService
-from tasks.rescue_service import RescueService
-from settings.config import load_config, save_config
-from modes.mode_manager import ModeManager
-
-
-class LazyProviderProxy:
-    """Ensure the browser is ready before provider calls run."""
-
-    def __init__(self, provider: Any, app: "GPTBridgeApp") -> None:
-        object.__setattr__(self, "_provider", provider)
-        object.__setattr__(self, "_app", app)
-
-    def __getattr__(self, name: str) -> Any:
-        attr = getattr(self._provider, name)
-        if callable(attr) and asyncio.iscoroutinefunction(attr):
-
-            async def wrapper(*args: Any, **kwargs: Any) -> Any:
-                await self._app.ensure_browser_ready()
-                return await attr(*args, **kwargs)
-
-            return wrapper
-        return attr
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name in {"_provider", "_app"}:
-            object.__setattr__(self, name, value)
-            return
-        setattr(self._provider, name, value)
+from tasks.runtime_status_service import RuntimeStatusService
+from settings.global_update_coordinator import GlobalUpdateCoordinator
 
 
 class GPTBridgeApp:
@@ -66,42 +35,28 @@ class GPTBridgeApp:
     AVAILABLE_GOVERNANCE_RULES = list(GOVERNANCE_RULE_CATALOG)
 
     def __init__(self) -> None:
-        self.session: BrowserSessionManager | None = None
-        self.chatgpt: Any | None = None
-        self.gemini: Any | None = None
-        self.LazyProviderProxy = LazyProviderProxy
-        self._raw_chatgpt: Any | None = None
-        self._raw_gemini: Any | None = None
-
-        self.backup_manager: BackupManager | None = None
-        self.history_manager: OptimizationHistoryManager | None = None
-        self.connection_monitor_task: asyncio.Task[Any] | None = None
-        self.orchestrator: MultiAgentOrchestrator | None = None
-        self.toolbox_service: ToolboxService | None = None
-        self.core_code_service: CoreCodeService | None = None
-        self.developer_service: DeveloperService | None = None
-        self.rescue_service: RescueService | None = None
-        self.design_service: Any | None = None
-        self.project_agent: ProjectAgent | None = None
-        self.autonomous_agent: AutonomousCodingAgent | None = None
-        self.command_router: CommandRouter | None = None
-        self.core_logger: CoreLogger | None = None
-        self.enforcer: GovernanceEnforcer | None = None
-        self.task_queue: TaskQueue | None = None
-        self.mode_manager: ModeManager | None = None
-
-        self.auto_cycle = 60
-        self.max_backup_count = 3
         project_root_override = os.environ.get("GPTBRIDGE_PROJECT_ROOT")
         self.project_root = (
-            Path(project_root_override).resolve()
+            Path(os.path.abspath(project_root_override))
             if project_root_override
             else Path(__file__).resolve().parent.parent
         )
-        self._active_audit_task: asyncio.Task[Any] | None = None
+        self.version = application_version(self.project_root)
+        self.maintenance_ready = False
+        self.toolbox_service: ToolboxService | None = None
+        self.platform_automation: PlatformAutomationManager | None = None
+        self.runtime_status_service: RuntimeStatusService | None = None
+        self.command_router: Any | None = None
+        self.core_logger: CoreLogger | None = None
+        self.enforcer: GovernanceEnforcer | None = None
+        self.task_queue: TaskQueue | None = None
+        self.runtime_bootstrap = RuntimeBootstrap(self)
+        self.update_coordinator = GlobalUpdateCoordinator(self.project_root)
+        self.hot_update_service = HotUpdateService(self)
+        self._independent_tool_startup_task: asyncio.Task[Any] | None = None
+        self._startup_repair_task: asyncio.Task[Any] | None = None
         self._command_tasks: set[asyncio.Task[Any]] = set()
         self._command_task_meta: dict[asyncio.Task[Any], dict[str, Any]] = {}
-        self._session_hooks_bound = False
 
         self.governance_rules_path = (
             self.project_root
@@ -110,11 +65,11 @@ class GPTBridgeApp:
             / "rules.json"
         )
         self.governance_rules = self._load_governance_rules()
-        self._manual_shutdown = False
         self.startup_phase = "created"
         self.startup_phase_active_since = time.monotonic()
         self.startup_phase_history: list[dict[str, Any]] = []
-        self._startup_persistence_synced = False
+        self._shutdown_started = False
+        self._shutdown_complete = asyncio.Event()
 
     def _mark_startup_phase(self, phase: str) -> None:
         now = time.monotonic()
@@ -150,6 +105,7 @@ class GPTBridgeApp:
             "phase": getattr(self, "startup_phase", "unknown"),
             "phase_duration_ms": active_duration_ms,
             "phase_history": list(self.startup_phase_history),
+            "maintenance_ready": self.maintenance_ready,
         }
 
     def _load_governance_rules(self) -> list[str]:
@@ -193,282 +149,379 @@ class GPTBridgeApp:
     def _log(self, data: dict[str, Any]) -> None:
         print(json.dumps(data, ensure_ascii=False), flush=True)
 
-    async def _manage_startup_entry(self, enable: bool) -> None:
-        """Manages Windows startup shortcut to ensure persistence across reboots."""
-        if sys.platform != "win32":
-            return
-
-        appdata = os.environ.get("APPDATA")
-        if not appdata:
-            return
-            
-        startup_folder = Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
-        if not startup_folder.exists():
-            return
-            
-        shortcut_path = startup_folder / "GPTBridge.lnk"
-        
-        if enable:
-            if not shortcut_path.exists():
-                script_path = self.project_root / "run.py"
-                target = sys.executable
-                cfg = load_config()
-                profile_name = cfg.get("profile", "main")
-                args = f'"{script_path}" serve --profile {profile_name}'
-                
-                ps_cmd = (
-                    f'$WshShell = New-Object -ComObject WScript.Shell; '
-                    f'$Shortcut = $WshShell.CreateShortcut("{shortcut_path}"); '
-                    f'$Shortcut.TargetPath = "{target}"; '
-                    f'$Shortcut.Arguments = "{args.replace(chr(34), "`" + chr(34))}"; '
-                    f'$Shortcut.WorkingDirectory = "{self.project_root}"; '
-                    f'$Shortcut.Save()'
-                )
-                process = await asyncio.create_subprocess_exec(
-                    "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
-                )
-                await process.communicate()
-        else:
-            if shortcut_path.exists():
-                with contextlib.suppress(Exception):
-                    shortcut_path.unlink()
-
-    async def _ensure_playwright_browsers_installed(self) -> None:
-        """Ensure required browser channels are available for Playwright."""
-        if self._edge_executable_exists():
-            self._log(
-                {
-                    "type": "info",
-                    "message": "Microsoft Edge is available; skipping browser install during startup.",
-                }
-            )
-            return
-
-        if os.environ.get("GPTBRIDGE_INSTALL_BROWSERS_ON_STARTUP") != "1":
-            self._log(
-                {
-                    "type": "warn",
-                    "message": "Microsoft Edge was not found; browser install is deferred to keep startup fast.",
-                }
-            )
-            return
-
-        self._log(
-            {
-                "type": "info",
-                "message": "Checking Playwright browser installations...",
-            }
-        )
-
-        channels = ["msedge"]
-        for channel in channels:
-            try:
-                process = await asyncio.create_subprocess_exec(
-                    sys.executable, "-m", "playwright",
-                    "install",
-                    channel,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                try:
-                    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
-                except asyncio.TimeoutError:
-                    process.kill()
-                    await process.communicate()
-                    self._log(
-                        {
-                            "type": "warn",
-                            "message": f"Playwright channel '{channel}' install check timed out; continuing startup.",
-                        }
-                    )
-                    continue
-                if process.returncode == 0:
-                    self._log(
-                        {
-                            "type": "info",
-                            "message": f"Browser channel '{channel}' is ready.",
-                        }
-                    )
-                else:
-                    detail = stderr.decode(errors="ignore").strip()
-                    self._log(
-                        {
-                            "type": "warn",
-                            "message": f"Playwright channel '{channel}' note: {detail}",
-                        }
-                    )
-            except Exception as exc:
-                self._log(
-                    {
-                        "type": "error",
-                        "message": f"Error checking browser channel {channel}: {exc}",
-                    }
-                )
-
-    @staticmethod
-    def _edge_executable_exists() -> bool:
-        if shutil.which("msedge") or shutil.which("microsoft-edge"):
-            return True
-
-        if sys.platform != "win32":
-            return False
-
-        candidates = []
-        for env_key in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"):
-            base = os.environ.get(env_key)
-            if base:
-                candidates.append(Path(base) / "Microsoft" / "Edge" / "Application" / "msedge.exe")
-
-        return any(path.exists() for path in candidates)
-
-    async def initialize(
-        self,
-        mode: str = "full",
-        profile: str = "main",
-        headless: bool = False,
-    ) -> None:
-        # Windows 11 baseline: force Edge headful mode.
-        _ = headless
-
-        # Unify configuration management via ConfigManager for global persistence
-        cfg = load_config()
-        try:
-            self.max_backup_count = int(cfg.get("max_backup_count", 3))
-        except (ValueError, TypeError):
-            self.max_backup_count = 3
-        try:
-            self.auto_cycle = int(cfg.get("auto_cycle", 60))
-        except (ValueError, TypeError):
-            self.auto_cycle = 60
-
-        # Persistence: mark as active once per process; safe and full mode both call initialize.
-        if cfg.get("auto_start") is not True:
-            cfg["auto_start"] = True
-            save_config(cfg)
-        if not self._startup_persistence_synced:
-            await self._manage_startup_entry(enable=True)
-            self._startup_persistence_synced = True
-
-        self._log({"type": "info", "message": f"Loaded auto_cycle: {self.auto_cycle}s"})
+    async def initialize(self) -> None:
+        """Initialize the mother process with lifecycle and update capabilities only."""
 
         project_root = self.project_root
-
-        if self.history_manager is None:
-            self.history_manager = OptimizationHistoryManager()
-        if self.project_agent is None:
-            self.project_agent = ProjectAgent(max_backup_count=self.max_backup_count)
-        else:
-            self.project_agent.max_backup_count = self.max_backup_count
-
-        ensure_backup_layout(project_root)
-
         if self.core_logger is None:
             self.core_logger = CoreLogger(project_root)
         if self.enforcer is None:
             self.enforcer = GovernanceEnforcer(project_root, self.core_logger)
         if self.task_queue is None:
             self.task_queue = TaskQueue(project_root, self.core_logger)
-        if self.core_code_service is None:
-            self.core_code_service = CoreCodeService(self, project_root)
         if self.toolbox_service is None:
             self.toolbox_service = ToolboxService(project_root, self.enforcer)
-        if self.developer_service is None:
-            self.developer_service = DeveloperService(project_root)
-        if self.rescue_service is None:
-            self.rescue_service = RescueService(self, project_root)
-        if self.mode_manager is None:
-            self.mode_manager = ModeManager(self)
+        if self.runtime_status_service is None:
+            self.runtime_status_service = RuntimeStatusService(self)
 
+        await self.runtime_bootstrap.initialize_main()
+        self._mark_startup_phase("main_runtime_ready")
+        self._log({"type": "status", "status": "ready"})
+        update_plan = self.update_coordinator.inspect()
+        self._startup_repair_task = asyncio.create_task(
+            self._complete_startup_maintenance(
+                update_plan=update_plan
+            ),
+            name="startup-maintenance",
+        )
+
+    async def _complete_startup_maintenance(
+        self, *, update_plan: dict[str, Any]
+    ) -> None:
+        repairs_ok = False
         try:
-            if mode == "full":
-                await self.mode_manager.initialize_full_mode(profile, headless)
-                self._mark_startup_phase("full_mode_ready")
-                self._log({"type": "status", "status": "ready"})
-                return
-
-            if mode == "safe":
-                await self.mode_manager.initialize_safe_mode()
-                return
-
-            raise ValueError(f"unknown mode: {mode}")
-
-        except Exception as global_err:
+            repairs_ok = await self._run_declared_auto_repairs(
+                include_upgrade_repair=bool(update_plan.get("changed"))
+            )
+            if repairs_ok:
+                if update_plan.get("changed"):
+                    await self.hot_update_service._apply(
+                        update_plan,
+                        repairs_completed=True,
+                    )
+                else:
+                    self.update_coordinator.mark_applied()
+                self.maintenance_ready = True
+                self.hot_update_service.start()
+                if (
+                    self._independent_tool_startup_task is None
+                    or self._independent_tool_startup_task.done()
+                ):
+                    self._independent_tool_startup_task = asyncio.create_task(
+                        self._start_manifest_background_tools(),
+                        name="independent-tool-background-startup",
+                    )
+        finally:
             self._log(
                 {
-                    "type": "status",
-                    "status": "error",
-                    "message": str(global_err),
+                    "type": "startup_maintenance_complete",
+                    "ok": repairs_ok,
+                    "maintenance_ready": self.maintenance_ready,
                 }
             )
-            if mode == "full":
-                if self.core_logger:
-                    self.core_logger.write(
-                        "error",
-                        "full mode startup failed; entering safe mode",
-                        {"error": str(global_err)},
+
+    async def _run_declared_auto_repairs(self, *, include_upgrade_repair: bool) -> bool:
+        """Run manifest-declared repairs without importing tool business code."""
+
+        if self.toolbox_service is None:
+            return False
+        tools_root = (self.project_root / "platform_tools").resolve()
+        manifests = sorted(tools_root.glob("*/manifest.json"))
+
+        async def run_repair(
+            manifest_path: Path,
+            capability_name: str,
+            *,
+            timeout_seconds: float,
+        ) -> bool:
+            tool_id = manifest_path.parent.name
+            try:
+                tool_root = manifest_path.parent.resolve()
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                tool_id = str(manifest.get("id") or "").strip()
+                if manifest.get("enabled", True) is False or tool_id != tool_root.name:
+                    return True
+                capabilities = manifest.get("capabilities") or {}
+                capability = capabilities.get(capability_name)
+                if not isinstance(capability, dict):
+                    raise RuntimeError(f"missing {capability_name} capability")
+                entry = (tool_root / str(capability.get("entry") or "")).resolve()
+                entry.relative_to(tool_root)
+                if not entry.is_file():
+                    raise RuntimeError(f"missing repair entry: {entry.name}")
+                arguments = capability.get("arguments") or []
+                if not isinstance(arguments, list) or not all(
+                    isinstance(item, str) for item in arguments
+                ):
+                    raise RuntimeError("invalid repair arguments")
+                environment = self.toolbox_service._tool_environment(
+                    tool_id, tool_root, manifest
+                )
+                process = await asyncio.create_subprocess_exec(
+                    sys.executable,
+                    str(entry),
+                    *arguments,
+                    cwd=str(tool_root),
+                    env=environment,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                try:
+                    stdout, stderr = await asyncio.wait_for(
+                        process.communicate(), timeout=timeout_seconds
                     )
-                await self.initialize(mode="safe", profile=profile, headless=False)
-                return
-            raise
+                except asyncio.TimeoutError:
+                    if process.returncode is None:
+                        process.kill()
+                        await process.communicate()
+                    raise
+                ok = process.returncode == 0
+                message = (stdout if ok else stderr).decode(
+                    "utf-8", errors="replace"
+                ).strip()
+                self.update_coordinator.repository.record_repair(
+                    f"{tool_id}:{capability_name}", ok, message
+                )
+                return ok
+            except (OSError, ValueError, RuntimeError, asyncio.TimeoutError) as error:
+                self.update_coordinator.repository.record_repair(
+                    f"{tool_id}:{capability_name}",
+                    False,
+                    f"{type(error).__name__}: {error}",
+                )
+                self._log(
+                    {
+                        "type": "tool_auto_repair_failed",
+                        "tool_id": tool_id,
+                        "capability": capability_name,
+                        "error": type(error).__name__,
+                    }
+                )
+                return False
 
-    async def ensure_browser_ready(self) -> None:
-        if self.session is None:
-            raise RuntimeError("browser is unavailable in Emergency Safe Mode")
+        # Tool-local repair procedures have separate code and data authority,
+        # so they can run concurrently without extending startup by one timeout
+        # per tool.
+        basic_results = await asyncio.gather(
+            *(
+                run_repair(
+                    manifest_path,
+                    "auto-repair",
+                    timeout_seconds=45,
+                )
+                for manifest_path in manifests
+            )
+        )
+        upgrade_results: list[bool] = []
+        if include_upgrade_repair:
+            for manifest_path in manifests:
+                try:
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    capability = (manifest.get("capabilities") or {}).get(
+                        "upgrade-repair"
+                    )
+                except (OSError, json.JSONDecodeError):
+                    capability = None
+                if isinstance(capability, dict):
+                    upgrade_results.append(
+                        await run_repair(
+                            manifest_path,
+                            "upgrade-repair",
+                            timeout_seconds=90,
+                        )
+                    )
+        return all([*basic_results, *upgrade_results])
 
-        if not self.session.is_initialized:
-            await self.session.ensure_initialized()
+    async def _start_manifest_background_tools(self) -> None:
+        """Start explicitly opted-in independent EXEs without showing windows."""
+
+        if self.toolbox_service is None:
+            return
+        tools_root = self.project_root / "platform_tools"
+        if not tools_root.is_dir():
+            return
+        for tool_dir in sorted(tools_root.iterdir(), key=lambda item: item.name):
+            manifest_path = tool_dir / "manifest.json"
+            try:
+                tool_stat = tool_dir.lstat()
+                manifest_stat = manifest_path.lstat()
+                tool_attributes = int(
+                    getattr(tool_stat, "st_file_attributes", 0) or 0
+                )
+                manifest_attributes = int(
+                    getattr(manifest_stat, "st_file_attributes", 0) or 0
+                )
+                if (
+                    stat_module.S_ISLNK(tool_stat.st_mode)
+                    or bool(tool_attributes & 0x400)
+                    or not stat_module.S_ISDIR(tool_stat.st_mode)
+                    or stat_module.S_ISLNK(manifest_stat.st_mode)
+                    or bool(manifest_attributes & 0x400)
+                    or not stat_module.S_ISREG(manifest_stat.st_mode)
+                ):
+                    continue
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            startup = manifest.get("startup")
+            if (
+                not isinstance(startup, dict)
+                or startup.get("auto_start") is not True
+                or startup.get("background") is not True
+            ):
+                continue
+            tool_id = str(manifest.get("id") or "").strip()
+            if tool_id != tool_dir.name:
+                continue
+            try:
+                result = await self.toolbox_service.start_tool(
+                    {
+                        "tool_id": tool_id,
+                        "request_id": f"startup:{tool_id}",
+                        "background": True,
+                    }
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                result = {
+                    "ok": False,
+                    "error_code": type(error).__name__,
+                }
+            self._log(
+                {
+                    "type": "independent_tool_background_start",
+                    "tool_id": tool_id,
+                    "ok": result.get("ok") is True,
+                    "error_code": str(result.get("error_code") or ""),
+                }
+            )
+
+    async def initialize_standalone_tool(self) -> None:
+        """Load only the packaged child-tool service and its command router.
+
+        Standalone EXEs must not enable the main application's startup shortcut,
+        backup loop, browser stack, unrestricted toolbox, or project automation
+        services.
+        """
+
+        tool_id = str(
+            os.environ.get("GPTBRIDGE_STANDALONE_TOOL_ID") or ""
+        ).strip()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{1,63}", tool_id):
+            raise RuntimeError("Standalone tool identity is invalid.")
+        tools_root = self.project_root / "platform_tools"
+        tool_root = tools_root / tool_id
+        manifest_path = tool_root / "manifest.json"
+        for candidate, label in (
+            (self.project_root, "standalone project root"),
+            (tools_root, "standalone tools root"),
+            (tool_root, "standalone tool root"),
+            (manifest_path, "standalone tool manifest"),
+        ):
+            try:
+                value = candidate.lstat()
+            except OSError as error:
+                raise RuntimeError(f"{label} is unavailable: {candidate}") from error
+            attributes = int(getattr(value, "st_file_attributes", 0) or 0)
+            if (
+                stat_module.S_ISLNK(value.st_mode)
+                or bool(attributes & 0x400)
+            ):
+                raise RuntimeError(f"{label} cannot be a link or reparse point.")
+        if not stat_module.S_ISREG(manifest_path.lstat().st_mode):
+            raise RuntimeError("Standalone tool manifest must be a regular file.")
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise RuntimeError("Standalone tool manifest is invalid.") from error
+        if not isinstance(manifest, dict) or str(manifest.get("id") or "") != tool_id:
+            raise RuntimeError("Standalone tool manifest identity does not match.")
+        tool_version = str(manifest.get("version") or "").strip()
+        if not tool_version:
+            raise RuntimeError("Standalone tool manifest version is missing.")
+
+        self.toolbox_service = ToolboxService(
+            self.project_root,
+            allowed_tool_ids={tool_id},
+        )
+        if self.runtime_status_service is None:
+            self.runtime_status_service = RuntimeStatusService(self)
+        self.standalone_capabilities = {
+            "tool_id": tool_id,
+            "tool_version": tool_version,
+            "toolbox": {
+                "tool_id": tool_id,
+                "tool_version": tool_version,
+                "commands": [
+                    "toolbox_run_tool",
+                    "toolbox_cancel_tool_run",
+                ],
+            },
+        }
+        if self.platform_automation is None:
+            self.platform_automation = PlatformAutomationManager(
+                self.project_root,
+                self.core_logger,
+                allowed_tool_ids={tool_id},
+            )
+        await self.platform_automation.start()
+        await self.runtime_bootstrap.initialize_standalone(tool_id)
+        self._mark_startup_phase("standalone_runtime_ready")
 
     async def shutdown(self) -> None:
-        # Persistence: If manually stopped, disable auto-start
-        if getattr(self, "_manual_shutdown", False):
-            cfg = load_config()
-            cfg["auto_start"] = False
-            save_config(cfg)
-            await self._manage_startup_entry(enable=False)
+        if self._shutdown_started:
+            await self._shutdown_complete.wait()
+            return
+        self._shutdown_started = True
+        try:
+            await self._shutdown_once()
+        finally:
+            self._shutdown_complete.set()
 
-        if self._active_audit_task and not self._active_audit_task.done():
-            self._active_audit_task.cancel()
+    async def _shutdown_once(self) -> None:
+        startup_repair = self._startup_repair_task
+        if (
+            startup_repair is not None
+            and startup_repair is not asyncio.current_task()
+            and not startup_repair.done()
+        ):
+            with contextlib.suppress(Exception):
+                await startup_repair
+        self._startup_repair_task = None
+        await self.hot_update_service.stop()
+        independent_tool_startup = self._independent_tool_startup_task
+        if (
+            independent_tool_startup is not None
+            and independent_tool_startup is not asyncio.current_task()
+            and not independent_tool_startup.done()
+        ):
+            independent_tool_startup.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await independent_tool_startup
+        self._independent_tool_startup_task = None
+
+        if self.platform_automation is not None:
+            await self.platform_automation.stop()
+            self.platform_automation = None
 
         pending_tasks = [task for task in self._command_tasks if not task.done()]
         for task in pending_tasks:
             task.cancel()
         if pending_tasks:
-            await asyncio.gather(*pending_tasks, return_exceptions=True)
+            _done, still_running = await asyncio.wait(
+                pending_tasks,
+                timeout=10,
+            )
+            if still_running:
+                self._log(
+                    {
+                        "type": "warning",
+                        "message": (
+                            f"{len(still_running)} command task(s) retained "
+                            "durable recovery state after shutdown deadline"
+                        ),
+                    }
+                )
 
         self._command_tasks.clear()
         self._command_task_meta.clear()
-        self._active_audit_task = None
-
-        if self.connection_monitor_task and not self.connection_monitor_task.done():
-            self.connection_monitor_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self.connection_monitor_task
-        self.connection_monitor_task = None
-
-        if self.backup_manager is not None:
-            await self.backup_manager.stop_auto_backup()
-            self.backup_manager = None
-
-        if self.mode_manager is not None:
-            for service in self.mode_manager.all_mode_services():
-                if hasattr(service, "shutdown"):
-                    await service.shutdown()
-
-        if self.session is not None:
-            await self.session.shutdown()
-            self.session = None
+        await self.runtime_bootstrap.shutdown()
 
 
 async def main() -> None:
     app_instance = GPTBridgeApp()
     parser = argparse.ArgumentParser(description="GPTBridge Mother Tool Entry")
-    parser.add_argument(
-        "--profile",
-        default="main",
-        help="Browser profile name.",
-    )
     parser.add_argument(
         "--serve",
         action="store_true",
@@ -477,7 +530,7 @@ async def main() -> None:
     parser.add_argument(
         "--auto-kill-backend-port",
         action="store_true",
-        help="Automatically terminate a previous GPTBridge backend holding port 8765 before starting.",
+        help="Automatically terminate a previous GPTBridge backend holding the configured IPC port before starting.",
     )
 
     args = parser.parse_args()
@@ -485,7 +538,6 @@ async def main() -> None:
     try:
         await run_server(
             app_instance,
-            profile=args.profile,
             auto_kill_backend_port=args.auto_kill_backend_port,
         )
     finally:

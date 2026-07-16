@@ -12,6 +12,20 @@ class PathScopeGuardRule:
     rule_id = "path_scope_guard"
     reason = "target path is outside the allowed workspace scope"
 
+    def __init__(self, project_root: Path) -> None:
+        self.project_root = Path(project_root).resolve()
+
+    def _inside_project(self, raw: str) -> bool:
+        candidate = Path(raw)
+        if not candidate.is_absolute():
+            candidate = self.project_root / candidate
+        try:
+            resolved = candidate.resolve(strict=False)
+            resolved.relative_to(self.project_root)
+            return True
+        except (OSError, RuntimeError, ValueError):
+            return False
+
     def evaluate(self, operation: Dict[str, Any]) -> bool:
         target = str(operation.get("target", "") or "").strip()
         destination = str(operation.get("destination", "") or "").strip()
@@ -19,19 +33,8 @@ class PathScopeGuardRule:
         for raw in (target, destination):
             if not raw:
                 continue
-            # Block obvious traversal payloads.
-            if ".." in raw.replace("\\", "/").split("/"):
-                self.reason = f"unsafe relative path: {raw}"
-                return False
-            # Allow relative paths and Windows absolute drive paths.
-            try:
-                path = Path(raw)
-                if path.is_absolute() and len(path.parts) == 1:
-                    self.reason = f"invalid absolute path: {raw}"
-                    return False
-            except Exception:
-                self.reason = f"invalid path: {raw}"
+            if not self._inside_project(raw):
+                self.reason = f"path is outside project root: {raw}"
                 return False
 
         return True
-

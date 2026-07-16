@@ -76,7 +76,7 @@ export const localizationRenameChecker: GovernanceChecker = {
   enforceLevel: EnforceLevel.BLOCKING,
   target: 'src-ui/renderer',
   coverage: CoverageStatus.BUILD_ENFORCED,
-  version: '2026.05.29',
+  version: '1.0.0',
   run: async (): Promise<GovernanceReport> => {
     const files = await collectSourceFiles(scanRoot)
     const offenders: Offender[] = []

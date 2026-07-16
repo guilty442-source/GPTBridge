@@ -25,6 +25,11 @@ SPEC.loader.exec_module(file_sorter)
 def isolate_code_rules(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     rules_path = tmp_path.parent / f"{tmp_path.name}-keyword-rules.py"
     monkeypatch.setattr(file_sorter, "RULES_FILE_PATH", rules_path)
+    monkeypatch.setattr(
+        file_sorter,
+        "LEGACY_RULES_MIGRATION_INBOX_DIR",
+        tmp_path / "legacy-rule-migration-inbox",
+    )
 
 
 def test_uses_longest_keyword_and_avoids_ascii_substring_false_positive(
@@ -163,48 +168,41 @@ def test_update_keeps_existing_destination_when_folder_is_blank(tmp_path: Path) 
     assert updated == file_sorter.KeywordRule(keyword="new", folder="分類")
 
 
-def test_adds_keyword_to_external_destination_folder(tmp_path: Path) -> None:
+def test_rejects_keyword_with_external_destination_folder(tmp_path: Path) -> None:
     external_destination = tmp_path.parent / f"{tmp_path.name}-external"
     external_destination.mkdir()
-    file_sorter.add_keywords(tmp_path, ["external_artist"], str(external_destination))
-    source = tmp_path / "external_artist_clip.mp4"
-    source.write_text("move me", encoding="utf-8")
 
-    result = file_sorter.organize_files(tmp_path)
-
-    assert result.errors == []
-    assert result.moved_count == 1
-    assert not source.exists()
-    assert (external_destination / "external_artist_clip.mp4").exists()
-    assert file_sorter.read_custom_rules() == [
-        file_sorter.KeywordRule(
-            keyword="external_artist",
-            folder=str(external_destination.resolve()),
+    with pytest.raises(file_sorter.FileSorterError):
+        file_sorter.add_keywords(
+            tmp_path,
+            ["external_artist"],
+            str(external_destination),
         )
-    ]
+
+    assert file_sorter.read_custom_rules() == []
 
 
-def test_updates_keyword_to_external_destination_folder(tmp_path: Path) -> None:
+def test_rejects_keyword_update_to_external_destination_folder(tmp_path: Path) -> None:
     local_destination = tmp_path / "local"
     external_destination = tmp_path.parent / f"{tmp_path.name}-external-update"
     local_destination.mkdir()
     external_destination.mkdir()
     file_sorter.add_keywords(tmp_path, ["old"], local_destination.name)
 
-    updated = file_sorter.update_keyword(
-        tmp_path,
-        "old",
-        "new",
-        str(external_destination),
-    )
+    with pytest.raises(file_sorter.FileSorterError):
+        file_sorter.update_keyword(
+            tmp_path,
+            "old",
+            "new",
+            str(external_destination),
+        )
 
-    assert updated == file_sorter.KeywordRule(
-        keyword="new",
-        folder=str(external_destination.resolve()),
-    )
+    assert file_sorter.read_custom_rules() == [
+        file_sorter.KeywordRule(keyword="old", folder="local")
+    ]
 
 
-def test_upsert_existing_keyword_updates_external_destination_and_organizes(
+def test_upsert_rejects_external_destination_without_mutating_existing_rule(
     tmp_path: Path,
 ) -> None:
     local_destination = tmp_path / "local"
@@ -213,26 +211,16 @@ def test_upsert_existing_keyword_updates_external_destination_and_organizes(
     external_destination.mkdir()
     file_sorter.add_keywords(tmp_path, ["artist"], local_destination.name)
 
-    upsert_result = file_sorter.upsert_keywords(
-        tmp_path,
-        ["artist"],
-        str(external_destination),
-    )
-    source = tmp_path / "artist_video.mp4"
-    source.write_text("move me", encoding="utf-8")
-    organize_result = file_sorter.organize_files(tmp_path)
-
-    assert upsert_result.added == []
-    assert upsert_result.updated == [
-        file_sorter.KeywordRule(
-            keyword="artist",
-            folder=str(external_destination.resolve()),
+    with pytest.raises(file_sorter.FileSorterError):
+        file_sorter.upsert_keywords(
+            tmp_path,
+            ["artist"],
+            str(external_destination),
         )
+
+    assert file_sorter.read_custom_rules() == [
+        file_sorter.KeywordRule(keyword="artist", folder="local")
     ]
-    assert organize_result.errors == []
-    assert organize_result.moved_count == 1
-    assert not source.exists()
-    assert (external_destination / "artist_video.mp4").exists()
 
 
 def test_lists_source_files_for_auto_detection(tmp_path: Path) -> None:
@@ -245,6 +233,66 @@ def test_lists_source_files_for_auto_detection(tmp_path: Path) -> None:
 
     assert [item["name"] for item in files] == ["new_file.txt"]
     assert files[0]["size"] == 3
+
+
+def test_rejects_reparse_target_and_destination(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_target = tmp_path / "real-target"
+    real_target.mkdir()
+    (real_target / "music").mkdir()
+    linked_target = tmp_path / "linked-target"
+    linked_target.mkdir()
+    linked_destination = real_target / "linked-destination"
+    linked_destination.mkdir()
+    real_status = file_sorter._link_or_reparse_status
+
+    def simulated_status(path: Path) -> bool | None:
+        if path.name in {linked_target.name, linked_destination.name}:
+            return True
+        return real_status(path)
+
+    monkeypatch.setattr(file_sorter, "_link_or_reparse_status", simulated_status)
+
+    with pytest.raises(file_sorter.FileSorterError):
+        file_sorter.resolve_target_dir(linked_target)
+    with pytest.raises(file_sorter.FileSorterError):
+        file_sorter.resolve_destination_dir(real_target.resolve(), linked_destination.name)
+
+
+def test_folder_and_source_listings_fail_closed_for_links_and_lstat_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    visible_folder = tmp_path / "visible-folder"
+    inaccessible_folder = tmp_path / "inaccessible-folder"
+    visible_file = tmp_path / "visible.txt"
+    inaccessible_file = tmp_path / "inaccessible.txt"
+    linked_folder = tmp_path / "linked-folder"
+    linked_file = tmp_path / "linked.txt"
+    visible_folder.mkdir()
+    inaccessible_folder.mkdir()
+    linked_folder.mkdir()
+    visible_file.write_text("visible", encoding="utf-8")
+    inaccessible_file.write_text("hidden", encoding="utf-8")
+    linked_file.write_text("linked", encoding="utf-8")
+
+    real_status = file_sorter._link_or_reparse_status
+
+    def simulated_status(path: Path) -> bool | None:
+        if path.name in {inaccessible_folder.name, inaccessible_file.name}:
+            return None
+        if path.name in {linked_folder.name, linked_file.name}:
+            return True
+        return real_status(path)
+
+    monkeypatch.setattr(file_sorter, "_link_or_reparse_status", simulated_status)
+
+    assert file_sorter.list_destination_folders(tmp_path) == ["visible-folder"]
+    assert [item["name"] for item in file_sorter.list_source_files(tmp_path)] == [
+        "visible.txt"
+    ]
 
 
 def test_scans_new_subfolders_without_creating_any(tmp_path: Path) -> None:

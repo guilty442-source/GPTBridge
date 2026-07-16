@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import json
 import os
 import re
@@ -12,12 +13,14 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 import zipfile
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, time as local_time, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable
+from typing import Any, BinaryIO, Iterable, Iterator
 from xml.etree import ElementTree as ET
 from zoneinfo import ZoneInfo
 
@@ -32,11 +35,38 @@ DEFAULT_PROVIDER_ORDER = (
     "coingecko",
     "alphavantage",
 )
+DEFAULT_IMPORT_SNAPSHOT_KEEP = 20
+SNAPSHOT_COPY_ATTEMPTS = 3
+SNAPSHOT_COPY_CHUNK_BYTES = 1024 * 1024
+XLSX_INFERRED_HEADER_SCAN_ROWS = 25
+XLSX_HEADER_SCAN_MAX_ROWS = 80
+XLSX_HEADER_SCAN_MAX_COLUMNS = 96
+XLSX_HORIZONTAL_GROUP_WIDTH = 4
 CSV_EXTENSIONS = {".csv", ".tsv", ".txt"}
 JSON_EXTENSIONS = {".json"}
 XLSX_EXTENSIONS = {".xlsx"}
 LEGACY_EXCEL_EXTENSIONS = {".xls"}
 EXCEL_EXTENSIONS = XLSX_EXTENSIONS | LEGACY_EXCEL_EXTENSIONS
+COMMON_US_ETF_SYMBOLS = {
+    "ARKK",
+    "DIA",
+    "EEM",
+    "GLD",
+    "IWM",
+    "QQQ",
+    "SCHD",
+    "SLV",
+    "SPY",
+    "TLT",
+    "VIG",
+    "VOO",
+    "VT",
+    "VTI",
+    "VXUS",
+    "XLE",
+    "XLF",
+    "XLK",
+}
 CRYPTO_ID_MAP = {
     "BTC": "bitcoin",
     "ETH": "ethereum",
@@ -151,7 +181,30 @@ HEADER_ALIASES = {
         "\u5747\u50f9",
     },
     "currency": {"currency", "ccy", "\u5e63\u5225", "\u4ea4\u6613\u5e63\u5225", "\u8ca8\u5e63"},
+    "principal_amount": {
+        "principal",
+        "principalamount",
+        "costamount",
+        "\u672c\u91d1",
+        "\u6295\u5165\u672c\u91d1",
+        "\u6295\u5165\u91d1\u984d",
+        "\u6210\u672c\u91d1\u984d",
+    },
+    "principal_currency": {
+        "principalcurrency",
+        "principalccy",
+        "\u672c\u91d1\u5e63\u5225",
+        "\u6210\u672c\u5e63\u5225",
+    },
+    "principal_twd": {
+        "principaltwd",
+        "\u672c\u91d1twd",
+        "\u53f0\u5e63\u672c\u91d1",
+        "\u65b0\u53f0\u5e63\u672c\u91d1",
+    },
 }
+XLSX_MAPPING_FIELDS = tuple(HEADER_ALIASES)
+XLSX_REQUIRED_MAPPING_FIELDS = frozenset({"symbol", "quantity"})
 MARKET_ALIASES = {
     "US": {"us", "usa", "nyse", "nasdaq", "amex", "\u7f8e\u80a1", "\u7f8e\u570b"},
     "TW": {
@@ -211,7 +264,18 @@ class Holding:
     quantity: float = 0.0
     average_cost: float | None = None
     currency: str = ""
+    principal_amount: float | None = None
+    principal_currency: str = ""
+    principal_twd: float | None = None
     source_row: int | None = None
+    dividend_amount_twd: float | None = None
+    dividend_per_unit: float | None = None
+    monthly_dividend_twd: float | None = None
+    annual_dividend_yield_percent: float | None = None
+    payback_rate_percent: float | None = None
+    current_value_twd: float | None = None
+    estimated_annual_dividend_twd: float | None = None
+    estimated_weekly_dividend_twd: float | None = None
 
 
 @dataclass(frozen=True)
@@ -244,8 +308,12 @@ class QuoteContext:
     attempts: list[QuoteAttempt] = field(default_factory=list)
 
 
+def local_device_now() -> datetime:
+    return datetime.now().astimezone()
+
+
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return local_device_now()
 
 
 def utc_now_text() -> str:
@@ -352,6 +420,7 @@ def header_token_lookup() -> frozenset[str]:
     )
 
 
+@lru_cache(maxsize=8192)
 def canonical_column(header: str) -> str | None:
     normalized = normalize_header(header)
     if not normalized:
@@ -494,6 +563,201 @@ def normalize_symbol(symbol: str) -> str:
     return str(symbol or "").strip().upper()
 
 
+@contextmanager
+def _open_portfolio_source_shared(source: Path) -> Iterator[BinaryIO]:
+    if os.name != "nt":
+        with source.open("rb") as source_file:
+            yield source_file
+        return
+
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    generic_read = 0x80000000
+    file_share_read = 0x00000001
+    file_share_write = 0x00000002
+    file_share_delete = 0x00000004
+    open_existing = 3
+    file_attribute_normal = 0x00000080
+    file_flag_sequential_scan = 0x08000000
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    create_file.restype = wintypes.HANDLE
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = [wintypes.HANDLE]
+    close_handle.restype = wintypes.BOOL
+
+    handle = create_file(
+        str(source),
+        generic_read,
+        file_share_read | file_share_write | file_share_delete,
+        None,
+        open_existing,
+        file_attribute_normal | file_flag_sequential_scan,
+        None,
+    )
+    invalid_handle_value = wintypes.HANDLE(-1).value
+    if handle in (None, invalid_handle_value):
+        error_code = ctypes.get_last_error()
+        raise OSError(error_code, ctypes.FormatError(error_code), str(source))
+
+    try:
+        descriptor = msvcrt.open_osfhandle(
+            int(handle),
+            os.O_RDONLY | os.O_BINARY,
+        )
+    except OSError:
+        close_handle(handle)
+        raise
+
+    with os.fdopen(descriptor, "rb") as source_file:
+        yield source_file
+
+
+def _source_revision_unchanged(before: os.stat_result, after: os.stat_result) -> bool:
+    return before.st_size == after.st_size and before.st_mtime_ns == after.st_mtime_ns
+
+
+def _read_portfolio_source_bytes(source: Path) -> bytes:
+    for attempt in range(SNAPSHOT_COPY_ATTEMPTS):
+        with _open_portfolio_source_shared(source) as source_file:
+            revision_before = os.fstat(source_file.fileno())
+            content = source_file.read()
+            revision_after = os.fstat(source_file.fileno())
+        if _source_revision_unchanged(revision_before, revision_after):
+            return content
+        if attempt + 1 < SNAPSHOT_COPY_ATTEMPTS:
+            time.sleep(0.05)
+    raise InvestmentManagerError(
+        "Portfolio file kept changing while a non-locking read was in progress."
+    )
+
+
+def _read_portfolio_source_text(source: Path, *, encoding: str) -> str:
+    return _read_portfolio_source_bytes(source).decode(encoding)
+
+
+@contextmanager
+def _open_xlsx_workbook_unlocked(path: Path) -> Iterator[zipfile.ZipFile]:
+    workbook_bytes = _read_portfolio_source_bytes(path)
+    with io.BytesIO(workbook_bytes) as workbook_stream:
+        with zipfile.ZipFile(workbook_stream) as workbook:
+            yield workbook
+
+
+def _copy_portfolio_snapshot_once(source: Path, partial_target: Path) -> bool:
+    with _open_portfolio_source_shared(source) as source_file:
+        revision_before = os.fstat(source_file.fileno())
+        with partial_target.open("xb") as target_file:
+            while chunk := source_file.read(SNAPSHOT_COPY_CHUNK_BYTES):
+                target_file.write(chunk)
+        revision_after = os.fstat(source_file.fileno())
+    return _source_revision_unchanged(revision_before, revision_after)
+
+
+def _is_owned_snapshot_partial(partial_target: Path, target: Path) -> bool:
+    """Prove a partial belongs to this snapshot transaction before cleanup."""
+
+    if partial_target.parent != target.parent or partial_target.is_symlink():
+        return False
+    prefix = f".{target.name}."
+    suffix = ".partial"
+    name = partial_target.name
+    if not name.startswith(prefix) or not name.endswith(suffix):
+        return False
+    token = name[len(prefix) : -len(suffix)]
+    return bool(re.fullmatch(r"[a-f0-9]{32}", token))
+
+
+def create_portfolio_file_snapshot(
+    source: Path,
+    imports_root: Path,
+    *,
+    keep: int = DEFAULT_IMPORT_SNAPSHOT_KEEP,
+) -> Path:
+    imports_root.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
+    safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", source.stem).strip("._-")
+    safe_stem = (safe_stem or "portfolio")[:80]
+    target = imports_root / f"{stamp}-{uuid.uuid4().hex}-{safe_stem}{source.suffix}"
+    last_error: OSError | InvestmentManagerError | None = None
+    for attempt in range(SNAPSHOT_COPY_ATTEMPTS):
+        partial_target = target.with_name(f".{target.name}.{uuid.uuid4().hex}.partial")
+        try:
+            if not _copy_portfolio_snapshot_once(source, partial_target):
+                last_error = InvestmentManagerError(
+                    "Portfolio file changed while the import snapshot was being created."
+                )
+            else:
+                if target.exists() or target.is_symlink():
+                    raise InvestmentManagerError(
+                        "Snapshot publication target already exists; refusing to overwrite it."
+                    )
+                partial_target.replace(target)
+                prune_portfolio_file_snapshots(imports_root, keep=keep)
+                return target
+        except OSError as exc:
+            last_error = exc
+        finally:
+            if _is_owned_snapshot_partial(partial_target, target):
+                try:
+                    partial_target.unlink(missing_ok=True)
+                except OSError:
+                    pass
+        if attempt + 1 < SNAPSHOT_COPY_ATTEMPTS:
+            time.sleep(0.05)
+
+    raise InvestmentManagerError(
+        f"Unable to create a non-locking portfolio import snapshot: {last_error}"
+    ) from last_error
+
+
+def prune_portfolio_file_snapshots(
+    imports_root: Path,
+    *,
+    keep: int = DEFAULT_IMPORT_SNAPSHOT_KEEP,
+) -> dict[str, Any]:
+    """Report logical archive pressure without deleting source snapshots."""
+
+    try:
+        snapshots = sorted(
+            (
+                item
+                for item in imports_root.iterdir()
+                if item.is_file() and not item.name.endswith(".partial")
+            ),
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError:
+        return {
+            "retained_count": 0,
+            "logical_archive_count": 0,
+            "storage_pressure": False,
+            "automatic_delete": False,
+        }
+    active_limit = max(0, int(keep))
+    logical_archive_count = max(0, len(snapshots) - active_limit)
+    return {
+        "retained_count": len(snapshots),
+        "active_window_count": min(len(snapshots), active_limit),
+        "logical_archive_count": logical_archive_count,
+        "storage_pressure": logical_archive_count > max(100, active_limit * 5),
+        "automatic_delete": False,
+    }
+
+
 def load_portfolio(path: Path) -> list[Holding]:
     if not path.exists():
         raise InvestmentManagerError(f"Portfolio file not found: {path}")
@@ -515,7 +779,7 @@ def load_portfolio(path: Path) -> list[Holding]:
 
 def load_json_portfolio(path: Path) -> list[Holding]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        payload = json.loads(_read_portfolio_source_text(path, encoding="utf-8-sig"))
     except json.JSONDecodeError as exc:
         raise InvestmentManagerError(f"Invalid JSON portfolio: {exc}") from exc
     if isinstance(payload, dict):
@@ -528,7 +792,7 @@ def load_json_portfolio(path: Path) -> list[Holding]:
 
 
 def load_csv_portfolio(path: Path) -> list[Holding]:
-    text = path.read_text(encoding="utf-8-sig")
+    text = _read_portfolio_source_text(path, encoding="utf-8-sig")
     if not text.strip():
         raise InvestmentManagerError("Portfolio file is empty.")
     sample = text[:4096]
@@ -587,6 +851,1255 @@ def load_xlsx_portfolio(path: Path) -> list[Holding]:
 
     detail = "; ".join(errors) if errors else "No usable data rows."
     raise InvestmentManagerError(f"Excel workbook has no usable holdings after scanning. {detail}")
+
+
+def xlsx_mapping_preview(
+    path: Path,
+    *,
+    max_rows: int = XLSX_HEADER_SCAN_MAX_ROWS,
+    max_columns: int = XLSX_HEADER_SCAN_MAX_COLUMNS,
+) -> dict[str, Any]:
+    """Return a bounded workbook preview suitable for an interactive column mapper."""
+    try:
+        workbook_scan = scan_xlsx_workbook(path, include_rows=True)
+    except (OSError, KeyError, ET.ParseError, zipfile.BadZipFile) as exc:
+        raise InvestmentManagerError(f"Invalid Excel workbook: {exc}") from exc
+
+    preview_sheets: list[dict[str, Any]] = []
+    for raw_sheet in workbook_scan.get("sheets", []):
+        rows = raw_sheet.get("rows") if isinstance(raw_sheet, dict) else None
+        if not isinstance(rows, list):
+            continue
+        bounded_rows = [
+            [str(value or "") for value in row[:max_columns]]
+            for row in rows[:max_rows]
+            if isinstance(row, list)
+        ]
+        width = min(
+            max((len(row) for row in bounded_rows), default=0),
+            max_columns,
+        )
+        headers = [str(value or "") for value in raw_sheet.get("headers", [])]
+        suggested_mapping: dict[str, int] = {}
+        for index, canonical in enumerate(canonical_header_map(headers)):
+            if canonical and canonical not in suggested_mapping:
+                suggested_mapping[canonical] = index
+        preview_sheets.append(
+            {
+                "sheet_index": raw_sheet.get("sheet_index", len(preview_sheets)),
+                "sheet_name": str(raw_sheet.get("sheet_name") or f"Sheet{len(preview_sheets) + 1}"),
+                "row_count": int(raw_sheet.get("row_count") or 0),
+                "preview_row_count": len(bounded_rows),
+                "column_count": width,
+                "suggested_header_row_number": raw_sheet.get("header_row_number"),
+                "suggested_data_start_row_number": raw_sheet.get("data_start_row_number"),
+                "suggested_mapping": suggested_mapping,
+                "header_candidates": raw_sheet.get("header_candidates", []),
+                "rows": bounded_rows,
+            }
+        )
+
+    horizontal_layout = xlsx_horizontal_matrix_preview_from_scan(workbook_scan)
+    consolidated_layout = xlsx_consolidated_report_preview_from_scan(workbook_scan)
+    selected_sheet = workbook_scan.get("selected_sheet")
+    selected_sheet_name = (
+        str(selected_sheet.get("sheet_name") or "")
+        if isinstance(selected_sheet, dict)
+        else ""
+    )
+    if consolidated_layout.get("recommended"):
+        selected_sheet_name = str(
+            consolidated_layout.get("sheet_name") or selected_sheet_name
+        )
+    elif horizontal_layout.get("recommended"):
+        preferred_sheet = next(
+            (
+                sheet
+                for sheet in horizontal_layout.get("sheets", [])
+                if isinstance(sheet, dict) and sheet.get("selected_by_default")
+            ),
+            None,
+        )
+        if isinstance(preferred_sheet, dict):
+            selected_sheet_name = str(preferred_sheet.get("sheet_name") or selected_sheet_name)
+    if not selected_sheet_name and preview_sheets:
+        selected_sheet_name = str(preview_sheets[0]["sheet_name"])
+    return {
+        "sheet_count": len(preview_sheets),
+        "selected_sheet_name": selected_sheet_name,
+        "sheets": preview_sheets,
+        "mapping_fields": list(XLSX_MAPPING_FIELDS),
+        "required_fields": sorted(XLSX_REQUIRED_MAPPING_FIELDS),
+        "preview_limits": {"rows": max_rows, "columns": max_columns},
+        "horizontal_layout": horizontal_layout,
+        "consolidated_layout": consolidated_layout,
+    }
+
+
+def xlsx_consolidated_report_preview_from_scan(
+    workbook_scan: dict[str, Any],
+) -> dict[str, Any]:
+    candidates: list[tuple[dict[str, Any], int, int]] = []
+    for sheet in workbook_scan.get("sheets", []):
+        if not isinstance(sheet, dict) or not isinstance(sheet.get("rows"), list):
+            continue
+        rows = sheet["rows"]
+        fund_header_index = None
+        security_header_index = None
+        for index, row in enumerate(rows):
+            if not isinstance(row, list):
+                continue
+            name_header = xlsx_matrix_label(row[2] if len(row) > 2 else "")
+            quantity_header = xlsx_matrix_label(row[13] if len(row) > 13 else "")
+            price_header = xlsx_matrix_label(row[18] if len(row) > 18 else "")
+            if name_header != "名稱":
+                continue
+            if quantity_header in {"總單位數", "單位數", "總股數"}:
+                fund_header_index = index
+            elif price_header in {"即時股價", "股價", "現價"}:
+                security_header_index = index
+        if fund_header_index is not None and security_header_index is not None:
+            candidates.append((sheet, fund_header_index, security_header_index))
+
+    if not candidates:
+        return {
+            "detected": False,
+            "recommended": False,
+            "layout": "consolidated_report",
+            "holding_count": 0,
+        }
+    sheet, fund_header_index, security_header_index = sorted(
+        candidates,
+        key=lambda item: (
+            str(item[0].get("sheet_name") or "").strip() == "報酬",
+            len(item[0].get("rows") or []),
+        ),
+        reverse=True,
+    )[0]
+    rows = sheet["rows"]
+    data_end_row_number = len(rows)
+    for index in range(security_header_index + 1, len(rows)):
+        next_rows = rows[index : index + 3]
+        if len(next_rows) < 3:
+            continue
+        if all(
+            not str(row[2] if isinstance(row, list) and len(row) > 2 else "").strip()
+            for row in next_rows
+        ):
+            data_end_row_number = index
+            break
+    config: dict[str, Any] = {
+        "layout": "consolidated_report",
+        "sheet_name": str(sheet.get("sheet_name") or ""),
+        "fund_header_row_number": fund_header_index + 1,
+        "fund_start_row_number": fund_header_index + 2,
+        "security_header_row_number": security_header_index + 1,
+        "security_start_row_number": security_header_index + 2,
+        "data_end_row_number": data_end_row_number,
+        "tw_symbol_column_index": 1,
+        "fund_name_column_index": 2,
+        "tw_name_column_index": 2,
+        "us_symbol_column_index": 2,
+        "us_name_column_index": 1,
+        "dividend_amount_column_index": 3,
+        "dividend_per_unit_column_index": 4,
+        "monthly_dividend_column_index": 5,
+        "annual_dividend_yield_column_index": 6,
+        "payback_rate_column_index": 7,
+        "quantity_column_index": 13,
+        "cost_amount_column_index": 14,
+        "price_column_index": 18,
+        "current_value_column_index": 21,
+        "include_zero_quantity": True,
+        "fund_market": "FUND",
+        "fund_asset_type": "FUND",
+        "fund_currency": "TWD",
+        "fund_principal_currency": "TWD",
+        "tw_market": "TW",
+        "tw_asset_type": "AUTO",
+        "tw_currency": "TWD",
+        "tw_principal_currency": "TWD",
+        "us_market": "US",
+        "us_asset_type": "AUTO",
+        "us_currency": "USD",
+        "us_principal_currency": "TWD",
+    }
+    holdings, details = xlsx_holdings_from_consolidated_report(sheet, config)
+    return {
+        **config,
+        "detected": bool(holdings),
+        "recommended": bool(holdings),
+        "holding_count": len(holdings),
+        "fund_count": sum(holding.asset_type == "FUND" for holding in holdings),
+        "tw_count": sum(holding.market == "TW" for holding in holdings),
+        "us_count": sum(holding.market == "US" for holding in holdings),
+        "etf_count": sum(holding.asset_type == "ETF" for holding in holdings),
+        "stock_count": sum(holding.asset_type == "STOCK" for holding in holdings),
+        "skipped_row_count": details["skipped_row_count"],
+        "sample_holdings": [
+            {
+                "symbol": holding.symbol,
+                "name": holding.name,
+                "market": holding.market,
+                "asset_type": holding.asset_type,
+                "quantity": holding.quantity,
+                "average_cost": holding.average_cost,
+                "currency": holding.currency,
+                "principal_amount": holding.principal_amount,
+                "principal_currency": holding.principal_currency,
+                "principal_twd": holding.principal_twd,
+                "annual_dividend_yield_percent": holding.annual_dividend_yield_percent,
+                "estimated_weekly_dividend_twd": holding.estimated_weekly_dividend_twd,
+            }
+            for holding in (
+                holdings[:3]
+                + [item for item in holdings if item.market == "TW"][:3]
+                + [item for item in holdings if item.market == "US"][:4]
+            )
+        ],
+    }
+
+
+def xlsx_report_integer_setting(
+    config: dict[str, Any],
+    field: str,
+    *,
+    minimum: int,
+    maximum: int,
+) -> int:
+    try:
+        value = int(config.get(field))
+    except (TypeError, ValueError) as exc:
+        raise InvestmentManagerError(f"Invalid {field} in consolidated Excel mapping.") from exc
+    if value < minimum or value > maximum:
+        raise InvestmentManagerError(
+            f"{field} must be between {minimum} and {maximum}."
+        )
+    return value
+
+
+def xlsx_report_asset_type(
+    symbol: str,
+    name: str,
+    market: str,
+    configured: str,
+) -> str:
+    inferred = xlsx_horizontal_asset_type(symbol, market, configured)
+    if inferred == "ETF" or configured not in {"", "AUTO"}:
+        return inferred
+    normalized_name = normalize_header(name)
+    if market == "US" and any(
+        token in normalized_name
+        for token in ("ETF", "期權收益", "收益策略", "收益增強", "YIELDMAX")
+    ):
+        return "ETF"
+    return inferred
+
+
+def xlsx_report_principal_currency(
+    config: dict[str, Any],
+    prefix: str,
+    asset_currency: str,
+) -> str:
+    configured = str(
+        config.get(f"{prefix}_principal_currency") or "TWD"
+    ).strip().upper()
+    if configured in {"AUTO", "ASSET"}:
+        return asset_currency
+    if not configured or len(configured) > 8 or not configured.replace("-", "").isalnum():
+        raise InvestmentManagerError(
+            f"Invalid {prefix}_principal_currency in consolidated Excel mapping."
+        )
+    return configured
+
+
+def xlsx_holdings_from_consolidated_report(
+    sheet: dict[str, Any],
+    raw_config: dict[str, Any],
+) -> tuple[list[Holding], dict[str, int]]:
+    rows = sheet.get("rows")
+    if not isinstance(rows, list) or not rows:
+        raise InvestmentManagerError("Consolidated Excel worksheet has no rows.")
+    config = dict(raw_config)
+    row_count = len(rows)
+    fund_start = xlsx_report_integer_setting(
+        config, "fund_start_row_number", minimum=1, maximum=row_count
+    )
+    security_start = xlsx_report_integer_setting(
+        config, "security_start_row_number", minimum=1, maximum=row_count
+    )
+    data_end = xlsx_report_integer_setting(
+        config, "data_end_row_number", minimum=max(fund_start, security_start), maximum=row_count
+    )
+    column_fields = (
+        "tw_symbol_column_index",
+        "fund_name_column_index",
+        "tw_name_column_index",
+        "us_symbol_column_index",
+        "us_name_column_index",
+        "dividend_amount_column_index",
+        "dividend_per_unit_column_index",
+        "monthly_dividend_column_index",
+        "annual_dividend_yield_column_index",
+        "payback_rate_column_index",
+        "quantity_column_index",
+        "cost_amount_column_index",
+        "price_column_index",
+        "current_value_column_index",
+    )
+    columns = {
+        field: xlsx_report_integer_setting(
+            config,
+            field,
+            minimum=0,
+            maximum=XLSX_HEADER_SCAN_MAX_COLUMNS - 1,
+        )
+        for field in column_fields
+    }
+    include_zero = bool(config.get("include_zero_quantity", True))
+    holdings: list[Holding] = []
+    skipped = 0
+    for excel_row_number in range(fund_start, data_end + 1):
+        row = rows[excel_row_number - 1]
+        if not isinstance(row, list):
+            skipped += 1
+            continue
+
+        def cell(field: str) -> str:
+            index = columns[field]
+            return str(row[index] if index < len(row) else "").strip()
+
+        quantity = parse_float(cell("quantity_column_index")) or 0.0
+        principal_amount = parse_float(cell("cost_amount_column_index"))
+        dividend_amount_twd = parse_float(cell("dividend_amount_column_index"))
+        dividend_per_unit = parse_float(cell("dividend_per_unit_column_index"))
+        monthly_dividend_twd = parse_float(cell("monthly_dividend_column_index"))
+        annual_yield = parse_float(cell("annual_dividend_yield_column_index"))
+        payback_rate = parse_float(cell("payback_rate_column_index"))
+        annual_yield_percent = (
+            annual_yield * 100.0
+            if annual_yield is not None and abs(annual_yield) <= 1
+            else annual_yield
+        )
+        payback_rate_percent = (
+            payback_rate * 100.0
+            if payback_rate is not None and abs(payback_rate) <= 1
+            else payback_rate
+        )
+        current_value_twd = parse_float(cell("current_value_column_index"))
+        estimated_annual_dividend_twd = None
+        if monthly_dividend_twd is not None and monthly_dividend_twd > 0:
+            estimated_annual_dividend_twd = monthly_dividend_twd * 12.0
+        elif (
+            current_value_twd is not None
+            and current_value_twd > 0
+            and annual_yield_percent is not None
+            and annual_yield_percent > 0
+        ):
+            estimated_annual_dividend_twd = (
+                current_value_twd * annual_yield_percent / 100.0
+            )
+        estimated_weekly_dividend_twd = (
+            estimated_annual_dividend_twd / 52.0
+            if estimated_annual_dividend_twd is not None
+            else None
+        )
+        if not include_zero and quantity <= 0:
+            skipped += 1
+            continue
+        if excel_row_number < security_start:
+            name = cell("fund_name_column_index")
+            if not name or xlsx_matrix_label(name) in {"名稱", "投資組合", "現金"}:
+                skipped += 1
+                continue
+            market = normalize_market(str(config.get("fund_market") or "FUND")) or "FUND"
+            asset_type = str(config.get("fund_asset_type") or "FUND").strip().upper()
+            currency = xlsx_fund_currency(
+                name,
+                str(config.get("fund_currency") or "TWD").strip().upper(),
+            )
+            principal_currency = xlsx_report_principal_currency(
+                config, "fund", currency
+            )
+            symbol = f"FUND-R{excel_row_number:03d}"
+        else:
+            raw_tw_symbol = cell("tw_symbol_column_index")
+            raw_us_symbol = cell("us_symbol_column_index")
+            if xlsx_matrix_label(raw_tw_symbol) in {"現金", "名稱", "合計", "總計"}:
+                skipped += 1
+                continue
+            if re.fullmatch(r"\d{4,6}[A-Z]{0,2}", normalize_symbol(raw_tw_symbol)):
+                symbol = normalize_symbol(raw_tw_symbol)
+                name = cell("tw_name_column_index")
+                if not name:
+                    skipped += 1
+                    continue
+                market = normalize_market(str(config.get("tw_market") or "TW")) or "TW"
+                configured_type = str(config.get("tw_asset_type") or "AUTO").strip().upper()
+                asset_type = xlsx_report_asset_type(symbol, name, market, configured_type)
+                currency = str(config.get("tw_currency") or "TWD").strip().upper()
+                principal_currency = xlsx_report_principal_currency(
+                    config, "tw", currency
+                )
+            else:
+                symbol = normalize_symbol(raw_us_symbol)
+                if not looks_like_portfolio_symbol(symbol):
+                    skipped += 1
+                    continue
+                name = cell("us_name_column_index")
+                market = normalize_market(str(config.get("us_market") or "US")) or "US"
+                configured_type = str(config.get("us_asset_type") or "AUTO").strip().upper()
+                asset_type = xlsx_report_asset_type(symbol, name, market, configured_type)
+                currency = str(config.get("us_currency") or "USD").strip().upper()
+                principal_currency = xlsx_report_principal_currency(
+                    config, "us", currency
+                )
+        average_cost = (
+            principal_amount / quantity
+            if principal_currency == currency
+            and principal_amount is not None
+            and principal_amount > 0
+            and quantity > 0
+            else None
+        )
+        holdings.append(
+            Holding(
+                symbol=symbol,
+                name=name,
+                market=market,
+                asset_type=asset_type,
+                quantity=quantity,
+                average_cost=average_cost,
+                currency=currency,
+                principal_amount=principal_amount,
+                principal_currency=principal_currency,
+                principal_twd=(
+                    principal_amount if principal_currency == "TWD" else None
+                ),
+                source_row=excel_row_number,
+                dividend_amount_twd=dividend_amount_twd,
+                dividend_per_unit=dividend_per_unit,
+                monthly_dividend_twd=monthly_dividend_twd,
+                annual_dividend_yield_percent=annual_yield_percent,
+                payback_rate_percent=payback_rate_percent,
+                current_value_twd=current_value_twd,
+                estimated_annual_dividend_twd=estimated_annual_dividend_twd,
+                estimated_weekly_dividend_twd=estimated_weekly_dividend_twd,
+            )
+        )
+    return holdings, {"skipped_row_count": skipped}
+
+
+def load_xlsx_portfolio_consolidated_report(
+    path: Path,
+    *,
+    config: dict[str, Any] | None = None,
+) -> tuple[list[Holding], dict[str, Any]]:
+    try:
+        workbook_scan = scan_xlsx_workbook(path, include_rows=True)
+    except (OSError, KeyError, ET.ParseError, zipfile.BadZipFile) as exc:
+        raise InvestmentManagerError(f"Invalid Excel workbook: {exc}") from exc
+    detected = xlsx_consolidated_report_preview_from_scan(workbook_scan)
+    if not detected.get("detected"):
+        raise InvestmentManagerError("No consolidated return worksheet was detected.")
+    merged_config = {
+        key: value
+        for key, value in detected.items()
+        if key
+        not in {
+            "detected",
+            "recommended",
+            "holding_count",
+            "fund_count",
+            "tw_count",
+            "us_count",
+            "etf_count",
+            "stock_count",
+            "skipped_row_count",
+            "sample_holdings",
+        }
+    }
+    if isinstance(config, dict):
+        merged_config.update(config)
+    sheet_name = str(merged_config.get("sheet_name") or "")
+    sheet = next(
+        (
+            item
+            for item in workbook_scan.get("sheets", [])
+            if isinstance(item, dict)
+            and str(item.get("sheet_name") or "").strip() == sheet_name.strip()
+        ),
+        None,
+    )
+    if sheet is None:
+        raise InvestmentManagerError(f"Consolidated worksheet not found: {sheet_name}")
+    merged_config["sheet_name"] = str(sheet.get("sheet_name") or sheet_name)
+    sheet_name = merged_config["sheet_name"]
+    holdings, parse_details = xlsx_holdings_from_consolidated_report(sheet, merged_config)
+    if not holdings:
+        raise InvestmentManagerError(
+            "Consolidated Excel settings produced no holdings. Check rows and columns."
+        )
+    selected_sheet = {
+        **public_xlsx_sheet_scan(sheet),
+        "usable": True,
+        "score": 300,
+        "header_mode": "consolidated_report",
+        "header_depth": 1,
+        "header_row_index": int(merged_config["security_header_row_number"]) - 1,
+        "header_row_number": merged_config["security_header_row_number"],
+        "data_start_row_index": int(merged_config["fund_start_row_number"]) - 1,
+        "data_start_row_number": merged_config["fund_start_row_number"],
+        "valid_data_row_count": len(holdings),
+        "consolidated_mapping": merged_config,
+    }
+    public_sheets = [
+        selected_sheet
+        if str(item.get("sheet_name") or "") == sheet_name
+        else public_xlsx_sheet_scan(item)
+        for item in workbook_scan.get("sheets", [])
+        if isinstance(item, dict)
+    ]
+    profile = {"layout": "consolidated_report", **merged_config}
+    return holdings, {
+        "profile": profile,
+        "workbook_scan": {
+            "sheet_count": len(public_sheets),
+            "selected_sheet": selected_sheet,
+            "sheets": public_sheets,
+        },
+        "imported_row_count": len(holdings),
+        "skipped_row_count": parse_details["skipped_row_count"],
+    }
+
+
+def xlsx_horizontal_matrix_preview_from_scan(
+    workbook_scan: dict[str, Any],
+) -> dict[str, Any]:
+    detected_sheets: list[dict[str, Any]] = []
+    for sheet in workbook_scan.get("sheets", []):
+        if not isinstance(sheet, dict):
+            continue
+        detected = detect_xlsx_horizontal_matrix_sheet(sheet)
+        if detected is not None:
+            detected_sheets.append(detected)
+
+    preferred_names = {"股票", "美股", "平台基金", "銀行基金"}
+    preferred_detected = {
+        str(sheet.get("sheet_name") or "").strip()
+        for sheet in detected_sheets
+        if str(sheet.get("sheet_name") or "").strip() in preferred_names
+    }
+    if preferred_detected:
+        for sheet in detected_sheets:
+            sheet["selected_by_default"] = (
+                str(sheet.get("sheet_name") or "").strip() in preferred_detected
+            )
+    else:
+        for sheet in detected_sheets:
+            sheet["selected_by_default"] = not xlsx_horizontal_sheet_is_summary(
+                str(sheet.get("sheet_name") or "")
+            )
+
+    selected_sheets = [
+        sheet for sheet in detected_sheets if sheet.get("selected_by_default")
+    ]
+    if not selected_sheets and detected_sheets:
+        detected_sheets[0]["selected_by_default"] = True
+        selected_sheets = [detected_sheets[0]]
+    return {
+        "detected": bool(detected_sheets),
+        "recommended": bool(selected_sheets),
+        "layout": "horizontal_matrix",
+        "sheet_count": len(detected_sheets),
+        "selected_sheet_count": len(selected_sheets),
+        "holding_count": sum(
+            int(sheet.get("holding_count") or 0) for sheet in selected_sheets
+        ),
+        "supported_asset_classes": ["ETF", "台股", "美股", "共同基金"],
+        "sheets": detected_sheets,
+    }
+
+
+def xlsx_horizontal_sheet_is_summary(sheet_name: str) -> bool:
+    normalized = normalize_header(sheet_name)
+    return any(
+        token in normalized
+        for token in ("總表", "報酬", "績效", "分析", "試算", "說明", "歷史")
+    )
+
+
+def xlsx_horizontal_sheet_defaults(sheet_name: str) -> dict[str, str]:
+    normalized = normalize_header(sheet_name)
+    if "基金" in normalized or any(token in normalized for token in ("鉅亨", "中租")):
+        return {
+            "category_label": "共同基金",
+            "market": "FUND",
+            "asset_type": "FUND",
+            "currency": "TWD",
+        }
+    if "美股" in normalized or "美元" in normalized:
+        return {
+            "category_label": "美股 / ETF",
+            "market": "US",
+            "asset_type": "AUTO",
+            "currency": "USD",
+        }
+    return {
+        "category_label": "台股 / ETF",
+        "market": "TW",
+        "asset_type": "AUTO",
+        "currency": "TWD",
+    }
+
+
+def xlsx_matrix_label(value: Any) -> str:
+    return normalize_header(str(value or ""))
+
+
+def xlsx_matrix_group_starts(row: list[Any], labels: set[str]) -> list[int]:
+    return [
+        index
+        for index, value in enumerate(row)
+        if xlsx_matrix_label(value) in labels
+    ]
+
+
+def xlsx_matrix_numeric_value(
+    row: list[Any],
+    start_column_index: int,
+    group_width: int,
+) -> float | None:
+    end = min(len(row), start_column_index + max(2, group_width))
+    for value in row[start_column_index + 1 : end]:
+        parsed = parse_float(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def xlsx_matrix_header_row(
+    rows: list[list[Any]],
+    holding_row_index: int,
+    group_starts: list[int],
+) -> int | None:
+    search_start = max(0, holding_row_index - 32)
+    for index in range(holding_row_index - 1, search_start - 1, -1):
+        row = rows[index]
+        first_label = xlsx_matrix_label(row[0] if row else "")
+        if first_label in {"月份", "年月", "月分"}:
+            return index
+    minimum_labels = max(1, min(3, len(group_starts)))
+    for index in range(holding_row_index - 1, search_start - 1, -1):
+        row = rows[index]
+        labels = [
+            str(row[column] or "").strip()
+            for column in group_starts
+            if column < len(row) and str(row[column] or "").strip()
+        ]
+        if len(labels) >= minimum_labels:
+            return index
+    return None
+
+
+def xlsx_matrix_related_row(
+    rows: list[list[Any]],
+    holding_row_index: int,
+    group_starts: list[int],
+    labels: set[str],
+) -> int | None:
+    for index in range(holding_row_index + 1, min(len(rows), holding_row_index + 7)):
+        row = rows[index]
+        if any(
+            column < len(row) and xlsx_matrix_label(row[column]) in labels
+            for column in group_starts
+        ):
+            return index
+    return None
+
+
+def detect_xlsx_horizontal_matrix_sheet(
+    sheet: dict[str, Any],
+) -> dict[str, Any] | None:
+    rows = sheet.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return None
+    for holding_row_index in range(len(rows) - 1, -1, -1):
+        row = rows[holding_row_index]
+        if not isinstance(row, list):
+            continue
+        group_starts = xlsx_matrix_group_starts(row, {"持有", "持倉"})
+        if not group_starts:
+            continue
+        quantity_row_index = xlsx_matrix_related_row(
+            rows,
+            holding_row_index,
+            group_starts,
+            {"股數", "單位數", "持有股數", "持有單位"},
+        )
+        if quantity_row_index is None:
+            continue
+        header_row_index = xlsx_matrix_header_row(
+            rows,
+            holding_row_index,
+            group_starts,
+        )
+        if header_row_index is None:
+            continue
+        price_row_index = xlsx_matrix_related_row(
+            rows,
+            holding_row_index,
+            group_starts,
+            {"股價", "淨值", "價格", "現價"},
+        )
+        defaults = xlsx_horizontal_sheet_defaults(str(sheet.get("sheet_name") or ""))
+        config = {
+            "sheet_index": int(sheet.get("sheet_index") or 0),
+            "sheet_name": str(sheet.get("sheet_name") or ""),
+            "header_row_number": header_row_index + 1,
+            "holding_row_number": holding_row_index + 1,
+            "price_row_number": price_row_index + 1 if price_row_index is not None else None,
+            "quantity_row_number": quantity_row_index + 1,
+            "first_asset_column_index": group_starts[0],
+            "first_asset_column_letter": xlsx_column_letter(group_starts[0]),
+            "group_width": XLSX_HORIZONTAL_GROUP_WIDTH,
+            **defaults,
+        }
+        holdings, skipped = xlsx_holdings_from_horizontal_sheet(sheet, config)
+        if not holdings:
+            continue
+        return {
+            **config,
+            "detected": True,
+            "selected_by_default": False,
+            "holding_count": len(holdings),
+            "skipped_group_count": skipped,
+            "sample_holdings": [
+                {
+                    "symbol": holding.symbol,
+                    "name": holding.name,
+                    "market": holding.market,
+                    "asset_type": holding.asset_type,
+                    "quantity": holding.quantity,
+                    "average_cost": holding.average_cost,
+                    "currency": holding.currency,
+                }
+                for holding in holdings[:8]
+            ],
+        }
+    return None
+
+
+def normalize_xlsx_horizontal_sheet_config(
+    raw_config: dict[str, Any],
+    detected: dict[str, Any],
+) -> dict[str, Any]:
+    config = {**detected, **raw_config}
+    sheet_name = str(config.get("sheet_name") or "").strip()
+    if not sheet_name:
+        raise InvestmentManagerError("Horizontal Excel mapping requires a worksheet name.")
+
+    def positive_row(field: str, allow_blank: bool = False) -> int | None:
+        raw_value = config.get(field)
+        if allow_blank and (raw_value is None or raw_value == ""):
+            return None
+        try:
+            value = int(raw_value)
+        except (TypeError, ValueError) as exc:
+            raise InvestmentManagerError(f"Invalid {field} for {sheet_name}.") from exc
+        if value < 1:
+            raise InvestmentManagerError(f"{field} must be a positive integer for {sheet_name}.")
+        return value
+
+    header_row_number = positive_row("header_row_number")
+    holding_row_number = positive_row("holding_row_number")
+    price_row_number = positive_row("price_row_number", allow_blank=True)
+    quantity_row_number = positive_row("quantity_row_number")
+    try:
+        first_asset_column_index = int(config.get("first_asset_column_index"))
+        group_width = int(config.get("group_width") or XLSX_HORIZONTAL_GROUP_WIDTH)
+    except (TypeError, ValueError) as exc:
+        raise InvestmentManagerError(f"Invalid horizontal column settings for {sheet_name}.") from exc
+    if first_asset_column_index < 0 or first_asset_column_index >= XLSX_HEADER_SCAN_MAX_COLUMNS:
+        raise InvestmentManagerError(f"Invalid first asset column for {sheet_name}.")
+    if group_width < 2 or group_width > 12:
+        raise InvestmentManagerError(f"Group width must be between 2 and 12 for {sheet_name}.")
+    market = normalize_market(str(config.get("market") or detected.get("market") or ""))
+    asset_type = str(config.get("asset_type") or detected.get("asset_type") or "AUTO").strip().upper()
+    currency = str(config.get("currency") or detected.get("currency") or "").strip().upper()
+    return {
+        "sheet_name": sheet_name,
+        "header_row_number": header_row_number,
+        "holding_row_number": holding_row_number,
+        "price_row_number": price_row_number,
+        "quantity_row_number": quantity_row_number,
+        "first_asset_column_index": first_asset_column_index,
+        "group_width": group_width,
+        "market": market,
+        "asset_type": asset_type,
+        "currency": currency,
+        "category_label": str(config.get("category_label") or detected.get("category_label") or ""),
+    }
+
+
+def xlsx_fund_currency(name: str, default_currency: str) -> str:
+    normalized = normalize_header(name).upper()
+    for tokens, currency in (
+        (("美元", "美金", "USD"), "USD"),
+        (("台幣", "新台幣", "TWD"), "TWD"),
+        (("歐元", "EUR"), "EUR"),
+        (("日圓", "日幣", "JPY"), "JPY"),
+        (("澳幣", "AUD"), "AUD"),
+        (("人民幣", "CNY"), "CNY"),
+    ):
+        if any(token.upper() in normalized for token in tokens):
+            return currency
+    return default_currency
+
+
+def xlsx_horizontal_asset_type(symbol: str, market: str, configured: str) -> str:
+    if configured and configured != "AUTO":
+        return configured
+    if market == "FUND":
+        return "FUND"
+    if market == "TW" and re.fullmatch(r"00\d{2,4}", symbol):
+        return "ETF"
+    if market == "US" and symbol in COMMON_US_ETF_SYMBOLS:
+        return "ETF"
+    return "STOCK"
+
+
+def xlsx_holdings_from_horizontal_sheet(
+    sheet: dict[str, Any],
+    config: dict[str, Any],
+) -> tuple[list[Holding], int]:
+    rows = sheet.get("rows")
+    if not isinstance(rows, list):
+        return [], 0
+    header_index = int(config.get("header_row_number") or 0) - 1
+    holding_index = int(config.get("holding_row_number") or 0) - 1
+    quantity_index = int(config.get("quantity_row_number") or 0) - 1
+    price_number = config.get("price_row_number")
+    price_index = int(price_number) - 1 if price_number not in (None, "") else None
+    required_indexes = [header_index, holding_index, quantity_index]
+    if any(index < 0 or index >= len(rows) for index in required_indexes):
+        raise InvestmentManagerError(
+            f"Horizontal Excel row settings are outside worksheet {config.get('sheet_name')}."
+        )
+    if price_index is not None and (price_index < 0 or price_index >= len(rows)):
+        raise InvestmentManagerError(
+            f"Price row is outside worksheet {config.get('sheet_name')}."
+        )
+    header_row = rows[header_index]
+    holding_row = rows[holding_index]
+    quantity_row = rows[quantity_index]
+    price_row = rows[price_index] if price_index is not None else []
+    first_column = int(config.get("first_asset_column_index") or 0)
+    group_width = int(config.get("group_width") or XLSX_HORIZONTAL_GROUP_WIDTH)
+    market = normalize_market(str(config.get("market") or "")) or "TW"
+    configured_type = str(config.get("asset_type") or "AUTO").strip().upper()
+    default_currency = str(config.get("currency") or infer_currency(market)).strip().upper()
+    sheet_index = int(sheet.get("sheet_index") or 0)
+    holdings: list[Holding] = []
+    skipped = 0
+    for start in range(first_column, len(header_row), group_width):
+        raw_label = str(header_row[start] if start < len(header_row) else "").strip()
+        if not raw_label or xlsx_matrix_label(raw_label) in {"合計", "總計", "小計"}:
+            skipped += 1
+            continue
+        quantity = xlsx_matrix_numeric_value(quantity_row, start, group_width)
+        if quantity is None or quantity <= 0:
+            skipped += 1
+            continue
+        holding_amount = xlsx_matrix_numeric_value(holding_row, start, group_width)
+        current_price = xlsx_matrix_numeric_value(price_row, start, group_width)
+        if market == "FUND" or configured_type == "FUND":
+            symbol = f"FUND-{sheet_index + 1:02d}-{xlsx_column_letter(start)}"
+            name = raw_label
+        else:
+            symbol = normalize_symbol(raw_label)
+            name = ""
+            if not looks_like_portfolio_symbol(symbol):
+                skipped += 1
+                continue
+        asset_type = xlsx_horizontal_asset_type(symbol, market, configured_type)
+        currency = (
+            xlsx_fund_currency(raw_label, default_currency)
+            if asset_type == "FUND"
+            else default_currency or infer_currency(market)
+        )
+        average_cost: float | None = None
+        if holding_amount is not None and holding_amount > 0 and quantity > 0:
+            if market == "TW" and currency == "TWD":
+                average_cost = holding_amount / quantity
+            elif asset_type == "FUND" and currency == "TWD":
+                average_cost = holding_amount / quantity
+        if average_cost is None and current_price is not None and current_price > 0:
+            # Keep the latest workbook value available for local-only funds without
+            # pretending it is a broker-confirmed historical cost basis.
+            average_cost = current_price if asset_type == "FUND" else None
+        holdings.append(
+            Holding(
+                symbol=symbol,
+                name=name,
+                market=market,
+                asset_type=asset_type,
+                quantity=quantity,
+                average_cost=average_cost,
+                currency=currency,
+                principal_amount=holding_amount,
+                principal_currency=currency,
+                principal_twd=(holding_amount if currency == "TWD" else None),
+                source_row=quantity_index + 1,
+            )
+        )
+    return holdings, skipped
+
+
+def merge_xlsx_horizontal_holdings(holdings: list[Holding]) -> list[Holding]:
+    merged: dict[tuple[str, str], Holding] = {}
+    for holding in holdings:
+        key = (holding.market, holding.symbol)
+        previous = merged.get(key)
+        if previous is None:
+            merged[key] = holding
+            continue
+        quantity = previous.quantity + holding.quantity
+        average_cost = None
+        if (
+            previous.average_cost is not None
+            and holding.average_cost is not None
+            and quantity > 0
+        ):
+            average_cost = (
+                previous.average_cost * previous.quantity
+                + holding.average_cost * holding.quantity
+            ) / quantity
+        merged[key] = Holding(
+            symbol=holding.symbol,
+            name=previous.name or holding.name,
+            market=holding.market,
+            asset_type=(
+                "ETF"
+                if "ETF" in {previous.asset_type, holding.asset_type}
+                else previous.asset_type or holding.asset_type
+            ),
+            quantity=quantity,
+            average_cost=average_cost,
+            currency=previous.currency or holding.currency,
+            principal_amount=(
+                (previous.principal_amount or 0) + (holding.principal_amount or 0)
+                if previous.principal_amount is not None
+                or holding.principal_amount is not None
+                else None
+            ),
+            principal_currency=previous.principal_currency or holding.principal_currency,
+            principal_twd=(
+                (previous.principal_twd or 0) + (holding.principal_twd or 0)
+                if previous.principal_twd is not None or holding.principal_twd is not None
+                else None
+            ),
+            source_row=previous.source_row,
+        )
+    return list(merged.values())
+
+
+def load_xlsx_portfolio_horizontal_matrix(
+    path: Path,
+    *,
+    sheet_configs: list[dict[str, Any]] | None = None,
+) -> tuple[list[Holding], dict[str, Any]]:
+    try:
+        workbook_scan = scan_xlsx_workbook(path, include_rows=True)
+    except (OSError, KeyError, ET.ParseError, zipfile.BadZipFile) as exc:
+        raise InvestmentManagerError(f"Invalid Excel workbook: {exc}") from exc
+    preview = xlsx_horizontal_matrix_preview_from_scan(workbook_scan)
+    detected_by_name = {
+        str(sheet.get("sheet_name") or ""): sheet
+        for sheet in preview.get("sheets", [])
+        if isinstance(sheet, dict)
+    }
+    if not detected_by_name:
+        raise InvestmentManagerError("No horizontal holding worksheets were detected.")
+    raw_configs = sheet_configs if isinstance(sheet_configs, list) else []
+    if raw_configs:
+        selected_configs = [
+            config
+            for config in raw_configs
+            if isinstance(config, dict) and config.get("enabled", True)
+        ]
+    else:
+        selected_configs = [
+            sheet
+            for sheet in preview.get("sheets", [])
+            if isinstance(sheet, dict) and sheet.get("selected_by_default")
+        ]
+    if not selected_configs:
+        raise InvestmentManagerError("Select at least one horizontal holding worksheet.")
+
+    workbook_sheets = {
+        str(sheet.get("sheet_name") or ""): sheet
+        for sheet in workbook_scan.get("sheets", [])
+        if isinstance(sheet, dict)
+    }
+    normalized_configs: list[dict[str, Any]] = []
+    all_holdings: list[Holding] = []
+    skipped_count = 0
+    selected_scan_sheets: list[dict[str, Any]] = []
+    for raw_config in selected_configs:
+        sheet_name = str(raw_config.get("sheet_name") or "").strip()
+        detected = detected_by_name.get(sheet_name)
+        sheet = workbook_sheets.get(sheet_name)
+        if detected is None or sheet is None:
+            raise InvestmentManagerError(f"Horizontal worksheet not found: {sheet_name}")
+        config = normalize_xlsx_horizontal_sheet_config(raw_config, detected)
+        sheet_holdings, skipped = xlsx_holdings_from_horizontal_sheet(sheet, config)
+        if not sheet_holdings:
+            raise InvestmentManagerError(
+                f"Horizontal settings produced no holdings for worksheet {sheet_name}."
+            )
+        normalized_configs.append(config)
+        all_holdings.extend(sheet_holdings)
+        skipped_count += skipped
+        selected_scan_sheets.append(
+            {
+                **public_xlsx_sheet_scan(sheet),
+                "usable": True,
+                "score": 260,
+                "header_mode": "horizontal_matrix",
+                "header_depth": 1,
+                "header_row_index": int(config["header_row_number"]) - 1,
+                "header_row_number": config["header_row_number"],
+                "data_start_row_index": int(config["quantity_row_number"]) - 1,
+                "data_start_row_number": config["quantity_row_number"],
+                "valid_data_row_count": len(sheet_holdings),
+                "horizontal_mapping": config,
+            }
+        )
+    holdings = merge_xlsx_horizontal_holdings(all_holdings)
+    selected_name = "、".join(config["sheet_name"] for config in normalized_configs)
+    selected_summary = {
+        "sheet_name": selected_name,
+        "usable": True,
+        "score": 260,
+        "header_mode": "horizontal_matrix",
+        "header_depth": 1,
+        "header_row_number": normalized_configs[0]["header_row_number"],
+        "data_start_row_number": normalized_configs[0]["quantity_row_number"],
+        "valid_data_row_count": len(holdings),
+        "source_sheet_count": len(normalized_configs),
+    }
+    public_sheets = []
+    selected_by_name = {
+        str(sheet.get("sheet_name") or ""): sheet for sheet in selected_scan_sheets
+    }
+    for sheet in workbook_scan.get("sheets", []):
+        if not isinstance(sheet, dict):
+            continue
+        sheet_name = str(sheet.get("sheet_name") or "")
+        public_sheets.append(selected_by_name.get(sheet_name, public_xlsx_sheet_scan(sheet)))
+    profile = {
+        "layout": "horizontal_matrix",
+        "sheets": normalized_configs,
+    }
+    return holdings, {
+        "profile": profile,
+        "workbook_scan": {
+            "sheet_count": len(public_sheets),
+            "selected_sheet": selected_summary,
+            "sheets": public_sheets,
+        },
+        "imported_row_count": len(holdings),
+        "source_position_count": len(all_holdings),
+        "merged_position_count": max(0, len(all_holdings) - len(holdings)),
+        "skipped_row_count": skipped_count,
+    }
+
+
+def normalize_xlsx_column_mapping(column_mapping: Any) -> dict[str, int]:
+    if not isinstance(column_mapping, dict):
+        raise InvestmentManagerError("Excel column mapping must be an object.")
+    normalized: dict[str, int] = {}
+    for raw_field, raw_index in column_mapping.items():
+        field = str(raw_field or "").strip()
+        if field not in XLSX_MAPPING_FIELDS or raw_index is None or raw_index == "":
+            continue
+        if isinstance(raw_index, bool):
+            raise InvestmentManagerError(f"Invalid column index for {field}.")
+        try:
+            index = int(raw_index)
+        except (TypeError, ValueError) as exc:
+            raise InvestmentManagerError(f"Invalid column index for {field}.") from exc
+        if index < 0 or index >= XLSX_HEADER_SCAN_MAX_COLUMNS:
+            raise InvestmentManagerError(
+                f"Column index for {field} must be between 0 and {XLSX_HEADER_SCAN_MAX_COLUMNS - 1}."
+            )
+        normalized[field] = index
+    missing = sorted(XLSX_REQUIRED_MAPPING_FIELDS - set(normalized))
+    if missing:
+        raise InvestmentManagerError(
+            "Excel column mapping is missing required fields: " + ", ".join(missing)
+        )
+    return normalized
+
+
+def xlsx_column_letter(index: int) -> str:
+    if index < 0:
+        return ""
+    letters = ""
+    value = index + 1
+    while value:
+        value, remainder = divmod(value - 1, 26)
+        letters = chr(ord("A") + remainder) + letters
+    return letters
+
+
+def load_xlsx_portfolio_with_mapping(
+    path: Path,
+    *,
+    sheet_name: str,
+    header_row_number: int,
+    data_start_row_number: int | None = None,
+    column_mapping: dict[str, Any],
+) -> tuple[list[Holding], dict[str, Any]]:
+    """Load holdings from an explicitly selected sheet, header row, and column map."""
+    mapping = normalize_xlsx_column_mapping(column_mapping)
+    try:
+        workbook_scan = scan_xlsx_workbook(path, include_rows=True)
+    except (OSError, KeyError, ET.ParseError, zipfile.BadZipFile) as exc:
+        raise InvestmentManagerError(f"Invalid Excel workbook: {exc}") from exc
+
+    selected = next(
+        (
+            sheet
+            for sheet in workbook_scan.get("sheets", [])
+            if isinstance(sheet, dict) and str(sheet.get("sheet_name") or "") == sheet_name
+        ),
+        None,
+    )
+    if selected is None:
+        raise InvestmentManagerError(f"Excel worksheet not found: {sheet_name}")
+    rows = selected.get("rows")
+    if not isinstance(rows, list) or not rows:
+        raise InvestmentManagerError(f"Excel worksheet has no rows: {sheet_name}")
+    try:
+        header_number = int(header_row_number)
+    except (TypeError, ValueError) as exc:
+        raise InvestmentManagerError("Excel header row must be a positive integer.") from exc
+    if header_number < 1 or header_number > len(rows):
+        raise InvestmentManagerError(
+            f"Excel header row must be between 1 and {len(rows)} for {sheet_name}."
+        )
+    try:
+        data_start_number = int(
+            header_number + 1
+            if data_start_row_number is None
+            else data_start_row_number
+        )
+    except (TypeError, ValueError) as exc:
+        raise InvestmentManagerError("Excel data start row must be a positive integer.") from exc
+    if data_start_number < 1 or data_start_number > len(rows):
+        raise InvestmentManagerError(
+            f"Excel data start row must be between 1 and {len(rows)} for {sheet_name}."
+        )
+
+    header_index = header_number - 1
+    header_values = [str(value or "").strip() for value in rows[header_index]]
+    holdings: list[Holding] = []
+    non_empty_data_rows = 0
+    for excel_row_number, values in enumerate(
+        rows[data_start_number - 1 :],
+        start=data_start_number,
+    ):
+        if not isinstance(values, list) or not any(str(value or "").strip() for value in values):
+            continue
+        non_empty_data_rows += 1
+        mapped = {
+            field: values[index] if index < len(values) else ""
+            for field, index in mapping.items()
+        }
+        symbol = normalize_symbol(str(mapped.get("symbol") or ""))
+        if not looks_like_portfolio_symbol(symbol):
+            continue
+        market = infer_market(
+            symbol,
+            str(mapped.get("market") or ""),
+            str(mapped.get("asset_type") or ""),
+        )
+        holdings.append(
+            Holding(
+                symbol=symbol,
+                name=str(mapped.get("name") or "").strip(),
+                market=market,
+                asset_type=str(mapped.get("asset_type") or "").strip(),
+                quantity=parse_float(mapped.get("quantity")) or 0.0,
+                average_cost=parse_float(mapped.get("average_cost")),
+                currency=infer_currency(market, str(mapped.get("currency") or "")),
+                principal_amount=parse_float(mapped.get("principal_amount")),
+                principal_currency=str(
+                    mapped.get("principal_currency")
+                    or mapped.get("currency")
+                    or infer_currency(market)
+                ).strip().upper(),
+                principal_twd=parse_float(mapped.get("principal_twd")),
+                source_row=excel_row_number,
+            )
+        )
+    if not holdings:
+        raise InvestmentManagerError(
+            "The selected Excel mapping produced no usable holdings. Check the header row, symbol, and quantity columns."
+        )
+
+    mapped_columns = {
+        field: {
+            "column_index": index,
+            "column_letter": xlsx_column_letter(index),
+            "header": header_values[index] if index < len(header_values) else "",
+        }
+        for field, index in mapping.items()
+    }
+    manual_sheet = {
+        **public_xlsx_sheet_scan(selected),
+        "usable": True,
+        "score": 200 + len(mapping) * 10,
+        "header_mode": "manual_mapping",
+        "header_depth": 1,
+        "header_row_index": header_index,
+        "header_row_number": header_number,
+        "header_start_row_index": header_index,
+        "header_start_row_number": header_number,
+        "data_start_row_index": data_start_number - 1,
+        "data_start_row_number": data_start_number,
+        "headers": header_values,
+        "canonical_columns": list(mapping),
+        "data_row_count": non_empty_data_rows,
+        "valid_data_row_count": len(holdings),
+        "manual_mapping": mapped_columns,
+    }
+    public_sheets = []
+    for sheet in workbook_scan.get("sheets", []):
+        public_sheet = public_xlsx_sheet_scan(sheet)
+        if str(public_sheet.get("sheet_name") or "") == sheet_name:
+            public_sheet = manual_sheet
+        public_sheets.append(public_sheet)
+    public_scan = {
+        "sheet_count": len(public_sheets),
+        "selected_sheet": manual_sheet,
+        "sheets": public_sheets,
+    }
+    profile = {
+        "sheet_name": sheet_name,
+        "header_row_number": header_number,
+        "data_start_row_number": data_start_number,
+        "column_mapping": mapping,
+        "mapped_columns": mapped_columns,
+    }
+    return holdings, {
+        "profile": profile,
+        "workbook_scan": public_scan,
+        "imported_row_count": len(holdings),
+        "skipped_row_count": max(0, non_empty_data_rows - len(holdings)),
+    }
 
 
 def xlsx_records_from_rows(
@@ -653,6 +2166,8 @@ def looks_like_portfolio_symbol(value: Any) -> bool:
         return False
     if re.fullmatch(r"\d{1,3}", text):
         return False
+    if re.fullmatch(r"[+-]?(?:\d+\.\d*|\d*\.\d+)(?:E[+-]?\d+)?", text):
+        return False
     if re.search(r"[\u4e00-\u9fff]", text):
         return False
     return bool(re.fullmatch(r"\^?[A-Z0-9][A-Z0-9./\-]{0,19}", text))
@@ -666,6 +2181,19 @@ def looks_like_market_value(value: Any) -> bool:
 def looks_like_currency_value(value: Any) -> bool:
     normalized = normalize_header(str(value or "")).upper()
     return normalized in {"USD", "TWD", "HKD", "JPY", "EUR", "CNY", "CNH", "GBP"}
+
+
+def xlsx_row_looks_like_portfolio_data(values: Iterable[Any]) -> bool:
+    cells = [str(value or "").strip() for value in values]
+    if not any(cells) or xlsx_row_looks_like_header(cells):
+        return False
+    symbol_hits = sum(1 for value in cells if looks_like_portfolio_symbol(value))
+    if symbol_hits <= 0:
+        return False
+    numeric_hits = sum(1 for value in cells if parse_float(value) is not None)
+    market_hits = sum(1 for value in cells if looks_like_market_value(value))
+    currency_hits = sum(1 for value in cells if looks_like_currency_value(value))
+    return numeric_hits + market_hits + currency_hits > 0
 
 
 def infer_xlsx_headers_from_data(
@@ -870,7 +2398,7 @@ def score_xlsx_header_candidate(
     header_depth: int = 1,
 ) -> dict[str, Any] | None:
     source_headers = headers
-    header_mode = "explicit"
+    header_mode = "headerless_inferred" if header_depth == 0 else "explicit"
     inferred = infer_xlsx_headers_from_data(rows, index, source_headers)
     column_score = portfolio_header_score(source_headers)
     if column_score <= 0:
@@ -878,7 +2406,7 @@ def score_xlsx_header_candidate(
             return None
         headers = [str(header) for header in inferred["headers"]]
         column_score = 70 + int(inferred.get("inferred_column_count", 0)) * 12
-        header_mode = "inferred"
+        header_mode = "headerless_inferred" if header_depth == 0 else "inferred"
     elif inferred is not None:
         inferred_headers = [str(header) for header in inferred["headers"]]
         merged_headers: list[str] = []
@@ -906,9 +2434,15 @@ def score_xlsx_header_candidate(
     score = column_score + data_score + xlsx_sheet_name_score(sheet_name)
     return {
         "header_row_index": index,
-        "header_row_number": index + 1,
+        "header_row_number": index + 1 if index >= 0 else None,
         "header_start_row_index": header_start_index if header_start_index is not None else index,
-        "header_start_row_number": (header_start_index if header_start_index is not None else index) + 1,
+        "header_start_row_number": (
+            (header_start_index if header_start_index is not None else index) + 1
+            if (header_start_index if header_start_index is not None else index) >= 0
+            else None
+        ),
+        "data_start_row_index": index + 1,
+        "data_start_row_number": index + 2,
         "header_depth": header_depth,
         "headers": headers,
         "source_headers": source_headers,
@@ -939,28 +2473,30 @@ def xlsx_header_candidates(
     sheet_name: str = "",
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
-    for index, row in enumerate(rows):
+    headerless_candidate_added = False
+    scan_rows = [
+        [str(value or "").strip() for value in row[:XLSX_HEADER_SCAN_MAX_COLUMNS]]
+        for row in rows[:XLSX_HEADER_SCAN_MAX_ROWS]
+    ]
+    for index, headers in enumerate(scan_rows):
         candidate_headers: list[tuple[int, int, list[str]]] = []
-        headers = [str(value or "").strip() for value in row]
+        if not headerless_candidate_added and xlsx_row_looks_like_portfolio_data(headers):
+            candidate_headers.append((index - 1, 0, [""] * len(headers)))
+            headerless_candidate_added = True
         if any(headers):
             candidate_headers.append((index, 1, headers))
-        if index > 0 and any(str(value or "").strip() for value in rows[index - 1]):
+        if index > 0 and any(scan_rows[index - 1]):
             candidate_headers.append(
                 (
                     index - 1,
                     2,
-                    combine_xlsx_header_rows(
-                        [
-                            [str(value or "").strip() for value in rows[index - 1]],
-                            headers,
-                        ]
-                    ),
+                    combine_xlsx_header_rows([scan_rows[index - 1], headers]),
                 )
             )
         if (
             index > 1
-            and any(str(value or "").strip() for value in rows[index - 1])
-            and any(str(value or "").strip() for value in rows[index - 2])
+            and any(scan_rows[index - 1])
+            and any(scan_rows[index - 2])
         ):
             candidate_headers.append(
                 (
@@ -968,19 +2504,34 @@ def xlsx_header_candidates(
                     3,
                     combine_xlsx_header_rows(
                         [
-                            [str(value or "").strip() for value in rows[index - 2]],
-                            [str(value or "").strip() for value in rows[index - 1]],
+                            scan_rows[index - 2],
+                            scan_rows[index - 1],
                             headers,
                         ]
                     ),
                 )
             )
         for header_start_index, header_depth, candidate_header_values in candidate_headers:
-            if not any(candidate_header_values):
+            if header_depth != 0 and not any(candidate_header_values):
                 continue
+            column_score = portfolio_header_score(candidate_header_values)
+            non_empty_header_cells = sum(
+                1 for value in candidate_header_values if str(value or "").strip()
+            )
+            if (
+                header_depth != 0
+                and column_score <= 0
+                and (
+                    header_depth != 1
+                    or header_start_index >= XLSX_INFERRED_HEADER_SCAN_ROWS
+                    or non_empty_header_cells < 2
+                )
+            ):
+                continue
+            score_index = header_start_index if header_depth == 0 else index
             candidate = score_xlsx_header_candidate(
                 rows,
-                index,
+                score_index,
                 candidate_header_values,
                 sheet_name,
                 header_start_index=header_start_index,
@@ -1012,7 +2563,7 @@ def scan_xlsx_workbook(path: Path, include_rows: bool = False) -> dict[str, Any]
         "m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
         "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     }
-    with zipfile.ZipFile(path) as workbook:
+    with _open_xlsx_workbook_unlocked(path) as workbook:
         shared_strings = read_xlsx_shared_strings(workbook, namespace)
         sheet_entries = xlsx_sheet_entries(workbook)
         sheets: list[dict[str, Any]] = []
@@ -1062,7 +2613,9 @@ def scan_xlsx_workbook(path: Path, include_rows: bool = False) -> dict[str, Any]
                         "header_start_row_number": best_header.get("header_start_row_number"),
                         "header_depth": best_header.get("header_depth", 1),
                         "header_row_index": header_index,
-                        "header_row_number": header_index + 1,
+                        "header_row_number": best_header.get("header_row_number"),
+                        "data_start_row_index": best_header.get("data_start_row_index"),
+                        "data_start_row_number": best_header.get("data_start_row_number"),
                         "headers": headers,
                         "canonical_columns": canonical,
                         "data_row_count": len(records),
@@ -1106,6 +2659,8 @@ def public_xlsx_header_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
         "header_row_number",
         "header_start_row_index",
         "header_start_row_number",
+        "data_start_row_index",
+        "data_start_row_number",
         "header_depth",
         "header_mode",
         "headers",
@@ -1127,7 +2682,7 @@ def public_xlsx_header_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
 
 def xlsx_rows(path: Path) -> list[list[str]]:
     namespace = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
-    with zipfile.ZipFile(path) as workbook:
+    with _open_xlsx_workbook_unlocked(path) as workbook:
         shared_strings = read_xlsx_shared_strings(workbook, namespace)
         _sheet_title, sheet_name = xlsx_sheet_entries(workbook)[0]
         sheet_root = ET.fromstring(workbook.read(sheet_name))
@@ -1365,6 +2920,7 @@ def rows_to_holdings(rows: Iterable[Any]) -> list[Holding]:
         )
         quantity = parse_float(mapped.get("quantity"))
         average_cost = parse_float(mapped.get("average_cost"))
+        currency = infer_currency(market, str(mapped.get("currency") or ""))
         holdings.append(
             Holding(
                 symbol=symbol,
@@ -1373,7 +2929,12 @@ def rows_to_holdings(rows: Iterable[Any]) -> list[Holding]:
                 asset_type=str(mapped.get("asset_type") or "").strip(),
                 quantity=quantity or 0.0,
                 average_cost=average_cost,
-                currency=infer_currency(market, str(mapped.get("currency") or "")),
+                currency=currency,
+                principal_amount=parse_float(mapped.get("principal_amount")),
+                principal_currency=str(
+                    mapped.get("principal_currency") or currency
+                ).strip().upper(),
+                principal_twd=parse_float(mapped.get("principal_twd")),
                 source_row=row_index,
             )
         )
@@ -1403,7 +2964,7 @@ def parse_unix_timestamp(value: Any) -> str:
         timestamp = int(value)
     except (TypeError, ValueError):
         return utc_now_text()
-    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+    return datetime.fromtimestamp(timestamp, timezone.utc).astimezone().isoformat()
 
 
 def market_status(market: str, now_utc: datetime | None = None) -> dict[str, Any]:
@@ -1679,7 +3240,7 @@ class TwseProvider(QuoteProvider):
                         f"{trade_date} {trade_time}",
                         "%Y%m%d %H:%M:%S",
                     ).replace(tzinfo=timezone_for("Asia/Taipei", context.now_utc))
-                    as_of = local_dt.astimezone(timezone.utc).isoformat()
+                    as_of = local_dt.astimezone().isoformat()
                 except ValueError:
                     pass
             return Quote(
@@ -1731,7 +3292,26 @@ def quote_holding(
     provider_order: list[str],
     now: datetime,
 ) -> tuple[Quote | None, list[QuoteAttempt]]:
+    quote, attempts, _candidates = quote_holding_candidates(
+        holding,
+        providers,
+        provider_order,
+        now,
+        max_successes=1,
+    )
+    return quote, attempts
+
+
+def quote_holding_candidates(
+    holding: Holding,
+    providers: dict[str, QuoteProvider],
+    provider_order: list[str],
+    now: datetime,
+    *,
+    max_successes: int = 2,
+) -> tuple[Quote | None, list[QuoteAttempt], list[Quote]]:
     context = QuoteContext(holding=holding, now_utc=now)
+    candidates: list[Quote] = []
     for provider_name in provider_order_for_holding(holding, provider_order):
         provider = providers.get(provider_name)
         if provider is None:
@@ -1753,8 +3333,28 @@ def quote_holding(
             context.attempts.append(QuoteAttempt(provider.name, False, str(exc)))
             continue
         context.attempts.append(QuoteAttempt(provider.name, True, "ok"))
-        return quote, context.attempts
-    return None, context.attempts
+        candidates.append(quote)
+        if len(candidates) >= max(1, max_successes):
+            break
+    primary_quote = candidates[0] if candidates else None
+    return primary_quote, context.attempts, candidates
+
+
+def quote_to_dict(quote: Quote) -> dict[str, Any]:
+    return {
+        "symbol": quote.symbol,
+        "requested_symbol": quote.requested_symbol,
+        "provider": quote.provider,
+        "price": round_number(quote.price),
+        "currency": quote.currency,
+        "previous_close": round_number(quote.previous_close),
+        "change": round_number(quote.change),
+        "change_percent": round_number(quote.change_percent),
+        "as_of": quote.as_of,
+        "market_state": quote.market_state,
+        "exchange": quote.exchange,
+        "raw_market": quote.raw_market,
+    }
 
 
 def round_number(value: float | None, digits: int = 4) -> float | None:

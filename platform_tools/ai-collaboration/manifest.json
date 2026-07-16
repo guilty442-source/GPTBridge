@@ -1,0 +1,54 @@
+{
+  "id": "ai-collaboration",
+  "name": "外部AI協作",
+  "version": "1.0.0",
+  "status": "stopped",
+  "enabled": true,
+  "permissions": {
+    "code_scope": "tool-root-only",
+    "database_scope": "tool-database-only",
+    "allow_modify": ["own-data"],
+    "deny": ["main-program", "other-tools"]
+  },
+  "entry": "platform_tools/ai-collaboration/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "capabilities": {
+    "external-ai": {
+      "authority": "user-authenticated-browser-sessions",
+      "data_scope": "tool-database-only",
+      "local_ai": false,
+      "transport": "browser-session",
+      "api": false,
+      "queue_when_offline": false
+    },
+    "auto-repair": {
+      "entry": "src/auto_repair.py",
+      "arguments": ["--json"],
+      "authority": "tool-root-only"
+    }
+  },
+  "environment": {
+    "allow": []
+  },
+  "executable": {
+    "path": "dist/ai-collaboration.exe",
+    "name": "ai-collaboration",
+    "console": true
+  },
+  "description": "獨立外部 AI 工具：遠端 AI 名單、群組詢問、共享記憶、協作診斷與報告匯出。",
+  "has_custom_ui": true,
+  "test_targets": [
+    "tests/test_ai_assistant.py"
+  ],
+  "window": {
+    "width": 1280,
+    "height": 860,
+    "minWidth": 980,
+    "minHeight": 700,
+    "title": "外部AI協作"
+  }
+}

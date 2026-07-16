@@ -11,6 +11,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from utils.archive import safe_extract_zip
+
 
 REQUIRED_PROJECT_PATHS: tuple[str, ...] = (
     "package.json",
@@ -380,14 +382,7 @@ def collect_environment_report(
 
 
 def _safe_extract_zip(zip_path: Path, target_dir: Path) -> None:
-    target_dir.mkdir(parents=True, exist_ok=True)
-    target_root = target_dir.resolve()
-    with zipfile.ZipFile(zip_path, "r") as archive:
-        for member in archive.infolist():
-            target = (target_dir / member.filename).resolve()
-            if target_root != target and target_root not in target.parents:
-                raise RuntimeError(f"Unsafe zip member: {member.filename}")
-        archive.extractall(target_dir)
+    safe_extract_zip(zip_path, target_dir)
 
 
 def _electron_cache_roots() -> list[Path]:

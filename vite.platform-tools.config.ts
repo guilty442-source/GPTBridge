@@ -5,9 +5,10 @@ import { defineConfig } from 'vite'
 const platformRoot = resolve(__dirname, 'src-ui/platform-tools')
 const toolId = process.env.GPTBRIDGE_PLATFORM_TOOL_ID || 'vaultly'
 const knownToolIds = new Set([
-  'agent-coder',
   'ai-assistant',
+  'ai-collaboration',
   'file-sorter',
+  'local-ai',
   'project-cleaner',
   'vaultly',
 ])

@@ -1,5 +1,3 @@
-export type AppMode = "design" | "rescue" | "developer" | "settings";
-
 export type SendCommand = (command: string, payload?: Record<string, unknown>) => void;
 
 export type LogCategory = "core" | "design" | "developer";

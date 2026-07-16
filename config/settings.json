@@ -27,8 +27,8 @@
         "headless": false
     },
     "backup_policy": {
-        "design_mode_max_records": 2,
-        "mother_tool_max_records": 2
+        "design_mode_max_records": 1,
+        "mother_tool_max_records": 1
     },
     "display_names": {
         "product": "GPTBridge",
@@ -41,7 +41,7 @@
         "shared_layer": "共用層"
     },
     "auto_cycle": 60,
-    "max_backup_count": 3,
+    "max_backup_count": 1,
     "profile": "main",
     "auto_start": true
 }

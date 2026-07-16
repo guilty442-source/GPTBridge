@@ -25,3 +25,9 @@ jobs:
 
       - name: Type Check
         run: npm run type-check
+
+      - name: Governance Check
+        run: npm run governance:check
+
+      - name: Circular Dependency Check
+        run: npm run check:circular

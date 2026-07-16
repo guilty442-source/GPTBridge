@@ -1,14 +1,14 @@
 export const zhTW = {
   app: {
     platformName: '程式庫',
-    currentLabel: '目前模式：',
+    currentLabel: '目前區域：',
     backHome: '回主畫面',
   },
   mode: {
-    design: '設計模式',
-    rescue: '救援模式',
-    developer: '開發模式',
-    settings: '設定模式',
+    design: '工具設計',
+    rescue: '清理與系統救援工具',
+    developer: '系統工具',
+    settings: '設定',
     interfaceSystem: '資訊層',
   },
   common: {
@@ -19,7 +19,7 @@ export const zhTW = {
     title: '關鍵警示',
     body: '系統偵測到需要立即處理的異常。',
     acknowledge: '我知道了',
-    rescue: '前往救援模式',
+    rescue: '開啟清理與系統救援工具',
   },
   health: {
     normal: '正常',
@@ -38,7 +38,7 @@ export const zhTW = {
     reason: '原因',
     lastCheck: '最後檢查',
     suggestion: '建議',
-    goRescue: '前往救援模式',
+    goRescue: '開啟清理與系統救援工具',
     dailyCenter: '留在資訊層',
     status: '狀態',
     light: '燈號',
@@ -99,7 +99,7 @@ export const zhTW = {
     deployment: '部署',
   },
   developer: {
-    title: '開發模式',
+    title: '系統工具',
     description: '檢視系統行為與進階控制。',
     governanceCardTitle: '治理規則管理',
     governanceCardDesc: '治理規則集中管理，新增與刪除會直接同步到規則檔。',

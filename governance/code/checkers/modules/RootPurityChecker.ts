@@ -24,7 +24,7 @@ export const rootPurityChecker: GovernanceChecker = {
   enforceLevel: EnforceLevel.BLOCKING,
   target: 'governance',
   coverage: CoverageStatus.FULLY_ENFORCED,
-  version: '2026.05.29',
+  version: '1.0.0',
   run: async (): Promise<GovernanceReport> => {
     const missing = requiredFolders.filter(
       (folder) => !fs.existsSync(path.resolve(process.cwd(), folder))

@@ -1,11 +1,14 @@
 from __future__ import annotations
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Protocol
 import websockets
-from websockets import WebSocketServerProtocol
+
+
+class WebSocketConnection(Protocol):
+    async def send(self, message: str) -> Any: ...
 
 class UIShell:
-    def __init__(self, websocket: WebSocketServerProtocol) -> None:
+    def __init__(self, websocket: WebSocketConnection) -> None:
         self.websocket = websocket
 
     async def _send(self, message: str) -> None:

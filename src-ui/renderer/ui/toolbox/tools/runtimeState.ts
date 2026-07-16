@@ -1,10 +1,9 @@
-import { zhTW } from '@/i18n/zhTW'
+import { toolboxToolRegistry } from './registry'
 import type {
   ToolAction,
   ToolRuntimeState,
   ToolRuntimeStatus,
-} from '@/ui/developer-mode/tools/types'
-import { toolboxToolRegistry } from './registry'
+} from './types'
 
 interface ToolboxManifestPayload {
   id?: unknown
@@ -33,61 +32,54 @@ interface ToolboxProjectSizePayload {
 
 function normalizeStatus(status: unknown): ToolRuntimeStatus {
   const value = String(status ?? '').toLowerCase()
-
   if (value === 'running') return 'running'
   if (value === 'starting') return 'starting'
   if (value === 'stopping') return 'stopping'
-  if (value === 'error' || value === 'fail' || value === 'failed') return 'error'
+  if (['error', 'fail', 'failed'].includes(value)) return 'error'
   return 'stopped'
 }
 
 function noteForStatus(status: ToolRuntimeStatus, launchable: boolean): string {
-  if (!launchable) return '此功能在主程式內開啟，無需單獨啟動。'
-  if (status === 'running') return zhTW.toolbox.status_running
-  if (status === 'starting') return zhTW.toolbox.status_starting
-  if (status === 'stopping') return zhTW.toolbox.status_stopping
-  if (status === 'error') return zhTW.toolbox.status_error
-  return zhTW.toolbox.status_stopped
+  if (!launchable) return '此工具目前不可由主程式啟動。'
+  if (status === 'running') return '工具已連線並正常執行。'
+  if (status === 'starting') return '正在建立獨立工具程序與驗證連線。'
+  if (status === 'stopping') return '正在安全停止獨立工具程序。'
+  if (status === 'error') return '工具回報異常，請查看訊息或執行自動修正。'
+  return '工具已就緒，可由主程式啟動。'
 }
 
 function normalizeSizeBytes(value: unknown): number | undefined {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value >= 0 ? value : undefined
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Number(value.trim())
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
-  }
-
-  return undefined
+  const parsed = typeof value === 'number' ? value : Number(String(value ?? '').trim())
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
 }
 
 function normalizeBoolean(value: unknown): boolean {
-  if (value === true) return true
-  if (typeof value === 'string') {
-    return value.trim().toLowerCase() === 'true'
-  }
-  return false
+  return value === true || String(value ?? '').trim().toLowerCase() === 'true'
+}
+
+function isVisibleTool(tool: {
+  hiddenFromToolbox?: boolean
+  hidden_from_toolbox?: boolean
+  mergedInto?: string
+  merged_into?: string
+}): boolean {
+  return (
+    tool.hiddenFromToolbox !== true &&
+    tool.hidden_from_toolbox !== true &&
+    String(tool.mergedInto ?? tool.merged_into ?? '').trim() === ''
+  )
 }
 
 export function createInitialToolboxRuntimeState(): ToolRuntimeState[] {
   const now = Date.now()
-  return toolboxToolRegistry
-    .filter(
-      (tool) =>
-        tool.hiddenFromToolbox !== true &&
-        tool.hidden_from_toolbox !== true &&
-        String(tool.mergedInto ?? tool.merged_into ?? '').trim() === ''
-    )
-    .map((tool) => ({
-      ...tool,
-      description: tool.description || tool.summary,
-      hasCustomUi: tool.hasCustomUi === true || tool.has_custom_ui === true,
-      status: 'stopped',
-      updatedAt: now,
-      note: noteForStatus('stopped', tool.launchable !== false),
-    }))
+  return toolboxToolRegistry.filter(isVisibleTool).map((tool) => ({
+    ...tool,
+    description: tool.description || tool.summary,
+    hasCustomUi: tool.hasCustomUi === true || tool.has_custom_ui === true,
+    status: 'stopped',
+    updatedAt: now,
+    note: noteForStatus('stopped', tool.launchable !== false),
+  }))
 }
 
 export function hydrateToolboxRuntimeStateFromBackend(
@@ -102,69 +94,51 @@ export function hydrateToolboxRuntimeStateFromBackend(
     const manifest = entry as ToolboxManifestPayload
     const id = String(manifest.id ?? '').trim()
     if (!id) continue
-
     const registryTool = registryById.get(id)
     if (
       normalizeBoolean(manifest.hidden_from_toolbox) ||
       String(manifest.merged_into ?? '').trim() !== '' ||
-      registryTool?.hiddenFromToolbox === true ||
-      registryTool?.hidden_from_toolbox === true ||
-      String(registryTool?.mergedInto ?? registryTool?.merged_into ?? '').trim() !== ''
+      (registryTool && !isVisibleTool(registryTool))
     ) {
       continue
     }
-    const launchable = manifest.enabled !== false
-    const effectiveLaunchable =
-      registryTool?.launchable === false ? false : launchable
-    const status = effectiveLaunchable
-      ? normalizeStatus(manifest.status)
-      : 'stopped'
+
+    const launchable = manifest.enabled !== false && registryTool?.launchable !== false
+    const status = launchable ? normalizeStatus(manifest.status) : 'stopped'
     const description = String(
-      manifest.description ?? registryTool?.description ?? ''
+      manifest.description ?? registryTool?.description ?? registryTool?.summary ?? ''
     ).trim()
     const name = String(manifest.name ?? registryTool?.name ?? id).trim() || id
-    const folderPath = String(
-      manifest.folder_path ?? registryTool?.folderPath ?? ''
-    ).trim()
-    const manifestPath = String(
-      manifest.manifest_path ?? registryTool?.manifestPath ?? ''
-    ).trim()
-    const codePath = String(
-      manifest.code_path ?? registryTool?.codePath ?? ''
-    ).trim()
-    const executablePath = String(
-      manifest.executable_path ?? registryTool?.executablePath ?? ''
-    ).trim()
     const executableExists =
       typeof manifest.executable_exists === 'boolean'
         ? manifest.executable_exists
         : registryTool?.executableExists
-    const projectSize =
-      normalizeSizeBytes(manifest.project_size_bytes) ??
-      normalizeSizeBytes(registryTool?.projectSizeBytes)
-    const hasCustomUi =
-      normalizeBoolean(manifest.has_custom_ui) ||
-      registryTool?.hasCustomUi === true ||
-      registryTool?.has_custom_ui === true
     const note =
       executableExists === false
-        ? '找不到 EXE，請先執行 npm run package:tool。'
-        : noteForStatus(status, effectiveLaunchable)
-    const summary = description || registryTool?.summary || `已載入工具：${id}`
+        ? '找不到工具 EXE，請重新執行獨立工具封裝。'
+        : noteForStatus(status, launchable)
+    const summary = description || registryTool?.summary || `獨立工具：${id}`
 
     tools.push({
       id,
       name,
       summary,
       description: description || summary,
-      folderPath,
-      manifestPath,
-      codePath,
-      executablePath,
+      folderPath: String(manifest.folder_path ?? registryTool?.folderPath ?? '').trim(),
+      manifestPath: String(manifest.manifest_path ?? registryTool?.manifestPath ?? '').trim(),
+      codePath: String(manifest.code_path ?? registryTool?.codePath ?? '').trim(),
+      executablePath: String(
+        manifest.executable_path ?? registryTool?.executablePath ?? ''
+      ).trim(),
       executableExists,
-      projectSizeBytes: projectSize,
-      hasCustomUi,
-      launchable: effectiveLaunchable,
+      projectSizeBytes:
+        normalizeSizeBytes(manifest.project_size_bytes) ??
+        normalizeSizeBytes(registryTool?.projectSizeBytes),
+      hasCustomUi:
+        normalizeBoolean(manifest.has_custom_ui) ||
+        registryTool?.hasCustomUi === true ||
+        registryTool?.has_custom_ui === true,
+      launchable,
       windowOnly: registryTool?.windowOnly,
       status,
       updatedAt: now,
@@ -172,14 +146,7 @@ export function hydrateToolboxRuntimeStateFromBackend(
     })
   }
 
-  for (const reserved of toolboxToolRegistry) {
-    if (
-      reserved.hiddenFromToolbox === true ||
-      reserved.hidden_from_toolbox === true ||
-      String(reserved.mergedInto ?? reserved.merged_into ?? '').trim() !== ''
-    ) {
-      continue
-    }
+  for (const reserved of toolboxToolRegistry.filter(isVisibleTool)) {
     if (tools.some((tool) => tool.id === reserved.id)) continue
     tools.push({
       ...reserved,
@@ -199,41 +166,25 @@ export function mergeToolboxProjectSizes(
   payload: unknown
 ): ToolRuntimeState[] {
   const list = Array.isArray(payload) ? payload : []
-  const sizesById = new Map<
-    string,
-    {
-      folderPath?: string
-      manifestPath?: string
-      codePath?: string
-      projectSizeBytes: number
-    }
-  >()
+  const sizesById = new Map<string, ToolboxProjectSizePayload & { projectSizeBytes: number }>()
 
-  for (const entry of list) {
-    const item = entry as ToolboxProjectSizePayload
+  for (const raw of list) {
+    const item = raw as ToolboxProjectSizePayload
     const id = String(item.id ?? '').trim()
     const projectSizeBytes = normalizeSizeBytes(item.project_size_bytes)
-    if (!id || projectSizeBytes === undefined) continue
-
-    sizesById.set(id, {
-      folderPath: String(item.folder_path ?? '').trim() || undefined,
-      manifestPath: String(item.manifest_path ?? '').trim() || undefined,
-      codePath: String(item.code_path ?? '').trim() || undefined,
-      projectSizeBytes,
-    })
+    if (id && projectSizeBytes !== undefined) {
+      sizesById.set(id, { ...item, projectSizeBytes })
+    }
   }
-
-  if (sizesById.size === 0) return tools
 
   return tools.map((tool) => {
     const size = sizesById.get(tool.id)
     if (!size) return tool
-
     return {
       ...tool,
-      folderPath: size.folderPath || tool.folderPath,
-      manifestPath: size.manifestPath || tool.manifestPath,
-      codePath: size.codePath || tool.codePath,
+      folderPath: String(size.folder_path ?? '').trim() || tool.folderPath,
+      manifestPath: String(size.manifest_path ?? '').trim() || tool.manifestPath,
+      codePath: String(size.code_path ?? '').trim() || tool.codePath,
       projectSizeBytes: size.projectSizeBytes,
     }
   })
@@ -247,10 +198,7 @@ export function resolveToolboxToolAction(
 ): ToolRuntimeState[] {
   const now = Date.now()
   return tools.map((tool) => {
-    if (tool.id !== toolId) {
-      return tool
-    }
-
+    if (tool.id !== toolId) return tool
     if (tool.launchable === false) {
       return {
         ...tool,
@@ -259,23 +207,14 @@ export function resolveToolboxToolAction(
         note: noteForStatus('stopped', false),
       }
     }
-
-    if (phase === 'pending') {
-      const nextStatus = action === 'start' ? 'starting' : 'stopping'
-      return {
-        ...tool,
-        status: nextStatus,
-        updatedAt: now,
-        note: noteForStatus(nextStatus, true),
-      }
-    }
-
-    const nextStatus = action === 'start' ? 'running' : 'stopped'
-    return {
-      ...tool,
-      status: nextStatus,
-      updatedAt: now,
-      note: noteForStatus(nextStatus, true),
-    }
+    const status: ToolRuntimeStatus =
+      phase === 'pending'
+        ? action === 'start'
+          ? 'starting'
+          : 'stopping'
+        : action === 'start'
+          ? 'running'
+          : 'stopped'
+    return { ...tool, status, updatedAt: now, note: noteForStatus(status, true) }
   })
 }

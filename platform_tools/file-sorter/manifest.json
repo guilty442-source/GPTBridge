@@ -1,24 +1,66 @@
 {
   "id": "file-sorter",
   "name": "自動化檔案管理",
-  "version": "1.7.0",
+  "version": "1.0.0",
   "status": "stopped",
   "enabled": true,
+  "permissions": {
+    "code_scope": "tool-root-only",
+    "database_scope": "tool-database-only",
+    "allow_modify": ["own-data"],
+    "deny": ["main-program", "other-tools"]
+  },
+  "timeout_seconds": 1800,
   "entry": "platform_tools/file-sorter/src/main",
   "runtime": {
     "type": "python",
     "entry": "src/main.py",
     "workingDirectory": "."
   },
+  "capabilities": {
+    "auto-repair": {
+      "entry": "src/auto_repair.py",
+      "arguments": ["--json"],
+      "authority": "tool-root-only"
+    }
+  },
+  "package": {
+    "source_excludes": [
+      "src/keyword_rules.json",
+      "src/keyword_rules.py",
+      "src/.file-sorter-rules.json"
+    ],
+    "generated_files": {
+      "src/keyword_rules.json": []
+    }
+  },
+  "automation": {
+    "entry": "src/backend/automation_service.py",
+    "class": "FileSorterAutomationService",
+    "enabled": true
+  },
+  "startup": {
+    "auto_start": true,
+    "background": true
+  },
+  "environment": {
+    "allow": [
+      "FILE_SORTER_STATE_ROOT"
+    ]
+  },
   "executable": {
     "path": "dist/file-sorter.exe",
     "name": "file-sorter",
     "console": true
   },
-  "description": "支援自動分類、關鍵字規則、跨硬碟目的地、媒體問題掃描與相似影片偵測；不再包含完全重複檔或相似圖片偵測。",
+  "description": "新檔案近即時自動分類：以 250ms 變更偵測喚醒，確認檔案寫入穩定後才移動；目的地限定為目標內既有的第一層子資料夾，並保留預覽、交易日誌與復原。",
   "test_targets": [
     "tests/test_file_sorter.py",
-    "tests/test_file_sorter_cleanup.py"
+    "tests/test_file_sorter_cleanup.py",
+    "tests/test_file_sorter_v2.py",
+    "tests/test_file_sorter_metadata_v2.py",
+    "tests/test_file_sorter_automation.py",
+    "tests/test_file_sorter_ui.py"
   ],
   "window": {
     "width": 1040,

@@ -46,29 +46,37 @@ async function collectSourceFiles(root: string): Promise<string[]> {
 async function collectPlatformToolIds(): Promise<string[]> {
   try {
     const entries = await fs.readdir(platformToolsRoot, { withFileTypes: true })
-    return entries
-      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('_'))
-      .map((entry) => entry.name)
-      .sort()
+    const ids: string[] = []
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith('_')) continue
+      try {
+        await fs.access(path.join(platformToolsRoot, entry.name, 'manifest.json'))
+        ids.push(entry.name)
+      } catch {
+        // A directory without a manifest is not a registered application.
+      }
+    }
+    return ids.sort()
   } catch {
     return []
   }
 }
 
 async function collectPlatformToolManifests(): Promise<string[]> {
-  try {
-    const entries = await fs.readdir(platformToolsRoot, { withFileTypes: true })
-    return entries
-      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('_'))
-      .map((entry) => path.join(platformToolsRoot, entry.name, 'manifest.json'))
-      .sort()
-  } catch {
-    return []
-  }
+  return (await collectPlatformToolIds()).map((toolId) =>
+    path.join(platformToolsRoot, toolId, 'manifest.json')
+  )
 }
 
 function includesChildToolHardcode(content: string, toolIds: string[]): boolean {
   return toolIds.some((toolId) => content.includes(toolId))
+}
+
+function importsPlatformToolImplementation(content: string): boolean {
+  return (
+    /(?:^|\n)\s*(?:from|import)\s+platform_tools(?:\.|\s)/m.test(content) ||
+    /(?:from|import)\s*['"][^'"]*platform_tools\//m.test(content)
+  )
 }
 
 export const childToolIsolationChecker: GovernanceChecker = {
@@ -79,7 +87,7 @@ export const childToolIsolationChecker: GovernanceChecker = {
   enforceLevel: EnforceLevel.BLOCKING,
   target: 'src-core,src-ui/main,platform_tools',
   coverage: CoverageStatus.PARTIALLY_ENFORCED,
-  version: '2026.06.19',
+  version: '1.0.0',
   run: async (): Promise<GovernanceReport> => {
     const offenders: string[] = []
     const toolIds = await collectPlatformToolIds()
@@ -135,7 +143,85 @@ export const childToolIsolationChecker: GovernanceChecker = {
         if (includesChildToolHardcode(content, toolIds)) {
           offenders.push(path.relative(process.cwd(), file))
         }
+        if (importsPlatformToolImplementation(content)) {
+          offenders.push(path.relative(process.cwd(), file))
+        }
       }
+    }
+
+    const runtimeContract = path.resolve(
+      process.cwd(),
+      'config',
+      'tool-runtime-contract.json'
+    )
+    try {
+      const contract = JSON.parse(await fs.readFile(runtimeContract, 'utf8')) as {
+        contract_version?: unknown
+        protocol_version?: unknown
+        minimum_supported_contract_version?: unknown
+      }
+      if (
+        !Number.isInteger(contract.contract_version) ||
+        !Number.isInteger(contract.protocol_version) ||
+        !Number.isInteger(contract.minimum_supported_contract_version) ||
+        Number(contract.minimum_supported_contract_version) >
+          Number(contract.contract_version)
+      ) {
+        offenders.push(path.relative(process.cwd(), runtimeContract))
+      }
+    } catch {
+      offenders.push(path.relative(process.cwd(), runtimeContract))
+    }
+
+    const projectCleanerEngine = path.resolve(
+      process.cwd(),
+      'platform_tools',
+      'project-cleaner',
+      'src',
+      'backend',
+      'cleanup_engine.py'
+    )
+    const sharedCleanupPrimitive = path.resolve(
+      process.cwd(),
+      'src-core',
+      'utils',
+      'cleanup.py'
+    )
+    const projectEntry = path.resolve(process.cwd(), 'run.py')
+    try {
+      const [cleanerContent, primitiveContent, entryContent] =
+        await Promise.all([
+          fs.readFile(projectCleanerEngine, 'utf8'),
+          fs.readFile(sharedCleanupPrimitive, 'utf8'),
+          fs.readFile(projectEntry, 'utf8'),
+        ])
+      const cleanerBoundaryTokens = [
+        'def repair_anomalies(',
+        '"mutation_root"',
+        '"outside-project"',
+        '"source-code-edit"',
+        '"force-unlock"',
+        '"active-package-lock"',
+        '"current-dist"',
+        '"rollback-incomplete"',
+      ]
+      if (
+        cleanerBoundaryTokens.some(
+          (token) => !cleanerContent.includes(token)
+        ) ||
+        primitiveContent.includes('def perform_cleanup(') ||
+        entryContent.includes('def run_recoverable_cleanup(') ||
+        !entryContent.includes('def run_project_cleaner(') ||
+        !entryContent.includes('"--auto-clean"')
+      ) {
+        offenders.push(path.relative(process.cwd(), projectCleanerEngine))
+        offenders.push(path.relative(process.cwd(), sharedCleanupPrimitive))
+        offenders.push(path.relative(process.cwd(), projectEntry))
+      }
+    } catch {
+      offenders.push(path.relative(process.cwd(), projectCleanerEngine))
+      offenders.push(path.relative(process.cwd(), sharedCleanupPrimitive))
+      offenders.push(path.relative(process.cwd(), projectEntry))
     }
 
     const affectedFiles = Array.from(new Set(offenders)).sort()

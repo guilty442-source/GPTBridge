@@ -187,6 +187,19 @@ class VaultlyRepository:
                 );
                 CREATE INDEX IF NOT EXISTS idx_vaultly_removed_accounts_removed
                 ON vaultly_removed_accounts(removed_at DESC);
+
+                CREATE TABLE IF NOT EXISTS vaultly_entity_history (
+                    history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    entity_type TEXT NOT NULL,
+                    entity_key TEXT NOT NULL,
+                    version INTEGER NOT NULL,
+                    action TEXT NOT NULL,
+                    snapshot_json TEXT NOT NULL,
+                    recorded_at TEXT NOT NULL,
+                    UNIQUE(entity_type, entity_key, version)
+                );
+                CREATE INDEX IF NOT EXISTS idx_vaultly_entity_history_entity
+                ON vaultly_entity_history(entity_type, entity_key, version DESC);
                 """
             )
             self._ensure_column(
@@ -200,6 +213,51 @@ class VaultlyRepository:
                 "vaultly_posts",
                 "last_inspected_at",
                 "TEXT NOT NULL DEFAULT ''",
+            )
+            for table in (
+                "vaultly_accounts",
+                "vaultly_post_media",
+                "vaultly_filter_terms",
+                "vaultly_retained_accounts",
+                "vaultly_removed_accounts",
+            ):
+                self._ensure_column(
+                    connection,
+                    table,
+                    "is_active",
+                    "INTEGER NOT NULL DEFAULT 1",
+                )
+                self._ensure_column(
+                    connection,
+                    table,
+                    "deactivated_at",
+                    "TEXT NOT NULL DEFAULT ''",
+                )
+            self._ensure_column(
+                connection,
+                "vaultly_removed_accounts",
+                "restored_at",
+                "TEXT NOT NULL DEFAULT ''",
+            )
+            self._ensure_column(
+                connection,
+                "vaultly_media_history",
+                "revision",
+                "INTEGER NOT NULL DEFAULT 1",
+            )
+            connection.executescript(
+                """
+                CREATE INDEX IF NOT EXISTS idx_vaultly_accounts_active
+                ON vaultly_accounts(is_active, platform, handle);
+                CREATE INDEX IF NOT EXISTS idx_vaultly_post_media_active
+                ON vaultly_post_media(post_id, is_active, media_index);
+                CREATE INDEX IF NOT EXISTS idx_vaultly_filter_terms_active
+                ON vaultly_filter_terms(is_active, term);
+                CREATE INDEX IF NOT EXISTS idx_vaultly_retained_accounts_active
+                ON vaultly_retained_accounts(is_active, account_id);
+                CREATE INDEX IF NOT EXISTS idx_vaultly_removed_accounts_active
+                ON vaultly_removed_accounts(is_active, removed_at DESC);
+                """
             )
 
     @staticmethod
@@ -217,6 +275,169 @@ class VaultlyRepository:
             connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     @staticmethod
+    def _record_row_history(
+        connection: sqlite3.Connection,
+        entity_type: str,
+        entity_key: str,
+        action: str,
+        row: sqlite3.Row | dict[str, Any] | None,
+    ) -> None:
+        """Append an immutable snapshot inside the caller's transaction."""
+        if row is None:
+            return
+        snapshot = dict(row)
+        version_row = connection.execute(
+            """
+            SELECT COALESCE(MAX(version), 0) + 1 AS next_version
+            FROM vaultly_entity_history
+            WHERE entity_type = ? AND entity_key = ?
+            """,
+            (entity_type, entity_key),
+        ).fetchone()
+        version = int(version_row["next_version"] if version_row is not None else 1)
+        connection.execute(
+            """
+            INSERT INTO vaultly_entity_history (
+                entity_type, entity_key, version, action, snapshot_json, recorded_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                entity_type,
+                entity_key,
+                version,
+                action,
+                json.dumps(snapshot, ensure_ascii=False, sort_keys=True),
+                _utc_now(),
+            ),
+        )
+
+    @staticmethod
+    def _row_by_key(
+        connection: sqlite3.Connection,
+        table: str,
+        key_column: str,
+        key: str,
+    ) -> sqlite3.Row | None:
+        return connection.execute(
+            f"SELECT * FROM {table} WHERE {key_column} = ?",
+            (key,),
+        ).fetchone()
+
+    def list_entity_history(
+        self,
+        entity_type: str = "",
+        entity_key: str = "",
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        filters: list[str] = []
+        params: list[Any] = []
+        if entity_type:
+            filters.append("entity_type = ?")
+            params.append(str(entity_type))
+        if entity_key:
+            filters.append("entity_key = ?")
+            params.append(str(entity_key))
+        where_sql = f"WHERE {' AND '.join(filters)}" if filters else ""
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT history_id, entity_type, entity_key, version, action,
+                       snapshot_json, recorded_at
+                FROM vaultly_entity_history
+                {where_sql}
+                ORDER BY history_id DESC
+                LIMIT ?
+                """,
+                (*params, max(1, min(5000, int(limit)))),
+            ).fetchall()
+        output: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            try:
+                item["snapshot"] = json.loads(str(item.pop("snapshot_json")))
+            except json.JSONDecodeError:
+                item["snapshot"] = {}
+            output.append(item)
+        return output
+
+    def restore_entity_history(self, history_id: int) -> dict[str, Any] | None:
+        """Restore one audited snapshot without deleting the newer audit trail."""
+        entity_tables = {
+            "account": ("vaultly_accounts", "account_id"),
+            "post": ("vaultly_posts", "post_id"),
+            "post_media": ("vaultly_post_media", "media_id"),
+            "media_history": ("vaultly_media_history", "dedupe_key"),
+            "setting": ("vaultly_settings", "key"),
+            "filter_term": ("vaultly_filter_terms", "term"),
+            "retained_account": ("vaultly_retained_accounts", "account_id"),
+            "removed_account": ("vaultly_removed_accounts", "account_id"),
+        }
+        with self._connect() as connection:
+            history = connection.execute(
+                """
+                SELECT entity_type, entity_key, snapshot_json
+                FROM vaultly_entity_history
+                WHERE history_id = ?
+                """,
+                (int(history_id),),
+            ).fetchone()
+            if history is None:
+                return None
+            entity_type = str(history["entity_type"])
+            mapping = entity_tables.get(entity_type)
+            if mapping is None:
+                return None
+            try:
+                snapshot = json.loads(str(history["snapshot_json"]))
+            except (json.JSONDecodeError, TypeError):
+                return None
+            if not isinstance(snapshot, dict):
+                return None
+
+            table, key_column = mapping
+            entity_key = str(history["entity_key"])
+            current = self._row_by_key(connection, table, key_column, entity_key)
+            self._record_row_history(
+                connection,
+                entity_type,
+                entity_key,
+                "superseded_by_restore",
+                current,
+            )
+
+            allowed_columns = [
+                str(row["name"])
+                for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+                if str(row["name"]) in snapshot
+            ]
+            if key_column not in allowed_columns:
+                return None
+            values = [snapshot[column] for column in allowed_columns]
+            assignments = ", ".join(
+                f"{column} = excluded.{column}"
+                for column in allowed_columns
+                if column != key_column
+            )
+            connection.execute(
+                f"""
+                INSERT INTO {table} ({", ".join(allowed_columns)})
+                VALUES ({", ".join("?" for _ in allowed_columns)})
+                ON CONFLICT({key_column}) DO UPDATE SET {assignments}
+                """,
+                values,
+            )
+            restored = self._row_by_key(connection, table, key_column, entity_key)
+            self._record_row_history(
+                connection,
+                entity_type,
+                entity_key,
+                "restored_version",
+                restored,
+            )
+            return dict(restored) if restored is not None else None
+
+    @staticmethod
     def post_id_for(platform: str, post_url: str) -> str:
         digest = hashlib.sha256(f"{platform}|{post_url}".encode("utf-8")).hexdigest()
         return digest[:24]
@@ -229,14 +450,36 @@ class VaultlyRepository:
                 account_id = str(account.get("account_id", "")).strip()
                 if not account_id:
                     continue
+                existing = self._row_by_key(
+                    connection,
+                    "vaultly_accounts",
+                    "account_id",
+                    account_id,
+                )
+                self._record_row_history(
+                    connection,
+                    "account",
+                    account_id,
+                    "superseded",
+                    existing,
+                )
                 connection.execute(
                     """
                     INSERT INTO vaultly_accounts (
                         account_id, platform, handle, display_name, profile_url,
-                        avatar_url, verified, selected, discovered_at, updated_at
+                        avatar_url, verified, selected, discovered_at, updated_at,
+                        is_active, deactivated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 1, '')
                     ON CONFLICT(account_id) DO UPDATE SET
+                        platform = CASE
+                            WHEN excluded.platform <> '' THEN excluded.platform
+                            ELSE vaultly_accounts.platform
+                        END,
+                        handle = CASE
+                            WHEN excluded.handle <> '' THEN excluded.handle
+                            ELSE vaultly_accounts.handle
+                        END,
                         display_name = CASE
                             WHEN excluded.display_name <> '' THEN excluded.display_name
                             ELSE vaultly_accounts.display_name
@@ -247,6 +490,8 @@ class VaultlyRepository:
                             ELSE vaultly_accounts.avatar_url
                         END,
                         verified = MAX(vaultly_accounts.verified, excluded.verified),
+                        is_active = 1,
+                        deactivated_at = '',
                         updated_at = excluded.updated_at
                     """,
                     (
@@ -260,6 +505,25 @@ class VaultlyRepository:
                         now,
                         now,
                     ),
+                )
+                current = self._row_by_key(
+                    connection,
+                    "vaultly_accounts",
+                    "account_id",
+                    account_id,
+                )
+                self._record_row_history(
+                    connection,
+                    "account",
+                    account_id,
+                    (
+                        "created"
+                        if existing is None
+                        else "reactivated"
+                        if not bool(existing["is_active"])
+                        else "updated"
+                    ),
+                    current,
                 )
                 self._ensure_account_scan_schedule(
                     connection,
@@ -298,9 +562,10 @@ class VaultlyRepository:
             SELECT account_id, platform, handle, display_name, profile_url,
                    avatar_url, verified, selected, discovered_at, updated_at
             FROM vaultly_accounts
+            WHERE is_active = 1
         """
         if selected_only:
-            query += " WHERE selected = 1"
+            query += " AND selected = 1"
         query += " ORDER BY platform, handle COLLATE NOCASE"
         with self._connect() as connection:
             rows = connection.execute(query).fetchall()
@@ -331,7 +596,7 @@ class VaultlyRepository:
                 SELECT account_id, platform, handle, display_name, profile_url,
                        avatar_url, verified, selected, discovered_at, updated_at
                 FROM vaultly_accounts
-                WHERE account_id IN ({placeholders})
+                WHERE account_id IN ({placeholders}) AND is_active = 1
                 ORDER BY platform, handle COLLATE NOCASE
                 """,
                 ids,
@@ -369,6 +634,19 @@ class VaultlyRepository:
                 """,
                 (post_id,),
             ).fetchone()
+            existing_full = self._row_by_key(
+                connection,
+                "vaultly_posts",
+                "post_id",
+                post_id,
+            )
+            self._record_row_history(
+                connection,
+                "post",
+                post_id,
+                "superseded",
+                existing_full,
+            )
             if media_items is None and existing is not None:
                 media_count = int(existing["media_count"])
                 downloadable_count = int(existing["downloadable_count"])
@@ -448,12 +726,59 @@ class VaultlyRepository:
                     now,
                 ),
             )
+            self._record_row_history(
+                connection,
+                "post",
+                post_id,
+                "created" if existing_full is None else "updated",
+                self._row_by_key(
+                    connection,
+                    "vaultly_posts",
+                    "post_id",
+                    post_id,
+                ),
+            )
 
             if media_items is not None:
-                connection.execute(
-                    "DELETE FROM vaultly_post_media WHERE post_id = ?",
+                previous_media = connection.execute(
+                    """
+                    SELECT *
+                    FROM vaultly_post_media
+                    WHERE post_id = ? AND is_active = 1
+                    """,
                     (post_id,),
+                ).fetchall()
+                for previous in previous_media:
+                    media_key = str(previous["media_id"])
+                    self._record_row_history(
+                        connection,
+                        "post_media",
+                        media_key,
+                        "superseded",
+                        previous,
+                    )
+                connection.execute(
+                    """
+                    UPDATE vaultly_post_media
+                    SET is_active = 0, deactivated_at = ?, updated_at = ?
+                    WHERE post_id = ? AND is_active = 1
+                    """,
+                    (now, now, post_id),
                 )
+                for previous in previous_media:
+                    media_key = str(previous["media_id"])
+                    self._record_row_history(
+                        connection,
+                        "post_media",
+                        media_key,
+                        "deactivated",
+                        self._row_by_key(
+                            connection,
+                            "vaultly_post_media",
+                            "media_id",
+                            media_key,
+                        ),
+                    )
                 for media_index, media in enumerate(media_items):
                     source_url = str(media.get("source_url", "")).strip()
                     media_id = hashlib.sha256(
@@ -462,13 +787,31 @@ class VaultlyRepository:
                     fallback_urls = media.get("fallback_urls", [])
                     if not isinstance(fallback_urls, list):
                         fallback_urls = []
+                    existing_media = self._row_by_key(
+                        connection,
+                        "vaultly_post_media",
+                        "media_id",
+                        media_id,
+                    )
                     connection.execute(
                         """
                         INSERT INTO vaultly_post_media (
                             media_id, post_id, media_index, media_type, source_url,
-                            thumbnail_url, fallback_urls_json, delivery, created_at, updated_at
+                            thumbnail_url, fallback_urls_json, delivery, created_at, updated_at,
+                            is_active, deactivated_at
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, '')
+                        ON CONFLICT(media_id) DO UPDATE SET
+                            post_id = excluded.post_id,
+                            media_index = excluded.media_index,
+                            media_type = excluded.media_type,
+                            source_url = excluded.source_url,
+                            thumbnail_url = excluded.thumbnail_url,
+                            fallback_urls_json = excluded.fallback_urls_json,
+                            delivery = excluded.delivery,
+                            updated_at = excluded.updated_at,
+                            is_active = 1,
+                            deactivated_at = ''
                         """,
                         (
                             media_id,
@@ -481,6 +824,24 @@ class VaultlyRepository:
                             str(media.get("delivery", "")).strip(),
                             now,
                             now,
+                        ),
+                    )
+                    self._record_row_history(
+                        connection,
+                        "post_media",
+                        media_id,
+                        (
+                            "created"
+                            if existing_media is None
+                            else "reactivated"
+                            if not bool(existing_media["is_active"])
+                            else "updated"
+                        ),
+                        self._row_by_key(
+                            connection,
+                            "vaultly_post_media",
+                            "media_id",
+                            media_id,
                         ),
                     )
         return post_id
@@ -576,7 +937,7 @@ class VaultlyRepository:
                     SELECT post_id, media_id, media_index, media_type, source_url,
                            thumbnail_url, fallback_urls_json, delivery
                     FROM vaultly_post_media
-                    WHERE post_id IN ({placeholders})
+                    WHERE post_id IN ({placeholders}) AND is_active = 1
                     ORDER BY post_id, media_index
                     """,
                     tuple(post_ids),
@@ -729,26 +1090,69 @@ class VaultlyRepository:
 
     def save_selection(self, account_ids: Iterable[str]) -> None:
         selected = {str(item).strip() for item in account_ids if str(item).strip()}
+        now = _utc_now()
         with self._connect() as connection:
-            connection.execute("UPDATE vaultly_accounts SET selected = 0")
+            previous_rows = connection.execute(
+                """
+                SELECT *
+                FROM vaultly_accounts
+                WHERE is_active = 1
+                """
+            ).fetchall()
+            changed_rows = [
+                row
+                for row in previous_rows
+                if bool(row["selected"]) != (str(row["account_id"]) in selected)
+            ]
+            for row in changed_rows:
+                self._record_row_history(
+                    connection,
+                    "account",
+                    str(row["account_id"]),
+                    "superseded",
+                    row,
+                )
+            connection.execute(
+                "UPDATE vaultly_accounts SET selected = 0 WHERE is_active = 1"
+            )
             if selected:
                 placeholders = ",".join("?" for _ in selected)
                 connection.execute(
-                    f"UPDATE vaultly_accounts SET selected = 1 WHERE account_id IN ({placeholders})",
+                    f"""
+                    UPDATE vaultly_accounts
+                    SET selected = 1
+                    WHERE account_id IN ({placeholders}) AND is_active = 1
+                    """,
                     tuple(sorted(selected)),
+                )
+            for row in changed_rows:
+                account_id = str(row["account_id"])
+                self._record_row_history(
+                    connection,
+                    "account",
+                    account_id,
+                    "selection_updated",
+                    self._row_by_key(
+                        connection,
+                        "vaultly_accounts",
+                        "account_id",
+                        account_id,
+                    ),
                 )
             connection.execute(
                 """
                 UPDATE vaultly_account_scan_schedule
                 SET priority = CASE
                     WHEN account_id IN (
-                        SELECT account_id FROM vaultly_accounts WHERE selected = 1
+                        SELECT account_id
+                        FROM vaultly_accounts
+                        WHERE selected = 1 AND is_active = 1
                     ) THEN 90
                     ELSE MIN(priority, 50)
                 END,
                 updated_at = ?
                 """,
-                (_utc_now(),),
+                (now,),
             )
 
     def queue_account_scans(self, account_ids: Iterable[str], priority: int = 90) -> int:
@@ -762,7 +1166,7 @@ class VaultlyRepository:
                 f"""
                 SELECT account_id, platform, selected
                 FROM vaultly_accounts
-                WHERE account_id IN ({placeholders})
+                WHERE account_id IN ({placeholders}) AND is_active = 1
                 """,
                 tuple(ids),
             ).fetchall()
@@ -798,8 +1202,9 @@ class VaultlyRepository:
                        schedule.error_count, schedule.message, schedule.updated_at,
                        accounts.handle, accounts.display_name, accounts.selected
                 FROM vaultly_account_scan_schedule AS schedule
-                LEFT JOIN vaultly_accounts AS accounts
+                INNER JOIN vaultly_accounts AS accounts
                     ON accounts.account_id = schedule.account_id
+                   AND accounts.is_active = 1
                 ORDER BY accounts.selected DESC, schedule.priority DESC,
                          schedule.next_scan_at ASC, accounts.handle COLLATE NOCASE
                 LIMIT ?
@@ -935,11 +1340,46 @@ class VaultlyRepository:
         if not ids:
             return 0
         placeholders = ",".join("?" for _ in ids)
+        now = _utc_now()
         with self._connect() as connection:
-            cursor = connection.execute(
-                f"DELETE FROM vaultly_accounts WHERE account_id IN ({placeholders})",
+            rows = connection.execute(
+                f"""
+                SELECT *
+                FROM vaultly_accounts
+                WHERE account_id IN ({placeholders}) AND is_active = 1
+                """,
                 tuple(ids),
+            ).fetchall()
+            for row in rows:
+                self._record_row_history(
+                    connection,
+                    "account",
+                    str(row["account_id"]),
+                    "superseded",
+                    row,
+                )
+            cursor = connection.execute(
+                f"""
+                UPDATE vaultly_accounts
+                SET is_active = 0, selected = 0, deactivated_at = ?, updated_at = ?
+                WHERE account_id IN ({placeholders}) AND is_active = 1
+                """,
+                (now, now, *ids),
             )
+            for row in rows:
+                account_id = str(row["account_id"])
+                self._record_row_history(
+                    connection,
+                    "account",
+                    account_id,
+                    "deactivated",
+                    self._row_by_key(
+                        connection,
+                        "vaultly_accounts",
+                        "account_id",
+                        account_id,
+                    ),
+                )
             return cursor.rowcount
 
     @staticmethod
@@ -956,7 +1396,12 @@ class VaultlyRepository:
     def list_filter_terms(self) -> list[str]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT term FROM vaultly_filter_terms ORDER BY term COLLATE NOCASE"
+                """
+                SELECT term
+                FROM vaultly_filter_terms
+                WHERE is_active = 1
+                ORDER BY term COLLATE NOCASE
+                """
             ).fetchall()
         return [str(row["term"]) for row in rows]
 
@@ -968,14 +1413,46 @@ class VaultlyRepository:
         now = _utc_now()
         with self._connect() as connection:
             for term in normalized:
-                cursor = connection.execute(
+                existing = self._row_by_key(
+                    connection,
+                    "vaultly_filter_terms",
+                    "term",
+                    term,
+                )
+                if existing is not None and bool(existing["is_active"]):
+                    continue
+                self._record_row_history(
+                    connection,
+                    "filter_term",
+                    term,
+                    "superseded",
+                    existing,
+                )
+                connection.execute(
                     """
-                    INSERT OR IGNORE INTO vaultly_filter_terms (term, created_at)
-                    VALUES (?, ?)
+                    INSERT INTO vaultly_filter_terms (
+                        term, created_at, is_active, deactivated_at
+                    )
+                    VALUES (?, ?, 1, '')
+                    ON CONFLICT(term) DO UPDATE SET
+                        is_active = 1,
+                        deactivated_at = ''
                     """,
                     (term, now),
                 )
-                changed += cursor.rowcount
+                self._record_row_history(
+                    connection,
+                    "filter_term",
+                    term,
+                    "created" if existing is None else "reactivated",
+                    self._row_by_key(
+                        connection,
+                        "vaultly_filter_terms",
+                        "term",
+                        term,
+                    ),
+                )
+                changed += 1
         return changed
 
     def remove_filter_terms(self, terms: Iterable[str]) -> int:
@@ -983,17 +1460,57 @@ class VaultlyRepository:
         if not normalized:
             return 0
         placeholders = ",".join("?" for _ in normalized)
+        now = _utc_now()
         with self._connect() as connection:
-            cursor = connection.execute(
-                f"DELETE FROM vaultly_filter_terms WHERE term IN ({placeholders})",
+            rows = connection.execute(
+                f"""
+                SELECT *
+                FROM vaultly_filter_terms
+                WHERE term IN ({placeholders}) AND is_active = 1
+                """,
                 tuple(normalized),
+            ).fetchall()
+            for row in rows:
+                self._record_row_history(
+                    connection,
+                    "filter_term",
+                    str(row["term"]),
+                    "superseded",
+                    row,
+                )
+            cursor = connection.execute(
+                f"""
+                UPDATE vaultly_filter_terms
+                SET is_active = 0, deactivated_at = ?
+                WHERE term IN ({placeholders}) AND is_active = 1
+                """,
+                (now, *normalized),
             )
+            for row in rows:
+                term = str(row["term"])
+                self._record_row_history(
+                    connection,
+                    "filter_term",
+                    term,
+                    "deactivated",
+                    self._row_by_key(
+                        connection,
+                        "vaultly_filter_terms",
+                        "term",
+                        term,
+                    ),
+                )
         return cursor.rowcount
 
     def list_retained_account_ids(self) -> list[str]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT account_id FROM vaultly_retained_accounts ORDER BY account_id"
+                """
+                SELECT account_id
+                FROM vaultly_retained_accounts
+                WHERE is_active = 1
+                ORDER BY account_id
+                """
             ).fetchall()
         return [str(row["account_id"]) for row in rows]
 
@@ -1005,14 +1522,46 @@ class VaultlyRepository:
         now = _utc_now()
         with self._connect() as connection:
             for account_id in ids:
-                cursor = connection.execute(
+                existing = self._row_by_key(
+                    connection,
+                    "vaultly_retained_accounts",
+                    "account_id",
+                    account_id,
+                )
+                if existing is not None and bool(existing["is_active"]):
+                    continue
+                self._record_row_history(
+                    connection,
+                    "retained_account",
+                    account_id,
+                    "superseded",
+                    existing,
+                )
+                connection.execute(
                     """
-                    INSERT OR IGNORE INTO vaultly_retained_accounts (account_id, created_at)
-                    VALUES (?, ?)
+                    INSERT INTO vaultly_retained_accounts (
+                        account_id, created_at, is_active, deactivated_at
+                    )
+                    VALUES (?, ?, 1, '')
+                    ON CONFLICT(account_id) DO UPDATE SET
+                        is_active = 1,
+                        deactivated_at = ''
                     """,
                     (account_id, now),
                 )
-                changed += cursor.rowcount
+                self._record_row_history(
+                    connection,
+                    "retained_account",
+                    account_id,
+                    "created" if existing is None else "reactivated",
+                    self._row_by_key(
+                        connection,
+                        "vaultly_retained_accounts",
+                        "account_id",
+                        account_id,
+                    ),
+                )
+                changed += 1
         return changed
 
     def remove_retained_accounts(self, account_ids: Iterable[str]) -> int:
@@ -1020,11 +1569,46 @@ class VaultlyRepository:
         if not ids:
             return 0
         placeholders = ",".join("?" for _ in ids)
+        now = _utc_now()
         with self._connect() as connection:
-            cursor = connection.execute(
-                f"DELETE FROM vaultly_retained_accounts WHERE account_id IN ({placeholders})",
+            rows = connection.execute(
+                f"""
+                SELECT *
+                FROM vaultly_retained_accounts
+                WHERE account_id IN ({placeholders}) AND is_active = 1
+                """,
                 tuple(ids),
+            ).fetchall()
+            for row in rows:
+                self._record_row_history(
+                    connection,
+                    "retained_account",
+                    str(row["account_id"]),
+                    "superseded",
+                    row,
+                )
+            cursor = connection.execute(
+                f"""
+                UPDATE vaultly_retained_accounts
+                SET is_active = 0, deactivated_at = ?
+                WHERE account_id IN ({placeholders}) AND is_active = 1
+                """,
+                (now, *ids),
             )
+            for row in rows:
+                account_id = str(row["account_id"])
+                self._record_row_history(
+                    connection,
+                    "retained_account",
+                    account_id,
+                    "deactivated",
+                    self._row_by_key(
+                        connection,
+                        "vaultly_retained_accounts",
+                        "account_id",
+                        account_id,
+                    ),
+                )
         return cursor.rowcount
 
     def record_removed_accounts(
@@ -1044,21 +1628,40 @@ class VaultlyRepository:
                     or (account.get("verified") is True and account_source != "manual")
                 ):
                     continue
+                existing = self._row_by_key(
+                    connection,
+                    "vaultly_removed_accounts",
+                    "account_id",
+                    account_id,
+                )
+                self._record_row_history(
+                    connection,
+                    "removed_account",
+                    account_id,
+                    "superseded",
+                    existing,
+                )
                 connection.execute(
                     """
                     INSERT INTO vaultly_removed_accounts (
                         account_id, platform, handle, display_name, profile_url,
-                        avatar_url, verified, reason, source, removed_at
+                        avatar_url, verified, reason, source, removed_at,
+                        is_active, deactivated_at, restored_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, '', '')
                     ON CONFLICT(account_id) DO UPDATE SET
+                        platform = excluded.platform,
+                        handle = excluded.handle,
                         display_name = excluded.display_name,
                         profile_url = excluded.profile_url,
                         avatar_url = excluded.avatar_url,
                         verified = excluded.verified,
                         reason = excluded.reason,
                         source = excluded.source,
-                        removed_at = excluded.removed_at
+                        removed_at = excluded.removed_at,
+                        is_active = 1,
+                        deactivated_at = '',
+                        restored_at = ''
                     """,
                     (
                         account_id,
@@ -1073,6 +1676,24 @@ class VaultlyRepository:
                         now,
                     ),
                 )
+                self._record_row_history(
+                    connection,
+                    "removed_account",
+                    account_id,
+                    (
+                        "created"
+                        if existing is None
+                        else "reactivated"
+                        if not bool(existing["is_active"])
+                        else "updated"
+                    ),
+                    self._row_by_key(
+                        connection,
+                        "vaultly_removed_accounts",
+                        "account_id",
+                        account_id,
+                    ),
+                )
                 changed += 1
         return changed
 
@@ -1083,6 +1704,7 @@ class VaultlyRepository:
                 SELECT account_id, platform, handle, display_name, profile_url,
                        avatar_url, verified, reason, source, removed_at
                 FROM vaultly_removed_accounts
+                WHERE is_active = 1
                 ORDER BY removed_at DESC
                 LIMIT ?
                 """,
@@ -1107,7 +1729,7 @@ class VaultlyRepository:
                 SELECT account_id, platform, handle, display_name, profile_url,
                        avatar_url, verified
                 FROM vaultly_removed_accounts
-                WHERE account_id IN ({placeholders})
+                WHERE account_id IN ({placeholders}) AND is_active = 1
                 """,
                 tuple(ids),
             ).fetchall()
@@ -1127,11 +1749,48 @@ class VaultlyRepository:
         if not ids:
             return 0
         placeholders = ",".join("?" for _ in ids)
+        now = _utc_now()
         with self._connect() as connection:
-            cursor = connection.execute(
-                f"DELETE FROM vaultly_removed_accounts WHERE account_id IN ({placeholders})",
+            rows = connection.execute(
+                f"""
+                SELECT *
+                FROM vaultly_removed_accounts
+                WHERE account_id IN ({placeholders}) AND is_active = 1
+                """,
                 tuple(ids),
+            ).fetchall()
+            for row in rows:
+                self._record_row_history(
+                    connection,
+                    "removed_account",
+                    str(row["account_id"]),
+                    "superseded",
+                    row,
+                )
+            cursor = connection.execute(
+                f"""
+                UPDATE vaultly_removed_accounts
+                SET is_active = 0,
+                    deactivated_at = ?,
+                    restored_at = ?
+                WHERE account_id IN ({placeholders}) AND is_active = 1
+                """,
+                (now, now, *ids),
             )
+            for row in rows:
+                account_id = str(row["account_id"])
+                self._record_row_history(
+                    connection,
+                    "removed_account",
+                    account_id,
+                    "restored",
+                    self._row_by_key(
+                        connection,
+                        "vaultly_removed_accounts",
+                        "account_id",
+                        account_id,
+                    ),
+                )
         return cursor.rowcount
 
     def set_setting(self, key: str, value: Any) -> None:
@@ -1318,13 +1977,40 @@ class VaultlyRepository:
         sha256: str,
     ) -> None:
         with self._connect() as connection:
+            existing = self._row_by_key(
+                connection,
+                "vaultly_media_history",
+                "dedupe_key",
+                dedupe_key,
+            )
+            self._record_row_history(
+                connection,
+                "media_history",
+                dedupe_key,
+                "superseded",
+                existing,
+            )
+            revision = (
+                int(existing["revision"] or 1) + 1
+                if existing is not None
+                else 1
+            )
             connection.execute(
                 """
-                INSERT OR REPLACE INTO vaultly_media_history (
+                INSERT INTO vaultly_media_history (
                     dedupe_key, platform, account_id, post_url, source_url,
-                    file_path, sha256, downloaded_at
+                    file_path, sha256, downloaded_at, revision
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(dedupe_key) DO UPDATE SET
+                    platform = excluded.platform,
+                    account_id = excluded.account_id,
+                    post_url = excluded.post_url,
+                    source_url = excluded.source_url,
+                    file_path = excluded.file_path,
+                    sha256 = excluded.sha256,
+                    downloaded_at = excluded.downloaded_at,
+                    revision = excluded.revision
                 """,
                 (
                     dedupe_key,
@@ -1335,5 +2021,6 @@ class VaultlyRepository:
                     file_path,
                     sha256,
                     _utc_now(),
+                    revision,
                 ),
             )

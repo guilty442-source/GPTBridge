@@ -11,7 +11,7 @@
 2. User-facing renderer source must not display `工具箱`.
 3. The renderer entry must load `src-ui/renderer/ui/App.tsx`.
 4. The default view must open the application area.
-5. The application entry must render cards through the developer-mode execution layer (`RuntimeToolCard` styles and behavior).
+5. The application entry renders launcher cards directly through `RuntimeToolCard`.
 6. Internal technical names such as `toolbox_*` IPC commands may remain until a safe API migration is planned.
 
 ## Enforcement

@@ -1,45 +1,50 @@
-﻿import type { ToolDefinition } from '@/ui/developer-mode/tools/types'
+import type { ToolDefinition } from './types'
 
-/**
- * Application registry keeps standalone window entries and child applications.
- * Child runtime implementations live under platform_tools/<tool-id>/.
- */
+/** Launcher metadata only. Business logic and writable data stay tool-owned. */
 export const toolboxToolRegistry: ToolDefinition[] = [
   {
     id: 'ai-assistant',
-    name: 'AI投資管家',
-    summary: '投資資料、AI 群組推理、共享記憶與任務看板。',
+    name: 'AI 投資管家',
+    summary: '整合星澄與外部 AI，提供跨電腦與 Android 的即時投資協作。',
     folderPath: 'platform_tools/ai-assistant',
     launchable: true,
     windowOnly: true,
   },
   {
-    id: 'project-cleaner',
-    name: '清理工具',
-    summary: '清理專案垃圾、快取與臨時檔。',
-    folderPath: 'platform_tools/project-cleaner',
+    id: 'local-ai',
+    name: '星澄',
+    summary: '在本機獨立執行的 AI 服務，模型、資料庫與權限皆不與外部 AI 共用。',
+    folderPath: 'platform_tools/local-ai',
     launchable: true,
     windowOnly: true,
   },
   {
-    id: 'agent-coder',
-    name: '系統救援工具',
-    summary: '管理應用程式程式碼、修補指令與單元測試。',
-    folderPath: 'platform_tools/agent-coder',
+    id: 'ai-collaboration',
+    name: '外部 AI 協作',
+    summary: '以驗證連線存取外部 AI；離線指令立即拒絕，不保存待送佇列。',
+    folderPath: 'platform_tools/ai-collaboration',
+    launchable: true,
+    windowOnly: true,
+  },
+  {
+    id: 'project-cleaner',
+    name: '專案清理與系統救援',
+    summary: '合併清理、異常修正與救援能力，權限嚴格限制在本專案內。',
+    folderPath: 'platform_tools/project-cleaner',
     launchable: true,
     windowOnly: true,
   },
   {
     id: 'vaultly',
     name: '影音下載自動化',
-    summary: '集中模組：platform_tools/vaultly。',
+    summary: '使用獨立登入狀態與資料庫管理媒體下載、重試與背景監控。',
     folderPath: 'platform_tools/vaultly',
     launchable: true,
   },
   {
     id: 'file-sorter',
     name: '自動化檔案管理',
-    summary: '自動分類、關鍵字規則、媒體問題掃描與相似影片偵測整合工具。',
+    summary: '監看新檔並即時分類，關鍵字規則與索引由工具自己的資料庫管理。',
     folderPath: 'platform_tools/file-sorter',
     launchable: true,
   },
