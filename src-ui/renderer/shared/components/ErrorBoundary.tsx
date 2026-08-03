@@ -1,5 +1,0 @@
-import React from 'react'
-
-export function ErrorBoundary({ children }: { children: React.ReactNode }) {
-  return <div>{children}</div>
-}

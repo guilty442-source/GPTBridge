@@ -1,0 +1,1 @@
+"""Investment mobile platform contracts."""

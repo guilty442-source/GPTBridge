@@ -1,0 +1,54 @@
+{
+  "id": "shared-layer",
+  "name_key": "tool.name",
+  "description_key": "tool.description",
+  "version": "1.0.0",
+  "display_version": "1.0",
+  "status": "running",
+  "enabled": true,
+  "main_system_independent_tool": true,
+  "lifecycle": {
+    "startup": "default-before-dependent-tools",
+    "directLoad": true,
+    "encapsulated": false,
+    "optional": false,
+    "stoppable": false,
+    "disableable": false,
+    "unloadable": false
+  },
+  "permissions": {
+    "code_scope": "tool-root-only",
+    "database_scope": "tool-database-only"
+  },
+  "runtime": {
+    "type": "python",
+    "entry": "src/channel_runtime.py",
+    "workingDirectory": "."
+  },
+  "request_channel": {
+    "model": "governance-authenticated-shared-layer",
+    "runtime_entry": "src/channel_runtime.py",
+    "direct_instruction": "PERMISSION_DENIED"
+  },
+  "distribution": {
+    "mode": "special-unpackaged",
+    "package": false
+  },
+  "background_service": {
+    "managed_by": "main-system",
+    "headless": true,
+    "auto_restart": true,
+    "max_restart_attempts": 5,
+    "restart_backoff_seconds": 1,
+    "explicit_force_close_suppresses_restart": false
+  },
+  "capabilities": {
+    "authenticated-ipc": {
+      "channels": ["system", "ai"],
+      "authority": "governance_rule",
+      "resident": true
+    }
+  },
+  "environment": { "allow": ["GPTBRIDGE_POSTGRES_DSN"] },
+  "has_custom_ui": false
+}

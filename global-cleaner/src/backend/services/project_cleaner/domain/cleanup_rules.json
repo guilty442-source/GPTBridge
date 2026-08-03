@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "delete_files_only": true,
+  "plan_ttl_minutes": 15,
+  "quarantine_ttl_hours": 24,
+  "excluded_directory_names": [
+    ".git",
+    ".venv",
+    "node_modules",
+    "dist",
+    "browser-profile",
+    "browser-profiles",
+    "edge-profile",
+    "backups"
+  ],
+  "protected_relative_paths": [
+    "runtime/profiles",
+    "runtime/state",
+    "runtime/browser-profiles",
+    "runtime/file-sorter",
+    "runtime/ipc",
+    "dist-ui",
+    "release",
+    "browser-profile",
+    "edge-profile",
+    "backups",
+    "global-cleaner/runtime/state",
+    "global-cleaner/runtime/quarantine",
+    "global-cleaner/runtime/recovery"
+  ],
+  "directory_rules": [
+    {
+      "id": "governed-temporary-storage",
+      "relative_patterns": [
+        "global-cleaner/runtime/temp"
+      ],
+      "reason": "governed ephemeral temporary storage",
+      "risk": "low",
+      "min_age_days": 0,
+      "protect_user_content": false,
+      "contents_only": true
+    },
+    {
+      "id": "obsolete-ai-investment-runtime",
+      "relative_patterns": [
+        "ai-assistant/data/business"
+      ],
+      "reason": "obsolete AI investment business data and test runtime",
+      "risk": "medium",
+      "min_age_days": 0,
+      "protect_user_content": false,
+      "allow_direct_delete": true
+    },
+    {
+      "id": "legacy-root-cleaner-runtime",
+      "relative_patterns": [
+        "runtime/global-cleaner"
+      ],
+      "reason": "legacy root-level cleaner runtime replaced by tool-owned state",
+      "risk": "medium",
+      "min_age_days": 0,
+      "protect_user_content": false,
+      "contents_only": true,
+      "allow_direct_delete": true
+    },
+    {
+      "id": "legacy-main-edge-profile",
+      "relative_patterns": [
+        "main-system/src-core/edge-profile"
+      ],
+      "reason": "obsolete Edge runtime profile stored inside source code",
+      "risk": "medium",
+      "min_age_days": 0,
+      "protect_user_content": false,
+      "contents_only": true,
+      "allow_direct_delete": true
+    },
+    {
+      "id": "visual-smoke-sandbox",
+      "patterns": ["gptbridge-ai-assistant-visual-*"],
+      "reason": "isolated visual smoke sandbox",
+      "risk": "low",
+      "min_age_days": 0,
+      "protect_user_content": false,
+      "sandbox_only": true
+    },
+    {
+      "id": "python-bytecode",
+      "names": ["__pycache__"],
+      "reason": "python bytecode cache",
+      "risk": "low",
+      "min_age_days": 0,
+      "protect_user_content": false
+    },
+    {
+      "id": "tool-cache",
+      "names": [".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", ".nox"],
+      "reason": "tool cache directory",
+      "risk": "low",
+      "min_age_days": 0,
+      "protect_user_content": false
+    },
+    {
+      "id": "generic-cache",
+      "names": ["cache", "temp", "tmp"],
+      "reason": "generated working directory",
+      "risk": "low",
+      "min_age_days": 0,
+      "protect_user_content": true
+    },
+    {
+      "id": "coverage-output",
+      "names": ["coverage", "htmlcov", ".nyc_output"],
+      "reason": "generated coverage output",
+      "risk": "low",
+      "min_age_days": 1,
+      "protect_user_content": false
+    },
+    {
+      "id": "frontend-cache",
+      "names": [".vite", ".parcel-cache", ".turbo"],
+      "reason": "frontend build cache",
+      "risk": "low",
+      "min_age_days": 1,
+      "protect_user_content": false
+    },
+    {
+      "id": "build-output",
+      "names": ["dist-ui", "build", "out"],
+      "reason": "generated build output",
+      "risk": "medium",
+      "min_age_days": 7,
+      "protect_user_content": true
+    }
+  ],
+  "file_rules": [
+    {"id": "legacy-shared-channel-database", "relative_patterns": ["shared-layer/data/shared-layer.sqlite3", "shared-layer/data/shared-layer.sqlite3-wal", "shared-layer/data/shared-layer.sqlite3-shm"], "reason": "legacy combined channel database replaced by isolated system and AI channels", "risk": "medium", "min_age_days": 0, "allow_tracked": true, "allow_direct_delete": true},
+    {"id": "legacy-vaultly-database", "relative_patterns": ["vaultly/data/business/vaultly.sqlite3"], "reason": "legacy Vaultly database replaced by tool-owned runtime state", "risk": "medium", "min_age_days": 0, "allow_tracked": true, "allow_direct_delete": true},
+    {"id": "obsolete-cleaner-history", "relative_patterns": ["global-cleaner/data/business/history.sqlite3"], "reason": "obsolete global cleaner business history", "risk": "medium", "min_age_days": 0, "allow_direct_delete": true},
+    {"id": "temporary", "patterns": ["*.tmp", "*.temp"], "reason": "temporary file", "risk": "low", "min_age_days": 1},
+    {"id": "old-copy", "patterns": ["*.old"], "reason": "old file copy", "risk": "medium", "min_age_days": 14},
+    {"id": "backup-copy", "patterns": ["*.bak"], "reason": "backup file copy", "risk": "medium", "min_age_days": 30},
+    {"id": "old-log", "patterns": ["*.log"], "reason": "expired log file", "risk": "low", "min_age_days": 7},
+    {"id": "coverage-data", "patterns": [".coverage", ".coverage.*"], "reason": "generated coverage data", "risk": "low", "min_age_days": 1},
+    {"id": "crash-output", "patterns": ["*.dmp", "*.mdmp", "*.stackdump", "*.crash"], "reason": "crash diagnostic output", "risk": "medium", "min_age_days": 3},
+    {"id": "trace-output", "patterns": ["*.trace", "*.trace.json"], "reason": "expired trace output", "risk": "low", "min_age_days": 7},
+    {"id": "platform-metadata", "patterns": [".DS_Store", "Thumbs.db"], "reason": "platform metadata file", "risk": "low", "min_age_days": 0}
+  ],
+  "analysis": {
+    "duplicate_min_size_bytes": 1048576,
+    "large_file_min_size_bytes": 10485760,
+    "large_file_min_age_days": 14,
+    "hash_chunk_bytes": 1048576
+  }
+}

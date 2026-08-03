@@ -1,0 +1,45 @@
+{
+  "contract_version": 1,
+  "transport": "authenticated-websocket",
+  "requirements": {
+    "session_token": true,
+    "workspace_instance_id": true,
+    "loopback_peer_connection": true,
+    "queue_when_offline": false,
+    "share_database": false,
+    "inherit_peer_permissions": false
+  },
+  "discovery": {
+    "source": "main-lifecycle-launch-environment-or-validated-loopback-descriptor",
+    "manifest_declared_bindings": true,
+    "persist_credentials": false,
+    "refresh": "resolve-current-descriptor-before-each-command"
+  },
+  "providers": {
+    "local-ai": {
+      "tool_id": "local-ai",
+      "display_name": "本地模型",
+      "scope": "central-sql-rag-git-manager-and-orchestrator",
+      "authority": "highest-under-governance-rule",
+      "highest_authority_management_required": true,
+      "authorization_owner": "governance_rule",
+      "has_fixed_responsibilities": true,
+      "fixed_responsibilities": ["sql-central-management", "rag-central-management", "git-central-management"],
+      "governance_direct_connection": "read-only-authority-snapshot",
+      "governance_source_of_truth": true,
+      "permission_activation": "governance-rule-explicit-authorization-only",
+      "third_party_models": true,
+      "remote_model_inference": false,
+      "local_model_runtime": "ollama-loopback-only"
+    },
+    "external-ai": {
+      "tool_id": "ai-collaboration",
+      "display_name": "外部AI協作",
+      "scope": "google-chrome-playwright-foreground",
+      "api": false,
+      "browser_inference": true,
+      "cli_inference": false,
+      "explicit_browser": "google-chrome-shared-foreground-tabs"
+    }
+  }
+}

@@ -1,0 +1,65 @@
+﻿FROM qwen2.5-coder:7b
+
+TEMPLATE """{{- if .Suffix }}<|fim_prefix|>{{ .Prompt }}<|fim_suffix|>{{ .Suffix }}<|fim_middle|>
+{{- else if .Messages }}
+{{- if or .System .Tools }}<|im_start|>system
+{{- if .System }}
+{{ .System }}
+{{- end }}
+{{- if .Tools }}
+
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+Available functions:
+{{- range .Tools }}
+{"type":"function","function":{{ .Function }}}
+{{- end }}
+
+When calling a function, output ONLY one JSON object in exactly this format:
+{"name":"function_name","arguments":{"argument":"value"}}
+
+Do not use markdown.
+Do not use XML tags.
+Do not explain the call.
+{{- end }}<|im_end|>
+{{ end }}
+
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1 -}}
+
+{{- if eq .Role "user" }}<|im_start|>user
+{{ .Content }}<|im_end|>
+
+{{- else if eq .Role "assistant" }}<|im_start|>assistant
+{{- if .Content }}
+{{ .Content }}
+{{- else if .ToolCalls }}
+{{- range .ToolCalls }}
+{"name":"{{ .Function.Name }}","arguments":{{ .Function.Arguments }}}
+{{- end }}
+{{- end }}
+{{- if not $last }}<|im_end|>
+{{- end }}
+
+{{- else if eq .Role "tool" }}<|im_start|>user
+Tool result:
+{{ .Content }}<|im_end|>
+{{- end }}
+
+{{- if and (ne .Role "assistant") $last }}<|im_start|>assistant
+{{- end }}
+{{- end }}
+
+{{- else }}
+{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{- end }}
+{{- if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{- end }}<|im_start|>assistant
+{{- end }}
+{{ .Response }}{{ if .Response }}<|im_end|>{{ end }}"""
+
+SYSTEM """You are Qwen, created by Alibaba Cloud. You are a helpful coding assistant. When tools are available and required, use them."""

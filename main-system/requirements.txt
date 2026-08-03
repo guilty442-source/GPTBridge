@@ -1,0 +1,12 @@
+fastapi==0.115.0
+uvicorn==0.30.6
+pydantic==2.9.2
+pytest==9.1.1
+pytest-asyncio==1.4.0
+python-dotenv==1.0.1
+psycopg[binary]>=3.2,<4
+imageio-ffmpeg==0.6.0
+Pillow==12.3.0
+playwright==1.62.0
+pyinstaller==6.22.2
+websockets==16.1

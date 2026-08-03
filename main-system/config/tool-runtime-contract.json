@@ -1,0 +1,87 @@
+{
+  "contract_version": 1,
+  "protocol_version": 1,
+  "minimum_supported_contract_version": 1,
+  "description": "Version 1 boundary between GPTBridge and independent tools.",
+  "authority": {
+    "governance_rules": "governance-rule-only",
+    "permission_directory": "governance-rule-only",
+    "shared_requests": "shared-layer",
+    "backups": "global-cleaner",
+    "audit_records": "system-rescue",
+    "runtime_logs": "system-rescue"
+  },
+  "managed_storage": {
+    "root": "system-rescue/data",
+    "backups": "global-cleaner/data/business/backups/{owner_id}",
+    "audit": "system-rescue/data/audit",
+    "logs": "system-rescue/data/logs",
+    "layout": "owner-scoped-flat",
+    "categories": true,
+    "write_authority": "global-cleaner-only",
+    "other_tools": "governed-request-only-no-direct-access",
+    "backup_max_records_per_owner": 1,
+    "replacement_order": "create-verify-publish-delete-excess-same-owner",
+    "automatic_backup_owner": "main-system-daily-governed-trigger",
+    "automatic_repair_extract": "governed-shared-layer-request-only"
+  },
+  "tool_settings": {
+    "root_template": "{tool_id}/runtime/settings",
+    "scope": "tool-private",
+    "shared": false
+  },
+  "temporary_storage": {
+    "root": "global-cleaner/runtime/temp",
+    "tool_root_template": "global-cleaner/runtime/temp/tools/{tool_id}",
+    "shared_layer_root": "global-cleaner/runtime/temp/shared-layer",
+    "scope": "ephemeral-only",
+    "business_data": false,
+    "cross_tool_sharing": false,
+    "cleanup_owner": "global-cleaner",
+    "active_file_behavior": "skip-locked-no-force-unlock"
+  },
+  "independent_tool_runtime": {
+    "allowed_modes": ["executable", "special-unpackaged"],
+    "special_unpacked_requires": {
+      "package": false,
+      "request_model": "governance-authenticated-shared-layer",
+      "direct_instruction": "PERMISSION_DENIED"
+    },
+    "main_system_can_start_both_modes": true,
+    "exe_required": false
+  },
+  "governance": {
+    "authority": "governance-rule-only",
+    "implementation": "governance_rule",
+    "runtime_mutation": "prohibited",
+    "default_start": true,
+    "packaged": false,
+    "stoppable": false,
+    "independent_tools": "authenticated-request-channel-only"
+  },
+  "shared_layer": {
+    "root": "shared-layer",
+    "request_model": "governance-authenticated-shared-layer",
+    "direct_cross_tool_instruction": "PERMISSION_DENIED",
+    "role": "central-sql-index-center",
+    "central_index": {
+      "engine": "postgresql",
+      "schema": "gptbridge_index",
+      "migration": "shared-layer/sql/central_index.sql",
+      "stores": ["index", "relations", "status", "structured-metadata", "audit"],
+      "original_content": false,
+      "model_direct_sql": false,
+      "write_owner": "governance-validated-python-executor",
+      "migration_executor": "main-system/scripts/migrate_legacy_indexes_to_postgresql.py",
+      "provisioning_executor": "main-system/scripts/provision_postgresql_architecture.py",
+      "bootstrap_executor": "main-system/scripts/bootstrap_data_architecture.py",
+      "runtime_language": "python"
+    },
+    "vector_index": {
+      "engine": "qdrant",
+      "role": "rag-vector-only",
+      "mandatory_filter": "module_id"
+    },
+    "original_storage": "owner-module-private-ntfs"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "dist-ui/renderer",
+    "types": ["node", "react", "react-dom", "vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src-ui/renderer/*"],
+      "@main-locales/*": ["locales/*"],
+      "react": ["node_modules/@types/react/index.d.ts"],
+      "react/jsx-runtime": ["node_modules/@types/react/jsx-runtime.d.ts"],
+      "react-dom/client": ["node_modules/@types/react-dom/client.d.ts"]
+    }
+  },
+  "include": [
+    "src-ui/**/*.ts",
+    "src-ui/**/*.tsx",
+    "../file-sorter/src/ui/**/*.ts",
+    "../file-sorter/src/ui/**/*.tsx",
+    "../local-model/model-dialogue/src/ui/**/*.ts",
+    "../local-model/model-dialogue/src/ui/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist-ui",
+    "release",
+    "build",
+    "*/build/**",
+    "*/dist/**",
+    ".GPTBridge_RuntimeSandbox",
+    "backups"
+  ]
+}

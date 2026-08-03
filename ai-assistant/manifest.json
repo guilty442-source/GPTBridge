@@ -1,0 +1,121 @@
+{
+  "id": "ai-assistant",
+  "name_key": "tool.name",
+  "description_key": "tool.description",
+  "version": "1.0.0",
+  "display_version": "1.0",
+  "shared_permission_profile": "ai-investment-manager-v1",
+  "shared_tools": ["ai-assistant", "investment-mobile"],
+  "shared_code_root": "ai-assistant",
+  "shared_cache_consumers": ["ai-assistant", "investment-mobile"],
+  "managed_backup_storage": "global-cleaner/data/business/backups/ai-assistant",
+  "status": "stopped",
+  "enabled": true,
+  "permissions": {
+    "profile": "ai-investment-manager-v1",
+    "business_permission_owner": "ai-assistant",
+    "code_scope": "tool-root-only",
+    "database_scope": "tool-database-only",
+    "allow_modify": ["own-data"],
+    "deny": ["main-program", "other-tools"]
+  },
+  "entry": "ai-assistant/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "request_channel": {
+    "model": "governance-authenticated-shared-layer",
+    "runtime_entry": "src/channel_runtime.py",
+    "direct_instruction": "PERMISSION_DENIED"
+  },
+  "distribution": {
+    "mode": "dual-runtime",
+    "package": true
+  },
+  "launch": {
+    "mode": "dual-runtime",
+    "selection": "automatic",
+    "runtimes": ["governed-source-ui", "executable"],
+    "background": "governed-source-channel",
+    "close_program_on_window_exit": true
+  },
+  "executable": {
+    "path": "dist/ai-assistant.exe",
+    "name": "ai-assistant",
+    "console": true
+  },
+  "capabilities": {
+    "investment-manager": {
+      "shared_mobile_source_root": "ai-assistant/investment-mobile",
+      "shared_mobile_permission_profile": "ai-investment-manager-v1",
+      "mobile_runtime_independent": true,
+      "mobile_independent_only_in": "main-system",
+      "mobile_business_layer_owner": "ai-assistant",
+      "mobile_settings_owner": "ai-assistant",
+      "separate_mobile_business_layer": false,
+      "separate_mobile_settings_layer": false,
+      "authority": "portfolio-state-and-tool-settings-only",
+      "data_scope": "tool-database-only",
+      "conversation_entry": "ai-assistant-window-only",
+      "conversation_isolated_from": "star-chat",
+      "context_isolation": "independent-investment-session",
+      "model_selection": "automatic-only-no-manual-picker",
+      "primary_business_models": ["ibm/granite4.2:30b-q4_K_M"],
+      "dynamic_escalation_models": [
+        "qwen3:30b-a3b-instruct-2507-q4_K_M",
+        "deepseek-r1:8b-0528-qwen3-q4_K_M",
+        "qwen3.8:27b-q4_K_M"
+      ],
+      "model_dispatch_owner": "local-ai",
+      "entry_gateway": "local-ai",
+      "parameter_scope": "investment-manager-only",
+      "market_search_owner": "star-main-native-model",
+      "market_search_owner_label": "星澄原生模型",
+      "realtime_information_search_owner": "star-main-native-model",
+      "realtime_information_search_owner_label": "星澄原生模型",
+      "realtime_information_search_scope": ["dividends", "prices", "net-asset-values", "other-current-market-information"],
+      "investment_analysis_owner": "local-ai",
+      "accounting_owner": "local-ai",
+      "accounting_mode": "star-autonomous-decision-ai-assistant-validated-write",
+      "discussion_path": "ai-assistant-to-star-to-chatgpt-to-star-to-ai-assistant",
+      "discussion_response_recipient": "local-ai",
+      "network_access": "disabled-loopback-ipc-only",
+      "service_provider": "local-ai-via-ai-channel",
+      "external_ai_role": "not-authorized-direct-or-indirect",
+      "ai_authority": "local-ai-under-governance-rule"
+    },
+    "ai-connections": {
+      "transport": "governance-authenticated-ai-channel",
+      "channel": "shared-layer/ai-channel",
+      "peers": ["local-ai"],
+      "allowed_target": "local-ai",
+      "external_ai": "PERMISSION_DENIED",
+      "queue_when_offline": false,
+      "share_database": false,
+      "external_ai_api": false,
+      "direct_cross_tool_connection": false
+    }
+  },
+  "environment": {
+    "allow": [
+      "GPTBRIDGE_AI_ASSISTANT_DATA_ROOT",
+      "GPTBRIDGE_AI_ASSISTANT_PROFILE"
+    ]
+  },
+  "has_custom_ui": true,
+  "test_targets": [
+    "tests/test_ai_assistant.py",
+    "tests/test_investment_manager.py",
+    "tests/test_investment_analytics.py",
+    "tests/test_investment_v3.py"
+  ],
+  "window": {
+    "width": 1440,
+    "height": 920,
+    "minWidth": 1120,
+    "minHeight": 760,
+    "title_key": "tool.window_title"
+  }
+}

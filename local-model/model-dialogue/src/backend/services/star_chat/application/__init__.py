@@ -1,0 +1,1 @@
+"""Star Chat application layer."""

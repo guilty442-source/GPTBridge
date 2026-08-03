@@ -1,0 +1,6 @@
+{
+  "tool.name": "共用層",
+  "tool.window_title": "共用層",
+  "tool.description": "治理驗證的系統與 AI 通道常駐服務。",
+  "errors.permission_denied": "權限不足"
+}

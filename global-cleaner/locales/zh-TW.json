@@ -1,0 +1,6 @@
+{
+  "tool.name": "全域清理",
+  "tool.window_title": "全域清理",
+  "tool.description": "負責全域清理、每日自動備份、每擁有者單份保留、治理式備份提取與唯讀系統檢查。",
+  "errors.permission_denied": "權限不足"
+}

@@ -1,0 +1,283 @@
+{
+  "schema_version": 1,
+  "policy": "centralized-dynamic-by-task",
+  "global_ollama": {
+    "flash_attention": true,
+    "kv_cache_type": "q8_0",
+    "notes": "Ollama 的 Q8 KV cache 環境變數值為 q8_0；全域環境需在 Ollama 重新啟動後生效。"
+  },
+  "task_profiles": {
+    "simple": {
+      "context_limit": 8192,
+      "default_output_tokens": 256,
+      "default_reasoning_effort": "none"
+    },
+    "normal": {
+      "context_source": "daily",
+      "default_output_tokens": 512,
+      "default_reasoning_effort": "low"
+    },
+    "intermediate": {
+      "context_source": "difficult",
+      "default_output_tokens": 768,
+      "default_reasoning_effort": "medium"
+    },
+    "difficult": {
+      "context_source": "difficult",
+      "default_output_tokens": 1024,
+      "default_reasoning_effort": "high",
+      "second_model_verification": true
+    }
+  },
+  "defaults": {
+    "daily_context": 8192,
+    "difficult_context": 32768,
+    "max_output_tokens": 4096,
+    "keep_alive": 0,
+    "thinking": "dynamic",
+    "generation": {}
+  },
+  "models": {
+    "qwen3.8:27b-q4_K_M": {
+      "display_name": "Qwen3.8 27B",
+      "role": "作業總指揮",
+      "daily_context": 16384,
+      "difficult_context": 32768,
+      "max_output_tokens": 8192,
+      "thinking": "medium-high",
+      "keep_alive": 0,
+      "generation": {}
+    },
+    "qwen3.6:35b-a3b-coding": {
+      "display_name": "Qwen3.6 35B Coding",
+      "role": "主 Coding",
+      "daily_context": 16384,
+      "difficult_context": 65536,
+      "max_output_tokens": 8192,
+      "thinking": "medium-high",
+      "keep_alive": 0,
+      "generation": {}
+    },
+    "qwen3-coder:30b-a3b-q4_K_M": {
+      "display_name": "Qwen3-Coder 30B",
+      "role": "第二 Coding",
+      "daily_context": 16384,
+      "difficult_context": 65536,
+      "max_output_tokens": 8192,
+      "thinking": "dynamic",
+      "keep_alive": 0,
+      "generation": {
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "top_k": 20,
+        "repeat_penalty": 1.05
+      }
+    },
+    "deepcoder:14b": {
+      "display_name": "DeepCoder 14B",
+      "role": "Code Review",
+      "daily_context": 8192,
+      "difficult_context": 32768,
+      "max_output_tokens": 4096,
+      "thinking": "on",
+      "keep_alive": 0,
+      "generation": {
+        "temperature": 0.6,
+        "top_p": 0.95
+      }
+    },
+    "granite-code:3b": {
+      "display_name": "Granite Code 3B",
+      "role": "輕量 Coding",
+      "daily_context": 8192,
+      "difficult_context": 16384,
+      "max_output_tokens": 2048,
+      "thinking": "off",
+      "keep_alive": "10m",
+      "generation": {
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40
+      }
+    },
+    "ornith-1.5:35b": {
+      "display_name": "Ornith 1.5 35B",
+      "role": "高階 Agent/Coding",
+      "daily_context": 16384,
+      "difficult_context": 32768,
+      "max_output_tokens": 8192,
+      "thinking": "high",
+      "keep_alive": 0,
+      "generation": {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 40
+      }
+    },
+    "nemotron-3.5-lightning:30b-a3b-q4_K_M": {
+      "display_name": "Nemotron 3.5 Lightning 30B",
+      "role": "自動化執行",
+      "daily_context": 16384,
+      "difficult_context": 32768,
+      "max_output_tokens": 4096,
+      "thinking": "low-medium",
+      "keep_alive": 0,
+      "generation": {
+        "temperature": 0.4,
+        "top_p": 0.9,
+        "top_k": 40
+      }
+    },
+    "gpt-oss:20b": {
+      "display_name": "GPT-OSS 20B",
+      "role": "通用 Agent / 工具",
+      "daily_context": 16384,
+      "difficult_context": 32768,
+      "max_output_tokens": 4096,
+      "thinking": "low-medium",
+      "keep_alive": 0,
+      "generation": {
+        "temperature": 1.0
+      }
+    },
+    "nemotron-3-nano:4b-q8_0": {
+      "display_name": "Nemotron 4B Q8",
+      "role": "高速 Agent",
+      "daily_context": 8192,
+      "difficult_context": 16384,
+      "max_output_tokens": 1024,
+      "thinking": "off",
+      "keep_alive": "10m",
+      "generation": {
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40
+      }
+    },
+    "nemotron-3-nano:4b": {
+      "display_name": "Nemotron 4B",
+      "role": "高速 Agent（相容標籤）",
+      "daily_context": 8192,
+      "difficult_context": 16384,
+      "max_output_tokens": 1024,
+      "thinking": "off",
+      "keep_alive": "10m",
+      "generation": {
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40
+      }
+    },
+    "deepseek-r1:14b": {
+      "display_name": "DeepSeek-R1 14B",
+      "role": "深度推理",
+      "daily_context": 8192,
+      "difficult_context": 32768,
+      "max_output_tokens": 8192,
+      "thinking": "on",
+      "keep_alive": 0,
+      "generation": {
+        "temperature": 0.6,
+        "top_p": 0.95
+      }
+    },
+    "deepseek-r1:8b-0528-qwen3-q4_K_M": {
+      "display_name": "DeepSeek-R1 8B",
+      "role": "高速推理",
+      "daily_context": 8192,
+      "difficult_context": 16384,
+      "max_output_tokens": 4096,
+      "thinking": "on",
+      "keep_alive": "10m",
+      "generation": {
+        "temperature": 0.6,
+        "top_p": 0.95
+      }
+    },
+    "ibm/granite4.2:30b-q4_K_M": {
+      "display_name": "Granite 4.2 30B",
+      "role": "專業企業工作",
+      "daily_context": 16384,
+      "difficult_context": 32768,
+      "max_output_tokens": 8192,
+      "thinking": "dynamic",
+      "keep_alive": 0,
+      "generation": {}
+    },
+    "gemma4:26b-a4b-it-qat": {
+      "display_name": "Gemma 4 26B",
+      "role": "多模態大腦",
+      "daily_context": 16384,
+      "difficult_context": 32768,
+      "max_output_tokens": 4096,
+      "thinking": "medium-high",
+      "keep_alive": 0,
+      "generation": {
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "top_k": 64
+      }
+    },
+    "gemma4:12b-it-qat": {
+      "display_name": "Gemma 4 12B",
+      "role": "中階多模態",
+      "daily_context": 16384,
+      "difficult_context": 32768,
+      "max_output_tokens": 4096,
+      "thinking": "low-medium",
+      "keep_alive": 0,
+      "generation": {
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "top_k": 64
+      }
+    },
+    "gemma4:e2b-it-qat": {
+      "display_name": "Gemma 4 E2B",
+      "role": "高速視覺",
+      "daily_context": 8192,
+      "difficult_context": 16384,
+      "max_output_tokens": 2048,
+      "thinking": "off",
+      "keep_alive": "10m",
+      "generation": {
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "top_k": 64
+      }
+    },
+    "openbmb/minicpm-v4.6:q8_0": {
+      "display_name": "MiniCPM-V 4.6 Q8",
+      "role": "視覺檔案辨識",
+      "daily_context": 8192,
+      "difficult_context": 16384,
+      "max_output_tokens": 1024,
+      "thinking": "off",
+      "keep_alive": "10m",
+      "generation": {
+        "temperature": 0.3,
+        "top_p": 0.9
+      }
+    },
+    "minicpm-v4.6:q8_0": {
+      "display_name": "MiniCPM-V 4.6 Q8",
+      "role": "視覺檔案辨識（相容標籤）",
+      "daily_context": 8192,
+      "difficult_context": 16384,
+      "max_output_tokens": 1024,
+      "thinking": "off",
+      "keep_alive": "10m",
+      "generation": {
+        "temperature": 0.3,
+        "top_p": 0.9
+      }
+    },
+    "nomic-embed-text-v2-moe:latest": {
+      "display_name": "Nomic Embed V2",
+      "role": "記憶檢索 / RAG",
+      "chunk_tokens": 512,
+      "keep_alive": -1,
+      "generation": {}
+    }
+  }
+}

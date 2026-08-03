@@ -1,0 +1,6 @@
+{
+  "tool.name": "自動化檔案管理",
+  "tool.window_title": "自動化檔案管理",
+  "tool.description": "近即時自動分類新檔案；確認寫入穩定後才移動，並保留預覽、交易日誌與復原能力。",
+  "errors.permission_denied": "權限不足"
+}

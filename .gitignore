@@ -9,6 +9,7 @@ edge-profile/
 .GPTBridge_RuntimeSandbox/
 .GPTBridge_CleanerQuarantine/
 .GPTBridge_CleanerRecovery/
+main-system/development-tools/devin/*.local.json
 dist/
 dist-ui/
 release/*
@@ -16,7 +17,11 @@ release/*
 !release/child-tools/**
 release/child-tools/**/build/
 runtime/
+ai-assistant/data/business/
 src-core/runtime/
+main-system/shared-layer/data/
+shared-layer/data/ai-channel.sqlite3*
+shared-layer/data/system-channel.sqlite3*
 backups/
 platform_tools/project-cleaner/data/
 __pycache__/

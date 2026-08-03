@@ -1,0 +1,68 @@
+{
+  "id": "file-sorter",
+  "name_key": "tool.name",
+  "description_key": "tool.description",
+  "version": "1.0.0",
+  "display_version": "1.0",
+  "status": "stopped",
+  "enabled": true,
+  "has_custom_ui": true,
+  "permissions": {
+    "code_scope": "tool-root-only",
+    "database_scope": "tool-database-only",
+    "allow_modify": ["own-data"],
+    "deny": ["main-program", "other-tools"]
+  },
+  "timeout_seconds": 1800,
+  "entry": "file-sorter/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "request_channel": {
+    "model": "governance-authenticated-shared-layer",
+    "runtime_entry": "src/channel_runtime.py",
+    "direct_instruction": "PERMISSION_DENIED"
+  },
+  "distribution": {
+    "mode": "special-unpackaged",
+    "package": false
+  },
+  "launch": {
+    "primary": "governed-source-channel",
+    "background": "governed-source-channel",
+    "close_program_on_window_exit": true
+  },
+  "capabilities": {},
+  "automation": {
+    "entry": "src/backend/services/file_sorter/application/automation_service.py",
+    "class": "FileSorterAutomationService",
+    "enabled": true
+  },
+  "startup": {
+    "auto_start": false,
+    "background": true
+  },
+  "environment": {
+    "allow": [
+      "FILE_SORTER_STATE_ROOT",
+      "FILE_SORTER_JOURNAL_RETENTION_DAYS"
+    ]
+  },
+  "test_targets": [
+    "tests/test_file_sorter.py",
+    "tests/test_file_sorter_cleanup.py",
+    "tests/test_file_sorter_v2.py",
+    "tests/test_file_sorter_metadata_v2.py",
+    "tests/test_file_sorter_automation.py",
+    "tests/test_file_sorter_ui.py"
+  ],
+  "window": {
+    "width": 1040,
+    "height": 780,
+    "minWidth": 760,
+    "minHeight": 560,
+    "title_key": "tool.window_title"
+  }
+}

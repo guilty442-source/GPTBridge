@@ -1,0 +1,146 @@
+{
+  "schema": "gptbridge-data-architecture/v1",
+  "manager": "xingcheng-core-orchestrator",
+  "systems_of_record": {
+    "git": "system-version-development-history-code-schema-configuration",
+    "postgresql": "structured-mutable-official-data",
+    "qdrant": "semantic-knowledge-vector-index",
+    "ollama": "local-model-understanding-reasoning-operations"
+  },
+  "architecture_responsibilities": {
+    "git": {
+      "role": "system-version-and-development-history",
+      "stores": ["source-code", "schema", "configuration", "versioned-system-change-history"],
+      "must_not_store": ["mutable-business-records", "vector-index", "llm-memory"]
+    },
+    "sql": {
+      "engine": "postgresql",
+      "role": "structured-mutable-official-data",
+      "stores": ["official-business-records", "relations", "status", "audit", "rag-document-chunk-mapping"],
+      "authority": "official-structured-data-source-of-truth"
+    },
+    "rag": {
+      "engine": "qdrant-with-postgresql-mapping",
+      "role": "semantic-knowledge-index",
+      "stores": ["embeddings", "semantic-index", "opaque-resource-identities"],
+      "authority": "retrieval-candidate-only",
+      "official_data_verification": "mandatory-through-postgresql"
+    },
+    "llm": {
+      "engine": "governed-local-model-platform",
+      "role": "understanding-reasoning-and-operations",
+      "permanent_system_of_record": false,
+      "mutation": "governed-executor-only"
+    },
+    "separation": "git-sql-qdrant-rag-and-llm-must-not-replace-one-another",
+    "governed_flow": "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes"
+  },
+  "routing": "user-chat-xingcheng-core-orchestrator-to-llm-rag-sql",
+  "xingcheng_authority": {
+    "highest_authority_management_required": true,
+    "management": "central-sql-rag-git-management",
+    "management_owner": "xingcheng-core-orchestrator-under-governance-rule",
+    "management_source_basis": {
+      "governance_rule": "authority-permissions-and-boundaries",
+      "git": "system-version-and-development-history",
+      "sql": "structured-mutable-official-data",
+      "qdrant_rag": "semantic-retrieval-candidates"
+    },
+    "llm_inference_as_source_of_truth": false,
+    "responsibilities": [
+      "sql-inventory-health-policy-and-migration-orchestration",
+      "rag-index-health-routing-and-consistency-management",
+      "git-status-history-change-planning-and-release-coordination"
+    ],
+    "decision_and_orchestration": true,
+    "execution": false,
+    "git_write": false,
+    "sql_write": false,
+    "rag_mutation": false,
+    "system_mutation": false,
+    "self_model_data": "read-write",
+    "execution_delegation": "governed-executor-only"
+  },
+  "xingcheng_governance_connection": {
+    "mode": "direct-read-only",
+    "sources": ["governance-policy-snapshot", "permission-directory-snapshot"],
+    "source_priority": "authoritative-highest",
+    "write": false,
+    "execute": false,
+    "bypass": false
+  },
+  "git_policy": {
+    "repository_scope": "E:/GPTBridge",
+    "platform_root": "local-model",
+    "xingcheng_data_root": "local-model/local-ai",
+    "remote_contact_default": false,
+    "write_requires_governance_approval": true,
+    "xingcheng_write": false,
+    "stores_business_data": false,
+    "stores_vector_index": false,
+    "version_records": [
+      "local-model-identifiers-and-configuration",
+      "third-party-package-manifests-and-lockfiles"
+    ],
+    "version_normalization_exclusions": [
+      "local-model-runtime-and-model-release-versions",
+      "third-party-package-and-dependency-versions"
+    ]
+  },
+  "identity_format": "{platform_id}:{module_id}:{data_category}:{resource_type}:{resource_id}",
+  "identity_fields": [
+    "platform_id", "module_id", "owner_id", "data_category",
+    "resource_type", "resource_id", "resource_label", "classification",
+    "version", "content_hash", "created_at", "updated_at"
+  ],
+  "central_postgresql_layers": {
+    "gptbridge_index": "resource-registry-relations-status",
+    "gptbridge_rag": "document-chunk-fulltext-qdrant-mapping",
+    "gptbridge_transport": "governed-system-and-ai-requests",
+    "gptbridge_audit": "append-only-governance-and-execution-events"
+  },
+  "module_private_layers": {
+    "module_data": "module-owned-structured-resources",
+    "module_state": "module-owned-operation-state",
+    "module_audit": "module-owned-audit-events",
+    "ntfs": "module-owned-original-and-derived-files"
+  },
+  "rag": {
+    "structured_index": "postgresql/gptbridge_rag",
+    "vector_index": "qdrant",
+    "mandatory_payload_fields": [
+      "platform_id", "module_id", "owner_id", "resource_id",
+      "resource_label", "classification", "version", "content_hash"
+    ],
+    "mandatory_query_filter": "module_id",
+    "sqlite_fallback": false
+  },
+  "access_enforcement": {
+    "default_cross_module_access": "deny",
+    "governance_rule": "decision-authority",
+    "shared_layer": "caller-resource-action-validation",
+    "postgresql": "role-schema-forced-row-level-security",
+    "central_index_physical_path": "prohibited",
+    "central_index_locator": "opaque-locator-id-only"
+  },
+  "xingcheng": {
+    "platform_id": "local-model-platform",
+    "module_id": "local-ai",
+    "identity_database": "local_ai_identity",
+    "role_setting": {
+      "type": "personality",
+      "database_isolation": "dedicated",
+      "layers": ["role_data", "role_history", "role_audit"],
+      "identity_format": "{platform_id}:{module_id}:{data_category}:{resource_type}:{resource_id}",
+      "maximum_records": 1,
+      "initial_record_count": 0,
+      "population_owner": "model-dialogue",
+      "bootstrap_seed": false,
+      "empty_record_count_is_valid": true
+    },
+    "cognition_database": "local_ai_cognition",
+    "legacy_model_settings_integration": "model-data",
+    "other_modules": "read-only",
+    "external_execution": false
+  }
+}

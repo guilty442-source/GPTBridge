@@ -1,0 +1,6 @@
+{
+  "tool.name": "本地模型",
+  "tool.window_title": "本地模型",
+  "tool.description": "本地模型平台、星澄原生模型與受治理 AI 通道。",
+  "errors.permission_denied": "權限不足"
+}

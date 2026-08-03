@@ -1,0 +1,38 @@
+{
+  "id": "governance_rule",
+  "name_key": "tool.name",
+  "description_key": "tool.description",
+  "version": "1.0.0",
+  "display_version": "1.0",
+  "status": "running",
+  "enabled": true,
+  "lifecycle": {
+    "startup": "default-before-main-system",
+    "directLoad": true,
+    "encapsulated": false,
+    "optional": false,
+    "stoppable": false,
+    "disableable": false,
+    "unloadable": false
+  },
+  "permissions": {
+    "code_scope": "tool-root-only",
+    "database_scope": "none"
+  },
+  "runtime": {
+    "type": "python",
+    "entry": "main.py",
+    "workingDirectory": "."
+  },
+  "capabilities": {
+    "governance-authority-read-execute": {
+      "entry": "main.py",
+      "arguments": ["--snapshot", "--json"]
+    },
+    "permission-directory-read-execute": {
+      "entry": "permission_directory/main.py",
+      "arguments": ["--snapshot", "--json"]
+    }
+  },
+  "environment": { "allow": [] }
+}

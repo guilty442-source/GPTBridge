@@ -1,0 +1,80 @@
+{
+  "id": "system-rescue",
+  "name_key": "tool.name",
+  "description_key": "tool.description",
+  "version": "1.0.0",
+  "display_version": "1.0",
+  "status": "stopped",
+  "enabled": true,
+  "has_custom_ui": true,
+  "permissions": {
+    "code_scope": "tool-root-only",
+    "database_scope": "tool-database-only"
+  },
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "request_channel": {
+    "model": "governance-authenticated-shared-layer",
+    "runtime_entry": "src/channel_runtime.py",
+    "direct_instruction": "PERMISSION_DENIED"
+  },
+  "launch": {
+    "mode": "dual-runtime",
+    "selection": "automatic",
+    "runtimes": ["governed-source-channel", "executable"],
+    "background": "governed-source-channel",
+    "close_program_on_window_exit": true
+  },
+  "executable": {
+    "path": "dist/system-rescue.exe",
+    "name": "system-rescue",
+    "console": true
+  },
+  "timeout_seconds": 900,
+  "capabilities": {
+    "system-rescue-read-execute": {
+      "operations": {
+        "check": ["--check", "--json"]
+      }
+    },
+    "system-rescue-audit": {
+      "operations": {
+        "append": ["--check", "--json"]
+      }
+    },
+    "system-rescue-log": {
+      "operations": {
+        "cleanup-owned-storage": ["--repair-owned-storage", "--json"]
+      }
+    },
+    "central-automatic-repair": {
+      "operations": {
+        "repair-tool": ["--repair-tool", "--target-tool", "ai-assistant", "--json"]
+      },
+      "authority": "system-rescue-governed-per-tool-database",
+      "execution_owner": "system-rescue",
+      "failure_detection_owner": "main-system",
+      "lifecycle_retry_owner": "main-system",
+      "package_rebuild_owner": "system-rescue",
+      "package_provider": "governed-platform-packager",
+      "business_source_mutation": false
+    }
+  },
+  "environment": {
+    "allow": []
+  },
+  "test_targets": [
+    "tests/test_automatic_repair.py",
+    "tests/test_system_rescue_layering.py"
+  ],
+  "window": {
+    "width": 960,
+    "height": 720,
+    "minWidth": 760,
+    "minHeight": 560,
+    "title_key": "tool.window_title"
+  }
+}

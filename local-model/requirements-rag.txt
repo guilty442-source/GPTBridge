@@ -1,0 +1,6 @@
+# Qwen3 reranker runtime. Qdrant is accessed through its loopback REST API.
+sentence-transformers>=4.1.0
+transformers>=4.51.0
+psycopg[binary]>=3.2,<4
+psycopg[pool]>=3.2,<4
+psutil>=6.0,<8

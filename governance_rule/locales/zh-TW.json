@@ -1,0 +1,7 @@
+{
+  "tool.name": "治理規則",
+  "tool.window_title": "治理規則",
+  "tool.description": "唯一頂層治理權威；治理規則與權責目錄僅供讀取及執行。",
+  "permission-directory.name": "權限目錄",
+  "errors.permission_denied": "權限不足"
+}

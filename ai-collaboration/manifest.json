@@ -1,0 +1,119 @@
+{
+  "id": "ai-collaboration",
+  "name_key": "tool.name",
+  "description_key": "tool.description",
+  "version": "1.0.0",
+  "display_version": "1.0",
+  "status": "stopped",
+  "enabled": true,
+  "permissions": {
+    "code_scope": "tool-root-only",
+    "database_scope": "tool-database-only",
+    "allow_modify": ["own-data"],
+    "deny": ["main-program", "other-tools"]
+  },
+  "entry": "ai-collaboration/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "request_channel": {
+    "model": "governance-authenticated-shared-layer",
+    "runtime_entry": "src/channel_runtime.py",
+    "direct_instruction": "PERMISSION_DENIED"
+  },
+  "launch": {
+    "mode": "dual-runtime",
+    "selection": "automatic",
+    "runtimes": ["governed-source-ui", "executable"],
+    "background": "governed-source-channel",
+    "close_program_on_window_exit": true
+  },
+  "capabilities": {
+    "external-ai": {
+      "authority": "foreground-browser-automation-under-governance-rule",
+      "data_scope": "tool-database-only",
+      "local_ai": false,
+      "transport": "google-chrome-shared-foreground-tabs",
+      "api": false,
+      "browser_inference": true,
+      "browser": {
+        "product": "google-chrome",
+        "mode": "shared-foreground-tabs",
+        "purpose": "login-and-automated-ai-collaboration",
+        "shared_browser_context": true,
+        "fallback_browser": false
+      },
+      "queue_when_offline": false,
+      "cross_tool_transport": "governance-authenticated-ai-channel",
+      "channel": "shared-layer/ai-channel",
+      "requester": "local-ai-fixed-workflow-or-self-general-mode",
+      "entry_gateway": "local-ai",
+      "direct_user_business_entry": false,
+      "response_recipient": "request-originator",
+      "direct_ai_assistant_access": false,
+      "business_scopes": ["general", "investment"],
+      "separate_business_urls": true,
+      "star_training_chatgpt_url": "dedicated-governed-star-training-conversation-url",
+      "business_routing": {
+        "mode": "dual-general-selection-and-fixed-task-owner",
+        "general_mode": "user-selected-up-to-six-ai",
+        "general_mode_final_coordinator": false,
+        "parallel_fixed_workflows": true,
+        "maximum_parallel_tasks": 6,
+        "parallel_capacity": "all-six-ai",
+        "task_planner": "star-main-native-model-only",
+        "final_coordinator": "chatgpt-always",
+        "coordinator": "chatgpt",
+        "highest_channel_coordinator": "local-ai",
+        "search": "gemini",
+        "advanced_search": "perplexity",
+        "calculation": "perplexity",
+        "longform": "claude",
+        "reasoning": "deepseek",
+        "social_media": "grok",
+        "trends": "grok",
+        "breaking_news": "grok"
+      },
+      "investment_requester": "local-ai-only",
+      "search_provider": "gemini-browser-google-search",
+      "search_processor": "gemini",
+      "search_pipeline": "gemini-google-search",
+      "search_result_role": "discovery-only",
+      "capability_fallback": {
+        "policy": "browser-only-no-cross-provider-fallback",
+        "chatgpt": ["chatgpt-browser"],
+        "gemini": ["gemini-browser"],
+        "perplexity": ["perplexity-browser"],
+        "claude": ["claude-browser"],
+        "deepseek": ["deepseek-browser"],
+        "grok": ["grok-browser"]
+      },
+      "memory_interchange": {
+        "mode": "star-mediated-candidate-writeback",
+        "external_direct_database_write": false,
+        "database_sharing": false
+      }
+    }
+  },
+  "environment": {
+    "allow": []
+  },
+  "executable": {
+    "path": "dist/ai-collaboration.exe",
+    "name": "ai-collaboration",
+    "console": true
+  },
+  "has_custom_ui": true,
+  "test_targets": [
+    "tests/test_ai_collaboration.py"
+  ],
+  "window": {
+    "width": 1280,
+    "height": 860,
+    "minWidth": 980,
+    "minHeight": 700,
+    "title_key": "tool.window_title"
+  }
+}

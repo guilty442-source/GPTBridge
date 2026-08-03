@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": "dist-ui/main",
+    "rootDir": "src-ui/main",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src-ui/main/*"],
+      "@shared/*": ["src-ui/types/*"]
+    }
+  },
+  "include": [
+    "src-ui/main/**/*",
+    "src-ui/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist-ui",
+    "release",
+    "build",
+    ".GPTBridge_RuntimeSandbox",
+    "backups"
+  ]
+}

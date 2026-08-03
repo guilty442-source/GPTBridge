@@ -1,0 +1,24 @@
+[project]
+name = "gptbridge-runtime"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi==0.115.0",
+    "imageio-ffmpeg==0.6.0",
+    "pillow==12.3.0",
+    "playwright==1.62.0",
+    "psutil>=6.0,<8",
+    "psycopg[binary,pool]>=3.2,<4",
+    "pydantic==2.9.2",
+    "pyinstaller==6.22.2",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "python-dotenv==1.0.1",
+    "sentence-transformers>=4.1.0",
+    "transformers>=4.51.0",
+    "uvicorn==0.30.6",
+    "websockets==16.1",
+]
+
+[tool.uv]
+package = false

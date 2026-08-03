@@ -1,0 +1,6 @@
+{
+  "tool.name": "影音下載自動化",
+  "tool.window_title": "影音下載自動化",
+  "tool.description": "使用專屬 Edge 登入狀態，自動辨識社群個人檔案入口與可見追蹤帳號，並提供下載檢查、失敗重跑、自動重試及背景監控。",
+  "errors.permission_denied": "權限不足"
+}
