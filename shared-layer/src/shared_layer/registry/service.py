@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass, field
+from sqlite3 import Connection
 from typing import Any
 
-from psycopg import Connection
-
 from ..resource_identity import ResourceIdentity
-from .repository import LocationRecord, ResourceRegistry
+from ..local.registry_repository import LocationRecord, ResourceRecord, ResourceRegistry
 
 
 @dataclass(frozen=True)
@@ -25,26 +25,30 @@ class RegisterResource:
 class RegistryService:
     """Atomically creates the central resource row and its opaque locator."""
 
-    def __init__(self, connection: Connection[dict[str, Any]]) -> None:
+    def __init__(self, connection: Connection) -> None:
         self.connection = connection
+        ResourceRegistry._ensure_schema(connection)
 
     def register(self, command: RegisterResource) -> uuid.UUID:
         identity = command.identity
         locator_id = uuid.uuid5(uuid.NAMESPACE_URL, f"gptbridge:{identity.module_id}:{identity.resource_id}")
-        with self.connection.transaction():
-            self.connection.execute(
-                """INSERT INTO gptbridge_index.resource
-                   (resource_id,platform_id,module_id,owner_id,data_category,resource_type,
-                    resource_label,logical_key,classification,locator_id,content_hash,metadata)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                   ON CONFLICT(resource_id) DO UPDATE SET
-                     logical_key=excluded.logical_key,classification=excluded.classification,
-                     content_hash=excluded.content_hash,metadata=excluded.metadata,updated_at=now()""",
-                (identity.resource_id, identity.platform_id, identity.module_id, identity.owner_id,
-                 identity.data_category, identity.resource_type, identity.label, command.logical_key,
-                 command.classification, locator_id, command.content_hash, command.metadata),
-            )
-            ResourceRegistry(self.connection).register_location(LocationRecord(
+        with self.connection:
+            registry = ResourceRegistry(self.connection)
+            registry.upsert_resource(ResourceRecord(
+                resource_id=identity.resource_id,
+                platform_id=identity.platform_id,
+                module_id=identity.module_id,
+                owner_id=identity.owner_id,
+                data_category=identity.data_category,
+                resource_type=identity.resource_type,
+                resource_label=identity.label,
+                logical_key=command.logical_key,
+                classification=command.classification,
+                locator_id=locator_id,
+                content_hash=command.content_hash,
+                metadata=dict(command.metadata or {}),
+            ))
+            registry.register_location(LocationRecord(
                 locator_id=locator_id,
                 resource_id=identity.resource_id,
                 module_id=identity.module_id,

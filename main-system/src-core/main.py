@@ -24,6 +24,7 @@ from core_system.runtime_bootstrap import RuntimeBootstrap
 from core_system.governance_runtime import MainSystemGovernance
 from core_system.hot_update_service import HotUpdateService
 from core_system.daily_global_cleaner_service import DailyGlobalCleanerService
+from core_system.system_sovereign import SystemSovereignService
 from core_system.versioning import application_version
 from ipc.server import run_server
 from tasks.queue import TaskQueue
@@ -31,7 +32,7 @@ from tasks.toolbox_service import ToolboxService
 from tasks.runtime_status_service import RuntimeStatusService
 
 
-DEFAULT_START_TOOL_IDS = ("shared-layer", "local-ai")
+DEFAULT_START_TOOL_IDS = ("shared-layer", "xingcheng")
 
 
 class GPTBridgeApp:
@@ -56,6 +57,7 @@ class GPTBridgeApp:
         self.runtime_bootstrap = RuntimeBootstrap(self)
         self.hot_update_service = HotUpdateService(self)
         self.daily_global_cleaner_service = DailyGlobalCleanerService(self)
+        self.system_sovereign_service = SystemSovereignService(self)
         self._command_tasks: set[asyncio.Task[Any]] = set()
         self._command_task_meta: dict[asyncio.Task[Any], dict[str, Any]] = {}
 
@@ -105,13 +107,19 @@ class GPTBridgeApp:
             "maintenance_ready": self.maintenance_ready,
             "default_tools": dict(self.default_tool_startup),
             "daily_global_cleaner": self.daily_global_cleaner_service.status(),
+            "system_sovereign": self.system_sovereign_service.status(),
         }
 
     async def _start_governed_default_tools(self) -> None:
         if self.governance is None or self.toolbox_service is None:
             return
+        permission = getattr(
+            getattr(self, "system_sovereign_service", None),
+            "permission_sovereign",
+            None,
+        )
         for tool_id in DEFAULT_START_TOOL_IDS:
-            if not self.governance.can_start_tool(tool_id):
+            if permission is None or not permission.can_start_tool(tool_id):
                 result = {
                     "ok": False,
                     "tool_id": tool_id,
@@ -175,6 +183,19 @@ class GPTBridgeApp:
 
         await self.runtime_bootstrap.initialize_main()
         self.maintenance_ready = True
+
+        # System Sovereign: instantiated after the launcher's dependency and
+        # governance checks have passed. Owns the Xingcheng orchestrator.
+        self._mark_startup_phase("sovereign_initializing")
+        sovereign = await self.system_sovereign_service.start()
+        self._log(
+            {
+                "type": "sovereign_startup",
+                "dependency_state": sovereign.get("dependency_state", ""),
+            }
+        )
+        self._mark_startup_phase("sovereign_initialized")
+
         await self._start_governed_default_tools()
         await self.daily_global_cleaner_service.start()
         self._mark_startup_phase("main_runtime_ready")
@@ -193,6 +214,7 @@ class GPTBridgeApp:
     async def _shutdown_once(self) -> None:
         await self.daily_global_cleaner_service.stop()
         await self.hot_update_service.stop()
+        await self.system_sovereign_service.stop()
 
         pending_tasks = [task for task in self._command_tasks if not task.done()]
         for task in pending_tasks:

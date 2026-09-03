@@ -17,11 +17,11 @@ for path in (ROOT, SHARED_SRC, AI_COLLABORATION_SERVICES):
         sys.path.insert(0, str(path))
 
 from governance_rule.permission_directory.registries.permissions.tool_routes import (  # noqa: E402
-    LOCAL_AI_AUTOMATIC_WORKFLOW_SEQUENCE,
+    XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE,
     ai_channel_status,
     authorize_ai_route,
     authorize_ai_target,
-    authorize_local_ai_automatic_workflow,
+    authorize_xingcheng_automatic_workflow,
 )
 from ai_collaboration.domain.task_protocol import build_ai_task_envelope  # noqa: E402
 from ai_collaboration.integration.provider_session import (  # noqa: E402
@@ -32,11 +32,11 @@ from ai_collaboration.integration.provider_session import (  # noqa: E402
 def test_only_star_can_request_external_collaboration() -> None:
     assert (
         authorize_ai_route(
-            "governance/tool/local-ai",
+            "governance/tool/xingcheng",
             "ai-collaboration",
             "ai_nexus_send_message",
         )
-        == "local-ai"
+        == "xingcheng"
     )
     with pytest.raises(PermissionError, match="PERMISSION_DENIED"):
         authorize_ai_route(
@@ -50,31 +50,31 @@ def test_investment_manager_can_only_request_star_commands() -> None:
     assert (
         authorize_ai_route(
             "governance/tool/ai-assistant",
-            "local-ai",
-            "local_ai_analyze_investments",
+            "xingcheng",
+            "xingcheng_analyze_investments",
         )
         == "ai-assistant"
     )
     assert (
         authorize_ai_route(
             "governance/tool/ai-assistant",
-            "local-ai",
-            "local_ai_manage_investment_accounting",
+            "xingcheng",
+            "xingcheng_manage_investment_accounting",
         )
         == "ai-assistant"
     )
     assert (
         authorize_ai_route(
             "governance/tool/ai-assistant",
-            "local-ai",
-            "local_ai_discuss_investment_analysis",
+            "xingcheng",
+            "xingcheng_discuss_investment_analysis",
         )
         == "ai-assistant"
     )
     with pytest.raises(PermissionError, match="PERMISSION_DENIED"):
         authorize_ai_route(
             "governance/tool/ai-assistant",
-            "local-ai",
+            "xingcheng",
             "ai_nexus_send_message",
         )
 
@@ -90,7 +90,7 @@ def test_external_ai_cannot_route_a_response_to_investment_manager() -> None:
 
 def test_target_accepts_only_the_governed_route() -> None:
     authorize_ai_target(
-        "governance/tool/local-ai",
+        "governance/tool/xingcheng",
         "ai-collaboration",
         "ai_nexus_send_message",
     )
@@ -105,8 +105,8 @@ def test_target_accepts_only_the_governed_route() -> None:
 def test_governance_can_manage_target_without_becoming_ai_participant() -> None:
     authorize_ai_target(
         "governance/main-system",
-        "local-ai",
-        "local_ai_status",
+        "xingcheng",
+        "xingcheng_status",
     )
     with pytest.raises(PermissionError, match="PERMISSION_DENIED"):
         authorize_ai_route(
@@ -120,45 +120,45 @@ def test_status_declares_governance_and_star_authority() -> None:
     status = ai_channel_status()
     assert status["channel_id"] == "shared-layer/ai-channel"
     assert status["highest_authority"] == "governance-rule"
-    assert status["channel_top_level_tool"] == "local-ai"
-    assert status["external_ai_response_recipient"] == "local-ai"
+    assert status["channel_top_level_tool"] == "xingcheng"
+    assert status["external_ai_response_recipient"] == "xingcheng"
     assert status["investment_manager_external_ai"] is False
-    assert status["local_ai_automatic_workflow"]["excluded_path_roots"] == [
+    assert status["xingcheng_automatic_workflow"]["excluded_path_roots"] == [
         "governance_rule"
     ]
 
 
-def test_governance_validates_the_local_ai_automatic_workflow() -> None:
+def test_governance_validates_the_xingcheng_automatic_workflow() -> None:
     payload = {
         "automatic_workflow": True,
         "autonomous_agent": True,
-        "workflow_sequence": list(LOCAL_AI_AUTOMATIC_WORKFLOW_SEQUENCE),
+        "workflow_sequence": list(XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE),
         "primary_language": "zh-TW",
     }
-    authorize_local_ai_automatic_workflow(
+    authorize_xingcheng_automatic_workflow(
         "governance/tool/star-chat",
-        "local-ai",
-        "local_ai_infer",
+        "xingcheng",
+        "xingcheng_infer",
         payload,
     )
     with pytest.raises(PermissionError, match="PERMISSION_DENIED"):
-        authorize_local_ai_automatic_workflow(
+        authorize_xingcheng_automatic_workflow(
             "governance/tool/star-chat",
-            "local-ai",
-            "local_ai_infer",
+            "xingcheng",
+            "xingcheng_infer",
             {**payload, "workflow_sequence": ["execute", "result"]},
         )
 
 
 def test_star_chat_has_only_status_and_inference_routes() -> None:
     assert authorize_ai_route(
-        "governance/tool/star-chat", "local-ai", "local_ai_infer"
+        "governance/tool/star-chat", "xingcheng", "xingcheng_infer"
     ) == "star-chat"
     with pytest.raises(PermissionError, match="PERMISSION_DENIED"):
         authorize_ai_route(
             "governance/tool/star-chat",
-            "local-ai",
-            "local_ai_train_with_gpt",
+            "xingcheng",
+            "xingcheng_train_with_gpt",
         )
 
 
@@ -168,7 +168,7 @@ def test_task_envelope_rejects_investment_manager_and_sanitizes_memory() -> None
         business_scope="investment",
         task_type="search",
         content="搜尋官方資料",
-        requested_by="local-ai",
+        requested_by="xingcheng",
         memory_context=[
             {
                 "memory_id": "m1",
@@ -183,7 +183,7 @@ def test_task_envelope_rejects_investment_manager_and_sanitizes_memory() -> None
     )
 
     assert task["schema_version"] == "1.0"
-    assert task["response_recipient"] == "local-ai"
+    assert task["response_recipient"] == "xingcheng"
     assert task["memory_policy"]["direct_database_access"] is False
     assert "private_field" not in task["memory_context"][0]
     with pytest.raises(PermissionError, match="PERMISSION_DENIED"):
@@ -225,7 +225,7 @@ def test_all_external_ai_use_same_provider_browser_without_fallback(
         business_scope="investment",
         task_type="advanced_search",
         content="尋找官方配息資料",
-        requested_by="local-ai",
+        requested_by="xingcheng",
     )
 
     result = asyncio.run(

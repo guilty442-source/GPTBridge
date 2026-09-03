@@ -200,7 +200,7 @@ class StarChatService:
         try:
             if nested_request_id:
                 return await self._client.request(
-                    "local-ai",
+                    "xingcheng",
                     command,
                     payload,
                     timeout_seconds=timeout_seconds,
@@ -208,7 +208,7 @@ class StarChatService:
                     progress_callback=progress_callback,
                 )
             return await self._client.request(
-                "local-ai", command, payload, timeout_seconds=timeout_seconds
+                "xingcheng", command, payload, timeout_seconds=timeout_seconds
             )
         finally:
             if (
@@ -227,7 +227,7 @@ class StarChatService:
         if self._client is None or not nested_request_id:
             return False
         return await asyncio.to_thread(
-            self._client.cancel, "local-ai", nested_request_id
+            self._client.cancel, "xingcheng", nested_request_id
         )
 
     async def handle(
@@ -243,7 +243,7 @@ class StarChatService:
                 payload.get("prepare_mode"), 16
             ).casefold()
             result = await self._request(
-                "local_ai_status",
+                "xingcheng_status",
                 {
                     "prepare_mode": prepare_mode
                     if prepare_mode in self.CONVERSATION_MODES
@@ -259,14 +259,14 @@ class StarChatService:
                 "client_tool": "star-chat",
                 "main_system_independent_tool": True,
                 "independent_only_in": "main-system",
-                "model_service_owner": "local-ai",
-                "settings_owner": "local-ai",
-                "business_layer_owner": "local-ai",
+                "model_service_owner": "xingcheng",
+                "settings_owner": "xingcheng",
+                "business_layer_owner": "xingcheng",
                 "permission_profile": "local-model-platform-v1",
-                "cache_owner": "local-ai",
+                "cache_owner": "xingcheng",
                 "cache_storage": "local-model/runtime/cache/companions/star-chat",
-                "backup_owner": "local-ai",
-                "backup_storage": "global-cleaner/data/business/backups/local-ai",
+                "backup_owner": "xingcheng",
+                "backup_storage": "global-cleaner/data/business/backups/xingcheng",
                 "separated_from_model_service": False,
                 "database_shared": True,
                 "separate_business_layer": False,
@@ -364,7 +364,7 @@ class StarChatService:
                 }
             }
             result = await self._request(
-                "local_ai_infer",
+                "xingcheng_infer",
                 {
                     **passthrough,
                     "prompt": prompt,

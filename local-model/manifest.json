@@ -3,17 +3,17 @@
     "id": "local-model",
     "role": "physical-owner-root"
   },
-  "id": "local-ai",
+  "id": "xingcheng",
   "name_key": "tool.name",
   "description_key": "tool.description",
   "version": "1.0.0",
   "display_version": "1.0",
   "physical_owner_root": "local-model",
   "shared_permission_profile": "local-model-platform-v1",
-  "shared_tools": ["local-ai", "star-chat"],
+  "shared_tools": ["xingcheng", "star-chat"],
   "shared_code_root": "local-model",
-  "shared_cache_consumers": ["local-ai", "star-chat"],
-  "managed_backup_storage": "global-cleaner/data/business/backups/local-ai",
+  "shared_cache_consumers": ["xingcheng", "star-chat"],
+  "managed_backup_storage": "global-cleaner/data/business/backups/xingcheng",
   "companion_tools": [
     {
       "id": "star-chat",
@@ -45,16 +45,16 @@
     "all_local_model_execution_owner": true,
     "responsibilities": ["model-loading", "model-selection", "inference", "runtime-lifecycle"],
     "authorization_owner": "governance_rule",
-    "business_service_interface": "local-ai",
+    "business_service_interface": "xingcheng",
     "star_direct_model_operation": false
   },
   "distributed_index_architecture": {
     "platform_id": "local-model-platform",
-    "xingcheng_module_id": "local-ai",
-    "xingcheng_folder": "local-ai",
+    "xingcheng_module_id": "xingcheng",
+    "xingcheng_folder": "xingcheng",
     "resource_label_format": "{platform_id}:{module_id}:{data_category}:{resource_type}:{resource_id}",
-    "central_index": "shared-layer/postgresql/gptbridge_index",
-    "vector_index": "qdrant/module-filtered",
+    "central_index": "shared-layer/runtime/central-index.sqlite3",
+    "vector_index": "shared-layer/runtime/semantic-index",
     "original_storage": "owner-module-private-ntfs",
     "local_program_priority": "primary",
     "local_models_excluding_xingcheng": "assistive-only"
@@ -81,12 +81,12 @@
   },
   "permissions": {
     "profile": "local-model-platform-v1",
-    "authority_owner": "local-ai-platform",
+    "authority_owner": "xingcheng-platform",
     "code_scope": "project-source-excluding-governance-rule",
-    "database_scope": "opaque-central-index-read-and-local-ai-internal-read-write",
+    "database_scope": "opaque-central-index-read-and-xingcheng-internal-read-write",
     "database_actions": ["read", "create-write-save", "append", "update", "delete", "rollback"],
-    "allow_modify": ["local-model/local-ai-excluding-permissions"],
-    "allow_read": ["governance-authority-snapshot", "permission-directory-snapshot", "opaque-central-index", "local-model/local-ai", "governed-owner-resolved-resource"],
+    "allow_modify": ["local-model/xingcheng-excluding-permissions"],
+    "allow_read": ["governance-authority-snapshot", "permission-directory-snapshot", "opaque-central-index", "local-model/xingcheng", "governed-owner-resolved-resource"],
     "allow_connect": ["governance-direct-read-channel", "loopback-ollama-runtime"],
     "allow_execute": [
       "ai-entry-intake",
@@ -146,7 +146,7 @@
     "background": "governed-source-channel"
   },
   "capabilities": {
-    "local-ai": {
+    "xingcheng": {
       "entry_ownership": "all-ai-business-entries",
       "entry_sources": ["model-dialogue", "investment-manager", "investment-mobile", "training", "programming", "reasoning", "data", "memory", "capability-composition", "autonomous-agent", "command-execution", "command-understanding"],
       "star_native_model_permissions": {
@@ -157,9 +157,9 @@
         "entry_dispatch": false,
         "cross_tool_connection": false,
         "database_read": true,
-        "database_read_scope": "all-module-data-read-only-plus-local-ai-internal",
+        "database_read_scope": "all-module-data-read-only-plus-xingcheng-internal",
         "database_write": true,
-        "database_write_scope": "local-ai-model-internal-unrestricted-excluding-permission-data",
+        "database_write_scope": "xingcheng-model-internal-unrestricted-excluding-permission-data",
         "database_actions": ["read", "create-write-save", "append", "update", "delete", "rollback", "schema", "migration", "maintenance"],
         "investment_database_write": false,
         "ollama_model_database_access": true,
@@ -294,8 +294,8 @@
         "propose_changes": "all-project-source-excluding-governance-rule",
         "execute_changes": "majority-vote-inspection-backup-and-rollback-gated",
         "excluded_path_roots": ["governance_rule"],
-        "project_database_access": "opaque-central-index-read-only-plus-local-ai-model-internal-unrestricted-excluding-permission-data",
-        "investment_database_write": "governance-authorized-local-ai-and-ai-assistant",
+        "project_database_access": "opaque-central-index-read-only-plus-xingcheng-model-internal-unrestricted-excluding-permission-data",
+        "investment_database_write": "governance-authorized-xingcheng-and-ai-assistant",
         "ollama_database_write": "none-direct-programmatic-executor-only",
         "external_ai": false
       },
@@ -346,7 +346,7 @@
         "maximum_model_concurrency": 4,
         "governance_rule_mutable": false,
         "star_native_model_included": false,
-        "database_write_scope": "local-ai-model-internal-unrestricted-excluding-permission-data",
+        "database_write_scope": "xingcheng-model-internal-unrestricted-excluding-permission-data",
         "external_ai_used": false,
         "source_change_gates": [
           "majority-vote",
@@ -461,7 +461,7 @@
     "investment-analysis": {
       "authority": "analysis-only",
       "data_scope": "transient-input-and-tool-database-only",
-      "owner": "local-ai",
+      "owner": "xingcheng",
       "conversation_entry": "ai-assistant-window-only",
       "conversation_isolated_from": "star-chat",
       "context_sharing_with_star_chat": false,
@@ -483,13 +483,13 @@
       "parameter_database_owner": "star-investment-native-model",
       "parameter_validation": "allowlist-and-bounded-range",
       "analysis_final_coordinator": "qwen3.8:27b-q4_K_M",
-      "analysis_final_response_recipient": "local-ai",
-      "accounting_owner": "local-ai",
+      "analysis_final_response_recipient": "xingcheng",
+      "accounting_owner": "xingcheng",
       "accounting_authority": "qwen3.8-commanded-local-model-review-and-instruction",
       "accounting_coordination": "gemma-primary-business-with-gpt-calculation-weight-risk-and-final-coordination",
       "accounting_network_access": "disabled",
       "accounting_database_access": true,
-      "accounting_database_writer": "local-ai-via-governed-project-database-capability",
+      "accounting_database_writer": "xingcheng-via-governed-project-database-capability",
       "star_investment_database_write": true,
       "star_chat_bypass": false,
       "investment_manager_direct_cross_tool_commands": false,
@@ -536,7 +536,7 @@
       "unified_diff_proposals": true,
       "runtime_source_write": "owner-approved-majority-vote-and-inspection-gated",
       "project_source_permission": "read-write-excluding-governance-rule",
-      "investment_database_permission": "all-operations-through-governed-local-ai-workflow",
+      "investment_database_permission": "all-operations-through-governed-xingcheng-workflow",
       "external_gpt_direct_database_access": false,
       "capability_composition": {
         "decision_rule": "star-native-internal-platform-validated",
@@ -548,7 +548,7 @@
         "owner_approval_required_for_source_write": true,
         "governance_rule_mutable": false,
         "governance_veto": true,
-        "database_write": "all-project-databases-through-governed-local-ai-excluding-governance-rule",
+        "database_write": "all-project-databases-through-governed-xingcheng-excluding-governance-rule",
         "rollback_on_failure": true
       },
       "publish_authority": "governance-versioned-release-only",
@@ -557,7 +557,7 @@
     "star-project-programming": {
       "authority": "non-governance-project-source-read-write",
       "excluded_path_roots": ["governance_rule"],
-      "database_access": "opaque-central-index-read-only-through-rls",
+      "database_access": "opaque-central-index-read-only-through-local-governed-executor",
       "external_gpt_direct_database_access": false
     },
     "ai-connections": {
@@ -573,7 +573,7 @@
       "api": false,
       "queue_when_offline": false,
       "share_database": false,
-      "response_recipient": "local-ai",
+      "response_recipient": "xingcheng",
       "direct_cross_tool_connection": false,
       "memory_interchange": "local-platform-mediated-only",
       "memory_review": "owner-approval-required",
@@ -581,9 +581,11 @@
       "external_health": "disabled"
     }
   },
-  "environment": { "allow": ["GPTBRIDGE_POSTGRES_DSN"] },
+  "environment": {
+    "allow": ["GPTBRIDGE_LOCAL_DB", "GPTBRIDGE_LOCAL_DATABASE"]
+  },
   "test_targets": [
-    "tests/test_local_ai_layering.py",
+    "tests/test_xingcheng_layering.py",
     "tests/test_google_search.py",
     "tests/test_model_registry.py"
   ],

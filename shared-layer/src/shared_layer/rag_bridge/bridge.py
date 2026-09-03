@@ -5,7 +5,7 @@ from typing import Any, Callable, Iterable, Protocol
 
 
 @dataclass(frozen=True)
-class QdrantHit:
+class LocalHit:
     resource_id: str
     chunk_id: str
     module_id: str
@@ -20,17 +20,17 @@ class VectorStore(Protocol):
 
 
 class RagAuthorizationBridge:
-    """Treat Qdrant hits as candidates, never as authorization."""
+    """Treat index hits as candidates, never as authorization."""
 
-    def __init__(self, postgres_authorizer: Callable[[str, str], bool]) -> None:
-        self._postgres_authorizer = postgres_authorizer
+    def __init__(self, authorizer: Callable[[str, str], bool]) -> None:
+        self._authorizer = authorizer
 
-    def filter_authorized(self, actor_id: str, hits: Iterable[QdrantHit]) -> tuple[QdrantHit, ...]:
-        return tuple(hit for hit in hits if self._postgres_authorizer(actor_id, hit.resource_id))
+    def filter_authorized(self, actor_id: str, hits: Iterable[LocalHit]) -> tuple[LocalHit, ...]:
+        return tuple(hit for hit in hits if self._authorizer(actor_id, hit.resource_id))
 
 
 class RagIndexCoordinator:
-    """Qdrant lifecycle plus PostgreSQL mapping; vector matches grant no access."""
+    """Local index lifecycle plus mapping; vector matches grant no access."""
 
     def __init__(
         self,
@@ -68,4 +68,6 @@ class RagIndexCoordinator:
         return self.vector_store.status()
 
 
-__all__ = ["QdrantHit", "RagAuthorizationBridge", "RagIndexCoordinator", "VectorStore"]
+QdrantHit = LocalHit
+
+__all__ = ["LocalHit", "QdrantHit", "RagAuthorizationBridge", "RagIndexCoordinator", "VectorStore"]

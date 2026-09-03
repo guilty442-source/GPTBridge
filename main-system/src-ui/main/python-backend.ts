@@ -1,4 +1,4 @@
-import { ChildProcess, spawn } from 'child_process'
+import { ChildProcess, spawn, spawnSync } from 'child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import { app } from 'electron'
@@ -31,6 +31,10 @@ let startSequence = 0
 const MAX_STARTUP_RECOVERY_ATTEMPTS = 3
 const MAX_AUTONOMOUS_RECOVERY_ATTEMPTS = 3
 let backendLastError = ''
+let sourceRepairAttempted = false
+const SOURCE_REPAIR_SIGNATURE =
+  /(IndentationError|TabError|SyntaxError|unexpected indent|unindent does not match any outer indentation level)/i
+const SOURCE_REPAIR_RECIPE_ID = 'main-system-python-source-syntax'
 type HealthProbeState = 'ready' | 'starting' | 'foreign' | 'untrusted' | 'unreachable'
 
 export function getBackendStatus(): BackendStatus {
@@ -93,6 +97,75 @@ function scheduleAutonomousRecovery(reason: string, sequence: number): void {
     backendStatus = 'idle'
     startBackend()
   }, delayMs)
+}
+
+function runSourceRepair(
+  paths: ReturnType<typeof getRuntimePathLibrary>
+): { attempted: boolean; repaired: boolean; report: string } {
+  if (sourceRepairAttempted) {
+    return {
+      attempted: false,
+      repaired: false,
+      report: 'source repair already attempted this session',
+    }
+  }
+  if (!backendLastError || !SOURCE_REPAIR_SIGNATURE.test(backendLastError)) {
+    return {
+      attempted: false,
+      repaired: false,
+      report: 'no syntax-family failure signature captured',
+    }
+  }
+  sourceRepairAttempted = true
+  console.log(
+    `[Repair Agent] detected syntax-family backend failure; running recipe ${SOURCE_REPAIR_RECIPE_ID}...`
+  )
+  const result = spawnSync(
+    paths.pythonExecutable,
+    [paths.pythonSourceRepairEntry, '--self-repair'],
+    {
+      cwd: paths.workspaceRoot,
+      encoding: 'utf8',
+      timeout: 20_000,
+      windowsHide: true,
+      env: {
+        ...process.env,
+        GPTBRIDGE_PROJECT_ROOT: paths.workspaceRoot,
+      },
+    }
+  )
+  if (result.error) {
+    return {
+      attempted: true,
+      repaired: false,
+      report: `repair agent failed: ${result.error.message}`,
+    }
+  }
+  const stdout = String(result.stdout || '')
+  try {
+    const payload = JSON.parse(stdout) as {
+      ok?: unknown
+      errors?: unknown
+      repaired_files?: unknown
+    }
+    const repaired =
+      payload.ok === true &&
+      Array.isArray(payload.repaired_files) &&
+      payload.repaired_files.length > 0
+    return {
+      attempted: true,
+      repaired,
+      report: `recipe ${SOURCE_REPAIR_RECIPE_ID} -> ${
+        repaired ? 'repaired' : 'unresolved'
+      } (exit ${result.status ?? '?'})`,
+    }
+  } catch {
+    return {
+      attempted: true,
+      repaired: false,
+      report: `repair agent produced no JSON (exit ${result.status ?? '?'})`,
+    }
+  }
 }
 
 function scheduleBackendStartupRecovery(reason: string, sequence: number): void {
@@ -228,9 +301,10 @@ function startHealthPolling(sequence: number) {
     }
     if (healthState !== 'ready') return
 
-    backendStatus = 'running'
+backendStatus = 'running'
     startupRecoveryAttempt = 0
     autonomousRecoveryAttempt = 0
+    sourceRepairAttempted = false
     clearStartupRecoveryTimer()
     clearAutonomousRecoveryTimer()
     backendReadyAt = Date.now()
@@ -310,10 +384,11 @@ function spawnBackendProcess(
 
     void probeBackendHealth().then((healthState) => {
       if (sequence !== startSequence) return
-      if (healthState === 'ready') {
+if (healthState === 'ready') {
         backendStatus = 'running'
         startupRecoveryAttempt = 0
         autonomousRecoveryAttempt = 0
+        sourceRepairAttempted = false
         clearStartupRecoveryTimer()
         clearAutonomousRecoveryTimer()
         backendReadyAt = Date.now()
@@ -331,13 +406,23 @@ function spawnBackendProcess(
         backendMessage = 'port 8765 belongs to a different GPTBridge workspace'
         return
       }
-      if (healthState === 'untrusted') {
+if (healthState === 'untrusted') {
         backendStatus = 'starting'
         backendMessage = 'replacing backend with a current governance identity'
         spawnBackendProcess(paths, sequence, true)
         return
       }
 
+      const sourceRepair = runSourceRepair(paths)
+      if (sourceRepair.attempted) {
+        console.log(`[Repair Agent] ${sourceRepair.report}`)
+        if (sourceRepair.repaired) {
+          backendLastError =
+            `${backendLastError}\n[repair-agent] applied recipe ${SOURCE_REPAIR_RECIPE_ID}; re-spawning backend`
+              .trim()
+              .slice(-4_000)
+        }
+      }
       scheduleBackendStartupRecovery(
         code === 0
           ? 'backend exited before health ready'
@@ -351,6 +436,10 @@ function spawnBackendProcess(
     console.error('[Python Backend Manager] Failed to spawn Python backend:', err)
     pythonProcess = null
     clearHealthTimer()
+    const sourceRepair = runSourceRepair(paths)
+    if (sourceRepair.attempted) {
+      console.log(`[Repair Agent] ${sourceRepair.report}`)
+    }
     scheduleBackendStartupRecovery(err.message, sequence)
   })
 
@@ -410,10 +499,11 @@ export function startBackend() {
 
   void probeBackendHealth(300).then((healthState) => {
     if (sequence !== startSequence || backendStatus === 'stopping') return
-    if (healthState === 'ready') {
+if (healthState === 'ready') {
     backendStatus = 'running'
     startupRecoveryAttempt = 0
     autonomousRecoveryAttempt = 0
+    sourceRepairAttempted = false
     clearStartupRecoveryTimer()
     clearAutonomousRecoveryTimer()
       backendReadyAt = Date.now()

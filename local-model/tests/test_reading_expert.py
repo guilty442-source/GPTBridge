@@ -9,9 +9,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
 
-from local_ai.application.reading_expert import StarReadingExpert
-from local_ai.application.service import LocalAiService
-from local_ai.infrastructure.native_model import StarNativeLanguageModel
+from xingcheng.application.reading_expert import StarReadingExpert
+from xingcheng.application.service import LocalAiService
+from xingcheng.infrastructure.native_model import StarNativeLanguageModel
 
 
 DOCUMENT = """# 星澄年度計畫
@@ -274,7 +274,7 @@ def test_service_routes_supplied_document_to_reading_without_keyword(tmp_path: P
     service = LocalAiService(tmp_path)
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "預算是多少？",
                 "document_text": DOCUMENT,
@@ -305,7 +305,7 @@ def test_service_routes_supplied_document_to_reading_without_keyword(tmp_path: P
 def test_service_marks_missing_reading_content_as_input_required(tmp_path: Path) -> None:
     service = LocalAiService(tmp_path)
     _, result = asyncio.run(
-        service.handle("local_ai_infer", {"prompt": "請閱讀文件並回答問題"})
+        service.handle("xingcheng_infer", {"prompt": "請閱讀文件並回答問題"})
     )
 
     assert result["intent"] == "reading"
@@ -321,7 +321,7 @@ def test_service_marks_missing_reading_content_as_input_required(tmp_path: Path)
 
 def test_service_reports_reading_capabilities(tmp_path: Path) -> None:
     service = LocalAiService(tmp_path)
-    _, status = asyncio.run(service.handle("local_ai_status", {}))
+    _, status = asyncio.run(service.handle("xingcheng_status", {}))
 
     assert status["model_version"] == "1.0"
     assert status["reading"]["actions"] == [
@@ -343,5 +343,5 @@ def test_star_version_remains_consistently_one(tmp_path: Path) -> None:
     assert service.runtime_health()["star_version"] == "1.0"
     assert manifest["version"] == "1.0.0"
     assert manifest["display_version"] == "1.0"
-    assert manifest["capabilities"]["local-ai"]["language_model_version"] == "1.0"
+    assert manifest["capabilities"]["xingcheng"]["language_model_version"] == "1.0"
     assert manifest["capabilities"]["upgrade-optimization"]["version_locked"] == "1.0"

@@ -20,7 +20,7 @@ const STATUS_LABEL: Record<ToolRuntimeState['status'], string> = {
 
 const TOOL_MARK: Record<string, string> = {
   'ai-assistant': '投',
-  'local-ai': '星',
+  'xingcheng': '星',
   'ai-collaboration': '外',
   'project-cleaner': '救',
   vaultly: '安',

@@ -2749,7 +2749,7 @@ def main() -> int:
         tools = [
             item
             for item in tools
-            if item[0] not in {"governance_rule", "shared-layer", "local-ai"}
+            if item[0] not in {"governance_rule", "shared-layer", "xingcheng"}
             and item[2].get("has_custom_ui") is not False
         ]
         known_ids = {tool_id for tool_id, _, _ in tools}

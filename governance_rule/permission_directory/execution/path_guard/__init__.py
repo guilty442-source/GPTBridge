@@ -152,7 +152,7 @@ def validate_grant_resource_path(
         return
     if resource_path is None:
         raise permission_denied()
-    if resource_path.startswith("postgresql:"):
+    if resource_path.startswith("postgresql:") or resource_path.startswith("local:"):
         if grant.path_match != "exact" or resource_path not in {
             template.format(tool_id=tool_id) for template in grant.path_roots
         }:

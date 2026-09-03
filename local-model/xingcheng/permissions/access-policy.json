@@ -1,0 +1,14 @@
+{
+  "schema": "gptbridge-xingcheng-access/v1",
+  "platform_id": "local-model-platform",
+  "module_id": "xingcheng",
+  "display_name": "星澄",
+  "governance_source": "governance_rule",
+  "self_data": "read-write",
+  "permission_files": "read-only",
+  "other_module_data": "read-only",
+  "decision_authority": "highest-under-governance-rule",
+  "external_execution": false,
+  "direct_sql": false,
+  "executor_required": true
+}

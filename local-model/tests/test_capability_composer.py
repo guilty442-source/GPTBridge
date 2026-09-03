@@ -8,9 +8,9 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
 
-from local_ai.domain.capability_composer import StarCapabilityComposer
-from local_ai.domain.module_registry import StarModuleRegistry
-from local_ai.application.service import LocalAiService
+from xingcheng.domain.capability_composer import StarCapabilityComposer
+from xingcheng.domain.module_registry import StarModuleRegistry
+from xingcheng.application.service import LocalAiService
 
 
 MODELS = {
@@ -48,7 +48,7 @@ def _votes(*decisions: str) -> list[dict[str, str]]:
 def test_composition_uses_three_votes_and_three_mandatory_inspectors(
     tmp_path: Path,
 ) -> None:
-    composer = StarCapabilityComposer(tmp_path / "local-ai", StarModuleRegistry())
+    composer = StarCapabilityComposer(tmp_path / "xingcheng", StarModuleRegistry())
     result = composer.compose(
         _request(), votes=_votes("approve", "reject", "approve"), **MODELS
     )
@@ -72,7 +72,7 @@ def test_composition_uses_three_votes_and_three_mandatory_inspectors(
 
 
 def test_source_write_is_denied_without_majority(tmp_path: Path) -> None:
-    composer = StarCapabilityComposer(tmp_path / "local-ai", StarModuleRegistry())
+    composer = StarCapabilityComposer(tmp_path / "xingcheng", StarModuleRegistry())
     blueprint = composer.compose(
         _request(), votes=_votes("reject", "reject", "approve"), **MODELS
     )
@@ -87,7 +87,7 @@ def test_source_write_is_denied_without_majority(tmp_path: Path) -> None:
 def test_majority_approved_module_is_real_python_and_keeps_database_read_only(
     tmp_path: Path, monkeypatch
 ) -> None:
-    tool_root = tmp_path / "local-ai"
+    tool_root = tmp_path / "xingcheng"
     composer = StarCapabilityComposer(tool_root, StarModuleRegistry())
     blueprint = composer.compose(
         _request(), votes=_votes("approve", "approve", "reject"), **MODELS
@@ -131,7 +131,7 @@ async def test_service_keeps_capability_composition_inside_star_native_model(
     runtime = _GateRuntime()
     service.transformer_runtime = runtime
     service.capability_composer = StarCapabilityComposer(
-        tmp_path / "local-ai", StarModuleRegistry()
+        tmp_path / "xingcheng", StarModuleRegistry()
     )
     monkeypatch.setattr(
         service.capability_composer,

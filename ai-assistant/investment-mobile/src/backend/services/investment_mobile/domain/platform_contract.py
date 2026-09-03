@@ -10,7 +10,7 @@ MOBILE_PLATFORM_CAPABILITIES: Final[tuple[str, ...]] = (
     "holdings_read",
     "risk_alerts_read",
     "action_plan_read",
-    "local_ai_command_queue",
+    "xingcheng_command_queue",
 )
 
 
@@ -27,11 +27,11 @@ def mobile_platform_contract() -> dict[str, Any]:
         "permission_profile": "ai-investment-manager-v1",
         "separate_mobile_business_layer": False,
         "separate_mobile_settings_layer": False,
-        "mobile_write_scope": "queue_local_ai_command_only",
+        "mobile_write_scope": "queue_xingcheng_command_only",
         "foreground_sync_seconds": 2,
         "upgrade_compatibility": {
             "mode": "independent-tool",
-            "connection_coordinator": "local-ai",
+            "connection_coordinator": "xingcheng",
             "source_tool": "ai-assistant",
         },
         "capabilities": list(MOBILE_PLATFORM_CAPABILITIES),
@@ -39,7 +39,7 @@ def mobile_platform_contract() -> dict[str, Any]:
             "platform": "/api/platform",
             "pair": "/api/pair",
             "state": "/api/state",
-            "local_ai_command": "/api/local-ai-command",
+            "xingcheng_command": "/api/xingcheng-command",
         },
     }
 

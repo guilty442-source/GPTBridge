@@ -45,7 +45,7 @@
   },
   "capabilities": {
     "ai-connections": {
-      "entry_gateway": "local-ai",
+      "entry_gateway": "xingcheng",
       "direct_model_access": false,
       "model_selection": "automatic-only",
       "source_owner": "ai-assistant",

@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
 
-from local_ai.infrastructure.model_parameter_policy import ModelParameterPolicy
+from xingcheng.infrastructure.model_parameter_policy import ModelParameterPolicy
 
 
 def test_base_parameters_are_applied_when_dynamic_layer_is_empty() -> None:

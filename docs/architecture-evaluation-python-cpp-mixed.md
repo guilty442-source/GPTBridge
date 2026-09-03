@@ -1,7 +1,7 @@
 # GPTBridge Python / C++ 混合架構評估報告
 
 **評估日期**：2026-09-04
-**評估範圍**：GPTBridge 主系統、local-ai、shared-layer、governance_rule
+**評估範圍**：GPTBridge 主系統、xingcheng、shared-layer、governance_rule
 **動機**：整體對話流程從使用者輸入到模型回覆，全鏈路延遲過高
 
 ---

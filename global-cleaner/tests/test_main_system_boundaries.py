@@ -45,7 +45,7 @@ def test_main_core_has_no_provider_or_investment_implementation() -> None:
         "grok",
         "holdings",
         "investment_mobile",
-        "local_ai",
+        "xingcheng",
         "perplexity",
         "portfolio",
     }

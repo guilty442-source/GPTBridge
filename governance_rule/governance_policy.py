@@ -316,11 +316,15 @@ class GovernancePolicy:
 
 
 GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
-    authority_version=1,
+    authority_version=3,
     authority="governance-rule-only-top-level",
     permission_hierarchy_role="only-top-level-permission-authority",
     authority_files=(
         "governance_rule/governance_policy.py",
+        "governance_rule/codex/__init__.py",
+        "governance_rule/codex/sovereigns.py",
+        "governance_rule/codex/chinese.py",
+        "governance_rule/codex/sovereigns_chinese.py",
         "governance_rule/code_rule_directory.py",
         "governance_rule/permission_directory/directory_authority.py",
         "governance_rule/execution/authentication/__init__.py",
@@ -390,7 +394,6 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
         "automatic-repair",
         "main-system-runtime",
         "independent-tool-runtime",
-        "system-rescue-runtime",
     ),
     automatic_repair=AutomaticRepairPolicy(
         required_for=(
@@ -399,9 +402,9 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
             "shared-layer",
         ),
         purpose="restore-system-stability-only",
-        boundary="system-rescue-central-program-with-target-isolated-database-only",
+        boundary="main-system-central-program-with-target-isolated-database-only",
         authorization_source="governance-policy-only",
-        execution_model="main-detects-shared-layer-request-system-rescue-executes-only",
+        execution_model="main-system-executes-central-repair-with-per-target-isolated-database-only",
         unauthorized_repair=False,
         governance_mutation=False,
         authority_expansion=False,
@@ -709,17 +712,17 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
     ),
     system_responsibilities=SystemResponsibilityPolicy(
         git="system-version-and-development-history",
-        sql="structured-mutable-official-data",
-        qdrant_rag="semantic-knowledge-index",
+        sql="structured-mutable-official-data-postgresql",
+        qdrant_rag="qdrant-semantic-knowledge-index",
         llm="understanding-reasoning-and-operations",
-        separation="git-sql-qdrant-rag-and-llm-must-not-replace-one-another",
+        separation="git-sql-rag-and-llm-must-not-replace-one-another",
         governed_flow="llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes",
         management_owner="xingcheng-core-orchestrator-under-governance-rule",
         management_source_basis=(
             "governance-rule-for-authority-permissions-and-boundaries",
             "git-for-system-version-and-development-history",
             "sql-for-structured-mutable-official-data",
-            "qdrant-rag-for-semantic-retrieval-candidates",
+            "qdrant-semantic-knowledge-index-for-semantic-retrieval-candidates",
         ),
         llm_inference_as_source_of_truth=False,
     ),

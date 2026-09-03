@@ -36,7 +36,10 @@ def _load_manifest(tool_id: str) -> dict[str, Any]:
     manifest_path = ROOT / tool_id / "manifest.json"
     if not manifest_path.is_file():
         candidates = []
-        for candidate in ROOT.glob("*/*/manifest.json"):
+        for candidate in (
+            *ROOT.glob("*/manifest.json"),
+            *ROOT.glob("*/*/manifest.json"),
+        ):
             document = json.loads(candidate.read_text("utf-8"))
             if (
                 document.get("id") == tool_id

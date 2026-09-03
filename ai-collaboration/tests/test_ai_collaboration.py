@@ -191,7 +191,7 @@ def test_star_training_routes_chatgpt_to_its_dedicated_conversation_url(
                 "content": "請建立星澄訓練候選。",
                 "business_task": "training-candidate-authoring",
                 "business_scope": "general",
-                "_authorized_requester_actor": "governance/tool/local-ai",
+                "_authorized_requester_actor": "governance/tool/xingcheng",
             },
         )
     )
@@ -207,7 +207,7 @@ def test_star_training_routes_chatgpt_to_its_dedicated_conversation_url(
                 "content": "請協助星澄整理這項需求。",
                 "business_task": "general",
                 "business_scope": "general",
-                "_authorized_requester_actor": "governance/tool/local-ai",
+                "_authorized_requester_actor": "governance/tool/xingcheng",
             },
         )
     )
@@ -294,7 +294,7 @@ def test_official_cli_task_carries_star_memory_and_returns_candidates_only(
     )
 
     assert result["ok"] is True
-    assert session.tasks[0]["requested_by"] == "local-ai"
+    assert session.tasks[0]["requested_by"] == "xingcheng"
     assert session.tasks[0]["memory_context"][0]["content"] == "使用繁體中文"
     assert result["memory_interchange"]["direct_database_access"] is False
     assert result["memory_interchange"]["candidate_count"] == 2

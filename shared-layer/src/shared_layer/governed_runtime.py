@@ -136,6 +136,9 @@ class GovernedToolRuntime:
         health: Callable[[], dict[str, Any]] | None = None,
         idle_cleanup: Callable[[], Any] | None = None,
         channel_modes: dict[str, str] | None = None,
+        self_repair: bool = True,
+        self_repair_clear_pycache: bool = True,
+        local_cleanup: bool = True,
     ) -> None:
         if re.fullmatch(r"[a-z0-9][a-z0-9_-]{1,63}", tool_id) is None:
             raise permission_denied()
@@ -186,6 +189,11 @@ class GovernedToolRuntime:
         self.health_callback = health
         self.waiters: dict[str, Any] = {}
         self.idle_cleanup = idle_cleanup
+        self.self_repair_enabled = self_repair
+        self.self_repair_clear_pycache = self_repair_clear_pycache
+        self._last_self_repair: dict[str, Any] | None = None
+        self.local_cleanup_enabled = local_cleanup
+        self._last_local_cleanup: dict[str, Any] | None = None
 
     def channel_for(self, channel_id: str) -> SharedLayerChannel:
         channel = self._channels.get(str(channel_id or "").strip().casefold())
@@ -207,25 +215,11 @@ class GovernedToolRuntime:
                 await self.send(websocket, event, payload)
 
     async def _listen_for_notifications(self, notify_queue: asyncio.Queue[str]) -> None:
-        import psycopg
-
-        dsn = str(os.environ.get("GPTBRIDGE_POSTGRES_DSN") or "").strip()
-        if not dsn:
-            return
-        conn = await asyncio.to_thread(psycopg.connect, dsn)
-        try:
-            await asyncio.to_thread(conn.execute, "LISTEN gptbridge_tool_request")
-            while not self.shutdown_event.is_set():
-                notify = await asyncio.to_thread(conn.notifies.get, timeout=30.0)
-                if notify is None:
-                    continue
-                payload = str(notify.payload or "")
-                if payload:
-                    notify_queue.put_nowait(payload)
-        except Exception:
-            return
-        finally:
-            await asyncio.to_thread(conn.close)
+        # Codex-native local transport has no PostgreSQL LISTEN source. The
+        # worker polls the local sqlite store directly; this task stays for
+        # interface parity and simply waits out the runtime.
+        while not self.shutdown_event.is_set():
+            await asyncio.sleep(0.5)
 
     def _on_channel_notification(self, payload: str) -> None:
         pass
@@ -389,6 +383,77 @@ class GovernedToolRuntime:
                     {"error_code": "PERMISSION_DENIED", "message": "PERMISSION_DENIED"},
                 )
 
+    async def _run_local_self_repair(self) -> dict[str, Any]:
+        from .tool_self_repair import run_local_self_repair
+
+        try:
+            result = await asyncio.to_thread(
+                run_local_self_repair,
+                self.tool_id,
+                self.tool_root,
+                clear_pycache=self.self_repair_clear_pycache,
+            )
+        except Exception as error:  # never block boot on self repair
+            result = {
+                "ok": False,
+                "operation": "local-self-repair",
+                "authority": "tool-local",
+                "tool_id": self.tool_id,
+                "database_errors": [str(error)],
+                "errors": [str(error)],
+            }
+        self._last_self_repair = result
+        return result
+
+    def _self_repair_health(self) -> dict[str, Any]:
+        last = self._last_self_repair or {}
+        return {
+            "self_repair": {
+                "enabled": self.self_repair_enabled,
+                "completed": self._last_self_repair is not None,
+                "last_ok": last.get("ok"),
+                "checked_databases": last.get("checked_databases") or [],
+                "preserved_databases": last.get("preserved_databases") or [],
+                "database_errors": last.get("database_errors") or [],
+            }
+        }
+
+    async def _run_local_cleanup(self) -> dict[str, Any]:
+        from .tool_local_cleanup import run_local_cleanup
+
+        try:
+            result = await asyncio.to_thread(
+                run_local_cleanup,
+                self.tool_id,
+                self.tool_root,
+            )
+        except Exception as error:  # never block boot on local cleanup
+            result = {
+                "ok": False,
+                "operation": "local-self-cleanup",
+                "authority": "tool-local",
+                "tool_id": self.tool_id,
+                "cleaned_files": [],
+                "cleaned_directories": [],
+                "skipped": [{"reason": f"{type(error).__name__}: {error}"}],
+                "cleaned_bytes": 0,
+            }
+        self._last_local_cleanup = result
+        return result
+
+    def _local_cleanup_health(self) -> dict[str, Any]:
+        last = self._last_local_cleanup or {}
+        return {
+            "local_cleanup": {
+                "enabled": self.local_cleanup_enabled,
+                "completed": self._last_local_cleanup is not None,
+                "last_ok": last.get("ok"),
+                "cleaned_files": last.get("cleaned_files") or [],
+                "cleaned_directories": last.get("cleaned_directories") or [],
+                "cleaned_bytes": last.get("cleaned_bytes") or 0,
+            }
+        }
+
     async def run(self) -> None:
         worker: asyncio.Task[Any] | None = None
 
@@ -409,6 +474,12 @@ class GovernedToolRuntime:
                             channel_id: f"{channel_id}-channel/{self.tool_id}"
                             for channel_id in self._channels
                         },
+                        "_self_repair": self._self_repair_health()
+                        if self.self_repair_enabled
+                        else {},
+                        "_local_cleanup": self._local_cleanup_health()
+                        if self.local_cleanup_enabled
+                        else {},
                         **extra,
                     }
                 ).encode("utf-8")
@@ -432,6 +503,10 @@ class GovernedToolRuntime:
             return None
 
         try:
+            if self.self_repair_enabled:
+                await self._run_local_self_repair()
+            if self.local_cleanup_enabled:
+                await self._run_local_cleanup()
             if self.startup_callback is not None:
                 await self.startup_callback()
             # The owner service must finish initializing before an existing

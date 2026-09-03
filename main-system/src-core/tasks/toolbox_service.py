@@ -28,9 +28,11 @@ from .tool_process_registry import (
     stop_running_executable,
     stop_running_packaged_backend,
     stop_running_source_runtime,
+    stop_running_source_ui,
 )
 from .central_repair import CentralRepairService
 from .tool_path_resolver import ToolPathResolver
+from core_system.permission_sovereign import PermissionSovereign
 
 ToolEventCallback = Callable[[str, Dict[str, Any]], Awaitable[None]]
 
@@ -131,6 +133,7 @@ class ToolboxService:
         self.project_root = project_root
         self.tools_dir = self.project_root
         self.governance = governance
+        self.permission_sovereign = PermissionSovereign(None, governance=governance)
         self.allowed_tool_ids = (
             None
             if allowed_tool_ids is None
@@ -278,7 +281,7 @@ class ToolboxService:
             if isinstance(lifecycle, dict) and lifecycle.get("stoppable") is False:
                 raise PermissionError("LIFECYCLE_LOCKED")
         authority_tool_id = self._runtime_owner_tool_id(tool_id)
-        self.governance.authorize_tool_lifecycle(authority_tool_id, action)
+        self.permission_sovereign.authorize_tool_lifecycle(authority_tool_id, action)
 
     @staticmethod
     def _governance_reason(check: Dict[str, Any]) -> str:
@@ -787,7 +790,7 @@ class ToolboxService:
             deadline = time.monotonic() + 120
             while time.monotonic() < deadline:
                 extraction = await asyncio.to_thread(
-                    self.governance.tool_execution_response,
+                    self.permission_sovereign.tool_execution_response,
                     "global-cleaner",
                     extraction_request_id,
                 )
@@ -987,7 +990,9 @@ class ToolboxService:
             raise PermissionError("PERMISSION_DENIED")
         bootstrap_tool_id = governance_tool_id or tool_id
         child_env[_TOOL_GOVERNANCE_BOOTSTRAP_ENV] = (
-            self.governance.create_tool_governance_bootstrap(bootstrap_tool_id)
+            self.permission_sovereign.create_tool_governance_bootstrap(
+                bootstrap_tool_id
+            )
         )
         child_env["GPTBRIDGE_GOVERNANCE_PROJECT_ROOT"] = str(
             self.project_root.resolve()
@@ -1349,19 +1354,18 @@ class ToolboxService:
         tools = self._load_manifest_records()
         for tool in tools:
             tool_id = str(tool.get("id", "")).strip()
-            if tool_id in {"governance_rule", "shared-layer", "local-ai"}:
+            if tool_id in {"governance_rule", "shared-layer", "xingcheng"}:
                 tool["permission_denied"] = tool_id == "governance_rule"
                 tool["lifecycle_locked"] = True
                 tool["governance_authority"] = tool_id == "governance_rule"
-                tool["resident_service"] = tool_id in {"shared-layer", "local-ai"}
+                tool["resident_service"] = tool_id in {"shared-layer", "xingcheng"}
                 tool["status"] = "running"
                 continue
             try:
                 authority_tool_id = self._runtime_owner_tool_id(tool_id, tool)
                 authorized = bool(
                     tool_id
-                    and self.governance is not None
-                    and self.governance.can_start_tool(authority_tool_id)
+                    and self.permission_sovereign.can_start_tool(authority_tool_id)
                 )
             except PermissionError:
                 authorized = False
@@ -2561,7 +2565,7 @@ class ToolboxService:
             return {"tool_id": tool_id, **(request_error or {})}
 
         try:
-            self.governance.submit_tool_execution_request(
+            self.permission_sovereign.submit_tool_execution_request(
                 tool_id,
                 request_id,
                 dict(payload),
@@ -2615,7 +2619,7 @@ class ToolboxService:
             }
 
         try:
-            cancelled = self.governance.cancel_tool_execution_request(
+            cancelled = self.permission_sovereign.cancel_tool_execution_request(
                 tool_id,
                 requested_id,
             )

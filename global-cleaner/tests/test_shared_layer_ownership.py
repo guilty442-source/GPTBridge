@@ -8,6 +8,9 @@ SHARED_PACKAGE = ROOT / "shared-layer" / "src" / "shared_layer"
 
 
 def test_shared_layer_contains_transport_only() -> None:
+    # Shared-layer is the platform transport/identity layer for the star tool
+    # (xingcheng/xingcheng). It must not leak code or references from any OTHER
+    # business tool or product.
     forbidden_terms = {
         "chatgpt",
         "claude",
@@ -18,7 +21,6 @@ def test_shared_layer_contains_transport_only() -> None:
         "google-search",
         "ai-assistant",
         "ai-collaboration",
-        "local-ai",
         "investment-mobile",
         "holdings",
         "portfolio",

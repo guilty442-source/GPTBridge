@@ -6,6 +6,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $AppDisplayName = -join ([char[]](0x7A0B, 0x5F0F, 0x5EAB))
+$EXIT_CRITICAL_FAILED = 2
 
 if (-not $ProjectRoot) {
     $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
@@ -76,6 +77,78 @@ function Invoke-LauncherCommand {
     }
 }
 
+function Invoke-DependencyOrchestrator {
+    param(
+        [string]$PythonExecutable,
+        [string]$OrchestratorPath,
+        [string]$WorkingDirectory
+    )
+
+    # Returns the startup lifecycle state: READY, DEGRADED, FAILED, or RECOVERING.
+    Write-LauncherStatus "Running local dependency orchestrator: $OrchestratorPath"
+    $tempOut = Join-Path $ProjectRoot "launcher\state\orchestrator-report.json"
+    $tempErr = Join-Path $ProjectRoot "launcher\state\orchestrator-report.error.log"
+    Remove-Item -LiteralPath $tempOut -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $tempErr -Force -ErrorAction SilentlyContinue
+
+    $process = Start-Process `
+        -FilePath $PythonExecutable `
+        -ArgumentList @($OrchestratorPath) `
+        -WorkingDirectory $WorkingDirectory `
+        -WindowStyle Hidden `
+        -Wait `
+        -PassThru `
+        -RedirectStandardOutput $tempOut `
+        -RedirectStandardError $tempErr
+
+    $report = $null
+    if (Test-Path -LiteralPath $tempOut) {
+        try {
+            $report = Get-Content -LiteralPath $tempOut -Raw | ConvertFrom-Json
+        } catch {
+            $report = $null
+        }
+    }
+
+    $state = ""
+    $criticalUp = $false
+    if ($report -and $report.state) {
+        $state = [string]$report.state
+        $criticalUp = [bool]$report.postgresql.ready
+        Write-LauncherStatus "Dependency state: $state"
+        foreach ($name in @("postgresql", "qdrant", "ollama", "warm_model")) {
+            $entry = $report.$name
+            if ($entry) {
+                $level = if ([bool]$entry.critical) { "CRITICAL" } else { "degradable" }
+                Write-LauncherStatus ("  - {0} [{1}] {2}: {3} ({4})" -f `
+                    $name, $level, $entry.status, $entry.fault_code, $entry.message)
+            }
+        }
+    } elseif ($process.ExitCode -eq $EXIT_CRITICAL_FAILED) {
+        $state = "FAILED"
+        $criticalUp = $false
+        Write-LauncherStatus "Dependency orchestrator exited $($process.ExitCode) without readable report."
+    } else {
+        $state = "FAILED"
+        $criticalUp = $false
+        Write-LauncherStatus "Dependency orchestrator produced no readable report."
+    }
+
+    if ($criticalUp) {
+        # Critical dependency (PostgreSQL) is up; launch may proceed even in a
+        # DEGRADED state caused by non-critical Qdrant/Ollama unavailability.
+        return $state
+    }
+
+    # PostgreSQL (critical) is not available. Do not pretend READY.
+    $reason = if ($report -and $report.postgresql) {
+        "fault_code=$($report.postgresql.fault_code); message=$($report.postgresql.message)"
+    } else {
+        "orchestrator exit code $($process.ExitCode)"
+    }
+    throw "Critical dependency unavailable; startup cannot reach READY. $reason"
+}
+
 function Ensure-NodeRuntime {
     $electronExe = Join-Path $ProjectRoot "node_modules\electron\dist\electron.exe"
     $nodeLock = Join-Path $ProjectRoot "node_modules\.package-lock.json"
@@ -131,17 +204,92 @@ function Ensure-PythonRuntime {
     return $pythonExe
 }
 
+function Get-GovernanceSourceSignature {
+    # Signature of the enforced governance authority sources. A stable signature
+    # lets us reuse a previously-passing audit for repeat launches instead of
+    # spinning up a fresh Python process that re-hashes and re-verifies the same
+    # (already O/S read-only, sealed) governance files every time.
+    param([string]$GovernanceWorkspaceRoot)
+    $governanceRelative = @(
+        "governance_rule\governance_policy.py",
+        "governance_rule\code_rule_directory.py",
+        "governance_rule\permission_directory\directory_authority.py",
+        "governance_rule\execution\authentication\__init__.py",
+        "governance_rule\execution\integrity\__init__.py",
+        "governance_rule\execution\versioning\__init__.py",
+        "governance_rule\permission_directory\execution\identity_registry\__init__.py",
+        "governance_rule\permission_directory\execution\path_guard\__init__.py",
+        "main-system\src-ui\main\governance-bootstrap.ts",
+        "main-system\src-core\core_system\governance_runtime.py",
+        "governance_rule\permission_directory\registries\permissions\identity_groups.py",
+        "governance_rule\permission_directory\registries\permissions\identity_permissions.py",
+        "governance_rule\permission_directory\registries\permissions\capability_boundaries.py",
+        "governance_rule\permission_directory\registries\permissions\tool_routes.py",
+        "governance_rule\permission_directory\registries\permissions\source_ownership.py"
+    )
+    $lines = foreach ($relative in $governanceRelative) {
+        $candidate = Join-Path $GovernanceWorkspaceRoot $relative
+        if (-not (Test-Path -LiteralPath $candidate)) { continue }
+        $digest = (Get-FileHash -LiteralPath $candidate -Algorithm SHA256).Hash
+        "$relative`0$digest"
+    }
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha.ComputeHash($bytes))).Replace("-", "")
+    } finally {
+        $sha.Dispose()
+    }
+}
+
+function Write-StartupJournal {
+    param(
+        [string]$Event,
+        [hashtable]$Payload = @{}
+    )
+    try {
+        $journalPath = Join-Path $StateRoot "startup-journal.jsonl"
+        $record = @{
+            event = $Event
+            timestamp = [DateTime]::UtcNow.ToString("O")
+        } + $Payload
+        Add-Content -LiteralPath $journalPath -Value (ConvertTo-Json -InputObject $record -Compress) -Encoding UTF8 -ErrorAction SilentlyContinue
+    } catch {
+        # Observability only; never fail the launcher for a journal write.
+    }
+}
+
 function Invoke-DefaultGovernanceAuthority {
     param(
         [string]$PythonExecutable,
         [string]$GovernanceWorkspaceRoot
     )
 
+    # Hybrid/cached gate: only run the full governance audit when the enforced
+    # authority sources changed or no prior pass is cached. Repeat unchanged
+    # launches reuse the cached PASS, avoiding a redundant Python subprocess.
+    $signaturePath = Join-Path $StateRoot "governance-audit.sha256"
+    $currentSignature = Get-GovernanceSourceSignature -GovernanceWorkspaceRoot $GovernanceWorkspaceRoot
+    $recordedSignature = if (Test-Path -LiteralPath $signaturePath) {
+        (Get-Content -LiteralPath $signaturePath -Raw).Trim()
+    } else {
+        ""
+    }
+
+    if ($recordedSignature -eq $currentSignature) {
+        Write-LauncherStatus "Governance authority verified (cached, sources unchanged)."
+        Write-StartupJournal -Event "launcher.governance.cache-hit" @{ signature = $currentSignature }
+        return
+    }
+
     Write-LauncherStatus "Loading default governance authority before main system."
+    Write-StartupJournal -Event "launcher.governance.start" @{}
     Invoke-LauncherCommand `
         $PythonExecutable `
         @("-m", "governance_rule.execution.audit") `
         $GovernanceWorkspaceRoot
+    Set-Content -LiteralPath $signaturePath -Value $currentSignature -Encoding ASCII
+    Write-StartupJournal -Event "launcher.governance.pass" @{ signature = $currentSignature }
     Write-LauncherStatus "Default governance authority verified and active."
 }
 
@@ -275,19 +423,31 @@ try {
     }
 
     Write-LauncherStatus "Launcher start. ProjectRoot=$ProjectRoot PrepareOnly=$PrepareOnly ForceBuild=$ForceBuild"
+    $launchStartedAt = [DateTime]::UtcNow
+    # Expose the launcher state root to the dependency orchestrator so its
+    # per-phase startup journal is co-located with the launcher's own journal.
+    $env:GPTBRIDGE_STATE_ROOT = $ProjectRoot
+    Write-StartupJournal -Event "launcher.start" @{ projectRoot = $ProjectRoot }
 
     $pythonExe = Ensure-PythonRuntime
-    Write-LauncherStatus "Starting local PostgreSQL, Qdrant and Ollama dependencies."
-    Invoke-LauncherCommand `
-        $pythonExe `
-        @((Join-Path $WorkspaceRoot "local-model\scripts\startup_orchestrator.py")) `
-        $WorkspaceRoot
+    Write-LauncherStatus "Starting local PostgreSQL, Qdrant and Ollama dependencies (hybrid parallel)."
+    Write-StartupJournal -Event "launcher.phase.dependencies.start" @{}
+    $startupState = Invoke-DependencyOrchestrator `
+        -PythonExecutable $pythonExe `
+        -OrchestratorPath (Join-Path $WorkspaceRoot "local-model\scripts\startup_orchestrator.py") `
+        -WorkingDirectory $WorkspaceRoot
+    Write-StartupJournal -Event "launcher.phase.dependencies.done" @{ state = $startupState }
+    Write-StartupJournal -Event "launcher.phase.governance.start" @{}
     Invoke-DefaultGovernanceAuthority $pythonExe $WorkspaceRoot
+    Write-StartupJournal -Event "launcher.phase.governance.done" @{}
     $electronExe = Ensure-NodeRuntime
     Ensure-ProductionBuild
+    Write-StartupJournal -Event "launcher.phase.prepare.done" @{
+        total_ms = [int](([DateTime]::UtcNow - $launchStartedAt).TotalMilliseconds)
+    }
 
     if ($PrepareOnly) {
-        Write-LauncherStatus "Preparation complete."
+        Write-LauncherStatus "Preparation complete (dependency state: $startupState)."
         exit 0
     }
 
@@ -301,9 +461,11 @@ try {
     $env:GPTBRIDGE_MANAGE_BACKEND = "1"
     $env:GPTBRIDGE_WORKSPACE_ROOT = $WorkspaceRoot
     $env:GPTBRIDGE_PROJECT_ROOT = $WorkspaceRoot
+    $env:GPTBRIDGE_STARTUP_STATE = $startupState
     $env:NODE_ENV = "production"
 
     Write-LauncherStatus "Launching source-production Electron runtime."
+    Write-StartupJournal -Event "launcher.phase.electron.start" @{}
     $electronProcess = Start-Process `
         -FilePath $electronExe `
         -ArgumentList @($mainEntry) `
@@ -313,13 +475,17 @@ try {
 
     if ($electronProcess.HasExited) {
         if ($electronProcess.ExitCode -ne 0) {
+            Write-StartupJournal -Event "launcher.electron.exited" @{ code = $electronProcess.ExitCode }
             throw "Electron exited during startup with code $($electronProcess.ExitCode)."
         }
         Write-LauncherStatus "Electron handed off to the running instance."
+        Write-StartupJournal -Event "launcher.electron.handoff" @{}
     } else {
         Write-LauncherStatus "Electron startup accepted. PID=$($electronProcess.Id)"
+        Write-StartupJournal -Event "launcher.electron.accepted" @{ pid = $electronProcess.Id }
     }
 } catch {
+    Write-StartupJournal -Event "launcher.failed" @{ message = $_.Exception.Message }
     $message = "$AppDisplayName launch failed: $($_.Exception.Message)"
     Write-LauncherStatus $message
     Show-LauncherError $message

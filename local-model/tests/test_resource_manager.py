@@ -7,7 +7,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MODULE_PATH = ROOT / "local-model" / "src" / "backend" / "services" / "local_ai" / "infrastructure" / "resource_manager.py"
+MODULE_PATH = ROOT / "local-model" / "src" / "backend" / "services" / "xingcheng" / "infrastructure" / "resource_manager.py"
 SPEC = importlib.util.spec_from_file_location("resource_manager_contract", MODULE_PATH)
 assert SPEC and SPEC.loader
 MODULE = importlib.util.module_from_spec(SPEC)

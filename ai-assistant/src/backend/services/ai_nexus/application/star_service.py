@@ -200,7 +200,7 @@ class InvestmentStarServiceMixin:
                 "external_discussion_connected": discussion.get("ok") is True,
                 "queue_when_offline": False,
             }
-            state_after_run = self.repository.save_local_ai_result(
+            state_after_run = self.repository.save_xingcheng_result(
                 product_status,
                 summary,
                 warnings,
@@ -287,7 +287,7 @@ class InvestmentStarServiceMixin:
                 "error_code": "STAR_AI_CHANNEL_NOT_CONNECTED",
                 "message": "星澄 AI 通道尚未連線，未建立背景工作。",
                 "state": state,
-                "product_status": state.get("local_ai_product_status"),
+                "product_status": state.get("xingcheng_product_status"),
             }
         prompt = (
             "星澄服務：持股更新後由星澄取得資料並執行風險監測"
@@ -328,7 +328,7 @@ class InvestmentStarServiceMixin:
             "message": "已交由星澄服務處理；投資管家本身不聯網。",
             "run": run,
             "state": state_with_run,
-            "product_status": state_with_run.get("local_ai_product_status"),
+            "product_status": state_with_run.get("xingcheng_product_status"),
             "star_accounting": accounting,
         }
 

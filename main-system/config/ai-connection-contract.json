@@ -16,8 +16,8 @@
     "refresh": "resolve-current-descriptor-before-each-command"
   },
   "providers": {
-    "local-ai": {
-      "tool_id": "local-ai",
+    "xingcheng": {
+      "tool_id": "xingcheng",
       "display_name": "本地模型",
       "scope": "central-sql-rag-git-manager-and-orchestrator",
       "authority": "highest-under-governance-rule",

@@ -87,11 +87,11 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
     responsibilities = policy.system_responsibilities
     if (
         responsibilities.git != "system-version-and-development-history"
-        or responsibilities.sql != "structured-mutable-official-data"
-        or responsibilities.qdrant_rag != "semantic-knowledge-index"
+        or responsibilities.sql != "structured-mutable-official-data-postgresql"
+        or responsibilities.qdrant_rag != "qdrant-semantic-knowledge-index"
         or responsibilities.llm != "understanding-reasoning-and-operations"
         or responsibilities.separation
-        != "git-sql-qdrant-rag-and-llm-must-not-replace-one-another"
+        != "git-sql-rag-and-llm-must-not-replace-one-another"
         or responsibilities.governed_flow
         != "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes"
         or responsibilities.management_owner
@@ -101,7 +101,7 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
             "governance-rule-for-authority-permissions-and-boundaries",
             "git-for-system-version-and-development-history",
             "sql-for-structured-mutable-official-data",
-            "qdrant-rag-for-semantic-retrieval-candidates",
+            "qdrant-semantic-knowledge-index-for-semantic-retrieval-candidates",
         )
         or responsibilities.llm_inference_as_source_of_truth
     ):
@@ -255,7 +255,7 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         "governance/tool/ai-assistant",
         "governance/tool/ai-collaboration",
         "governance/tool/investment-mobile",
-        "governance/tool/local-ai",
+        "governance/tool/xingcheng",
         "governance/tool/star-chat",
     }
     if ai_submit_actors != expected_ai_submit_actors:
@@ -468,12 +468,12 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
             errors.append(f"tool permissions are missing: {tool_id}")
         expected_code_scope = (
             "project-source-excluding-governance-rule"
-            if tool_id == "local-ai"
+            if tool_id == "xingcheng"
             else "tool-root-only"
         )
         expected_database_scope = (
-            "opaque-central-index-read-and-local-ai-internal-read-write"
-            if tool_id == "local-ai"
+            "opaque-central-index-read-and-xingcheng-internal-read-write"
+            if tool_id == "xingcheng"
             else "tool-database-only"
             if tool_id != "governance_rule"
             else "none"
@@ -484,7 +484,7 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         if database_scope != expected_database_scope:
             errors.append(f"tool database scope is invalid: {tool_id}")
     
-    # Add companion tool star-chat which is nested under local-ai
+    # Add companion tool star-chat which is nested under xingcheng
     if (root / "local-model" / "model-dialogue" / "manifest.json").is_file():
         manifest_tool_ids.add("star-chat")
 

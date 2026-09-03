@@ -450,7 +450,7 @@ class InvestmentPortfolioServiceMixin:
             "attempted_count": len(holdings),
             "matched_count": matched,
             "auto_confirmed_count": matched,
-            "provider": "local-ai",
+            "provider": "xingcheng",
             "transport": "governance-authenticated-ai-channel",
         }
         saved = self.repository.replace_holdings(
@@ -591,7 +591,7 @@ class InvestmentPortfolioServiceMixin:
         if star_result.get("ok") is not True:
             raise ValueError(str(star_result.get("message") or "星澄市場情報服務失敗。"))
         result = {
-            "provider": "local-ai",
+            "provider": "xingcheng",
             "service_owner": "星澄",
             "transport": "governance-authenticated-ai-channel",
             "requested_count": star_result.get("requested_count", len(holdings)),
@@ -892,7 +892,7 @@ class InvestmentPortfolioServiceMixin:
             )
         ]
         fx_result = {
-            "fx_provider": "local-ai",
+            "fx_provider": "xingcheng",
             "fx_service_owner": "星澄",
             "fx_requested_currencies": sorted(set(currencies)),
         }

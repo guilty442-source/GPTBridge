@@ -265,9 +265,9 @@ def _mobile_html() -> bytes:
         const payload = await response.json();
         const state = payload.state || {};
         const diagnostics = payload.diagnostics || {};
-        const localAi = diagnostics.local_ai || {};
+        const localAi = diagnostics.xingcheng || {};
         const portfolio = state.portfolio || {};
-        const status = state.local_ai_product_status || {};
+        const status = state.xingcheng_product_status || {};
         const analytics = payload.analytics || {};
         const performance = analytics.performance || {};
         const portfolioRisk = analytics.risk || {};
@@ -294,8 +294,8 @@ def _mobile_html() -> bytes:
         text('pairingExpiry', payload.sync?.pairing_expires_at
           ? new Date(payload.sync.pairing_expires_at).toLocaleString('zh-TW', { hour12: false })
           : '-');
-        list('warnings', state.local_ai_risk_warnings || [], (item) => card(item.title || item.code, item.symbol || item.severity, item.detail || item.action));
-        list('actions', state.local_ai_action_plan || [], (item) => card(item.title || item.symbol, item.due || item.risk_level_label, item.action));
+        list('warnings', state.xingcheng_risk_warnings || [], (item) => card(item.title || item.code, item.symbol || item.severity, item.detail || item.action));
+        list('actions', state.xingcheng_action_plan || [], (item) => card(item.title || item.symbol, item.due || item.risk_level_label, item.action));
         list('holdings', state.holdings || [], (item) => card(item.symbol, item.name || item.market, `${item.quantity || 0} · ${item.average_cost || '-'} ${item.currency || ''}`));
       } catch (error) {
         text('syncState', error instanceof Error ? error.message : '同步失敗');
@@ -324,7 +324,7 @@ def _mobile_html() -> bytes:
       event.preventDefault();
       const instruction = document.getElementById('instruction').value.trim();
       if (!instruction) return;
-      const response = await fetch('/api/local-ai-command', {
+      const response = await fetch('/api/xingcheng-command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ instruction })
@@ -552,7 +552,7 @@ class MobileSyncGateway:
             "local_urls": local_urls,
             "remote_base_url": remote_base_url,
             "remote_url": remote_url,
-            "access_scope": "read_state_and_queue_local_ai_command",
+            "access_scope": "read_state_and_queue_xingcheng_command",
             "platform": mobile_platform_contract(),
             "session_count": len(self._sessions),
             "session_idle_minutes": int(SESSION_IDLE_SECONDS / 60),
@@ -628,7 +628,7 @@ class MobileSyncGateway:
                         },
                     )
                     return
-                if parsed.path != "/api/local-ai-command":
+                if parsed.path != "/api/xingcheng-command":
                     self._send_json(404, {"ok": False, "message": "not found"})
                     return
                 payload = self._read_json()

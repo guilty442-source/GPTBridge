@@ -1,33 +1,29 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1].parent))
 
 
-def load_module(name: str, relative: str):
-    spec = importlib.util.spec_from_file_location(name, ROOT / relative)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
+def test_local_sql_engine_declared_and_no_physical_content_in_index() -> None:
+    from governance_rule.permission_directory.directory_authority import (
+        directory_authority_snapshot,
+    )
+    from governance_rule.governance_policy import governance_policy_snapshot
 
-
-def test_sql_uses_real_postgresql_security_and_no_chunk_content() -> None:
-    sql = (ROOT / "sql" / "central_index.sql").read_text(encoding="utf-8")
-    assert "ENABLE ROW LEVEL SECURITY" in sql
-    assert "FORCE ROW LEVEL SECURITY" in sql
-    assert "pg_has_role(session_user" in sql
-    assert "pg_has_role(current_user, principal.role_name" not in sql
-    assert "content text NOT NULL" not in sql
-    assert "locator_fragment text NOT NULL" in sql
-    assert "current_setting('gptbridge.actor_kind', true) = 'xingcheng'" in sql
-    assert "can_write_resource(module_id, classification)" in sql
+    authority = directory_authority_snapshot().shared_layer_access_policy
+    policy = governance_policy_snapshot().shared_layer
+    assert authority.database_path.startswith("postgresql:")
+    assert authority.ai_database_path.startswith("postgresql:")
+    assert authority.database_path != authority.ai_database_path
+    assert authority.central_index_engine == "postgresql"
+    assert policy.database_path == authority.database_path
+    assert policy.ai_database_path == authority.ai_database_path
 
 
 def test_xingcheng_has_select_only_grants() -> None:
@@ -40,40 +36,43 @@ def test_xingcheng_has_select_only_grants() -> None:
 
 
 def test_python_gateway_is_default_deny_and_xingcheng_read_only() -> None:
-    module = load_module("gateway_contract", "src/shared_layer/access_gateway/gateway.py")
+    from shared_layer.access_gateway import gateway as module
+
     denied = module.AccessGateway(lambda *_: False)
     own = module.Principal("tool-a", "file-sorter")
     assert denied.decide(own, "read", "file-sorter").allowed is False
     assert denied.decide(own, "read", "vaultly").reason == "CROSS_MODULE_DEFAULT_DENY"
-    star = module.Principal("xingcheng", "local-ai", is_xingcheng=True)
+    star = module.Principal("xingcheng", "xingcheng", is_xingcheng=True)
     allowed = module.AccessGateway(lambda *_: True)
     assert allowed.decide(star, "read", "vaultly").allowed is True
     assert allowed.decide(star, "update", "vaultly").reason == "XINGCHENG_CROSS_MODULE_READ_ONLY"
-    assert allowed.decide(star, "update", "local-ai").allowed is True
-    assert allowed.decide(star, "manage", "local-ai").allowed is True
+    assert allowed.decide(star, "update", "xingcheng").allowed is True
+    assert allowed.decide(star, "manage", "xingcheng").allowed is True
     assert allowed.decide(
-        star, "update", "local-ai", resource_class="permission-file"
+        star, "update", "xingcheng", resource_class="permission-file"
     ).reason == "PROTECTED_AUTHORITY_READ_ONLY"
     assert allowed.decide(
-        star, "read", "local-ai", resource_class="permission-file"
+        star, "read", "xingcheng", resource_class="permission-file"
     ).allowed is True
     assert allowed.decide(star, "execute", "system-rescue").allowed is False
 
 
-def test_qdrant_runtime_is_loopback_and_fixed_location(tmp_path: Path) -> None:
-    module = load_module("local_rag_contract", "src/shared_layer/rag_bridge/local_runtime.py")
+def test_local_rag_runtime_is_fixed_location(tmp_path: Path) -> None:
+    from shared_layer.rag_bridge import local_runtime as module
+
     runtime = module.runtime_for(tmp_path)
-    assert runtime.qdrant_root == (tmp_path / "local-model" / "runtime" / "qdrant").resolve()
+    assert runtime.index_root == (tmp_path / "shared-layer" / "runtime" / "semantic-index").resolve()
     try:
-        module.LocalRagRuntime(tmp_path / "qdrant", "https://example.com")
+        module.LocalRagRuntime(tmp_path / "private" / "runtime" / "qdrant")
     except ValueError as exc:
-        assert str(exc) == "QDRANT_MUST_BE_LOCAL"
+        assert str(exc) == "LOCAL_SEMANTIC_INDEX_LOCATION_INVALID"
     else:
-        raise AssertionError("remote Qdrant endpoint accepted")
+        raise AssertionError("out-of-contract index root accepted")
 
 
-def test_qdrant_hits_require_postgresql_authorization_and_no_content_payload() -> None:
-    module = load_module("rag_bridge_contract", "src/shared_layer/rag_bridge/bridge.py")
+def test_local_hits_require_authorization_and_no_content_payload() -> None:
+    from shared_layer.rag_bridge import bridge as module
+
     hits = (
         module.QdrantHit("R1", "C1", "vaultly", 0.9),
         module.QdrantHit("R2", "C2", "file-sorter", 0.8),
@@ -83,7 +82,7 @@ def test_qdrant_hits_require_postgresql_authorization_and_no_content_payload() -
 
     class Store:
         def replace_document(self, *_args, **_kwargs):
-            raise AssertionError("invalid payload reached Qdrant")
+            raise AssertionError("invalid payload reached the index")
 
     coordinator = module.RagIndexCoordinator(Store(), lambda *_: None, lambda *_: None)
     try:
@@ -91,7 +90,7 @@ def test_qdrant_hits_require_postgresql_authorization_and_no_content_payload() -
     except ValueError as exc:
         assert str(exc) == "RAG_PAYLOAD_MUST_NOT_CONTAIN_PHYSICAL_CONTENT_OR_PATH"
     else:
-        raise AssertionError("physical content was accepted into Qdrant payload")
+        raise AssertionError("physical content was accepted into index payload")
 
 
 def test_no_installer_or_docker_dependency_in_python_core() -> None:
@@ -102,8 +101,8 @@ def test_no_installer_or_docker_dependency_in_python_core() -> None:
 
 def test_xingcheng_self_database_write_is_executor_only() -> None:
     manifest = json.loads((ROOT.parent / "local-model" / "manifest.json").read_text(encoding="utf-8"))
-    star = manifest["capabilities"]["local-ai"]["star_native_model_permissions"]
+    star = manifest["capabilities"]["xingcheng"]["star_native_model_permissions"]
     assert star["database_write"] is True
-    assert star["database_write_scope"] == "local-ai-model-internal-unrestricted-excluding-permission-data"
+    assert star["database_write_scope"] == "xingcheng-model-internal-unrestricted-excluding-permission-data"
     assert star["investment_database_write"] is False
-    assert manifest["permissions"]["database_scope"] == "opaque-central-index-read-and-local-ai-internal-read-write"
+    assert manifest["permissions"]["database_scope"] == "opaque-central-index-read-and-xingcheng-internal-read-write"

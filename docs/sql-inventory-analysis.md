@@ -1,7 +1,7 @@
 # GPTBridge 本地 SQL 現況盤點與缺口分析
 
 **評估日期**：2026-09-04
-**範圍**：GPTBridge 全專案的 SQL 資料層（PostgreSQL 治理架構、local-ai RAG、模組本地 SQLite）
+**範圍**：GPTBridge 全專案的 SQL 資料層（PostgreSQL 治理架構、xingcheng RAG、模組本地 SQLite）
 
 ---
 
@@ -53,7 +53,7 @@ GPTBridge 的資料層分為**兩大引擎**與**三種典範**：
 - `provision_postgresql_architecture.py` 依 module_id 建立 RLS policy（按 `module_id` 欄位隔離）
 - 部署時需以 MODULE_ROLE / MODULE_ID 取代模板佔位
 
-#### C. 星澄認知庫（`local-model/local-ai/databases/cognition.sql` — 85 行）
+#### C. 星澄認知庫（`local-model/xingcheng/databases/cognition.sql` — 85 行）
 
 | Schema | 資料表 | 用途 |
 |--------|--------|------|
@@ -66,7 +66,7 @@ GPTBridge 的資料層分為**兩大引擎**與**三種典範**：
 - 有 `UNIQUE (resource_id)`、`resource_label UNIQUE`、`version > 0` 約束
 - 有 `content_hash` 欄位但**未設唯一/不可變約束**（對照 SQLite 快照的 `SNAPSHOT_IMMUTABLE`）
 
-#### D. 星澄身份庫（`local-model/local-ai/databases/identity/*.sql` — 4 個模組）
+#### D. 星澄身份庫（`local-model/xingcheng/databases/identity/*.sql` — 4 個模組）
 
 | 模組 | Schema | 資料表 | 用途 |
 |------|--------|--------|------|
@@ -75,7 +75,7 @@ GPTBridge 的資料層分為**兩大引擎**與**三種典範**：
 | 003_role_audit | `role_audit` | `event` | 人格變更審計 |
 | 004_access_policy | — | — | RLS + role | `gptbridge_xingcheng_internal` |
 
-- `personality` 有 `CHECK` 強制 `module_id='local-ai'`、`owner_id='local-ai'`
+- `personality` 有 `CHECK` 強制 `module_id='xingcheng'`、`owner_id='xingcheng'`
 - 由 `provision_postgresql_architecture.py` 的 `_execute_sql_modules` 依序套用
 
 ---
@@ -85,7 +85,7 @@ GPTBridge 的資料層分為**兩大引擎**與**三種典範**：
 ### 3.1 環境變數（start.ps1 載入）
 | 變數 | 用途 |
 |------|------|
-| `GPTBRIDGE_POSTGRES_DSN` | 中央索引庫（local-ai RAG 用之） |
+| `GPTBRIDGE_POSTGRES_DSN` | 中央索引庫（xingcheng RAG 用之） |
 | `GPTBRIDGE_POSTGRES_ADMIN_DSN` | 治理架構佈署（provision 腳本） |
 | `GPTBRIDGE_MODULE_DSNS` | 模組私有資料庫 DSN 對映 |
 | `GPTBRIDGE_XINGCHENG_IDENTITY_DSN` | 星澄身份庫 |
@@ -95,10 +95,11 @@ GPTBridge 的資料層分為**兩大引擎**與**三種典範**：
 | 存取層 | 檔案 | 使用的庫 | 覆蓋範圍 |
 |--------|------|----------|----------|
 | `SharedLayerStore` | `shared-layer/src/shared_layer/store.py` | psycopg + psycopg_pool（**連線池**） | `gptbridge_transport.tool_request` |
-| `PostgresRagRepository` | `local-model/.../infrastructure/postgres_rag_repository.py` | psycopg + psycopg_pool（連線池） | `gptbridge_index.*`、`gptbridge_rag.*` |
-| 本地 SQLite `repository.py` | `local-model/.../infrastructure/repository.py` | 內建 sqlite3 | `local-ai/runtime/state/models/*.sqlite3` |
-| 本地 SQLite `local_command_parser.py` | `local-ai/application/local_command_parser.py` | 內建 sqlite3 | 常用命令歷史 |
+| `PostgresRagRepository`（已退役） | `local-model/.../infrastructure/postgres_rag_repository.py` | psycopg + psycopg_pool（連線池） | `gptbridge_index.*`、`gptbridge_rag.*` |
+| 本地 SQLite `repository.py` | `local-model/.../infrastructure/repository.py` | 內建 sqlite3 | `xingcheng/runtime/state/models/*.sqlite3` |
+| 本地 SQLite `local_command_parser.py` | `local-model/.../infrastructure/local_command_parser.py` | 內建 sqlite3 | 常用命令歷史 |
 | 本地 SQLite `ollama_model_repository.py` | `local-model/.../infrastructure/ollama_model_repository.py` | 內建 sqlite3 | 推論記錄、能力投票、訓練貢獻 |
+| 本地 SQLite 統一語義索引（B 方案） | `shared-layer/src/shared_layer/local/vector_store.py`（`xingcheng/infrastructure/local_vector_store.py` 為相容 shim） | 內建 sqlite3 | 語義索引 `local-rag-vectors.sqlite3`／`shared-layer/runtime/semantic-index/vectors.sqlite3` |
 
 ---
 
@@ -108,8 +109,8 @@ GPTBridge 的資料層分為**兩大引擎**與**三種典範**：
 - `cognition.sql`（model_data / knowledge / model_capability / rag_reference）與
   `identity/*.sql`（personality / personality_version / event）**已由 provisioning 腳本建立**，
   但專案內**沒有任何 Python Repository 讀寫它們**。
-- 唯一的引用是測試檔 `test_local_ai_layering.py` 的靜態字串檢查。
-- 結果：這些治理孤立的資料表形同虛設；星座的人格設定、版本歷史、審計無法被 local-ai 使用。
+- 唯一的引用是測試檔 `test_xingcheng_layering.py` 的靜態字串檢查。
+- 結果：這些治理孤立的資料表形同虛設；星座的人格設定、版本歷史、審計無法被 xingcheng 使用。
 
 ### 缺口 2：星澄認知庫缺不可變/合規約束
 - `cognition.sql` 的 `content_hash`、`version` 未套用 SQLite 快照那樣的

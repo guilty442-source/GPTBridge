@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
 
-from local_ai.integration.external_research import ExternalBrowserResearch
+from xingcheng.integration.external_research import ExternalBrowserResearch
 
 
 class _FakeChannelClient:
@@ -56,7 +56,7 @@ def test_star_requests_investment_google_only_through_ai_channel() -> None:
     assert payload["research_pipeline"] == "google-gemini"
     assert '"2330 台積電" 配息 股價 淨值 官方' in str(payload["content"])
     assert timeout == 200
-    assert result["recipient"] == "local-ai"
+    assert result["recipient"] == "xingcheng"
     assert result["provider"] == "google-search"
     assert result["processor"] == "gemini"
     assert result["business_scope"] == "investment"
@@ -105,7 +105,7 @@ def test_chatgpt_final_coordination_returns_only_to_star() -> None:
     assert payload["business_task"] == "orchestration"
     assert result["ok"] is True
     assert result["provider"] == "chatgpt"
-    assert result["recipient"] == "local-ai"
+    assert result["recipient"] == "xingcheng"
     assert result["content"] == "統籌完成"
     assert result["direct_database_access"] is False
     assert timeout == 200

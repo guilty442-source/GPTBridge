@@ -277,32 +277,32 @@ export function AiAssistantWindowApp() {
   const localAiCommandPreview = (localAiCommandResult?.text || "").trim();
   const localAiActionPlan = (
     localAiCommandResult?.action_plan ||
-    investmentWatch.investmentState.local_ai_action_plan ||
+    investmentWatch.investmentState.xingcheng_action_plan ||
     []
   ).slice(0, 5);
   const localAiWatchTriggers = (
     localAiCommandResult?.watch_triggers ||
-    investmentWatch.investmentState.local_ai_watch_triggers ||
+    investmentWatch.investmentState.xingcheng_watch_triggers ||
     []
   ).slice(0, 6);
   const localAiConfidence =
     localAiCommandResult?.confidence_summary ||
-    investmentWatch.investmentState.local_ai_confidence ||
+    investmentWatch.investmentState.xingcheng_confidence ||
     null;
   const localAiDecisionBrief =
     localAiCommandResult?.decision_brief ||
-    investmentWatch.investmentState.local_ai_decision_brief ||
+    investmentWatch.investmentState.xingcheng_decision_brief ||
     localAiStatus?.decision_summary ||
     "";
   const localAiNetworkContext =
     localAiCommandResult?.network_context ||
-    investmentWatch.investmentState.local_ai_network_context ||
+    investmentWatch.investmentState.xingcheng_network_context ||
     localAiStatus?.network_context ||
     null;
   const localAiExplanation =
-    investmentWatch.investmentState.local_ai_explanation;
+    investmentWatch.investmentState.xingcheng_explanation;
   const externalAiDiscussion =
-    investmentWatch.investmentState.local_ai_external_discussion;
+    investmentWatch.investmentState.xingcheng_external_discussion;
   const coordinatorLabel = externalAiDiscussion?.ok
     ? "ChatGPT 已統籌"
     : externalAiDiscussion?.queued
@@ -339,7 +339,7 @@ export function AiAssistantWindowApp() {
   const localAiNetworkLabel =
     localAiNetworkContext?.mode_label ||
     localAiStatus?.network_mode_label ||
-    diagnostics?.local_ai?.network_mode_label ||
+    diagnostics?.xingcheng?.network_mode_label ||
     localAiStatus?.watch_status_label ||
     (holdingQuoteAvailable
       ? openMarkets.length > 0
@@ -351,12 +351,12 @@ export function AiAssistantWindowApp() {
   const localAiNetworkCoverage =
     localAiNetworkContext?.coverage_label ||
     localAiStatus?.coverage_label ||
-    diagnostics?.local_ai?.coverage_label ||
+    diagnostics?.xingcheng?.coverage_label ||
     holdingQuoteCoverage;
   const localAiQuoteHealth =
     localAiNetworkContext?.health ||
     localAiStatus?.quote_health ||
-    diagnostics?.local_ai?.quote_health ||
+    diagnostics?.xingcheng?.quote_health ||
     (holdingQuoteAvailable
       ? "ready"
       : openMarkets.length > 0
@@ -365,7 +365,7 @@ export function AiAssistantWindowApp() {
   const localAiQuoteHealthLabel =
     localAiNetworkContext?.health_label ||
     localAiStatus?.quote_health_label ||
-    diagnostics?.local_ai?.quote_health_label ||
+    diagnostics?.xingcheng?.quote_health_label ||
     (holdingQuoteAvailable
       ? "報價可用"
       : openMarkets.length > 0
@@ -373,24 +373,24 @@ export function AiAssistantWindowApp() {
         : "等待開盤");
   const localAiProviderCount =
     localAiNetworkContext?.quote_provider_count ??
-    diagnostics?.local_ai?.quote_provider_count ??
+    diagnostics?.xingcheng?.quote_provider_count ??
     holdingQuoteStatus.providerCount;
   const localAiQuoteGaps = (
     localAiNetworkContext?.quote_gaps ||
-    diagnostics?.local_ai?.quote_gaps ||
+    diagnostics?.xingcheng?.quote_gaps ||
     []
   ).slice(0, 8);
   const localAiQuoteGapCount =
     localAiNetworkContext?.quote_gap_count ??
-    diagnostics?.local_ai?.quote_gap_count ??
+    diagnostics?.xingcheng?.quote_gap_count ??
     localAiQuoteGaps.length;
   const localAiCrossCheckedCount =
     localAiNetworkContext?.cross_checked_count ??
-    diagnostics?.local_ai?.cross_checked_count ??
+    diagnostics?.xingcheng?.cross_checked_count ??
     0;
   const localAiUntrustedQuoteCount =
     localAiNetworkContext?.untrusted_quote_count ??
-    diagnostics?.local_ai?.untrusted_quote_count ??
+    diagnostics?.xingcheng?.untrusted_quote_count ??
     0;
   const localAiVerificationLabel = `驗證 ${localAiCrossCheckedCount} · 異常 ${localAiUntrustedQuoteCount}`;
   const localAiRecommendation =
@@ -1074,8 +1074,8 @@ export function AiAssistantWindowApp() {
             <div>
               <span>星澄風險</span>
               <strong>
-                {diagnostics?.local_ai?.warning_count ?? 0} /{" "}
-                {diagnostics?.local_ai?.critical_count ?? 0}
+                {diagnostics?.xingcheng?.warning_count ?? 0} /{" "}
+                {diagnostics?.xingcheng?.critical_count ?? 0}
               </strong>
             </div>
             <div>
@@ -1322,7 +1322,7 @@ export function AiAssistantWindowApp() {
 
           {workspaceView === "star" ? (
             <aside className="nexus-column nexus-column--right">
-              <section className="nexus-surface nexus-local-ai-status">
+              <section className="nexus-surface nexus-xingcheng-status">
                 <div className="nexus-section-head">
                   <span>星澄</span>
                   <strong>
@@ -1348,7 +1348,7 @@ export function AiAssistantWindowApp() {
                   </p>
                 </div>
                 {localAiDecisionBrief ? (
-                  <div className="nexus-local-ai-decision">
+                  <div className="nexus-xingcheng-decision">
                     <span>星澄決策摘要</span>
                     <strong>
                       信心{" "}
@@ -1366,7 +1366,7 @@ export function AiAssistantWindowApp() {
                     <p>{localAiDecisionBrief}</p>
                   </div>
                 ) : null}
-                <div className="nexus-local-ai-meta">
+                <div className="nexus-xingcheng-meta">
                   <span>{localAiStatus?.coverage_label || "等待持股資料"}</span>
                   <span
                     className={`nexus-network-pill nexus-network-pill--${localAiQuoteHealth}`}
@@ -1393,7 +1393,7 @@ export function AiAssistantWindowApp() {
                   <span>重大 {localAiStatus?.critical_count ?? 0}</span>
                 </div>
                 {localAiExplanation?.text ? (
-                  <div className="nexus-local-ai-explanation">
+                  <div className="nexus-xingcheng-explanation">
                     <strong>{localAiExplanation.mode_label}</strong>
                     <p>{localAiExplanation.text}</p>
                   </div>
@@ -1425,7 +1425,7 @@ export function AiAssistantWindowApp() {
                   </div>
                 ) : null}
                 {localAiActions.length > 0 ? (
-                  <ul className="nexus-local-ai-actions">
+                  <ul className="nexus-xingcheng-actions">
                     {localAiActions.map((action, index) => (
                       <li key={`${action}:${index}`}>{action}</li>
                     ))}
@@ -1477,7 +1477,7 @@ export function AiAssistantWindowApp() {
                   <strong>{investmentWatch.investmentRuns.length}</strong>
                 </div>
                 <form
-                  className="nexus-local-ai-command"
+                  className="nexus-xingcheng-command"
                   onSubmit={(event) => {
                     event.preventDefault();
                     void investmentWatch.sendLocalRiskCommand();

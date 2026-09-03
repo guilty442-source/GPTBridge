@@ -309,7 +309,7 @@ class AiCollaborationService:
                 "maximum_parallel_tasks": self.MAX_PARALLEL_AI,
                 "task_count": len(results),
                 "results": results,
-                "channel_coordinator": "local-ai",
+                "channel_coordinator": "xingcheng",
                 "response_recipient": self._requester_tool_id(payload),
             }
         return await self._send_fixed_message(payload)
@@ -449,7 +449,7 @@ class AiCollaborationService:
         requested_ids = [str(item) for item in raw_ids] if isinstance(raw_ids, list) else []
         business_task = str(payload.get("business_task") or "general").strip().casefold()
         requested_by = self._requester_tool_id(payload)
-        if requested_by != "local-ai":
+        if requested_by != "xingcheng":
             raise PermissionError("PERMISSION_DENIED")
         memory_context = payload.get("memory_context", [])
         memory_writeback = payload.get("memory_writeback") is not False
@@ -602,7 +602,7 @@ class AiCollaborationService:
                 and str(final_response.get("status") or "") == "completed"
                 else "awaiting-fixed-owner"
             ),
-            "channel_coordinator": "local-ai",
+            "channel_coordinator": "xingcheng",
             "fixed_workflow": [
                 "star-request",
                 "fixed-owner",
@@ -982,14 +982,14 @@ class AiCollaborationService:
         actor = str(payload.get("_authorized_requester_actor") or "").strip()
         if actor == "governance/tool/ai-assistant":
             raise PermissionError("PERMISSION_DENIED")
-        if actor == "governance/tool/local-ai":
-            return "local-ai"
+        if actor == "governance/tool/xingcheng":
+            return "xingcheng"
         if actor in {"governance/tool/ai-collaboration", "governance/main-system"}:
             return "ai-collaboration"
         # Direct calls are limited to in-process tests; governed runtimes always
         # supply a verified actor before reaching the service.
         if not actor:
-            return "local-ai"
+            return "xingcheng"
         raise PermissionError("PERMISSION_DENIED")
 
     async def _add_memory(self, payload: dict[str, Any]) -> dict[str, Any]:

@@ -4,6 +4,7 @@ from typing import Final
 
 from governance_rule.permission_directory.directory_authority import (
     IMMUTABLE_AUTHORITY_ROOTS,
+    AutomaticRepairBoundary,
     CapabilityAuthority,
     CapabilityGrant,
 )
@@ -11,7 +12,7 @@ from governance_rule.permission_directory.directory_authority import (
 
 CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
     CapabilityAuthority(
-        "xingcheng-governance-source-read", "local-ai",
+        "xingcheng-governance-source-read", "xingcheng",
         "direct-authoritative-governance-snapshot-read-only", "none",
         (
             CapabilityGrant(
@@ -160,12 +161,12 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         (
             CapabilityGrant(
                 "request-external-collaboration",
-                "ai-channel:local-ai",
+                "ai-channel:xingcheng",
                 "none",
             ),
             CapabilityGrant(
                 "receive-external-response",
-                "ai-channel:local-ai",
+                "ai-channel:xingcheng",
                 "none",
             ),
         ), False, False,
@@ -181,7 +182,7 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         ), False, False,
     ),
     CapabilityAuthority(
-        "star-global-data-read", "tool:local-ai",
+        "star-global-data-read", "tool:xingcheng",
         "global-central-index-visibility-and-governed-owner-resolution-request",
         "opaque-central-index-only",
         (
@@ -195,14 +196,14 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         ), False, False,
     ),
     CapabilityAuthority(
-        "star-internal-data-read-write", "tool:local-ai",
+        "star-internal-data-read-write", "tool:xingcheng",
         "star-internal-model-data-autonomy-with-read-only-permission-files",
-        "local-ai-private-internal-data-only",
+        "xingcheng-private-internal-data-only",
         tuple(
             CapabilityGrant(
-                action, "star-internal-data", "local-ai-internal-data",
-                path_match="within", path_roots=("local-model/local-ai",),
-                excluded_path_roots=("local-model/local-ai/permissions",),
+                action, "star-internal-data", "xingcheng-internal-data",
+                path_match="within", path_roots=("local-model/xingcheng",),
+                excluded_path_roots=("local-model/xingcheng/permissions",),
             )
             for action in (
                 "read",
@@ -226,7 +227,7 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         ), False, False,
     ),
     CapabilityAuthority(
-        "star-investment-manager-database-read", "tool:local-ai",
+        "star-investment-manager-database-read", "tool:xingcheng",
         "ai-assistant-investment-database-read-only", "none",
         (
             CapabilityGrant(

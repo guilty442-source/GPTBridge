@@ -130,7 +130,7 @@ class InvestmentMobileBridgeMixin:
         self, _payload: dict[str, Any]
     ) -> dict[str, Any]:
         snapshot = self._mobile_sync_snapshot()
-        snapshot["connection_coordinator"] = "local-ai"
+        snapshot["connection_coordinator"] = "xingcheng"
         snapshot["transport"] = "governance-authenticated-shared-layer"
         return snapshot
 
@@ -142,22 +142,22 @@ class InvestmentMobileBridgeMixin:
             if not isinstance(settings, dict):
                 return {"ok": False, "error_code": "SETTINGS_REQUIRED"}
             return await self._set_mobile_sync_enabled(dict(settings))
-        return await self._queue_mobile_local_ai_command(
+        return await self._queue_mobile_xingcheng_command(
             str(payload.get("instruction") or "").strip()
         )
 
-    def _schedule_mobile_local_ai_command(self, instruction: str) -> dict[str, Any]:
+    def _schedule_mobile_xingcheng_command(self, instruction: str) -> dict[str, Any]:
         if not instruction.strip():
             return {"ok": False, "message": "請輸入星澄命令"}
         if self._event_loop is None or self._event_loop.is_closed():
             return {"ok": False, "message": "手機工具尚未連到星澄 AI 通道"}
         future = asyncio.run_coroutine_threadsafe(
-            self._queue_mobile_local_ai_command(instruction),
+            self._queue_mobile_xingcheng_command(instruction),
             self._event_loop,
         )
         return future.result(timeout=10)
 
-    async def _queue_mobile_local_ai_command(self, instruction: str) -> dict[str, Any]:
+    async def _queue_mobile_xingcheng_command(self, instruction: str) -> dict[str, Any]:
         state = self.repository.load_state()
         if not state.get("holdings"):
             return {
@@ -233,23 +233,23 @@ class InvestmentMobileBridgeMixin:
                 break
 
         command_result = (
-            state.get("local_ai_command_result")
-            if isinstance(state.get("local_ai_command_result"), dict)
+            state.get("xingcheng_command_result")
+            if isinstance(state.get("xingcheng_command_result"), dict)
             else None
         )
         return {
             "portfolio": portfolio,
             "holdings": holdings,
             "workbook_scan_quality": state.get("workbook_scan_quality"),
-            "local_ai_product_status": state.get("local_ai_product_status"),
-            "local_ai_summary": state.get("local_ai_summary"),
-            "local_ai_risk_warnings": list(state.get("local_ai_risk_warnings", []))[:20],
-            "local_ai_command_result": command_result,
-            "local_ai_action_plan": list(state.get("local_ai_action_plan", []))[:8],
-            "local_ai_watch_triggers": list(state.get("local_ai_watch_triggers", []))[:12],
-            "local_ai_confidence": state.get("local_ai_confidence"),
-            "local_ai_decision_brief": state.get("local_ai_decision_brief") or "",
-            "local_ai_network_context": state.get("local_ai_network_context"),
+            "xingcheng_product_status": state.get("xingcheng_product_status"),
+            "xingcheng_summary": state.get("xingcheng_summary"),
+            "xingcheng_risk_warnings": list(state.get("xingcheng_risk_warnings", []))[:20],
+            "xingcheng_command_result": command_result,
+            "xingcheng_action_plan": list(state.get("xingcheng_action_plan", []))[:8],
+            "xingcheng_watch_triggers": list(state.get("xingcheng_watch_triggers", []))[:12],
+            "xingcheng_confidence": state.get("xingcheng_confidence"),
+            "xingcheng_decision_brief": state.get("xingcheng_decision_brief") or "",
+            "xingcheng_network_context": state.get("xingcheng_network_context"),
             "shared_memory": InvestmentWatchRepository._shorten(
                 str(state.get("shared_memory") or ""),
                 8000,

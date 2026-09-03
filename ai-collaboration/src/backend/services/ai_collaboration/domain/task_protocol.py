@@ -39,7 +39,7 @@ AI_TASK_TYPES: Final[frozenset[str]] = frozenset(
     }
 )
 AI_TASK_REQUESTERS: Final[frozenset[str]] = frozenset(
-    {"local-ai", "ai-collaboration"}
+    {"xingcheng", "ai-collaboration"}
 )
 MAX_TASK_CONTENT_CHARACTERS: Final[int] = 64_000
 MAX_MEMORY_ITEMS: Final[int] = 20

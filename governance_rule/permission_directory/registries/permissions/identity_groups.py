@@ -147,18 +147,18 @@ STAR_CHAT_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     "star-chat",
     physical_root="local-model/model-dialogue",
     database_scope=(
-        "all-project-databases-via-local-ai-excluding-governance-rule"
+        "all-project-databases-via-xingcheng-excluding-governance-rule"
     ),
 )
 FILE_SORTER_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     "file-sorter"
 )
-LOCAL_AI_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
-    "local-ai",
+XINGCHENG_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
+    "xingcheng",
     physical_root="local-model",
     code_scope="project-source-excluding-governance-rule",
     database_scope=(
-        "opaque-central-index-read-and-local-ai-internal-read-write"
+        "opaque-central-index-read-and-xingcheng-internal-read-write"
     ),
 )
 INVESTMENT_MOBILE_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
@@ -166,6 +166,9 @@ INVESTMENT_MOBILE_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
 )
 VAULTLY_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     "vaultly"
+)
+SYSTEM_RESCUE_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
+    "system-rescue"
 )
 del _business_tool_identity
 
@@ -179,8 +182,9 @@ CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     FILE_SORTER_IDENTITY,
     GLOBAL_CLEANER_IDENTITY,
     INVESTMENT_MOBILE_IDENTITY,
-    LOCAL_AI_IDENTITY,
+    XINGCHENG_IDENTITY,
     VAULTLY_IDENTITY,
+    SYSTEM_RESCUE_IDENTITY,
 )
 
 ACTIVE_IDENTITY_GROUP: Final[IdentityGroup] = IdentityGroup(

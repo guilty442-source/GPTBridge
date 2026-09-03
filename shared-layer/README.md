@@ -2,7 +2,7 @@
 
 `shared-layer` 是程式化 PostgreSQL 中央 SQL、Resource Registry、Locator 與權限閘道。
 
-星澄 Core／Orchestrator 統一管理本機模型平台：Git 保存程式、Schema、設定與開發歷史；PostgreSQL 保存結構化且可修改的正式資料；Qdrant 保存 RAG 語意向量索引；Ollama 執行本機理解、推理與操作。四者不得互相取代。星澄只有決策、統籌及唯讀管理權，不具系統執行、Git 寫入、正式 SQL 寫入或 RAG 異動權；實際操作只能交給受治理 executor。唯一例外是 `local-model/local-ai` 中排除 `permissions/` 的自身模型資料，可由星澄自治讀寫。Git 狀態與歷史只從本機 repository 讀取，不會自行連線 remote。
+星澄 Core／Orchestrator 統一管理本機模型平台：Git 保存程式、Schema、設定與開發歷史；PostgreSQL 保存結構化且可修改的正式資料；Qdrant 保存 RAG 語意向量索引；Ollama 執行本機理解、推理與操作。四者不得互相取代。星澄只有決策、統籌及唯讀管理權，不具系統執行、Git 寫入、正式 SQL 寫入或 RAG 異動權；實際操作只能交給受治理 executor。唯一例外是 `local-model/xingcheng` 中排除 `permissions/` 的自身模型資料，可由星澄自治讀寫。Git 狀態與歷史只從本機 repository 讀取，不會自行連線 remote。
 PostgreSQL 是真正的 SQL 引擎；Python 不模擬交易、約束、索引、鎖、RLS 或 Trigger。
 
 ## 邊界

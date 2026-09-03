@@ -407,7 +407,7 @@ export type InvestmentDiagnostics = {
     valid_data_row_count?: number | null
     recommendation?: string
   }
-  local_ai?: {
+  xingcheng?: {
     state?: string
     state_label?: string
     score?: number | null
@@ -656,22 +656,22 @@ export type InvestmentState = {
   workbook_scan?: WorkbookScanSummary | null
   workbook_scan_quality?: WorkbookScanQuality | null
   excel_import_profile?: ExcelImportProfile | null
-  local_ai_product_status?: LocalAiProductStatus | null
-  local_ai_risk_warnings?: LocalAiRiskWarning[]
-  local_ai_command_result?: LocalAiCommandResult | null
-  local_ai_action_plan?: LocalAiActionPlanItem[]
-  local_ai_watch_triggers?: LocalAiWatchTrigger[]
-  local_ai_confidence?: LocalAiConfidenceSummary | null
-  local_ai_decision_brief?: string
-  local_ai_network_context?: LocalAiNetworkContext | null
-  local_ai_explanation?: {
+  xingcheng_product_status?: LocalAiProductStatus | null
+  xingcheng_risk_warnings?: LocalAiRiskWarning[]
+  xingcheng_command_result?: LocalAiCommandResult | null
+  xingcheng_action_plan?: LocalAiActionPlanItem[]
+  xingcheng_watch_triggers?: LocalAiWatchTrigger[]
+  xingcheng_confidence?: LocalAiConfidenceSummary | null
+  xingcheng_decision_brief?: string
+  xingcheng_network_context?: LocalAiNetworkContext | null
+  xingcheng_explanation?: {
     mode?: string
     mode_label?: string
     model?: string
     text?: string
     facts_locked?: boolean
   } | null
-  local_ai_external_discussion?: ExternalAiDiscussion | null
+  xingcheng_external_discussion?: ExternalAiDiscussion | null
   portfolio_versions?: Array<{
     version_id?: string
     created_at?: string
@@ -833,11 +833,11 @@ function buildClientInvestmentDiagnostics(
   const holdings = Array.isArray(state.holdings) ? state.holdings : []
   const portfolio = state.portfolio || null
   const workbookQuality = state.workbook_scan_quality || null
-  const localAiStatus = state.local_ai_product_status || null
+  const localAiStatus = state.xingcheng_product_status || null
   const networkContext =
-    state.local_ai_network_context || localAiStatus?.network_context || null
-  const riskWarnings = Array.isArray(state.local_ai_risk_warnings)
-    ? state.local_ai_risk_warnings
+    state.xingcheng_network_context || localAiStatus?.network_context || null
+  const riskWarnings = Array.isArray(state.xingcheng_risk_warnings)
+    ? state.xingcheng_risk_warnings
     : []
   const runs = Array.isArray(state.ai_runs) ? state.ai_runs : []
   const criticalCount = Math.max(
@@ -909,7 +909,7 @@ function buildClientInvestmentDiagnostics(
       valid_data_row_count: workbookQuality?.valid_data_row_count ?? null,
       recommendation: workbookQuality?.recommendation || '',
     },
-    local_ai: {
+    xingcheng: {
       state: localAiState,
       state_label:
         localAiStatus?.state_label ||
@@ -1062,16 +1062,16 @@ export function useInvestmentWatchFeature({
     [investmentState.ai_runs]
   )
   const localAiProductStatus = useMemo(
-    () => investmentState.local_ai_product_status || null,
-    [investmentState.local_ai_product_status]
+    () => investmentState.xingcheng_product_status || null,
+    [investmentState.xingcheng_product_status]
   )
   const localAiRiskWarnings = useMemo(
-    () => investmentState.local_ai_risk_warnings || [],
-    [investmentState.local_ai_risk_warnings]
+    () => investmentState.xingcheng_risk_warnings || [],
+    [investmentState.xingcheng_risk_warnings]
   )
   const localAiCommandResult = useMemo(
-    () => investmentState.local_ai_command_result || null,
-    [investmentState.local_ai_command_result]
+    () => investmentState.xingcheng_command_result || null,
+    [investmentState.xingcheng_command_result]
   )
 
   const loadInvestmentState = useCallback(

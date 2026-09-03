@@ -5,12 +5,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
 
-from local_ai.application.local_rag import LocalRagService
-from local_ai.infrastructure.qdrant_store import QdrantStore
+from xingcheng.application.local_rag import LocalRagService
+from xingcheng.infrastructure.local_vector_store import LocalVectorStore
 
 
 class FakeRuntime:
@@ -53,9 +55,9 @@ class FakeRuntime:
         }
 
 
-class FakeQdrant:
-    COLLECTION = QdrantStore.COLLECTION
-    endpoint = "http://127.0.0.1:6333"
+class FakeVectorStore:
+    COLLECTION = LocalVectorStore.COLLECTION
+    endpoint = "local"
 
     def __init__(self) -> None:
         self.points: dict[str, dict[str, Any]] = {}
@@ -63,7 +65,7 @@ class FakeQdrant:
 
     def ensure_collection(self, vector_size: int) -> None:
         if self.vector_size and self.vector_size != vector_size:
-            raise RuntimeError("QDRANT_VECTOR_SIZE_MISMATCH")
+            raise RuntimeError("RAG_VECTOR_DIMENSION_MISMATCH")
         self.vector_size = vector_size
 
     def replace_document(
@@ -115,7 +117,7 @@ class FakeRepository:
         self.chunks: list[dict[str, Any]] = []
 
     def existing_document(
-        self, source: str, *, module_id: str = "local-ai"
+        self, source: str, *, module_id: str = "xingcheng"
     ) -> dict[str, Any] | None:
         return self.documents.get((module_id, source))
 
@@ -173,21 +175,21 @@ class FakeReranker:
         return {"loaded": ["0.6b"], "local_files_only": True}
 
 
-def build_rag(tmp_path: Path) -> tuple[LocalRagService, FakeRuntime, FakeQdrant]:
+def build_rag(tmp_path: Path) -> tuple[LocalRagService, FakeRuntime, FakeVectorStore]:
     runtime = FakeRuntime()
-    qdrant = FakeQdrant()
+    store = FakeVectorStore()
     rag = LocalRagService(
-        tmp_path / "local-ai",
+        tmp_path / "xingcheng",
         runtime,
-        qdrant_store=qdrant,  # type: ignore[arg-type]
+        vector_store=store,  # type: ignore[arg-type]
         reranker=FakeReranker(),  # type: ignore[arg-type]
         repository=FakeRepository(),  # type: ignore[arg-type]
     )
-    return rag, runtime, qdrant
+    return rag, runtime, store
 
 
-def test_ingest_writes_one_shared_qdrant_collection_and_fts5_index(tmp_path: Path) -> None:
-    rag, _, qdrant = build_rag(tmp_path)
+def test_ingest_writes_one_shared_collection_and_local_keyword_index(tmp_path: Path) -> None:
+    rag, _, store = build_rag(tmp_path)
 
     result = rag.ingest(
         {
@@ -201,12 +203,12 @@ def test_ingest_writes_one_shared_qdrant_collection_and_fts5_index(tmp_path: Pat
     assert result["ok"] is True
     assert result["knowledge_base"] == "shared"
     assert result["available_to_all_local_models"] is True
-    assert result["qdrant_collection"] == "gptbridge_shared_knowledge"
-    assert len(qdrant.points) == 2
-    assert all(point["payload"]["shared_knowledge_base"] for point in qdrant.points.values())
+    assert result["collection"] == "gptbridge_shared_knowledge"
+    assert len(store.points) == 2
+    assert all(point["payload"]["shared_knowledge_base"] for point in store.points.values())
     assert rag.repository.status()["fts_enabled"] is True
     assert rag.repository.keyword_search(
-        "保固", limit=5, module_ids=("local-ai",)
+        "保固", limit=5, module_ids=("xingcheng",)
     )[0]["source"] == "policy"
 
 
@@ -230,7 +232,7 @@ def test_query_uses_hybrid_reranking_and_routed_model_with_citations(tmp_path: P
 
 
 def test_all_rag_routes_read_the_same_knowledge_base(tmp_path: Path) -> None:
-    rag, _, qdrant = build_rag(tmp_path)
+    rag, _, store = build_rag(tmp_path)
     rag.ingest({"documents": [{"id": "shared", "text": "所有模型共用的知識。"}]})
 
     for mode, models in rag.RAG_MODELS.items():
@@ -241,7 +243,7 @@ def test_all_rag_routes_read_the_same_knowledge_base(tmp_path: Path) -> None:
         assert result["knowledge_base"] == "shared"
         assert result["citations"][0]["source"] == "shared"
         assert models
-    assert qdrant.COLLECTION == "gptbridge_shared_knowledge"
+    assert store.COLLECTION == "gptbridge_shared_knowledge"
 
 
 def test_rag_rejects_governance_rule_paths(tmp_path: Path) -> None:
@@ -257,10 +259,26 @@ def test_rag_rejects_governance_rule_paths(tmp_path: Path) -> None:
     assert result["errors"][0]["error"] == "RAG_GOVERNANCE_PATH_DENIED"
 
 
-def test_qdrant_endpoint_must_be_loopback() -> None:
-    try:
-        QdrantStore(endpoint="https://example.com:6333")
-    except ValueError as exc:
-        assert str(exc) == "QDRANT_ENDPOINT_MUST_BE_LOOPBACK"
-    else:
-        raise AssertionError("non-loopback Qdrant endpoint was accepted")
+def test_local_vector_store_persists_points_to_sqlite(tmp_path: Path) -> None:
+    store = LocalVectorStore(tmp_path / "xingcheng" / "runtime" / "state" / "vectors.sqlite3")
+    store.replace_document(
+        "doc-1",
+        [
+            {
+                "id": "point-1",
+                "vector": [1.0, 0.0, 1.0],
+                "payload": {"document_id": "doc-1", "module_id": "xingcheng", "content": "保固"},
+            }
+        ],
+        module_id="xingcheng",
+    )
+
+    results = store.query(
+        [1.0, 0.0, 1.0], limit=5, module_ids=("xingcheng",)
+    )
+
+    assert results
+    assert results[0]["point_id"] == "point-1"
+    assert results[0]["vector_score"] == pytest.approx(1.0)
+    assert store.status()["engine"] == "local-semantic-index"
+    assert store.status()["point_count"] == 1

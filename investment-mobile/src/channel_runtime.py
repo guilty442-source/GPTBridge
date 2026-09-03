@@ -67,9 +67,9 @@ async def main() -> None:
             "separate_business_layer": False,
             "separate_settings_layer": False,
             "database": "ai-assistant-shared-repository",
-            "connection_coordinator": "local-ai",
+            "connection_coordinator": "xingcheng",
             "ai_channel_participant": True,
-            "ai_channel_scope": "submit-to-local-ai-only",
+            "ai_channel_scope": "submit-to-xingcheng-only",
         },
         channel_modes={"ai": "submit"},
     )

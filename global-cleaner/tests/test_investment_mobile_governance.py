@@ -21,8 +21,8 @@ from governance_rule.permission_directory.registries.permissions.tool_routes imp
 def test_mobile_connects_to_star_not_directly_to_investment_manager() -> None:
     authorize_investment_mobile_route(
         "governance/tool/investment-mobile",
-        "local-ai",
-        "local_ai_mobile_get_investment_snapshot",
+        "xingcheng",
+        "xingcheng_mobile_get_investment_snapshot",
     )
     with pytest.raises(PermissionError):
         authorize_investment_mobile_route(
@@ -35,11 +35,11 @@ def test_mobile_connects_to_star_not_directly_to_investment_manager() -> None:
 def test_only_star_can_proxy_mobile_commands_to_investment_manager() -> None:
     assert (
         authorize_ai_route(
-            "governance/tool/local-ai",
+            "governance/tool/xingcheng",
             "ai-assistant",
             "investment_mobile_get_snapshot",
         )
-        == "local-ai"
+        == "xingcheng"
     )
     with pytest.raises(PermissionError):
         authorize_ai_route(

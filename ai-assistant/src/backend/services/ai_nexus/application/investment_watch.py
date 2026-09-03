@@ -235,7 +235,7 @@ class InvestmentWatchService(
         recovered_runs = self.repository.recover_interrupted_ai_runs()
         if recovered_runs:
             state = self.repository.load_state()
-            if state.get("holdings") and not state.get("local_ai_product_status"):
+            if state.get("holdings") and not state.get("xingcheng_product_status"):
                 self._schedule_local_risk_ai_background(
                     state,
                     {"trigger": "interrupted_run_recovery", "live_quotes": True},
@@ -453,7 +453,7 @@ class InvestmentWatchService(
         try:
             result = await handlers[command](payload)
         except Exception as exc:
-            error_id = self._record_local_ai_error(command, payload, exc)
+            error_id = self._record_xingcheng_error(command, payload, exc)
             result = {
                 "ok": False,
                 "message": f"{exc}（錯誤代碼 {error_id}，已由投資管家自動記錄）",
@@ -462,7 +462,7 @@ class InvestmentWatchService(
             }
         return f"{command}_result", result
 
-    def _record_local_ai_error(
+    def _record_xingcheng_error(
         self,
         command: str,
         payload: dict[str, Any],
@@ -506,15 +506,15 @@ class InvestmentWatchService(
             ),
         }
         try:
-            error_path = self.repository.runtime_root / "local-ai-errors.jsonl"
+            error_path = self.repository.runtime_root / "xingcheng-errors.jsonl"
             error_path.parent.mkdir(parents=True, exist_ok=True)
             if error_path.exists() and error_path.stat().st_size >= 2 * 1024 * 1024:
-                archive_root = error_path.parent / "local-ai-error-archives"
+                archive_root = error_path.parent / "xingcheng-error-archives"
                 archive_root.mkdir(parents=True, exist_ok=True)
                 stamp = local_device_now().strftime("%Y%m%d_%H%M%S_%f")
                 archive_path = (
                     archive_root
-                    / f"local-ai-errors.{stamp}.{uuid.uuid4().hex[:8]}.jsonl"
+                    / f"xingcheng-errors.{stamp}.{uuid.uuid4().hex[:8]}.jsonl"
                 )
                 error_path.replace(archive_path)
             with error_path.open("a", encoding="utf-8", newline="\n") as error_file:
@@ -523,7 +523,7 @@ class InvestmentWatchService(
             pass
         try:
             self.analytics_store.audit(
-                "local_ai_error",
+                "xingcheng_error",
                 {
                     key: value
                     for key, value in record.items()
@@ -583,7 +583,7 @@ class InvestmentWatchService(
             "analytics_path": str(self.analytics_store.database_path),
             "local_only": True,
             "safety": {
-                "local_ai": "AI投資管家本身不執行 AI 推理；所有投資分析均經 AI 通道交由星澄協調。",
+                "xingcheng": "AI投資管家本身不執行 AI 推理；所有投資分析均經 AI 通道交由星澄協調。",
                 "storage": "狀態檔由 Windows DPAPI 使用目前帳號保護；分析資料庫的備註、事件來源與決策證據採欄位加密。",
                 "quotes": "報價預設會自動連網抓取公開股價資料；輸入離線或不抓報價可改用本地資料評估。",
             },
@@ -758,18 +758,18 @@ class InvestmentWatchService(
             else {}
         )
         product_status = (
-            state.get("local_ai_product_status")
-            if isinstance(state.get("local_ai_product_status"), dict)
+            state.get("xingcheng_product_status")
+            if isinstance(state.get("xingcheng_product_status"), dict)
             else {}
         )
         summary = (
-            state.get("local_ai_summary")
-            if isinstance(state.get("local_ai_summary"), dict)
+            state.get("xingcheng_summary")
+            if isinstance(state.get("xingcheng_summary"), dict)
             else {}
         )
         risk_warnings = [
             item
-            for item in state.get("local_ai_risk_warnings", [])
+            for item in state.get("xingcheng_risk_warnings", [])
             if isinstance(item, dict)
         ]
         runs = [item for item in state.get("ai_runs", []) if isinstance(item, dict)]
@@ -787,7 +787,7 @@ class InvestmentWatchService(
             ),
         )
         workbook_state = str(workbook_quality.get("state") or "")
-        local_ai_state = str(product_status.get("state") or "")
+        xingcheng_state = str(product_status.get("state") or "")
         stale = portfolio_age_hours is not None and portfolio_age_hours > 72
         symbols = [str(item.get("symbol") or "").strip() for item in holdings]
         decimal_symbol_count = sum(
@@ -822,11 +822,11 @@ class InvestmentWatchService(
                 f"Excel 欄位映射錯誤：{len(holdings)} 筆中有 {invalid_symbol_count} 筆代號"
                 "看起來像價格或無效值；投資風險判讀已暫停，請用「Excel 欄位」重新匯入。"
             )
-        elif critical_count > 0 or local_ai_state == "critical" or workbook_state == "critical":
+        elif critical_count > 0 or xingcheng_state == "critical" or workbook_state == "critical":
             state_key = "critical"
             state_label = "需要立即檢查"
             message = "已偵測重大風險或 Excel 掃描品質不足，請先確認資料與部位上限。"
-        elif stale or warning_count > 0 or local_ai_state == "attention" or workbook_state == "attention":
+        elif stale or warning_count > 0 or xingcheng_state == "attention" or workbook_state == "attention":
             state_key = "attention"
             state_label = "需要關注"
             message = "持股資料、星澄分析或掃描品質有待確認項目，建議重新評估。"
@@ -842,15 +842,15 @@ class InvestmentWatchService(
         )
         latest_run = runs[0] if runs else {}
         network_context = (
-            state.get("local_ai_network_context")
-            if isinstance(state.get("local_ai_network_context"), dict)
+            state.get("xingcheng_network_context")
+            if isinstance(state.get("xingcheng_network_context"), dict)
             else product_status.get("network_context")
             if isinstance(product_status.get("network_context"), dict)
             else {}
         )
-        error_log_path = self.repository.runtime_root / "local-ai-errors.jsonl"
+        error_log_path = self.repository.runtime_root / "xingcheng-errors.jsonl"
         error_archive_root = (
-            self.repository.runtime_root / "local-ai-error-archives"
+            self.repository.runtime_root / "xingcheng-error-archives"
         )
         try:
             error_log_count = sum(
@@ -906,8 +906,8 @@ class InvestmentWatchService(
                 or selected_sheet.get("valid_data_row_count"),
                 "recommendation": workbook_quality.get("recommendation") or "",
             },
-            "local_ai": {
-                "state": local_ai_state or ("empty" if not holdings else "attention"),
+            "xingcheng": {
+                "state": xingcheng_state or ("empty" if not holdings else "attention"),
                 "state_label": product_status.get("state_label")
                 or ("等待持股資料" if not holdings else "等待星澄分析"),
                 "score": product_status.get("score"),

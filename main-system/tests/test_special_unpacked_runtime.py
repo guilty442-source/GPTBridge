@@ -46,17 +46,17 @@ def test_special_unpacked_manifest_resolves_governed_channel_entry() -> None:
     assert record["data_boundary"] == {
         "standalone": True,
         "code_scope": "project-source-excluding-governance-rule",
-            "database_scope": "opaque-central-index-read-and-local-ai-internal-read-write",
+            "database_scope": "opaque-central-index-read-and-xingcheng-internal-read-write",
     }
 
 
-def test_model_dialogue_is_discovered_as_local_ai_companion_tool() -> None:
+def test_model_dialogue_is_discovered_as_xingcheng_companion_tool() -> None:
     governance = GovernanceStub()
     service = ToolboxService(ROOT, governance=governance)
     records = {record["id"]: record for record in service._load_manifest_records()}
 
     assert not (ROOT / "star-chat").exists()
-    assert records["local-ai"]["folder_path"] == str(LOCAL_MODEL_ROOT)
+    assert records["xingcheng"]["folder_path"] == str(LOCAL_MODEL_ROOT)
     assert records["star-chat"]["folder_path"] == str(
         LOCAL_MODEL_ROOT / "model-dialogue"
     )
@@ -64,10 +64,10 @@ def test_model_dialogue_is_discovered_as_local_ai_companion_tool() -> None:
     assert service._tool_directory_for_id("star-chat") == (
         LOCAL_MODEL_ROOT / "model-dialogue"
     ).resolve()
-    assert records["star-chat"]["runtime_owner_tool_id"] == "local-ai"
+    assert records["star-chat"]["runtime_owner_tool_id"] == "xingcheng"
     assert records["star-chat"]["physical_owner_root"] == "local-model"
     service._authorize_tool_lifecycle("star-chat", "start")
-    assert governance.authorized_lifecycle[-1] == ("local-ai", "start")
+    assert governance.authorized_lifecycle[-1] == ("xingcheng", "start")
 
 
 def test_shared_layer_and_local_model_are_locked_resident_services() -> None:
@@ -90,7 +90,7 @@ def test_shared_layer_and_local_model_are_locked_resident_services() -> None:
     assert local_manifest["background_service"]["auto_restart"] is True
 
 
-@pytest.mark.parametrize("tool_id", ["governance_rule", "shared-layer", "local-ai"])
+@pytest.mark.parametrize("tool_id", ["governance_rule", "shared-layer", "xingcheng"])
 def test_locked_service_rejects_stop_before_governance_or_process_mutation(
     tool_id: str,
     monkeypatch: pytest.MonkeyPatch,
@@ -129,7 +129,7 @@ async def test_resident_services_are_usable_without_showing_permission_denied() 
     result = await service.list_tools()
     records = {record["id"]: record for record in result["tools"]}
 
-    for tool_id in ("shared-layer", "local-ai"):
+    for tool_id in ("shared-layer", "xingcheng"):
         assert records[tool_id]["lifecycle_locked"] is True
         assert records[tool_id]["permission_denied"] is False
         assert records[tool_id]["resident_service"] is True
@@ -163,10 +163,10 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
         "star-chat",
         tool_root,
         manifest,
-        governance_tool_id="local-ai",
+        governance_tool_id="xingcheng",
     )
     assert owner_environment["GPTBRIDGE_STANDALONE_TOOL_ID"] == "star-chat"
-    assert governance.bootstrap_tool_ids[-1] == "local-ai"
+    assert governance.bootstrap_tool_ids[-1] == "xingcheng"
 
     mobile_root = ROOT / "investment-mobile"
     mobile_manifest = json.loads((mobile_root / "manifest.json").read_text("utf-8"))
@@ -360,19 +360,19 @@ def test_start_failure_requests_system_rescue_then_retries_lifecycle(
         return {
             "triggered": True,
             "ok": True,
+            "authority": "main-system",
+            "channel": "integrated-central-repair",
             "detail": {
-                "stdout": json.dumps(
-                    {
-                        "ok": True,
-                        "executed_actions": ["rebuild-tool-executable"],
-                        "package_repair": {
-                            "triggered": True,
-                            "ok": True,
-                            "owner": "system-rescue",
-                        },
-                    }
-                )
+                "ok": True,
+                "operation": "central-automatic-repair",
+                "executed_actions": ["rebuild-tool-executable"],
+                "package_repair": {
+                    "triggered": True,
+                    "ok": True,
+                    "owner": "main-system",
+                },
             },
+            "backup_extraction": None,
         }
 
     async def fake_retry(_payload: dict[str, object]) -> dict[str, object]:
@@ -393,7 +393,7 @@ def test_start_failure_requests_system_rescue_then_retries_lifecycle(
 
     assert result["ok"] is True
     assert calls == ["system-rescue", "retry"]
-    assert result["package_repair"]["owner"] == "system-rescue"
+    assert result["package_repair"]["owner"] == "main-system"
 
 
 def test_star_is_headless_and_configured_for_governed_default_start() -> None:
@@ -409,7 +409,7 @@ def test_star_is_headless_and_configured_for_governed_default_start() -> None:
     assert manifest["background_service"][
         "explicit_force_close_suppresses_restart"
     ] is True
-    assert 'DEFAULT_START_TOOL_IDS = ("shared-layer", "local-ai")' in main_source
+    assert 'DEFAULT_START_TOOL_IDS = ("shared-layer", "xingcheng")' in main_source
     assert "await self._start_governed_default_tools()" in main_source
 
 
@@ -470,7 +470,7 @@ def test_source_runtime_environment_has_ephemeral_authenticated_ipc() -> None:
     service = ToolboxService(ROOT, governance=GovernanceStub())
     manifest = json.loads((LOCAL_MODEL_ROOT / "manifest.json").read_text("utf-8"))
     environment = service._source_runtime_environment(
-        "local-ai",
+        "xingcheng",
         LOCAL_MODEL_ROOT,
         manifest,
     )
@@ -485,7 +485,7 @@ def test_source_runtime_environment_has_ephemeral_authenticated_ipc() -> None:
             / "runtime"
             / "temp"
             / "tools"
-            / "local-ai"
+            / "xingcheng"
         ).resolve()
     )
     assert environment["GPTBRIDGE_TOOL_TEMP_ROOT"] == expected_temp
@@ -531,7 +531,7 @@ def test_start_tool_does_not_require_exe_for_special_unpacked(
     result = asyncio.run(
         service.start_tool(
             {
-                "tool_id": "local-ai",
+                "tool_id": "xingcheng",
                 "request_id": "test-special-unpacked",
                 "background": True,
             }
@@ -559,7 +559,7 @@ def test_owner_runtime_restart_reconnects_open_companion_ui(
         returncode = None
 
     service = ToolboxService(ROOT, governance=GovernanceStub())
-    service._source_runtime_environments["local-ai"] = {
+    service._source_runtime_environments["xingcheng"] = {
         "GPTBRIDGE_IPC_PORT": "43210",
         "GPTBRIDGE_IPC_SESSION_TOKEN": "a" * 64,
     }
@@ -579,9 +579,9 @@ def test_owner_runtime_restart_reconnects_open_companion_ui(
 
     monkeypatch.setattr(service, "_launch_source_ui", fake_launch)
 
-    asyncio.run(service._reconnect_companion_source_uis("local-ai"))
+    asyncio.run(service._reconnect_companion_source_uis("xingcheng"))
 
-    assert reconnects == [("star-chat", "local-ai")]
+    assert reconnects == [("star-chat", "xingcheng")]
 
 
 def test_source_ui_runtime_session_change_is_part_of_auto_repair() -> None:

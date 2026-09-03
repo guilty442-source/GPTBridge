@@ -35,16 +35,16 @@ class InvestmentAiConnections:
             "queue_when_offline": False,
             "database_shared": False,
             "investment_manager_network": "disabled",
-            "service_owner": "local-ai",
+            "service_owner": "xingcheng",
             "highest_authority": "governance-rule",
-            "channel_top_level_tool": "local-ai",
+            "channel_top_level_tool": "xingcheng",
             "roles": {
                 "investment_manager": "offline-portfolio-state-and-settings",
-                "local_ai": "exclusive-market-search-investment-analysis-service-owner",
+                "xingcheng": "exclusive-market-search-investment-analysis-service-owner",
                 "external_ai": "unavailable-to-investment-manager",
             },
             "peers": {
-                "local_ai": {"name": "星澄", "configured": configured},
+                "xingcheng": {"name": "星澄", "configured": configured},
                 "external_ai": {
                     "name": "外部 AI 協作",
                     "configured": False,
@@ -75,12 +75,12 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         result = await self._client.request(
-            "local-ai", "local_ai_infer", {"prompt": prompt}, timeout_seconds=200
+            "xingcheng", "xingcheng_infer", {"prompt": prompt}, timeout_seconds=200
         )
         return {
             "ok": result.get("ok") is True,
             "queued": False,
-            "results": {"local_ai": result},
+            "results": {"xingcheng": result},
         }
 
     def search_investments_sync(
@@ -93,8 +93,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "local-ai",
-            "local_ai_search_investments",
+            "xingcheng",
+            "xingcheng_search_investments",
             {
                 "holdings": [
                     {
@@ -130,8 +130,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "local-ai",
-            "local_ai_analyze_investments",
+            "xingcheng",
+            "xingcheng_analyze_investments",
             {
                 "holdings": holdings,
                 "analysis_parameters": dict(analysis_parameters or {}),
@@ -150,8 +150,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "local-ai",
-            "local_ai_manage_investment_accounting",
+            "xingcheng",
+            "xingcheng_manage_investment_accounting",
             {
                 "reconciliation": dict(reconciliation),
                 "ledger_summary": dict(ledger_summary),
@@ -209,8 +209,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "local-ai",
-            "local_ai_discuss_investment_analysis",
+            "xingcheng",
+            "xingcheng_discuss_investment_analysis",
             {
                 "analysis_snapshot": self._discussion_snapshot(analysis),
                 "request_origin": "offline-ai-investment-manager",
@@ -227,8 +227,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "local-ai",
-            "local_ai_memory_list",
+            "xingcheng",
+            "xingcheng_memory_list",
             {
                 "include_inactive": include_inactive,
                 "limit": max(1, min(500, int(limit))),
@@ -248,8 +248,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "local-ai",
-            "local_ai_memory_review",
+            "xingcheng",
+            "xingcheng_memory_review",
             {
                 "memory_id": memory_id,
                 "action": action,

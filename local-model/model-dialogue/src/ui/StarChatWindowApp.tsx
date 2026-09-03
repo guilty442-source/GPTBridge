@@ -218,7 +218,7 @@ export function StarChatWindowApp() {
   const [models, setModels] = useState<ModelOption[]>(DEFAULT_MODELS)
   const [selectedModel, setSelectedModel] = useState('')
   const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>('intermediate')
-  const [generationSpeed, setGenerationSpeed] = useState<GenerationSpeed>('high')
+  const [generationSpeed, setGenerationSpeed] = useState<GenerationSpeed>('medium')
   const [taskIntensity, setTaskIntensity] = useState<TaskIntensity>('normal')
   const [thinkingSeconds, setThinkingSeconds] = useState(0)
   const [generationPhase, setGenerationPhase] = useState<'thinking' | 'responding'>('thinking')

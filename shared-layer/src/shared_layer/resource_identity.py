@@ -6,7 +6,7 @@ from typing import Final
 
 
 PLATFORM_ID: Final[str] = "local-model-platform"
-XINGCHENG_MODULE_ID: Final[str] = "local-ai"
+XINGCHENG_MODULE_ID: Final[str] = "xingcheng"
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
@@ -19,7 +19,7 @@ def canonical_identifier(value: str, *, field: str) -> str:
 
 @dataclass(frozen=True)
 class ResourceIdentity:
-    """Canonical identity shared by PostgreSQL, RAG, Qdrant and audit records."""
+    """Canonical identity shared by local sqlite, RAG, vector and audit records."""
 
     module_id: str
     data_category: str

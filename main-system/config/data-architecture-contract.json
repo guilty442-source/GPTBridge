@@ -3,8 +3,8 @@
   "manager": "xingcheng-core-orchestrator",
   "systems_of_record": {
     "git": "system-version-development-history-code-schema-configuration",
-    "postgresql": "structured-mutable-official-data",
-    "qdrant": "semantic-knowledge-vector-index",
+    "sql": "structured-mutable-official-data-postgresql",
+    "rag": "semantic-knowledge-vector-index-qdrant",
     "ollama": "local-model-understanding-reasoning-operations"
   },
   "architecture_responsibilities": {
@@ -20,11 +20,11 @@
       "authority": "official-structured-data-source-of-truth"
     },
     "rag": {
-      "engine": "qdrant-with-postgresql-mapping",
+      "engine": "qdrant",
       "role": "semantic-knowledge-index",
       "stores": ["embeddings", "semantic-index", "opaque-resource-identities"],
       "authority": "retrieval-candidate-only",
-      "official_data_verification": "mandatory-through-postgresql"
+      "official_data_verification": "mandatory-through-local-governed-executor"
     },
     "llm": {
       "engine": "governed-local-model-platform",
@@ -32,7 +32,7 @@
       "permanent_system_of_record": false,
       "mutation": "governed-executor-only"
     },
-    "separation": "git-sql-qdrant-rag-and-llm-must-not-replace-one-another",
+    "separation": "git-sql-rag-and-llm-must-not-replace-one-another",
     "governed_flow": "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes"
   },
   "routing": "user-chat-xingcheng-core-orchestrator-to-llm-rag-sql",
@@ -44,7 +44,7 @@
       "governance_rule": "authority-permissions-and-boundaries",
       "git": "system-version-and-development-history",
       "sql": "structured-mutable-official-data",
-      "qdrant_rag": "semantic-retrieval-candidates"
+      "rag": "semantic-retrieval-candidates"
     },
     "llm_inference_as_source_of_truth": false,
     "responsibilities": [
@@ -72,7 +72,7 @@
   "git_policy": {
     "repository_scope": "E:/GPTBridge",
     "platform_root": "local-model",
-    "xingcheng_data_root": "local-model/local-ai",
+    "xingcheng_data_root": "local-model/xingcheng",
     "remote_contact_default": false,
     "write_requires_governance_approval": true,
     "xingcheng_write": false,
@@ -93,11 +93,11 @@
     "resource_type", "resource_id", "resource_label", "classification",
     "version", "content_hash", "created_at", "updated_at"
   ],
-  "central_postgresql_layers": {
-    "gptbridge_index": "resource-registry-relations-status",
-    "gptbridge_rag": "document-chunk-fulltext-qdrant-mapping",
-    "gptbridge_transport": "governed-system-and-ai-requests",
-    "gptbridge_audit": "append-only-governance-and-execution-events"
+  "central_local_layers": {
+    "central-index": "resource-registry-relations-status-postgresql",
+    "semantic-index": "document-chunk-qdrant-vector-mapping",
+    "transport": "governed-system-and-ai-requests-local-sqlite3",
+    "audit": "append-only-governance-and-execution-events"
   },
   "module_private_layers": {
     "module_data": "module-owned-structured-resources",
@@ -106,27 +106,27 @@
     "ntfs": "module-owned-original-and-derived-files"
   },
   "rag": {
-    "structured_index": "postgresql/gptbridge_rag",
-    "vector_index": "qdrant",
+    "structured_index": "postgresql/shared-layer-runtime",
+    "vector_index": "qdrant/shared-layer-runtime",
     "mandatory_payload_fields": [
       "platform_id", "module_id", "owner_id", "resource_id",
       "resource_label", "classification", "version", "content_hash"
     ],
     "mandatory_query_filter": "module_id",
-    "sqlite_fallback": false
+    "sqlite_fallback": true
   },
   "access_enforcement": {
     "default_cross_module_access": "deny",
     "governance_rule": "decision-authority",
     "shared_layer": "caller-resource-action-validation",
-    "postgresql": "role-schema-forced-row-level-security",
+    "local_sqlite": "declared-path-and-executor-validation",
     "central_index_physical_path": "prohibited",
     "central_index_locator": "opaque-locator-id-only"
   },
   "xingcheng": {
     "platform_id": "local-model-platform",
-    "module_id": "local-ai",
-    "identity_database": "local_ai_identity",
+    "module_id": "xingcheng",
+    "identity_database": "xingcheng_identity",
     "role_setting": {
       "type": "personality",
       "database_isolation": "dedicated",
@@ -138,7 +138,7 @@
       "bootstrap_seed": false,
       "empty_record_count_is_valid": true
     },
-    "cognition_database": "local_ai_cognition",
+    "cognition_database": "xingcheng_cognition",
     "legacy_model_settings_integration": "model-data",
     "other_modules": "read-only",
     "external_execution": false

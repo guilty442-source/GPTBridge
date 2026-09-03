@@ -1,6 +1,5 @@
-# Qwen3 reranker runtime. Qdrant is accessed through its loopback REST API.
+# Qwen3 reranker runtime. Vector and keyword retrieval are local-only
+# (sqlite3 hash semantic index + local keyword store, no Qdrant/PostgreSQL).
 sentence-transformers>=4.1.0
 transformers>=4.51.0
-psycopg[binary]>=3.2,<4
-psycopg[pool]>=3.2,<4
 psutil>=6.0,<8

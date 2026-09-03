@@ -52,7 +52,7 @@
       "permission_profile": "ai-investment-manager-v1",
       "separate_business_layer": false,
       "separate_settings_layer": false,
-      "entry_gateway": "local-ai",
+      "entry_gateway": "xingcheng",
       "direct_model_access": false,
       "model_selection": "automatic-only"
     }

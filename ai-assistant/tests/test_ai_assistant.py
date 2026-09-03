@@ -253,8 +253,8 @@ def test_accounting_is_sent_only_to_star_through_ai_channel() -> None:
     assert result["ok"] is True
     assert client.call is not None
     target, command, payload, timeout = client.call
-    assert target == "local-ai"
-    assert command == "local_ai_manage_investment_accounting"
+    assert target == "xingcheng"
+    assert command == "xingcheng_manage_investment_accounting"
     assert payload["autonomous"] is True
     assert payload["request_origin"] == "offline-ai-investment-manager"
     assert timeout == 120
@@ -276,7 +276,7 @@ def test_external_discussion_is_requested_through_star_only() -> None:
             return {
                 "ok": True,
                 "discussion_owner": "ChatGPT",
-                "recipient": "local-ai",
+                "recipient": "xingcheng",
             }
 
     connections = InvestmentAiConnections()
@@ -293,8 +293,8 @@ def test_external_discussion_is_requested_through_star_only() -> None:
     assert result["ok"] is True
     assert client.call is not None
     target, command, payload, timeout = client.call
-    assert target == "local-ai"
-    assert command == "local_ai_discuss_investment_analysis"
+    assert target == "xingcheng"
+    assert command == "xingcheng_discuss_investment_analysis"
     snapshot = payload["analysis_snapshot"]
     assert isinstance(snapshot, dict)
     assert "private_database_path" not in snapshot

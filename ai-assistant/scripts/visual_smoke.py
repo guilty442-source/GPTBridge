@@ -135,7 +135,7 @@ def synthetic_fixture() -> dict[str, Any]:
             "valid_data_row_count": 3,
             "recommendation": "合成資料僅用於介面與無障礙驗證。",
         },
-        "local_ai_product_status": {
+        "xingcheng_product_status": {
             "state": "ready",
             "state_label": "本地風險訊號中等",
             "score": 42,
@@ -159,7 +159,7 @@ def synthetic_fixture() -> dict[str, Any]:
             "command_suggestions": ["分析組合集中度", "列出反證條件"],
             "generated_at": generated_at,
         },
-        "local_ai_risk_warnings": [
+        "xingcheng_risk_warnings": [
             {
                 "severity": "warning",
                 "code": "fixture_concentration",
@@ -169,23 +169,23 @@ def synthetic_fixture() -> dict[str, Any]:
                 "symbol": "VTI",
             }
         ],
-        "local_ai_decision_brief": "證據完整時才提供風險說明；所有動作仍需人工核准。",
-        "local_ai_external_discussion": {
+        "xingcheng_decision_brief": "證據完整時才提供風險說明；所有動作仍需人工核准。",
+        "xingcheng_external_discussion": {
             "ok": True,
             "queued": False,
             "provider": "chatgpt",
             "status": "completed",
             "content": "ChatGPT 已完成最終統籌，結果先回傳星澄再提供投資管家顯示。",
-            "response_recipient": "local-ai",
+            "response_recipient": "xingcheng",
             "transport": "governance-authenticated-ai-channel",
         },
-        "local_ai_confidence": {
+        "xingcheng_confidence": {
             "score": 88,
             "label": "證據覆蓋良好",
             "sample_count": 3,
             "low_confidence_symbols": [],
         },
-        "local_ai_explanation": {
+        "xingcheng_explanation": {
             "mode": "deterministic",
             "mode_label": "規則引擎說明",
             "model": "",
@@ -552,7 +552,7 @@ def synthetic_fixture() -> dict[str, Any]:
                 "valid_data_row_count": 3,
                 "recommendation": "合成資料僅用於 smoke。",
             },
-            "local_ai": {
+            "xingcheng": {
                 "state": "ready",
                 "state_label": "本地風險訊號中等",
                 "score": 42,
@@ -601,7 +601,7 @@ def synthetic_fixture() -> dict[str, Any]:
             "local_urls": [],
             "remote_base_url": "",
             "remote_url": "",
-            "access_scope": "read_state_and_queue_local_ai_command",
+            "access_scope": "read_state_and_queue_xingcheng_command",
             "session_count": 0,
             "session_idle_minutes": 30,
             "pairing_active": False,

@@ -264,8 +264,8 @@ END
 $$;
 
 INSERT INTO gptbridge_security.principal (role_name, module_id, global_read)
-VALUES ('gptbridge_xingcheng_reader', 'local-ai', true)
-ON CONFLICT (role_name) DO UPDATE SET module_id='local-ai', global_read=true;
+VALUES ('gptbridge_xingcheng_reader', 'xingcheng', true)
+ON CONFLICT (role_name) DO UPDATE SET module_id='xingcheng', global_read=true;
 INSERT INTO gptbridge_security.principal (role_name, transport_execute, audit_write)
 VALUES ('gptbridge_transport_executor', true, true)
 ON CONFLICT (role_name) DO UPDATE SET transport_execute=true, audit_write=true;

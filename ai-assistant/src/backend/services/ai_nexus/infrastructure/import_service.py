@@ -817,8 +817,8 @@ class InvestmentImportServiceMixin:
                         "holding_count": len(state.get("holdings") or []),
                         "imported_at": (state.get("portfolio") or {}).get("imported_at"),
                     },
-                    "local_ai_product_status": state.get("local_ai_product_status"),
-                    "local_ai_warning_count": len(state.get("local_ai_risk_warnings") or []),
+                    "xingcheng_product_status": state.get("xingcheng_product_status"),
+                    "xingcheng_warning_count": len(state.get("xingcheng_risk_warnings") or []),
                 },
             }
         )

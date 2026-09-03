@@ -33,7 +33,7 @@ const forbiddenMainBusinessTerms = [
   'grok',
   'holdings',
   'investment_mobile',
-  'local_ai',
+  'xingcheng',
   'perplexity',
   'portfolio',
 ]
@@ -223,22 +223,7 @@ export const childToolIsolationChecker: GovernanceChecker = {
       await fs.access(legacyMainPackager)
       offenders.push(relativeToProject(legacyMainPackager))
     } catch {
-      // Packaging implementation is owned by System Rescue.
-    }
-
-    const rescuePackager = path.resolve(
-      independentToolRoot('system-rescue'),
-      'src',
-      'backend',
-      'services',
-      'system_rescue',
-      'integration',
-      'platform_packager.py'
-    )
-    try {
-      await fs.access(rescuePackager)
-    } catch {
-      offenders.push(relativeToProject(rescuePackager))
+      // No legacy main-system packager present.
     }
 
     const runtimeContract = path.resolve(

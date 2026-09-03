@@ -68,8 +68,8 @@ class SharedSettingsClient:
     ) -> dict[str, Any]:
         del timeout_seconds
         assert command in {
-            "local_ai_mobile_get_investment_snapshot",
-            "local_ai_mobile_submit_investment_instruction",
+            "xingcheng_mobile_get_investment_snapshot",
+            "xingcheng_mobile_submit_investment_instruction",
         }
         if payload.get("operation") == "update_shared_settings":
             self.settings.update(dict(payload["settings"]))

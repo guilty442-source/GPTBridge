@@ -44,17 +44,17 @@ class InvestmentMobileService:
         if self._client is None:
             return {"ok": False, "message": "本地模型服務尚未連線。", "queued": False}
         result = self._client.request_sync(
-            "local_ai_mobile_get_investment_snapshot", {}, timeout_seconds=30
+            "xingcheng_mobile_get_investment_snapshot", {}, timeout_seconds=30
         )
         result["mobile_tool"] = "investment-mobile"
-        result["connection_coordinator"] = "local-ai"
+        result["connection_coordinator"] = "xingcheng"
         return result
 
     def _submit_instruction(self, instruction: str) -> dict[str, Any]:
         if self._client is None:
             return {"ok": False, "message": "本地模型服務尚未連線。", "queued": False}
         return self._client.request_sync(
-            "local_ai_mobile_submit_investment_instruction",
+            "xingcheng_mobile_submit_investment_instruction",
             {"instruction": str(instruction or "").strip()},
             timeout_seconds=45,
         )
@@ -64,7 +64,7 @@ class InvestmentMobileService:
             return dict(self._shared_settings)
         try:
             snapshot = self._client.request_sync(
-                "local_ai_mobile_get_investment_snapshot", {}, timeout_seconds=30
+                "xingcheng_mobile_get_investment_snapshot", {}, timeout_seconds=30
             )
         except Exception:
             return dict(self._shared_settings)
@@ -81,7 +81,7 @@ class InvestmentMobileService:
         if self._client is None:
             return {"ok": False, "message": "本地模型服務尚未連線。"}
         result = self._client.request_sync(
-            "local_ai_mobile_submit_investment_instruction",
+            "xingcheng_mobile_submit_investment_instruction",
             {"operation": "update_shared_settings", "settings": settings},
             timeout_seconds=30,
         )
@@ -102,10 +102,10 @@ class InvestmentMobileService:
             "tool": "AI 投資管家手機版",
             "tool_id": "investment-mobile",
             "platform": mobile_platform_contract(),
-            "connection_coordinator": "local-ai",
+            "connection_coordinator": "xingcheng",
             "direct_ai_assistant_connection": False,
             "ai_channel_participant": True,
-            "ai_channel_scope": "submit-to-local-ai-only",
+            "ai_channel_scope": "submit-to-xingcheng-only",
             "governance_authority": "governance-rule",
             "main_system_independent_tool": True,
             "business_layer_owner": "ai-assistant",

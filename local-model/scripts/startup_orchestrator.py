@@ -2,17 +2,35 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import subprocess
+import threading
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable
 
+# Lifecycle states from the startup contract.
+STATE_READY = "READY"
+STATE_DEGRADED = "DEGRADED"
+STATE_FAILED = "FAILED"
+STATE_RECOVERING = "RECOVERING"
+
+# Exit codes consumed by launcher/scripts/start.ps1
+EXIT_ALL_CRITICAL_UP = 0  # READY or DEGRADED; launch may continue
+EXIT_CRITICAL_FAILED = 2  # local sqlite unavailable; do not pretend READY
 
 OLLAMA_ENDPOINT = "http://127.0.0.1:11434"
-QDRANT_ENDPOINT = "http://127.0.0.1:6333"
 WARM_MODEL = "gemma4:e2b-it-qat"
+
+# Hybrid startup: the critical launch path is only the local sqlite store. The
+# local semantic vector index and Ollama are independent degradable services
+# that may be probed concurrently, and the warm-model preload is a non-blocking
+# background task.
+DEGRADABLE_WORKERS = 2
+WARM_MODEL_TIMEOUT = float(os.environ.get("GPTBRIDGE_WARM_MODEL_TIMEOUT", "60"))
 
 
 def retry(operation: Callable[[], Any], attempts: int = 6) -> tuple[bool, str]:
@@ -61,65 +79,236 @@ def start_hidden(command: list[str], working_directory: Path | None = None) -> N
     )
 
 
+def service_entry(
+    component: str,
+    ready: bool,
+    detail: str,
+    *,
+    critical: bool,
+    state: str,
+    fault_code: str,
+    duration_ms: int | None = None,
+) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "component": component,
+        "critical": critical,
+        "ready": ready,
+        "status": state,
+        "fault_code": fault_code,
+        "message": detail,
+    }
+    if duration_ms is not None:
+        entry["duration_ms"] = duration_ms
+    return entry
+
+
+def probe_local_sqlite(workspace: Path) -> tuple[bool, str]:
+    database = (
+        workspace / "local-model" / "runtime" / "state" / "local-rag-keywords.sqlite3"
+    )
+
+    def sqlite_health() -> None:
+        with sqlite3.connect(str(database), timeout=3) as connection:
+            connection.execute("SELECT 1").fetchone()
+
+    return retry(sqlite_health)
+
+
+def probe_local_vector(workspace: Path) -> tuple[bool, str]:
+    database = (
+        workspace / "local-model" / "runtime" / "state" / "local-rag-vectors.sqlite3"
+    )
+
+    def vector_health() -> None:
+        with sqlite3.connect(str(database), timeout=3) as connection:
+            connection.execute("SELECT 1").fetchone()
+
+    return retry(vector_health, 1)
+
+
+def probe_and_start_ollama() -> tuple[bool, str]:
+    ready, detail = retry(lambda: get_json(f"{OLLAMA_ENDPOINT}/api/tags"), 1)
+    if ready:
+        return True, "ready"
+    ollama_root = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama"
+    app = ollama_root / "ollama app.exe"
+    server = ollama_root / "ollama.exe"
+    if app.is_file():
+        start_hidden([str(app)])
+    elif server.is_file():
+        start_hidden([str(server), "serve"])
+    return retry(lambda: get_json(f"{OLLAMA_ENDPOINT}/api/tags"))
+
+
+def warm_model_if_ready(ollama_ready: bool) -> dict[str, Any] | None:
+    if not ollama_ready:
+        return None
+    try:
+        post_json(
+            f"{OLLAMA_ENDPOINT}/api/generate",
+            {"model": WARM_MODEL, "prompt": "", "stream": False, "keep_alive": -1},
+            timeout=min(WARM_MODEL_TIMEOUT, 120.0),
+        )
+        return service_entry(
+            "warm_model",
+            True,
+            "ready",
+            critical=False,
+            state=STATE_READY,
+            fault_code="WARM_MODEL_READY",
+        )
+    except (OSError, RuntimeError, urllib.error.URLError) as error:
+        return service_entry(
+            "warm_model",
+            False,
+            str(error),
+            critical=False,
+            state=STATE_RECOVERING,
+            fault_code="WARM_MODEL_UNAVAILABLE",
+        )
+
+
+def append_startup_journal(entry: dict[str, Any]) -> None:
+    journal_path = (
+        Path(os.environ.get("GPTBRIDGE_STATE_ROOT", ""))
+        / "launcher"
+        / "state"
+        / "startup-journal.jsonl"
+    )
+    if not journal_path:
+        return
+    try:
+        journal_path.parent.mkdir(parents=True, exist_ok=True)
+        with journal_path.open("a", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps({**entry, "timestamp": time.time()}, ensure_ascii=False)
+                + "\n"
+            )
+    except OSError:
+        pass
+
+
 def main() -> int:
     workspace = Path(__file__).resolve().parents[2]
-    qdrant_root = workspace / "local-model" / "runtime" / "qdrant"
-    report: dict[str, Any] = {"startup_order": ["postgresql", "qdrant", "ollama"]}
+    report: dict[str, Any] = {
+        "startup_order": ["local-sqlite", "vector", "ollama", "warm_model"],
+        "mode": "hybrid-parallel-degradables",
+    }
+    started_at = time.monotonic()
+    append_startup_journal({"event": "orchestrator.start", "mode": report["mode"]})
 
-    dsn = os.environ.get("GPTBRIDGE_POSTGRES_DSN", "").strip()
-    try:
-        import psycopg
+    # Hybrid start: begin the critical local sqlite probe and, in parallel,
+    # probe the independent degradable services (vector index, Ollama).
+    local_sqlite: tuple[bool, str] = (False, "not-probed")
+    with ThreadPoolExecutor(max_workers=DEGRADABLE_WORKERS + 1) as pool:
+        sqlite_future: Future[tuple[bool, str]] = pool.submit(
+            probe_local_sqlite, workspace
+        )
+        vector_future: Future[tuple[bool, str]] = pool.submit(
+            probe_local_vector, workspace
+        )
+        ollama_future: Future[tuple[bool, str]] = pool.submit(
+            probe_and_start_ollama
+        )
 
-        if not dsn:
-            raise RuntimeError("GPTBRIDGE_POSTGRES_DSN_REQUIRED")
+        local_sqlite = sqlite_future.result()
+        critical_up = local_sqlite[0]
 
-        def postgres_health() -> None:
-            with psycopg.connect(dsn, connect_timeout=3) as connection:
-                connection.execute("SELECT 1").fetchone()
+        # Vector index and Ollama are independent and degradable; wait for
+        # their attempt to settle in the background of the critical path.
+        vector_result = vector_future.result()
+        ollama_result = ollama_future.result()
 
-        ready, detail = retry(postgres_health)
-    except Exception as error:
-        ready, detail = False, str(error)
-    report["postgresql"] = {"ready": ready, "detail": detail}
+    sqlite_ready, sqlite_detail = local_sqlite
+    sqlite_entry = service_entry(
+        "local-sqlite",
+        sqlite_ready,
+        sqlite_detail,
+        critical=True,
+        state=STATE_READY if sqlite_ready else STATE_FAILED,
+        fault_code="LOCAL_SQLITE_READY" if sqlite_ready else "LOCAL_SQLITE_UNAVAILABLE",
+    )
+    report["local-sqlite"] = sqlite_entry
 
-    if not retry(lambda: get_json(f"{QDRANT_ENDPOINT}/collections"), 1)[0]:
-        executable = qdrant_root / "bin" / "qdrant.exe"
-        if executable.is_file():
-            environment = dict(os.environ)
-            environment["QDRANT__SERVICE__HOST"] = "127.0.0.1"
-            environment["QDRANT__STORAGE__STORAGE_PATH"] = str(qdrant_root / "storage")
-            flags = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
-            subprocess.Popen(
-                [str(executable)], cwd=str(qdrant_root), env=environment,
-                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL, creationflags=flags,
+    vector_ready, vector_detail = vector_result
+    vector_entry = service_entry(
+        "vector",
+        vector_ready,
+        vector_detail,
+        critical=False,
+        state=STATE_READY if vector_ready else STATE_RECOVERING,
+        fault_code="VECTOR_READY" if vector_ready else "VECTOR_UNAVAILABLE",
+    )
+    report["vector"] = vector_entry
+
+    ollama_ready, ollama_detail = ollama_result
+    ollama_entry = service_entry(
+        "ollama",
+        ollama_ready,
+        ollama_detail,
+        critical=False,
+        state=STATE_READY if ollama_ready else STATE_RECOVERING,
+        fault_code="OLLAMA_READY" if ollama_ready else "OLLAMA_UNAVAILABLE",
+    )
+    report["ollama"] = ollama_entry
+
+    # Warm model is a non-blocking background preload; it never gates launch.
+    # We give it a short grace period to finish; otherwise it keeps warming in a
+    # background thread and the report records a pending preload so the launcher
+    # can proceed immediately.
+    if ollama_ready:
+        warm_result: dict[str, Any] | None = None
+        warm_finished = threading.Event()
+
+        def _warm_background() -> None:
+            nonlocal warm_result
+            try:
+                warm_result = warm_model_if_ready(True)
+            finally:
+                warm_finished.set()
+
+        warm_thread = threading.Thread(target=_warm_background, daemon=True)
+        warm_thread.start()
+        if warm_finished.wait(timeout=3.0):
+            report["warm_model"] = warm_result
+        else:
+            report["warm_model"] = service_entry(
+                "warm_model",
+                False,
+                "preloading-in-background",
+                critical=False,
+                state=STATE_RECOVERING,
+                fault_code="WARM_MODEL_PRELOADING",
             )
-    ready, detail = retry(lambda: get_json(f"{QDRANT_ENDPOINT}/collections"))
-    report["qdrant"] = {"ready": ready, "detail": detail}
 
-    if not retry(lambda: get_json(f"{OLLAMA_ENDPOINT}/api/tags"), 1)[0]:
-        ollama_root = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama"
-        app = ollama_root / "ollama app.exe"
-        server = ollama_root / "ollama.exe"
-        if app.is_file():
-            start_hidden([str(app)])
-        elif server.is_file():
-            start_hidden([str(server), "serve"])
-    ready, detail = retry(lambda: get_json(f"{OLLAMA_ENDPOINT}/api/tags"))
-    report["ollama"] = {"ready": ready, "detail": detail}
+    degradable_up = all(
+        entry.get("ready") is True
+        for entry in report.values()
+        if isinstance(entry, dict) and entry.get("component") in {"vector", "ollama"}
+    )
+    if not critical_up:
+        report["state"] = STATE_FAILED
+    elif degradable_up:
+        report["state"] = STATE_READY
+    else:
+        report["state"] = STATE_DEGRADED
 
-    if ready:
-        try:
-            post_json(
-                f"{OLLAMA_ENDPOINT}/api/generate",
-                {"model": WARM_MODEL, "prompt": "", "stream": False, "keep_alive": -1},
-            )
-            report["warm_model"] = {"ready": True, "model": WARM_MODEL}
-        except (OSError, RuntimeError, urllib.error.URLError) as error:
-            report["warm_model"] = {"ready": False, "model": WARM_MODEL, "detail": str(error)}
+    report["critical_services"] = ["local-sqlite"]
+    report["degradable_services"] = ["vector", "ollama"]
+    report["exit_code"] = EXIT_ALL_CRITICAL_UP if critical_up else EXIT_CRITICAL_FAILED
+    report["total_duration_ms"] = int((time.monotonic() - started_at) * 1000)
+
+    append_startup_journal(
+        {
+            "event": "orchestrator.done",
+            "state": report["state"],
+            "critical_up": critical_up,
+            "total_duration_ms": report["total_duration_ms"],
+        }
+    )
 
     print(json.dumps(report, ensure_ascii=False))
-    return 0
+    return EXIT_ALL_CRITICAL_UP if critical_up else EXIT_CRITICAL_FAILED
 
 
 if __name__ == "__main__":

@@ -54,7 +54,7 @@ def test_independent_tool_root_rejects_noncanonical_project_root(
     unrelated_root.mkdir()
 
     with pytest.raises(PermissionError, match="PERMISSION_DENIED"):
-        path_guard.independent_tool_root(unrelated_root, "local-ai")
+        path_guard.independent_tool_root(unrelated_root, "xingcheng")
 
 
 def test_resolve_project_path_accepts_canonical_root_marker(
@@ -87,14 +87,14 @@ def test_resolve_project_path_rejects_hardlink_alias(
     protected = project_root / "governance_rule" / "authority.py"
     protected.parent.mkdir()
     protected.write_text("authority", encoding="utf-8")
-    alias = project_root / "local-ai" / "runtime" / "settings" / "alias.py"
+    alias = project_root / "xingcheng" / "runtime" / "settings" / "alias.py"
     alias.parent.mkdir(parents=True)
     os.link(protected, alias)
 
     with pytest.raises(PermissionError, match="PERMISSION_DENIED"):
         path_guard.resolve_project_path(
             project_root,
-            "local-ai/runtime/settings/alias.py",
+            "xingcheng/runtime/settings/alias.py",
         )
 
 
@@ -104,21 +104,21 @@ def test_grant_validation_rejects_hardlink_to_authority_file(
     protected = project_root / "governance_rule" / "governance_policy.py"
     protected.parent.mkdir()
     protected.write_text("authority", encoding="utf-8")
-    alias = project_root / "local-ai" / "runtime" / "settings" / "policy.py"
+    alias = project_root / "xingcheng" / "runtime" / "settings" / "policy.py"
     alias.parent.mkdir(parents=True)
     os.link(protected, alias)
     grant = SimpleNamespace(
         path_match="within",
-        path_roots=("local-ai/runtime/settings",),
+        path_roots=("xingcheng/runtime/settings",),
         excluded_path_roots=("governance_rule",),
     )
 
     with pytest.raises(PermissionError, match="PERMISSION_DENIED"):
         path_guard.validate_grant_resource_path(
             project_root,
-            "local-ai/runtime/settings/policy.py",
+            "xingcheng/runtime/settings/policy.py",
             grant,
-            "local-ai",
+            "xingcheng",
         )
 
 
@@ -127,7 +127,7 @@ def test_resolve_project_path_rejects_symbolic_link(
 ) -> None:
     target = project_root / "target"
     target.mkdir()
-    link = project_root / "local-ai" / "runtime-link"
+    link = project_root / "xingcheng" / "runtime-link"
     link.parent.mkdir()
     try:
         os.symlink(target, link, target_is_directory=True)
@@ -135,4 +135,4 @@ def test_resolve_project_path_rejects_symbolic_link(
         pytest.skip(f"symbolic links unavailable: {exc}")
 
     with pytest.raises(PermissionError, match="PERMISSION_DENIED"):
-        path_guard.resolve_project_path(project_root, "local-ai/runtime-link")
+        path_guard.resolve_project_path(project_root, "xingcheng/runtime-link")

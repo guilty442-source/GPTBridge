@@ -1034,31 +1034,10 @@ class ProjectCleanupService:
         ).strip()
         if requester != "governance/main-system":
             raise PermissionError("PERMISSION_DENIED")
-        preview = self.cleanup_garbage("global", dry_run=True)
-        selected_ids = [
-            str(item.get("item_id"))
-            for item in preview.get("items", [])
-            if isinstance(item, dict)
-            and item.get("risk") == "low"
-            and item.get("item_id")
-        ]
-        if selected_ids:
-            cleanup = self.cleanup_garbage(
-                "global",
-                plan_id=str(preview.get("plan_id") or ""),
-                plan_token=str(preview.get("plan_token") or ""),
-                selected_item_ids=selected_ids,
-                confirm_direct_delete=True,
-            )
-        else:
-            cleanup = {
-                "ok": True,
-                "operation": "daily-low-risk-cleanup",
-                "cleaned_files": 0,
-                "cleaned_dirs": 0,
-                "cleaned_bytes": 0,
-                "message": "no low-risk cleanup candidates",
-            }
+        # Cross-module low-risk garbage cleanup has been devolved to each
+        # independent tool's own local self-cleanup at boot. The central daily
+        # maintenance now only owns governed backups, which remain the single
+        # backup authority that recovery/system-rescue depend on.
         backups: list[dict[str, Any]] = []
         for owner_id in sorted(self._registered_backup_owners()):
             self._emit_progress(
@@ -1069,22 +1048,30 @@ class ProjectCleanupService:
             )
             backups.append(self.create_managed_backup(owner_id))
         failed_backups = [item for item in backups if item.get("ok") is not True]
+        cleanup = {
+            "ok": True,
+            "operation": "local-self-cleanup-devolved",
+            "cleaned_files": 0,
+            "cleaned_dirs": 0,
+            "cleaned_bytes": 0,
+            "message": "garbage cleanup devolved to per-tool local self-cleanup",
+        }
         result = {
-            "ok": cleanup.get("ok") is True and not failed_backups,
+            "ok": not failed_backups,
             "operation": "governed-daily-maintenance",
             "authority": "governance/main-system -> shared-layer -> global-cleaner",
             "cleanup": cleanup,
             "backups": backups,
             "backup_owner_count": len(backups),
             "backup_failure_count": len(failed_backups),
-            "message": "daily governed cleanup and automatic backup completed",
+            "message": "daily governed backup completed; garbage cleanup devolved to per-tool self-cleanup",
         }
         self._append_history(
             "daily-maintenance",
             ok=result["ok"],
             scope="global",
-            item_count=int(cleanup.get("cleaned_files") or 0),
-            bytes=int(cleanup.get("cleaned_bytes") or 0),
+            item_count=0,
+            bytes=0,
             errors=len(failed_backups),
         )
         return result

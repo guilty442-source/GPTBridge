@@ -5,6 +5,10 @@ import path from 'node:path'
 
 const PROTECTED_GOVERNANCE_SOURCES = [
   'governance_rule/governance_policy.py',
+  'governance_rule/codex/__init__.py',
+  'governance_rule/codex/sovereigns.py',
+  'governance_rule/codex/chinese.py',
+  'governance_rule/codex/sovereigns_chinese.py',
   'governance_rule/code_rule_directory.py',
   'governance_rule/permission_directory/directory_authority.py',
   'governance_rule/execution/authentication/__init__.py',

@@ -1,28 +1,32 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from urllib.parse import urlparse
+
+from ..local.vector_store import LocalVectorStore
 
 
 @dataclass(frozen=True)
 class LocalRagRuntime:
-    qdrant_root: Path
-    endpoint: str = "http://127.0.0.1:6333"
+    index_root: Path
 
     def __post_init__(self) -> None:
-        root = self.qdrant_root.resolve()
-        parsed = urlparse(self.endpoint)
-        if parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
-            raise ValueError("QDRANT_MUST_BE_LOCAL")
-        if root.parts[-3:] != ("local-model", "runtime", "qdrant"):
-            raise ValueError("QDRANT_RUNTIME_LOCATION_INVALID")
-        object.__setattr__(self, "qdrant_root", root)
+        root = self.index_root.resolve()
+        if root.parts[-3:] != ("shared-layer", "runtime", "semantic-index"):
+            raise ValueError("LOCAL_SEMANTIC_INDEX_LOCATION_INVALID")
+        object.__setattr__(self, "index_root", root)
+
+    @property
+    def vector_store(self) -> LocalVectorStore:
+        return LocalVectorStore(self.index_root / "vectors.sqlite3")
+
+    def with_root(self, index_root: Path | str) -> "LocalRagRuntime":
+        return replace(self, index_root=Path(index_root).resolve())
 
 
 def runtime_for(project_root: Path | str) -> LocalRagRuntime:
     root = Path(project_root).resolve()
-    return LocalRagRuntime(root / "local-model" / "runtime" / "qdrant")
+    return LocalRagRuntime(root / "shared-layer" / "runtime" / "semantic-index")
 
 
 __all__ = ["LocalRagRuntime", "runtime_for"]

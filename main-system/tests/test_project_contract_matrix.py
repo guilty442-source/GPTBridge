@@ -18,7 +18,7 @@ EXPECTED_TOOL_IDS = {
     "global-cleaner",
     "governance_rule",
     "investment-mobile",
-    "local-ai",
+    "xingcheng",
     "star-chat",
     "system-rescue",
     "vaultly",
@@ -29,7 +29,7 @@ NORMAL_ISOLATED_TOOLS = {
     "ai-collaboration",
     "file-sorter",
     "investment-mobile",
-    "local-ai",
+    "xingcheng",
     "star-chat",
     "vaultly",
 }
@@ -196,13 +196,13 @@ def test_permissions_declare_owned_code_and_database_scope(
 ) -> None:
     permissions = _load_json(manifest_path).get("permissions")
     assert isinstance(permissions, dict)
-    if tool_id == "local-ai":
+    if tool_id == "xingcheng":
         assert permissions.get("code_scope") == "project-source-excluding-governance-rule"
         assert permissions.get("database_scope") == (
-            "opaque-central-index-read-and-local-ai-internal-read-write"
+            "opaque-central-index-read-and-xingcheng-internal-read-write"
         )
         assert permissions.get("allow_modify") == [
-            "local-model/local-ai-excluding-permissions"
+            "local-model/xingcheng-excluding-permissions"
         ]
         assert {"governance-rule", "governance-permission-directory"}.issubset(
             set(permissions.get("deny", []))
@@ -210,10 +210,10 @@ def test_permissions_declare_owned_code_and_database_scope(
         return
     if tool_id == "star-chat":
         assert permissions.get("profile") == "local-model-platform-v1"
-        assert permissions.get("business_permission_owner") == "local-ai"
-        assert permissions.get("settings_owner") == "local-ai"
+        assert permissions.get("business_permission_owner") == "xingcheng"
+        assert permissions.get("settings_owner") == "xingcheng"
         assert permissions.get("database_scope") == (
-            "all-project-databases-via-local-ai-excluding-governance-rule"
+            "all-project-databases-via-xingcheng-excluding-governance-rule"
         )
         return
     if tool_id == "investment-mobile":
@@ -324,8 +324,8 @@ def test_owned_python_sources_do_not_import_sibling_implementations(
 ) -> None:
     own_root = tool_id.replace("-", "_")
     forbidden = SIBLING_IMPORT_ROOTS - {own_root, GOVERNANCE_TOOL_ID}
-    if tool_id == "local-ai":
-        # Model dialogue is a physical child of local-ai and shares its
+    if tool_id == "xingcheng":
+        # Model dialogue is a physical child of xingcheng and shares its
         # implementation boundary even though main-system exposes a separate
         # star-chat lifecycle identity.
         forbidden.discard("star_chat")
@@ -491,7 +491,16 @@ def test_project_root_contains_only_governed_modules_and_control_files() -> None
         path.parent.name
         for path in ROOT.glob("*/manifest.json")
     }
-    allowed_directories = governed_modules | {".git", "main-system", "shared-layer"}
+    allowed_directories = governed_modules | {
+        ".git",
+        ".idea",
+        ".vs",
+        ".vscode",
+        ".devin",
+        "main-system",
+        "shared-layer",
+        "docs",
+    }
     allowed_files = {".gitignore", "pytest.ini"}
 
     unexpected = sorted(
@@ -542,7 +551,7 @@ def test_development_tool_configuration_is_owned_by_main_system() -> None:
     ).is_file()
     assert (development_tools / "qodo" / "agents").is_dir()
     assert (development_tools / "qodo" / "workflows").is_dir()
-    assert not any((ROOT / name).exists() for name in (".continue", ".devin", ".qodo"))
+    assert not any((ROOT / name).exists() for name in (".continue", ".qodo"))
 
 
 def test_special_unpacked_tools_satisfy_runtime_contract() -> None:

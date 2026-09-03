@@ -10,12 +10,12 @@ from governance_rule.permission_directory.execution.path_guard import (
 
 AI_CHANNEL_ID: Final[str] = "shared-layer/ai-channel"
 AUTHORIZED_TOOL_IDS: Final[frozenset[str]] = frozenset(
-    {"ai-assistant", "local-ai", "ai-collaboration", "star-chat"}
+    {"ai-assistant", "xingcheng", "ai-collaboration", "star-chat"}
 )
 AI_CHANNEL_TOOL_IDS: Final[frozenset[str]] = (
     AUTHORIZED_TOOL_IDS | {"investment-mobile"}
 )
-LOCAL_AI_AUTOMATIC_WORKFLOW_SEQUENCE: Final[tuple[str, ...]] = (
+XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE: Final[tuple[str, ...]] = (
     "receive-original-traditional-chinese",
     "qwen3.8-understand-command-and-normalize-taiwan-chinese",
     "rnj-1-analyze-code-stem-and-tool-calling-at-workflow-front",
@@ -32,32 +32,32 @@ _GOVERNANCE_MAIN_ACTOR: Final[str] = "governance/main-system"
 
 # Governance authorizes every route. Star holds the highest non-governance
 # permission envelope but has no fixed responsibilities. Local model work is
-# executed by the internal local-model-platform boundary through local-ai's
+# executed by the internal local-model-platform boundary through xingcheng's
 # governed runtime endpoint; this does not assign the work to Star itself.
 AI_ROUTE_COMMANDS: Final[Mapping[tuple[str, str], frozenset[str]]] = {
-    ("ai-assistant", "local-ai"): frozenset(
+    ("ai-assistant", "xingcheng"): frozenset(
         {
-            "local_ai_status",
-            "local_ai_infer",
-            "local_ai_search_investments",
-            "local_ai_analyze_investments",
-            "local_ai_discuss_investment_analysis",
-            "local_ai_manage_investment_accounting",
-            "local_ai_evaluate_upgrade",
-            "local_ai_memory_list",
-            "local_ai_memory_review",
+            "xingcheng_status",
+            "xingcheng_infer",
+            "xingcheng_search_investments",
+            "xingcheng_analyze_investments",
+            "xingcheng_discuss_investment_analysis",
+            "xingcheng_manage_investment_accounting",
+            "xingcheng_evaluate_upgrade",
+            "xingcheng_memory_list",
+            "xingcheng_memory_review",
         }
     ),
-    ("star-chat", "local-ai"): frozenset(
+    ("star-chat", "xingcheng"): frozenset(
         {
-            "local_ai_status",
-            "local_ai_infer",
+            "xingcheng_status",
+            "xingcheng_infer",
         }
     ),
-    ("local-ai", "ai-collaboration"): frozenset(
+    ("xingcheng", "ai-collaboration"): frozenset(
         {"ai_nexus_send_message"}
     ),
-    ("local-ai", "ai-assistant"): frozenset(
+    ("xingcheng", "ai-assistant"): frozenset(
         {
             "investment_mobile_get_snapshot",
             "investment_mobile_submit_instruction",
@@ -111,7 +111,7 @@ def authorize_ai_target(requester_actor: str, target_tool_id: str, command: str)
     authorize_ai_route(actor, target, requested_command)
 
 
-def authorize_local_ai_automatic_workflow(
+def authorize_xingcheng_automatic_workflow(
     requester_actor: str,
     target_tool_id: str,
     command: str,
@@ -121,12 +121,12 @@ def authorize_local_ai_automatic_workflow(
 
     authorize_ai_target(requester_actor, target_tool_id, command)
     if (
-        str(target_tool_id or "").strip() != "local-ai"
-        or str(command or "").strip() != "local_ai_infer"
+        str(target_tool_id or "").strip() != "xingcheng"
+        or str(command or "").strip() != "xingcheng_infer"
         or payload.get("automatic_workflow") is not True
         or payload.get("autonomous_agent") is not True
         or tuple(payload.get("workflow_sequence") or ())
-        != LOCAL_AI_AUTOMATIC_WORKFLOW_SEQUENCE
+        != XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE
         or str(payload.get("primary_language") or "").strip() != "zh-TW"
     ):
         raise permission_denied()
@@ -138,18 +138,18 @@ def ai_channel_status() -> dict[str, Any]:
         "channel_id": AI_CHANNEL_ID,
         "transport": "governance-authenticated-shared-layer",
         "participants": sorted(AI_CHANNEL_TOOL_IDS),
-        "mobile_participant_scope": "submit-to-local-ai-only",
+        "mobile_participant_scope": "submit-to-xingcheng-only",
         "authority_order": [
             "governance-rule",
-            "local-ai",
+            "xingcheng",
             "ai-assistant",
             "ai-collaboration",
             "star-chat",
         ],
-        "channel_top_level_tool": "local-ai",
+        "channel_top_level_tool": "xingcheng",
         "highest_authority": "governance-rule",
         "authorization_owner": "governance-rule",
-        "highest_non_governance_permission_holder": "local-ai",
+        "highest_non_governance_permission_holder": "xingcheng",
         "highest_authority_management_required": True,
         "star_has_fixed_responsibilities": True,
         "star_fixed_responsibilities": [
@@ -162,11 +162,11 @@ def ai_channel_status() -> dict[str, Any]:
         "star_governance_source_of_truth": True,
         "star_governance_source_priority": "highest",
         "local_model_execution_owner": "local-model-platform",
-        "local_model_runtime_endpoint": "local-ai",
+        "local_model_runtime_endpoint": "xingcheng",
         "star_local_model_task_participation": False,
-        "local_ai_automatic_workflow": {
+        "xingcheng_automatic_workflow": {
             "required": True,
-            "sequence": list(LOCAL_AI_AUTOMATIC_WORKFLOW_SEQUENCE),
+            "sequence": list(XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE),
             "primary_language": "zh-TW",
             "project_scope": "E:/GPTBridge",
             "excluded_path_roots": ["governance_rule"],
@@ -180,19 +180,19 @@ def ai_channel_status() -> dict[str, Any]:
             for (source, target), commands in sorted(AI_ROUTE_COMMANDS.items())
         ],
         "investment_manager_external_ai": False,
-        "external_ai_response_recipient": "local-ai",
+        "external_ai_response_recipient": "xingcheng",
         "queue_when_offline": False,
         "database_shared": False,
     }
 
 
 MOBILE_TOOL_ID: Final[str] = "investment-mobile"
-STAR_TOOL_ID: Final[str] = "local-ai"
+STAR_TOOL_ID: Final[str] = "xingcheng"
 MOBILE_ACTOR: Final[str] = "governance/tool/investment-mobile"
 MOBILE_ROUTE_COMMANDS: Final[frozenset[str]] = frozenset(
     {
-        "local_ai_mobile_get_investment_snapshot",
-        "local_ai_mobile_submit_investment_instruction",
+        "xingcheng_mobile_get_investment_snapshot",
+        "xingcheng_mobile_submit_investment_instruction",
     }
 )
 

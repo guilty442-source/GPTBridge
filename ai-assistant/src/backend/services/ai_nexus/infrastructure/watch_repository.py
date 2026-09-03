@@ -879,18 +879,18 @@ class InvestmentWatchRepository:
             if isinstance(excel_import_profile, dict)
             else None
         )
-        state["local_ai_product_status"] = None
-        state["local_ai_summary"] = None
-        state["local_ai_risk_warnings"] = []
-        state["local_ai_command_result"] = None
-        state["local_ai_action_plan"] = []
-        state["local_ai_watch_triggers"] = []
-        state["local_ai_confidence"] = None
-        state["local_ai_decision_brief"] = ""
-        state["local_ai_network_context"] = None
-        state["local_ai_analysis_cache"] = None
-        state["local_ai_external_discussion"] = None
-        state["local_ai_explanation"] = None
+        state["xingcheng_product_status"] = None
+        state["xingcheng_summary"] = None
+        state["xingcheng_risk_warnings"] = []
+        state["xingcheng_command_result"] = None
+        state["xingcheng_action_plan"] = []
+        state["xingcheng_watch_triggers"] = []
+        state["xingcheng_confidence"] = None
+        state["xingcheng_decision_brief"] = ""
+        state["xingcheng_network_context"] = None
+        state["xingcheng_analysis_cache"] = None
+        state["xingcheng_external_discussion"] = None
+        state["xingcheng_explanation"] = None
         state["dividend_sync"] = None
         state["market_quote_sync"] = None
         state["portfolio_memory"] = self._portfolio_memory(normalized_holdings)
@@ -938,18 +938,18 @@ class InvestmentWatchRepository:
             "last_manual_change": dict(change),
         }
         state["holdings"] = normalized_holdings
-        state["local_ai_product_status"] = None
-        state["local_ai_summary"] = None
-        state["local_ai_risk_warnings"] = []
-        state["local_ai_command_result"] = None
-        state["local_ai_action_plan"] = []
-        state["local_ai_watch_triggers"] = []
-        state["local_ai_confidence"] = None
-        state["local_ai_decision_brief"] = ""
-        state["local_ai_network_context"] = None
-        state["local_ai_analysis_cache"] = None
-        state["local_ai_external_discussion"] = None
-        state["local_ai_explanation"] = None
+        state["xingcheng_product_status"] = None
+        state["xingcheng_summary"] = None
+        state["xingcheng_risk_warnings"] = []
+        state["xingcheng_command_result"] = None
+        state["xingcheng_action_plan"] = []
+        state["xingcheng_watch_triggers"] = []
+        state["xingcheng_confidence"] = None
+        state["xingcheng_decision_brief"] = ""
+        state["xingcheng_network_context"] = None
+        state["xingcheng_analysis_cache"] = None
+        state["xingcheng_external_discussion"] = None
+        state["xingcheng_explanation"] = None
         state["portfolio_memory"] = self._portfolio_memory(normalized_holdings)
         return self.save_state(state)
 
@@ -967,7 +967,7 @@ class InvestmentWatchRepository:
             output.append(item)
         return output
 
-    def save_local_ai_result(
+    def save_xingcheng_result(
         self,
         product_status: dict[str, Any] | None,
         summary: dict[str, Any] | None,
@@ -978,7 +978,7 @@ class InvestmentWatchRepository:
         explanation: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         with self._state_lock:
-            return self._save_local_ai_result_locked(
+            return self._save_xingcheng_result_locked(
                 product_status,
                 summary,
                 risk_warnings,
@@ -987,7 +987,7 @@ class InvestmentWatchRepository:
                 explanation=explanation,
             )
 
-    def _save_local_ai_result_locked(
+    def _save_xingcheng_result_locked(
         self,
         product_status: dict[str, Any] | None,
         summary: dict[str, Any] | None,
@@ -998,46 +998,46 @@ class InvestmentWatchRepository:
         explanation: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         state = self.load_state()
-        state["local_ai_product_status"] = (
+        state["xingcheng_product_status"] = (
             dict(product_status) if isinstance(product_status, dict) else None
         )
-        state["local_ai_summary"] = dict(summary) if isinstance(summary, dict) else None
-        state["local_ai_risk_warnings"] = list(risk_warnings or [])[:20]
+        state["xingcheng_summary"] = dict(summary) if isinstance(summary, dict) else None
+        state["xingcheng_risk_warnings"] = list(risk_warnings or [])[:20]
         compact_command = self._compact_command_result(command_result)
-        state["local_ai_command_result"] = compact_command
-        state["local_ai_network_context"] = self._compact_network_context(
+        state["xingcheng_command_result"] = compact_command
+        state["xingcheng_network_context"] = self._compact_network_context(
             product_status,
             compact_command,
         )
-        state["local_ai_action_plan"] = (
+        state["xingcheng_action_plan"] = (
             list(compact_command.get("action_plan", []))[:8]
             if isinstance(compact_command, dict)
             else []
         )
-        state["local_ai_watch_triggers"] = (
+        state["xingcheng_watch_triggers"] = (
             list(compact_command.get("watch_triggers", []))[:12]
             if isinstance(compact_command, dict)
             else []
         )
-        state["local_ai_confidence"] = (
+        state["xingcheng_confidence"] = (
             dict(compact_command.get("confidence_summary", {}))
             if isinstance(compact_command, dict)
             and isinstance(compact_command.get("confidence_summary"), dict)
             else None
         )
-        state["local_ai_decision_brief"] = (
+        state["xingcheng_decision_brief"] = (
             str(compact_command.get("decision_brief") or "")
             if isinstance(compact_command, dict)
             else ""
         )
-        state["local_ai_analysis_cache"] = self._compact_analysis_cache(full_analysis)
+        state["xingcheng_analysis_cache"] = self._compact_analysis_cache(full_analysis)
         discussion = (
             full_analysis.get("external_ai_discussion")
             if isinstance(full_analysis, dict)
             and isinstance(full_analysis.get("external_ai_discussion"), dict)
             else None
         )
-        state["local_ai_external_discussion"] = (
+        state["xingcheng_external_discussion"] = (
             {
                 "ok": discussion.get("ok") is True,
                 "queued": discussion.get("queued") is True,
@@ -1046,14 +1046,14 @@ class InvestmentWatchRepository:
                 "content": str(discussion.get("content") or "")[:12000],
                 "message": str(discussion.get("message") or ""),
                 "response_recipient": str(
-                    discussion.get("response_recipient") or "local-ai"
+                    discussion.get("response_recipient") or "xingcheng"
                 ),
                 "transport": str(discussion.get("transport") or ""),
             }
             if discussion is not None
             else None
         )
-        state["local_ai_explanation"] = (
+        state["xingcheng_explanation"] = (
             dict(explanation) if isinstance(explanation, dict) else None
         )
         return self.save_state(state)
@@ -1209,8 +1209,8 @@ class InvestmentWatchRepository:
         saved = self.save_state(state)
         if permanent:
             for pattern in (
-                "local-ai-errors.jsonl",
-                "local-ai-errors.*.jsonl",
+                "xingcheng-errors.jsonl",
+                "xingcheng-errors.*.jsonl",
                 "runtime-migration-manifest.json",
             ):
                 for path in self.runtime_root.glob(pattern):
@@ -1342,18 +1342,18 @@ class InvestmentWatchRepository:
             "workbook_scan": None,
             "workbook_scan_quality": None,
             "excel_import_profile": None,
-            "local_ai_product_status": None,
-            "local_ai_summary": None,
-            "local_ai_risk_warnings": [],
-            "local_ai_command_result": None,
-            "local_ai_action_plan": [],
-            "local_ai_watch_triggers": [],
-            "local_ai_confidence": None,
-            "local_ai_decision_brief": "",
-            "local_ai_network_context": None,
-            "local_ai_analysis_cache": None,
-            "local_ai_external_discussion": None,
-            "local_ai_explanation": None,
+            "xingcheng_product_status": None,
+            "xingcheng_summary": None,
+            "xingcheng_risk_warnings": [],
+            "xingcheng_command_result": None,
+            "xingcheng_action_plan": [],
+            "xingcheng_watch_triggers": [],
+            "xingcheng_confidence": None,
+            "xingcheng_decision_brief": "",
+            "xingcheng_network_context": None,
+            "xingcheng_analysis_cache": None,
+            "xingcheng_external_discussion": None,
+            "xingcheng_explanation": None,
             "fund_identity_sync": None,
             "portfolio_memory": "",
             "shared_memory": "",
@@ -1437,7 +1437,7 @@ class InvestmentWatchRepository:
             "Portfolio memory:",
             str(state.get("portfolio_memory") or "尚未匯入持股。"),
         ]
-        product_status = state.get("local_ai_product_status")
+        product_status = state.get("xingcheng_product_status")
         if isinstance(product_status, dict):
             network_context = (
                 product_status.get("network_context")
@@ -1459,7 +1459,7 @@ class InvestmentWatchRepository:
                     str(product_status.get("recommendation") or ""),
                 ]
             )
-        network_context = state.get("local_ai_network_context")
+        network_context = state.get("xingcheng_network_context")
         if isinstance(network_context, dict):
             lines.extend(
                 [
@@ -1473,10 +1473,10 @@ class InvestmentWatchRepository:
                     ),
                 ]
             )
-        decision_brief = str(state.get("local_ai_decision_brief") or "").strip()
+        decision_brief = str(state.get("xingcheng_decision_brief") or "").strip()
         if decision_brief:
             lines.extend(["", "Local AI decision brief:", decision_brief])
-        action_plan = state.get("local_ai_action_plan")
+        action_plan = state.get("xingcheng_action_plan")
         if isinstance(action_plan, list) and action_plan:
             lines.extend(["", "Local AI action plan:"])
             for item in action_plan[:6]:
@@ -1488,7 +1488,7 @@ class InvestmentWatchRepository:
                         f"{item.get('title', '-')} -> {item.get('action', '-')}"
                     )
                 )
-        confidence = state.get("local_ai_confidence")
+        confidence = state.get("xingcheng_confidence")
         if isinstance(confidence, dict):
             lines.extend(
                 [

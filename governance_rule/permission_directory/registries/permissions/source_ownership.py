@@ -19,8 +19,8 @@ AI_ASSISTANT_FORBIDDEN_NETWORK_PATTERNS: Final[dict[str, re.Pattern[str]]] = {
     "smtp": re.compile(r"^\s*(?:from|import)\s+smtplib(?:\.|\s|$)", re.MULTILINE),
     "urllib-request": re.compile(r"urllib\.request|\burlopen\s*\(", re.MULTILINE),
 }
-LOCAL_AI_PACKAGE_ROOT: Final[str] = "local-model/src/backend/services/local_ai"
-LOCAL_AI_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
+XINGCHENG_PACKAGE_ROOT: Final[str] = "local-model/src/backend/services/xingcheng"
+XINGCHENG_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application", "domain", "infrastructure", "integration"}
 )
 AI_COLLABORATION_PACKAGE_ROOT: Final[str] = (
@@ -63,11 +63,14 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "module_locator_repository.py",
         "resource_identity.py",
         "startup.py",
+        "tool_local_cleanup.py",
+        "tool_self_repair.py",
     }
 )
 SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (
     "access_gateway/",
     "database/",
+    "local/",
     "rag_bridge/",
     "registry/",
 )
@@ -139,7 +142,7 @@ OWNED_IMPORT_PREFIXES: Final[dict[str, str]] = {
     "ai_nexus": "ai-assistant",
     "file_sorter": "file-sorter",
     "investment_mobile": "investment-mobile",
-    "local_ai": "local-model",
+    "xingcheng": "local-model",
     "project_cleaner": "global-cleaner",
     "vaultly": "vaultly",
 }
@@ -226,14 +229,14 @@ def source_ownership_errors(project_root: Path) -> list[str]:
                 f"{relative}: {', '.join(matches)}"
             )
 
-    local_ai_package = root / LOCAL_AI_PACKAGE_ROOT
-    for layer in LOCAL_AI_REQUIRED_LAYERS:
-        if not (local_ai_package / layer / "__init__.py").is_file():
-            errors.append(f"local-ai layer is missing: {layer}")
-    for source in local_ai_package.glob("*.py"):
+    xingcheng_package = root / XINGCHENG_PACKAGE_ROOT
+    for layer in XINGCHENG_REQUIRED_LAYERS:
+        if not (xingcheng_package / layer / "__init__.py").is_file():
+            errors.append(f"xingcheng layer is missing: {layer}")
+    for source in xingcheng_package.glob("*.py"):
         if source.name != "__init__.py":
             errors.append(
-                f"local-ai source is outside an owned layer: "
+                f"xingcheng source is outside an owned layer: "
                 f"{source.relative_to(root).as_posix()}"
             )
 
@@ -357,8 +360,8 @@ __all__ = (
     "AI_ASSISTANT_FORBIDDEN_NETWORK_PATTERNS",
     "AI_ASSISTANT_PACKAGE_ROOT",
     "AI_ASSISTANT_REQUIRED_LAYERS",
-    "LOCAL_AI_PACKAGE_ROOT",
-    "LOCAL_AI_REQUIRED_LAYERS",
+    "XINGCHENG_PACKAGE_ROOT",
+    "XINGCHENG_REQUIRED_LAYERS",
     "MAIN_SYSTEM_FORBIDDEN_BUSINESS_TERMS",
     "INVESTMENT_MOBILE_PACKAGE_ROOT",
     "INVESTMENT_MOBILE_REQUIRED_LAYERS",

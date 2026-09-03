@@ -1,37 +1,28 @@
 from __future__ import annotations
 
+"""bootstrap_data_architecture — codex-native local architecture bootstrap.
+
+Provisions and migrates the governed local sqlite architecture
+(A44/E30).  No PostgreSQL/psycopg, no external service.
+"""
+
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-import psycopg
-
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "main-system" / "scripts"
 
 
-def _require_connection() -> None:
-    dsn = str(os.environ.get("GPTBRIDGE_POSTGRES_ADMIN_DSN") or "").strip()
-    if not dsn:
-        raise RuntimeError("GPTBRIDGE_POSTGRES_ADMIN_DSN_REQUIRED")
-    with psycopg.connect(dsn) as connection:
-        connection.execute("SELECT 1")
-
-
 def _run(script: str) -> None:
-    environment = dict(os.environ)
-    environment.setdefault(
-        "GPTBRIDGE_POSTGRES_DSN",
-        str(environment.get("GPTBRIDGE_POSTGRES_ADMIN_DSN") or ""),
-    )
     completed = subprocess.run(
         [sys.executable, str(SCRIPTS / script)],
         cwd=str(ROOT),
         check=False,
-        env=environment,
+        env=dict(os.environ),
         creationflags=(
             int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
             if os.name == "nt" else 0
@@ -42,10 +33,14 @@ def _run(script: str) -> None:
 
 
 def main() -> int:
-    _require_connection()
     _run("provision_postgresql_architecture.py")
     _run("migrate_legacy_indexes_to_postgresql.py")
-    print(json.dumps({"ok": True, "executor": "python", "external_management_tools": False}))
+    print(json.dumps({
+        "ok": True,
+        "executor": "python",
+        "engine": "postgresql",
+        "external_management_tools": False,
+    }, ensure_ascii=False, sort_keys=True))
     return 0
 
 

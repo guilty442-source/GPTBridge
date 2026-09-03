@@ -6,6 +6,10 @@ import {
 import { useBackendSocket } from '@/hooks/useBackendSocket'
 import { ToolboxEntry } from '@/ui/toolbox/ToolboxEntry'
 import { useToolboxApplications } from '@/ui/toolbox/useToolboxApplications'
+import {
+  SovereignDashboard,
+  type RuntimeStatusPayload,
+} from '@/ui/sovereign/SovereignDashboard'
 import { formatBytes, formatProjectSize } from '@/shared/utils/format'
 import { mainSystemLocale } from '@/locales/main-system'
 import '../App.css'
@@ -80,6 +84,7 @@ function connectionCopy(
 export default function App() {
   const [appVersion, setAppVersion] = useState('1.0.0')
   const [maintenanceReady, setMaintenanceReady] = useState(false)
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatusPayload>({})
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics>({})
   const backendSocket = useBackendSocket()
   const sendCommand = backendSocket.sendCommand
@@ -203,6 +208,7 @@ export default function App() {
         if (disposed) return
         const ready = payload.maintenance_ready === true
         setMaintenanceReady(ready)
+        setRuntimeStatus(payload as RuntimeStatusPayload)
         if (ready) return
       } catch {
         if (disposed) return
@@ -329,6 +335,8 @@ export default function App() {
             <small>{t.workspaceSizeHint} · {capacityDetail(workspaceSizeBytes, workspaceFileCount)}</small>
           </article>
         </section>
+
+        <SovereignDashboard runtimeStatus={runtimeStatus} />
 
         <ToolboxEntry
           tools={toolboxTools}

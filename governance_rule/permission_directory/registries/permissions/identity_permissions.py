@@ -121,7 +121,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
     ),
     IdentityPermissionBinding(
         group_id=ACTIVE_IDENTITY_GROUP_ID,
-        actor="governance/tool/local-ai",
+        actor="governance/tool/xingcheng",
         capabilities=(
             "ai-channel-top-level",
             "star-global-data-read",
@@ -139,6 +139,17 @@ IDENTITY_PERMISSION_BINDINGS: Final[
     IdentityPermissionBinding(
         group_id=ACTIVE_IDENTITY_GROUP_ID,
         actor="governance/tool/vaultly",
+        capabilities=(
+            "independent-tool-business-logic",
+            "independent-tool-user-settings",
+            "independent-tool-business-storage",
+            "system-channel-request-submit",
+            "system-channel-request-process",
+        ),
+    ),
+    IdentityPermissionBinding(
+        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        actor="governance/tool/system-rescue",
         capabilities=(
             "independent-tool-business-logic",
             "independent-tool-user-settings",

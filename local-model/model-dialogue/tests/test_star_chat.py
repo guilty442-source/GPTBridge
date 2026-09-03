@@ -7,9 +7,9 @@ from typing import Any
 import pytest
 
 from governance_rule.permission_directory.registries.permissions.tool_routes import (
-    LOCAL_AI_AUTOMATIC_WORKFLOW_SEQUENCE,
+    XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE,
     authorize_ai_route,
-    authorize_local_ai_automatic_workflow,
+    authorize_xingcheng_automatic_workflow,
     tool_actor,
 )
 from star_chat.application.service import StarChatService
@@ -48,7 +48,7 @@ class FakeClient:
 def test_cancellation_poll_uses_process_capability_without_target_claim() -> None:
     channel = object.__new__(SharedLayerChannel)
     channel._channel_id = "ai"
-    channel._tool_id = "local-ai"
+    channel._tool_id = "xingcheng"
     issued: dict[str, Any] = {}
 
     def issue(**kwargs: Any) -> str:
@@ -62,7 +62,7 @@ def test_cancellation_poll_uses_process_capability_without_target_claim() -> Non
             return (token, request_id, target_tool_id) == (
                 "token",
                 "request-1",
-                "local-ai",
+                "xingcheng",
             )
 
     channel._issue = issue
@@ -79,7 +79,7 @@ def test_cancellation_poll_uses_process_capability_without_target_claim() -> Non
 def test_progress_uses_existing_governed_respond_capability() -> None:
     channel = object.__new__(SharedLayerChannel)
     channel._channel_id = "ai"
-    channel._tool_id = "local-ai"
+    channel._tool_id = "xingcheng"
     issued: dict[str, Any] = {}
 
     def issue(**kwargs: Any) -> str:
@@ -93,7 +93,7 @@ def test_progress_uses_existing_governed_respond_capability() -> None:
             return (token, request_id, target_tool_id, payload) == (
                 "token",
                 "request-1",
-                "local-ai",
+                "xingcheng",
                 {"sequence": 1, "text": "partial"},
             )
 
@@ -127,22 +127,22 @@ def test_manifest_declares_main_system_only_independent_interface() -> None:
     }
     connections = manifest["capabilities"]["ai-connections"]
     assert connections["workflow_sequence"] == list(
-        LOCAL_AI_AUTOMATIC_WORKFLOW_SEQUENCE
+        XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE
     )
-    assert connections["service_owner"] == "local-ai"
-    assert manifest["host_tool_id"] == "local-ai"
+    assert connections["service_owner"] == "xingcheng"
+    assert manifest["host_tool_id"] == "xingcheng"
     assert manifest["physical_owner_root"] == "local-model"
     assert manifest["canonical_source_root"] == "local-model/model-dialogue"
     assert manifest["entry"] == "local-model/model-dialogue/src/main"
     assert manifest["main_system_independent_tool"] is True
     assert connections["database_shared"] is True
-    assert connections["database_owner"] == "local-ai"
-    assert connections["settings_owner"] == "local-ai"
-    assert connections["business_layer_owner"] == "local-ai"
-    assert manifest["shared_cache_owner"] == "local-ai"
-    assert manifest["backup_owner"] == "local-ai"
+    assert connections["database_owner"] == "xingcheng"
+    assert connections["settings_owner"] == "xingcheng"
+    assert connections["business_layer_owner"] == "xingcheng"
+    assert manifest["shared_cache_owner"] == "xingcheng"
+    assert manifest["backup_owner"] == "xingcheng"
     assert manifest["backup_storage"] == (
-        "global-cleaner/data/business/backups/local-ai"
+        "global-cleaner/data/business/backups/xingcheng"
     )
     assert connections["separate_business_layer"] is False
     assert connections["separate_settings_layer"] is False
@@ -272,7 +272,7 @@ def test_renderer_has_chat_only_and_internal_native_management_notice() -> None:
 
 def test_governance_allows_only_declared_star_routes() -> None:
     actor = tool_actor("star-chat")
-    assert authorize_ai_route(actor, "local-ai", "local_ai_infer") == "star-chat"
+    assert authorize_ai_route(actor, "xingcheng", "xingcheng_infer") == "star-chat"
     service = StarChatService()
     assert service.owns("star_chat_submit_teaching_example") is False
     assert service.owns("star_chat_train_with_gpt") is False
@@ -299,7 +299,7 @@ async def test_chat_routes_to_star_and_preserves_bounded_history() -> None:
     assert event == "star_chat_send_message_result"
     assert result["ok"] is True
     tool_id, command, payload, timeout = client.requests[0]
-    assert (tool_id, command) == ("local-ai", "local_ai_infer")
+    assert (tool_id, command) == ("xingcheng", "xingcheng_infer")
     assert "使用者最新訊息：請繼續完成程式" in payload["prompt"]
     assert "星澄：已建立規格" in payload["prompt"]
     assert payload["runtime_model"] == "qwen3.8:27b-q4_K_M"
@@ -310,12 +310,12 @@ async def test_chat_routes_to_star_and_preserves_bounded_history() -> None:
     assert payload["automatic_workflow"] is True
     assert payload["primary_language"] == "zh-TW"
     assert payload["workflow_sequence"] == list(
-        LOCAL_AI_AUTOMATIC_WORKFLOW_SEQUENCE
+        XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE
     )
-    authorize_local_ai_automatic_workflow(
+    authorize_xingcheng_automatic_workflow(
         tool_actor("star-chat"),
-        "local-ai",
-        "local_ai_infer",
+        "xingcheng",
+        "xingcheng_infer",
         payload,
     )
     assert payload["documents"] == [
@@ -473,12 +473,12 @@ async def test_task_intensity_and_response_speed_control_output_and_strategy(
 
 
 @pytest.mark.asyncio
-async def test_chat_cancellation_propagates_to_nested_local_ai_request() -> None:
+async def test_chat_cancellation_propagates_to_nested_xingcheng_request() -> None:
     service, client = service_with_client()
     service._active_nested_requests["outer-request"] = "nested-request"
 
     assert await service.cancel_request("outer-request") is True
-    assert client.cancelled == [("local-ai", "nested-request")]
+    assert client.cancelled == [("xingcheng", "nested-request")]
 
 
 @pytest.mark.asyncio
@@ -508,7 +508,7 @@ async def test_capability_envelope_is_only_plain_conversation_text() -> None:
     assert event == "star_chat_send_message_result"
     assert result["ok"] is True
     tool_id, command, payload, timeout = client.requests[0]
-    assert (tool_id, command) == ("local-ai", "local_ai_infer")
+    assert (tool_id, command) == ("xingcheng", "xingcheng_infer")
     assert message in payload["prompt"]
     assert "capability_composition" not in payload
     assert timeout == 600

@@ -8,8 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
 
-from local_ai.application.capability_evaluation import evaluate_star_capabilities
-from local_ai.application.service import LocalAiService
+from xingcheng.application.capability_evaluation import evaluate_star_capabilities
+from xingcheng.application.service import LocalAiService
 
 
 def test_held_out_capability_evaluation_passes_without_training_writeback() -> None:
@@ -32,7 +32,7 @@ def test_status_separates_capability_evaluation_from_governance_tests(
     tmp_path: Path,
 ) -> None:
     service = LocalAiService(tmp_path)
-    _, status = asyncio.run(service.handle("local_ai_status", {}))
+    _, status = asyncio.run(service.handle("xingcheng_status", {}))
 
     capability = status["capability_evaluation"]
     assert capability["schema"] == "star-capability-evaluation/v1"

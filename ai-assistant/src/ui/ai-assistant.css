@@ -10,9 +10,9 @@
 
 /* The Star workspace presents decisions first. Low-frequency diagnostics stay
    available through the System workspace and are not duplicated here. */
-.nexus-workbench--star .nexus-local-ai-explanation,
+.nexus-workbench--star .nexus-xingcheng-explanation,
 .nexus-workbench--star .nexus-quote-gaps,
-.nexus-workbench--star .nexus-local-ai-actions,
+.nexus-workbench--star .nexus-xingcheng-actions,
 .nexus-workbench--star .nexus-command-suggestions,
 .nexus-workbench--star .nexus-action-plan,
 .nexus-workbench--star .nexus-watch-triggers,
@@ -53,7 +53,7 @@
   justify-content: flex-end;
 }
 
-.nexus-workbench--star .nexus-local-ai-meta span:nth-child(n + 5) {
+.nexus-workbench--star .nexus-xingcheng-meta span:nth-child(n + 5) {
   display: none;
 }
 
@@ -111,18 +111,18 @@
   font-size: 11px;
 }
 
-.nexus-local-ai-explanation {
+.nexus-xingcheng-explanation {
   display: grid;
   gap: 5px;
   padding: 10px 0;
   border-top: 1px solid #d3d9df;
 }
 
-.nexus-local-ai-explanation strong {
+.nexus-xingcheng-explanation strong {
   font-size: 12px;
 }
 
-.nexus-local-ai-explanation p {
+.nexus-xingcheng-explanation p {
   margin: 0;
   color: #66727b;
   line-height: 1.55;
@@ -1343,7 +1343,7 @@
 
 .nexus-composer textarea,
 .nexus-memory-input,
-.nexus-local-ai-command input {
+.nexus-xingcheng-command input {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid #c5cdd5;
@@ -1358,7 +1358,7 @@
 
 .nexus-composer textarea:focus,
 .nexus-memory-input:focus,
-.nexus-local-ai-command input:focus {
+.nexus-xingcheng-command input:focus {
   border-color: #315f9f;
   box-shadow: 0 0 0 3px rgba(49, 95, 159, 0.12);
 }
@@ -1372,19 +1372,19 @@
   margin-bottom: 8px;
 }
 
-.nexus-local-ai-command {
+.nexus-xingcheng-command {
   display: grid;
   gap: 6px;
   margin-bottom: 10px;
 }
 
-.nexus-local-ai-command label {
+.nexus-xingcheng-command label {
   color: #5f6b76;
   font-size: 12px;
   font-weight: 800;
 }
 
-.nexus-local-ai-command input {
+.nexus-xingcheng-command input {
   min-height: 38px;
   resize: none;
 }
@@ -1483,19 +1483,19 @@
   gap: 4px;
 }
 
-.nexus-local-ai-status {
+.nexus-xingcheng-status {
   display: grid;
   gap: 10px;
 }
 
-.nexus-local-ai-status p {
+.nexus-xingcheng-status p {
   margin: 0;
   color: #26323a;
   font-size: 13px;
   line-height: 1.5;
 }
 
-.nexus-local-ai-decision {
+.nexus-xingcheng-decision {
   display: grid;
   gap: 5px;
   border: 1px solid #e1e6eb;
@@ -1504,7 +1504,7 @@
   background: #fbfcfd;
 }
 
-.nexus-local-ai-decision > span,
+.nexus-xingcheng-decision > span,
 .nexus-action-plan > span,
 .nexus-watch-triggers > span {
   color: #5f6b76;
@@ -1512,7 +1512,7 @@
   font-weight: 800;
 }
 
-.nexus-local-ai-decision strong {
+.nexus-xingcheng-decision strong {
   min-width: 0;
   color: #172026;
   font-size: 12px;
@@ -1560,13 +1560,13 @@
   background: #fff3f2;
 }
 
-.nexus-local-ai-meta {
+.nexus-xingcheng-meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   gap: 6px;
 }
 
-.nexus-local-ai-meta span {
+.nexus-xingcheng-meta span {
   min-width: 0;
   min-height: 36px;
   display: grid;
@@ -1582,31 +1582,31 @@
   overflow-wrap: anywhere;
 }
 
-.nexus-local-ai-meta .nexus-network-pill--ready {
+.nexus-xingcheng-meta .nexus-network-pill--ready {
   border-color: #b8dfcd;
   color: #226444;
   background: #effaf5;
 }
 
-.nexus-local-ai-meta .nexus-network-pill--attention {
+.nexus-xingcheng-meta .nexus-network-pill--attention {
   border-color: #f1cf8a;
   color: #7b5a13;
   background: #fff8e7;
 }
 
-.nexus-local-ai-meta .nexus-network-pill--critical {
+.nexus-xingcheng-meta .nexus-network-pill--critical {
   border-color: #efb4b0;
   color: #8c2f28;
   background: #fff3f2;
 }
 
-.nexus-local-ai-meta .nexus-network-pill--offline {
+.nexus-xingcheng-meta .nexus-network-pill--offline {
   border-color: #cfd8e3;
   color: #4b5563;
   background: #f7f9fb;
 }
 
-.nexus-local-ai-actions {
+.nexus-xingcheng-actions {
   display: grid;
   gap: 6px;
   margin: 0;

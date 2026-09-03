@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-TOOL_ID = "local-ai"
+TOOL_ID = "xingcheng"
 ROOT = Path(os.environ.get("GPTBRIDGE_GOVERNANCE_PROJECT_ROOT", "E:/GPTBridge")).resolve()
 TOOL_ROOT = (ROOT / "local-model").resolve()
 if ROOT != Path("E:/GPTBridge").resolve() or not TOOL_ROOT.is_dir():
@@ -26,11 +26,11 @@ sys.path.insert(
     ),
 )
 
-from local_ai.application.service import LocalAiService  # noqa: E402
+from xingcheng.application.service import LocalAiService  # noqa: E402
 from star_chat.application.service import StarChatService  # noqa: E402
 from governance_rule.permission_directory.registries.permissions.tool_routes import (  # noqa: E402
     authorize_ai_target,
-    authorize_local_ai_automatic_workflow,
+    authorize_xingcheng_automatic_workflow,
     authorize_investment_mobile_target,
     tool_actor,
 )
@@ -89,7 +89,7 @@ async def execute(
                     else None
                 ),
             )
-        if command == "local_ai_infer":
+        if command == "xingcheng_infer":
             payload["autonomous_agent"] = True
             payload["automatic_workflow"] = True
             payload["workflow_sequence"] = list(
@@ -100,18 +100,18 @@ async def execute(
             payload["translate_before_intent"] = True
         if requester == "governance/tool/investment-mobile":
             authorize_investment_mobile_target(requester, TOOL_ID, command)
-        elif command == "local_ai_infer":
-            authorize_local_ai_automatic_workflow(
+        elif command == "xingcheng_infer":
+            authorize_xingcheng_automatic_workflow(
                 requester, TOOL_ID, command, payload
             )
         else:
             authorize_ai_target(requester, TOOL_ID, command)
         if (
             requester == "governance/tool/ai-assistant"
-            and command == "local_ai_search_investments"
+            and command == "xingcheng_search_investments"
         ):
             payload["allow_external_fallback"] = False
-        if requester == "governance/tool/star-chat" and command == "local_ai_infer":
+        if requester == "governance/tool/star-chat" and command == "xingcheng_infer":
             payload["_runtime_model_selection_authorized"] = True
         if not service.owns(command):
             raise PermissionError("PERMISSION_DENIED")

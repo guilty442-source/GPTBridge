@@ -9,10 +9,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
 
-from local_ai.application.gpt_training_gate import StarOllamaTrainingGate
-from local_ai.application.service import LocalAiService
-from local_ai.integration.external_research import ExternalAiResearch
-from local_ai.infrastructure.transformer_runtime import StarTransformerRuntime
+from xingcheng.application.gpt_training_gate import StarOllamaTrainingGate
+from xingcheng.application.service import LocalAiService
+from xingcheng.integration.external_research import ExternalAiResearch
+from xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
 
 
 VALID_EXAMPLE = {
@@ -301,7 +301,7 @@ def test_external_ai_training_phrase_does_not_trigger_training(tmp_path: Path) -
 
     event, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "讓GPT加入訓練星澄，改善閱讀理解",
                 "runtime_model": service.NATIVE_MODEL_ID,
@@ -310,14 +310,14 @@ def test_external_ai_training_phrase_does_not_trigger_training(tmp_path: Path) -
         )
     )
 
-    assert event == "local_ai_infer_result"
+    assert event == "xingcheng_infer_result"
     assert result["intent"] != "ollama_native_model_training"
     assert "applied_count" not in result
 
 
 def test_status_reports_governed_ollama_training(tmp_path: Path) -> None:
     service = LocalAiService(tmp_path)
-    _, status = asyncio.run(service.handle("local_ai_status", {}))
+    _, status = asyncio.run(service.handle("xingcheng_status", {}))
     coaching = status["self_training"]["ollama_training"]
 
     assert coaching["enabled"] is True
@@ -332,7 +332,7 @@ def test_status_reports_governed_ollama_training(tmp_path: Path) -> None:
     assert coaching["direct_weight_access"] is False
     assert coaching["star_quality_gate_required"] is True
     assert coaching["maximum_examples_per_request"] == 20
-    assert service.owns("local_ai_train_with_gpt") is False
+    assert service.owns("xingcheng_train_with_gpt") is False
 
 
 def test_internal_training_due_requires_interval_and_local_models(tmp_path: Path) -> None:
@@ -401,4 +401,4 @@ def test_owner_teaching_example_is_quality_gated_and_learned(tmp_path: Path) -> 
     assert result["model_updates"][0]["source_type"] == (
         "owner-governed-teaching-candidate"
     )
-    assert service.owns("local_ai_submit_teaching_example") is False
+    assert service.owns("xingcheng_submit_teaching_example") is False

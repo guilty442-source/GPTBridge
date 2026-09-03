@@ -9,7 +9,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
-CENTRAL_REPAIR_VERSION: Final[str] = "1.0.0"
+CENTRAL_REPAIR_VERSION: Final[str] = "1.1.0"
+
+SOURCE_SELF_REPAIR_FAILURES: Final[frozenset[str]] = frozenset(
+    {
+        "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED",
+        "BACKEND_CONNECTION_FAILED",
+        "FRONTEND_BACKEND_DISCONNECTED",
+        "PROCESS_START_FAILED",
+    }
+)
 
 PACKAGE_REBUILD_FAILURES: Final[frozenset[str]] = frozenset(
     {
@@ -35,12 +44,15 @@ class RepairPlan:
     failure_code: str
     inspect_databases: bool
     rebuild_executable: bool
+    repair_main_system_source: bool = False
 
     @property
     def actions(self) -> tuple[str, ...]:
         actions = ("inspect-owned-databases",) if self.inspect_databases else ()
         if self.rebuild_executable:
             actions = (*actions, "rebuild-tool-executable")
+        if self.repair_main_system_source:
+            actions = (*actions, "repair-main-system-source")
         return actions
 
     def as_dict(self) -> dict[str, object]:
@@ -53,7 +65,63 @@ def plan_repair(failure_code: str) -> RepairPlan:
         failure_code=normalized or "TOOL_START_FAILED",
         inspect_databases=True,
         rebuild_executable=normalized in PACKAGE_REBUILD_FAILURES,
+        repair_main_system_source=normalized in SOURCE_SELF_REPAIR_FAILURES,
     )
+
+
+REPAIR_RECIPES: Final[tuple[dict[str, Any], ...]] = (
+    {
+        "recipe_id": "main-system-python-source-syntax",
+        "name": "Main-system Python source indentation/syntax self-repair",
+        "failure_signatures": (
+            "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED",
+            "IndentationError",
+            "TabError",
+            "SyntaxError",
+        ),
+        "owner": "main-system",
+        "remedy": (
+            "compile self-check over main-system/src-core then deterministic "
+            "column-0 indentation recovery via tasks.source_repair"
+        ),
+        "verification": "full source compile passes; repair recorded in automatic-repair store",
+        "automatic": True,
+        "runtime_only": False,
+    },
+    {
+        "recipe_id": "tool-package-rebuild",
+        "name": "Tool package rebuild on startup/runtime failure",
+        "failure_signatures": tuple(sorted(PACKAGE_REBUILD_FAILURES)),
+        "owner": "main-system",
+        "remedy": "plan_repair rebuild-tool-executable via governed package rebuilder",
+        "verification": "owned databases inspected; rebuilt executable starts",
+        "automatic": True,
+        "runtime_only": True,
+    },
+    {
+        "recipe_id": "backend-exit-before-health",
+        "name": "Backend exits before health ready",
+        "failure_signatures": ("backend exited before health ready",),
+        "owner": "main-system",
+        "remedy": "governance-authorized re-spawn with bounded startup/autonomous recovery in launcher",
+        "verification": "health probe returns ready with matching workspace instance id",
+        "automatic": True,
+        "runtime_only": True,
+    },
+    {
+        "recipe_id": "governance-codex-tamper",
+        "name": "Governance codex file tamper detection",
+        "failure_signatures": ("PermissionError", "AuthorityIntegrityGuard.verify"),
+        "owner": "governance-rule",
+        "remedy": (
+            "fail-closed denial; restore codex files from trusted backup and "
+            "re-verify manifest"
+        ),
+        "verification": "governance:audit and runtime integrity report healthy",
+        "automatic": False,
+        "runtime_only": False,
+    },
+)
 
 
 def _inside(candidate: Path, root: Path) -> bool:
@@ -201,6 +269,90 @@ class CentralRepairService:
         self.repair_data_root = repair_data_root.resolve()
         self.store = RepairRunStore(self.repair_data_root)
 
+    def _knowledge_file(self) -> Path:
+        return self.repair_data_root / "knowledge" / "recipes.json"
+
+    def known_recipes(self) -> list[dict[str, Any]]:
+        knowledge_file = self._knowledge_file()
+        recorded: list[dict[str, Any]] = []
+        try:
+            recorded = json.loads(knowledge_file.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            recorded = []
+        if not isinstance(recorded, list):
+            recorded = []
+        merged: dict[str, dict[str, Any]] = {
+            recipe["recipe_id"]: dict(recipe) for recipe in REPAIR_RECIPES
+        }
+        for recipe in recorded:
+            if isinstance(recipe, dict) and recipe.get("recipe_id"):
+                merged[str(recipe["recipe_id"])] = {**merged.get(str(recipe["recipe_id"]), {}), **recipe}
+        recipes = list(merged.values())
+        try:
+            knowledge_file.parent.mkdir(parents=True, exist_ok=True)
+            knowledge_file.write_text(
+                json.dumps(recipes, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+        return recipes
+
+    def record_recipe(self, recipe: dict[str, Any]) -> dict[str, Any]:
+        knowledge_file = self._knowledge_file()
+        recipes = self.known_recipes()
+        recipe_id = str(recipe.get("recipe_id") or "")
+        if not recipe_id:
+            return {"ok": False, "error": "recipe_id required"}
+        for index, existing in enumerate(recipes):
+            if existing.get("recipe_id") == recipe_id:
+                recipes[index] = {**existing, **recipe}
+                break
+        else:
+            recipes.append(recipe)
+        try:
+            knowledge_file.parent.mkdir(parents=True, exist_ok=True)
+            knowledge_file.write_text(
+                json.dumps(recipes, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except OSError as error:
+            return {"ok": False, "error": error.__class__.__name__}
+        return {"ok": True, "recipe_id": recipe_id, "recipes": recipes}
+
+    def knowledge_summary(self) -> dict[str, Any]:
+        recipes = self.known_recipes()
+        return {
+            "recipe_count": len(recipes),
+            "automatic_recipes": sum(
+                1 for recipe in recipes if recipe.get("automatic") is True
+            ),
+            "recipes": [
+                {
+                    "recipe_id": recipe.get("recipe_id"),
+                    "name": recipe.get("name"),
+                    "automatic": recipe.get("automatic"),
+                    "owner": recipe.get("owner"),
+                }
+                for recipe in recipes
+            ],
+        }
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "version": self.VERSION,
+            "enabled": True,
+            "delegation": "governed-executor-only",
+            "source_self_repair": True,
+            "knowledge_base": self.knowledge_summary(),
+        }
+
+    def self_repair_main_system_sources(self) -> dict[str, Any]:
+        from .source_repair import self_repair_sources
+
+        report = self_repair_sources(self.project_root)
+        return {"repair_service": self.VERSION, **report}
+
     def _validate_target(self, target_tool_id: str) -> tuple[str, Path]:
         target_id = str(target_tool_id or "").strip()
         if (
@@ -299,8 +451,10 @@ class CentralRepairService:
 __all__ = [
     "CentralRepairService",
     "DatabaseRecoveryInspector",
+    "REPAIR_RECIPES",
     "RepairPlan",
     "RepairRunStore",
+    "SOURCE_SELF_REPAIR_FAILURES",
     "plan_repair",
     "database_integrity",
 ]

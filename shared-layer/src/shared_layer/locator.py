@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import re
+import sqlite3
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Final
 
-from psycopg import Connection
-
 from governance_rule.execution.authentication import GovernanceAuthenticationService
 from governance_rule.permission_directory.execution.path_guard import permission_denied
+
+from .local.registry_repository import LocalResourceRegistry
 
 
 _MODULE_ID: Final = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -78,27 +79,22 @@ class RegistryLocatorResolver:
     into a module-to-module message.
     """
 
-    def __init__(self, project_root: Path | str, connection: Connection[dict[str, Any]]) -> None:
+    def __init__(self, project_root: Path | str, connection: sqlite3.Connection) -> None:
         self._project_root = Path(project_root).resolve()
         self._connection = connection
 
     def resolve_for_executor(self, *, resource_id: str, executor_type: str) -> ResolvedOwnerResource:
-        row = self._connection.execute(
-            """SELECT locator_id,resource_id,module_id,physical_location
-               FROM registry.locations
-               WHERE resource_id=%s AND executor_type=%s AND status='active'""",
-            (resource_id, executor_type),
-        ).fetchone()
-        if not row:
+        record = LocalResourceRegistry(self._connection).resolve_for_executor(resource_id, executor_type)
+        if record is None:
             raise permission_denied()
-        module_id = str(row["module_id"])
+        module_id = record.module_id
         owner_root = (self._project_root / module_id / "data").resolve()
-        candidate = Path(str(row["physical_location"])).resolve()
+        candidate = Path(record.physical_location).resolve()
         try:
             relative = candidate.relative_to(owner_root)
         except ValueError as exc:
             raise permission_denied() from exc
-        return ResolvedOwnerResource(module_id, str(row["resource_id"]), row["locator_id"], relative.as_posix())
+        return ResolvedOwnerResource(module_id, record.resource_id, record.locator_id, relative.as_posix())
 
 
 __all__ = ["GovernedLocatorResolver", "RegistryLocatorResolver", "ResolvedOwnerResource"]

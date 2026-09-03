@@ -10,7 +10,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
 
-from local_ai.application.coding_expert import StarCodingExpert
+from xingcheng.application.coding_expert import StarCodingExpert
 
 
 def _valid_generation_cases() -> list[dict[str, Any]]:
@@ -126,8 +126,8 @@ def _rejection_cases() -> list[dict[str, Any]]:
         "../outside_{index}.py",
         "src/backend/services/other/outside_{index}.py",
         "/absolute/outside_{index}.py",
-        "src/backend/services/local_ai/application/wrong_{index}.js",
-        "src/backend/services/local_ai/../outside_{index}.py",
+        "src/backend/services/xingcheng/application/wrong_{index}.js",
+        "src/backend/services/xingcheng/../outside_{index}.py",
     )
 
     for index in range(40):
@@ -245,7 +245,7 @@ def test_star_coding_capability_1000_case_matrix(case: dict[str, Any]) -> None:
     elif category == "reject-scope":
         assert result["ok"] is True
         assert result["upgrade_proposal"]["proposal_ready"] is False
-        assert result["upgrade_proposal"]["target"]["within_local_ai_source"] is False
+        assert result["upgrade_proposal"]["target"]["within_xingcheng_source"] is False
         assert result["upgrade_proposal"]["source_write_performed"] is False
     else:
         assert category == "reject-syntax"

@@ -18,7 +18,7 @@ SQL、RAG、Qdrant 與稽核共用資源標籤：
 
 `{platform_id}:{module_id}:{data_category}:{resource_type}:{resource_id}`
 
-星澄固定使用 `platform_id=local-model-platform`、`module_id=local-ai`。
+星澄固定使用 `platform_id=local-model-platform`、`module_id=xingcheng`。
 - Keyword：PostgreSQL Full Text Search
 - Fusion：Reciprocal Rank Fusion（RRF）
 - Reranker：`Qwen/Qwen3-Reranker-0.6B`，只從本機快取載入
@@ -37,16 +37,16 @@ Qdrant 僅監聽 `127.0.0.1:6333`，資料位於 `runtime/qdrant/storage`。本�
 在 `E:\GPTBridge` 執行：
 
 ```powershell
-python local-ai\src\rag_cli.py status
-python local-ai\src\rag_cli.py index local-ai\README.md local-ai\RAG.md
-python local-ai\src\rag_cli.py query "本地 RAG 使用哪個 embedding 模型？"
-python local-ai\src\rag_cli.py query "快速整理知識庫內容" --mode fast
-python local-ai\src\rag_cli.py query "找出相關段落" --retrieve-only
+python xingcheng\src\rag_cli.py status
+python xingcheng\src\rag_cli.py index xingcheng\README.md xingcheng\RAG.md
+python xingcheng\src\rag_cli.py query "本地 RAG 使用哪個 embedding 模型？"
+python xingcheng\src\rag_cli.py query "快速整理知識庫內容" --mode fast
+python xingcheng\src\rag_cli.py query "找出相關段落" --retrieve-only
 ```
 
 支援 TXT、Markdown、RST、CSV、TSV、JSON、JSONL、HTML、XML、YAML、TOML、常見程式碼及 DOCX。路徑只能位於 `E:\GPTBridge`，且明確禁止索引 `governance_rule`。
 
-服務命令為 `local_ai_rag_status`、`local_ai_rag_ingest`、`local_ai_rag_query`。
+服務命令為 `xingcheng_rag_status`、`xingcheng_rag_ingest`、`xingcheng_rag_query`。
 
 ## Reranker 注意事項
 

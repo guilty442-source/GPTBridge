@@ -35,6 +35,12 @@ class DailyGlobalCleanerService:
     def _iso_now() -> str:
         return datetime.now(timezone.utc).isoformat()
 
+    def _permission_master_entry(self) -> Any:
+        sovereign_service = getattr(self.app, "system_sovereign_service", None)
+        if sovereign_service is None:
+            return None
+        return getattr(sovereign_service, "permission_sovereign", None)
+
     def _load_state(self) -> dict[str, Any]:
         try:
             payload = json.loads(self.state_path.read_text(encoding="utf-8"))
@@ -154,8 +160,8 @@ class DailyGlobalCleanerService:
             if not force and not self.is_due():
                 return {"ok": True, "skipped": True, "reason": "NOT_DUE"}
             toolbox = self.app.toolbox_service
-            governance = self.app.governance
-            if toolbox is None or governance is None:
+            permission = self._permission_master_entry()
+            if toolbox is None or permission is None:
                 return {
                     "ok": False,
                     "error_code": "GOVERNED_RUNTIME_UNAVAILABLE",
@@ -216,7 +222,7 @@ class DailyGlobalCleanerService:
                 deadline = time.monotonic() + self.RESPONSE_TIMEOUT_SECONDS
                 while time.monotonic() < deadline:
                     response = await asyncio.to_thread(
-                        governance.tool_execution_response,
+                        permission.tool_execution_response,
                         "global-cleaner",
                         request_id,
                     )

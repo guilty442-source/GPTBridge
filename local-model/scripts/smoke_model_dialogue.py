@@ -17,7 +17,7 @@ sys.path.insert(
     str(TOOL_ROOT / "model-dialogue" / "src" / "backend" / "services"),
 )
 
-from local_ai.application.service import LocalAiService  # noqa: E402
+from xingcheng.application.service import LocalAiService  # noqa: E402
 from star_chat.application.service import StarChatService  # noqa: E402
 
 
@@ -31,11 +31,11 @@ def response_text(result: dict[str, Any]) -> str:
 
 
 async def main() -> int:
-    local_ai = LocalAiService(TOOL_ROOT, enable_transformer=True)
+    xingcheng = LocalAiService(TOOL_ROOT, enable_transformer=True)
     dialogue = StarChatService()
-    dialogue.bind_local_service(local_ai)
+    dialogue.bind_local_service(xingcheng)
     report: dict[str, Any] = {}
-    await local_ai.start()
+    await xingcheng.start()
     try:
         _, status = await dialogue.handle("star_chat_status", {})
         runtime = status.get("transformer_runtime")
@@ -106,18 +106,18 @@ async def main() -> int:
             "response": coding_text[:240],
         }
 
-        _, rag = await local_ai.handle("local_ai_rag_status", {})
+        _, rag = await xingcheng.handle("xingcheng_rag_status", {})
         report["rag"] = {
             "enabled": rag.get("enabled") is True,
-            "qdrant": (rag.get("vector_database") or {}).get("available") is True,
-            "postgresql": (rag.get("keyword_index") or {}).get("engine")
-            == "postgresql",
+            "vector": (rag.get("vector_database") or {}).get("available") is True,
+            "local-sqlite": (rag.get("keyword_index") or {}).get("engine")
+            == "local-sqlite3",
         }
         report["cancel_unknown_request"] = (
             await dialogue.cancel_request("smoke-not-running") is False
         )
     finally:
-        await local_ai.shutdown()
+        await xingcheng.shutdown()
 
     report["ok"] = all(
         (
@@ -126,8 +126,8 @@ async def main() -> int:
             report["chat"]["ok"],
             report["coding"]["ok"],
             report["rag"]["enabled"],
-            report["rag"]["qdrant"],
-            report["rag"]["postgresql"],
+            report["rag"]["vector"],
+            report["rag"]["local-sqlite"],
             report["cancel_unknown_request"],
         )
     )

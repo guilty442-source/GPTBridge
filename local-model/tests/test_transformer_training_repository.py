@@ -13,9 +13,9 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
 
-from local_ai.application.service import LocalAiService
-from local_ai.infrastructure.transformer_runtime import StarTransformerRuntime
-from local_ai.infrastructure.transformer_training_repository import (
+from xingcheng.application.service import LocalAiService
+from xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+from xingcheng.infrastructure.transformer_training_repository import (
     TransformerTrainingRepository,
 )
 
@@ -348,10 +348,10 @@ def test_service_status_exposes_training_database_without_weight_authority(
         tmp_path,
         transformer_runtime=StarTransformerRuntime(enabled=False),
     )
-    _, status = asyncio.run(service.handle("local_ai_status", {}))
+    _, status = asyncio.run(service.handle("xingcheng_status", {}))
     training_database = status["transformer_training_database"]
 
     assert training_database["ok"] is True
     assert training_database["schema"] == "star-transformer-training-database/v1"
     assert training_database["automatic_weight_replacement"] is False
-    assert service.owns("local_ai_transformer_training_status") is False
+    assert service.owns("xingcheng_transformer_training_status") is False

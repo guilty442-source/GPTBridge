@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from backend.services.local_ai.application.local_rag import LocalRagService
-from backend.services.local_ai.infrastructure.transformer_runtime import (
+from backend.services.xingcheng.application.local_rag import LocalRagService
+from backend.services.xingcheng.infrastructure.transformer_runtime import (
     StarTransformerRuntime,
 )
 

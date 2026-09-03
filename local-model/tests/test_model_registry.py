@@ -11,28 +11,28 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
 
-from local_ai.domain.model_registry import StarModelRegistry
-from local_ai.domain.module_registry import StarModuleRegistry
-from local_ai.integration.memory_broker import StarMemoryBroker
-from local_ai.infrastructure.repository import LocalAiRepository
-from local_ai.infrastructure.ollama_model_repository import OllamaModelRepository
-from local_ai.infrastructure.model_engines import StarModelEngines
-from local_ai.infrastructure.generative_language_model import (
+from xingcheng.domain.model_registry import StarModelRegistry
+from xingcheng.domain.module_registry import StarModuleRegistry
+from xingcheng.integration.memory_broker import StarMemoryBroker
+from xingcheng.infrastructure.repository import LocalAiRepository
+from xingcheng.infrastructure.ollama_model_repository import OllamaModelRepository
+from xingcheng.infrastructure.model_engines import StarModelEngines
+from xingcheng.infrastructure.generative_language_model import (
     StarAutoregressiveLanguageModel,
 )
-from local_ai.infrastructure.native_model import StarNativeLanguageModel
-from local_ai.infrastructure import repository as repository_module
-from local_ai.application.service import LocalAiService
-from local_ai.infrastructure.market_data import (
+from xingcheng.infrastructure.native_model import StarNativeLanguageModel
+from xingcheng.infrastructure import repository as repository_module
+from xingcheng.application.service import LocalAiService
+from xingcheng.infrastructure.market_data import (
     MarketDataSearch,
     _fund_query_terms,
     _yahoo_symbol_candidates,
     market_source_catalog,
     recognize_holding_identity,
 )
-from local_ai.application.investment_accounting import coordinate_investment_accounting
-from local_ai.application.investment_analysis import ANALYSIS_MODEL_KEYS, analyze_investments
-from local_ai.application.coding_expert import StarCodingExpert
+from xingcheng.application.investment_accounting import coordinate_investment_accounting
+from xingcheng.application.investment_analysis import ANALYSIS_MODEL_KEYS, analyze_investments
+from xingcheng.application.coding_expert import StarCodingExpert
 
 
 def test_star_has_four_governed_model_roles() -> None:
@@ -187,7 +187,7 @@ def test_star_self_trains_verified_generation_and_restores_it(
 ) -> None:
     service = LocalAiService(tmp_path)
     _, first = asyncio.run(
-        service.handle("local_ai_infer", {"prompt": "請介紹你自己"})
+        service.handle("xingcheng_infer", {"prompt": "請介紹你自己"})
     )
 
     assert first["mode"] == "native-generative-language-model"
@@ -211,7 +211,7 @@ def test_star_self_trains_verified_generation_and_restores_it(
     restored = restarted.model_engines.main.training_status()
     assert restored["learned_example_count"] == 1
     _, duplicate = asyncio.run(
-        restarted.handle("local_ai_infer", {"prompt": "請介紹你自己"})
+        restarted.handle("xingcheng_infer", {"prompt": "請介紹你自己"})
     )
     assert duplicate["self_training"]["deduplicated"] is True
 
@@ -220,7 +220,7 @@ def test_star_self_training_isolated_by_specialist_database(tmp_path: Path) -> N
     service = LocalAiService(tmp_path)
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請分析投資風險",
                 "holdings": [
@@ -504,7 +504,7 @@ def test_star_self_upgrade_can_author_unified_diff_for_existing_file() -> None:
                 "name": "total",
                 "parameters": ["values"],
                 "operation": "sum",
-                "target_path": "src/backend/services/local_ai/application/total.ts",
+                "target_path": "src/backend/services/xingcheng/application/total.ts",
             },
         },
         "self_upgrade",
@@ -515,10 +515,10 @@ def test_star_self_upgrade_can_author_unified_diff_for_existing_file() -> None:
     assert proposal["proposal_ready"] is True
     assert proposal["change_type"] == "modify"
     assert proposal["target"]["new_file_only"] is False
-    assert "--- a/src/backend/services/local_ai/application/total.ts" in proposal[
+    assert "--- a/src/backend/services/xingcheng/application/total.ts" in proposal[
         "unified_diff"
     ]
-    assert "+++ b/src/backend/services/local_ai/application/total.ts" in proposal[
+    assert "+++ b/src/backend/services/xingcheng/application/total.ts" in proposal[
         "unified_diff"
     ]
 
@@ -596,11 +596,11 @@ def test_star_routes_programming_languages_and_reports_capabilities(tmp_path: Pa
     service = LocalAiService(tmp_path)
     _, inference = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {"prompt": "請用 TypeScript 寫一個計算平均值的函式"},
         )
     )
-    _, status = asyncio.run(service.handle("local_ai_status", {}))
+    _, status = asyncio.run(service.handle("xingcheng_status", {}))
 
     assert inference["intent"] == "coding"
     assert inference["model_role"] == "coding-specialist"
@@ -628,7 +628,7 @@ def test_star_authors_bounded_self_upgrade_proposal(tmp_path: Path) -> None:
     service = LocalAiService(tmp_path)
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請自我升級並建立新的程式模組",
                 "code_spec": {
@@ -636,7 +636,7 @@ def test_star_authors_bounded_self_upgrade_proposal(tmp_path: Path) -> None:
                     "name": "new_capability",
                     "parameters": ["payload"],
                     "return_expression": "{'ok': True}",
-                    "target_path": "src/backend/services/local_ai/application/generated_extension.py",
+                    "target_path": "src/backend/services/xingcheng/application/generated_extension.py",
                 },
             },
         )
@@ -679,15 +679,15 @@ def test_star_runs_autonomous_bounded_self_maintenance(tmp_path: Path) -> None:
 def test_model_routing_assigns_investment_mathematical_and_coding_work() -> None:
     registry = StarModelRegistry()
 
-    assert registry.for_command("local_ai_infer").role == "daily-primary"
-    assert registry.for_command("local_ai_infer", intent="risk").role == "investment-specialist"
-    assert registry.for_command("local_ai_infer", intent="calculation").role == "mathematical-reasoning-specialist"
-    assert registry.for_command("local_ai_infer", intent="reasoning").role == "mathematical-reasoning-specialist"
-    assert registry.for_command("local_ai_infer", intent="coding").role == "coding-specialist"
-    assert registry.for_command("local_ai_infer", intent="self_upgrade").role == "coding-specialist"
-    assert registry.for_command("local_ai_analyze_investments").role == "investment-specialist"
-    assert registry.for_command("local_ai_search_investments").role == "daily-primary"
-    assert registry.for_command("local_ai_manage_investment_accounting").role == "daily-primary"
+    assert registry.for_command("xingcheng_infer").role == "daily-primary"
+    assert registry.for_command("xingcheng_infer", intent="risk").role == "investment-specialist"
+    assert registry.for_command("xingcheng_infer", intent="calculation").role == "mathematical-reasoning-specialist"
+    assert registry.for_command("xingcheng_infer", intent="reasoning").role == "mathematical-reasoning-specialist"
+    assert registry.for_command("xingcheng_infer", intent="coding").role == "coding-specialist"
+    assert registry.for_command("xingcheng_infer", intent="self_upgrade").role == "coding-specialist"
+    assert registry.for_command("xingcheng_analyze_investments").role == "investment-specialist"
+    assert registry.for_command("xingcheng_search_investments").role == "daily-primary"
+    assert registry.for_command("xingcheng_manage_investment_accounting").role == "daily-primary"
     assert registry.INVESTMENT.network_policy == "disabled"
     assert registry.INVESTMENT.external_collaboration == "disabled"
     assert registry.MATHEMATICAL.network_policy == "disabled"
@@ -749,7 +749,7 @@ def test_main_model_automatically_arranges_multi_specialist_tasks(tmp_path: Path
 
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {"prompt": "請分析投資風險，再計算並整理資料"},
         )
     )
@@ -779,7 +779,7 @@ def test_external_ai_request_remains_disabled(
 
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請用 AI 協作做高階搜尋、長文、深度推理、社群與潮流工作",
                 "use_external_collaboration": True,
@@ -913,7 +913,7 @@ def test_main_model_coordinates_and_isolates_specialist_records(tmp_path: Path) 
             {"prompt": "請進行邏輯推理"},
         ):
             _, result = await service.handle(
-                "local_ai_infer", {**payload, "allow_network": True}
+                "xingcheng_infer", {**payload, "allow_network": True}
             )
             outputs.append(result)
         return outputs
@@ -957,11 +957,11 @@ def test_main_model_handles_specialist_fallback_and_rejects_manual_selection(
     service = LocalAiService(tmp_path)
 
     _, fallback = asyncio.run(
-        service.handle("local_ai_infer", {"prompt": "請計算這個結果"})
+        service.handle("xingcheng_infer", {"prompt": "請計算這個結果"})
     )
     _, denied = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請分析投資",
                 "model_id": "star-investment-native-model",
@@ -995,7 +995,7 @@ def test_mathematical_expert_executes_calculation_statistics_and_organization(
                 "group_by": "type",
             },
         ):
-            _, result = await service.handle("local_ai_infer", payload)
+            _, result = await service.handle("xingcheng_infer", payload)
             results.append(result)
         return tuple(results)
 
@@ -1026,7 +1026,7 @@ def test_main_model_understands_and_executes_a_search_instruction(
 
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "instruction": "請查詢這個標的的公開資料",
                 "holdings": [{"symbol": "TEST", "asset_type": "FUND"}],
@@ -1207,7 +1207,7 @@ def test_star_reviews_chatgpt_advice_before_updating_investment_parameters(
 
     _event, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {"prompt": "參考本機模型建議調整投資參數"},
         )
     )
@@ -1281,7 +1281,7 @@ def test_mathematical_expert_executes_portfolio_metrics_xirr_and_rebalancing(
     service = LocalAiService(tmp_path)
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請計算 XIRR、夏普與再平衡",
                 "cash_flows": [
@@ -1324,7 +1324,7 @@ def test_external_memory_requires_review_and_can_be_revoked(tmp_path: Path) -> N
 
     _, approved = asyncio.run(
         service.handle(
-            "local_ai_memory_review",
+            "xingcheng_memory_review",
             {"memory_id": memory_id, "action": "approve", "reviewer": "owner"},
         )
     )
@@ -1333,7 +1333,7 @@ def test_external_memory_requires_review_and_can_be_revoked(tmp_path: Path) -> N
 
     _, revoked = asyncio.run(
         service.handle(
-            "local_ai_memory_review",
+            "xingcheng_memory_review",
             {"memory_id": memory_id, "action": "revoke", "reviewer": "owner"},
         )
     )
@@ -1343,7 +1343,7 @@ def test_external_memory_requires_review_and_can_be_revoked(tmp_path: Path) -> N
 
 def test_dynamic_upgrade_evaluation_checks_live_components(tmp_path: Path) -> None:
     service = LocalAiService(tmp_path)
-    _, evaluation = asyncio.run(service.handle("local_ai_evaluate_upgrade", {}))
+    _, evaluation = asyncio.run(service.handle("xingcheng_evaluate_upgrade", {}))
     health = service.runtime_health()
 
     assert evaluation["ok"] is True
@@ -1407,7 +1407,7 @@ def test_self_upgrade_command_executes_bounded_maintenance(tmp_path: Path) -> No
     service = LocalAiService(tmp_path)
 
     _, result = asyncio.run(
-        service.handle("local_ai_infer", {"prompt": "檢討星澄並修正"})
+        service.handle("xingcheng_infer", {"prompt": "檢討星澄並修正"})
     )
 
     assert result["intent"] == "self_upgrade"
@@ -1454,7 +1454,7 @@ def test_approved_relevant_memory_is_grounded_but_not_self_trained(
 
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請說明專案預算限制",
                 "runtime_model": service.NATIVE_MODEL_ID,
@@ -1532,7 +1532,7 @@ def test_capability_composition_is_owned_only_by_star_main_database(
     composition = {
         "composition_id": "composition-test-1",
         "status": "approved",
-        "implementation_target": "local-ai/src/example.py",
+        "implementation_target": "xingcheng/src/example.py",
         "model_assignments": {"implementation": "gpt-oss:20b"},
         "model_discussion": {"voters": [], "inspection_results": []},
     }

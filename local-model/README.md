@@ -8,7 +8,7 @@
 
 `model-dialogue/` 是純對話介面與獨立生命週期程式，只在 GPTBridge 主系統中以 `star-chat` 顯示。介面不再提供訓練、外部 AI 協作或能力編成工作區；訓練與能力編成只由星澄原生模型內部自行處理。
 
-模型對話的 Electron／網路／暫存快取集中於 `local-model/runtime/cache/companions/star-chat`；備份只由全域清理寫入 `global-cleaner/data/business/backups/local-ai`。測試產生物則統一由 `global-cleaner/runtime/test-artifacts` 建立與清除。
+模型對話的 Electron／網路／暫存快取集中於 `local-model/runtime/cache/companions/star-chat`；備份只由全域清理寫入 `global-cleaner/data/business/backups/xingcheng`。測試產生物則統一由 `global-cleaner/runtime/test-artifacts` 建立與清除。
 
 ## 多模組架構
 
@@ -20,7 +20,7 @@
 
 程式設計專家可以從常見自然語言需求或結構化規格產生 Python、TypeScript、JavaScript、SQL 與 JSON。Python 支援函式、類別、資料類別與測試程式；TypeScript／JavaScript 支援函式、類別與測試，也能分析或重構既有原始碼。所有輸出都先經語法結構檢查與多語言靜態安全掃描；資料庫操作在治理授權下可讀取、建立／寫入／儲存、附加、更新、執行、刪除及回復，範圍為專案內所有非 `governance_rule` 資料庫。
 
-自我升級時，星澄只能產生包含目標範圍、來源雜湊、統一差異補丁、測試樣板與安全報告的候選提案，並版本化保存在自身模型資料區。星澄不具程式、Git、正式 SQL、RAG 或系統執行權，核准後仍須交由受治理 executor 執行。唯一可自治讀寫的例外是 `local-model/local-ai` 中排除 `permissions/` 的自身模型資料；治理規則與權限資料維持唯讀。
+自我升級時，星澄只能產生包含目標範圍、來源雜湊、統一差異補丁、測試樣板與安全報告的候選提案，並版本化保存在自身模型資料區。星澄不具程式、Git、正式 SQL、RAG 或系統執行權，核准後仍須交由受治理 executor 執行。唯一可自治讀寫的例外是 `local-model/xingcheng` 中排除 `permissions/` 的自身模型資料；治理規則與權限資料維持唯讀。
 
 ## 生成核心
 

@@ -14,8 +14,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
 
-from local_ai.application.service import LocalAiService
-from local_ai.infrastructure.transformer_runtime import StarTransformerRuntime
+from xingcheng.application.service import LocalAiService
+from xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
 
 
 def test_command_understanding_can_use_fast_chinese_model(tmp_path: Path) -> None:
@@ -78,7 +78,7 @@ def test_star_business_service_and_local_model_platform_roles_are_separate() -> 
     ]
     assert "governance-authority-snapshot" in manifest["permissions"]["allow_read"]
     assert "permission-directory-snapshot" in manifest["permissions"]["allow_read"]
-    assert manifest["capabilities"]["local-ai"]["star_native_model_permissions"][
+    assert manifest["capabilities"]["xingcheng"]["star_native_model_permissions"][
         "governance_source_access"
     ] == "direct-read-only-authoritative"
     assert manifest["star_permission_activation"] == (
@@ -99,7 +99,7 @@ def test_star_business_service_and_local_model_platform_roles_are_separate() -> 
         "ollama-loopback",
         "governance-controlled",
     }
-    assert manifest["capabilities"]["local-ai"]["platform_mode"] == (
+    assert manifest["capabilities"]["xingcheng"]["platform_mode"] == (
         "context-aware-multitask-services"
     )
     assert locale["tool.name"] == "本地模型"
@@ -1160,7 +1160,7 @@ def test_service_denies_direct_runtime_model_selection(tmp_path: Path) -> None:
 
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {"prompt": "test", "runtime_model": StarTransformerRuntime.MODEL},
         )
     )
@@ -1198,7 +1198,7 @@ def test_service_accepts_governed_star_chat_model_selection(tmp_path: Path) -> N
 
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請介紹你自己",
                 "runtime_model": selected,
@@ -1220,7 +1220,7 @@ def test_service_accepts_governed_star_native_model_selection(tmp_path: Path) ->
 
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "Hello Star",
                 "runtime_model": "star-main-native-model",
@@ -1281,7 +1281,7 @@ def test_selected_star_defaults_to_main_database_with_project_wide_permission(
 
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請說明海岳計畫",
                 "runtime_model": service.NATIVE_MODEL_ID,
@@ -1301,7 +1301,7 @@ def test_selected_star_defaults_to_main_database_with_project_wide_permission(
 
     _, saved = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請記住海岳計畫使用藍色標籤",
                 "runtime_model": service.NATIVE_MODEL_ID,
@@ -1343,7 +1343,7 @@ def test_selected_ollama_model_never_receives_or_writes_star_private_content(
 
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請介紹你自己",
                 "runtime_model": selected,
@@ -1379,14 +1379,14 @@ def test_selected_star_opens_training_capability_and_operation_records(
         {
             "composition_id": "native-capability-1",
             "status": "approved",
-            "implementation_target": "local-ai",
+            "implementation_target": "xingcheng",
         }
     )
     main.record(service.NATIVE_MODEL_ID, {"prompt": "先前操作"}, {"ok": True})
 
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "檢查自己的資料庫",
                 "runtime_model": service.NATIVE_MODEL_ID,
@@ -1414,7 +1414,7 @@ def test_service_promotes_transformer_output_without_training_it(
     service = LocalAiService(tmp_path, transformer_runtime=runtime)
 
     _, result = asyncio.run(
-        service.handle("local_ai_infer", {"prompt": "請介紹你自己"})
+        service.handle("xingcheng_infer", {"prompt": "請介紹你自己"})
     )
 
     assert result["mode"] == "governed-local-transformer-llm"
@@ -1460,7 +1460,7 @@ def test_service_maps_task_intensity_to_reasoning_paths_without_role_reassignmen
 
     asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請介紹你自己",
                 "reasoning_effort": "medium",
@@ -1470,7 +1470,7 @@ def test_service_maps_task_intensity_to_reasoning_paths_without_role_reassignmen
     )
     asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "請介紹你自己",
                 "reasoning_effort": "medium",
@@ -1496,7 +1496,7 @@ def test_service_status_reports_the_governed_multi_model_architecture(
 ) -> None:
     service = LocalAiService(tmp_path)
 
-    _, status = asyncio.run(service.handle("local_ai_status", {}))
+    _, status = asyncio.run(service.handle("xingcheng_status", {}))
 
     assert status["platform_mode"] == "context-aware-multitask-model-platform"
     assert status["entry_gateway"] == "all-ai-business-entries"
@@ -1534,13 +1534,13 @@ def test_service_status_reports_the_governed_multi_model_architecture(
         "tool_id": "star-chat",
         "independent_only_in": "main-system",
         "physical_owner_root": "local-model",
-        "settings_owner": "local-ai",
-        "business_layer_owner": "local-ai",
+        "settings_owner": "xingcheng",
+        "business_layer_owner": "xingcheng",
         "permission_profile": "local-model-platform-v1",
-        "cache_owner": "local-ai",
+        "cache_owner": "xingcheng",
         "cache_storage": "local-model/runtime/cache/companions/star-chat",
-        "backup_owner": "local-ai",
-        "backup_storage": "global-cleaner/data/business/backups/local-ai",
+        "backup_owner": "xingcheng",
+        "backup_storage": "global-cleaner/data/business/backups/xingcheng",
         "separate_model_service": False,
         "separate_settings_layer": False,
         "separate_business_layer": False,
@@ -1590,7 +1590,7 @@ def test_service_does_not_fall_back_to_star_when_ollama_is_unavailable(
     )
 
     _, result = asyncio.run(
-        service.handle("local_ai_infer", {"prompt": "請介紹你自己"})
+        service.handle("xingcheng_infer", {"prompt": "請介紹你自己"})
     )
 
     assert result["ok"] is False
@@ -1627,7 +1627,7 @@ def test_selected_transformer_failure_never_falls_back_to_star(
 
     _, result = asyncio.run(
         service.handle(
-            "local_ai_infer",
+            "xingcheng_infer",
             {
                 "prompt": "test",
                 "runtime_model": selected,

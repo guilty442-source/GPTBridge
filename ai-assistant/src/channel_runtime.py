@@ -52,7 +52,7 @@ async def main() -> None:
         health=lambda: {
             "service_ready": True,
             "network_policy": "loopback-only",
-            "investment_service_owner": "local-ai",
+            "investment_service_owner": "xingcheng",
         },
         channel_modes={"ai": "process"},
     )
