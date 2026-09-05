@@ -25,6 +25,10 @@ from core_system.governance_runtime import MainSystemGovernance
 from core_system.hot_update_service import HotUpdateService
 from core_system.daily_global_cleaner_service import DailyGlobalCleanerService
 from core_system.system_sovereign import SystemSovereignService
+from core_system.main_system_self_maintenance import (
+    MainSystemSelfMaintenance,
+    bind_app as bind_self_maintenance_app,
+)
 from core_system.versioning import application_version
 from ipc.server import run_server
 from tasks.queue import TaskQueue
@@ -58,6 +62,7 @@ class GPTBridgeApp:
         self.hot_update_service = HotUpdateService(self)
         self.daily_global_cleaner_service = DailyGlobalCleanerService(self)
         self.system_sovereign_service = SystemSovereignService(self)
+        self.main_system_self_maintenance: MainSystemSelfMaintenance | None = None
         self._command_tasks: set[asyncio.Task[Any]] = set()
         self._command_task_meta: dict[asyncio.Task[Any], dict[str, Any]] = {}
 
@@ -69,6 +74,8 @@ class GPTBridgeApp:
         self._shutdown_started = False
         self._shutdown_complete = asyncio.Event()
         self.default_tool_startup: dict[str, dict[str, Any]] = {}
+        self.startup_failures: list[dict[str, Any]] = []
+        self.startup_dead = False
 
     def _mark_startup_phase(self, phase: str) -> None:
         now = time.monotonic()
@@ -106,8 +113,15 @@ class GPTBridgeApp:
             "phase_history": list(self.startup_phase_history),
             "maintenance_ready": self.maintenance_ready,
             "default_tools": dict(self.default_tool_startup),
+            "startup_failures": list(self.startup_failures),
+            "startup_dead": self.startup_dead,
             "daily_global_cleaner": self.daily_global_cleaner_service.status(),
             "system_sovereign": self.system_sovereign_service.status(),
+            "main_system_self_maintenance": (
+                self.main_system_self_maintenance.status()
+                if self.main_system_self_maintenance is not None
+                else {"enabled": False}
+            ),
         }
 
     async def _start_governed_default_tools(self) -> None:
@@ -165,6 +179,17 @@ class GPTBridgeApp:
     def _log(self, data: dict[str, Any]) -> None:
         print(json.dumps(data, ensure_ascii=False), flush=True)
 
+    def _record_startup_failure(self, stage: str, error: BaseException) -> None:
+        """Single-fault isolation: record a stage failure and keep starting."""
+
+        failure = {
+            "stage": stage,
+            "error": f"{type(error).__name__}: {error}",
+            "at": time.time(),
+        }
+        self.startup_failures.append(failure)
+        self._log({"type": "startup_failure", **failure})
+
     async def initialize(self) -> None:
         """Initialize the mother process with lifecycle and update capabilities only."""
 
@@ -181,23 +206,44 @@ class GPTBridgeApp:
         if self.runtime_status_service is None:
             self.runtime_status_service = RuntimeStatusService(self)
 
-        await self.runtime_bootstrap.initialize_main()
-        self.maintenance_ready = True
+        try:
+            await self.runtime_bootstrap.initialize_main()
+            self.maintenance_ready = True
+        except Exception as error:
+            self._record_startup_failure("runtime_bootstrap", error)
 
         # System Sovereign: instantiated after the launcher's dependency and
         # governance checks have passed. Owns the Xingcheng orchestrator.
         self._mark_startup_phase("sovereign_initializing")
-        sovereign = await self.system_sovereign_service.start()
-        self._log(
-            {
-                "type": "sovereign_startup",
-                "dependency_state": sovereign.get("dependency_state", ""),
-            }
-        )
+        try:
+            sovereign = await self.system_sovereign_service.start()
+            self._log(
+                {
+                    "type": "sovereign_startup",
+                    "dependency_state": sovereign.get("dependency_state", ""),
+                }
+            )
+        except Exception as error:
+            self._record_startup_failure("system_sovereign", error)
         self._mark_startup_phase("sovereign_initialized")
 
-        await self._start_governed_default_tools()
-        await self.daily_global_cleaner_service.start()
+        try:
+            await self._start_governed_default_tools()
+        except Exception as error:
+            self._record_startup_failure("default_tools", error)
+        try:
+            await self.daily_global_cleaner_service.start()
+        except Exception as error:
+            self._record_startup_failure("daily_global_cleaner", error)
+        try:
+            bind_self_maintenance_app(self)
+            self.main_system_self_maintenance = MainSystemSelfMaintenance(
+                self.project_root,
+                authentication=getattr(self.governance, "authentication", None),
+            )
+            await self.main_system_self_maintenance.start()
+        except Exception as error:
+            self._record_startup_failure("main_system_self_maintenance", error)
         self._mark_startup_phase("main_runtime_ready")
         self._log({"type": "status", "status": "ready"})
 
@@ -212,6 +258,8 @@ class GPTBridgeApp:
             self._shutdown_complete.set()
 
     async def _shutdown_once(self) -> None:
+        if self.main_system_self_maintenance is not None:
+            await self.main_system_self_maintenance.stop()
         await self.daily_global_cleaner_service.stop()
         await self.hot_update_service.stop()
         await self.system_sovereign_service.stop()

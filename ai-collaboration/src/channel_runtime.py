@@ -20,7 +20,7 @@ from ai_collaboration.application.service import AiCollaborationService  # noqa:
 from governance_rule.permission_directory.registries.permissions.tool_routes import (  # noqa: E402
     authorize_ai_target,
 )
-from shared_layer.governed_runtime import GovernedToolRuntime  # noqa: E402
+from governance_rule.execution.tool_runtime.governed_runtime import GovernedToolRuntime  # noqa: E402
 
 
 service = AiCollaborationService(TOOL_ROOT)

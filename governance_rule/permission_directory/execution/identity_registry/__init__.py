@@ -90,7 +90,10 @@ def _identity_for_request(
         if request.actor == actor and request.bound_tool_id == tool_id:
             identity = candidate
             break
-    if identity is None or identity.group_id != authority.active_identity_group_id:
+    if (
+        identity is None
+        or identity.group_id not in authority.active_identity_group_ids
+    ):
         raise permission_denied()
     binding = next(
         (

@@ -98,7 +98,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="resource-state-monitor",
             permission_intent="memory-state",
             owner_sovereign="resource",
-            target="resource-sovereign:resource:memory-state",
+            target="system-resource-sub-sovereign:resource:memory-state",
             implementation=_memory_state,
         ),
         ExecutorBinding(
@@ -106,7 +106,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="resource-state-monitor",
             permission_intent="disk-state",
             owner_sovereign="resource",
-            target="resource-sovereign:resource:disk-state",
+            target="system-resource-sub-sovereign:resource:disk-state",
             implementation=_disk_state,
         ),
         ExecutorBinding(
@@ -114,7 +114,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="resource-state-monitor",
             permission_intent="compute-state",
             owner_sovereign="resource",
-            target="resource-sovereign:resource:compute-state",
+            target="system-resource-sub-sovereign:resource:compute-state",
             implementation=_compute_state,
         ),
         ExecutorBinding(
@@ -122,7 +122,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="resource-state-monitor",
             permission_intent="model-state",
             owner_sovereign="resource",
-            target="resource-sovereign:resource:model-state",
+            target="system-resource-sub-sovereign:resource:model-state",
             implementation=_model_state,
         ),
         ExecutorBinding(
@@ -130,7 +130,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="resource-provision-release",
             permission_intent="provision-release",
             owner_sovereign="resource",
-            target="resource-sovereign:resource:provision-release",
+            target="system-resource-sub-sovereign:resource:provision-release",
             implementation=_provision_release,
         ),
     ]

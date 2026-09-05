@@ -27,6 +27,9 @@ from governance_rule.permission_directory.execution.identity_registry import (
     authorize_permission_request,
     verify_manifest_digests,
 )
+from governance_rule.permission_directory.registries.permissions.identity_groups import (
+    identity_group_snapshot,
+)
 from governance_rule.permission_directory.execution.path_guard import (
     permission_denied,
     resolve_project_path,
@@ -363,6 +366,24 @@ class GovernanceAuthenticationService:
             now,
         )
 
+    def _actor_identity_group(self) -> str:
+        """Resolve this actor's dedicated identity group.
+
+        Every registered identity owns exactly one group; a token minted for
+        one tool must carry that tool's group and can never be replayed as a
+        member of another tool's group (anti-jailbreak isolation).
+        """
+
+        for identity in identity_group_snapshot().identities:
+            if (
+                identity.actor == self._actor
+                and identity.bound_tool_id == self._bound_tool_id
+                and identity.group_id
+                in self._authority.active_identity_group_ids
+            ):
+                return identity.group_id
+        raise permission_denied()
+
     def _verify_attestation(
         self,
         attestation: LauncherIdentityAttestation,
@@ -472,7 +493,7 @@ class GovernanceAuthenticationService:
                 version=self._authority.authority_version_policy.current_version,
                 issuer=governance.identity_authentication.issuer,
                 audience=governance.identity_authentication.audience,
-                identity_group=self._authority.active_identity_group_id,
+                identity_group=self._actor_identity_group(),
                 actor=request.actor,
                 bound_tool_id=request.bound_tool_id,
                 target_tool_id=request.target_tool_id,
@@ -584,7 +605,7 @@ class GovernanceAuthenticationService:
         if (
             claims.issuer != governance.identity_authentication.issuer
             or claims.audience != governance.identity_authentication.audience
-            or claims.identity_group != self._authority.active_identity_group_id
+            or claims.identity_group != self._actor_identity_group()
             or claims.actor != self._actor
             or claims.bound_tool_id != self._bound_tool_id
             or claims.caller_path != self._caller_path

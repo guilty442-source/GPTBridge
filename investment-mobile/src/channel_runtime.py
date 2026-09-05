@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
 sys.path.insert(0, str(MOBILE_ROOT / "src" / "backend" / "services"))
 
 from investment_mobile.application.service import InvestmentMobileService  # noqa: E402
-from shared_layer.governed_runtime import GovernedToolRuntime  # noqa: E402
+from governance_rule.execution.tool_runtime.governed_runtime import GovernedToolRuntime  # noqa: E402
 
 
 service = InvestmentMobileService(MOBILE_ROOT)

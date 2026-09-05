@@ -29,7 +29,7 @@ class StarCodingExpert:
             "xingcheng",
             "main-system",
             "shared-layer",
-            "system-rescue",
+            "main-system-central-repair",
             "vaultly",
         }
     )

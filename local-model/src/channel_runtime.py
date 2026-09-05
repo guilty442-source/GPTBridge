@@ -34,7 +34,7 @@ from governance_rule.permission_directory.registries.permissions.tool_routes imp
     authorize_investment_mobile_target,
     tool_actor,
 )
-from shared_layer.governed_runtime import GovernedToolRuntime  # noqa: E402
+from governance_rule.execution.tool_runtime.governed_runtime import GovernedToolRuntime  # noqa: E402
 
 
 service = LocalAiService(TOOL_ROOT, enable_transformer=True)

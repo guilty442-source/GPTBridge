@@ -230,12 +230,9 @@ def test_independent_window_close_policy_covers_source_and_packaged_ui() -> None
     ).read_text("utf-8")
     packaged_template = (
         ROOT
-        / "system-rescue"
-        / "src"
-        / "backend"
-        / "services"
-        / "system_rescue"
-        / "integration"
+        / "main-system"
+        / "src-core"
+        / "tasks"
         / "templates"
         / "platform-tool-app"
         / "main.cjs"
@@ -292,7 +289,7 @@ def test_foreground_ui_exit_force_closes_the_complete_tool(
     assert closed[0]["reason"] == "independent-tool-window-closed"
 
 
-def test_automatic_repair_is_centralized_in_system_rescue() -> None:
+def test_automatic_repair_is_centralized_in_main_system() -> None:
     for manifest_path in sorted(ROOT.glob("*/manifest.json")):
         manifest = json.loads(manifest_path.read_text("utf-8"))
         if manifest.get("enabled", True) is False:
@@ -301,24 +298,21 @@ def test_automatic_repair_is_centralized_in_system_rescue() -> None:
         capabilities = manifest.get("capabilities")
         assert isinstance(capabilities, dict), manifest_path
         assert "auto-repair" not in capabilities, manifest_path
-        if manifest.get("id") == "system-rescue":
-            repair = capabilities.get("central-automatic-repair")
-            assert isinstance(repair, dict), manifest_path
-        else:
-            assert "central-automatic-repair" not in capabilities, manifest_path
+        assert "central-automatic-repair" not in capabilities, manifest_path
         assert not (manifest_path.parent / "src" / "auto_repair.py").exists()
     toolbox_source = (
         ROOT / "main-system" / "src-core" / "tasks" / "toolbox_service.py"
     ).read_text("utf-8")
     assert "def _rebuild_tool_executable" not in toolbox_source
-    assert "_request_system_rescue_repair" in toolbox_source
+    assert "_request_central_repair" in toolbox_source
+    assert "_request_system_rescue_repair" not in toolbox_source
 
 
 def test_dual_runtime_ai_assistant_is_available_to_package_scope() -> None:
-    services_root = ROOT / "system-rescue" / "src" / "backend" / "services"
-    if str(services_root) not in sys.path:
-        sys.path.insert(0, str(services_root))
-    from system_rescue.integration.platform_packager import (
+    tasks_root = ROOT / "main-system" / "src-core" / "tasks"
+    if str(tasks_root) not in sys.path:
+        sys.path.insert(0, str(tasks_root))
+    from platform_packager import (
         iter_tools,
         validate_tool_version_baseline,
     )
@@ -348,15 +342,15 @@ def test_main_system_blocks_tool_version_mismatch_before_launch() -> None:
     ) is None
 
 
-def test_start_failure_requests_system_rescue_then_retries_lifecycle(
+def test_start_failure_requests_central_repair_then_retries_lifecycle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = ToolboxService(ROOT, governance=GovernanceStub())
     manifest = json.loads((ROOT / "ai-assistant" / "manifest.json").read_text("utf-8"))
     calls: list[str] = []
 
-    async def fake_system_rescue(*_args: object, **_kwargs: object) -> dict[str, object]:
-        calls.append("system-rescue")
+    async def fake_central_repair(*_args: object, **_kwargs: object) -> dict[str, object]:
+        calls.append("central-repair")
         return {
             "triggered": True,
             "ok": True,
@@ -379,10 +373,10 @@ def test_start_failure_requests_system_rescue_then_retries_lifecycle(
         calls.append("retry")
         return {"ok": True, "runtime_mode": "executable"}
 
-    monkeypatch.setattr(service, "_request_system_rescue_repair", fake_system_rescue)
+    monkeypatch.setattr(service, "_request_central_repair", fake_central_repair)
     monkeypatch.setattr(service, "start_tool", fake_retry)
     result = asyncio.run(
-        service._retry_start_after_system_rescue(
+        service._retry_start_after_central_repair(
             {"tool_id": "ai-assistant", "request_id": "repair-test"},
             "ai-assistant",
             ROOT / "ai-assistant",
@@ -392,7 +386,7 @@ def test_start_failure_requests_system_rescue_then_retries_lifecycle(
     )
 
     assert result["ok"] is True
-    assert calls == ["system-rescue", "retry"]
+    assert calls == ["central-repair", "retry"]
     assert result["package_repair"]["owner"] == "main-system"
 
 

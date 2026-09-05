@@ -114,9 +114,26 @@ function Invoke-DependencyOrchestrator {
     $criticalUp = $false
     if ($report -and $report.state) {
         $state = [string]$report.state
-        $criticalUp = [bool]$report.postgresql.ready
+        $criticalNames = @()
+        if ($report.critical_services) {
+            $criticalNames = @($report.critical_services)
+        } elseif ($report.postgresql) {
+            # Backward compatibility with PostgreSQL-era orchestrator reports.
+            $criticalNames = @("postgresql")
+        }
+        $criticalUp = $criticalNames.Count -gt 0
+        foreach ($name in $criticalNames) {
+            $criticalEntry = $report.$name
+            if (-not ($criticalEntry -and [bool]$criticalEntry.ready)) {
+                $criticalUp = $false
+            }
+        }
         Write-LauncherStatus "Dependency state: $state"
-        foreach ($name in @("postgresql", "qdrant", "ollama", "warm_model")) {
+        $reportedNames = @(
+            @($report.critical_services) + @($report.degradable_services) +
+                @("postgresql", "qdrant", "ollama", "warm_model")
+        ) | Select-Object -Unique
+        foreach ($name in $reportedNames) {
             $entry = $report.$name
             if ($entry) {
                 $level = if ([bool]$entry.critical) { "CRITICAL" } else { "degradable" }
@@ -135,16 +152,30 @@ function Invoke-DependencyOrchestrator {
     }
 
     if ($criticalUp) {
-        # Critical dependency (PostgreSQL) is up; launch may proceed even in a
-        # DEGRADED state caused by non-critical Qdrant/Ollama unavailability.
+        # All critical dependencies are up; launch may proceed even in a
+        # DEGRADED state caused by non-critical service unavailability.
         return $state
     }
 
-    # PostgreSQL (critical) is not available. Do not pretend READY.
-    $reason = if ($report -and $report.postgresql) {
-        "fault_code=$($report.postgresql.fault_code); message=$($report.postgresql.message)"
-    } else {
-        "orchestrator exit code $($process.ExitCode)"
+    # A critical dependency is not available. Do not pretend READY.
+    $reason = ""
+    if ($report) {
+        $failedCritical = @()
+        foreach ($name in @($report.critical_services)) {
+            $entry = $report.$name
+            if ($entry -and -not [bool]$entry.ready) {
+                $failedCritical += (
+                    "{0}: fault_code={1}; message={2}" -f `
+                        $name, $entry.fault_code, $entry.message
+                )
+            }
+        }
+        if ($failedCritical.Count -gt 0) {
+            $reason = $failedCritical -join " | "
+        }
+    }
+    if (-not $reason) {
+        $reason = "orchestrator exit code $($process.ExitCode)"
     }
     throw "Critical dependency unavailable; startup cannot reach READY. $reason"
 }

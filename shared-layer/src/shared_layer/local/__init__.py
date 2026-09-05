@@ -19,7 +19,6 @@ from .registry_repository import (
     ResourceRegistry,
 )
 from .module_locator import LocalModuleLocatorRepository, ModuleLocatorRepository
-from .vector_store import LocalVectorStore, VectorStore, embed_vector
 
 __all__: list[str] = [
     "LocalSharedLayerStore",
@@ -30,7 +29,4 @@ __all__: list[str] = [
     "ResourceRecord",
     "LocalModuleLocatorRepository",
     "ModuleLocatorRepository",
-    "LocalVectorStore",
-    "VectorStore",
-    "embed_vector",
 ]

@@ -26,7 +26,7 @@ sys.path.insert(0, str(TOOL_ROOT / "src" / "backend" / "services"))
 from governance_rule.permission_directory.registries.permissions.tool_routes import (  # noqa: E402
     authorize_ai_target,
 )
-from shared_layer.governed_runtime import GovernedToolRuntime  # noqa: E402
+from governance_rule.execution.tool_runtime.governed_runtime import GovernedToolRuntime  # noqa: E402
 from star_chat.application.service import StarChatService  # noqa: E402
 
 

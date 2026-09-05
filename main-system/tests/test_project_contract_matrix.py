@@ -20,7 +20,6 @@ EXPECTED_TOOL_IDS = {
     "investment-mobile",
     "xingcheng",
     "star-chat",
-    "system-rescue",
     "vaultly",
 }
 GOVERNANCE_TOOL_ID = "governance_rule"
@@ -66,7 +65,7 @@ VISIBLE_PROCESS_CALLS = {
         "str(executable_file)",
     ),
     (
-        "system-rescue/src/backend/services/system_rescue/integration/platform_packager.py",
+        "main-system/src-core/tasks/platform_packager.py",
         "restart_packaged_executable",
         "[str(executable_file.resolve())]",
     ),

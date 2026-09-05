@@ -46,7 +46,7 @@ except Exception as e:
     logging.error(f"Failed to modify sys.path: {str(e)}")
     raise
 
-from shared_layer.governed_runtime import GovernedToolRuntime  # noqa: E402
+from governance_rule.execution.tool_runtime.governed_runtime import GovernedToolRuntime  # noqa: E402
 from vaultly.application.service import VaultlyService  # noqa: E402
 
 

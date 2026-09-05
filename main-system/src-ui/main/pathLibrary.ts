@@ -15,9 +15,11 @@ export interface RuntimePathLibrary {
   rendererEntryHtml: string
   pythonExecutable: string
   pythonEntry: string
+  bootCoreEntry: string
   pythonSourceRepairEntry: string
   pythonExecutableCandidates: string[]
   pythonEntryCandidates: string[]
+  bootCoreEntryCandidates: string[]
   pythonSourceRepairEntryCandidates: string[]
 }
 
@@ -98,6 +100,13 @@ export function getRuntimePathLibrary(): RuntimePathLibrary {
     toAbsolute(path.join(workspaceRoot, 'src-core', 'main.py')),
   ]
 
+  const bootCoreEntryCandidates = [
+    toAbsolute(path.join(resourcesRoot, 'src-core', 'boot_core.py')),
+    toAbsolute(path.join(unpackedRoot, 'src-core', 'boot_core.py')),
+    toAbsolute(path.join(appRoot, 'src-core', 'boot_core.py')),
+    toAbsolute(path.join(workspaceRoot, 'src-core', 'boot_core.py')),
+  ]
+
   const pythonSourceRepairEntryCandidates = [
     toAbsolute(path.join(resourcesRoot, 'src-core', 'tasks', 'source_repair.py')),
     toAbsolute(path.join(unpackedRoot, 'src-core', 'tasks', 'source_repair.py')),
@@ -108,6 +117,8 @@ export function getRuntimePathLibrary(): RuntimePathLibrary {
   const pythonExecutable =
     firstExisting(pythonExecutableCandidates) ?? pythonExecutableCandidates[0]
   const pythonEntry = firstExisting(pythonEntryCandidates) ?? pythonEntryCandidates[0]
+  const bootCoreEntry =
+    firstExisting(bootCoreEntryCandidates) ?? pythonEntry
   const pythonSourceRepairEntry =
     firstExisting(pythonSourceRepairEntryCandidates) ??
     pythonSourceRepairEntryCandidates[0]
@@ -123,9 +134,11 @@ export function getRuntimePathLibrary(): RuntimePathLibrary {
     rendererEntryHtml: toAbsolute(path.join(__dirname, '../renderer/index.html')),
     pythonExecutable,
     pythonEntry,
+    bootCoreEntry,
     pythonSourceRepairEntry,
     pythonExecutableCandidates,
     pythonEntryCandidates,
+    bootCoreEntryCandidates,
     pythonSourceRepairEntryCandidates,
   }
 }

@@ -36,7 +36,9 @@ def test_xingcheng_has_select_only_grants() -> None:
 
 
 def test_python_gateway_is_default_deny_and_xingcheng_read_only() -> None:
-    from shared_layer.access_gateway import gateway as module
+    from governance_rule.permission_directory.execution.access_gateway import (
+        gateway as module,
+    )
 
     denied = module.AccessGateway(lambda *_: False)
     own = module.Principal("tool-a", "file-sorter")
@@ -54,11 +56,21 @@ def test_python_gateway_is_default_deny_and_xingcheng_read_only() -> None:
     assert allowed.decide(
         star, "read", "xingcheng", resource_class="permission-file"
     ).allowed is True
-    assert allowed.decide(star, "execute", "system-rescue").allowed is False
+    assert allowed.decide(star, "execute", "governance_rule").allowed is False
 
 
 def test_local_rag_runtime_is_fixed_location(tmp_path: Path) -> None:
-    from shared_layer.rag_bridge import local_runtime as module
+    sys.path.insert(
+        0,
+        str(
+            ROOT.parent
+            / "local-model"
+            / "src"
+            / "backend"
+            / "services"
+        ),
+    )
+    from xingcheng.infrastructure.rag_bridge import local_runtime as module
 
     runtime = module.runtime_for(tmp_path)
     assert runtime.index_root == (tmp_path / "shared-layer" / "runtime" / "semantic-index").resolve()
@@ -71,7 +83,17 @@ def test_local_rag_runtime_is_fixed_location(tmp_path: Path) -> None:
 
 
 def test_local_hits_require_authorization_and_no_content_payload() -> None:
-    from shared_layer.rag_bridge import bridge as module
+    sys.path.insert(
+        0,
+        str(
+            ROOT.parent
+            / "local-model"
+            / "src"
+            / "backend"
+            / "services"
+        ),
+    )
+    from xingcheng.infrastructure.rag_bridge import bridge as module
 
     hits = (
         module.QdrantHit("R1", "C1", "vaultly", 0.9),

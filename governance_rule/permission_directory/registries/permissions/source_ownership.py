@@ -55,23 +55,17 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
     {
         "__init__.py",
         "channel.py",
-        "governed_runtime.py",
-        "git_repository.py",
         "request_client.py",
         "store.py",
         "locator.py",
         "module_locator_repository.py",
         "resource_identity.py",
         "startup.py",
-        "tool_local_cleanup.py",
-        "tool_self_repair.py",
     }
 )
 SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (
-    "access_gateway/",
     "database/",
     "local/",
-    "rag_bridge/",
     "registry/",
 )
 SHARED_LAYER_FORBIDDEN_TERMS: Final[frozenset[str]] = frozenset(

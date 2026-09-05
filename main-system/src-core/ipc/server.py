@@ -671,9 +671,27 @@ async def handler(websocket, app_instance):
     ui = UIShell(websocket)
     connection_tasks: set[asyncio.Task] = set()
 
-    # Gracefully wait for the backend to finish its heavy initialization
-    while app_instance.command_router is None:
+    # Gracefully wait for the backend to finish its heavy initialization.
+    # If startup failed outright (startup_dead), do not stall the connection:
+    # enter degraded mode so the client stays connected and can observe
+    # status; commands still fail closed per-command.
+    while (
+        app_instance.command_router is None
+        and not getattr(app_instance, "startup_dead", False)
+    ):
         await asyncio.sleep(0.5)
+
+    if getattr(app_instance, "startup_dead", False):
+        await ui.send_event(
+            "runtime_degraded",
+            {
+                "ok": False,
+                "runtime_state": "degraded",
+                "startup_failures": list(
+                    getattr(app_instance, "startup_failures", [])
+                ),
+            },
+        )
 
     if getattr(app_instance, "task_queue", None):
         pending = app_instance.task_queue.pending_recovery()
@@ -765,7 +783,15 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                     and governance.runtime_integrity_ready()
                 )
                 ready = bool(ready and governance_ready)
-                runtime_state = "ready" if ready else "starting"
+                runtime_state = (
+                    "ready"
+                    if ready
+                    else (
+                        "degraded"
+                        if getattr(app_instance, "startup_dead", False)
+                        else "starting"
+                    )
+                )
                 body = json.dumps(
                     {
                         "ok": ready,
@@ -818,18 +844,26 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                     if hasattr(app_instance, "_mark_startup_phase"):
                         app_instance._mark_startup_phase("runtime_initializing")
                     await app_instance.initialize()
-                    memory_task = asyncio.create_task(
-                        memory_maintainer.run(shutdown_event),
-                        name="main-system-idle-memory-maintenance",
-                    )
                 except Exception as exc:
+                    # Single-fault rule: a failed initialization must not take
+                    # the server down. The listener stays up in degraded mode —
+                    # /health reports runtime_state/degraded and websocket
+                    # clients stay connected (commands still fail closed).
                     if hasattr(app_instance, "_mark_startup_phase"):
                         app_instance._mark_startup_phase("runtime_failed")
+                    try:
+                        app_instance.startup_dead = True
+                        app_instance._record_startup_failure("initialize", exc)
+                    except Exception:
+                        pass
                     try:
                         app_instance._log({"type": "error", "message": f"runtime initialization failed: {exc}"})
                     except Exception:
                         print(f"Runtime initialization failed: {exc}")
-                    raise
+                memory_task = asyncio.create_task(
+                    memory_maintainer.run(shutdown_event),
+                    name="main-system-idle-memory-maintenance",
+                )
 
                 await shutdown_event.wait()
         except OSError as exc:

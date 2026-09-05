@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
 sys.path.insert(0, str(TOOL_ROOT / "src" / "backend" / "services"))
 
 from file_sorter.application.service import FileSorterService  # noqa: E402
-from shared_layer.governed_runtime import (  # noqa: E402
+from governance_rule.execution.tool_runtime.governed_runtime import (  # noqa: E402
     GovernedCliExecutor,
     GovernedToolRuntime,
 )

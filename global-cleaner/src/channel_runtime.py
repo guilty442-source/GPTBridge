@@ -14,7 +14,7 @@ if ROOT != Path("E:/GPTBridge").resolve() or not TOOL_ROOT.is_dir():
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
 
-from shared_layer.governed_runtime import (  # noqa: E402
+from governance_rule.execution.tool_runtime.governed_runtime import (  # noqa: E402
     GovernedCliExecutor,
     GovernedToolRuntime,
 )

@@ -1,1 +1,0 @@
-"""System Rescue independent tool."""

@@ -208,6 +208,44 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
 
     if identity_group.group_id != directory.active_identity_group_id:
         errors.append("active identity group does not match directory authority")
+    active_group_ids = set(directory.active_identity_group_ids)
+    identity_group_ids = [item.group_id for item in identity_group.identities]
+    identity_codes = [item.identity_code for item in identity_group.identities]
+    identity_language_names = [
+        item.language_name for item in identity_group.identities
+    ]
+    identity_codenames = [item.codename for item in identity_group.identities]
+    if any(gid not in active_group_ids for gid in identity_group_ids):
+        errors.append("identity references a group outside the active set")
+    for label, values in (
+        ("identity group", identity_group_ids),
+        ("identity code", identity_codes),
+        ("identity language name", identity_language_names),
+        ("identity codename", identity_codenames),
+    ):
+        if len(values) != len(set(values)):
+            errors.append(f"{label} assignments contain duplicates")
+    if any(
+        not re.fullmatch(r"[A-Z][0-9]{5}", code) for code in identity_codes
+    ):
+        errors.append("identity code must be one letter plus five digits")
+    if any(
+        not re.fullmatch(r"[a-z][a-z0-9_]*", name)
+        for name in identity_language_names
+    ):
+        errors.append("identity language name must be a code identifier")
+    if any(not name.strip() for name in identity_codenames):
+        errors.append("identity codename must not be empty")
+    identity_group_by_actor = {
+        item.actor: item.group_id for item in identity_group.identities
+    }
+    if any(
+        binding.group_id != identity_group_by_actor.get(binding.actor)
+        for binding in permission_bindings
+    ):
+        errors.append(
+            "permission binding group must match the actor's dedicated group"
+        )
     identity_actors = {identity.actor for identity in identity_group.identities}
     permission_actors = {binding.actor for binding in permission_bindings}
     if not permission_actors.issubset(identity_actors):

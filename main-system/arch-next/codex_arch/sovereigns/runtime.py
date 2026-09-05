@@ -1,8 +1,9 @@
-"""runtime sovereign — 運行主宰。
+"""runtime sub-sovereign — 運行子主宰（收編於系統主宰之下）。
 
-法典依據：A28 / E7。
+法典依據：P11 / A26 / A28 / E7。
   * 負責運行與服務維持：進程存續與運行期完整性；
-  * 以本法典之執行委派原則為決策依據（A28）；
+  * 已收編為系統主宰之子主宰（system-runtime-sub-sovereign），
+    一切決策依本法典執行委派原則（A28）；
   * 實際進程啟停/探測委派受治理執行器（A5/E2）。
 """
 
@@ -18,12 +19,12 @@ from ..shared.gate import EntryRule
 from ._base import SovereignBase
 
 
-class RuntimeSovereign(SovereignBase):
+class RuntimeSubSovereign(SovereignBase):
     sovereign_id = "runtime"
     codification = ("A28", "E7", "A5", "A12")
     required_roles = frozenset(
         {
-            "runtime-sovereign",
+            "system-runtime-sub-sovereign",
             "system-sovereign",
             "maintenance-sovereign",
             "governance-auditor",
@@ -86,7 +87,7 @@ class RuntimeSovereign(SovereignBase):
             "runtime-integrity", {"guard": True}
         )
         return accepted_outcome(
-            {**outcome.result, "authority": "runtime-sovereign"},
+            {**outcome.result, "authority": "system-runtime-sub-sovereign"},
             ("A28",),
         )
 
@@ -101,4 +102,4 @@ class RuntimeSovereign(SovereignBase):
         )
 
 
-__all__ = ["RuntimeSovereign"]
+__all__ = ["RuntimeSubSovereign"]

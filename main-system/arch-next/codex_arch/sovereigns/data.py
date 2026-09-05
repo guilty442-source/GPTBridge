@@ -1,9 +1,10 @@
-"""data sovereign — 資料主宰。
+"""data sub-sovereign — 資料子主宰（收編於系統主宰之下）。
 
-法典依據：P14 / A31 / A33 / E18 / E20。
+法典依據：P11 / A26 / P14 / A31 / A33 / E18 / E20。
   * 負責一切資料本體事務：結構化資料、語意索引與版歷史之
     存取規範、一致性、完整性查核執行與資料目錄（A31）；
-  * 資料完整性查核執行歸本主宰（A33），健康呈現歸維護主宰；
+  * 已收編為系統主宰之子主宰（system-data-sub-sovereign）；
+  * 資料完整性查核執行歸本子主宰（A33），健康呈現歸維護主宰；
   * 禁止越權管理資源或權限（A31 prohibition）；本身無執行權（E18）。
 """
 
@@ -25,12 +26,12 @@ _INTEGRITY_KIND_TO_EXECUTOR: dict[str, str] = {
 }
 
 
-class DataSovereign(SovereignBase):
+class DataSubSovereign(SovereignBase):
     sovereign_id = "data"
     codification = ("P14", "A31", "A33", "E18", "E20", "A12")
     required_roles = frozenset(
         {
-            "data-sovereign",
+            "system-data-sub-sovereign",
             "maintenance-sovereign",
             "system-sovereign",
             "governance-auditor",
@@ -114,4 +115,4 @@ class DataSovereign(SovereignBase):
         )
 
 
-__all__ = ["DataSovereign"]
+__all__ = ["DataSubSovereign"]

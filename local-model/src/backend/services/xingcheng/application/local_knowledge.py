@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 from typing import Any, Mapping
 
-from shared_layer.git_repository import LocalGitRepository
+from ..infrastructure.git_repository import LocalGitRepository
 from shared_layer.resource_identity import (
     PLATFORM_ID,
     XINGCHENG_MODULE_ID,

@@ -1,7 +1,8 @@
-"""integration sovereign — 整合主宰。
+"""integration sub-sovereign — 整合子主宰（收編於系統主宰之下）。
 
-法典依據：P15 / A32 / A34 / E19 / E20。
+法典依據：P11 / A26 / P15 / A32 / A34 / E19 / E20。
   * 負責跨主宰與跨模組之結構性介面、通道、同步與匯流（A32）；
+  * 已收編為系統主宰之子主宰（system-integration-sub-sovereign）；
   * 禁止涉入決策層協調（A32/E19）；決策協調歸星澄（A34）；
   * 本身無執行權（E19）；通道/同步實作委派受治理執行器。
 """
@@ -18,12 +19,12 @@ from ..shared.gate import EntryRule
 from ._base import SovereignBase
 
 
-class IntegrationSovereign(SovereignBase):
+class IntegrationSubSovereign(SovereignBase):
     sovereign_id = "integration"
     codification = ("P15", "A32", "A34", "E19", "E20", "A12")
     required_roles = frozenset(
         {
-            "integration-sovereign",
+            "system-integration-sub-sovereign",
             "system-sovereign",
             "governance-auditor",
         }
@@ -119,4 +120,4 @@ class IntegrationSovereign(SovereignBase):
         )
 
 
-__all__ = ["IntegrationSovereign"]
+__all__ = ["IntegrationSubSovereign"]

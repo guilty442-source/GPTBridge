@@ -4,7 +4,7 @@
 // Built by build_native.py into a _sovereign_native.pyd placed next to this
 // source so the Python adapters can import it with a relative import.
 //
-// The sovereigns (RuntimeSovereign and MaintenanceSovereign) orchestrate in
+// The sub-sovereigns (RuntimeSubSovereign and MaintenanceSovereign) orchestrate in
 // Python but delegate performance-/resource-critical primitives to this module:
 //   * process working-set / private-memory statistics (Windows PSAPI)
 //   * high-resolution monotonic timing

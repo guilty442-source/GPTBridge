@@ -695,7 +695,7 @@ class ToolboxService:
                 runtime_tool_id=runtime_owner_tool_id,
             )
 
-    async def _request_system_rescue_repair(
+    async def _request_central_repair(
         self,
         tool_id: str,
         tool_dir: Path,
@@ -703,15 +703,23 @@ class ToolboxService:
         failure: Dict[str, Any],
     ) -> dict[str, Any]:
         del tool_dir, manifest
-        if tool_id in {"system-rescue", "governance_rule", "main-system"}:
+        if tool_id in {"main-system"}:
             return {
                 "triggered": False,
                 "reason": "CENTRAL_REPAIR_OWNER_CANNOT_REPAIR_ITSELF",
             }
         failure_code = str(failure.get("error_code") or "TOOL_START_FAILED")[:128]
         try:
+            from .package_rebuilder import ToolPackageRebuilder
+            rebuilder = ToolPackageRebuilder(
+                self.project_root,
+                self.project_root / "main-system",
+            )
             repair_result = await asyncio.to_thread(
-                self.central_repair.repair_tool, tool_id, failure_code
+                self.central_repair.repair_tool,
+                tool_id,
+                failure_code,
+                package_rebuilder=rebuilder.rebuild,
             )
             extraction: dict[str, Any] | None = None
             extract_paths = repair_result.get("backup_extract_paths") or []
@@ -818,7 +826,7 @@ class ToolboxService:
                     }
                 )
 
-    async def _retry_start_after_system_rescue(
+    async def _retry_start_after_central_repair(
         self,
         payload: Dict[str, Any],
         tool_id: str,
@@ -826,7 +834,7 @@ class ToolboxService:
         manifest: Dict[str, Any],
         failure: Dict[str, Any],
     ) -> Dict[str, Any]:
-        repair_result = await self._request_system_rescue_repair(
+        repair_result = await self._request_central_repair(
             tool_id,
             tool_dir,
             manifest,
@@ -1352,13 +1360,21 @@ class ToolboxService:
 
     async def list_tools(self) -> Dict[str, Any]:
         tools = self._load_manifest_records()
+        # Infrastructure / authority modules are not user-facing tools and
+        # must not appear as toolbox cards on the main screen. They remain
+        # governed and supervised but are hidden from the toolbox UI:
+        #   - global-cleaner  : governed backup/cleanup infrastructure
+        hidden_infrastructure_ids = {
+            "global-cleaner",
+        }
         for tool in tools:
             tool_id = str(tool.get("id", "")).strip()
-            if tool_id in {"governance_rule", "shared-layer", "xingcheng"}:
-                tool["permission_denied"] = tool_id == "governance_rule"
+            if tool_id in hidden_infrastructure_ids:
+                tool["hidden_from_toolbox"] = True
+            if tool_id in {"shared-layer", "xingcheng"}:
+                tool["permission_denied"] = False
                 tool["lifecycle_locked"] = True
-                tool["governance_authority"] = tool_id == "governance_rule"
-                tool["resident_service"] = tool_id in {"shared-layer", "xingcheng"}
+                tool["resident_service"] = True
                 tool["status"] = "running"
                 continue
             try:
@@ -1572,7 +1588,7 @@ class ToolboxService:
         if version_failure is not None:
             await self.update_status(tool_id, "error")
             if not repair_attempted:
-                return await self._retry_start_after_system_rescue(
+                return await self._retry_start_after_central_repair(
                     payload,
                     tool_id,
                     tool_dir,
@@ -1643,7 +1659,7 @@ class ToolboxService:
                 fallback_payload["_source_fallback_attempted"] = True
                 fallback_payload["_executable_fallback_attempted"] = True
                 return await self.start_tool(fallback_payload)
-            return await self._retry_start_after_system_rescue(
+            return await self._retry_start_after_central_repair(
                 payload,
                 tool_id,
                 tool_dir,
@@ -1672,7 +1688,7 @@ class ToolboxService:
                 fallback_payload["_executable_fallback_attempted"] = True
                 return await self.start_tool(fallback_payload)
             if not repair_attempted:
-                return await self._retry_start_after_system_rescue(
+                return await self._retry_start_after_central_repair(
                     payload,
                     tool_id,
                     tool_dir,
@@ -1712,7 +1728,7 @@ class ToolboxService:
                 fallback_payload["_executable_fallback_attempted"] = True
                 return await self.start_tool(fallback_payload)
             if not repair_attempted:
-                return await self._retry_start_after_system_rescue(
+                return await self._retry_start_after_central_repair(
                     payload,
                     tool_id,
                     tool_dir,
@@ -1763,7 +1779,7 @@ class ToolboxService:
                 fallback_payload["_executable_fallback_attempted"] = True
                 return await self.start_tool(fallback_payload)
             if not repair_attempted:
-                return await self._retry_start_after_system_rescue(
+                return await self._retry_start_after_central_repair(
                     payload,
                     tool_id,
                     tool_dir,
@@ -1825,7 +1841,7 @@ class ToolboxService:
                 fallback_payload["_executable_fallback_attempted"] = True
                 return await self.start_tool(fallback_payload)
             if not repair_attempted:
-                return await self._retry_start_after_system_rescue(
+                return await self._retry_start_after_central_repair(
                     payload,
                     tool_id,
                     tool_dir,
@@ -2041,7 +2057,7 @@ class ToolboxService:
                 fallback_payload["_executable_fallback_attempted"] = True
                 return await self.start_tool(fallback_payload)
             if not repair_attempted:
-                return await self._retry_start_after_system_rescue(
+                return await self._retry_start_after_central_repair(
                     payload,
                     tool_id,
                     tool_dir,
@@ -2070,7 +2086,7 @@ class ToolboxService:
                     "exit_code": process.returncode,
                 }
                 if not repair_attempted:
-                    return await self._retry_start_after_system_rescue(
+                    return await self._retry_start_after_central_repair(
                         payload,
                         tool_id,
                         tool_dir,
@@ -2145,7 +2161,7 @@ class ToolboxService:
                 fallback_payload["_executable_fallback_attempted"] = True
                 fallback_payload["_source_fallback_attempted"] = True
                 return await self.start_tool(fallback_payload)
-            return await self._retry_start_after_system_rescue(
+            return await self._retry_start_after_central_repair(
                 payload,
                 tool_id,
                 tool_dir,

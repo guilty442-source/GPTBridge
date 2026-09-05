@@ -46,7 +46,9 @@
     "authenticated-ipc": {
       "channels": ["system", "ai"],
       "authority": "governance_rule",
-      "resident": true
+      "resident": true,
+      "role": "sub-sovereign",
+      "subordinate_to": "system"
     }
   },
   "environment": { "allow": ["GPTBRIDGE_POSTGRES_DSN"] },

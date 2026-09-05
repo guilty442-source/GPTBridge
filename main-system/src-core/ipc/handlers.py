@@ -24,6 +24,7 @@ MAIN_COMMANDS = {
     "toolbox_cancel_tool_execution",
     "app:get-runtime-status",
     "app:get-governance-rules",
+    "app:run-main-system-self-maintenance",
 }
 
 class CommandRouter:
@@ -80,9 +81,9 @@ class CommandRouter:
                         "delete-excess-logs",
                         "read-only-system-health-check",
                     ],
-                    "system-rescue": [
+                    "main-system-central-repair": [
                         "managed-storage-repair",
-                        "write-rescue-audit-and-log",
+                        "write-repair-audit-and-log",
                     ],
                     "requester_write_authority": "none",
                     "direct_main_to_tool_instruction": "PERMISSION_DENIED",
@@ -94,6 +95,24 @@ class CommandRouter:
                     "unauthorized_result": "PERMISSION_DENIED",
                 },
             }
+
+        if command == "app:run-main-system-self-maintenance":
+            service = getattr(self.app, "main_system_self_maintenance", None)
+            if service is None:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "SELF_MAINTENANCE_UNAVAILABLE",
+                    "message": "PERMISSION_DENIED",
+                }
+            try:
+                report = await service.run_once()
+            except Exception as error:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "SELF_MAINTENANCE_FAILED",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            return f"{command}_result", report
 
         handler_name = TOOL_LIFECYCLE_HANDLERS.get(command)
         if handler_name is not None:

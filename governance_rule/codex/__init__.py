@@ -126,7 +126,7 @@ class GovernanceCodex:
 
 GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
     schema="gptbridge-governance-codex-v1",
-    codex_version=3,
+    codex_version=1,
     preamble=CodexPreamble(
         title="GPTBridge Governance Codex",
         authority_rank="supreme",
@@ -208,7 +208,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P7",
-            statement="SYSTEMS:git/postgresql/qdrant/rag/llm; PRINCIPLE:separation; FORMAL-TOOLS:postgresql,qdrant,git,rag,python,cpp; FORBID:mutual-replacement",
+            statement="SYSTEMS:git/postgresql/qdrant/rag/llm; PRINCIPLE:separation; FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; FORBID:mutual-replacement; FORBID:non-formal-third-party",
             binding=True,
         ),
         CodexPrinciple(
@@ -223,7 +223,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P10",
-            statement="XINGCHENG:local-native-model; RANK:peer-of-system-sovereign; EXEC:none; THINKING:codex-referenced",
+            statement="XINGCHENG:local-native-model; RANK:top-orchestrator; EXEC:none; THINKING:codex-referenced",
             binding=True,
         ),
         CodexPrinciple(
@@ -238,22 +238,22 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P13",
-            statement="RESOURCE-SOVEREIGN:own-resource-matters; SCOPE:state-monitor-provision-delegate-release; EXEC:none",
+            statement="SYSTEM-RESOURCE-SUB-SOVEREIGN:own-resource-matters; SCOPE:state-monitor-provision-delegate-release; EXEC:delegated",
             binding=True,
         ),
         CodexPrinciple(
             id="P14",
-            statement="DATA-SOVEREIGN:own-data-matters; SCOPE:access-spec-consistency-integrity-check; EXEC:none",
+            statement="SYSTEM-DATA-SUB-SOVEREIGN:own-data-matters; SCOPE:access-spec-consistency-integrity-check; EXEC:delegated",
             binding=True,
         ),
         CodexPrinciple(
             id="P15",
-            statement="INTEGRATION-SOVEREIGN:own-cross-sovereign-module-interface; SCOPE:coordinate-sync-bus; EXEC:none",
+            statement="SYSTEM-INTEGRATION-SUB-SOVEREIGN:own-cross-sovereign-module-interface; SCOPE:coordinate-sync-bus; EXEC:delegated",
             binding=True,
         ),
         CodexPrinciple(
             id="P16",
-            statement="STACK:python+cpp-hybrid; MANDATORY:true; LANGUAGES:only-python-cpp; FORMAL-TOOLS:postgresql,qdrant,git,rag",
+            statement="STACK:python+typescript+cpp+c-hybrid; MANDATORY:true; LANGUAGES:only-python-typescript-cpp-c; FORMAL-TOOLS:postgresql,qdrant,git,rag",
             binding=True,
         ),
         CodexPrinciple(
@@ -263,7 +263,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P18",
-            statement="CODE-ORIGIN:local-only; STACK:python+cpp; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:non-formal-third-party/package/external-service/non-local-env; EXEC:local-owned-code",
+            statement="CODE-ORIGIN:local-only; STACK:python+typescript+cpp+c; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:non-formal-third-party/package/external-service/non-local-env; EXEC:local-owned-code",
             binding=True,
         ),
         CodexPrinciple(
@@ -273,12 +273,12 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P20",
-            statement="INTERFACE-LAYER:presentation-of-decisions-state; AUTHORITY:no-decide-no-exec; STACK:python-cpp-only; BIND:all-modules-and-all-execution",
+            statement="INTERFACE-LAYER:presentation-of-decisions-state; AUTHORITY:no-decide-no-exec; STACK:python-typescript-cpp-c-only; BIND:all-modules-and-all-execution",
             binding=True,
         ),
         CodexPrinciple(
             id="P21",
-            statement="AUDIT:mandatory-ledger; WRITE:governed-executor; OWN:data-sovereign; RETENTION:by-governance-policy; READ:governance-authority+maintenance-analysis",
+            statement="AUDIT:mandatory-ledger; WRITE:governed-executor; OWN:system-data-sub-sovereign; RETENTION:by-governance-policy; READ:governance-authority+maintenance-analysis",
             binding=True,
         ),
         CodexPrinciple(
@@ -288,7 +288,17 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P23",
-            statement="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,cpp; GOVERNANCE:governed-by-codex; FORBID:non-formal-substitution",
+            statement="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; GOVERNANCE:governed-by-codex; FORBID:non-formal-substitution",
+            binding=True,
+        ),
+        CodexPrinciple(
+            id="P24",
+            statement="SYSTEM-LANGUAGE-REVIEW-SUB-SOVEREIGN:own-programming-language-review; SCOPE:conformance-acceptance-migration; EXEC:delegated",
+            binding=True,
+        ),
+        CodexPrinciple(
+            id="P25",
+            statement="SYSTEM-THIRD-PARTY-SUB-SOVEREIGN:own-third-party-software-management; SCOPE:introduction-version-license-security; EXEC:delegated",
             binding=True,
         ),
     ),
@@ -360,7 +370,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A8",
             section="4",
             subject="system-responsibility",
-            rule="GIT:version+history; SQL:structured-formal-data; ENGINE:postgresql; QDRANT:semantic-index; RAG:retrieval-augmented-generation; LLM:understand-reason-operate; FORMAL-TOOLS:postgresql,qdrant,git,rag,python,cpp",
+            rule="GIT:version+history; SQL:structured-formal-data; ENGINE:postgresql(local-owned); QDRANT:semantic-index(local-owned); RAG:retrieval-augmented-generation(local-owned)+hybrid-rag+code-rag+agentic-rag+memory-rag; LLM:understand-reason-operate(local-owned); FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; OWNERSHIP:local-owned",
             prohibition="FORBID:four-mutual-replacement; FORBID:non-formal-substitution",
         ),
         CodexArticle(
@@ -402,7 +412,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A18",
             section="6",
             subject="xingcheng",
-            rule="XINGCHENG:local-native-model; RANK:peer-of-system-sovereign; THINKING:codex-basis",
+            rule="XINGCHENG:local-native-model; RANK:top-orchestrator; THINKING:codex-basis",
             prohibition="FORBID:xingcheng-exec-or-hold-system-exec",
         ),
         CodexArticle(
@@ -487,8 +497,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A28",
             section="6",
             subject="runtime",
-            rule="OWNER:runtime-sovereign; SCOPE:run+service-maintenance; INCLUDE:process-survival+runtime-integrity; BASIS:codex-delegation",
-            prohibition="FORBID:runtime-sovereign-overstep-exec/codex",
+            rule="OWNER:system-runtime-sub-sovereign; SCOPE:run+service-maintenance; INCLUDE:process-survival+runtime-integrity; BASIS:codex-delegation",
+            prohibition="FORBID:system-runtime-sub-sovereign-overstep-exec/codex",
         ),
         CodexArticle(
             id="A29",
@@ -501,29 +511,29 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A30",
             section="6",
             subject="resource",
-            rule="OWNER:resource-sovereign; SCOPE:all-resource-body-matters; ITEMS:memory/disk/model/compute; FUNC:state-monitor-provide-delegate-release; BASIS:codex",
-            prohibition="FORBID:resource-sovereign-overstep-exec/data/permission",
+            rule="OWNER:system-resource-sub-sovereign; SCOPE:all-resource-body-matters; ITEMS:memory/disk/model/compute; FUNC:state-monitor-provide-delegate-release; BASIS:codex",
+            prohibition="FORBID:system-resource-sub-sovereign-overstep-exec/data/permission",
         ),
         CodexArticle(
             id="A31",
             section="6",
             subject="data",
-            rule="OWNER:data-sovereign; SCOPE:all-data-body-matters; ITEMS:structured/semantic-index/version-history; FUNC:access-spec-consistency-integrity-check+data-directory; BASIS:codex",
-            prohibition="FORBID:data-sovereign-overstep-exec/resource/permission",
+            rule="OWNER:system-data-sub-sovereign; SCOPE:all-data-body-matters; ITEMS:structured/semantic-index/version-history; FUNC:access-spec-consistency-integrity-check+data-directory; BASIS:codex",
+            prohibition="FORBID:system-data-sub-sovereign-overstep-exec/resource/permission",
         ),
         CodexArticle(
             id="A32",
             section="6",
             subject="integration",
-            rule="OWNER:integration-sovereign; SCOPE:cross-sovereign-module-structural-interface/channel/sync/bus; BASIS:codex-delegation",
-            prohibition="FORBID:integration-sovereign-decision-layer-coordinate/overstep-exec",
+            rule="OWNER:system-integration-sub-sovereign; SCOPE:cross-sovereign-module-structural-interface/channel/sync/bus; BASIS:codex-delegation",
+            prohibition="FORBID:system-integration-sub-sovereign-decision-layer-coordinate/overstep-exec",
         ),
         CodexArticle(
             id="A33",
             section="6",
             subject="boundary-data-integrity",
-            rule="DATA-INTEGRITY-CHECK:data-sovereign; SYSTEM-HEALTH-MONITOR:maintenance-sovereign; PRESENT:data-integrity-health-only",
-            prohibition="FORBID:maintenance-proxy-data-integrity-check; FORBID:data-sovereign-proxy-health-monitor",
+            rule="DATA-INTEGRITY-CHECK:system-data-sub-sovereign; SYSTEM-HEALTH-MONITOR:maintenance-sovereign; PRESENT:data-integrity-health-only",
+            prohibition="FORBID:maintenance-proxy-data-integrity-check; FORBID:system-data-sub-sovereign-proxy-health-monitor",
         ),
         CodexArticle(
             id="A34",
@@ -536,8 +546,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A35",
             section="4",
             subject="architecture-hybrid",
-            rule="STACK:python+cpp-hybrid; PYTHON:upper-orchestrate+governed-logic; CPP:core-compute+native-perf; SOLE:allowed-code-architecture",
-            prohibition="FORBID:any-programming-language-except-python-cpp; FORBID:replace-hybrid-architecture",
+            rule="STACK:python+typescript+cpp+c-hybrid; PYTHON:upper-orchestrate+governed-logic; TYPESCRIPT:interface-layer+governance-checker+type-safety; CPP:core-compute+native-perf; C:low-level-system+native-interface; SOLE:allowed-code-architecture",
+            prohibition="FORBID:any-programming-language-except-python-typescript-cpp-c; FORBID:replace-hybrid-architecture",
         ),
         CodexArticle(
             id="A36",
@@ -550,7 +560,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A37",
             section="4",
             subject="code-origin",
-            rule="CODE-ORIGIN:local-owned; STACK:python+cpp-hybrid-only; FORMAL-TOOLS:postgresql,qdrant,git,rag,python,cpp; FORBID-deps:non-formal-third-party/package/external-service/non-local-env",
+            rule="CODE-ORIGIN:local-owned; STACK:python+typescript+cpp+c-hybrid-only; FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; FORBID-deps:non-formal-third-party/package/external-service/non-local-env",
             prohibition="FORBID:reference/install/import/exec-any-non-formal-third-party-package/external-service/non-local-env/binary",
         ),
         CodexArticle(
@@ -585,7 +595,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A42",
             section="3",
             subject="directory-write",
-            rule="DIRECTORY-WRITE:permission-sovereign-decision; EXEC:governed-executor; STORE:data-sovereign-declared; BASIS:codex+explicit-authorization",
+            rule="DIRECTORY-WRITE:permission-sovereign-decision; EXEC:governed-executor; STORE:system-data-sub-sovereign-declared; BASIS:codex+explicit-authorization",
             prohibition="FORBID:direct-mutation-by-permission-sovereign/unauthorized-directory-write",
         ),
         CodexArticle(
@@ -599,21 +609,21 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A44",
             section="4",
             subject="four-functions-local",
-            rule="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; REALIZATION:local-python-cpp-governed; UNAVAILABLE:declare-closed-not-replace",
+            rule="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; REALIZATION:local-python-typescript-cpp-c-governed; UNAVAILABLE:declare-closed-not-replace",
             prohibition="FORBID:non-formal-external-service-substitution/binary-replacement",
         ),
         CodexArticle(
             id="A45",
             section="4",
             subject="interface-layer",
-            rule="INTERFACE-LAYER:presentation-of-decisions-state; AUTHORITY:no-decide-no-exec; STACK:python-cpp-only; BIND:all-modules-and-all-execution",
+            rule="INTERFACE-LAYER:presentation-of-decisions-state; AUTHORITY:no-decide-no-exec; STACK:python-typescript-cpp-c-only; BIND:all-modules-and-all-execution",
             prohibition="FORBID:interface-decide/interface-exec/any-other-language-in-interface",
         ),
         CodexArticle(
             id="A46",
             section="2",
             subject="audit-ledger",
-            rule="AUDIT:ledger-per-managed-action; WRITE:governed-executor; STORE:data-sovereign-declared; RETENTION:by-governance-policy; READ:governance-authority+maintenance-analysis",
+            rule="AUDIT:ledger-per-managed-action; WRITE:governed-executor; STORE:system-data-sub-sovereign-declared; RETENTION:by-governance-policy; READ:governance-authority+maintenance-analysis",
             prohibition="FORBID:audit-mutation/audit-suppression/unauthorized-audit-read",
         ),
         CodexArticle(
@@ -634,8 +644,29 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A49",
             section="4",
             subject="formal-tools",
-            rule="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,cpp; GOVERNANCE:governed-by-codex; LOCAL:true; SUBSTITUTION:non-formal-forbidden",
-            prohibition="FORBID:non-formal-substitution-of-postgresql/qdrant/git/rag/python/cpp",
+            rule="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; OWNERSHIP:local-owned; GOVERNANCE:governed-by-codex; HOSTING:local-only; SUBSTITUTION:non-formal-forbidden",
+            prohibition="FORBID:non-formal-substitution-of-postgresql/qdrant/git/rag/python/typescript/cpp/c; FORBID:external-or-cloud-hosting-of-formal-tools",
+        ),
+        CodexArticle(
+            id="A50",
+            section="6",
+            subject="programming-language-review",
+            rule="OWNER:system-language-review-sub-sovereign; SCOPE:programming-language-conformance/acceptance/migration; EXEC:delegated; BASIS:codex-delegation",
+            prohibition="FORBID:system-language-review-sub-sovereign-overstep-exec",
+        ),
+        CodexArticle(
+            id="A51",
+            section="6",
+            subject="third-party-software-management",
+            rule="OWNER:system-third-party-sub-sovereign; SCOPE:third-party-introduction/version/license/security; EXEC:delegated; BASIS:codex-delegation",
+            prohibition="FORBID:system-third-party-sub-sovereign-overstep-exec",
+        ),
+        CodexArticle(
+            id="A52",
+            section="4",
+            subject="rag-architecture",
+            rule="RAG-ARCH:hybrid-rag+code-rag+agentic-rag+memory-rag; HYBRID-RAG:dense+sparse+semantic-fusion; CODE-RAG:code-snippet+ast+dependency-graph-retrieval; AGENTIC-RAG:multi-step-retrieve+reason+adapt; MEMORY-RAG:session+long-term+episodic-memory; SHARED-INDEX:qdrant(local-owned); OWNERSHIP:local-owned; HOSTING:local-only; BASIS:codex",
+            prohibition="FORBID:non-formal-rag-substitution; FORBID:external-or-cloud-hosting-of-rag; FORBID:replace-hybrid-architecture; FORBID:omit-any-of-four-sub-architectures",
         ),
     ),
     edicts=(
@@ -666,7 +697,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E5",
             area="xingcheng",
-            edict="XINGCHENG:local-native-model; RANK:peer-of-system-sovereign; EXEC:none; THINKING+MANAGEMENT:codex-referenced",
+            edict="XINGCHENG:local-native-model; RANK:top-orchestrator; EXEC:none; THINKING+MANAGEMENT:codex-referenced",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -684,7 +715,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E7",
             area="runtime",
-            edict="OWNER:runtime-sovereign; SCOPE:run+service-maintenance; INCLUDE:process-survival+runtime-integrity; BASIS:codex-delegation",
+            edict="OWNER:system-runtime-sub-sovereign; SCOPE:run+service-maintenance; INCLUDE:process-survival+runtime-integrity; BASIS:codex-delegation",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -720,7 +751,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E13",
             area="xingcheng-thinking",
-            edict="XINGCHENG:local-native-model; RANK:peer-of-system-sovereign; EXEC:none; THINKING+MANAGEMENT:reference-codex",
+            edict="XINGCHENG:local-native-model; RANK:top-orchestrator; EXEC:none; THINKING+MANAGEMENT:reference-codex",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -738,31 +769,31 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E17",
             area="resource",
-            edict="OWNER:resource-sovereign; SCOPE:state-monitor-provide-delegate-release; EXEC:none",
+            edict="OWNER:system-resource-sub-sovereign; SCOPE:state-monitor-provide-delegate-release; EXEC:none",
             immutability="immutable-sealed",
         ),
         CodexEdict(
             id="E18",
             area="data",
-            edict="OWNER:data-sovereign; SCOPE:access-spec-consistency-integrity-check+data-directory; EXEC:none",
+            edict="OWNER:system-data-sub-sovereign; SCOPE:access-spec-consistency-integrity-check+data-directory; EXEC:none",
             immutability="immutable-sealed",
         ),
         CodexEdict(
             id="E19",
             area="integration",
-            edict="OWNER:integration-sovereign; SCOPE:structural-interface/channel/sync/bus; EXEC:none; NO:decision-layer-coordinate",
+            edict="OWNER:system-integration-sub-sovereign; SCOPE:structural-interface/channel/sync/bus; EXEC:none; NO:decision-layer-coordinate",
             immutability="immutable-sealed",
         ),
         CodexEdict(
             id="E20",
             area="boundary",
-            edict="OWNERSHIPS:exclusive-and-independent; DATA-INTEGRITY=data-sovereign; HEALTH=maintenance-sovereign; STRUCTURAL-INTERFACE=integration-sovereign; DECISION-COORDINATE=xingcheng",
+            edict="OWNERSHIPS:exclusive-and-independent; DATA-INTEGRITY=system-data-sub-sovereign; HEALTH=maintenance-sovereign; STRUCTURAL-INTERFACE=system-integration-sub-sovereign; DECISION-COORDINATE=xingcheng",
             immutability="immutable-sealed",
         ),
         CodexEdict(
             id="E21",
             area="architecture",
-            edict="STACK:python+cpp-hybrid; LANGUAGES:only-python-cpp; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:any-other-language",
+            edict="STACK:python+typescript+cpp+c-hybrid; LANGUAGES:only-python-typescript-cpp-c; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:any-other-language",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -774,7 +805,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E23",
             area="code-origin",
-            edict="CODE-ORIGIN:local-owned; STACK:python+cpp-hybrid-only; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:non-formal-third-party/package/external-service",
+            edict="CODE-ORIGIN:local-owned; STACK:python+typescript+cpp+c-hybrid-only; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:non-formal-third-party/package/external-service",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -804,7 +835,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E28",
             area="directory-write",
-            edict="DIRECTORY-WRITE:permission-sovereign-decision+governed-executor; STORE:data-sovereign-declared",
+            edict="DIRECTORY-WRITE:permission-sovereign-decision+governed-executor; STORE:system-data-sub-sovereign-declared",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -816,13 +847,13 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E30",
             area="four-functions-local",
-            edict="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; LOCAL:python-cpp-governed; UNAVAILABLE:declare-closed",
+            edict="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; LOCAL:python-typescript-cpp-c-governed; UNAVAILABLE:declare-closed",
             immutability="immutable-sealed",
         ),
         CodexEdict(
             id="E31",
             area="interface-layer",
-            edict="INTERFACE-LAYER:presentation-only; NO-DECIDE:true; STACK:python-cpp-only; BIND:all-modules",
+            edict="INTERFACE-LAYER:presentation-only; NO-DECIDE:true; STACK:python-typescript-cpp-c-only; BIND:all-modules",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -846,7 +877,25 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E35",
             area="formal-tools",
-            edict="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,cpp; GOVERNANCE:governed-by-codex; LOCAL:true; SUBSTITUTION:non-formal-forbidden",
+            edict="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; OWNERSHIP:local-owned; GOVERNANCE:governed-by-codex; HOSTING:local-only; SUBSTITUTION:non-formal-forbidden",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E36",
+            area="programming-language-review",
+            edict="OWNER:system-language-review-sub-sovereign; SCOPE:conformance-acceptance-migration; EXEC:delegated",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E37",
+            area="third-party-software-management",
+            edict="OWNER:system-third-party-sub-sovereign; SCOPE:introduction-version-license-security; EXEC:delegated",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E38",
+            area="rag-architecture",
+            edict="RAG-ARCH:hybrid-rag+code-rag+agentic-rag+memory-rag; SHARED-INDEX:qdrant(local-owned); OWNERSHIP:local-owned; HOSTING:local-only; FORBID:non-formal-substitution/external-hosting/omit-sub-architecture",
             immutability="immutable-sealed",
         ),
     ),

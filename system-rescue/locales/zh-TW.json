@@ -1,6 +1,0 @@
-{
-  "tool.name": "系統救援",
-  "tool.window_title": "系統救援",
-  "tool.description": "負責唯讀診斷、救援稽核與日誌；備份由全域清理集中管理。",
-  "errors.permission_denied": "權限不足"
-}

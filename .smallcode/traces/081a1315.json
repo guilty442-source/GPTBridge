@@ -1,0 +1,13 @@
+{
+  "id": "081a1315",
+  "model": "qwen3-coder:30b-a3b-q4_K_M",
+  "prompt": "分析啟動入口",
+  "startedAt": "2026-09-05T16:46:58.226Z",
+  "steps": [],
+  "tokens": {
+    "prompt": 2319,
+    "completion": 8307
+  },
+  "endedAt": "2026-09-05T16:51:59.360Z",
+  "durationMs": 301134
+}

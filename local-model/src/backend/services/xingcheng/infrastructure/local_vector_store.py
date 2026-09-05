@@ -1,14 +1,13 @@
-"""Unified local vector store — canonical implementation in shared_layer.
+"""Local vector store — canonical implementation in xingcheng infrastructure.
 
-Compatibility shim so ``xingcheng`` callers keep importing
-``LocalVectorStore`` from the infrastructure package while the canonical
-persistent sqlite implementation lives once in
-``shared_layer.local.vector_store`` (A35/E21, single local stack).
+The persistent sqlite implementation lives in ``.vector_store`` (A35/E21,
+single local stack).  ``LocalVectorStore`` is re-exported here so existing
+``xingcheng`` callers keep their import path.
 """
 
 from __future__ import annotations
 
-from shared_layer.local.vector_store import (
+from .vector_store import (
     COLLECTION,
     DEFAULT_ENDPOINT,
     LocalVectorStore,

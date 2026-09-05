@@ -12,7 +12,7 @@ TOOL_ROOT = ROOT / "shared-layer"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(TOOL_ROOT / "src"))
 
-from shared_layer.governed_runtime import GovernedToolRuntime  # noqa: E402
+from governance_rule.execution.tool_runtime.governed_runtime import GovernedToolRuntime  # noqa: E402
 
 
 async def execute(

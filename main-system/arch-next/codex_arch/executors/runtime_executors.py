@@ -82,7 +82,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="process-survival",
             permission_intent="probe-process",
             owner_sovereign="runtime",
-            target="runtime-sovereign:runtime:probe-process",
+            target="system-runtime-sub-sovereign:runtime:probe-process",
             implementation=_probe_process,
         ),
         ExecutorBinding(
@@ -90,7 +90,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="process-survival",
             permission_intent="spawn-managed-process",
             owner_sovereign="runtime",
-            target="runtime-sovereign:runtime:spawn-managed-process",
+            target="system-runtime-sub-sovereign:runtime:spawn-managed-process",
             implementation=_spawn_managed,
         ),
         ExecutorBinding(
@@ -98,7 +98,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="process-survival",
             permission_intent="stop-managed-process",
             owner_sovereign="runtime",
-            target="runtime-sovereign:runtime:stop-managed-process",
+            target="system-runtime-sub-sovereign:runtime:stop-managed-process",
             implementation=_stop_managed,
         ),
         ExecutorBinding(
@@ -106,7 +106,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="runtime-integrity",
             permission_intent="runtime-integrity",
             owner_sovereign="runtime",
-            target="runtime-sovereign:runtime:runtime-integrity",
+            target="system-runtime-sub-sovereign:runtime:runtime-integrity",
             implementation=_runtime_integrity,
         ),
     ]

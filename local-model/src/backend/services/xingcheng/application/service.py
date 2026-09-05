@@ -10,7 +10,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, ClassVar, Mapping
 
 import numpy as np
 
@@ -23,7 +23,7 @@ from .coding_expert import StarCodingExpert
 from .reading_expert import StarReadingExpert
 from .local_rag import LocalRagService
 from .local_knowledge import LocalKnowledgeService
-from shared_layer.git_repository import LocalGitRepository
+from ..infrastructure.git_repository import LocalGitRepository
 from .gpt_training_gate import StarOllamaTrainingGate
 from .capability_evaluation import evaluate_star_capabilities
 from ..integration.memory_broker import StarMemoryBroker
@@ -1131,7 +1131,49 @@ class LocalAiService(CommandChannelsMixin, InvestmentChannelMixin, InferenceChan
             ) + 1
         return result
 
+    # Pending legacy data produced by frozen functionality (codex boundary).
+    # Entries remain readable; no new execution is permitted. Await
+    # governance-directed processing via the governed channel.
+    FROZEN_PENDING_LEGACY_DATA: ClassVar[tuple[dict[str, str], ...]] = (
+        {
+            "id": "composed-capability-source-modules",
+            "path": "src/backend/services/xingcheng/application/composed_capabilities/",
+            "action": "modules written by the frozen path must be quarantined for governance review before use",
+        },
+        {
+            "id": "capability-backups",
+            "path": "runtime/state/capability-backups/",
+            "action": "backups produced by the frozen path must be quarantined for governance review",
+        },
+        {
+            "id": "self-repair-records",
+            "path": "role-isolated learning databases (self_maintenance/repair records)",
+            "action": "existing records stay readable; new repair execution awaits main-system central repair via governed channel",
+        },
+    )
+
     def _execute_self_repair_command(self) -> dict[str, Any]:
+        # FROZEN (codex boundary): repair/rescue functionality is owned by
+        # main-system central repair via governed execution; an independent tool must not
+        # perform self-repair. The command is isolated and reports frozen.
+        return {
+            "ok": False,
+            "executed": False,
+            "frozen": True,
+            "status": "frozen",
+            "error_code": "SELF_REPAIR_FROZEN_GOVERNANCE_BOUNDARY",
+            "pending_legacy_data": list(self.FROZEN_PENDING_LEGACY_DATA),
+            "message": (
+                "Self-repair is owned by system-rescue under governed "
+                "execution; independent tools are not permitted to perform "
+                "repair. Request repair through the governed channel."
+            ),
+            "governance_rule_modified": False,
+            "source_write_performed": False,
+            "version": "1.0",
+        }
+
+    def _execute_self_repair_command_legacy(self) -> dict[str, Any]:
         maintenance = self._run_self_maintenance()
         databases = {
             profile.role: self._repository_for(profile).database_status()

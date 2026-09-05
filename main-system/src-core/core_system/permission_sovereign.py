@@ -1,4 +1,4 @@
-"""Permission Sovereign — permission management and granting authority surface
+"""Permission Sovereign ??permission management and granting authority surface
 under the System Sovereign.
 
 The permission sovereign is RESPONSIBLE for ALL permission-related matters per
@@ -28,6 +28,9 @@ from __future__ import annotations
 from typing import Any
 
 from governance_rule.code_rule_directory import code_rule_directory_snapshot
+from governance_rule.permission_directory.registries.permissions.identity_groups import (
+    identity_group_snapshot,
+)
 
 from .codex_decision import decision_basis
 
@@ -41,7 +44,7 @@ class PermissionSovereign:
 
     Owns every permission concern per the Governance Codex ONLY (codex-bound):
     permission management, granting, termination, each module's permission
-    IDENTIFIERS, and supervision of execution compliance — while holding no
+    IDENTIFIERS, and supervision of execution compliance ??while holding no
     execution power itself.  Every decision references the Governance Codex
     (area ``permission``); it does not own its decision source.  It exposes
     approved identifiers, actors, capabilities, actions, targets and
@@ -76,6 +79,21 @@ class PermissionSovereign:
             "grant": True,
             "terminate": True,
             "permission_ids": "all-modules-managed-by-permission-sovereign",
+            "identity_groups": {
+                "supervision": "every-module-must-own-dedicated-identity-group",
+                "violation_policy": "denied",
+                "registered": [
+                    {
+                        "actor": identity.actor,
+                        "tool_id": identity.bound_tool_id,
+                        "group_id": identity.group_id,
+                        "identity_code": identity.identity_code,
+                        "language_name": identity.language_name,
+                        "codename": identity.codename,
+                    }
+                    for identity in identity_group_snapshot().identities
+                ],
+            },
             "execution": False,
             "supervision": "supervises-execution-compliance",
             "self_grant": False,
@@ -160,7 +178,7 @@ class PermissionSovereign:
         decision = decision_basis(PERMISSION_DECISION_AREA)
         governance = self._governance()
         if governance is None or not hasattr(governance, "authorize"):
-            from shared_layer.governed_runtime import permission_denied
+            from governance_rule.permission_directory.execution.path_guard import permission_denied
 
             raise permission_denied()
         return governance.authorize(
@@ -183,7 +201,7 @@ class PermissionSovereign:
         decision_basis(PERMISSION_DECISION_AREA)
         governance = self._governance()
         if governance is None or not hasattr(governance, "authorize_tool_lifecycle"):
-            from shared_layer.governed_runtime import permission_denied
+            from governance_rule.permission_directory.execution.path_guard import permission_denied
 
             raise permission_denied()
         governance.authorize_tool_lifecycle(tool_id, action)
@@ -209,7 +227,7 @@ class PermissionSovereign:
         decision_basis("hot-update")
         governance = self._governance()
         if governance is None or not hasattr(governance, "authorize_hot_update"):
-            from shared_layer.governed_runtime import permission_denied
+            from governance_rule.permission_directory.execution.path_guard import permission_denied
 
             raise permission_denied()
         governance.authorize_hot_update(
@@ -231,7 +249,7 @@ class PermissionSovereign:
         if governance is None or not hasattr(
             governance, "create_tool_governance_bootstrap"
         ):
-            from shared_layer.governed_runtime import permission_denied
+            from governance_rule.permission_directory.execution.path_guard import permission_denied
 
             raise permission_denied()
         return governance.create_tool_governance_bootstrap(tool_id)
@@ -253,7 +271,7 @@ class PermissionSovereign:
         if governance is None or not hasattr(
             governance, "submit_tool_execution_request"
         ):
-            from shared_layer.governed_runtime import permission_denied
+            from governance_rule.permission_directory.execution.path_guard import permission_denied
 
             raise permission_denied()
         governance.submit_tool_execution_request(tool_id, request_id, payload)
@@ -274,7 +292,7 @@ class PermissionSovereign:
         if governance is None or not hasattr(
             governance, "cancel_tool_execution_request"
         ):
-            from shared_layer.governed_runtime import permission_denied
+            from governance_rule.permission_directory.execution.path_guard import permission_denied
 
             raise permission_denied()
         return governance.cancel_tool_execution_request(tool_id, request_id)
@@ -293,7 +311,7 @@ class PermissionSovereign:
         decision_basis(PERMISSION_DECISION_AREA)
         governance = self._governance()
         if governance is None or not hasattr(governance, "tool_execution_response"):
-            from shared_layer.governed_runtime import permission_denied
+            from governance_rule.permission_directory.execution.path_guard import permission_denied
 
             raise permission_denied()
         return governance.tool_execution_response(tool_id, request_id)

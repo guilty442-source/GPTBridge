@@ -16,11 +16,11 @@ ALL_SOVEREIGN_ROLES: frozenset[str] = frozenset(
     {
         "system-sovereign",
         "permission-sovereign",
-        "runtime-sovereign",
+        "system-runtime-sub-sovereign",
         "maintenance-sovereign",
-        "resource-sovereign",
-        "data-sovereign",
-        "integration-sovereign",
+        "system-resource-sub-sovereign",
+        "system-data-sub-sovereign",
+        "system-integration-sub-sovereign",
         "xingcheng",
         "governance-auditor",
     }

@@ -757,11 +757,11 @@ def build_renderer() -> None:
         sys.executable,
         str(
             PROJECT_ROOT
-            / "system-rescue"
+            / "main-system"
             / "src"
             / "backend"
             / "services"
-            / "system_rescue"
+            / "main-system"
             / "integration"
             / "platform_packager.py"
         ),

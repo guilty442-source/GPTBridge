@@ -1,1 +1,0 @@
-"""Governed backup extraction coordination."""

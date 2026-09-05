@@ -1,8 +1,9 @@
-"""resource sovereign — 資源主宰。
+"""resource sub-sovereign — 資源子主宰（收編於系統主宰之下）。
 
-法典依據：P13 / A30 / E17。
+法典依據：P11 / A26 / P13 / A30 / E17。
   * 負責一切資源本體事務：記憶體、磁碟、模型與運算資源之
     狀態監控、配置與委派釋放（A30）；
+  * 已收編為系統主宰之子主宰（system-resource-sub-sovereign）；
   * 本身無執行權（E17）；狀態量測/配置/釋放委派受治理執行器；
   * 禁止越權執行或越權管理資料或權限（A30 prohibition）。
 """
@@ -26,12 +27,12 @@ _RESOURCE_KIND_TO_EXECUTOR: dict[str, str] = {
 }
 
 
-class ResourceSovereign(SovereignBase):
+class ResourceSubSovereign(SovereignBase):
     sovereign_id = "resource"
     codification = ("P13", "A30", "E17", "A5", "A12")
     required_roles = frozenset(
         {
-            "resource-sovereign",
+            "system-resource-sub-sovereign",
             "system-sovereign",
             "governance-auditor",
         }
@@ -101,4 +102,4 @@ class ResourceSovereign(SovereignBase):
         )
 
 
-__all__ = ["ResourceSovereign"]
+__all__ = ["ResourceSubSovereign"]

@@ -293,7 +293,9 @@ def test_daily_trigger_is_main_owned_and_uses_governed_shared_channel(
     app = SimpleNamespace(
         project_root=tmp_path,
         toolbox_service=toolbox,
-        governance=_FakeGovernance(),
+        system_sovereign_service=SimpleNamespace(
+            permission_sovereign=_FakeGovernance()
+        ),
     )
     service = DailyGlobalCleanerService(app)
     result = asyncio.run(service.run_if_due(force=True))
@@ -313,7 +315,9 @@ def test_daily_trigger_retries_failure_after_fifteen_minutes(
     app = SimpleNamespace(
         project_root=tmp_path,
         toolbox_service=_FailingToolbox(),
-        governance=_FakeGovernance(),
+        system_sovereign_service=SimpleNamespace(
+            permission_sovereign=_FakeGovernance()
+        ),
     )
     service = DailyGlobalCleanerService(app)
     result = asyncio.run(service.run_if_due(force=True))
@@ -356,7 +360,9 @@ def test_daily_trigger_converts_start_exception_to_retryable_failure(
     app = SimpleNamespace(
         project_root=tmp_path,
         toolbox_service=_CrashingToolbox(),
-        governance=_FakeGovernance(),
+        system_sovereign_service=SimpleNamespace(
+            permission_sovereign=_FakeGovernance()
+        ),
     )
     service = DailyGlobalCleanerService(app)
 

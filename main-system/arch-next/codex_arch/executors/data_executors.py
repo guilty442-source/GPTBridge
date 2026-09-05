@@ -65,7 +65,7 @@ def _version_history_health(payload: dict[str, Any]) -> dict[str, Any]:
 def _data_directory(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "directory": _DATA_DIRECTORY_DECLARATION,
-        "owners": ["data-sovereign"],
+        "owners": ["system-data-sub-sovereign"],
         "access": "deny-by-default-explicit-allow",
     }
 
@@ -77,7 +77,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="data-integrity-check",
             permission_intent="sql-integrity",
             owner_sovereign="data",
-            target="data-sovereign:data:sql-integrity",
+            target="system-data-sub-sovereign:data:sql-integrity",
             implementation=_sql_integrity,
         ),
         ExecutorBinding(
@@ -85,7 +85,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="data-integrity-check",
             permission_intent="semantic-index-health",
             owner_sovereign="data",
-            target="data-sovereign:data:semantic-index-health",
+            target="system-data-sub-sovereign:data:semantic-index-health",
             implementation=_semantic_index_health,
         ),
         ExecutorBinding(
@@ -93,7 +93,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="data-integrity-check",
             permission_intent="version-history-health",
             owner_sovereign="data",
-            target="data-sovereign:data:version-history-health",
+            target="system-data-sub-sovereign:data:version-history-health",
             implementation=_version_history_health,
         ),
         ExecutorBinding(
@@ -101,7 +101,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="data-directory",
             permission_intent="data-directory",
             owner_sovereign="data",
-            target="data-sovereign:data:data-directory",
+            target="system-data-sub-sovereign:data:data-directory",
             implementation=_data_directory,
         ),
     ]

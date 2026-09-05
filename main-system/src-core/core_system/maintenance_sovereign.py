@@ -19,7 +19,11 @@ that heavy work in the mother process.
 from __future__ import annotations
 
 import asyncio
+import shutil
+import socket
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from governance_rule.codex import GOVERNANCE_CODEX
@@ -69,6 +73,9 @@ class MaintenanceSovereign:
         self._hot_update: Any | None = None
         self._repair_service: Any | None = None
         self._health_checker: Any = check_core_health
+        self._capability_task: asyncio.Task[Any] | None = None
+        self._capability_interval_seconds = 3600.0
+        self._capability_report: dict[str, Any] | None = None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -83,6 +90,7 @@ class MaintenanceSovereign:
         hot_update: Any = None,
         repair_service: Any = None,
         health_checker: Any = None,
+        capability_interval_seconds: float = 3600.0,
     ) -> dict[str, Any]:
         """Start the Maintenance Sovereign and its in-process maintenance loops.
 
@@ -97,6 +105,9 @@ class MaintenanceSovereign:
             status but never runs the heavy work in-process.
         ``health_checker``: a callable returning a health report dict (default
             ``core.health.check_core_health``), used for system-health monitoring.
+        ``capability_interval_seconds``: interval for the independent
+            capability/installation check loop (default hourly).  The check is
+            read-only detection only; it never installs anything.
         """
 
         self._daily_cleaner = daily_cleaner
@@ -106,6 +117,9 @@ class MaintenanceSovereign:
         self._repair_service = repair_service
         if health_checker is not None:
             self._health_checker = health_checker
+        self._capability_interval_seconds = max(
+            300.0, float(capability_interval_seconds)
+        )
         self._started_at = self._iso_now()
         self._started = True
 
@@ -113,6 +127,11 @@ class MaintenanceSovereign:
             self._resource_task = asyncio.create_task(
                 self._resource_loop(),
                 name="maintenance-sovereign-resource",
+            )
+        if self._capability_task is None:
+            self._capability_task = asyncio.create_task(
+                self._capability_check_loop(),
+                name="maintenance-sovereign-capability",
             )
 
         return {
@@ -129,6 +148,12 @@ class MaintenanceSovereign:
             with _suppress(asyncio.CancelledError):
                 await self._resource_task
             self._resource_task = None
+        if self._capability_task is not None:
+            self._capability_task.cancel()
+            with _suppress(asyncio.CancelledError):
+                await self._capability_task
+            self._capability_task = None
+        self._capability_report = None
         self._daily_cleaner = None
         self.resource_release = None
         self._hot_update = None
@@ -153,9 +178,15 @@ class MaintenanceSovereign:
             "fault_determination": self._fault_determination_status(),
             "backup": self._backup_status(),
             "daily_cleaner": self._daily_cleaner_status(),
+            "module_cleanup": self._module_cleanup_status(),
+            "main_system_self_maintenance": self._main_system_self_maintenance_status(),
             "resource_loop": {
                 "running": self._resource_task is not None and not self._resource_task.done(),
                 "interval_seconds": self._resource_interval_seconds,
+            },
+            "capability_loop": {
+                "running": self._capability_task is not None and not self._capability_task.done(),
+                "interval_seconds": self._capability_interval_seconds,
             },
             "native": resource_status(),
             "decision": decision_basis("maintenance"),
@@ -173,7 +204,8 @@ class MaintenanceSovereign:
             "automatic_repair": self._automatic_repair_status(),
             "fault_determination": self._fault_determination_status(),
             "backup": self._backup_status(),
-            "state": "running" if self._started else "stopped",
+            "module_cleanup": self._module_cleanup_status(),
+            "main_system_self_maintenance": self._main_system_self_maintenance_status(),
             "delegation": "governed-executor-only",
             "native_kernel": native_available(),
             "decision": decision_basis("maintenance"),
@@ -211,6 +243,7 @@ class MaintenanceSovereign:
             "monitoring": "system-health",
             "includes": ["runtime", "resource", "data-integrity"],
             "report": report,
+            "capability_check": self._capability_status(),
             "governance_integrity_ready": integrity_ready,
             "decision": decision_basis("maintenance")["edicts"],
         }
@@ -283,6 +316,185 @@ class MaintenanceSovereign:
         if callable(get_status):
             return get_status()
         return {"enabled": True}
+
+    def _module_cleanup_status(self) -> dict[str, Any]:
+        """Unified oversight of devolved per-module self-cleanup.
+
+        Execution remains with each module's own local cleanup; the sovereign
+        surfaces the aggregated daily sweep collected by the scheduler.
+        """
+
+        if self._daily_cleaner is None:
+            return {
+                "enabled": False,
+                "authority": self.ROLE,
+                "execution": "devolved-per-module",
+            }
+        get_status = getattr(self._daily_cleaner, "module_cleanup_status", None)
+        if callable(get_status):
+            try:
+                report = get_status()
+            except Exception:
+                report = {}
+            return {
+                "enabled": True,
+                "authority": self.ROLE,
+                "execution": "devolved-per-module",
+                "schedule": "daily-governed-maintenance",
+                "last_sweep": report or None,
+            }
+        return {
+            "enabled": True,
+            "authority": self.ROLE,
+            "execution": "devolved-per-module",
+        }
+
+    def _main_system_self_maintenance_status(self) -> dict[str, Any]:
+        """Oversight of the main system's own self-maintenance loop.
+
+        The sovereign supervises; execution stays with the bounded
+        ``MainSystemSelfMaintenance`` governed executor.
+        """
+
+        service = getattr(self.app, "main_system_self_maintenance", None)
+        if service is None:
+            return {
+                "enabled": False,
+                "authority": self.ROLE,
+                "execution": "governed-executor-only",
+            }
+        try:
+            report = service.status()
+        except Exception:
+            report = {"enabled": True, "available": False}
+        return {
+            "enabled": True,
+            "authority": self.ROLE,
+            "execution": "governed-executor-only",
+            "schedule": "startup-plus-periodic-plus-manual",
+            "service": report,
+        }
+
+    # ------------------------------------------------------------------
+    # Capability / installation detection (read-only, independent schedule)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _probe_tcp(port: int) -> bool:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return True
+        except OSError:
+            return False
+
+    def _run_capability_checks(self) -> dict[str, Any]:
+        """Detect whether maintenance-relevant functions/components are present.
+
+        Detection only — per project policy nothing is installed or remediated
+        here; missing components are simply reported.
+        """
+
+        root = Path(getattr(self.app, "project_root", ".") or ".").resolve()
+
+        functions: dict[str, bool] = {
+            "health_checker": callable(self._health_checker),
+            "daily_cleaner": self._daily_cleaner is not None,
+            "automatic_repair": self._repair_service is not None,
+            "hot_update": self._hot_update is not None,
+            "resource_release": callable(
+                getattr(self, "resource_release", None)
+            ),
+            "governance": getattr(self.app, "governance", None) is not None,
+        }
+
+        components: dict[str, Any] = {
+            "python": {"installed": bool(sys.executable)},
+            "node": {"installed": shutil.which("node") is not None},
+            "npm": {
+                "installed": shutil.which("npm") is not None
+                or shutil.which("npm.cmd") is not None
+            },
+            "git": {"installed": shutil.which("git") is not None},
+            "ollama": {
+                "installed": shutil.which("ollama") is not None,
+                "reachable": self._probe_tcp(11434),
+            },
+            "postgresql": {
+                "installed": shutil.which("psql") is not None
+                or shutil.which("pg_isready") is not None,
+                "reachable": self._probe_tcp(5432),
+            },
+            "qdrant": {
+                "installed": (
+                    root / "local-model" / "runtime" / "qdrant"
+                ).is_dir(),
+                "reachable": self._probe_tcp(6333),
+            },
+            "shared_layer_data": {
+                "installed": (root / "shared-layer" / "data").is_dir()
+            },
+        }
+
+        missing_functions = sorted(
+            name for name, ok in functions.items() if not ok
+        )
+        missing_components = sorted(
+            name
+            for name, entry in components.items()
+            if isinstance(entry, dict) and not entry.get("installed")
+        )
+        unreachable = sorted(
+            name
+            for name, entry in components.items()
+            if isinstance(entry, dict)
+            and "reachable" in entry
+            and not entry.get("reachable")
+        )
+        ok = not missing_functions and not missing_components
+        return {
+            "ok": ok,
+            "status": "healthy" if ok else "degraded",
+            "checked_at": self._iso_now(),
+            "interval_seconds": self._capability_interval_seconds,
+            "mode": "read-only-detection-no-auto-install",
+            "functions": functions,
+            "missing_functions": missing_functions,
+            "components": components,
+            "missing_components": missing_components,
+            "unreachable_services": unreachable,
+        }
+
+    def _capability_status(self) -> dict[str, Any]:
+        report = self._capability_report
+        if report is not None:
+            return dict(report)
+        return {
+            "ok": None,
+            "status": "pending-first-check",
+            "mode": "read-only-detection-no-auto-install",
+            "interval_seconds": self._capability_interval_seconds,
+        }
+
+    async def _capability_check_loop(self) -> None:
+        while not self._stop_requested():
+            try:
+                self._capability_report = await asyncio.to_thread(
+                    self._run_capability_checks
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                self._capability_report = {
+                    "ok": False,
+                    "status": "check-failed",
+                    "checked_at": self._iso_now(),
+                    "mode": "read-only-detection-no-auto-install",
+                    "error": f"{type(error).__name__}: {error}",
+                }
+            try:
+                await asyncio.sleep(self._capability_interval_seconds)
+            except asyncio.CancelledError:
+                raise
 
     async def _resource_loop(self) -> None:
         while not self._stop_requested():

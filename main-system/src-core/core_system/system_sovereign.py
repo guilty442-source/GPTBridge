@@ -14,9 +14,12 @@ coordinates — but does not directly execute — the governing subsystems (the
 Xingcheng core orchestrator and its SQL/RAG/Git managers live in the local-model
 governed-executor process, kept isolated from this mother process).
 
-The System Sovereign is split into two in-process sub-sovereigns:
-  * runtime-sovereign    -- keeps the platform running and serving
-  * maintenance-sovereign-- owns periodic/background maintenance
+The System Sovereign is split into in-process sub-sovereigns:
+  * runtime-sub-sovereign       -- keeps the platform running and serving
+  * resource-sub-sovereign      -- owns all resource-body concerns
+  * data-sub-sovereign          -- owns all data-body concerns
+  * integration-sub-sovereign   -- owns cross-sovereign structural interfaces
+  * maintenance-sovereign       -- owns periodic/background maintenance
 
 Both are LOCAL CODE (same process as GPTBridgeApp) and coordinate existing
 in-process services; they never run heavy work in this mother process.
@@ -30,13 +33,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .data_sovereign import DataSovereign
+from .data_sub_sovereign import DataSubSovereign
 from .governance_rule_coordination import GovernanceRuleCoordination
-from .integration_sovereign import IntegrationSovereign
+from .integration_sub_sovereign import IntegrationSubSovereign
 from .maintenance_sovereign import MaintenanceSovereign
 from .permission_sovereign import PermissionSovereign
-from .resource_sovereign import ResourceSovereign
-from .runtime_sovereign import RuntimeSovereign
+from .resource_sub_sovereign import ResourceSubSovereign
+from .runtime_sub_sovereign import RuntimeSubSovereign
 from .xingcheng_coordination import XingchengCoordination
 
 
@@ -46,7 +49,7 @@ class SystemSovereignService:
     Responsibilities at startup:
       - Consume the validated dependency state (env var + orchestrator report)
       - Record the sovereign startup phase into the platform startup status
-      - Own the Runtime Sovereign and Maintenance Sovereign roles
+      - Own the Runtime, Resource, Data, Integration Sub-Sovereign and the Maintenance Sovereign roles
       - Coordinate the Xingcheng auxiliary system (intelligent-management)
       - Coordinate the read-only Permission Sovereign (permission directory)
       - Delegate all execution to governed executors (never in this process)
@@ -72,11 +75,11 @@ class SystemSovereignService:
         )
         self.platform_id = "local-model-platform"
         self.module_id = "xingcheng"
-        self.runtime_sovereign = RuntimeSovereign(app)
+        self.runtime_sovereign = RuntimeSubSovereign(app)
         self.maintenance_sovereign = MaintenanceSovereign(app)
-        self.resource_sovereign = ResourceSovereign(app)
-        self.data_sovereign = DataSovereign(app)
-        self.integration_sovereign = IntegrationSovereign(app)
+        self.resource_sovereign = ResourceSubSovereign(app)
+        self.data_sovereign = DataSubSovereign(app)
+        self.integration_sovereign = IntegrationSubSovereign(app)
         self.xingcheng_coordination = XingchengCoordination(app)
         self.governance_rule_coordination = GovernanceRuleCoordination(app)
         self.permission_sovereign = PermissionSovereign(app)
@@ -90,7 +93,7 @@ class SystemSovereignService:
 
         dependency_state = self._dependency_state()
 
-        # Runtime Sovereign coordinates the mother process's liveness services.
+        # Runtime Sub-Sovereign coordinates the mother process's liveness services.
         memory_maintainer = getattr(self.app, "_idle_memory_maintainer", None)
         runtime = await self.runtime_sovereign.start(
             memory_maintainer=memory_maintainer,
@@ -114,15 +117,15 @@ class SystemSovereignService:
             repair_service=central_repair,
         )
 
-        # Resource Sovereign coordinates all resource-body concerns.
+        # Resource Sub-Sovereign coordinates all resource-body concerns.
         resource = await self.resource_sovereign.start(
             memory_maintainer=memory_maintainer,
         )
 
-        # Data Sovereign coordinates all data-body concerns.
+        # Data Sub-Sovereign coordinates all data-body concerns.
         data = await self.data_sovereign.start()
 
-        # Integration Sovereign coordinates all cross-sovereign-module structural interface concerns.
+        # Integration Sub-Sovereign coordinates all cross-sovereign-module structural interface concerns.
         integration = await self.integration_sovereign.start()
 
         report = {

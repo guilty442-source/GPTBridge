@@ -7,7 +7,7 @@ class RuntimeStatusService:
     """Read-only status for the main program.
 
     Cleanup, diagnosis, repair, quarantine, and recovery belong to the
-    standalone tool that declares the ``system-rescue`` capability.
+    main-system central repair service (``tasks.central_repair``).
     """
 
     COMMANDS = {"app:get-runtime-status"}

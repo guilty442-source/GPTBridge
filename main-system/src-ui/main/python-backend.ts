@@ -327,7 +327,10 @@ function spawnBackendProcess(
   backendLastError = ''
   console.log(`[Python Backend Manager] Spawning Python backend (${paths.mode})...`)
 
-  const backendArgs = ['-u', paths.pythonEntry, '--serve']
+  // Entry responsibility boundary: the launcher wakes the screen and spawns
+  // the startup core; the startup core (boot_core) awakens and supervises
+  // the system backend. Forwarded args (e.g. --serve) reach main.py.
+  const backendArgs = ['-u', paths.bootCoreEntry, '--serve']
   if (reclaimUntrustedBackend) backendArgs.push('--auto-kill-backend-port')
   backendMessage = 'spawning backend process'
   const runtimeEnvironment = getRuntimeEnvMap()

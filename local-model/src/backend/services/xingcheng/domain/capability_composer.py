@@ -329,66 +329,38 @@ class StarCapabilityComposer:
                 "message": str(exc),
             }
 
-        target.parent.mkdir(parents=True, exist_ok=True)
-        backup = None
-        if target.exists():
-            backup_root = (
-                self._tool_root / "runtime" / "state" / "capability-backups"
-            ).resolve()
-            backup_root.mkdir(parents=True, exist_ok=True)
-            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-            backup = backup_root / f"{target.stem}-{stamp}.py"
-            shutil.copy2(target, backup)
-
-        temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
-        try:
-            with temporary.open("x", encoding="utf-8", newline="\n") as handle:
-                handle.write(source)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temporary, target)
-            from governance_rule.execution.audit import audit_runtime_governance
-
-            audit_errors = audit_runtime_governance(self._tool_root.parent)
-            if audit_errors:
-                if backup is not None:
-                    shutil.copy2(backup, target)
-                else:
-                    target.unlink(missing_ok=True)
-                return {
-                    **blueprint,
-                    "ok": False,
-                    "error_code": "CAPABILITY_GOVERNANCE_AUDIT_FAILED",
-                    "audit_errors": audit_errors[:20],
-                    "rolled_back": True,
-                    "authority": {
-                        **blueprint["authority"],
-                        "source_write_performed": False,
-                    },
-                }
-        finally:
-            temporary.unlink(missing_ok=True)
-
+        # FROZEN (codex boundary): an independent tool must not invoke
+        # governance audit execution directly. The post-write audit gate was
+        # the only verification for this source-write path, so the write is
+        # frozen fail-closed until verification is routed through the
+        # governed channel.
         return {
             **blueprint,
-            "status": "active-source-module",
-            "database_write_performed": False,
-            "implementation_target": target.relative_to(self._tool_root).as_posix(),
-            "source_sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
-            "backup_path": (
-                backup.relative_to(self._tool_root).as_posix() if backup else ""
+            "ok": False,
+            "error_code": "CAPABILITY_FROZEN_GOVERNANCE_BOUNDARY",
+            "frozen": True,
+            "implementation_target": target_relative,
+            "pending_legacy_data": [
+                {
+                    "id": "composed-capability-source-modules",
+                    "path": "src/backend/services/xingcheng/application/composed_capabilities/",
+                    "action": "quarantine for governance review before use",
+                },
+                {
+                    "id": "capability-backups",
+                    "path": "runtime/state/capability-backups/",
+                    "action": "quarantine for governance review",
+                },
+            ],
+            "message": (
+                "Composed-capability source write is frozen: governance "
+                "audit execution may only be invoked by the governance "
+                "authority, not by an independent tool. Verification must be "
+                "requested through the governed channel."
             ),
-            "governance_audit": "passed",
-            "rolled_back": False,
             "authority": {
                 **blueprint["authority"],
-                "source_write_performed": True,
-                "write_scope": "xingcheng-composed-capabilities-only",
-                "project_code_authority": "project-source-excluding-governance-rule",
-                "database_write_performed": False,
-                "composition_owner": blueprint["model_assignments"][
-                    "composition_owner"
-                ],
+                "source_write_performed": False,
             },
         }
 

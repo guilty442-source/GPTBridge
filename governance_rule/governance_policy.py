@@ -334,6 +334,11 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
         "governance_rule/permission_directory/execution/path_guard/__init__.py",
         "main-system/src-ui/main/governance-bootstrap.ts",
         "main-system/src-core/core_system/governance_runtime.py",
+        "governance_rule/execution/tool_runtime/__init__.py",
+        "governance_rule/execution/tool_runtime/governed_runtime.py",
+        "governance_rule/execution/tool_runtime/tool_self_repair.py",
+        "governance_rule/execution/tool_runtime/tool_local_cleanup.py",
+        "governance_rule/execution/tool_runtime/sub_sovereign.py",
     ),
     top_level_rule="governance_policy",
     governance_rule_sources=(

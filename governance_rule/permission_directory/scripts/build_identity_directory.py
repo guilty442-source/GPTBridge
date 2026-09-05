@@ -92,7 +92,6 @@ def _module_display_names() -> dict[str, tuple[str, str]]:
         "investment-mobile": ("Investment Mobile", "投資行動"),
         "xingcheng": ("Xingcheng", "星澄"),
         "star-chat": ("Star Chat", "星聊"),
-        "system-rescue": ("System Rescue", "系統救援"),
         "vaultly": ("Vaultly", "Vaultly"),
     }
 

@@ -1,0 +1,355 @@
+{
+  "schema": "governance-tool-inventory-v1",
+  "managed_by": "system-third-party-sub-sovereign",
+  "codex_basis": ["P25", "A51", "E37"],
+  "format": "registry",
+  "deny_by_default": true,
+  "categories": ["compiler-toolchain", "runtime", "package-manager", "database", "vector-db", "llm-runtime", "llm-models", "rag"],
+  "review_duties": [
+    "third-party-introduction-review",
+    "third-party-version-management",
+    "third-party-license-review",
+    "third-party-security-review"
+  ],
+  "tools": [
+    {
+      "id": "git",
+      "name": "Git",
+      "category": "package-manager",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "git",
+      "version": "2.55.0.windows.1",
+      "path": "git",
+      "license": "GPL-2.0",
+      "status": "active",
+      "verified": true
+    },
+    {
+      "id": "python",
+      "name": "Python",
+      "category": "runtime",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "python",
+      "version": "3.13.13",
+      "path": "python",
+      "license": "PSF-2.0",
+      "status": "active",
+      "verified": true
+    },
+    {
+      "id": "pybind11",
+      "name": "pybind11",
+      "category": "runtime",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "python",
+      "version": "3.1.0",
+      "path": "python -m pybind11",
+      "license": "BSD-3-Clause",
+      "status": "active",
+      "verified": true,
+      "notes": "C++ native kernel build binding"
+    },
+    {
+      "id": "node",
+      "name": "Node.js",
+      "category": "runtime",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "typescript",
+      "version": "v26.8.1",
+      "path": "node",
+      "license": "MIT",
+      "status": "active",
+      "verified": true,
+      "notes": "TypeScript interface/governance-checker runtime"
+    },
+    {
+      "id": "npm",
+      "name": "npm",
+      "category": "package-manager",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "typescript",
+      "version": "11.19.0",
+      "path": "npm",
+      "license": "Artistic-2.0",
+      "status": "active",
+      "verified": true
+    },
+    {
+      "id": "uv",
+      "name": "uv",
+      "category": "package-manager",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "python",
+      "version": "0.12.9",
+      "path": "uv",
+      "license": "MIT OR Apache-2.0",
+      "status": "active",
+      "verified": true
+    },
+    {
+      "id": "msvc",
+      "name": "MSVC C/C++ Toolchain",
+      "category": "compiler-toolchain",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "cpp",
+      "version": "19.52 (latest of 14.16/14.29/14.44/14.51/14.52)",
+      "path": "E:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC",
+      "license": "Visual Studio Community",
+      "status": "active",
+      "verified": true,
+      "loader": "governance_rule/execution/third_party_management/dev-toolchain.cmd"
+    },
+    {
+      "id": "llvm-clang-cl",
+      "name": "LLVM clang-cl (VS bundled)",
+      "category": "compiler-toolchain",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "c",
+      "version": "VS 18 Community bundled",
+      "path": "E:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\Llvm\\x64\\bin\\clang-cl.exe",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "status": "active",
+      "verified": true
+    },
+    {
+      "id": "windows-sdk",
+      "name": "Windows SDK",
+      "category": "compiler-toolchain",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "cpp",
+      "version": "10.0.22621.0 / 10.0.26100.0 / 10.0.28000.0",
+      "path": "C:\\Program Files (x86)\\Windows Kits\\10",
+      "license": "Microsoft Windows SDK",
+      "status": "active",
+      "verified": true
+    },
+    {
+      "id": "postgresql",
+      "name": "PostgreSQL",
+      "category": "database",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "postgresql",
+      "version": "17.11 (psql; server postgresql-x64-17)",
+      "path": "C:\\Program Files\\PostgreSQL\\17\\bin",
+      "license": "PostgreSQL License",
+      "status": "running",
+      "verified": true,
+      "components": ["psql.exe", "initdb.exe", "pg_dump.exe", "postgres.exe"]
+    },
+    {
+      "id": "qdrant",
+      "name": "Qdrant",
+      "category": "vector-db",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "qdrant",
+      "version": "1.19.0",
+      "path": "E:\\GPTBridge\\local-model\\runtime\\qdrant\\bin\\qdrant.exe",
+      "license": "Apache-2.0",
+      "status": "running",
+      "verified": true,
+      "endpoint": "127.0.0.1:6333"
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama",
+      "category": "llm-runtime",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "llm",
+      "version": "0.33.2",
+      "path": "ollama",
+      "license": "MIT",
+      "status": "active",
+      "verified": true,
+      "endpoint": "127.0.0.1:11434"
+    },
+    {
+      "id": "local-sqlite-rag",
+      "name": "Local SQLite RAG",
+      "category": "rag",
+      "formal": true,
+      "formality": "formal-tool",
+      "codex_formal_tool_name": "rag",
+      "version": "local (governed executor)",
+      "path": "E:\\GPTBridge\\local-model\\src\\backend\\services",
+      "license": "local-owned",
+      "status": "active",
+      "verified": true,
+      "notes": "local_sqlite_rag_repository + rag_bridge"
+    }
+  ],
+  "models": [
+    {
+      "id": "qwen3-coder-30b",
+      "name": "qwen3-coder:30b-a3b-q4_K_M",
+      "type": "coding",
+      "size_gb": 18,
+      "verified": true
+    },
+    {
+      "id": "deepcoder-14b",
+      "name": "deepcoder:14b",
+      "type": "coding",
+      "size_gb": 9.0,
+      "verified": true
+    },
+    {
+      "id": "granite-code-3b",
+      "name": "granite-code:3b",
+      "type": "coding",
+      "size_gb": 2.0,
+      "verified": true
+    },
+    {
+      "id": "gpt-oss-20b",
+      "name": "gpt-oss:20b",
+      "type": "coding",
+      "size_gb": 13,
+      "verified": true
+    },
+    {
+      "id": "qwen3.6-35b-coding",
+      "name": "qwen3.6:35b-a3b-coding",
+      "type": "coding",
+      "size_gb": 22,
+      "verified": true
+    },
+    {
+      "id": "qwen3-vl-8b",
+      "name": "qwen3-vl:8b-thinking",
+      "type": "vision",
+      "size_gb": 6.1,
+      "verified": true
+    },
+    {
+      "id": "minicpm-v4.6",
+      "name": "openbmb/minicpm-v4.6:q8_0",
+      "type": "vision",
+      "size_gb": 1.9,
+      "verified": true
+    },
+    {
+      "id": "qwen3-embedding-4b",
+      "name": "qwen3-embedding:4b",
+      "type": "embedding",
+      "size_gb": 2.5,
+      "verified": true
+    },
+    {
+      "id": "nomic-embed-text-v2",
+      "name": "nomic-embed-text-v2-moe:latest",
+      "type": "embedding",
+      "size_gb": 0.957,
+      "verified": true
+    },
+    {
+      "id": "qwen3-reranker-0.6b",
+      "name": "pdurugyan/qwen3-reranker-0.6b-q8_0:latest",
+      "type": "rerank",
+      "size_gb": 0.639,
+      "verified": true
+    },
+    {
+      "id": "gemma4-26b",
+      "name": "gemma4:26b-a4b-it-qat",
+      "type": "reasoning",
+      "size_gb": 15,
+      "verified": true
+    },
+    {
+      "id": "gemma4-12b",
+      "name": "gemma4:12b-it-qat",
+      "type": "reasoning",
+      "size_gb": 7.2,
+      "verified": true
+    },
+    {
+      "id": "gemma4-e2b",
+      "name": "gemma4:e2b-it-qat",
+      "type": "reasoning",
+      "size_gb": 4.3,
+      "verified": true
+    },
+    {
+      "id": "gemma4-e2b-64k",
+      "name": "gemma4-e2b-64k:latest",
+      "type": "reasoning",
+      "size_gb": 4.3,
+      "verified": true
+    },
+    {
+      "id": "glm4-9b",
+      "name": "glm4:9b",
+      "type": "reasoning",
+      "size_gb": 5.5,
+      "verified": true
+    },
+    {
+      "id": "nemotron-3.5-30b",
+      "name": "nemotron-3.5-lightning:30b-a3b-q4_K_M",
+      "type": "reasoning",
+      "size_gb": 25,
+      "verified": true
+    },
+    {
+      "id": "granite4.2-30b",
+      "name": "ibm/granite4.2:30b-q4_K_M",
+      "type": "reasoning",
+      "size_gb": 17,
+      "verified": true
+    },
+    {
+      "id": "deepseek-r1-14b",
+      "name": "deepseek-r1:14b",
+      "type": "reasoning",
+      "size_gb": 9.0,
+      "verified": true
+    },
+    {
+      "id": "deepseek-r1-8b",
+      "name": "deepseek-r1:8b-0528-qwen3-q4_K_M",
+      "type": "reasoning",
+      "size_gb": 5.2,
+      "verified": true
+    },
+    {
+      "id": "ornith-1.5-35b",
+      "name": "ornith-1.5:35b",
+      "type": "reasoning",
+      "size_gb": 22,
+      "verified": true
+    },
+    {
+      "id": "rnj-1-8b",
+      "name": "rnj-1:8b-instruct-q4_K_M",
+      "type": "reasoning",
+      "size_gb": 5.1,
+      "verified": true
+    },
+    {
+      "id": "nemotron-3-nano-4b",
+      "name": "nemotron-3-nano:4b-q8_0",
+      "type": "reasoning",
+      "size_gb": 4.2,
+      "verified": true
+    },
+    {
+      "id": "qwen3.8-27b",
+      "name": "qwen3.8:27b-q4_K_M",
+      "type": "reasoning",
+      "size_gb": 17,
+      "verified": true
+    }
+  ]
+}

@@ -98,7 +98,9 @@ class XingchengOrchestrator:
     @property
     def access_gateway(self) -> Any:
         if self._access_gateway is None:
-            from shared_layer.access_gateway import AccessGateway
+            from governance_rule.permission_directory.execution.access_gateway import (  # noqa: E501
+                AccessGateway,
+            )
             self._access_gateway = AccessGateway(
                 governance_authorizer=lambda _p, _a, _t: False
             )

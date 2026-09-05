@@ -41,11 +41,11 @@ class PermissionDirectory:
 _SYSTEM_ROLES: Final[tuple[str, ...]] = (
     "system-sovereign",
     "permission-sovereign",
-    "runtime-sovereign",
+    "system-runtime-sub-sovereign",
     "maintenance-sovereign",
-    "resource-sovereign",
-    "data-sovereign",
-    "integration-sovereign",
+    "system-resource-sub-sovereign",
+    "system-data-sub-sovereign",
+    "system-integration-sub-sovereign",
     "xingcheng",
     "governance-auditor",
 )
@@ -72,7 +72,7 @@ def default_permission_directory() -> PermissionDirectory:
             "permission:supervise",
             "permission:ledger-append",
         ),
-        "runtime-sovereign": (
+        "system-runtime-sub-sovereign": (
             "status:runtime",
             "runtime:probe-process",
             "runtime:spawn-managed-process",
@@ -86,7 +86,7 @@ def default_permission_directory() -> PermissionDirectory:
             "maintenance:source-selfrepair",
             "maintenance:backup-manifest",
         ),
-        "resource-sovereign": (
+        "system-resource-sub-sovereign": (
             "status:resource",
             "resource:memory-state",
             "resource:disk-state",
@@ -94,14 +94,14 @@ def default_permission_directory() -> PermissionDirectory:
             "resource:model-state",
             "resource:provision-release",
         ),
-        "data-sovereign": (
+        "system-data-sub-sovereign": (
             "status:data",
             "data:sql-integrity",
             "data:semantic-index-health",
             "data:version-history-health",
             "data:data-directory",
         ),
-        "integration-sovereign": (
+        "system-integration-sub-sovereign": (
             "status:integration",
             "integration:channel-register",
             "integration:bus-publish",

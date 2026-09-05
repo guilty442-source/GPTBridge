@@ -1,7 +1,7 @@
 """Python adapter for the System Sovereign native kernel.
 
 Loads the compiled ``_sovereign_native.pyd`` extension (if present) and exposes
-a stable, typed surface to the RuntimeSovereign and MaintenanceSovereign.  If
+a stable, typed surface to the RuntimeSubSovereign and MaintenanceSovereign.  If
 the extension is not built, every function degrades gracefully so the platform
 keeps running (Python equivalents are used where trivial).
 """

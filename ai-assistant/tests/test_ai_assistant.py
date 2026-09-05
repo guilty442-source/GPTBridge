@@ -13,14 +13,14 @@ from ai_nexus.integration.star_channel import InvestmentAiConnections
 from ai_nexus.application.investment_watch import InvestmentWatchService
 SYSTEM_RESCUE_SERVICES = (
     Path(__file__).resolve().parents[2]
-    / "system-rescue"
+    / "main-system"
     / "src"
     / "backend"
     / "services"
 )
 if str(SYSTEM_RESCUE_SERVICES) not in sys.path:
     sys.path.insert(0, str(SYSTEM_RESCUE_SERVICES))
-from system_rescue.infrastructure.database_recovery import database_integrity
+from tasks.central_repair import database_integrity
 
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]

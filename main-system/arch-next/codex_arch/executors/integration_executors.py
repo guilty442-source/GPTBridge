@@ -16,7 +16,7 @@ def _channel_register(payload: dict[str, Any]) -> dict[str, Any]:
     kind = str(payload.get("kind") or "structural")
     if not channel or channel in _channels:
         return {"registered": False, "channel": channel, "reason": "missing-or-duplicate"}
-    _channels[channel] = {"kind": kind, "owner": "integration-sovereign"}
+    _channels[channel] = {"kind": kind, "owner": "system-integration-sub-sovereign"}
     return {"registered": True, "channel": channel, "kind": kind}
 
 
@@ -51,7 +51,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="structural-channel",
             permission_intent="channel-register",
             owner_sovereign="integration",
-            target="integration-sovereign:integration:channel-register",
+            target="system-integration-sub-sovereign:integration:channel-register",
             implementation=_channel_register,
         ),
         ExecutorBinding(
@@ -59,7 +59,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="sync-bus",
             permission_intent="bus-publish",
             owner_sovereign="integration",
-            target="integration-sovereign:integration:bus-publish",
+            target="system-integration-sub-sovereign:integration:bus-publish",
             implementation=_bus_publish,
         ),
         ExecutorBinding(
@@ -67,7 +67,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="sync-bus",
             permission_intent="bus-subscribe",
             owner_sovereign="integration",
-            target="integration-sovereign:integration:bus-subscribe",
+            target="system-integration-sub-sovereign:integration:bus-subscribe",
             implementation=_bus_subscribe,
         ),
         ExecutorBinding(
@@ -75,7 +75,7 @@ def bindings() -> list[ExecutorBinding]:
             boundary="structural-interface",
             permission_intent="iface-sync",
             owner_sovereign="integration",
-            target="integration-sovereign:integration:iface-sync",
+            target="system-integration-sub-sovereign:integration:iface-sync",
             implementation=_iface_sync,
         ),
     ]

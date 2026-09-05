@@ -3,7 +3,17 @@ from __future__ import annotations
 from typing import Final
 
 from governance_rule.permission_directory.directory_authority import (
-    ACTIVE_IDENTITY_GROUP_ID,
+    IDENTITY_GROUP_AI_ASSISTANT,
+    IDENTITY_GROUP_AI_COLLABORATION,
+    IDENTITY_GROUP_FILE_SORTER,
+    IDENTITY_GROUP_GLOBAL_CLEANER,
+    IDENTITY_GROUP_GOVERNANCE_RULE,
+    IDENTITY_GROUP_INVESTMENT_MOBILE,
+    IDENTITY_GROUP_MAIN_SYSTEM,
+    IDENTITY_GROUP_SHARED_LAYER,
+    IDENTITY_GROUP_STAR_CHAT,
+    IDENTITY_GROUP_VAULTLY,
+    IDENTITY_GROUP_XINGCHENG,
     IdentityPermissionBinding,
 )
 
@@ -12,7 +22,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
     tuple[IdentityPermissionBinding, ...]
 ] = (
     IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        group_id=IDENTITY_GROUP_MAIN_SYSTEM,
         actor="governance/main-system",
         capabilities=(
             "governance",
@@ -25,7 +35,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         ),
     ),
     IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        group_id=IDENTITY_GROUP_GOVERNANCE_RULE,
         actor="governance/tool/governance_rule",
         capabilities=(
             "governance-authority-read-execute",
@@ -35,7 +45,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         ),
     ),
     IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        group_id=IDENTITY_GROUP_SHARED_LAYER,
         actor="governance/tool/shared-layer",
         capabilities=(
             "authenticated-ipc",
@@ -44,7 +54,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         ),
     ),
     IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        group_id=IDENTITY_GROUP_AI_ASSISTANT,
         actor="governance/tool/ai-assistant",
         capabilities=(
             "independent-tool-business-logic",
@@ -58,7 +68,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         ),
     ),
     IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        group_id=IDENTITY_GROUP_AI_COLLABORATION,
         actor="governance/tool/ai-collaboration",
         capabilities=(
             "independent-tool-business-logic",
@@ -71,7 +81,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         ),
     ),
     IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        group_id=IDENTITY_GROUP_STAR_CHAT,
         actor="governance/tool/star-chat",
         capabilities=(
             "independent-tool-business-logic",
@@ -83,7 +93,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         ),
     ),
     IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        group_id=IDENTITY_GROUP_FILE_SORTER,
         actor="governance/tool/file-sorter",
         capabilities=(
             "independent-tool-business-logic",
@@ -94,7 +104,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         ),
     ),
     IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        group_id=IDENTITY_GROUP_GLOBAL_CLEANER,
         actor="governance/tool/global-cleaner",
         capabilities=(
             "independent-tool-business-logic",
@@ -108,7 +118,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         ),
     ),
     IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        group_id=IDENTITY_GROUP_INVESTMENT_MOBILE,
         actor="governance/tool/investment-mobile",
         capabilities=(
             "independent-tool-business-logic",
@@ -120,7 +130,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         ),
     ),
     IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        group_id=IDENTITY_GROUP_XINGCHENG,
         actor="governance/tool/xingcheng",
         capabilities=(
             "ai-channel-top-level",
@@ -137,19 +147,8 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         ),
     ),
     IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
+        group_id=IDENTITY_GROUP_VAULTLY,
         actor="governance/tool/vaultly",
-        capabilities=(
-            "independent-tool-business-logic",
-            "independent-tool-user-settings",
-            "independent-tool-business-storage",
-            "system-channel-request-submit",
-            "system-channel-request-process",
-        ),
-    ),
-    IdentityPermissionBinding(
-        group_id=ACTIVE_IDENTITY_GROUP_ID,
-        actor="governance/tool/system-rescue",
         capabilities=(
             "independent-tool-business-logic",
             "independent-tool-user-settings",

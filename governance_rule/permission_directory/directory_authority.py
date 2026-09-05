@@ -84,6 +84,9 @@ class CapabilityIdentity:
     bound_roots: tuple[str, ...]
     manifest_binding: ManifestBinding
     authentication: str
+    identity_code: str
+    language_name: str
+    codename: str
 
 
 @dataclass(frozen=True)
@@ -235,6 +238,7 @@ class DirectoryAuthoritySnapshot:
     hot_update_authority: str
     hot_update_authority_file_access: str
     active_identity_group_id: str
+    active_identity_group_ids: tuple[str, ...]
     identity_group_registry_path: str
     identity_permission_registry_path: str
     capability_boundary_registry_path: str
@@ -454,6 +458,35 @@ PERMISSION_EXECUTION_AUTHORITY: Final[str] = "none-read-and-execute-only"
 HOT_UPDATE_AUTHORITY: Final[str] = "main-system-only"
 HOT_UPDATE_AUTHORITY_FILE_ACCESS: Final[str] = "read-only-no-replacement"
 ACTIVE_IDENTITY_GROUP_ID: Final[str] = "governance-identity-v1"
+# Fine-grained identity groups: every registered identity owns exactly one
+# dedicated group so an identity from one tool can never be reused to claim
+# another tool's permissions (anti-jailbreak isolation).
+IDENTITY_GROUP_MAIN_SYSTEM: Final[str] = "identity-group-M00001"
+IDENTITY_GROUP_GOVERNANCE_RULE: Final[str] = "identity-group-G00001"
+IDENTITY_GROUP_SHARED_LAYER: Final[str] = "identity-group-S00001"
+IDENTITY_GROUP_AI_ASSISTANT: Final[str] = "identity-group-A00001"
+IDENTITY_GROUP_AI_COLLABORATION: Final[str] = "identity-group-E00001"
+IDENTITY_GROUP_STAR_CHAT: Final[str] = "identity-group-D00001"
+IDENTITY_GROUP_FILE_SORTER: Final[str] = "identity-group-F00001"
+IDENTITY_GROUP_GLOBAL_CLEANER: Final[str] = "identity-group-C00001"
+IDENTITY_GROUP_INVESTMENT_MOBILE: Final[str] = "identity-group-I00001"
+IDENTITY_GROUP_XINGCHENG: Final[str] = "identity-group-X00001"
+IDENTITY_GROUP_VAULTLY: Final[str] = "identity-group-V00001"
+ACTIVE_IDENTITY_GROUP_IDS: Final[tuple[str, ...]] = (
+    IDENTITY_GROUP_MAIN_SYSTEM,
+    IDENTITY_GROUP_GOVERNANCE_RULE,
+    IDENTITY_GROUP_SHARED_LAYER,
+    IDENTITY_GROUP_AI_ASSISTANT,
+    IDENTITY_GROUP_AI_COLLABORATION,
+    IDENTITY_GROUP_STAR_CHAT,
+    IDENTITY_GROUP_FILE_SORTER,
+    IDENTITY_GROUP_GLOBAL_CLEANER,
+    IDENTITY_GROUP_INVESTMENT_MOBILE,
+    IDENTITY_GROUP_XINGCHENG,
+    IDENTITY_GROUP_VAULTLY,
+)
+IDENTITY_CODE_PATTERN: Final[str] = r"[A-Z][0-9]{5}"
+IDENTITY_LANGUAGE_NAME_PATTERN: Final[str] = r"[a-z][a-z0-9_]*"
 IDENTITY_GROUP_REGISTRY_PATH: Final[str] = (
     "governance_rule/permission_directory/registries/permissions/identity_groups.py"
 )
@@ -539,6 +572,7 @@ _SEALED_DIRECTORY_AUTHORITY_SNAPSHOT: Final[DirectoryAuthoritySnapshot] = (
         hot_update_authority=HOT_UPDATE_AUTHORITY,
         hot_update_authority_file_access=HOT_UPDATE_AUTHORITY_FILE_ACCESS,
         active_identity_group_id=ACTIVE_IDENTITY_GROUP_ID,
+        active_identity_group_ids=ACTIVE_IDENTITY_GROUP_IDS,
         identity_group_registry_path=IDENTITY_GROUP_REGISTRY_PATH,
         identity_permission_registry_path=IDENTITY_PERMISSION_REGISTRY_PATH,
         capability_boundary_registry_path=CAPABILITY_BOUNDARY_REGISTRY_PATH,
