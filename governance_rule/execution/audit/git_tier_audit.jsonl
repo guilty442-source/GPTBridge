@@ -1,0 +1,5 @@
+{"timestamp": "2026-09-06T11:52:13+0800", "tier": 1, "command": "status", "actor": "unknown", "approved": true, "detail": "tier-1 direct-exec"}
+{"timestamp": "2026-09-06T11:52:13+0800", "tier": 2, "command": "commit -m test", "actor": "unknown", "approved": false, "detail": "tier-2 requires confirmation"}
+{"timestamp": "2026-09-06T11:52:13+0800", "tier": 3, "command": "push --force", "actor": "unknown", "approved": false, "detail": "tier-3 requires governance authority approval"}
+{"timestamp": "2026-09-06T11:52:13+0800", "tier": 2, "command": "commit -m test", "actor": "unknown", "approved": true, "detail": "tier-2 confirmed"}
+{"timestamp": "2026-09-06T11:52:13+0800", "tier": 3, "command": "push --force", "actor": "unknown", "approved": true, "detail": "tier-3 governance-authority-approved"}

@@ -107,3 +107,11 @@
 {"timestamp":"2026-09-05T16:28:07.2936670Z","event":"launcher.phase.prepare.done","total_ms":8504}
 {"timestamp":"2026-09-05T16:28:07.2966673Z","event":"launcher.phase.electron.start"}
 {"timestamp":"2026-09-05T16:28:08.1175649Z","event":"launcher.electron.accepted","pid":47676}
+{"timestamp":"2026-09-06T03:55:33.1522417Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-06T03:55:33.1932789Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788666933.390313}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 3014, "timestamp": 1788666936.4181786}
+{"timestamp":"2026-09-06T03:55:37.2891420Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-06T03:55:37.2901415Z","event":"launcher.phase.governance.start"}
+{"timestamp":"2026-09-06T03:55:37.3714132Z","event":"launcher.governance.start"}
+{"message":"Command failed with exit code 1: E:\\GPTBridge\\main-system\\.venv\\Scripts\\python.exe","timestamp":"2026-09-06T03:55:38.4764722Z","event":"launcher.failed"}
