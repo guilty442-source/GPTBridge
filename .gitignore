@@ -1,6 +1,9 @@
 node_modules/
 .venv/
 .vs/
+.smallcode/
+.devin/
+.agents/
 browser-profile/
 edge-profile/
 .cache/

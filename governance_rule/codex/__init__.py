@@ -126,7 +126,7 @@ class GovernanceCodex:
 
 GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
     schema="gptbridge-governance-codex-v1",
-    codex_version=1,
+    codex_version=2,
     preamble=CodexPreamble(
         title="GPTBridge Governance Codex",
         authority_rank="supreme",
@@ -668,6 +668,13 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             rule="RAG-ARCH:hybrid-rag+code-rag+agentic-rag+memory-rag; HYBRID-RAG:dense+sparse+semantic-fusion; CODE-RAG:code-snippet+ast+dependency-graph-retrieval; AGENTIC-RAG:multi-step-retrieve+reason+adapt; MEMORY-RAG:session+long-term+episodic-memory; SHARED-INDEX:qdrant(local-owned); OWNERSHIP:local-owned; HOSTING:local-only; BASIS:codex",
             prohibition="FORBID:non-formal-rag-substitution; FORBID:external-or-cloud-hosting-of-rag; FORBID:replace-hybrid-architecture; FORBID:omit-any-of-four-sub-architectures",
         ),
+        CodexArticle(
+            id="A53",
+            section="4",
+            subject="git-operation-tiers",
+            rule="GIT-OPS-TIERS:3-level; TIER-1:read-only+high-frequency+direct-exec; TIER-1-OPS:status/log/diff/show/branch/remote/blame/ls-files/cat-file/rev-parse/describe/tag-l/for-each-ref/stash-list/config-get; TIER-2:general-write+requires-confirmation; TIER-2-OPS:add/commit/stash/branch-create/checkout/switch/merge/tag-create/fetch/push/rebase-local/cherry-pick/revert/worktree-add/worktree-remove; TIER-3:high-risk+strictly-restricted+requires-governance-authority-approval; TIER-3-OPS:push-force/push-force-with-lease/commit-amend-pushed/reset-hard/reset-soft-distant/branch-D/filter-branch/filter-repo/rebase-interactive/rebase-root/gc-prune/reflog-expire/update-ref-d/clean-fd/stash-drop/stash-clear; ENFORCEMENT:hook+governance-gate+audit-ledger; BASIS:codex+A46-audit",
+            prohibition="FORBID:tier-3-without-governance-authority-approval; FORBID:tier-2-without-confirmation; FORBID:bypass-tier-enforcement",
+        ),
     ),
     edicts=(
         CodexEdict(
@@ -896,6 +903,12 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="E38",
             area="rag-architecture",
             edict="RAG-ARCH:hybrid-rag+code-rag+agentic-rag+memory-rag; SHARED-INDEX:qdrant(local-owned); OWNERSHIP:local-owned; HOSTING:local-only; FORBID:non-formal-substitution/external-hosting/omit-sub-architecture",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E39",
+            area="git-operation-tiers",
+            edict="GIT-OPS-TIERS:3-level; TIER-1:read-only+direct-exec; TIER-2:write+requires-confirmation; TIER-3:high-risk+strictly-restricted+governance-authority-approval; ENFORCEMENT:hook+gate+audit-ledger",
             immutability="immutable-sealed",
         ),
     ),

@@ -137,7 +137,9 @@ GOVERNANCE_CODEX_CHINESE: Final[ChineseCodexReference] = ChineseCodexReference(
         ChineseCodexArticle(id="A47", section="二", subject="violation-closure", rule="違規處置依偵測、停止、記錄、裁決四步進行：違規偵測歸維護監控；違規即時停止並預設拒絕關閉；違規記入故障判定與稽核帳冊；違規裁決之最終權歸治理權威。", prohibition="禁止違規不記、自我裁決或在違規後繼續執行"),
         ChineseCodexArticle(id="A48", section="七", subject="amendment-execution", rule="法典修訂採完整檔案替換執行：版本號由系統自動遞增更新；替換須為治理權威（操作者）審慎明示之作為；替換後立即重新封印並於任何載入前恢復唯讀保護。", prohibition="禁止部分修補、跳號替換或未封印載入"),
         ChineseCodexArticle(id="A49", section="四", subject="formal-tools", rule="PostgreSQL、Qdrant、Git、RAG、Python、TypeScript、C++、C 為本法典指定之正式工具，悉數受本法典治理；其所有權為本機自有，須於本機環境運作，不得以外部或雲端服務託管；禁止以非正式工具替代。", prohibition="禁止以非正式或未經法典宣告之工具替代正式工具，亦禁止以外部或雲端服務託管任一正式工具"),
-        ChineseCodexArticle(id="A52", section="四", subject="rag-architecture", rule="RAG 架構採 Hybrid RAG + Code RAG + Agentic RAG + Memory RAG 四子架構混合：Hybrid RAG 結合稠密、稀疏與語意融合檢索；Code RAG 負責程式碼片段、抽象語法樹與依賴圖譜之檢索；Agentic RAG 負責多步驟檢索、推理與調適；Memory RAG 負責工作階段、長期與情節記憶；四子架構共享 Qdrant（本機自有）作為語意索引後端；其所有權為本機自有，須於本機環境運作。", prohibition="禁止以非正式 RAG 替代、外部或雲端託管 RAG、取代混合架構或省略任一子架構"),    ),
+        ChineseCodexArticle(id="A52", section="四", subject="rag-architecture", rule="RAG 架構採 Hybrid RAG + Code RAG + Agentic RAG + Memory RAG 四子架構混合：Hybrid RAG 結合稠密、稀疏與語意融合檢索；Code RAG 負責程式碼片段、抽象語法樹與依賴圖譜之檢索；Agentic RAG 負責多步驟檢索、推理與調適；Memory RAG 負責工作階段、長期與情節記憶；四子架構共享 Qdrant（本機自有）作為語意索引後端；其所有權為本機自有，須於本機環境運作。", prohibition="禁止以非正式 RAG 替代、外部或雲端託管 RAG、取代混合架構或省略任一子架構"),
+        ChineseCodexArticle(id="A53", section="四", subject="git-operation-tiers", rule="Git 操作分為三級：第一級為唯讀、高頻操作，可直接執行，包含 status、log、diff、show、branch、remote、blame、ls-files、cat-file、rev-parse、describe、tag -l、for-each-ref、stash list、config --get 等；第二級為一般寫入操作，須經確認後執行，包含 add、commit、stash、branch 建立、checkout、switch、merge、tag 建立、fetch、push、rebase（本地）、cherry-pick、revert、worktree add、worktree remove 等；第三級為高風險操作，嚴格限制，須經治理權威核准，包含 push --force、push --force-with-lease、commit --amend（已推送）、reset --hard、reset --soft（遠距離）、branch -D、filter-branch、filter-repo、rebase -i、rebase --root、gc --prune、reflog expire、update-ref -d、clean -fd、stash drop、stash clear 等；強制機制為 hook 加治理閘控加稽核帳冊。", prohibition="禁止未經治理權威核准執行第三級操作、未經確認執行第二級操作、繞過分級強制機制"),
+    ),
     edicts=(
         ChineseCodexEdict(id="E1", area="sovereignty", edict="主宰體系以法典為最高規則層，一切決策皆引用法典。"),
         ChineseCodexEdict(id="E2", area="execution", edict="一切執行委派受治理執行器，主宰與法典皆不直接執行。"),
@@ -174,7 +176,9 @@ GOVERNANCE_CODEX_CHINESE: Final[ChineseCodexReference] = ChineseCodexReference(
         ChineseCodexEdict(id="E33", area="violation-closure", edict="違規先停止、再記錄、後裁決；違規不得繼續執行，最終裁決歸治理權威。"),
         ChineseCodexEdict(id="E34", area="amendment-execution", edict="法典修訂以完整檔案替換執行：版本號由系統自動遞增更新、操作者審慎明示、替換後重新封印並恢復唯讀保護。"),
         ChineseCodexEdict(id="E35", area="formal-tools", edict="PostgreSQL、Qdrant、Git、RAG、Python、TypeScript、C++、C 為本法典指定之正式工具，悉數受本法典治理；其所有權為本機自有，須於本機運作，不得外部或雲端託管；禁止以非正式工具替代。"),
-        ChineseCodexEdict(id="E38", area="rag-architecture", edict="RAG 架構採 Hybrid RAG + Code RAG + Agentic RAG + Memory RAG 四子架構混合；共享 Qdrant（本機自有）為語意索引後端；所有權為本機自有，須於本機運作；禁止以非正式替代、外部託管或省略任一子架構。"),    ),
+        ChineseCodexEdict(id="E38", area="rag-architecture", edict="RAG 架構採 Hybrid RAG + Code RAG + Agentic RAG + Memory RAG 四子架構混合；共享 Qdrant（本機自有）為語意索引後端；所有權為本機自有，須於本機運作；禁止以非正式替代、外部託管或省略任一子架構。"),
+        ChineseCodexEdict(id="E39", area="git-operation-tiers", edict="Git 操作分三級：第一級唯讀直接執行、第二級寫入須確認、第三級高風險須治理權威核准；強制機制為 hook 加閘控加稽核帳冊。"),
+    ),
     sovereigns=SOVEREIGNS_CHINESE,
 )
 
