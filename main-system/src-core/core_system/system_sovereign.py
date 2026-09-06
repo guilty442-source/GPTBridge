@@ -36,10 +36,12 @@ from typing import Any
 from .data_sub_sovereign import DataSubSovereign
 from .governance_rule_coordination import GovernanceRuleCoordination
 from .integration_sub_sovereign import IntegrationSubSovereign
+from .language_review_sub_sovereign import LanguageReviewSubSovereign
 from .maintenance_sovereign import MaintenanceSovereign
 from .permission_sovereign import PermissionSovereign
 from .resource_sub_sovereign import ResourceSubSovereign
 from .runtime_sub_sovereign import RuntimeSubSovereign
+from .third_party_sub_sovereign import ThirdPartySubSovereign
 from .xingcheng_coordination import XingchengCoordination
 
 
@@ -80,6 +82,8 @@ class SystemSovereignService:
         self.resource_sovereign = ResourceSubSovereign(app)
         self.data_sovereign = DataSubSovereign(app)
         self.integration_sovereign = IntegrationSubSovereign(app)
+        self.language_review_sovereign = LanguageReviewSubSovereign(app)
+        self.third_party_sovereign = ThirdPartySubSovereign(app)
         self.xingcheng_coordination = XingchengCoordination(app)
         self.governance_rule_coordination = GovernanceRuleCoordination(app)
         self.permission_sovereign = PermissionSovereign(app)
@@ -128,13 +132,19 @@ class SystemSovereignService:
         # Integration Sub-Sovereign coordinates all cross-sovereign-module structural interface concerns.
         integration = await self.integration_sovereign.start()
 
+        # Language Review Sub-Sovereign coordinates programming-language conformance.
+        language_review = await self.language_review_sovereign.start()
+
+        # Third-Party Sub-Sovereign coordinates third-party software management.
+        third_party = await self.third_party_sovereign.start()
+
         report = {
             "ok": True,
             "sovereign": "system-sovereign",
             "dependency_state": dependency_state,
             "started_at": self._iso_now(),
             "execution_delegation": "governed-executor-only",
-            "sub_sovereigns": [runtime["role"], maintenance["role"], resource["role"], data["role"], integration["role"]],
+            "sub_sovereigns": [runtime["role"], maintenance["role"], resource["role"], data["role"], integration["role"], language_review["role"], third_party["role"]],
             "peer_systems": {
                 "xingcheng": self.xingcheng_coordination.orchestration_status(),
             },
@@ -145,6 +155,8 @@ class SystemSovereignService:
             "resource": self.resource_sovereign.orchestration_status(),
             "data": self.data_sovereign.orchestration_status(),
             "integration": self.integration_sovereign.orchestration_status(),
+            "language_review": self.language_review_sovereign.orchestration_status(),
+            "third_party": self.third_party_sovereign.orchestration_status(),
             "sources": [
                 {"kind": "env", "name": "GPTBRIDGE_STARTUP_STATE"},
                 {
@@ -157,6 +169,8 @@ class SystemSovereignService:
         return report
 
     async def stop(self) -> None:
+        await self.third_party_sovereign.stop()
+        await self.language_review_sovereign.stop()
         await self.integration_sovereign.stop()
         await self.data_sovereign.stop()
         await self.resource_sovereign.stop()
@@ -184,6 +198,8 @@ class SystemSovereignService:
                 self.resource_sovereign.live_status(),
                 self.data_sovereign.live_status(),
                 self.integration_sovereign.live_status(),
+                self.language_review_sovereign.live_status(),
+                self.third_party_sovereign.live_status(),
             ],
             "peer_systems": {
                 "xingcheng": self.xingcheng_coordination.coordination_status(),
@@ -195,6 +211,8 @@ class SystemSovereignService:
             "resource": self.resource_sovereign.live_status(),
             "data": self.data_sovereign.live_status(),
             "integration": self.integration_sovereign.live_status(),
+            "language_review": self.language_review_sovereign.live_status(),
+            "third_party": self.third_party_sovereign.live_status(),
         }
 
     def orchestration_status(self) -> dict[str, Any]:
@@ -218,6 +236,8 @@ class SystemSovereignService:
                 self.resource_sovereign.orchestration_status(),
                 self.data_sovereign.orchestration_status(),
                 self.integration_sovereign.orchestration_status(),
+                self.language_review_sovereign.orchestration_status(),
+                self.third_party_sovereign.orchestration_status(),
             ],
             "peer_systems": {
                 "xingcheng": self.xingcheng_coordination.orchestration_status(),
@@ -229,6 +249,8 @@ class SystemSovereignService:
             "resource": self.resource_sovereign.orchestration_status(),
             "data": self.data_sovereign.orchestration_status(),
             "integration": self.integration_sovereign.orchestration_status(),
+            "language_review": self.language_review_sovereign.orchestration_status(),
+            "third_party": self.third_party_sovereign.orchestration_status(),
             "subsystems": [
                 self.governance_rule_coordination.orchestration_status(),
                 self.runtime_sovereign.orchestration_status(),
@@ -236,6 +258,8 @@ class SystemSovereignService:
                 self.resource_sovereign.orchestration_status(),
                 self.data_sovereign.orchestration_status(),
                 self.integration_sovereign.orchestration_status(),
+                self.language_review_sovereign.orchestration_status(),
+                self.third_party_sovereign.orchestration_status(),
             ],
         }
 

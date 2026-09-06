@@ -10,21 +10,25 @@ C++ native kernel (e.g. ``core_system.native``), which compiles to a .pyd.
 from .codex_decision import codex_edicts, decision_basis
 from .data_sub_sovereign import DataSubSovereign
 from .integration_sub_sovereign import IntegrationSubSovereign
+from .language_review_sub_sovereign import LanguageReviewSubSovereign
 from .maintenance_sovereign import MaintenanceSovereign
 from .permission_sovereign import PermissionSovereign
 from .resource_sub_sovereign import ResourceSubSovereign
 from .runtime_sub_sovereign import RuntimeSubSovereign
 from .system_sovereign import SystemSovereignService
+from .third_party_sub_sovereign import ThirdPartySubSovereign
 from .xingcheng_coordination import XingchengCoordination
 
 __all__ = [
     "DataSubSovereign",
     "IntegrationSubSovereign",
+    "LanguageReviewSubSovereign",
     "MaintenanceSovereign",
     "PermissionSovereign",
     "ResourceSubSovereign",
     "RuntimeSubSovereign",
     "SystemSovereignService",
+    "ThirdPartySubSovereign",
     "XingchengCoordination",
     "codex_edicts",
     "decision_basis",
