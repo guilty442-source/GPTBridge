@@ -21,6 +21,8 @@ from governance_rule.permission_directory.registries.permissions.identity_permis
 from governance_rule.permission_directory.registries.permissions.source_ownership import (
     source_ownership_errors,
 )
+from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.codex.chinese import GOVERNANCE_CODEX_CHINESE
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -37,6 +39,7 @@ REQUIRED_GOVERNANCE_ENFORCEMENT_SOURCES = frozenset(
         "governance_rule/execution/authentication/__init__.py",
         "governance_rule/execution/integrity/__init__.py",
         "governance_rule/execution/versioning/__init__.py",
+        "governance_rule/execution/git_tiers/__init__.py",
         "governance_rule/permission_directory/execution/identity_registry/__init__.py",
         "governance_rule/permission_directory/execution/path_guard/__init__.py",
         "main-system/src-ui/main/governance-bootstrap.ts",
@@ -429,6 +432,17 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         errors.append("governance lifecycle control is not explicitly denied")
 
     manifest_tool_ids: set[str] = set()
+    physical_owner_roots: set[str] = set()
+
+    # Enforce nested_independent_tool_folder=False: no manifests at depth 3+
+    deep_manifests = sorted(root.glob("*/*/*/manifest.json"))
+    if deep_manifests:
+        errors.append(
+            "nested independent tool folder exceeds allowed depth: "
+            f"{[str(p.relative_to(root)) for p in deep_manifests]}"
+        )
+
+    # Pass 1: depth-1 manifests (direct children of project root)
     for manifest_path in sorted(root.glob("*/manifest.json")):
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -438,6 +452,8 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         tool_id = str(manifest.get("id") or "")
         manifest_tool_ids.add(tool_id)
         physical_owner_root = str(manifest.get("physical_owner_root") or "")
+        if physical_owner_root:
+            physical_owner_roots.add(physical_owner_root)
         if (
             tool_id != manifest_path.parent.name
             and physical_owner_root != manifest_path.parent.name
@@ -521,10 +537,85 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         database_scope = permissions.get("database_scope")
         if database_scope != expected_database_scope:
             errors.append(f"tool database scope is invalid: {tool_id}")
-    
-    # Add companion tool star-chat which is nested under xingcheng
-    if (root / "local-model" / "model-dialogue" / "manifest.json").is_file():
-        manifest_tool_ids.add("star-chat")
+
+    # Pass 2: depth-2 manifests (companion tools nested under a
+    # physical_owner_root).  These tools share their owner's permission
+    # profile, so the standard code_scope/database_scope checks are not
+    # applied — only identity, locale, capability and window checks.
+    for manifest_path in sorted(root.glob("*/*/manifest.json")):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            errors.append(f"invalid tool manifest: {manifest_path}: {error}")
+            continue
+        tool_id = str(manifest.get("id") or "")
+        manifest_tool_ids.add(tool_id)
+        physical_owner_root = str(manifest.get("physical_owner_root") or "")
+        grandparent_name = manifest_path.parent.parent.name
+
+        # Enforce independent_tool_direct_child_only=True: a nested manifest
+        # must declare a physical_owner_root that matches its grandparent
+        # directory, and that grandparent must be a known physical owner root.
+        if not physical_owner_root:
+            errors.append(
+                f"nested tool manifest lacks physical_owner_root: {manifest_path}"
+            )
+        elif physical_owner_root != grandparent_name:
+            errors.append(
+                f"nested tool physical_owner_root does not match parent root: "
+                f"{manifest_path}"
+            )
+        elif physical_owner_root not in physical_owner_roots:
+            errors.append(
+                f"nested tool references unknown physical_owner_root: "
+                f"{manifest_path}"
+            )
+
+        if re.fullmatch(label_policy.tool_id_pattern, tool_id) is None:
+            errors.append(f"tool identifier is not standardized: {tool_id}")
+        if "name" in manifest or manifest.get("name_key") != "tool.name":
+            errors.append(f"tool name label is not standardized: {tool_id}")
+        capabilities = manifest.get("capabilities")
+        if not isinstance(capabilities, dict):
+            errors.append(f"tool capabilities are missing: {tool_id}")
+        else:
+            for capability_name in capabilities:
+                if (
+                    capability_name not in code_rules.approved_capability_names
+                    or re.fullmatch(
+                        label_policy.capability_pattern,
+                        capability_name,
+                    )
+                    is None
+                ):
+                    errors.append(
+                        f"tool capability label is not standardized: "
+                        f"{tool_id}:{capability_name}"
+                    )
+        window = manifest.get("window")
+        if isinstance(window, dict) and (
+            "title" in window
+            or window.get("title_key") != "tool.window_title"
+        ):
+            errors.append(f"tool window label is not standardized: {tool_id}")
+        locale_path = manifest_path.parent / "locales" / "zh-TW.json"
+        try:
+            locale = json.loads(locale_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as error:
+            errors.append(f"traditional Chinese locale is invalid: {tool_id}: {error}")
+            locale = {}
+        if not isinstance(locale, dict) or not all(
+            isinstance(key, str)
+            and re.fullmatch(label_policy.locale_key_pattern, key)
+            and isinstance(value, str)
+            for key, value in locale.items()
+        ):
+            errors.append(f"traditional Chinese locale schema is invalid: {tool_id}")
+        if not set(code_rules.required_locale_keys).issubset(locale):
+            errors.append(f"traditional Chinese locale keys are incomplete: {tool_id}")
+        permissions = manifest.get("permissions")
+        if not isinstance(permissions, dict):
+            errors.append(f"tool permissions are missing: {tool_id}")
 
     registered_tool_ids = {
         identity.bound_tool_id
@@ -535,6 +626,133 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         errors.append("each independent tool must have exactly one enabled identity")
     if manifest_tool_ids != set(code_rules.approved_tool_ids):
         errors.append("tool identifiers do not match the approved name list")
+
+    # Codex consistency: the Chinese backup reference must contain every
+    # principle, article, edict and sovereign declared in the authoritative
+    # codex (A36/E22/P17 — Chinese codex is backup-only but must stay complete).
+    auth_principle_ids = {p.id for p in GOVERNANCE_CODEX.principles}
+    chinese_principle_ids = {p.id for p in GOVERNANCE_CODEX_CHINESE.principles}
+    if auth_principle_ids != chinese_principle_ids:
+        missing = sorted(auth_principle_ids - chinese_principle_ids)
+        extra = sorted(chinese_principle_ids - auth_principle_ids)
+        if missing:
+            errors.append(f"Chinese codex is missing principles: {missing}")
+        if extra:
+            errors.append(f"Chinese codex has extra principles: {extra}")
+
+    auth_article_ids = {a.id for a in GOVERNANCE_CODEX.articles}
+    chinese_article_ids = {a.id for a in GOVERNANCE_CODEX_CHINESE.articles}
+    if auth_article_ids != chinese_article_ids:
+        missing = sorted(auth_article_ids - chinese_article_ids)
+        extra = sorted(chinese_article_ids - auth_article_ids)
+        if missing:
+            errors.append(f"Chinese codex is missing articles: {missing}")
+        if extra:
+            errors.append(f"Chinese codex has extra articles: {extra}")
+
+    auth_edict_ids = {e.id for e in GOVERNANCE_CODEX.edicts}
+    chinese_edict_ids = {e.id for e in GOVERNANCE_CODEX_CHINESE.edicts}
+    if auth_edict_ids != chinese_edict_ids:
+        missing = sorted(auth_edict_ids - chinese_edict_ids)
+        extra = sorted(chinese_edict_ids - auth_edict_ids)
+        if missing:
+            errors.append(f"Chinese codex is missing edicts: {missing}")
+        if extra:
+            errors.append(f"Chinese codex has extra edicts: {extra}")
+
+    auth_sovereign_ids = {s.id for s in GOVERNANCE_CODEX.sovereigns}
+    chinese_sovereign_ids = {s.id for s in GOVERNANCE_CODEX_CHINESE.sovereigns}
+    if auth_sovereign_ids != chinese_sovereign_ids:
+        missing = sorted(auth_sovereign_ids - chinese_sovereign_ids)
+        extra = sorted(chinese_sovereign_ids - auth_sovereign_ids)
+        if missing:
+            errors.append(f"Chinese codex is missing sovereigns: {missing}")
+        if extra:
+            errors.append(f"Chinese codex has extra sovereigns: {extra}")
+
+    # Git tier enforcement (A53/E39): verify the three enforcement layers
+    # exist and contain the required governance logic.
+    git_tiers_source = root / "governance_rule" / "execution" / "git_tiers" / "__init__.py"
+    if not git_tiers_source.is_file():
+        errors.append("git tier enforcement module is missing")
+    else:
+        git_tiers_text = git_tiers_source.read_text(encoding="utf-8")
+        if "TIER1_OPS" not in git_tiers_text or "TIER2_OPS" not in git_tiers_text or "TIER3_OPS" not in git_tiers_text:
+            errors.append("git tier module is missing tier operation sets")
+        if "def classify" not in git_tiers_text or "def enforce" not in git_tiers_text:
+            errors.append("git tier module is missing classify/enforce functions")
+        if "def audit_log" not in git_tiers_text:
+            errors.append("git tier module is missing audit_log function")
+
+    git_gate_source = root / "scripts" / "git-gate.py"
+    if not git_gate_source.is_file():
+        errors.append("git gate wrapper is missing")
+    else:
+        git_gate_text = git_gate_source.read_text(encoding="utf-8")
+        if "from governance_rule.execution.git_tiers import" not in git_gate_text:
+            errors.append("git gate wrapper does not import git_tiers module")
+
+    pre_push_hook = root / ".git" / "hooks" / "pre-push"
+    if not pre_push_hook.is_file():
+        errors.append("pre-push hook is missing")
+    else:
+        hook_text = pre_push_hook.read_text(encoding="utf-8")
+        if "GOVERNANCE_AUTHORITY_APPROVAL" not in hook_text:
+            errors.append("pre-push hook does not enforce governance authority approval for force-push")
+        if "force" not in hook_text.lower():
+            errors.append("pre-push hook does not detect force-push operations")
+
+    # Metadata contract (A8/E21): verify the canonical metadata contract module
+    # exists and exports the required fixed field names.
+    metadata_contract = root / "shared-layer" / "src" / "shared_layer" / "metadata_contract.py"
+    if not metadata_contract.is_file():
+        errors.append("metadata contract module is missing")
+    else:
+        contract_text = metadata_contract.read_text(encoding="utf-8")
+        for required in ("FIELD_MODULE_ID", "FIELD_RESOURCE_ID", "FIELD_LOCATOR_ID",
+                         "FIELD_VERSION", "FIELD_CONTENT_HASH", "FIELD_UPDATED_AT",
+                         "FIELD_STATUS", "ResourceMetadata", "validate_qdrant_payload"):
+            if required not in contract_text:
+                errors.append(f"metadata contract is missing: {required}")
+
+    # Data ownership contract document (A8/E21 + A44/E30)
+    ownership_doc = root / "shared-layer" / "docs" / "DATA_OWNERSHIP_CONTRACT.md"
+    if not ownership_doc.is_file():
+        errors.append("data ownership contract document is missing")
+
+    # Reconcile service (A44/E30): one-directional SQLite→PostgreSQL flow
+    reconcile_module = root / "shared-layer" / "src" / "shared_layer" / "reconcile.py"
+    if not reconcile_module.is_file():
+        errors.append("reconcile service module is missing")
+    else:
+        reconcile_text = reconcile_module.read_text(encoding="utf-8")
+        if "ReconcileService" not in reconcile_text:
+            errors.append("reconcile module is missing ReconcileService class")
+        if "reconcile_module" not in reconcile_text:
+            errors.append("reconcile module is missing reconcile_module method")
+
+    # SQL migrations: verify new migration files exist (A8/E21)
+    migrations_dir = root / "shared-layer" / "migrations"
+    for migration_name in (
+        "004_global_and_module_version_tables.sql",
+        "005_central_index_composite_indexes.sql",
+        "006_audit_append_only_enforcement.sql",
+        "007_transport_idempotency_key.sql",
+        "008_rls_role_isolation.sql",
+    ):
+        if not (migrations_dir / migration_name).is_file():
+            errors.append(f"SQL migration is missing: {migration_name}")
+
+    # SQLite module template (A44/E30): unified schema for all 70+ SQLite DBs
+    sqlite_template = root / "shared-layer" / "sql" / "sqlite_module_template.sql"
+    if not sqlite_template.is_file():
+        errors.append("SQLite module template is missing")
+    else:
+        template_text = sqlite_template.read_text(encoding="utf-8")
+        for required_table in ("schema_version", "module_metadata",
+                               "resource_metadata", "audit_event", "reconcile_state"):
+            if required_table not in template_text:
+                errors.append(f"SQLite module template is missing table: {required_table}")
 
     return errors
 

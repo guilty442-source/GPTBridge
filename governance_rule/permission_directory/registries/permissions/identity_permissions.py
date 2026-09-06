@@ -12,6 +12,7 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_MAIN_SYSTEM,
     IDENTITY_GROUP_SHARED_LAYER,
     IDENTITY_GROUP_STAR_CHAT,
+    IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
     IdentityPermissionBinding,
@@ -155,6 +156,19 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "independent-tool-business-storage",
             "system-channel-request-submit",
             "system-channel-request-process",
+        ),
+    ),
+    IdentityPermissionBinding(
+        group_id=IDENTITY_GROUP_SYSTEM_RESCUE,
+        actor="governance/tool/system-rescue",
+        capabilities=(
+            "independent-tool-business-logic",
+            "independent-tool-user-settings",
+            "independent-tool-business-storage",
+            "system-channel-request-submit",
+            "system-channel-request-process",
+            "system-health-check",
+            "central-automatic-repair",
         ),
     ),
 )

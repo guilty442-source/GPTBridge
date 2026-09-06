@@ -481,18 +481,26 @@ if (!hasSingleInstanceLock) {
 
   app.whenReady().then(async () => {
     try {
-      const startupPaths = getRuntimePathLibrary()
-      preloadDefaultGovernanceAuthority(startupPaths.workspaceRoot)
       reportRuntimeEvent('bootstrap.start', {
         isPackaged: app.isPackaged,
         sourceProduction,
         shouldManageBackend,
         cwd: process.cwd(),
-        governanceDefaultActive: true,
         userData: app.getPath('userData'),
       })
 
       registerIpcHandlers()
+
+      // Preload governance authority before starting the backend so the
+      // launcher attests to governance source integrity at startup time.
+      try {
+        const workspaceRoot = getRuntimeEnv('GPTBRIDGE_WORKSPACE_ROOT')
+          || getRuntimeEnv('GPTBRIDGE_PROJECT_ROOT')
+          || process.cwd()
+        preloadDefaultGovernanceAuthority(workspaceRoot)
+      } catch {
+        // Best-effort preload; boot_core generates its own token.
+      }
 
       if (shouldManageBackend) {
         startBackend()

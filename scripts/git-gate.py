@@ -18,6 +18,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Windows: suppress console window for background subprocess calls
+_CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+
 project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
 
@@ -63,7 +66,7 @@ def main() -> int:
 
     # Execute the actual git command
     git_args = ["git"] + args
-    result = subprocess.run(git_args, cwd=str(project_root))
+    result = subprocess.run(git_args, cwd=str(project_root), creationflags=_CREATE_NO_WINDOW)
     return result.returncode
 
 

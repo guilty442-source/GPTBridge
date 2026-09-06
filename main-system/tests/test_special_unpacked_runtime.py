@@ -392,7 +392,13 @@ def test_start_failure_requests_central_repair_then_retries_lifecycle(
 
 def test_star_is_headless_and_configured_for_governed_default_start() -> None:
     manifest = json.loads((LOCAL_MODEL_ROOT / "manifest.json").read_text("utf-8"))
-    main_source = (ROOT / "main-system" / "src-core" / "main.py").read_text("utf-8")
+    integration_source = (
+        ROOT
+        / "main-system"
+        / "src-core"
+        / "core_system"
+        / "integration_sub_sovereign.py"
+    ).read_text("utf-8")
 
     assert manifest["has_custom_ui"] is False
     assert "window" not in manifest
@@ -403,8 +409,13 @@ def test_star_is_headless_and_configured_for_governed_default_start() -> None:
     assert manifest["background_service"][
         "explicit_force_close_suppresses_restart"
     ] is True
-    assert 'DEFAULT_START_TOOL_IDS = ("shared-layer", "xingcheng")' in main_source
-    assert "await self._start_governed_default_tools()" in main_source
+    # Default tool IDs and auto-start logic now live in the Integration
+    # Sub-Sovereign (cross-module interface authority), not in main.py.
+    # Only resident services (lifecycle.stoppable == false) are auto-started;
+    # non-resident services start on demand.
+    assert "_FALLBACK_RESIDENT_TOOL_IDS" in integration_source
+    assert "await self._start_governed_default_tools()" in integration_source
+    assert "_classify_tools_by_manifest" in integration_source
 
 
 def test_file_sorter_does_not_start_a_full_electron_ui_in_background() -> None:

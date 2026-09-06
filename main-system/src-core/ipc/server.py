@@ -61,6 +61,7 @@ except ImportError:
 
 from core.ui_shell import UIShell
 from core_system.resource_maintenance import IdleMemoryMaintainer
+from tasks.connection_watchdog import write_ipc_connection_state
 
 
 SHUTDOWN_TOKEN_ENV = "GPTBRIDGE_SHUTDOWN_TOKEN"
@@ -671,6 +672,15 @@ async def handler(websocket, app_instance):
     ui = UIShell(websocket)
     connection_tasks: set[asyncio.Task] = set()
 
+    # Track active WebSocket connections for the connection watchdog.
+    _PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    try:
+        _active_connections = getattr(app_instance, "_active_ws_connections", 0) + 1
+        app_instance._active_ws_connections = _active_connections
+        write_ipc_connection_state(_PROJECT_ROOT, _active_connections)
+    except Exception:
+        pass
+
     # Gracefully wait for the backend to finish its heavy initialization.
     # If startup failed outright (startup_dead), do not stall the connection:
     # enter degraded mode so the client stays connected and can observe
@@ -752,6 +762,13 @@ async def handler(websocket, app_instance):
                 task.cancel()
         if connection_tasks:
             await asyncio.gather(*connection_tasks, return_exceptions=True)
+        # Decrement active WebSocket connections for the connection watchdog.
+        try:
+            _active = max(0, getattr(app_instance, "_active_ws_connections", 1) - 1)
+            app_instance._active_ws_connections = _active
+            write_ipc_connection_state(_PROJECT_ROOT, _active)
+        except Exception:
+            pass
 
 
 

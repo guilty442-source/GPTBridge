@@ -300,6 +300,9 @@ class SourceRepairService:
 def self_repair_sources(project_root: Path, *, record: bool = True) -> dict[str, Any]:
     service = SourceRepairService(project_root)
     report = service.self_repair()
+    # Ensure run_id is set for learning traceability.
+    if not report.get("run_id"):
+        report["run_id"] = uuid4().hex
     if not record:
         return report
     if not report.get("repaired_files") and not report.get("ambiguous_files"):
@@ -308,7 +311,7 @@ def self_repair_sources(project_root: Path, *, record: bool = True) -> dict[str,
 
     store = RepairRunStore(project_root / "main-system" / "data" / "automatic-repair")
     run: dict[str, Any] = {
-        "run_id": uuid4().hex,
+        "run_id": report["run_id"],
         "target_tool_id": "main-system",
         "started_at": _iso_now(),
         "completed_at": _iso_now(),

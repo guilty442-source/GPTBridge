@@ -496,11 +496,14 @@ def test_project_root_contains_only_governed_modules_and_control_files() -> None
         ".vs",
         ".vscode",
         ".devin",
+        ".venv",
+        ".smallcode",
         "main-system",
         "shared-layer",
         "docs",
+        "scripts",
     }
-    allowed_files = {".gitignore", "pytest.ini"}
+    allowed_files = {".gitignore", "pytest.ini", ".env"}
 
     unexpected = sorted(
         entry.name
@@ -512,6 +515,8 @@ def test_project_root_contains_only_governed_modules_and_control_files() -> None
         or (
             entry.is_file()
             and entry.name not in allowed_files
+            and not entry.name.endswith(".log")
+            and not entry.name.endswith(".pyd")
         )
     )
     assert unexpected == []

@@ -1,0 +1,6 @@
+{
+  "tool.name": "治理規則",
+  "tool.window_title": "治理規則",
+  "tool.description": "GPTBridge 最高權限治理核心，管理所有工具的權限與策略",
+  "errors.permission_denied": "權限不足，操作已被治理規則拒絕。"
+}

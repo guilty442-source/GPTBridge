@@ -675,6 +675,13 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             rule="GIT-OPS-TIERS:3-level; TIER-1:read-only+high-frequency+direct-exec; TIER-1-OPS:status/log/diff/show/branch/remote/blame/ls-files/cat-file/rev-parse/describe/tag-l/for-each-ref/stash-list/config-get; TIER-2:general-write+requires-confirmation; TIER-2-OPS:add/commit/stash/branch-create/checkout/switch/merge/tag-create/fetch/push/rebase-local/cherry-pick/revert/worktree-add/worktree-remove; TIER-3:high-risk+strictly-restricted+requires-governance-authority-approval; TIER-3-OPS:push-force/push-force-with-lease/commit-amend-pushed/reset-hard/reset-soft-distant/branch-D/filter-branch/filter-repo/rebase-interactive/rebase-root/gc-prune/reflog-expire/update-ref-d/clean-fd/stash-drop/stash-clear; ENFORCEMENT:hook+governance-gate+audit-ledger; BASIS:codex+A46-audit",
             prohibition="FORBID:tier-3-without-governance-authority-approval; FORBID:tier-2-without-confirmation; FORBID:bypass-tier-enforcement",
         ),
+        CodexArticle(
+            id="A54",
+            section="6",
+            subject="xingcheng-model-modes",
+            rule="XINGCHENG-MODEL:converge-into-3-modes; MAIN-MODEL:comprehensive(coordination/understanding/integration/inspection/adjudication); CHAT-MODEL:conversation-understanding-response(document-reading+visual-recognition); PROGRAMMING-MODEL:code-execution-generation-analysis; MODE-SELECTION:automatic-by-task-intent; EXEC:none-all-modes; DELEGATE:governed-executor-only; BASIS:codex",
+            prohibition="FORBID:model-mode-outside-declared-3; FORBID:any-mode-hold-exec; FORBID:manual-model-override; FORBID:mode-bypass-governance",
+        ),
     ),
     edicts=(
         CodexEdict(
@@ -909,6 +916,12 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="E39",
             area="git-operation-tiers",
             edict="GIT-OPS-TIERS:3-level; TIER-1:read-only+direct-exec; TIER-2:write+requires-confirmation; TIER-3:high-risk+strictly-restricted+governance-authority-approval; ENFORCEMENT:hook+gate+audit-ledger",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E40",
+            area="xingcheng-model-modes",
+            edict="XINGCHENG-MODEL:3-modes-converged; MAIN:comprehensive; CHAT:conversation+document+visual; PROGRAMMING:code-exec+generation+analysis; ALL-MODES:exec-none+governed-executor-only+codex-referenced",
             immutability="immutable-sealed",
         ),
     ),
