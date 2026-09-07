@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from sqlite3 import Connection
 from typing import Any
 
-from ..resource_identity import ResourceIdentity
+from ..resource_identity import ResourceIdentity, locator_id_for
 from ..local.registry_repository import LocationRecord, ResourceRecord, ResourceRegistry
 
 
@@ -31,7 +31,7 @@ class RegistryService:
 
     def register(self, command: RegisterResource) -> uuid.UUID:
         identity = command.identity
-        locator_id = uuid.uuid5(uuid.NAMESPACE_URL, f"gptbridge:{identity.module_id}:{identity.resource_id}")
+        locator_id = locator_id_for(identity.module_id, identity.resource_id)
         with self.connection:
             registry = ResourceRegistry(self.connection)
             registry.upsert_resource(ResourceRecord(

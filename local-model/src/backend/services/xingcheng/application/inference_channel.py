@@ -1380,7 +1380,7 @@ class InferenceChannelMixin:
                     "message": "選擇的模型未安裝或不符合本機模型名稱規則。",
                     "selectable_models": sorted(selectable_names),
                 }), "", False, ""
-        if not self.transformer_runtime.enabled:
+        if requested_runtime_model and not self.transformer_runtime.enabled:
             return ("xingcheng_infer_result", {
                 "ok": False,
                 "error_code": "LOCAL_MODEL_RUNTIME_REQUIRED",

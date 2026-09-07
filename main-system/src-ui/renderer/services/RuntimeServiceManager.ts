@@ -111,42 +111,87 @@ export class RuntimeServiceManager {
   public startHeartbeat() {
     if (this.heartbeatTimer) return
 
+    // Real-time: subscribe to runtime_status_push events from the backend
+    // (replaces 5s polling). The backend pushes status every 2 seconds.
+    this._statusPushHandler = (payload: unknown) => {
+      const status = payload as AppStatus | undefined
+      if (!status) return
+      this._updateBackendStatus(status)
+      this._updateWebSocketStatus()
+    }
+    eventBus.on('runtime_status_push', this._statusPushHandler)
+
+    // Also listen for the ipc_event window event (same payload, different path)
+    this._ipcStatusHandler = (event: Event) => {
+      const customEvent = event as CustomEvent
+      const detail = customEvent.detail || {}
+      if (detail.event !== 'runtime_status_push') return
+      this._updateBackendStatus(detail.payload as AppStatus)
+      this._updateWebSocketStatus()
+    }
+    window.addEventListener('ipc_event', this._ipcStatusHandler)
+
+    // Safety-net heartbeat: 30s fallback in case push events stop arriving
     this.heartbeatTimer = setInterval(async () => {
       const api = (window as any).electron as ElectronApi | undefined
       if (!api?.invoke) return
-
       try {
         const status = (await api.invoke('app:get-status')) as AppStatus
-        const backend = this.services.backend
-        const nextBackendStatus: ServiceStatus = status?.systemReady
-          ? 'SUCCESS'
-          : 'FAIL'
-        if (backend && backend.status !== 'SKIP' && backend.status !== nextBackendStatus) {
-          this.services.backend = {
-            ...backend,
-            status: nextBackendStatus,
-          }
-          eventBus.emit('service_update', this.getAllStates())
-        }
-
-        const websocket = this.services.websocket
-        if (websocket) {
-          const nextWebSocketStatus: ServiceStatus = getBackendConnectionSnapshot()
-            .connected
-            ? 'SUCCESS'
-            : 'FAIL'
-          if (websocket.status !== nextWebSocketStatus) {
-            this.services.websocket = {
-              ...websocket,
-              status: nextWebSocketStatus,
-            }
-            eventBus.emit('service_update', this.getAllStates())
-          }
-        }
+        this._updateBackendStatus(status)
+        this._updateWebSocketStatus()
       } catch {
         // Keep last known state during transient IPC failures.
       }
-    }, 5000)
+    }, 30000)
+  }
+
+  public stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
+    }
+    if (this._statusPushHandler) {
+      eventBus.off('runtime_status_push', this._statusPushHandler)
+      this._statusPushHandler = null
+    }
+    if (this._ipcStatusHandler) {
+      window.removeEventListener('ipc_event', this._ipcStatusHandler)
+      this._ipcStatusHandler = null
+    }
+  }
+
+  private _statusPushHandler: ((payload: unknown) => void) | null = null
+  private _ipcStatusHandler: ((event: Event) => void) | null = null
+
+  private _updateBackendStatus(status: AppStatus) {
+    const backend = this.services.backend
+    const nextBackendStatus: ServiceStatus = status?.systemReady
+      ? 'SUCCESS'
+      : 'FAIL'
+    if (backend && backend.status !== 'SKIP' && backend.status !== nextBackendStatus) {
+      this.services.backend = {
+        ...backend,
+        status: nextBackendStatus,
+      }
+      eventBus.emit('service_update', this.getAllStates())
+    }
+  }
+
+  private _updateWebSocketStatus() {
+    const websocket = this.services.websocket
+    if (websocket) {
+      const nextWebSocketStatus: ServiceStatus = getBackendConnectionSnapshot()
+        .connected
+        ? 'SUCCESS'
+        : 'FAIL'
+      if (websocket.status !== nextWebSocketStatus) {
+        this.services.websocket = {
+          ...websocket,
+          status: nextWebSocketStatus,
+        }
+        eventBus.emit('service_update', this.getAllStates())
+      }
+    }
   }
 }
 

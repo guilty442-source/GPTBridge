@@ -11,7 +11,7 @@ if (-not $ProjectRoot) {
 $ProjectRoot = (Resolve-Path $ProjectRoot).Path
 
 $LauncherRoot = Join-Path $ProjectRoot "launcher"
-$SourceFile = Join-Path $LauncherRoot "src\GPTBridgeLauncher.cs"
+$SourceFile = Join-Path $LauncherRoot "src\GPTBridgeLauncher.cpp"
 $InstallRoot = Join-Path $env:LOCALAPPDATA "GPTBridgeLauncher"
 $InstallBin = Join-Path $InstallRoot "bin"
 $InstallConfig = Join-Path $InstallRoot "config"
@@ -23,19 +23,22 @@ $LegacyDesktopExe = Join-Path $Desktop "GPTBridge.exe"
 
 New-Item -ItemType Directory -Force -Path $InstallBin, $InstallConfig | Out-Null
 
-$cscCandidates = @(
-    "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe",
-    "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe"
+$vcvarsCandidates = @(
+    "$env:ProgramFiles\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat",
+    "$env:ProgramFiles\Microsoft Visual Studio\17\Community\VC\Auxiliary\Build\vcvars64.bat"
 )
-$csc = $cscCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-if (-not $csc) {
-    throw "C# compiler was not found."
+$vcvars = $vcvarsCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $vcvars) {
+    throw "MSVC vcvars64.bat was not found."
 }
 
-& $csc /nologo /target:winexe /optimize+ /reference:System.Windows.Forms.dll /out:$InstalledExe $SourceFile
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $InstalledExe)) {
+$BuiltExe = Join-Path $InstallBin "GPTBridgeLauncher.build.exe"
+$clCommand = "call `"$vcvars`" >nul && cl /nologo /O2 /EHsc /utf-8 /D UNICODE /D _UNICODE /Fe:`"$BuiltExe`" `"$SourceFile`" /link /SUBSYSTEM:WINDOWS user32.lib"
+& cmd.exe /c $clCommand
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $BuiltExe)) {
     throw "Launcher EXE compilation failed."
 }
+Move-Item -LiteralPath $BuiltExe -Destination $InstalledExe -Force
 
 Set-Content -LiteralPath (Join-Path $InstallConfig "root.txt") -Value $ProjectRoot -Encoding UTF8
 

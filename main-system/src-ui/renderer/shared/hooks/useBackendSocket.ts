@@ -6,6 +6,8 @@ type BackendSocketState = {
   status: string
   lastStatusAt: number | null
   lastError: string
+  reconnectAttempt: number
+  queuedCommands: number
 }
 
 type SendCommandResult = {
@@ -24,11 +26,14 @@ const INITIAL_STATE: BackendSocketState = {
   status: 'Disconnected',
   lastStatusAt: null,
   lastError: '',
+  reconnectAttempt: 0,
+  queuedCommands: 0,
 }
 
-const WS_RECONNECT_BASE_DELAY_MS = 1200
-const WS_RECONNECT_MAX_DELAY_MS = 6000
-const WS_REPAIR_AFTER_ATTEMPTS = 3
+const WS_RECONNECT_BASE_DELAY_MS = 500
+const WS_RECONNECT_MAX_DELAY_MS = 8000
+const WS_REPAIR_AFTER_ATTEMPTS = 5
+const WS_COMMAND_QUEUE_MAX = 50
 const openBackendSockets = new Set<WebSocket>()
 
 let backendConnectionSnapshot: BackendConnectionSnapshot = {
@@ -68,12 +73,42 @@ export const useBackendSocket = () => {
   const socketRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<number | null>(null)
   const reconnectAttemptRef = useRef(0)
+  const commandQueueRef = useRef<Array<{ command: string; payload: unknown }>>([])
+
+  const flushCommandQueue = useCallback(() => {
+    const queue = commandQueueRef.current
+    if (queue.length === 0) return
+    const socket = socketRef.current
+    if (!socket || socket.readyState !== WebSocket.OPEN) return
+    while (queue.length > 0) {
+      const item = queue.shift()!
+      try {
+        socket.send(JSON.stringify({ command: item.command, payload: item.payload }))
+        BootLogger.log('WebSocket', 'QUEUE_FLUSH', { command: item.command })
+      } catch {
+        queue.unshift(item)
+        break
+      }
+    }
+  }, [])
 
   const sendCommand = useCallback(
     (command: string, payload: unknown = {}): SendCommandResult => {
       if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-        const errorMsg =
-          '後端連線尚未就緒，指令未送出，請稍後再試。'
+        // Queue the command for later flush instead of dropping it
+        if (command !== 'heartbeat_pong') {
+          const queue = commandQueueRef.current
+          if (queue.length < WS_COMMAND_QUEUE_MAX) {
+            queue.push({ command, payload })
+            BootLogger.log('WebSocket', 'COMMAND_QUEUED', {
+              command,
+              queueSize: queue.length,
+            })
+            setState((prev) => ({ ...prev, queuedCommands: queue.length }))
+            return { ok: false, queued: true, message: '指令已排隊，連線恢復後自動送出。' }
+          }
+        }
+        const errorMsg = '後端連線尚未就緒，指令未送出，請稍後再試。'
         setLastError(errorMsg)
         BootLogger.log('WebSocket', 'SEND_REJECTED_OFFLINE', { command }, 'warn')
         return { ok: false, queued: false, message: errorMsg }
@@ -84,10 +119,12 @@ export const useBackendSocket = () => {
         BootLogger.log('WebSocket', 'SEND', { command })
         return { ok: true, queued: false }
       } catch {
-        const errorMsg =
-          'WebSocket closed before the command was sent; command was not queued'
-        setLastError(errorMsg)
-        return { ok: false, queued: false, message: errorMsg }
+        const errorMsg = 'WebSocket closed before the command was sent; command was queued'
+        // Queue for retry
+        if (command !== 'heartbeat_pong') {
+          commandQueueRef.current.push({ command, payload })
+        }
+        return { ok: false, queued: true, message: errorMsg }
       }
     },
     []
@@ -110,17 +147,21 @@ export const useBackendSocket = () => {
       clearReconnectTimer()
       const nextAttempt = reconnectAttemptRef.current + 1
       reconnectAttemptRef.current = nextAttempt
-      const delay = Math.min(
+      // Exponential backoff with jitter: 500ms, 1s, 2s, 4s, 8s (max)
+      // + up to 20% jitter to avoid thundering herd
+      const baseDelay = Math.min(
         WS_RECONNECT_MAX_DELAY_MS,
-        WS_RECONNECT_BASE_DELAY_MS * nextAttempt
+        WS_RECONNECT_BASE_DELAY_MS * Math.pow(2, nextAttempt - 1)
       )
+      const jitter = Math.random() * baseDelay * 0.2
+      const delay = Math.round(baseDelay + jitter)
       reconnectTimerRef.current = window.setTimeout(() => {
         reconnectTimerRef.current = null
         void (async () => {
           if (nextAttempt >= WS_REPAIR_AFTER_ATTEMPTS) {
             const api = window.electron
             if (api?.invoke) {
-              setState((prev) => ({ ...prev, status: 'Repairing' }))
+              setState((prev) => ({ ...prev, status: 'Repairing', reconnectAttempt: nextAttempt }))
               BootLogger.log('WebSocket', 'AUTO_REPAIR_BACKEND', {
                 attempt: nextAttempt,
               })
@@ -207,14 +248,28 @@ export const useBackendSocket = () => {
           ...prev,
           status: 'Connected',
           lastStatusAt: Date.now(),
+          reconnectAttempt: 0,
+          queuedCommands: commandQueueRef.current.length,
         }))
         BootLogger.log('WebSocket', 'OPEN', { endpoint: '127.0.0.1:8765' })
         eventBus.emit('socket_connected', { connected: true })
+        // Flush any queued commands that accumulated during disconnect
+        flushCommandQueue()
+        setState((prev) => ({ ...prev, queuedCommands: 0 }))
       }
 
       socket.onmessage = (event) => {
         try {
           const payload = JSON.parse(String(event.data)) as Record<string, unknown>
+
+          // Respond to heartbeat ping immediately
+          if (payload.event === 'heartbeat_ping') {
+            try {
+              socket.send(JSON.stringify({ command: 'heartbeat_pong', payload: {} }))
+            } catch {
+              // socket may have closed
+            }
+          }
 
           if (payload.event && typeof payload.event === 'string') {
             eventBus.emit(payload.event, payload.payload)
@@ -276,6 +331,7 @@ export const useBackendSocket = () => {
       disposed = true
       clearReconnectTimer()
       reconnectAttemptRef.current = 0
+      commandQueueRef.current = []
       const socket = socketRef.current
       socketRef.current = null
       if (socket) {

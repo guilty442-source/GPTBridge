@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import uuid
 from dataclasses import dataclass
 from typing import Final
 
@@ -9,12 +10,41 @@ PLATFORM_ID: Final[str] = "local-model-platform"
 XINGCHENG_MODULE_ID: Final[str] = "xingcheng"
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
+#: Canonical namespace prefix for locator_id generation (A8/E21).
+_LOCATOR_NAMESPACE: Final[str] = "gptbridge"
+
+#: Canonical namespace prefix for RAG point_id generation (A52/E38).
+_POINT_NAMESPACE: Final[str] = "gptbridge-rag"
+
 
 def canonical_identifier(value: str, *, field: str) -> str:
     normalized = str(value or "").strip().casefold()
     if not _IDENTIFIER.fullmatch(normalized):
         raise ValueError(f"INVALID_{field.upper()}")
     return normalized
+
+
+def locator_id_for(module_id: str, resource_id: str) -> uuid.UUID:
+    """Canonical opaque locator_id for a resource (A8/E21).
+
+    Formula: uuid5(NAMESPACE_URL, f"gptbridge:{module_id}:{resource_id}")
+
+    All modules, RAG pipelines, and identity stores MUST use this function
+    to derive locator_id from (module_id, resource_id).  Physical locations
+    are never exposed; only this opaque UUID is stored in the central index.
+    """
+    return uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        f"{_LOCATOR_NAMESPACE}:{module_id}:{resource_id}",
+    )
+
+
+def point_id_for(chunk_id: str) -> uuid.UUID:
+    """Canonical Qdrant point_id for a RAG chunk (A52/E38).
+
+    Formula: uuid5(NAMESPACE_URL, f"gptbridge-rag:{chunk_id}")
+    """
+    return uuid.uuid5(uuid.NAMESPACE_URL, f"{_POINT_NAMESPACE}:{chunk_id}")
 
 
 @dataclass(frozen=True)
@@ -75,4 +105,6 @@ __all__ = [
     "ResourceIdentity",
     "XINGCHENG_MODULE_ID",
     "canonical_identifier",
+    "locator_id_for",
+    "point_id_for",
 ]

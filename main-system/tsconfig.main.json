@@ -4,11 +4,12 @@
     "module": "CommonJS",
     "moduleResolution": "Node",
     "outDir": "dist-ui/main",
-    "rootDir": "src-ui/main",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
     "types": [
       "node"
     ],
@@ -20,7 +21,8 @@
   },
   "include": [
     "src-ui/main/**/*",
-    "src-ui/types/**/*.ts"
+    "src-ui/types/**/*.ts",
+    "package.json"
   ],
   "exclude": [
     "node_modules",

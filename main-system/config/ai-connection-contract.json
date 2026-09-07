@@ -35,11 +35,11 @@
     "external-ai": {
       "tool_id": "ai-collaboration",
       "display_name": "外部AI協作",
-      "scope": "google-chrome-playwright-foreground",
+      "scope": "embedded-browser-view",
       "api": false,
       "browser_inference": true,
       "cli_inference": false,
-      "explicit_browser": "google-chrome-shared-foreground-tabs"
+      "explicit_browser": "embedded-browser-view"
     }
   }
 }

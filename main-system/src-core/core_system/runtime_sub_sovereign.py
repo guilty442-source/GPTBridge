@@ -178,10 +178,7 @@ class RuntimeSubSovereign:
 
     def _permission_master_entry(self) -> Any:
         app = self.app
-        sovereign_service = getattr(app, "system_sovereign_service", None)
-        if sovereign_service is None:
-            return None
-        return getattr(sovereign_service, "permission_sovereign", None)
+        return getattr(app, "permission_sovereign", None)
 
     # ------------------------------------------------------------------
     # Runtime status
