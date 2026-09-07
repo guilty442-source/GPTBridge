@@ -34,7 +34,7 @@ from .third_party_manager import (
 THIRD_PARTY_ROLE = "system-third-party-sub-sovereign"
 THIRD_PARTY_AREA = "third-party-management"
 
-FORMAL_TOOLS = ("postgresql", "qdrant", "git", "rag", "python", "typescript", "cpp", "c")
+FORMAL_TOOLS = ("postgresql", "qdrant", "git", "rag", "python", "typescript", "cpp", "c", "csharp", "sql")
 
 
 class ThirdPartySubSovereign:

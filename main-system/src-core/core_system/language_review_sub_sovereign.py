@@ -22,14 +22,14 @@ from .codex_decision import decision_basis
 LANGUAGE_REVIEW_ROLE = "system-language-review-sub-sovereign"
 LANGUAGE_REVIEW_AREA = "language-review"
 
-ALLOWED_LANGUAGES = ("python", "typescript", "cpp", "c")
+ALLOWED_LANGUAGES = ("python", "typescript", "cpp", "c", "csharp", "sql")
 
 
 class LanguageReviewSubSovereign:
     """In-process sub-sovereign (under system) responsible for programming-language review.
 
     Responsibilities:
-      - programming-language conformance (only python/typescript/cpp/c)
+      - programming-language conformance (only python/typescript/cpp/c/csharp/sql)
       - language acceptance review for new modules
       - language migration review for legacy code
       - coordination of TypeScript governance checkers

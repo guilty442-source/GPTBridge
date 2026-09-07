@@ -208,7 +208,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P7",
-            statement="SYSTEMS:git/postgresql/qdrant/rag/llm; PRINCIPLE:separation; FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; FORBID:mutual-replacement; FORBID:non-formal-third-party",
+            statement="SYSTEMS:git/postgresql/qdrant/rag/llm; PRINCIPLE:separation; FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; FORBID:mutual-replacement; FORBID:non-formal-third-party",
             binding=True,
         ),
         CodexPrinciple(
@@ -253,7 +253,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P16",
-            statement="STACK:python+typescript+cpp+c-hybrid; MANDATORY:true; LANGUAGES:only-python-typescript-cpp-c; FORMAL-TOOLS:postgresql,qdrant,git,rag",
+            statement="STACK:python+typescript+cpp+c+csharp+sql-hybrid; MANDATORY:true; LANGUAGES:only-python-typescript-cpp-c-csharp-sql; FORMAL-TOOLS:postgresql,qdrant,git,rag",
             binding=True,
         ),
         CodexPrinciple(
@@ -263,7 +263,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P18",
-            statement="CODE-ORIGIN:local-only; STACK:python+typescript+cpp+c; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:non-formal-third-party/package/external-service/non-local-env; EXEC:local-owned-code",
+            statement="CODE-ORIGIN:local-only; STACK:python+typescript+cpp+c+csharp+sql; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:non-formal-third-party/package/external-service/non-local-env; EXEC:local-owned-code",
             binding=True,
         ),
         CodexPrinciple(
@@ -273,7 +273,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P20",
-            statement="INTERFACE-LAYER:presentation-of-decisions-state; AUTHORITY:no-decide-no-exec; STACK:python-typescript-cpp-c-only; BIND:all-modules-and-all-execution",
+            statement="INTERFACE-LAYER:presentation-of-decisions-state; AUTHORITY:no-decide-no-exec; STACK:python-typescript-cpp-c-csharp-sql-only; BIND:all-modules-and-all-execution",
             binding=True,
         ),
         CodexPrinciple(
@@ -288,7 +288,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P23",
-            statement="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; GOVERNANCE:governed-by-codex; FORBID:non-formal-substitution",
+            statement="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; GOVERNANCE:governed-by-codex; FORBID:non-formal-substitution",
             binding=True,
         ),
         CodexPrinciple(
@@ -370,7 +370,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A8",
             section="4",
             subject="system-responsibility",
-            rule="GIT:version+history; SQL:structured-formal-data; ENGINE:postgresql(local-owned); QDRANT:semantic-index(local-owned); RAG:retrieval-augmented-generation(local-owned)+hybrid-rag+code-rag+agentic-rag+memory-rag; LLM:understand-reason-operate(local-owned); FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; OWNERSHIP:local-owned",
+            rule="GIT:version+history; SQL:structured-formal-data; ENGINE:postgresql(local-owned); QDRANT:semantic-index(local-owned); RAG:retrieval-augmented-generation(local-owned)+hybrid-rag+code-rag+agentic-rag+memory-rag; LLM:understand-reason-operate(local-owned); FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; OWNERSHIP:local-owned",
             prohibition="FORBID:four-mutual-replacement; FORBID:non-formal-substitution",
         ),
         CodexArticle(
@@ -546,8 +546,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A35",
             section="4",
             subject="architecture-hybrid",
-            rule="STACK:python+typescript+cpp+c-hybrid; PYTHON:upper-orchestrate+governed-logic; TYPESCRIPT:interface-layer+governance-checker+type-safety; CPP:core-compute+native-perf; C:low-level-system+native-interface; SOLE:allowed-code-architecture",
-            prohibition="FORBID:any-programming-language-except-python-typescript-cpp-c; FORBID:replace-hybrid-architecture",
+            rule="STACK:python+typescript+cpp+c+csharp+sql-hybrid; PYTHON:main-controller+orchestration+governed-logic; TYPESCRIPT:ui+build-time+governance-checker+type-safety; C:low-level-interface+native-system-binding; CPP:performance-core+native-compute; CSHARP:windows-dotnet+clr+governed-interop; SQL:data-layer+structured-query+governed-persistence; SOLE:allowed-code-architecture",
+            prohibition="FORBID:any-programming-language-except-python-typescript-cpp-c-csharp-sql; FORBID:replace-hybrid-architecture",
         ),
         CodexArticle(
             id="A36",
@@ -560,7 +560,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A37",
             section="4",
             subject="code-origin",
-            rule="CODE-ORIGIN:local-owned; STACK:python+typescript+cpp+c-hybrid-only; FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; FORBID-deps:non-formal-third-party/package/external-service/non-local-env",
+            rule="CODE-ORIGIN:local-owned; STACK:python+typescript+cpp+c+csharp+sql-hybrid-only; FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; FORBID-deps:non-formal-third-party/package/external-service/non-local-env",
             prohibition="FORBID:reference/install/import/exec-any-non-formal-third-party-package/external-service/non-local-env/binary",
         ),
         CodexArticle(
@@ -609,14 +609,14 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A44",
             section="4",
             subject="four-functions-local",
-            rule="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; REALIZATION:local-python-typescript-cpp-c-governed; UNAVAILABLE:declare-closed-not-replace",
+            rule="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; REALIZATION:local-python-typescript-cpp-c-csharp-sql-governed; UNAVAILABLE:declare-closed-not-replace",
             prohibition="FORBID:non-formal-external-service-substitution/binary-replacement",
         ),
         CodexArticle(
             id="A45",
             section="4",
             subject="interface-layer",
-            rule="INTERFACE-LAYER:presentation-of-decisions-state; AUTHORITY:no-decide-no-exec; STACK:python-typescript-cpp-c-only; BIND:all-modules-and-all-execution",
+            rule="INTERFACE-LAYER:presentation-of-decisions-state; AUTHORITY:no-decide-no-exec; STACK:python-typescript-cpp-c-csharp-sql-only; BIND:all-modules-and-all-execution",
             prohibition="FORBID:interface-decide/interface-exec/any-other-language-in-interface",
         ),
         CodexArticle(
@@ -644,8 +644,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A49",
             section="4",
             subject="formal-tools",
-            rule="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; OWNERSHIP:local-owned; GOVERNANCE:governed-by-codex; HOSTING:local-only; SUBSTITUTION:non-formal-forbidden",
-            prohibition="FORBID:non-formal-substitution-of-postgresql/qdrant/git/rag/python/typescript/cpp/c; FORBID:external-or-cloud-hosting-of-formal-tools",
+            rule="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; OWNERSHIP:local-owned; GOVERNANCE:governed-by-codex; HOSTING:local-only; SUBSTITUTION:non-formal-forbidden",
+            prohibition="FORBID:non-formal-substitution-of-postgresql/qdrant/git/rag/python/typescript/cpp/c/csharp/sql; FORBID:external-or-cloud-hosting-of-formal-tools",
         ),
         CodexArticle(
             id="A50",
@@ -681,6 +681,20 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             subject="xingcheng-model-modes",
             rule="XINGCHENG-MODEL:converge-into-3-modes; MAIN-MODEL:comprehensive(coordination/understanding/integration/inspection/adjudication); CHAT-MODEL:conversation-understanding-response(document-reading+visual-recognition); PROGRAMMING-MODEL:code-execution-generation-analysis; MODE-SELECTION:automatic-by-task-intent; EXEC:none-all-modes; DELEGATE:governed-executor-only; BASIS:codex",
             prohibition="FORBID:model-mode-outside-declared-3; FORBID:any-mode-hold-exec; FORBID:manual-model-override; FORBID:mode-bypass-governance",
+        ),
+        CodexArticle(
+            id="A55",
+            section="4",
+            subject="file-extension-conventions",
+            rule="FILE-EXT:per-language-canonical; PYTHON:src=.py/stub=.pyi/test=test_*.py/pkg-init=__init__.py; TYPESCRIPT:logic=.ts/jsx-ui=.tsx/decl=.d.ts/test=.test.ts+.test.tsx; C:impl=.c/interface=.h/test=*_test.c; CPP:impl=.cpp/header=.hpp/template-inline=.inl(when-needed)/test=*_test.cpp; CSHARP:src=.cs/proj=.csproj/solution=.sln/test=*Tests.cs; SQL:general=.sql/migration=.sql; BOUNDARY:C-uses-.h+CPP-uses-.hpp-for-language-edge-visibility; FORBID:inventing-custom-extensions; BASIS:codex+A35-architecture-hybrid",
+            prohibition="FORBID:custom-file-extensions; FORBID:cross-language-extension-mismatch; FORBID:mixing-.h-for-cpp-or-.hpp-for-c; FORBID:non-declared-extension",
+        ),
+        CodexArticle(
+            id="A56",
+            section="4",
+            subject="test-framework-tiering",
+            rule="TEST-TIER:unit-by-impl-language+integration-unified-python-pytest; UNIT-PYTHON:pytest; UNIT-CPP:googletest; UNIT-TYPESCRIPT:vitest; UNIT-CSHARP:xunit; UNIT-C:native-or-ctest; INTEGRATION:cross-module+cross-language-unified-via-python-pytest; SEPARATION:unit-tests-per-language+integration-tests-python-only; BASIS:codex+A35-architecture-hybrid+A37-code-origin",
+            prohibition="FORBID:cross-language-unit-test-framework-mixing; FORBID:non-python-integration-tests; FORBID:non-formal-test-framework; FORBID:skip-integration-tier",
         ),
     ),
     edicts=(
@@ -807,7 +821,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E21",
             area="architecture",
-            edict="STACK:python+typescript+cpp+c-hybrid; LANGUAGES:only-python-typescript-cpp-c; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:any-other-language",
+            edict="STACK:python+typescript+cpp+c+csharp+sql-hybrid; LANGUAGES:only-python-typescript-cpp-c-csharp-sql; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:any-other-language",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -819,7 +833,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E23",
             area="code-origin",
-            edict="CODE-ORIGIN:local-owned; STACK:python+typescript+cpp+c-hybrid-only; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:non-formal-third-party/package/external-service",
+            edict="CODE-ORIGIN:local-owned; STACK:python+typescript+cpp+c+csharp+sql-hybrid-only; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:non-formal-third-party/package/external-service",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -861,13 +875,13 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E30",
             area="four-functions-local",
-            edict="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; LOCAL:python-typescript-cpp-c-governed; UNAVAILABLE:declare-closed",
+            edict="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; LOCAL:python-typescript-cpp-c-csharp-sql-governed; UNAVAILABLE:declare-closed",
             immutability="immutable-sealed",
         ),
         CodexEdict(
             id="E31",
             area="interface-layer",
-            edict="INTERFACE-LAYER:presentation-only; NO-DECIDE:true; STACK:python-typescript-cpp-c-only; BIND:all-modules",
+            edict="INTERFACE-LAYER:presentation-only; NO-DECIDE:true; STACK:python-typescript-cpp-c-csharp-sql-only; BIND:all-modules",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -891,7 +905,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E35",
             area="formal-tools",
-            edict="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c; OWNERSHIP:local-owned; GOVERNANCE:governed-by-codex; HOSTING:local-only; SUBSTITUTION:non-formal-forbidden",
+            edict="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; OWNERSHIP:local-owned; GOVERNANCE:governed-by-codex; HOSTING:local-only; SUBSTITUTION:non-formal-forbidden",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -922,6 +936,18 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="E40",
             area="xingcheng-model-modes",
             edict="XINGCHENG-MODEL:3-modes-converged; MAIN:comprehensive; CHAT:conversation+document+visual; PROGRAMMING:code-exec+generation+analysis; ALL-MODES:exec-none+governed-executor-only+codex-referenced",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E41",
+            area="file-extension-conventions",
+            edict="FILE-EXT:per-language-canonical; PYTHON:.py/.pyi/test_*.py/__init__.py; TYPESCRIPT:.ts/.tsx/.d.ts/.test.ts/.test.tsx; C:.c/.h/*_test.c; CPP:.cpp/.hpp/.inl/*_test.cpp; CSHARP:.cs/.csproj/.sln/*Tests.cs; SQL:.sql; C=.h+CPP=.hpp-for-edge-visibility; FORBID:custom-extensions+cross-language-mismatch",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E42",
+            area="test-framework-tiering",
+            edict="TEST-TIER:unit-per-language+integration-unified-python-pytest; UNIT:python=pytest/cpp=googletest/typescript=vitest/csharp=xunit/c=native-or-ctest; INTEGRATION:cross-module+cross-language=python-pytest-only; FORBID:cross-language-unit-mixing+non-python-integration+non-formal-framework",
             immutability="immutable-sealed",
         ),
     ),

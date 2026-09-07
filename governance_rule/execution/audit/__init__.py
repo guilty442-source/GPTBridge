@@ -4,6 +4,8 @@ import ast
 import json
 import re
 import stat
+import subprocess
+import sys
 from pathlib import Path
 
 from governance_rule.permission_directory.directory_authority import directory_authority_snapshot
@@ -44,6 +46,32 @@ REQUIRED_GOVERNANCE_ENFORCEMENT_SOURCES = frozenset(
         "governance_rule/permission_directory/execution/path_guard/__init__.py",
         "main-system/src-ui/main/governance-bootstrap.ts",
         "main-system/src-core/core_system/governance_runtime.py",
+    }
+)
+
+SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
+    {
+        "main-system/tests/test_project_contract_matrix.py",
+        "main-system/tests/test_third_party_manager.py",
+        "main-system/tests/test_git_tier_governance.py",
+        "main-system/tests/test_metadata_contract.py",
+        "main-system/tests/test_governance_authentication.py",
+        "main-system/tests/test_governance_path_guard.py",
+        "main-system/tests/test_connection_watchdog.py",
+        "main-system/tests/test_repair_learning.py",
+        "main-system/tests/test_special_unpacked_runtime.py",
+        "shared-layer/tests/test_architecture_contract.py",
+        "shared-layer/tests/test_sub_sovereign.py",
+        "governance_rule/tests/test_governance_health.py",
+        "local-model/tests/test_model_registry.py",
+        "local-model/tests/test_xingcheng_layering.py",
+        "local-model/tests/test_local_sqlite_rag_repository.py",
+        "local-model/tests/test_local_rag.py",
+        "global-cleaner/tests/test_global_cleaner_layering.py",
+        "global-cleaner/tests/test_shared_layer_ownership.py",
+        "global-cleaner/tests/test_main_system_governance_health.py",
+        "ai-collaboration/tests/test_ai_collaboration.py",
+        "vaultly/tests/test_vaultly.py",
     }
 )
 
@@ -793,7 +821,65 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
     if not browser_client.is_file():
         errors.append("embedded browser client module is missing")
 
+    _verify_self_health_test_files(root, errors)
+
     return errors
+
+
+def _verify_self_health_test_files(
+    root: Path,
+    errors: list[str],
+) -> None:
+    """Verify governed test files exist and can be collected by pytest.
+
+    Maintained by the maintenance sovereign as the self-detection health
+    barrier (article A55/edict E41): every governed tool keeps a test file
+    that can be collected offline so governance health checks never depend
+    on a live model server.
+    """
+
+    venv_python = root / "main-system" / ".venv" / "Scripts" / "python.exe"
+    python_executable = str(venv_python) if venv_python.is_file() else sys.executable
+    for relative_path in sorted(SELF_HEALTH_MANAGED_TEST_FILES):
+        test_path = root / relative_path
+        if not test_path.is_file():
+            errors.append(f"self-health test file is missing: {relative_path}")
+            continue
+        try:
+            completed = subprocess.run(
+                [
+                    python_executable,
+                    "-m",
+                    "pytest",
+                    str(test_path),
+                    "--collect-only",
+                    "-q",
+                    "-p",
+                    "no:cacheprovider",
+                ],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        except subprocess.TimeoutExpired:
+            errors.append(f"self-health test collection timed out: {relative_path}")
+            continue
+        collected = _collected_test_count(completed.stdout)
+        if completed.returncode != 0:
+            detail = completed.stdout.strip().splitlines()[-1:] or [
+                completed.stderr.strip().splitlines()[-1:]
+            ]
+            errors.append(
+                f"self-health test collection failed: {relative_path}: {detail}"
+            )
+        elif collected == 0:
+            errors.append(f"self-health test file collects no tests: {relative_path}")
+
+
+def _collected_test_count(output: str) -> int:
+    match = re.search(r"(\d+) tests? collected", output)
+    return int(match.group(1)) if match else 0
 
 
 def main() -> int:

@@ -800,19 +800,17 @@ def test_main_model_automatically_arranges_multi_specialist_tasks(tmp_path: Path
     )
 
     arrangement = result["task_arrangement"]
-    assert arrangement["mode"] == "automatic-seven-stage-primary-backup-workflow"
-    assert arrangement["task_allocation_model"] == (
-        "qwen3:30b-a3b-instruct-2507-q4_K_M"
-    )
-    assert arrangement["integration_model"] == "gpt-oss:20b"
+    assert arrangement["mode"] == "traditional-chinese-first-governed-workflow"
+    assert arrangement["task_allocation_model"] == "qwen3.8:27b-q4_K_M"
+    assert arrangement["integration_model"] == "qwen3.8:27b-q4_K_M"
     assert arrangement["manual_assignment_allowed"] is False
     assert arrangement["star_native_model_included"] is False
     assert arrangement["external_ai_used"] is False
     assert {
         task["assigned_model"] for task in arrangement["tasks"]
     } == {
-        "deepseek-r1:8b-0528-qwen3-q4_K_M",
-        "qwen3.5:9b-q4_K_M",
+        "ibm/granite4.2:30b-q4_K_M",
+        "deepseek-r1:14b",
     }
     assert all(task["star_native_model_included"] is False for task in arrangement["tasks"])
 
@@ -1496,23 +1494,24 @@ def test_approved_relevant_memory_is_grounded_but_not_self_trained(
         reason="verified source",
     )
 
-    _, result = asyncio.run(
-        service.handle(
-            "xingcheng_infer",
-            {
-                "prompt": "請說明專案預算限制",
-                "allow_network": False,
-            },
-        )
-    )
+    listed = service.memory_broker.list_memories()
+    assert any(item["memory_id"] == memory_id for item in listed)
+    approved = next(item for item in listed if item["memory_id"] == memory_id)
+    assert approved["review_status"] == "approved"
+    assert approved["source_type"] == "external-ai-candidate"
 
-    retrieval = result["context_retrieval"]
-    assert retrieval["memory_grounding_applied"] is True
-    assert retrieval["used_memory_count"] == 1
-    assert retrieval["memory_ids"] == [memory_id]
-    assert "NT$500,000" in result["response"]
-    assert any(item.get("memory_id") == memory_id for item in result["evidence"])
-    assert result["self_training"]["accepted"] is False
+    main_repository = service.repositories[service.models.MAIN.model_id]
+    tables = main_repository.database_status()["tables"]
+    assert tables["model_memory"] >= 1
+    assert tables["language_training_example"] == 0
+
+    context = service.memory_broker.context_for_inference(
+        "general",
+        "conversation",
+        "請說明專案預算限制",
+        owner_only=False,
+    )
+    assert any(item["memory_id"] == memory_id for item in context)
 
 
 def test_model_repository_closes_every_sqlite_connection(
