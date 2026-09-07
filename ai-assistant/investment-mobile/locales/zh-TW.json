@@ -1,6 +1,0 @@
-{
-  "tool.name": "AI 投資管家手機版",
-  "tool.window_title": "AI 投資管家手機版",
-  "tool.description": "只在主系統獨立啟停，設定、權限、資料與投資業務皆由 AI 投資管家共用的手機介面。",
-  "errors.permission_denied": "權限不足"
-}

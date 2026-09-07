@@ -108,7 +108,7 @@ class LocalSqliteCognitionRepository:
 
     @staticmethod
     def _new_id(namespace: str, *parts: str) -> str:
-        return str(uuid.uuid5(uuid.NAMESPACE_URL, namespace + ":" + ":".join(parts)))
+        return str(uuid.uuid5(uuid.NAMESPACE_URL, ":".join((namespace, *parts))))
 
     @staticmethod
     def _loads(value: Any) -> Any:

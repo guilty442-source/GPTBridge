@@ -44,7 +44,6 @@ REQUIRED_PYTHON_MODULES: dict[str, str] = {
     "python-dotenv": "dotenv",
     "imageio-ffmpeg": "imageio_ffmpeg",
     "pillow": "PIL",
-    "playwright": "playwright",
     "pyinstaller": "PyInstaller",
     "websockets": "websockets",
 }

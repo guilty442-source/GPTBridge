@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import sys
 import uuid
 from pathlib import Path
@@ -7,13 +8,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "local-model" / "src" / "backend" / "services"))
+sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
 
+from shared_layer.resource_identity import locator_id_for  # noqa: E402
 from xingcheng.infrastructure.local_sqlite_rag_repository import (  # noqa: E402
     LocalSqliteRagRepository,
 )
 
 
 def _document(tmp_path: Path, *, source: str = "docs/guide.md") -> dict:
+    document_id = hashlib.sha256(source.encode("utf-8")).hexdigest()[:32]
     return {
         "document_id": "doc-abc123",
         "source": source,
@@ -26,9 +30,9 @@ def _document(tmp_path: Path, *, source: str = "docs/guide.md") -> dict:
         "owner_id": "xingcheng",
         "data_category": "business",
         "resource_type": "document",
-        "resource_id": "doc-abc123",
-        "resource_label": "local-model-platform:xingcheng:business:document:doc-abc123",
-        "locator_id": str(uuid.uuid5(uuid.NAMESPACE_URL, "xingcheng:docs/guide.md")),
+        "resource_id": f"doc-{document_id}",
+        "resource_label": f"local-model-platform:xingcheng:business:document:doc-{document_id}",
+        "locator_id": str(locator_id_for("xingcheng", f"doc-{document_id}")),
         "classification": "private",
         "version": 1,
     }
@@ -66,7 +70,8 @@ def test_replace_document_persists_metadata_and_chunks(tmp_path: Path) -> None:
 
     existing = repository.existing_document("docs/guide.md", module_id="xingcheng")
     assert existing is not None
-    assert existing["document_id"] == "doc-abc123"
+    expected_doc_id = hashlib.sha256(b"docs/guide.md").hexdigest()[:32]
+    assert existing["document_id"] == f"doc-{expected_doc_id}"
     assert existing["sha256"].startswith("9f86d081")
     assert existing["title"] == "保固政策"
     assert existing["character_count"] == 26

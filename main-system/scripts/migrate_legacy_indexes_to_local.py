@@ -13,6 +13,10 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import sys
+sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
+from shared_layer.resource_identity import point_id_for
+
 
 ROOT = Path(__file__).resolve().parents[2]
 LEGACY_CHANNELS = {
@@ -112,7 +116,7 @@ def _migrate_rag(legacy: Path) -> int:
             chunk_id = str(chunk["chunk_id"])
             resource_id = f"doc-{chunk['document_id']}"
             module_id = str(chunk["module_id"]) if "module_id" in chunk.keys() else "xingcheng"
-            point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "gptbridge-rag:" + chunk_id))
+            point_id = str(point_id_for(chunk_id))
             destination.execute(
                 """INSERT OR REPLACE INTO rag_chunk
                 (chunk_id,resource_id,module_id,sequence,character_start,character_end,point_id,embedding_model,title,content,metadata)

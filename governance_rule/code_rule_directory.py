@@ -66,10 +66,12 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "ai-collaboration",
             "file-sorter",
             "global-cleaner",
+            "governance_rule",
             "investment-mobile",
             "xingcheng",
             "shared-layer",
             "star-chat",
+            "system-rescue",
             "vaultly",
         ),
         approved_actor_names=(
@@ -83,6 +85,7 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "governance/tool/xingcheng",
             "governance/tool/shared-layer",
             "governance/tool/star-chat",
+            "governance/tool/system-rescue",
             "governance/tool/vaultly",
         ),
         approved_capability_names=(

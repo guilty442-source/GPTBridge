@@ -4,6 +4,7 @@ import json
 import os
 import sqlite3
 import subprocess
+import sys
 import threading
 import time
 import urllib.error
@@ -123,7 +124,7 @@ def probe_local_vector(workspace: Path) -> tuple[bool, str]:
         with sqlite3.connect(str(database), timeout=3) as connection:
             connection.execute("SELECT 1").fetchone()
 
-    return retry(vector_health, 1)
+    return retry(vector_health, 3)
 
 
 def probe_and_start_ollama() -> tuple[bool, str]:
@@ -166,6 +167,39 @@ def warm_model_if_ready(ollama_ready: bool) -> dict[str, Any] | None:
             state=STATE_RECOVERING,
             fault_code="WARM_MODEL_UNAVAILABLE",
         )
+
+
+def warm_model_detached() -> dict[str, Any]:
+    """Fire warm-model preload in a detached subprocess that survives orchestrator exit.
+
+    The daemon-thread approach was unreliable: the orchestrator process exits
+    immediately after writing its report, killing any daemon thread before the
+    warm request could complete.  A detached subprocess survives the parent
+    exit and lets Ollama finish loading the model.
+    """
+
+    script = (
+        "import json, urllib.request;\n"
+        "req = urllib.request.Request(\n"
+        "    'http://127.0.0.1:11434/api/generate',\n"
+        f"    data=json.dumps({{'model': {WARM_MODEL!r}, 'prompt': '', 'stream': False, 'keep_alive': -1}}).encode('utf-8'),\n"
+        "    method='POST',\n"
+        "    headers={'Content-Type': 'application/json'},\n"
+        ");\n"
+        "try:\n"
+        "    urllib.request.urlopen(req, timeout=120).read()\n"
+        "except Exception:\n"
+        "    pass\n"
+    )
+    start_hidden([sys.executable, "-c", script])
+    return service_entry(
+        "warm_model",
+        True,
+        "preloading-in-detached-background",
+        critical=False,
+        state=STATE_RECOVERING,
+        fault_code="WARM_MODEL_PRELOADING",
+    )
 
 
 def append_startup_journal(entry: dict[str, Any]) -> None:
@@ -257,29 +291,7 @@ def main() -> int:
     # background thread and the report records a pending preload so the launcher
     # can proceed immediately.
     if ollama_ready:
-        warm_result: dict[str, Any] | None = None
-        warm_finished = threading.Event()
-
-        def _warm_background() -> None:
-            nonlocal warm_result
-            try:
-                warm_result = warm_model_if_ready(True)
-            finally:
-                warm_finished.set()
-
-        warm_thread = threading.Thread(target=_warm_background, daemon=True)
-        warm_thread.start()
-        if warm_finished.wait(timeout=3.0):
-            report["warm_model"] = warm_result
-        else:
-            report["warm_model"] = service_entry(
-                "warm_model",
-                False,
-                "preloading-in-background",
-                critical=False,
-                state=STATE_RECOVERING,
-                fault_code="WARM_MODEL_PRELOADING",
-            )
+        report["warm_model"] = warm_model_detached()
 
     degradable_up = all(
         entry.get("ready") is True
