@@ -72,5 +72,8 @@
     "minWidth": 720,
     "minHeight": 560,
     "title_key": "tool.window_title"
-  }
+  },
+  "test_targets": [
+    "tests/test_investment_mobile.py"
+  ]
 }

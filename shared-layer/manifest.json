@@ -52,5 +52,8 @@
     }
   },
   "environment": { "allow": ["GPTBRIDGE_POSTGRES_DSN", "GPTBRIDGE_POSTGRES_ADMIN_DSN", "GPTBRIDGE_MODULE_DSNS", "GPTBRIDGE_XINGCHENG_IDENTITY_DSN", "GPTBRIDGE_XINGCHENG_COGNITION_DSN", "GPTBRIDGE_POSTGRES_READER_ROLE"] },
-  "has_custom_ui": false
+  "has_custom_ui": false,
+  "test_targets": [
+    "tests/test_shared_layer.py"
+  ]
 }

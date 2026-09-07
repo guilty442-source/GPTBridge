@@ -115,6 +115,23 @@ def test_local_hits_require_authorization_and_no_content_payload() -> None:
         raise AssertionError("physical content was accepted into index payload")
 
 
+def test_shared_layer_store_uses_runtime_dsn_without_admin_credentials(
+    monkeypatch,
+) -> None:
+    from psycopg.conninfo import conninfo_to_dict
+    from shared_layer.store import SharedLayerStore
+
+    monkeypatch.setenv(
+        "GPTBRIDGE_POSTGRES_DSN",
+        "host=127.0.0.1 port=5432 dbname=gptbridge user=gptbridge_runtime password=test",
+    )
+    monkeypatch.delenv("GPTBRIDGE_POSTGRES_ADMIN_DSN", raising=False)
+    store = object.__new__(SharedLayerStore)
+    connection = conninfo_to_dict(store._build_dsn())
+    assert connection["user"] == "gptbridge_runtime"
+    assert connection["dbname"] == "gptbridge"
+
+
 def test_no_installer_or_docker_dependency_in_python_core() -> None:
     sources = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "src" / "shared_layer").rglob("*.py"))
     forbidden = ("pip install", "winget install", "choco install", "docker compose", "docker run")

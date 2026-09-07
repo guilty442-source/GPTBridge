@@ -52,5 +52,8 @@
     "allow": []
   },
   "has_custom_ui": false,
-  "hidden_from_toolbox": true
+  "hidden_from_toolbox": true,
+  "test_targets": [
+    "tests/test_system_rescue.py"
+  ]
 }

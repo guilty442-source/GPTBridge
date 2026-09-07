@@ -12,6 +12,7 @@ concurrent claim operations.
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
@@ -103,14 +104,12 @@ class PostgresSharedLayerStore:
         self._dsn = self._build_dsn()
 
     def _build_dsn(self) -> str:
-        from shared_layer.database.config import DatabaseSettings
-
-        settings = DatabaseSettings.from_environment()
         try:
             from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-            values = conninfo_to_dict(settings.admin_dsn)
-            values["dbname"] = settings.database
+            values = conninfo_to_dict(os.environ.get("GPTBRIDGE_POSTGRES_DSN", ""))
+            if not values.get("dbname"):
+                values["dbname"] = "gptbridge"
             return make_conninfo(**values)
         except Exception as exc:
             raise permission_denied() from exc

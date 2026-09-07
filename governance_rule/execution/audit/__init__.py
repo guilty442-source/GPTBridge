@@ -51,27 +51,30 @@ REQUIRED_GOVERNANCE_ENFORCEMENT_SOURCES = frozenset(
 
 SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
     {
-        "main-system/tests/test_project_contract_matrix.py",
-        "main-system/tests/test_third_party_manager.py",
-        "main-system/tests/test_git_tier_governance.py",
-        "main-system/tests/test_metadata_contract.py",
-        "main-system/tests/test_governance_authentication.py",
-        "main-system/tests/test_governance_path_guard.py",
-        "main-system/tests/test_connection_watchdog.py",
-        "main-system/tests/test_repair_learning.py",
-        "main-system/tests/test_special_unpacked_runtime.py",
-        "shared-layer/tests/test_architecture_contract.py",
-        "shared-layer/tests/test_sub_sovereign.py",
+        # ── main-system (central runtime + repair authority) ──────────
+        "main-system/tests/test_main_system.py",
+        # ── governance_rule (codex + enforcement) ─────────────────────
         "governance_rule/tests/test_governance_health.py",
-        "local-model/tests/test_model_registry.py",
-        "local-model/tests/test_xingcheng_layering.py",
-        "local-model/tests/test_local_sqlite_rag_repository.py",
-        "local-model/tests/test_local_rag.py",
-        "global-cleaner/tests/test_global_cleaner_layering.py",
-        "global-cleaner/tests/test_shared_layer_ownership.py",
-        "global-cleaner/tests/test_main_system_governance_health.py",
+        # ── shared-layer (central SQL index + channel) ────────────────
+        "shared-layer/tests/test_shared_layer.py",
+        # ── local-model / xingcheng (native model platform) ──────────
+        "local-model/tests/test_xingcheng.py",
+        # ── local-model / model-dialogue / star-chat ─────────────────
+        "local-model/model-dialogue/tests/test_star_chat.py",
+        # ── global-cleaner (backup + cleanup infrastructure) ─────────
+        "global-cleaner/tests/test_global_cleaner.py",
+        # ── ai-collaboration (governed browser automation) ───────────
         "ai-collaboration/tests/test_ai_collaboration.py",
+        # ── ai-assistant (investment + assistant UI) ─────────────────
+        "ai-assistant/tests/test_ai_assistant.py",
+        # ── vaultly (encryption + vault) ─────────────────────────────
         "vaultly/tests/test_vaultly.py",
+        # ── file-sorter (governed file sorting) ──────────────────────
+        "file-sorter/tests/test_file_sorter.py",
+        # ── system-rescue (central repair + packaging) ───────────────
+        "system-rescue/tests/test_system_rescue.py",
+        # ── investment-mobile (mobile channel) ───────────────────────
+        "investment-mobile/tests/test_investment_mobile.py",
     }
 )
 

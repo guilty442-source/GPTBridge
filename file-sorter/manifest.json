@@ -51,12 +51,7 @@
     ]
   },
   "test_targets": [
-    "tests/test_file_sorter.py",
-    "tests/test_file_sorter_cleanup.py",
-    "tests/test_file_sorter_v2.py",
-    "tests/test_file_sorter_metadata_v2.py",
-    "tests/test_file_sorter_automation.py",
-    "tests/test_file_sorter_ui.py"
+    "tests/test_file_sorter.py"
   ],
   "window": {
     "width": 1040,

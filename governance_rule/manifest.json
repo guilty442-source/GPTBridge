@@ -53,5 +53,8 @@
   "environment": {
     "allow": []
   },
-  "has_custom_ui": false
+  "has_custom_ui": false,
+  "test_targets": [
+    "tests/test_governance_health.py"
+  ]
 }

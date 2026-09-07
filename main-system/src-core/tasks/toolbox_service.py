@@ -534,7 +534,7 @@ class ToolboxService:
         # Local governed runtimes normally publish health in well under a
         # second. Poll more frequently so opening a tool feels immediate while
         # retaining a bounded five-second allowance for cold starts.
-        for _ in range(50):
+        for _ in range(300):
             if await asyncio.to_thread(source_runtime_ready):
                 ready = True
                 break

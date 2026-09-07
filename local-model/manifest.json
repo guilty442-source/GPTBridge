@@ -585,9 +585,7 @@
     "allow": ["GPTBRIDGE_LOCAL_DB", "GPTBRIDGE_LOCAL_DATABASE", "GPTBRIDGE_POSTGRES_DSN", "GPTBRIDGE_POSTGRES_ADMIN_DSN", "GPTBRIDGE_MODULE_DSNS", "GPTBRIDGE_XINGCHENG_IDENTITY_DSN", "GPTBRIDGE_XINGCHENG_COGNITION_DSN", "GPTBRIDGE_POSTGRES_READER_ROLE"]
   },
   "test_targets": [
-    "tests/test_xingcheng_layering.py",
-    "tests/test_google_search.py",
-    "tests/test_model_registry.py"
+    "tests/test_xingcheng.py"
   ],
   "has_custom_ui": false
 }

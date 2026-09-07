@@ -104,10 +104,7 @@
   },
   "has_custom_ui": true,
   "test_targets": [
-    "tests/test_ai_assistant.py",
-    "tests/test_investment_manager.py",
-    "tests/test_investment_analytics.py",
-    "tests/test_investment_v3.py"
+    "tests/test_ai_assistant.py"
   ],
   "window": {
     "width": 1440,
