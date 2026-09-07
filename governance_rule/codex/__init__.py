@@ -696,6 +696,13 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             rule="TEST-TIER:unit-by-impl-language+integration-unified-python-pytest; UNIT-PYTHON:pytest; UNIT-CPP:googletest; UNIT-TYPESCRIPT:vitest; UNIT-CSHARP:xunit; UNIT-C:native-or-ctest; INTEGRATION:cross-module+cross-language-unified-via-python-pytest; SEPARATION:unit-tests-per-language+integration-tests-python-only; BASIS:codex+A35-architecture-hybrid+A37-code-origin",
             prohibition="FORBID:cross-language-unit-test-framework-mixing; FORBID:non-python-integration-tests; FORBID:non-formal-test-framework; FORBID:skip-integration-tier",
         ),
+        CodexArticle(
+            id="A57",
+            section="6",
+            subject="self-health-test-necessity",
+            rule="SELF-HEALTH-TEST:necessary-for-self-maintenance-health; OWNER:maintenance-sovereign; SCOPE:governed-tools-declare-test-files; REQUIRE:collectable-offline+no-live-model-dependency; DETECT:governance-audit-collects-managed-test-files; BASIS:codex+A56-test-framework-tiering",
+            prohibition="FORBID:delete-required-test-file; FORBID:test-depends-on-live-model/network; FORBID:uncollectable-test-file",
+        ),
     ),
     edicts=(
         CodexEdict(
@@ -948,6 +955,12 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="E42",
             area="test-framework-tiering",
             edict="TEST-TIER:unit-per-language+integration-unified-python-pytest; UNIT:python=pytest/cpp=googletest/typescript=vitest/csharp=xunit/c=native-or-ctest; INTEGRATION:cross-module+cross-language=python-pytest-only; FORBID:cross-language-unit-mixing+non-python-integration+non-formal-framework",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E43",
+            area="self-health-test",
+            edict="SELF-HEALTH-TEST:necessary-for-self-maintenance-health; OWNER:maintenance-sovereign; GOVERNED-TOOLS:declare-required-test-files; REQUIRE:offline-collectable; DETECT:governance-audit-collects-managed-test-files; FORBID:delete-required-test-file+live-model-test-dependency",
             immutability="immutable-sealed",
         ),
     ),

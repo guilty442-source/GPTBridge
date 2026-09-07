@@ -211,6 +211,9 @@ class IntegrationSubSovereign:
         (started by the app before the system sovereign).  A permission denial
         is recorded but does not block the rest of startup (single-fault
         isolation).
+
+        Different resident tools are started in parallel so that one tool's
+        startup latency does not block another tool's startup.
         """
 
         if self._default_tools_started:
@@ -225,30 +228,42 @@ class IntegrationSubSovereign:
         self._classify_tools_by_manifest()
 
         permission = getattr(self.app, "permission_sovereign", None)
-        for tool_id in sorted(self._resident_tool_ids):
+
+        async def _start_one(tool_id: str) -> tuple[str, dict[str, Any]]:
             if permission is None or not permission.can_start_tool(tool_id):
-                result = {
+                return tool_id, {
                     "ok": False,
                     "tool_id": tool_id,
                     "error_code": "PERMISSION_DENIED",
                     "message": "PERMISSION_DENIED",
                 }
-            else:
-                try:
-                    result = await toolbox.start_tool(
-                        {
-                            "tool_id": tool_id,
-                            "request_id": f"resident-start-{tool_id}-{time.time_ns()}",
-                            "background": True,
-                        }
-                    )
-                except Exception as error:
-                    result = {
-                        "ok": False,
+            try:
+                result = await toolbox.start_tool(
+                    {
                         "tool_id": tool_id,
-                        "error_code": type(error).__name__,
-                        "message": str(error),
+                        "request_id": f"resident-start-{tool_id}-{time.time_ns()}",
+                        "background": True,
                     }
+                )
+            except Exception as error:
+                result = {
+                    "ok": False,
+                    "tool_id": tool_id,
+                    "error_code": type(error).__name__,
+                    "message": str(error),
+                }
+            return tool_id, result
+
+        # Start all resident tools in parallel — different tools have
+        # independent process state slots (_active_request_by_tool is keyed
+        # by tool_id), so concurrent startup is safe and avoids serial
+        # latency where one slow tool blocks the next.
+        results = await asyncio.gather(
+            *(_start_one(tid) for tid in sorted(self._resident_tool_ids)),
+            return_exceptions=False,
+        )
+
+        for tool_id, result in results:
             self._default_tool_startup[tool_id] = {
                 "ok": result.get("ok") is True,
                 "runtime_mode": str(result.get("runtime_mode") or ""),
@@ -343,6 +358,8 @@ class IntegrationSubSovereign:
         )
         now = time.monotonic()
 
+        # Collect idle tools that need to be stopped.
+        idle_tool_ids: list[str] = []
         for tool_id in list(started_by_tool.keys()):
             # Resident services (常駐服務) are never idle-stopped.
             if tool_id in self._resident_tool_ids:
@@ -363,16 +380,30 @@ class IntegrationSubSovereign:
             if idle_seconds < IDLE_TIMEOUT_SECONDS:
                 continue
 
-            # Idle timeout reached — stop the module.
+            # Idle timeout reached — candidate for stopping.
             permission = getattr(self.app, "permission_sovereign", None)
             if permission is None or not permission.can_start_tool(tool_id):
                 continue
+            idle_tool_ids.append(tool_id)
+
+        # Stop all idle tools in parallel — different tools have independent
+        # process state slots, so concurrent stop is safe.
+        async def _stop_one(tid: str) -> str | None:
             try:
-                await toolbox.stop_tool({"tool_id": tool_id})
+                await toolbox.stop_tool({"tool_id": tid})
             except Exception:
+                return None
+            return tid
+
+        stopped = await asyncio.gather(
+            *(_stop_one(tid) for tid in idle_tool_ids),
+            return_exceptions=False,
+        )
+        for tid in stopped:
+            if tid is None:
                 continue
-            self._idle_stopped_tools.add(tool_id)
-            self._tool_last_activity.pop(tool_id, None)
+            self._idle_stopped_tools.add(tid)
+            self._tool_last_activity.pop(tid, None)
 
     # ------------------------------------------------------------------
     # Integration authority surface

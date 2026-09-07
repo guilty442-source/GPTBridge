@@ -146,6 +146,7 @@ GOVERNANCE_CODEX_CHINESE: Final[ChineseCodexReference] = ChineseCodexReference(
         ChineseCodexArticle(id="A54", section="六", subject="xingcheng-model-modes", rule="星澄原生模型收斂為三模式：主模型為綜合能力（協調、理解、整合、檢查、裁決）；聊天模式為對話、理解、回應、文件閱讀與視覺辨識；編程模式為程式碼執行、生成、分析與重構；模式選擇依任務意圖自動判定；三模式均無執行權，一律委派受治理執行器執行，以本法典為決策依據。", prohibition="禁止模型模式逾越宣告之三模式、任一模式持有執行權、手動覆寫模型選擇、任一模式繞過治理"),
         ChineseCodexArticle(id="A55", section="四", subject="file-extension-conventions", rule="各語言副檔名一律依本法典宣告：Python 原始碼 .py、型別 stub .pyi、測試 test_*.py、套件入口 __init__.py；TypeScript 邏輯 .ts、React/JSX UI .tsx、型別宣告 .d.ts、測試 .test.ts 與 .test.tsx；C 實作 .c、公開介面 .h、測試 *_test.c；C++ 實作 .cpp、Header .hpp、模板/inline 必要時 .inl、測試 *_test.cpp；C# 原始碼 .cs、專案 .csproj、Solution .sln、測試 *Tests.cs；SQL 一般 SQL 與 Migration 皆 .sql；C 用 .h、C++ 用 .hpp 以辨識語言邊界；禁止發明自訂副檔名。", prohibition="禁止自訂副檔名、禁止跨語言副檔名錯置、禁止 C++ 用 .h 或 C 用 .hpp、禁止使用本法典未宣告之副檔名"),
         ChineseCodexArticle(id="A56", section="四", subject="test-framework-tiering", rule="測試分層：單元測試依實作語言分開，跨模組與跨語言整合測試統一使用 Python pytest；Python 單元測試用 pytest、C++ 用 GoogleTest、TypeScript 用 Vitest、C# 用 xUnit、C 用原生/CTest；整合測試（跨模組、跨語言）一律以 Python pytest 撰寫；單元測試歸屬實作語言、整合測試歸屬 Python。", prohibition="禁止跨語言混用單元測試框架、禁止以非 Python 撰寫整合測試、禁止使用非正式測試框架、禁止省略整合測試層"),
+        ChineseCodexArticle(id="A57", section="六", subject="self-health-test-necessity", rule="測試檔為自我維護健康之必要組成，由系統維護主宰管理；各受治理工具須宣告其測試檔，測試檔須可離線收集且不得依賴真實模型或網路；治理稽核以動態收集受管理測試檔進行自我檢測。", prohibition="禁止刪除必要測試檔、禁止測試依賴真實模型或網路、禁止不可收集之測試檔"),
     ),
     edicts=(
         ChineseCodexEdict(id="E1", area="sovereignty", edict="主宰體系以法典為最高規則層，一切決策皆引用法典。"),
@@ -190,6 +191,7 @@ GOVERNANCE_CODEX_CHINESE: Final[ChineseCodexReference] = ChineseCodexReference(
         ChineseCodexEdict(id="E40", area="xingcheng-model-modes", edict="星澄原生模型收斂為三模式：主模型（綜合能力）、聊天模式（對話＋文件＋視覺）、編程模式（程式執行＋生成＋分析）；三模式均無執行權，一律委派受治理執行器，引用本法典。"),
         ChineseCodexEdict(id="E41", area="file-extension-conventions", edict="各語言副檔名依本法典宣告：Python .py/.pyi/test_*.py/__init__.py；TypeScript .ts/.tsx/.d.ts/.test.ts/.test.tsx；C .c/.h/*_test.c；C++ .cpp/.hpp/.inl/*_test.cpp；C# .cs/.csproj/.sln/*Tests.cs；SQL .sql；C 用 .h、C++ 用 .hpp 以辨識語言邊界；禁止自訂副檔名與跨語言錯置。"),
         ChineseCodexEdict(id="E42", area="test-framework-tiering", edict="測試分層：單元測試依實作語言分開（Python=pytest、C++=GoogleTest、TypeScript=Vitest、C#=xUnit、C=原生/CTest），跨模組與跨語言整合測試統一使用 Python pytest；禁止跨語言混用單元框架、禁止以非 Python 撰寫整合測試、禁止使用非正式測試框架。"),
+        ChineseCodexEdict(id="E43", area="self-health-test", edict="測試檔為自我維護健康之必要組成，由系統維護主宰管理；各受治理工具須宣告其測試檔，測試檔須可離線收集且不得依賴真實模型或網路；治理稽核以動態收集受管理測試檔進行自我檢測；禁止刪除必要測試檔、禁止測試依賴真實模型或網路。"),
     ),
     sovereigns=SOVEREIGNS_CHINESE,
 )

@@ -80,6 +80,7 @@ SOVEREIGNS: Final[Tuple[CodexSovereign, ...]] = (
             "automatic-repair-coordination",
             "fault-determination",
             "backup-coordination",
+            "self-health-test-management",
         ),
         powers=(),
         prohibitions=(
