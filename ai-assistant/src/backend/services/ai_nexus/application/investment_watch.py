@@ -448,7 +448,7 @@ class InvestmentWatchService(
         if command not in handlers:
             return f"{command}_result", {
                 "ok": False,
-                "message": "AI投資管家不直接執行外部 AI 協作；投資分析一律經 AI 通道交由星澄處理。",
+                "message": "AI投資管家不直接執行外部 AI 協作；投資分析一律由AI投資管家經 AI 通道處理。",
             }
         try:
             result = await handlers[command](payload)
@@ -583,7 +583,7 @@ class InvestmentWatchService(
             "analytics_path": str(self.analytics_store.database_path),
             "local_only": True,
             "safety": {
-                "xingcheng": "AI投資管家本身不執行 AI 推理；所有投資分析均經 AI 通道交由星澄協調。",
+                "xingcheng": "AI投資管家本身不執行 AI 推理；所有投資分析均由AI投資管家經 AI 通道協調。",
                 "storage": "狀態檔由 Windows DPAPI 使用目前帳號保護；分析資料庫的備註、事件來源與決策證據採欄位加密。",
                 "quotes": "報價預設會自動連網抓取公開股價資料；輸入離線或不抓報價可改用本地資料評估。",
             },
@@ -814,7 +814,7 @@ class InvestmentWatchService(
         if not holdings:
             state_key = "setup"
             state_label = "等待持股資料"
-            message = "請讀取 Excel 持股檔，星澄會經 AI 通道建立風險監測。"
+            message = "請讀取 Excel 持股檔，AI投資管家會經 AI 通道建立風險監測。"
         elif mapping_error:
             state_key = "critical"
             state_label = "Excel 欄位需修正"
@@ -829,11 +829,11 @@ class InvestmentWatchService(
         elif stale or warning_count > 0 or xingcheng_state == "attention" or workbook_state == "attention":
             state_key = "attention"
             state_label = "需要關注"
-            message = "持股資料、星澄分析或掃描品質有待確認項目，建議重新評估。"
+            message = "持股資料、AI投資管家分析或掃描品質有待確認項目，建議重新評估。"
         else:
             state_key = "ready"
             state_label = "監測正常"
-            message = "星澄已完成持股監測，資料狀態正常。"
+            message = "AI投資管家已完成持股監測，資料狀態正常。"
 
         selected_sheet = (
             workbook_scan.get("selected_sheet")
@@ -909,7 +909,7 @@ class InvestmentWatchService(
             "xingcheng": {
                 "state": xingcheng_state or ("empty" if not holdings else "attention"),
                 "state_label": product_status.get("state_label")
-                or ("等待持股資料" if not holdings else "等待星澄分析"),
+                or ("等待持股資料" if not holdings else "等待AI投資管家分析"),
                 "score": product_status.get("score"),
                 "risk_level": product_status.get("risk_level"),
                 "risk_level_label": product_status.get("risk_level_label"),

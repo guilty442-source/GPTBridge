@@ -29,7 +29,7 @@ RENDERER_DIR = (
     / "renderer"
 )
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "test-results" / "ai-assistant-visual"
-WORKSPACE_LABELS = ["持股", "星澄", "星澄帳務", "系統"]
+WORKSPACE_LABELS = ["持股", "瀏覽器", "帳務", "系統"]
 
 
 def synthetic_fixture() -> dict[str, Any]:
@@ -180,8 +180,8 @@ def synthetic_fixture() -> dict[str, Any]:
             "queued": False,
             "provider": "chatgpt",
             "status": "completed",
-            "content": "ChatGPT 已完成最終統籌，結果先回傳星澄再提供投資管家顯示。",
-            "response_recipient": "xingcheng",
+            "content": "ChatGPT 已完成最終統籌，結果經 ai-collaboration 回傳AI投資管家顯示。",
+            "response_recipient": "ai-assistant",
             "transport": "governance-authenticated-ai-channel",
         },
         "xingcheng_confidence": {
@@ -965,7 +965,7 @@ def exercise_workspaces(
             "selected": True,
             "content_visible": page.locator("main.nexus-app").is_visible(),
         }
-        if label == "星澄":
+        if label == "瀏覽器":
             coordinator = page.get_by_text("ChatGPT 已統籌", exact=True)
             results[label]["chatgpt_coordinator_visible"] = coordinator.is_visible()
             if not coordinator.is_visible():

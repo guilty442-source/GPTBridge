@@ -95,10 +95,24 @@
       "description": "依任務內容與強度做可重現的加權選擇。",
       "selection_strategy": "deterministic-task-weighted",
       "candidates_by_task": {
-        "simple": ["maximum_speed", "maximum_speed", "maximum_efficiency"],
-        "normal": ["maximum_efficiency", "maximum_efficiency", "maximum_quality"],
-        "intermediate": ["maximum_efficiency", "maximum_quality", "maximum_quality"],
-        "difficult": ["maximum_quality"]
+        "simple": [
+          "maximum_speed",
+          "maximum_speed",
+          "maximum_efficiency"
+        ],
+        "normal": [
+          "maximum_efficiency",
+          "maximum_efficiency",
+          "maximum_quality"
+        ],
+        "intermediate": [
+          "maximum_efficiency",
+          "maximum_quality",
+          "maximum_quality"
+        ],
+        "difficult": [
+          "maximum_quality"
+        ]
       }
     }
   },
@@ -120,8 +134,8 @@
     "qwen3.8:27b-q4_K_M": {
       "display_name": "Qwen3.8 27B",
       "role": "作業總指揮／中文任務理解／整合驗收／失敗裁決",
-      "daily_context": 8192,
-      "difficult_context": 32768,
+      "daily_context": 32768,
+      "difficult_context": 153600,
       "max_output_tokens": 4096,
       "thinking": "low-medium",
       "keep_alive": 0,
@@ -144,7 +158,7 @@
           "default_reasoning_effort": "medium"
         },
         "difficult": {
-          "context_limit": 32768,
+          "context_limit": 153600,
           "default_output_tokens": 4096,
           "default_reasoning_effort": "high",
           "second_model_verification": true
@@ -155,12 +169,14 @@
     "rnj-1:8b-instruct-q4_K_M": {
       "display_name": "RNJ-1 8B",
       "role": "命令理解後的高速 Code／STEM／Tool Calling 前端",
-      "daily_context": 8192,
-      "difficult_context": 32768,
+      "daily_context": 32768,
+      "difficult_context": 153600,
       "max_output_tokens": 2048,
       "thinking": "low",
       "keep_alive": "5m",
-      "generation": {"temperature": 0.2}
+      "generation": {
+        "temperature": 0.2
+      }
     },
     "qwen3-embedding:4b": {
       "display_name": "Qwen3 Embedding 4B",
@@ -172,17 +188,23 @@
     "qwen3-vl:8b-thinking": {
       "display_name": "Qwen3 VL 8B Thinking",
       "role": "視覺 RAG",
-      "daily_context": 16384,
-      "difficult_context": 32768,
+      "daily_context": 32768,
+      "difficult_context": 153600,
       "keep_alive": 0,
-      "generation": {"temperature": 0.1, "top_p": 0.9}
+      "generation": {
+        "temperature": 0.1,
+        "top_p": 0.9
+      }
     },
     "mistral-small:24b": {
       "display_name": "Mistral Small 24B",
       "role": "低延遲 Function Calling／一般 Agent／JSON",
       "daily_context": 32768,
       "keep_alive": 0,
-      "generation": {"temperature": 0.1, "top_p": 0.9}
+      "generation": {
+        "temperature": 0.1,
+        "top_p": 0.9
+      }
     }
   }
 }

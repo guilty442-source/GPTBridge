@@ -1585,7 +1585,7 @@ class LocalAiService(CommandChannelsMixin, InvestmentChannelMixin, InferenceChan
             effort = "medium"
         installed = {
             str(item.get("name") or "")
-            for item in self.transformer_runtime.selectable_models(refresh=True)
+            for item in self.transformer_runtime.selectable_models(refresh=False)
         }
         preferred_pipeline = [
             self.TRAINING_COORDINATOR_MODEL,

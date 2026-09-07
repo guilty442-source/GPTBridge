@@ -2,18 +2,18 @@
 
 Project ID: `ai-assistant`
 
-AI投資管家管理本機投資資料、參數與分析結果；自身不連外網、不直接呼叫外部 AI，也不執行舊式本機風險模型。所有本地模型均由本地模型平台（`local-model-platform`）處理；大部分投資業務使用 `ibm/granite4.2:30b-q4_K_M`，配息、股價、淨值及其他需要搜尋的即時資訊則由平台執行星澄原生模型（`star-main-native-model`）提供。星澄位於治理規則之下的最高權限層級，但沒有固定職責；權限僅能由治理規則明確啟用。
+AI投資管家管理本機投資資料、參數與分析結果；自身不連外網、不直接呼叫外部 AI，也不執行舊式本機風險模型。所有本地模型均由本地模型平台（`local-model-platform`）處理；大部分投資業務使用 `ibm/granite4.2:30b-q4_K_M`，配息、股價、淨值及其他需要搜尋的即時資訊則由內建瀏覽器（`embedded-browser`）執行網路搜尋。AI投資管家位於治理規則之下，依治理法典行使工具層級服務擁有權。
 
-介面固定為「持股、星澄、星澄帳務、系統」四個工作區；低頻模擬與進階維護不占用主要操作畫面。AI 投資分析與帳務決策均由星澄提供，最終統籌結果由 ChatGPT 回傳星澄後再顯示。
+介面固定為「持股、瀏覽器、帳務、系統」四個工作區；低頻模擬與進階維護不占用主要操作畫面。AI 投資分析與帳務決策均由AI投資管家提供，外部 AI 協作經 ai-collaboration 工具接入。
 
 ## 治理邊界
 
-- 最高權限是治理規則；星澄是 AI 通道頂層協調者。
-- AI投資管家只能連接 `xingcheng`（星澄），不能申請或直接使用 AI協作。
-- 外部 AI 的結果只能先回傳星澄，不能直接寫入 AI投資管家。
-- 投資資料庫與星澄、其他工具的資料庫強制隔離；通道只傳遞最小必要快照。
-- 網路權限為停用，只允許治理驗證的 loopback IPC。
-- 配息頻率可手動修改；除非星澄取得可驗證的新資料，否則不得覆寫手動值。
+- 最高權限是治理規則；平台層級協調由星澄提供，工具層級服務由AI投資管家於治理法典之下行使。
+- AI投資管家透過內建瀏覽器執行網路搜尋，透過 ai-collaboration 工具接入外部 AI。
+- 外部 AI 的結果經 ai-collaboration 工具回傳AI投資管家，不能直接寫入投資資料庫。
+- 投資資料庫與其他工具的資料庫強制隔離；通道只傳遞最小必要快照。
+- 網路權限為內建瀏覽器視窗，工具核心不直接存取外部網路。
+- 配息頻率可手動修改；除非內建瀏覽器取得可驗證的新資料，否則不得覆寫手動值。
 - 只產生分析、警示與模擬草案，不會自動下單。
 
 ## 程式架構
@@ -21,14 +21,14 @@ AI投資管家管理本機投資資料、參數與分析結果；自身不連外
 - `investment_watch.py`：命令路由、生命週期、狀態與診斷。
 - `investment_portfolio_service.py`：持股、帳本、同步與配息資料。
 - `investment_operations_service.py`：壓力測試、回測、配置、排程與備份。
-- `investment_accounting_service.py`：把最小對帳快照交給星澄，驗證其自主帳務決策後才由投資管家落盤。
+- `investment_accounting_service.py`：把最小對帳快照交給AI投資管家帳務，驗證其自主帳務決策後才落盤。
 - `investment_import_service.py`：Excel 掃描、欄位映射與匯入。
-- `investment_star_service.py`：唯一的星澄 AI 通道邊界。
+- `investment_star_service.py`：唯一的 AI 通道邊界。
 - `investment_mobile_bridge.py`：已分離手機工具的最小橋接介面。
 - `investment-mobile/`：手機介面與連線程式的共用原始碼；手機版仍以 `investment-mobile` 獨立工具 ID 啟停，但設定、資料與投資業務只由 AI 投資管家的共用 repository 保存，兩者共用 `ai-investment-manager-v1` 業務權限。
 - 手機版快取集中於 `ai-assistant/runtime/cache/companions/investment-mobile`；備份只由全域清理寫入 `global-cleaner/data/business/backups/ai-assistant`，不在手機介面建立快取或備份根目錄。
 - `ExcelMappingEditor.tsx`、`HoldingEditor.tsx`：獨立表單元件；持股編輯採固定視窗，不受頁面捲動位置影響。
-- `StarAccountingPanel.tsx`：星澄帳務的精簡專屬工作區。
+- `StarAccountingPanel.tsx`：帳務的精簡專屬工作區。
 
 ## 啟動與修復
 

@@ -211,7 +211,7 @@ export function startBackend() {
   backendStartedAt = Date.now()
   backendReadyAt = null
   backendMessage = 'spawning boot_core'
-  spawnBootCore(paths)
+  spawnBootCore(paths, true)
 }
 
 export function ensureBackendStarted(): BackendStatus {

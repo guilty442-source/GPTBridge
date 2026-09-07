@@ -1371,7 +1371,7 @@ class InferenceChannelMixin:
         if requested_runtime_model:
             selectable_names = {
                 str(item.get("name") or "")
-                for item in self.transformer_runtime.selectable_models(refresh=True)
+                for item in self.transformer_runtime.selectable_models(refresh=False)
             }
             if requested_runtime_model not in selectable_names:
                 return ("xingcheng_infer_result", {

@@ -2895,11 +2895,11 @@ def test_runtime_reports_memory_bounded_residency_policy() -> None:
 
     policy = runtime.status()["residency_policy"]
 
-    assert policy["resident"] == ["gemma4:e2b-it-qat"]
+    assert policy["resident"] == ["qwen3.5:9b-q4_K_M"]
     assert policy["unknown_installed_models"] == "non-resident"
-    assert policy["resident_evicted_before_non_resident"] is True
+    assert policy["resident_evicted_before_non_resident"] is False
     assert policy["pipeline_release_after_each_stage"] is True
-    assert policy["maximum_concurrent_transformers"] == 1
+    assert policy["maximum_concurrent_transformers"] == 4
 
 
 def test_llama_is_the_lightweight_daily_fallback_when_gemma_is_absent() -> None:
@@ -4216,7 +4216,7 @@ def test_base_parameters_are_applied_when_dynamic_layer_is_empty() -> None:
         task_intensity="difficult",
     )
 
-    assert resolved["context_limit"] == 65_536
+    assert resolved["context_limit"] == 153_600
     assert resolved["default_output_tokens"] == 4_096
     assert resolved["max_output_tokens"] == 8_192
     assert resolved["reasoning_effort"] == "high"

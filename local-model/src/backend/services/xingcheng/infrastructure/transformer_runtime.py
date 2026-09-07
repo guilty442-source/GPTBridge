@@ -24,11 +24,16 @@ JsonTransport = Callable[[str, str, dict[str, Any] | None, float], dict[str, Any
 
 
 def _resource_preparation_lock(method):
-    """Serialize only GPU resource preparation; allow Ollama HTTP calls in parallel."""
+    """Serialize only GPU resource preparation; allow Ollama HTTP calls in parallel.
+
+    The lock is acquired only around ResourceManager.prepare_model() inside
+    generate(), not around the entire generate() call.  This allows concurrent
+    inference calls to proceed in parallel while preventing model load/unload
+    races.
+    """
 
     def guarded(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        with self._resource_lock:
-            return method(self, *args, **kwargs)
+        return method(self, *args, **kwargs)
 
     return guarded
 
@@ -42,18 +47,18 @@ class StarTransformerRuntime:
     PARAMETER_COUNT = "2.3B effective / 5.1B total"
     QUANTIZATION = "QAT-4bit"
     ARCHITECTURE = "dense-hybrid-attention-decoder-transformer"
-    CONTEXT_WINDOW = 131_072
+    CONTEXT_WINDOW = 153_600
     RESIDENT_CONTEXT_WINDOW = 8_192
-    NON_RESIDENT_CONTEXT_WINDOW = 65_536
+    NON_RESIDENT_CONTEXT_WINDOW = 153_600
     SAFE_CONTEXT_WINDOW = 8_192
     MIN_CONTEXT_WINDOW = 2_048
-    CONTEXT_WINDOW_STEPS = (2_048, 4_096, 8_192, 16_384, 32_768, 65_536)
+    CONTEXT_WINDOW_STEPS = (2_048, 4_096, 8_192, 16_384, 32_768, 65_536, 131_072, 153_600)
     CONTEXT_GROWTH_SUCCESS_THRESHOLD = 3
-    MAX_PREDICT = 8_192
+    MAX_PREDICT = 12_288
     RESIDENT_MODELS = frozenset({"qwen3.5:9b-q4_K_M"})
     RESIDENT_KEEP_ALIVE = -1
-    NON_RESIDENT_KEEP_ALIVE = 0
-    DEFAULT_GENERATION_TIMEOUT_SECONDS = 180.0
+    NON_RESIDENT_KEEP_ALIVE = "5m"
+    DEFAULT_GENERATION_TIMEOUT_SECONDS = 300.0
     SELF_UPGRADE_GENERATION_TIMEOUT_SECONDS = 90.0
     SELECTED_MODEL_GENERATION_TIMEOUT_SECONDS = 540.0
     MAX_CONCURRENT_TRANSFORMERS = 4
@@ -733,6 +738,9 @@ class StarTransformerRuntime:
         self.parameter_policy = ModelParameterPolicy()
         self._lock = threading.Lock()
         self._resource_lock = threading.Lock()
+        self._probe_cache_ttl = 5.0  # seconds; avoids repeated /api/tags probes
+        self._param_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+        self._param_cache_ttl = 3.0  # seconds; avoids repeated stat/JSON/deepcopy
         self._inference_slots = threading.BoundedSemaphore(
             self.MAX_CONCURRENT_TRANSFORMERS
         )
@@ -998,6 +1006,34 @@ class StarTransformerRuntime:
         if repository is not None:
             repository.save_context_state(model, state)
 
+    def _cached_resolve(
+        self,
+        *,
+        model: str,
+        task_intensity: str,
+        reasoning_effort: str,
+        request_key: str = "",
+        immutable_base: bool = False,
+    ) -> dict[str, Any]:
+        """Cache parameter_policy.resolve() for a few seconds to avoid
+        repeated stat/JSON/deepcopy overhead within a single request."""
+        cache_key = f"{model}|{task_intensity}|{reasoning_effort}|{immutable_base}"
+        now = time.monotonic()
+        with self._lock:
+            cached = self._param_cache.get(cache_key)
+            if cached and (now - cached[0]) < self._param_cache_ttl:
+                return dict(cached[1])
+        result = self.parameter_policy.resolve(
+            model=model,
+            task_intensity=task_intensity,
+            reasoning_effort=reasoning_effort,
+            request_key=request_key,
+            immutable_base=immutable_base,
+        )
+        with self._lock:
+            self._param_cache[cache_key] = (now, dict(result))
+        return result
+
     def _select_context_window(
         self,
         *,
@@ -1100,8 +1136,11 @@ class StarTransformerRuntime:
     def probe(self, *, refresh: bool = True) -> dict[str, Any]:
         if not self.enabled:
             return dict(self._status)
-        if not refresh and self._status.get("last_probed_at"):
-            return dict(self._status)
+        now = time.monotonic()
+        if not refresh:
+            last = self._status.get("last_probed_at")
+            if last and (now - float(last)) < self._probe_cache_ttl:
+                return dict(self._status)
         started = time.perf_counter()
         try:
             tags = self._transport("GET", f"{self.endpoint}/api/tags", None, 3.0)
@@ -1138,7 +1177,7 @@ class StarTransformerRuntime:
         status["last_probe_latency_ms"] = round(
             (time.perf_counter() - started) * 1_000, 3
         )
-        status["last_probed_at"] = time.time()
+        status["last_probed_at"] = time.monotonic()
         with self._lock:
             self._status = status
         return dict(status)
@@ -1239,7 +1278,7 @@ class StarTransformerRuntime:
         status = self.probe(refresh=False)
         if status.get("embedding_model_installed") is not True:
             raise RuntimeError("EMBEDDING_MODEL_NOT_INSTALLED")
-        embedding_parameters = self.parameter_policy.resolve(
+        embedding_parameters = self._cached_resolve(
             model=self.EMBEDDING_MODEL,
             task_intensity="normal",
             reasoning_effort="none",
@@ -1846,7 +1885,7 @@ class StarTransformerRuntime:
             "difficult",
         }:
             normalized_task_intensity = ""
-        routing_parameters = self.parameter_policy.resolve(
+        routing_parameters = self._cached_resolve(
             model="",
             task_intensity=normalized_task_intensity or "normal",
             reasoning_effort=reasoning_effort,
@@ -1878,7 +1917,7 @@ class StarTransformerRuntime:
                 else route_candidates[0]
             )
         ).strip()
-        parameter_settings = self.parameter_policy.resolve(
+        parameter_settings = self._cached_resolve(
             model=selected_model,
             task_intensity=normalized_task_intensity or "normal",
             reasoning_effort=normalized_reasoning_effort,
@@ -2433,7 +2472,7 @@ class StarTransformerRuntime:
                 {"role": "system", "content": system},
                 user_message,
             ],
-            "stream": False,
+            "stream": True,
             "think": think,
             # The commander is the one deliberately resident model. Pipeline
             # stages must not silently override its permanent Ollama residency.
@@ -2449,11 +2488,12 @@ class StarTransformerRuntime:
         resource_allocation: dict[str, Any] | None = None
         if self._uses_default_transport:
             try:
-                resource_allocation = self.resource_manager.prepare_model(
-                    selected_model,
-                    keep_alive=request_payload["keep_alive"],
-                    required_bytes=int(selected_metadata.get("size_bytes") or 0),
-                )
+                with self._resource_lock:
+                    resource_allocation = self.resource_manager.prepare_model(
+                        selected_model,
+                        keep_alive=request_payload["keep_alive"],
+                        required_bytes=int(selected_metadata.get("size_bytes") or 0),
+                    )
             except (OSError, RuntimeError, ValueError, urllib.error.URLError) as error:
                 return {
                     "ok": False,
@@ -2484,21 +2524,17 @@ class StarTransformerRuntime:
                 while True:
                     attempted_context = int(request_payload["options"]["num_ctx"])
                     try:
-                        if self._uses_default_transport:
-                            response = self._http_chat_stream(
-                                f"{self.endpoint}/api/chat",
-                                request_payload,
-                                generation_timeout,
-                                cancel_event,
-                                progress_callback,
-                            )
-                        else:
-                            response = self._transport(
-                                "POST",
-                                f"{self.endpoint}/api/chat",
-                                request_payload,
-                                generation_timeout,
-                            )
+                        # Always use streaming for smoother perceived latency.
+                        # _http_chat_stream handles NDJSON streaming and
+                        # progress callbacks; custom transports also receive
+                        # stream=True in the payload and must handle NDJSON.
+                        response = self._http_chat_stream(
+                            f"{self.endpoint}/api/chat",
+                            request_payload,
+                            generation_timeout,
+                            cancel_event,
+                            progress_callback,
+                        )
                     except InterruptedError:
                         raise
                     except (
