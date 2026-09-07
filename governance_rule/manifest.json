@@ -1,0 +1,57 @@
+{
+  "id": "governance_rule",
+  "name_key": "tool.name",
+  "description_key": "tool.description",
+  "version": "1.0.0",
+  "display_version": "1.0",
+  "status": "running",
+  "enabled": true,
+  "lifecycle": {
+    "startup": "default-before-main-system",
+    "directLoad": true,
+    "encapsulated": false,
+    "optional": false,
+    "stoppable": false,
+    "disableable": false,
+    "unloadable": false
+  },
+  "permissions": {
+    "code_scope": "tool-root-only",
+    "database_scope": "none"
+  },
+  "runtime": {
+    "type": "python",
+    "entry": "main.py",
+    "workingDirectory": "."
+  },
+  "distribution": {
+    "mode": "special-unpackaged",
+    "package": false
+  },
+  "background_service": {
+    "managed_by": "main-system",
+    "headless": true,
+    "auto_restart": true,
+    "max_restart_attempts": 5,
+    "restart_backoff_seconds": 1,
+    "explicit_force_close_suppresses_restart": false
+  },
+  "request_channel": {
+    "model": "governance-authenticated-shared-layer",
+    "runtime_entry": "main.py",
+    "direct_instruction": "PERMISSION_DENIED"
+  },
+  "capabilities": {
+    "governance": {
+      "authority": "governance-rule-only-top-level",
+      "permission_hierarchy_role": "only-top-level-permission-authority",
+      "resident": true,
+      "role": "sovereign",
+      "activation_order": "before-main-system-and-all-other-modules"
+    }
+  },
+  "environment": {
+    "allow": []
+  },
+  "has_custom_ui": false
+}

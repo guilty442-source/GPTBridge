@@ -209,7 +209,7 @@ def test_all_external_ai_use_same_provider_browser_without_fallback(
                 "status": "completed",
                 "provider": agent["provider"],
                 "content": "browser response",
-                "transport": "google-chrome-playwright-foreground",
+                "transport": "embedded-browser-view",
                 "uses_api_key": False,
                 "fallback": {
                     "used": False,
@@ -234,7 +234,7 @@ def test_all_external_ai_use_same_provider_browser_without_fallback(
 
     assert result["status"] == "completed"
     assert result["provider"] == "gemini"
-    assert result["transport"] == "google-chrome-playwright-foreground"
+    assert result["transport"] == "embedded-browser-view"
     assert result["fallback"]["used"] is False
     assert result["fallback"]["cross_provider_substitution"] is False
     assert result["memory_candidates"][0]["direct_database_write"] is False

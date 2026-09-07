@@ -21,6 +21,8 @@ from shared_layer.resource_identity import (
     ResourceIdentity,
     XINGCHENG_MODULE_ID,
     canonical_identifier,
+    locator_id_for,
+    point_id_for,
 )
 
 
@@ -242,7 +244,7 @@ class LocalRagService:
 
     @staticmethod
     def _point_id(chunk_id: str) -> str:
-        return str(uuid.uuid5(uuid.NAMESPACE_URL, "gptbridge-rag:" + chunk_id))
+        return str(point_id_for(chunk_id))
 
     def _dependency_error(self, exc: Exception, *, indexed: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         message = str(exc)
@@ -302,7 +304,7 @@ class LocalRagService:
                     resource_id=f"doc-{document_id}",
                 )
                 locator_id = str(
-                    uuid.uuid5(uuid.NAMESPACE_URL, f"{module_id}:{document['source']}")
+                    locator_id_for(module_id, identity.resource_id)
                 )
                 prepared: list[dict[str, Any]] = []
                 points: list[dict[str, Any]] = []

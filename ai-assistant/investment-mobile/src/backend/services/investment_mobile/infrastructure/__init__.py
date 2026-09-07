@@ -1,1 +1,0 @@
-"""Investment mobile-owned persistence."""

@@ -1,67 +1,80 @@
-"""Xingcheng coordination — wires the Xingcheng auxiliary system into the
-System Sovereign.
+"""xingcheng_coordination — 星澄輔助系統的智慧管理權.
 
-Xingcheng (module ``xingcheng``) is a LOCAL NATIVE MODEL and an auxiliary
-system PEERED with the System Sovereign (same tier).  It has NO execution
-authority and THINKS by referencing the Governance Codex:
+星澄（Xingcheng）是 GPTBridge 的原生輔助系統，與系統主宰同級（peer）。
+此模組定義星澄的智慧管理權面：協調、觀察、建議、解釋。
 
-  * native model          = xingcheng native/Transformer runtime
-  * rank                  = peer to the System Sovereign (auxiliary, same tier)
-  * decision & thinking   = referenced from the Governance Codex
-  * execution             = false (no execution authority)
-  * read-only management  = true
-  * git_write / sql_write / rag_mutation = false
+星澄的職責已拆分為三個獨立面向：
+  * xingcheng_personality.py  — 人格設定（身份、名稱、展示屬性）
+  * xingcheng_native_model.py — 原生模型能力（模型權限、能力分類）
+  * xingcheng_coordination.py — 輔助系統智慧管理權（此模組）
 
-The sovereign coordinates Xingcheng at the decision level only.  This module is
-lightweight (no heavy AI/model import) and reads Xingcheng's residency from the
-mother app's governed-tool state, so the mother process never runs Xingcheng's
-execution stack in-process (execution_delegation = governed-executor-only).
+智慧管理權面：
+  * mode              = intelligent-management（智慧管理）
+  * authority         = read-only-management（唯讀管理，無執行權）
+  * execution         = false（不執行）
+  * git_write         = false
+  * sql_write         = false
+  * rag_mutation      = false
+  * decision & thinking = referenced from the Governance Codex
+
+此模組為輕量協調層（不匯入重型 AI/模型堆疊），從母應用的 governed-tool
+狀態讀取星澄的駐留狀態，母進程永不在進程內執行星澄的執行堆疊。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from governance_rule.codex import GOVERNANCE_CODEX
-
 from .codex_decision import decision_basis
 from .versioning import application_version
-
-
-_XINGCHENG_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "xingcheng"),
-    None,
+from .xingcheng_native_model import (
+    XINGCHENG_EMPOWERED_POWERS,
+    XINGCHENG_KIND,
+    XINGCHENG_PROHIBITED_POWERS,
 )
-if _XINGCHENG_SOVEREIGN is None:
-    raise RuntimeError("xingcheng sovereign not found in Governance Codex")
+from .xingcheng_personality import (
+    XINGCHENG_MODULE_ID,
+    XINGCHENG_RANK,
+    XINGCHENG_ROLE,
+)
 
-XINGCHENG_ROLE = _XINGCHENG_SOVEREIGN.id
-XINGCHENG_MODULE_ID = _XINGCHENG_SOVEREIGN.id
 XINGCHENG_MODE = "intelligent-management"
-XINGCHENG_RANK = _XINGCHENG_SOVEREIGN.rank
-XINGCHENG_KIND = "local-native-model"
-
-XINGCHENG_EMPOWERED_POWERS = _XINGCHENG_SOVEREIGN.powers
-XINGCHENG_PROHIBITED_POWERS = _XINGCHENG_SOVEREIGN.prohibitions
 
 
 class XingchengCoordination:
-    """Decision-level coordinates for the Xingcheng auxiliary system.
+    """星澄輔助系統的智慧管理權 — 決策層級協調。
 
-    Every decision and thinking references the Governance Codex (areas
-    ``xingcheng`` / ``xingcheng-thinking``); this agent does not own its
-    decision source.  Xingcheng never executes.
+    每個決策和思考都引用 Governance Codex（areas ``xingcheng`` /
+    ``xingcheng-thinking``）；此代理不擁有自己的決策來源。星澄不執行。
+
+    人格設定和原生模型能力透過 ``personality`` 和 ``native_model``
+    屬性暴露，由各自的模組管理。
     """
 
     def __init__(self, app: Any) -> None:
         self.app = app
+        # 延遲匯入以避免循環依賴
+        from .xingcheng_personality import XingchengPersonality
+        from .xingcheng_native_model import XingchengNativeModel
+        self._personality = XingchengPersonality(app)
+        self._native_model = XingchengNativeModel(app)
+
+    @property
+    def personality(self) -> Any:
+        """星澄人格設定（身份、名稱、展示屬性）。"""
+        return self._personality
+
+    @property
+    def native_model(self) -> Any:
+        """星澄原生模型能力（模型權限、能力分類）。"""
+        return self._native_model
 
     # ------------------------------------------------------------------
-    # Coordination surface
+    # 智慧管理權面
     # ------------------------------------------------------------------
 
     def coordination_status(self) -> dict[str, Any]:
-        """Coordinated snapshot of Xingcheng's auxiliary system presence."""
+        """星澄輔助系統智慧管理權的完整快照。"""
 
         app_version = application_version(self.app.project_root)
         delegated, tool_state = self._xingcheng_tool_state()
@@ -89,12 +102,14 @@ class XingchengCoordination:
             "delegated": delegated,
             "tool_state": tool_state,
             "delegation": "governed-executor-only",
+            "personality": self._personality.personality_status(),
+            "native_model": self._native_model.capability_status(),
             "thinking": decision_basis("xingcheng-thinking"),
             "decision": decision_basis("xingcheng"),
         }
 
     def orchestration_status(self) -> dict[str, Any]:
-        """Unified subsystem view used by the sovereign's orchestration report."""
+        """統一子系統視圖（供主宰的協調報告使用）。"""
 
         delegated, tool_state = self._xingcheng_tool_state()
         resident = bool(tool_state.get("resident_service")) if tool_state else False
@@ -113,6 +128,8 @@ class XingchengCoordination:
                 "empowered": list(XINGCHENG_EMPOWERED_POWERS),
                 "prohibited": list(XINGCHENG_PROHIBITED_POWERS),
             },
+            "personality": self._personality.personality_status(),
+            "native_model": self._native_model.capability_status(),
             "thinking": decision_basis("xingcheng-thinking"),
             "decision": decision_basis("xingcheng"),
         }
@@ -122,10 +139,10 @@ class XingchengCoordination:
     # ------------------------------------------------------------------
 
     def _xingcheng_tool_state(self) -> tuple[bool, dict[str, Any] | None]:
-        """Locate Xingcheng (xingcheng) residency in the mother app's state.
+        """從母應用的狀態定位星澄的駐留狀態。
 
-        Returns ``(delegated, tool_state)``; ``delegated`` is True when the
-        governed tool reports being handed to an executor.
+        回傳 ``(delegated, tool_state)``；``delegated`` 為 True 時表示
+        governed tool 已移交給執行器。
         """
 
         toolbox = getattr(self.app, "toolbox_service", None)
@@ -145,7 +162,7 @@ class XingchengCoordination:
                     break
 
         if not isinstance(tool, dict):
-            # Fall back to the default-tool startup record.
+            # 回退到預設工具啟動記錄
             fallback = getattr(self.app, "default_tool_startup", {})
             record = fallback.get(XINGCHENG_MODULE_ID)
             if isinstance(record, dict):
@@ -160,8 +177,8 @@ class XingchengCoordination:
 
 
 __all__ = [
-    "XINGCHENG_MODULE_ID",
     "XINGCHENG_MODE",
+    "XINGCHENG_MODULE_ID",
     "XINGCHENG_ROLE",
     "XingchengCoordination",
 ]

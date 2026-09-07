@@ -60,6 +60,9 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "locator.py",
         "module_locator_repository.py",
         "resource_identity.py",
+        "metadata_contract.py",
+        "reconcile.py",
+        "embedded_browser_client.py",
         "startup.py",
     }
 )

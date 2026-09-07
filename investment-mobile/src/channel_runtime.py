@@ -54,7 +54,7 @@ async def main() -> None:
         health=lambda: {
             "service_ready": True,
             "independent_tool": True,
-            "canonical_source_root": "ai-assistant/investment-mobile",
+            "canonical_source_root": "investment-mobile",
             "permission_owner": "ai-assistant",
             "permission_profile": "ai-investment-manager-v1",
             "cache_owner": "ai-assistant",

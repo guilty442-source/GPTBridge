@@ -10,6 +10,8 @@ import {
   SovereignDashboard,
   type RuntimeStatusPayload,
 } from '@/ui/sovereign/SovereignDashboard'
+import { Drawer } from '@/ui/drawer/Drawer'
+import { ThirdPartyPanel } from '@/ui/third-party/ThirdPartyPanel'
 import { formatBytes, formatProjectSize } from '@/shared/utils/format'
 import { mainSystemLocale } from '@/locales/main-system'
 import '../App.css'
@@ -86,6 +88,9 @@ export default function App() {
   const [maintenanceReady, setMaintenanceReady] = useState(false)
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatusPayload>({})
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics>({})
+  const [drawerSovereign, setDrawerSovereign] = useState(false)
+  const [drawerCapacity, setDrawerCapacity] = useState(false)
+  const [drawerThirdParty, setDrawerThirdParty] = useState(false)
   const backendSocket = useBackendSocket()
   const sendCommand = backendSocket.sendCommand
   const connected = backendSocket.status === 'Connected'
@@ -145,6 +150,8 @@ export default function App() {
     if (!api?.invoke) return
 
     let disposed = false
+
+    // Initial one-shot fetch for version + system metrics
     const refreshStatus = async () => {
       try {
         const status = (await api.invoke('app:get-status')) as {
@@ -161,7 +168,19 @@ export default function App() {
     }
 
     void refreshStatus()
-    const statusTimer = window.setInterval(() => void refreshStatus(), 5000)
+
+    // Subscribe to real-time runtime_status_push events (replaces 5s polling)
+    const onStatusPush = (event: Event) => {
+      const customEvent = event as CustomEvent
+      const detail = customEvent.detail || {}
+      if (detail.event !== 'runtime_status_push') return
+      const payload = (detail.payload || {}) as Record<string, unknown>
+      const version = String(payload.version ?? '').trim()
+      if (version) setAppVersion(version)
+      const metrics = payload.systemMetrics as SystemMetrics | undefined
+      if (metrics) setSystemMetrics(metrics)
+    }
+    window.addEventListener('ipc_event', onStatusPush)
 
     const saved = (() => {
       try {
@@ -178,7 +197,7 @@ export default function App() {
 
     return () => {
       disposed = true
-      window.clearInterval(statusTimer)
+      window.removeEventListener('ipc_event', onStatusPush)
     }
   }, [])
 
@@ -190,39 +209,45 @@ export default function App() {
 
   useEffect(() => {
     let disposed = false
-    let retryTimer: number | null = null
 
     if (!connected) {
       setMaintenanceReady(false)
       return () => undefined
     }
 
-    const pollMaintenance = async () => {
-      try {
-        const result = waitForIpcEvent('app:get-runtime-status_result', 10000)
-        const sent = sendCommand('app:get-runtime-status', {
-          source: 'product_readiness_gate',
-        })
-        if (!sent.ok) throw new Error(sent.message || t.maintenanceUnavailable)
-        const payload = await result
-        if (disposed) return
-        const ready = payload.maintenance_ready === true
-        setMaintenanceReady(ready)
-        setRuntimeStatus(payload as RuntimeStatusPayload)
-        if (ready) return
-      } catch {
-        if (disposed) return
-        setMaintenanceReady(false)
-      }
-      retryTimer = window.setTimeout(() => void pollMaintenance(), 1000)
+    // Send one initial status request; subsequent updates arrive via
+    // real-time runtime_status_push events from the backend (no polling).
+    const sent = sendCommand('app:get-runtime-status', {
+      source: 'product_readiness_gate',
+    })
+    if (!sent.ok) {
+      setMaintenanceReady(false)
     }
 
-    void pollMaintenance()
+    // Subscribe to real-time status pushes
+    const onStatusPush = (event: Event) => {
+      if (disposed) return
+      const customEvent = event as CustomEvent
+      const detail = customEvent.detail || {}
+      // Accept both the push event and the command result
+      if (
+        detail.event !== 'runtime_status_push' &&
+        detail.event !== 'app:get-runtime-status_result'
+      ) {
+        return
+      }
+      const payload = (detail.payload || {}) as Record<string, unknown>
+      const ready = payload.maintenance_ready === true
+      setMaintenanceReady(ready)
+      setRuntimeStatus(payload as RuntimeStatusPayload)
+    }
+    window.addEventListener('ipc_event', onStatusPush)
+
     return () => {
       disposed = true
-      if (retryTimer !== null) window.clearTimeout(retryTimer)
+      window.removeEventListener('ipc_event', onStatusPush)
     }
-  }, [connected, sendCommand, waitForIpcEvent])
+  }, [connected, sendCommand])
 
   const connection = connectionCopy(backendSocket.status, maintenanceReady)
   const summary = useMemo(() => {
@@ -287,56 +312,75 @@ export default function App() {
           </aside>
         )}
 
-        <section className="status-overview" aria-label={t.systemOverview}>
-          <article><span>{t.availableTools}</span><strong>{summary.total}</strong><small>{t.availableToolsHint}</small></article>
-          <article><span>{t.runningTools}</span><strong>{summary.running}</strong><small>{t.runningToolsHint}</small></article>
-          <article><span>{t.issues}</span><strong>{summary.issues}</strong><small>{t.issuesHint}</small></article>
-          <article><span>{t.commandStrategy}</span><strong className="status-overview__word">{t.requestToolExecution}</strong><small>{t.commandStrategyHint}</small></article>
-          <article data-testid="system-disk-size">
-            <span>{t.systemDisk} {systemMetrics.diskRoot || ''}</span>
-            <strong className="status-overview__word">
-              {formatBytes(systemMetrics.diskTotalBytes, { exactBytes: true, fallback: t.pendingCheck })}
-            </strong>
-            <small>
-              {t.usageRate}{' '}
-              {typeof systemMetrics.diskUsagePercent === 'number'
-                ? `${systemMetrics.diskUsagePercent.toFixed(1)}%`
-                : t.pendingCheck}{' · '}
-              {t.used} {formatBytes(diskUsedBytes, { exactBytes: true, fallback: t.pendingCheck })} · {t.available}{' '}
-              {formatBytes(systemMetrics.diskFreeBytes, { exactBytes: true, fallback: t.pendingCheck })}
-            </small>
+        {/* Clean tech-feel summary cards */}
+        <section className="hero-grid" aria-label={t.systemOverview}>
+          <article className="hero-card hero-card--primary">
+            <span className="hero-card__label">{t.availableTools}</span>
+            <strong className="hero-card__value">{summary.total}</strong>
+            <small className="hero-card__hint">{t.availableToolsHint}</small>
           </article>
-          <article data-testid="main-system-folder-size">
-            <span>{t.mainSystemSize}</span>
-            <strong className="status-overview__word">
-              {formatProjectSize(mainSystemSizeBytes, { fallback: t.pendingCheck })}
-            </strong>
-            <small>{t.mainSystemSizeHint} · {capacityDetail(mainSystemSizeBytes, mainSystemFileCount)}</small>
+          <article className="hero-card">
+            <span className="hero-card__label">{t.runningTools}</span>
+            <strong className="hero-card__value">{summary.running}</strong>
+            <small className="hero-card__hint">{t.runningToolsHint}</small>
           </article>
-          <article data-testid="dependency-folder-size">
-            <span>{t.dependencySize}</span>
-            <strong className="status-overview__word">
-              {formatProjectSize(dependencySizeBytes, { fallback: t.pendingCheck })}
-            </strong>
-            <small>{t.dependencySizeHint} · {capacityDetail(dependencySizeBytes, dependencyFileCount)}</small>
+          <article className="hero-card" data-tone={summary.issues > 0 ? 'warning' : 'ok'}>
+            <span className="hero-card__label">{t.issues}</span>
+            <strong className="hero-card__value">{summary.issues}</strong>
+            <small className="hero-card__hint">{t.issuesHint}</small>
           </article>
-          <article data-testid="shared-layer-folder-size">
-            <span>{t.sharedLayerSize}</span>
-            <strong className="status-overview__word">
-              {formatProjectSize(sharedLayerSizeBytes, { fallback: t.pendingCheck })}
-            </strong>
-            <small>{t.sharedLayerSizeHint} · {capacityDetail(sharedLayerSizeBytes, sharedLayerFileCount)}</small>
-          </article>
-          <article data-testid="workspace-folder-size">
-            <span>{t.workspaceSize}</span>
-            <strong className="status-overview__word">
-              {formatProjectSize(workspaceSizeBytes, { fallback: t.pendingCheck })}
-            </strong>
-            <small>{t.workspaceSizeHint} · {capacityDetail(workspaceSizeBytes, workspaceFileCount)}</small>
+          <article className="hero-card">
+            <span className="hero-card__label">{t.commandStrategy}</span>
+            <strong className="hero-card__value hero-card__value--text">{t.requestToolExecution}</strong>
+            <small className="hero-card__hint">{t.commandStrategyHint}</small>
           </article>
         </section>
 
-        <SovereignDashboard runtimeStatus={runtimeStatus} />
+        {/* Drawer trigger row */}
+        <section className="drawer-triggers">
+          <button
+            type="button"
+            className="drawer-trigger"
+            onClick={() => setDrawerSovereign(true)}
+          >
+            <span className="drawer-trigger__icon" aria-hidden="true">S</span>
+            <span className="drawer-trigger__text">
+              <strong>{mainSystemLocale.sovereign.title}</strong>
+              <small>{mainSystemLocale.sovereign.eyebrow}</small>
+            </span>
+            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="drawer-trigger"
+            onClick={() => setDrawerCapacity(true)}
+          >
+            <span className="drawer-trigger__icon" aria-hidden="true">D</span>
+            <span className="drawer-trigger__text">
+              <strong>{t.capacityDetails}</strong>
+              <small>{t.systemDisk} · {t.workspaceSize}</small>
+            </span>
+            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="drawer-trigger"
+            onClick={() => setDrawerThirdParty(true)}
+          >
+            <span className="drawer-trigger__icon" aria-hidden="true">T</span>
+            <span className="drawer-trigger__text">
+              <strong>第三方軟體管理</strong>
+              <small>版本探測 · 自動更新</small>
+            </span>
+            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </section>
 
         <ToolboxEntry
           tools={toolboxTools}
@@ -352,6 +396,106 @@ export default function App() {
         <span>GPTBridge v{displayVersion(appVersion)}</span>
         <span>{t.footerPlatform}</span>
       </footer>
+
+      {/* Sovereign drawer */}
+      <Drawer
+        open={drawerSovereign}
+        onClose={() => setDrawerSovereign(false)}
+        title={mainSystemLocale.sovereign.title}
+        eyebrow={mainSystemLocale.sovereign.eyebrow}
+        icon="S"
+      >
+        <SovereignDashboard runtimeStatus={runtimeStatus} />
+      </Drawer>
+
+      {/* Third-party management drawer */}
+      <Drawer
+        open={drawerThirdParty}
+        onClose={() => setDrawerThirdParty(false)}
+        title="第三方軟體管理"
+        eyebrow="版本探測 · 自動更新"
+        icon="T"
+      >
+        <ThirdPartyPanel />
+      </Drawer>
+
+      {/* Capacity drawer */}
+      <Drawer
+        open={drawerCapacity}
+        onClose={() => setDrawerCapacity(false)}
+        title={t.capacityDetails}
+        eyebrow={t.systemOverview}
+        icon="D"
+      >
+        <div className="capacity-drawer">
+          <article className="capacity-row" data-testid="system-disk-size">
+            <div className="capacity-row__head">
+              <strong>{t.systemDisk} {systemMetrics.diskRoot || ''}</strong>
+              <span className="capacity-row__big">
+                {formatBytes(systemMetrics.diskTotalBytes, { exactBytes: true, fallback: t.pendingCheck })}
+              </span>
+            </div>
+            <p className="capacity-row__detail">
+              {t.usageRate}{' '}
+              {typeof systemMetrics.diskUsagePercent === 'number'
+                ? `${systemMetrics.diskUsagePercent.toFixed(1)}%`
+                : t.pendingCheck}
+              {' · '}
+              {t.used} {formatBytes(diskUsedBytes, { exactBytes: true, fallback: t.pendingCheck })}
+              {' · '}
+              {t.available} {formatBytes(systemMetrics.diskFreeBytes, { exactBytes: true, fallback: t.pendingCheck })}
+            </p>
+          </article>
+
+          <article className="capacity-row" data-testid="main-system-folder-size">
+            <div className="capacity-row__head">
+              <strong>{t.mainSystemSize}</strong>
+              <span className="capacity-row__big">
+                {formatProjectSize(mainSystemSizeBytes, { fallback: t.pendingCheck })}
+              </span>
+            </div>
+            <p className="capacity-row__detail">
+              {t.mainSystemSizeHint} · {capacityDetail(mainSystemSizeBytes, mainSystemFileCount)}
+            </p>
+          </article>
+
+          <article className="capacity-row" data-testid="dependency-folder-size">
+            <div className="capacity-row__head">
+              <strong>{t.dependencySize}</strong>
+              <span className="capacity-row__big">
+                {formatProjectSize(dependencySizeBytes, { fallback: t.pendingCheck })}
+              </span>
+            </div>
+            <p className="capacity-row__detail">
+              {t.dependencySizeHint} · {capacityDetail(dependencySizeBytes, dependencyFileCount)}
+            </p>
+          </article>
+
+          <article className="capacity-row" data-testid="shared-layer-folder-size">
+            <div className="capacity-row__head">
+              <strong>{t.sharedLayerSize}</strong>
+              <span className="capacity-row__big">
+                {formatProjectSize(sharedLayerSizeBytes, { fallback: t.pendingCheck })}
+              </span>
+            </div>
+            <p className="capacity-row__detail">
+              {t.sharedLayerSizeHint} · {capacityDetail(sharedLayerSizeBytes, sharedLayerFileCount)}
+            </p>
+          </article>
+
+          <article className="capacity-row" data-testid="workspace-folder-size">
+            <div className="capacity-row__head">
+              <strong>{t.workspaceSize}</strong>
+              <span className="capacity-row__big">
+                {formatProjectSize(workspaceSizeBytes, { fallback: t.pendingCheck })}
+              </span>
+            </div>
+            <p className="capacity-row__detail">
+              {t.workspaceSizeHint} · {capacityDetail(workspaceSizeBytes, workspaceFileCount)}
+            </p>
+          </article>
+        </div>
+      </Drawer>
     </div>
   )
 }

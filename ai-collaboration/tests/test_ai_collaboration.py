@@ -121,7 +121,7 @@ class _FakeProviderSession:
             "status": "completed",
             "provider": "chatgpt",
             "content": "已整合",
-            "transport": "browser-playwright-foreground",
+            "transport": "embedded-browser-view",
             "fallback": {
                 "used": True,
                 "requested_provider": agent["provider"],
@@ -383,7 +383,7 @@ def test_tool_general_mode_returns_immediately_for_browser_results(
                 "content": "",
                 "error": "",
                 "error_code": "FOREGROUND_BROWSER_INTERACTION_REQUIRED",
-                "transport": "google-chrome-shared-foreground-tabs",
+                "transport": "embedded-browser-view",
                 "memory_candidates": [],
                 "fallback": {"used": False, "browser_only": True},
             }
@@ -425,7 +425,7 @@ def test_tool_general_mode_returns_immediately_for_browser_results(
     saved = completed["messages"][0]["responses"][0]
     assert saved["status"] == "completed"
     assert saved["content"] == "瀏覽器回覆"
-    assert saved["transport"] == "google-chrome-foreground-manual-result"
+    assert saved["transport"] == "embedded-browser-view"
 
 
 def test_star_fixed_task_plan_ignores_manual_agent_rerouting(tmp_path: Path) -> None:
@@ -612,20 +612,14 @@ def test_provider_session_uses_managed_chrome_automation(tmp_path: Path) -> None
     assert opened == ["gemini"]
 
 
-def test_provider_session_rediscovers_chrome_without_restart(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_provider_session_uses_embedded_browser(tmp_path: Path) -> None:
     session = AiCollaborationProviderSession(tmp_path)
-    session.browser = None
-    chrome = tmp_path / "chrome.exe"
-    chrome.write_text("placeholder", encoding="utf-8")
-    monkeypatch.setattr(session, "_resolve_google_chrome", lambda: chrome)
 
     browser = session._available_browser()
 
     assert browser is not None
-    assert browser.chrome_executable == chrome.resolve()
     assert session.browser_status()["ready_without_restart"] is True
+    assert session.browser_status()["product"] == "embedded-browser-view"
 
 
 def test_all_provider_authorization_uses_foreground_chrome_only(
@@ -646,7 +640,7 @@ def test_all_provider_authorization_uses_foreground_chrome_only(
             )
         )
         assert result["ok"] is True
-        assert result["mode"] == "google-chrome-playwright-foreground"
+        assert result["mode"] == "embedded-browser-view"
         assert result["automatic_inference_fallback"] is None
 
     assert opened == sorted(session.BROWSER_PRIMARY_PROVIDERS)

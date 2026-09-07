@@ -98,7 +98,14 @@ def _is_declarable_tool_environment_key(value: Any) -> bool:
 def _background_subprocess_kwargs() -> dict[str, Any]:
     if os.name != "nt":
         return {}
-    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    # Independent tools must survive a main-system crash.  CREATE_NEW_PROCESS_GROUP
+    # detaches the child from the main-system's process group so that a crash
+    # or forced termination of the mother process does not cascade-kill the
+    # independent tool processes.  CREATE_NO_WINDOW keeps them headless.
+    creationflags = int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
+    new_group = int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) or 0)
+    if new_group:
+        creationflags |= new_group
     if not creationflags:
         return {}
     return {"creationflags": creationflags}
@@ -159,6 +166,9 @@ class ToolboxService:
         self._source_ui_runtime_sessions: dict[str, str] = {}
         self._process_state_lock = asyncio.Lock()
         self._central_repair: CentralRepairService | None = None
+        # Callback invoked on tool activity (set by Integration Sub-Sovereign
+        # for idle management).  Signature: (tool_id: str) -> None.
+        self._tool_activity_callback: Callable[[str], None] | None = None
 
     @property
     def central_repair(self) -> CentralRepairService:
@@ -1377,6 +1387,9 @@ class ToolboxService:
                 tool["resident_service"] = True
                 tool["status"] = "running"
                 continue
+            # Classify resident vs non-resident from manifest lifecycle.
+            lifecycle = tool.get("lifecycle") or {}
+            tool["resident_service"] = lifecycle.get("stoppable") is False
             try:
                 authority_tool_id = self._runtime_owner_tool_id(tool_id, tool)
                 authorized = bool(
@@ -2575,6 +2588,35 @@ class ToolboxService:
                 "error_code": "PERMISSION_DENIED",
                 "message": "PERMISSION_DENIED",
             }
+
+        # On-demand start: if the tool was idle-stopped, auto-start it before
+        # queuing the execution request so there is a process to pick it up.
+        if tool_id not in self._started_request_by_tool:
+            try:
+                start_result = await self.start_tool(
+                    {
+                        "tool_id": tool_id,
+                        "request_id": f"on-demand-{tool_id}-{time.time_ns()}",
+                        "background": True,
+                    }
+                )
+            except Exception:
+                start_result = {"ok": False}
+            if start_result.get("ok") is not True:
+                return {
+                    "ok": False,
+                    "tool_id": tool_id,
+                    "error_code": "ON_DEMAND_START_FAILED",
+                    "message": start_result.get("message", "ON_DEMAND_START_FAILED"),
+                    "start_result": start_result,
+                }
+
+        # Notify idle manager of activity (resets the idle timer).
+        if self._tool_activity_callback is not None:
+            try:
+                self._tool_activity_callback(tool_id)
+            except Exception:
+                pass
 
         request_id, request_error = self._tool_request_id(payload)
         if request_error is not None or request_id is None:

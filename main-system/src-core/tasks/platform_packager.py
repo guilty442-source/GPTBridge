@@ -472,7 +472,7 @@ PYTHON_RUNTIME_EXCLUDED_PREFIXES = (
     "transformers-",
 )
 
-REQUIRED_RUNTIME_IMPORTS = ("playwright.async_api", "websockets")
+REQUIRED_RUNTIME_IMPORTS = ("websockets",)
 TOOL_REQUIRED_RUNTIME_IMPORTS: dict[str, tuple[str, ...]] = {
     "file-sorter": ("PIL", "imageio_ffmpeg"),
     "vaultly": ("imageio_ffmpeg",),

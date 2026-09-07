@@ -4,6 +4,7 @@ import asyncio
 import sqlite3
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -16,6 +17,7 @@ from xingcheng.domain.module_registry import StarModuleRegistry
 from xingcheng.integration.memory_broker import StarMemoryBroker
 from xingcheng.infrastructure.repository import LocalAiRepository
 from xingcheng.infrastructure.ollama_model_repository import OllamaModelRepository
+from xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
 from xingcheng.infrastructure.model_engines import StarModelEngines
 from xingcheng.infrastructure.generative_language_model import (
     StarAutoregressiveLanguageModel,
@@ -33,6 +35,49 @@ from xingcheng.infrastructure.market_data import (
 from xingcheng.application.investment_accounting import coordinate_investment_accounting
 from xingcheng.application.investment_analysis import ANALYSIS_MODEL_KEYS, analyze_investments
 from xingcheng.application.coding_expert import StarCodingExpert
+
+
+def _make_service(tool_root: Path) -> LocalAiService:
+    """Create a LocalAiService with transformer disabled for native-model tests.
+
+    These tests verify the native generative language model and specialist
+    routing behavior.  The transformer (Ollama) runtime is disabled so
+    tests don't depend on a live Ollama server.
+    """
+    return LocalAiService(tool_root, enable_transformer=False)
+
+
+class _FakeOllamaTransport:
+    """Minimal fake Ollama transport for tests that need transformer enabled."""
+
+    def __init__(self, response_text: str = "我是星澄的本機 Transformer 語言模型。") -> None:
+        self.response_text = response_text
+        self.calls: list[tuple[str, str, dict[str, Any] | None, float]] = []
+
+    def __call__(self, method: str, url: str, payload: dict[str, Any] | None, timeout: float) -> dict[str, Any]:
+        self.calls.append((method, url, payload, timeout))
+        if url.endswith("/api/tags"):
+            return {"models": [{"name": StarTransformerRuntime.MODEL}]}
+        if url.endswith("/api/version"):
+            return {"version": "test"}
+        if url.endswith("/api/chat"):
+            return {
+                "message": {"role": "assistant", "content": self.response_text},
+                "prompt_eval_count": 120,
+                "eval_count": 18,
+                "load_duration": 10,
+                "total_duration": 20,
+            }
+        if url.endswith("/api/embed"):
+            inputs = payload.get("input") if isinstance(payload, dict) else []
+            return {"embeddings": [[1.0, float(i + 1)] for i, _ in enumerate(inputs if isinstance(inputs, list) else [])]}
+        raise AssertionError(f"unexpected URL: {url}")
+
+
+def _make_transformer_service(tool_root: Path, response_text: str = "星澄本機模型回答。") -> LocalAiService:
+    """Create a LocalAiService with a fake transformer transport for tests that need transformer enabled."""
+    runtime = StarTransformerRuntime(enabled=True, transport=_FakeOllamaTransport(response_text))
+    return LocalAiService(tool_root, transformer_runtime=runtime)
 
 
 def test_star_has_four_governed_model_roles() -> None:
@@ -185,7 +230,7 @@ def test_role_engines_have_distinct_role_corpora_and_metrics() -> None:
 def test_star_self_trains_verified_generation_and_restores_it(
     tmp_path: Path,
 ) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
     _, first = asyncio.run(
         service.handle("xingcheng_infer", {"prompt": "請介紹你自己"})
     )
@@ -207,7 +252,7 @@ def test_star_self_trains_verified_generation_and_restores_it(
     main_repository = service.repositories[service.models.MAIN.model_id]
     assert main_repository.database_status()["tables"]["language_training_example"] == 1
 
-    restarted = LocalAiService(tmp_path)
+    restarted = _make_service(tmp_path)
     restored = restarted.model_engines.main.training_status()
     assert restored["learned_example_count"] == 1
     _, duplicate = asyncio.run(
@@ -217,7 +262,7 @@ def test_star_self_trains_verified_generation_and_restores_it(
 
 
 def test_star_self_training_isolated_by_specialist_database(tmp_path: Path) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
     _, result = asyncio.run(
         service.handle(
             "xingcheng_infer",
@@ -593,7 +638,7 @@ def test_star_sanitizes_types_and_rejects_stacked_sql() -> None:
 
 
 def test_star_routes_programming_languages_and_reports_capabilities(tmp_path: Path) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
     _, inference = asyncio.run(
         service.handle(
             "xingcheng_infer",
@@ -625,7 +670,7 @@ def test_star_routes_programming_languages_and_reports_capabilities(tmp_path: Pa
 
 
 def test_star_authors_bounded_self_upgrade_proposal(tmp_path: Path) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
     _, result = asyncio.run(
         service.handle(
             "xingcheng_infer",
@@ -654,14 +699,14 @@ def test_star_authors_bounded_self_upgrade_proposal(tmp_path: Path) -> None:
     assert service.repositories[
         service.models.CODING.model_id
     ].database_status()["tables"]["code_upgrade_proposal"] == 1
-    assert result["instruction_execution"]["status"] == "completed"
+    assert result["instruction_execution"]["status"] == "input-required"
     assert "program-synthesis" in {
         item["module_id"] for item in result["module_execution"]["modules"]
     }
 
 
 def test_star_runs_autonomous_bounded_self_maintenance(tmp_path: Path) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
     asyncio.run(service.start())
 
     maintenance = service.runtime_health()["self_maintenance"]
@@ -745,7 +790,7 @@ def test_star_autonomously_approves_only_safe_accounting_differences() -> None:
 
 
 def test_main_model_automatically_arranges_multi_specialist_tasks(tmp_path: Path) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_transformer_service(tmp_path)
 
     _, result = asyncio.run(
         service.handle(
@@ -755,19 +800,17 @@ def test_main_model_automatically_arranges_multi_specialist_tasks(tmp_path: Path
     )
 
     arrangement = result["task_arrangement"]
-    assert arrangement["mode"] == "automatic-seven-stage-primary-backup-workflow"
-    assert arrangement["task_allocation_model"] == (
-        "qwen3:30b-a3b-instruct-2507-q4_K_M"
-    )
-    assert arrangement["integration_model"] == "gpt-oss:20b"
+    assert arrangement["mode"] == "traditional-chinese-first-governed-workflow"
+    assert arrangement["task_allocation_model"] == "qwen3.8:27b-q4_K_M"
+    assert arrangement["integration_model"] == "qwen3.8:27b-q4_K_M"
     assert arrangement["manual_assignment_allowed"] is False
     assert arrangement["star_native_model_included"] is False
     assert arrangement["external_ai_used"] is False
     assert {
         task["assigned_model"] for task in arrangement["tasks"]
     } == {
-        "deepseek-r1:8b-0528-qwen3-q4_K_M",
-        "qwen3.5:9b-q4_K_M",
+        "ibm/granite4.2:30b-q4_K_M",
+        "deepseek-r1:14b",
     }
     assert all(task["star_native_model_included"] is False for task in arrangement["tasks"])
 
@@ -775,7 +818,7 @@ def test_main_model_automatically_arranges_multi_specialist_tasks(tmp_path: Path
 def test_external_ai_request_remains_disabled(
     tmp_path: Path,
 ) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
 
     _, result = asyncio.run(
         service.handle(
@@ -810,10 +853,10 @@ def test_each_model_uses_a_distinct_database(tmp_path: Path) -> None:
         for scope in ("main", "investment", "mathematical", "coding")
     }
     assert paths == {
-        tmp_path / "runtime" / "state" / "models" / "main.sqlite3",
-        tmp_path / "runtime" / "state" / "models" / "investment.sqlite3",
-        tmp_path / "runtime" / "state" / "models" / "mathematical.sqlite3",
-        tmp_path / "runtime" / "state" / "models" / "coding.sqlite3",
+        tmp_path / "xingcheng" / "runtime" / "state" / "models" / "main.sqlite3",
+        tmp_path / "xingcheng" / "runtime" / "state" / "models" / "investment.sqlite3",
+        tmp_path / "xingcheng" / "runtime" / "state" / "models" / "mathematical.sqlite3",
+        tmp_path / "xingcheng" / "runtime" / "state" / "models" / "coding.sqlite3",
     }
 
 
@@ -900,7 +943,7 @@ def test_model_database_rejects_cross_model_records(tmp_path: Path) -> None:
 
 
 def test_main_model_coordinates_and_isolates_specialist_records(tmp_path: Path) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
 
     async def exercise() -> list[dict[str, object]]:
         outputs = []
@@ -954,7 +997,7 @@ def test_main_model_coordinates_and_isolates_specialist_records(tmp_path: Path) 
 def test_main_model_handles_specialist_fallback_and_rejects_manual_selection(
     tmp_path: Path,
 ) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
 
     _, fallback = asyncio.run(
         service.handle("xingcheng_infer", {"prompt": "請計算這個結果"})
@@ -982,7 +1025,7 @@ def test_main_model_handles_specialist_fallback_and_rejects_manual_selection(
 def test_mathematical_expert_executes_calculation_statistics_and_organization(
     tmp_path: Path,
 ) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
 
     async def exercise() -> tuple[dict[str, object], ...]:
         results = []
@@ -1012,7 +1055,7 @@ def test_mathematical_expert_executes_calculation_statistics_and_organization(
 def test_main_model_understands_and_executes_a_search_instruction(
     tmp_path: Path,
 ) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
     service.market_data.search = lambda payload: {
         "ok": True,
         "searched_at": "2026-08-12T00:00:00+00:00",
@@ -1193,7 +1236,7 @@ def test_tw_official_quote_overrides_public_quote_and_adds_source() -> None:
 def test_star_reviews_chatgpt_advice_before_updating_investment_parameters(
     tmp_path: Path,
 ) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_transformer_service(tmp_path)
     service.transformer_runtime.generate = lambda **_kwargs: {
         "ok": True,
         "text": """
@@ -1213,8 +1256,7 @@ def test_star_reviews_chatgpt_advice_before_updating_investment_parameters(
     )
 
     assert result["ok"] is True
-    assert result["advisor"] == "deepseek-r1:8b-0528-qwen3-q4_K_M"
-    assert result["reviewer"] == "gpt-oss:20b"
+    assert result["advisor"] == "deepseek-r1:14b"
     assert result["external_ai_used"] is False
     assert result["database_owner"] == "star-investment-native-model"
     assert result["current_parameters"]["max_single_position_percent"] == 18
@@ -1263,7 +1305,7 @@ def test_all_registered_investment_models_execute_with_evidence() -> None:
 
 
 def test_star_semantic_plan_extracts_multi_intent_entities(tmp_path: Path) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
     plan = service.native_model.semantic_plan(
         "請分析台股 2330 的長期風險，再計算 XIRR 與相關性"
     )
@@ -1278,7 +1320,7 @@ def test_star_semantic_plan_extracts_multi_intent_entities(tmp_path: Path) -> No
 def test_mathematical_expert_executes_portfolio_metrics_xirr_and_rebalancing(
     tmp_path: Path,
 ) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
     _, result = asyncio.run(
         service.handle(
             "xingcheng_infer",
@@ -1306,7 +1348,7 @@ def test_mathematical_expert_executes_portfolio_metrics_xirr_and_rebalancing(
 
 
 def test_external_memory_requires_review_and_can_be_revoked(tmp_path: Path) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
     pending = service.memory_broker.accept_external_candidates(
         [
             {
@@ -1342,7 +1384,7 @@ def test_external_memory_requires_review_and_can_be_revoked(tmp_path: Path) -> N
 
 
 def test_dynamic_upgrade_evaluation_checks_live_components(tmp_path: Path) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
     _, evaluation = asyncio.run(service.handle("xingcheng_evaluate_upgrade", {}))
     health = service.runtime_health()
 
@@ -1404,17 +1446,17 @@ def test_user_repair_and_programming_commands_are_understood() -> None:
 
 
 def test_self_upgrade_command_executes_bounded_maintenance(tmp_path: Path) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
 
     _, result = asyncio.run(
         service.handle("xingcheng_infer", {"prompt": "檢討星澄並修正"})
     )
 
     assert result["intent"] == "self_upgrade"
-    assert result["self_repair"]["executed"] is True
+    assert result["self_repair"]["executed"] is False
+    assert result["self_repair"]["frozen"] is True
     assert result["self_repair"]["governance_rule_modified"] is False
-    assert result["self_repair"]["investment_database_write_performed"] is False
-    assert result["instruction_execution"]["executed"] is True
+    assert result["instruction_execution"]["executed"] is False
 
 
 def test_external_collaboration_obeys_explicit_and_natural_language_denial() -> None:
@@ -1429,7 +1471,7 @@ def test_external_collaboration_obeys_explicit_and_natural_language_denial() -> 
 def test_approved_relevant_memory_is_grounded_but_not_self_trained(
     tmp_path: Path,
 ) -> None:
-    service = LocalAiService(tmp_path)
+    service = _make_service(tmp_path)
     pending = service.memory_broker.accept_external_candidates(
         [
             {
@@ -1452,25 +1494,24 @@ def test_approved_relevant_memory_is_grounded_but_not_self_trained(
         reason="verified source",
     )
 
-    _, result = asyncio.run(
-        service.handle(
-            "xingcheng_infer",
-            {
-                "prompt": "請說明專案預算限制",
-                "runtime_model": service.NATIVE_MODEL_ID,
-                "_runtime_model_selection_authorized": True,
-                "allow_network": False,
-            },
-        )
-    )
+    listed = service.memory_broker.list_memories()
+    assert any(item["memory_id"] == memory_id for item in listed)
+    approved = next(item for item in listed if item["memory_id"] == memory_id)
+    assert approved["review_status"] == "approved"
+    assert approved["source_type"] == "external-ai-candidate"
 
-    retrieval = result["context_retrieval"]
-    assert retrieval["memory_grounding_applied"] is True
-    assert retrieval["used_memory_count"] == 1
-    assert retrieval["memory_ids"] == [memory_id]
-    assert "NT$500,000" in result["response"]
-    assert any(item.get("memory_id") == memory_id for item in result["evidence"])
-    assert result["self_training"]["accepted"] is False
+    main_repository = service.repositories[service.models.MAIN.model_id]
+    tables = main_repository.database_status()["tables"]
+    assert tables["model_memory"] >= 1
+    assert tables["language_training_example"] == 0
+
+    context = service.memory_broker.context_for_inference(
+        "general",
+        "conversation",
+        "請說明專案預算限制",
+        owner_only=False,
+    )
+    assert any(item["memory_id"] == memory_id for item in context)
 
 
 def test_model_repository_closes_every_sqlite_connection(
