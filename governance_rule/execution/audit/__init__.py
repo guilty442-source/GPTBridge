@@ -26,6 +26,8 @@ from governance_rule.permission_directory.registries.permissions.source_ownershi
 from governance_rule.codex import GOVERNANCE_CODEX
 from governance_rule.codex.chinese import GOVERNANCE_CODEX_CHINESE
 import governance_rule.execution.git_tiers
+governance_rule.execution.git_tiers.AUDIT_LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
+governance_rule.execution.git_tiers.AUDIT_LEDGER_PATH.touch(exist_ok=True)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]

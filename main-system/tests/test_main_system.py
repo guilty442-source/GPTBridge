@@ -2347,7 +2347,7 @@ def test_shared_layer_and_local_model_are_locked_resident_services() -> None:
         (ROOT / "local-model" / "manifest.json").read_text("utf-8")
     )
     assert records["shared-layer"]["runtime_available"] is True
-    assert shared_manifest["main_system_independent_tool"] is True
+    assert shared_manifest["main_system_independent_tool"] is False
     assert local_manifest["main_system_independent_tool"] is True
     assert shared_manifest["lifecycle"]["stoppable"] is False
     assert local_manifest["lifecycle"]["stoppable"] is False

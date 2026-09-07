@@ -93,15 +93,35 @@ Git governance tooling development (A53/E39).
 ## Merge Flow
 
 ```
-local-model ─┐
-rag ─────────┤
-ui ──────────┼──> main (stable release)
-git ─────────┘
+                Git Coordinator
+                       |
+        +--------------+--------------+
+        |              |              |
+      AI-1           AI-2           AI-3
+        |              |              |
+     worktree       worktree       worktree
+        |              |              |
+     branch A       branch B       branch C
+        +--------------+--------------+
+                       |
+                  git-gate
+                       |
+                  git_tiers
+                       |
+               Local Bare Repo
+                       |
+                 Merge Queue
+                       |
+                     main
 ```
 
-Each feature branch merges into `main` after verification.  `main` is the
-sole stable release branch and the source of truth for the central bare
-repository (`E:\GPTBridge.git`) and GitHub mirror (`origin`).
+Each feature branch merges into `main` after verification.  The Git
+Coordinator (`governance_rule/execution/git_tiers/coordinator.py`)
+serializes merges through a merge queue so only one merge runs at a time.
+Every operation is audited with pre-operation snapshot (HEAD, branch,
+dirty files, staged files) for recovery.  `main` is the sole stable
+release branch and the source of truth for the central bare repository
+(`E:\GPTBridge.git`) and GitHub mirror (`origin`).
 
 ## Central + Mirror
 

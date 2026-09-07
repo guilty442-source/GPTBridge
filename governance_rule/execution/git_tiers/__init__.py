@@ -18,13 +18,14 @@ from pathlib import Path
 from typing import Final
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-AUDIT_LEDGER_PATH = PROJECT_ROOT / "governance_rule" / "runtime" / "audit" / "git_tier_audit.jsonl"
+AUDIT_LEDGER_PATH = PROJECT_ROOT / "governance_rule" / "execution" / "audit" / "git_tier_audit.jsonl"
 
 TIER1_OPS: Final[frozenset[str]] = frozenset({
     "status", "log", "diff", "show", "branch", "remote", "blame",
     "ls-files", "cat-file", "rev-parse", "describe", "tag -l",
     "for-each-ref", "stash list", "config --get", "config --list",
-    "worktree list", "reflog show", "fsck", "count-objects", "shortlog",
+    "worktree list", "worktree list --porcelain", "worktree status",
+    "worktree prune --dry-run", "reflog show", "fsck", "count-objects", "shortlog",
     "annotate", "name-rev", "rev-list", "ls-tree", "ls-remote",
 })
 
@@ -32,8 +33,9 @@ TIER2_OPS: Final[frozenset[str]] = frozenset({
     "add", "commit", "stash", "stash push", "stash pop", "stash apply",
     "branch create", "checkout", "switch", "merge", "tag create", "tag -a",
     "tag -m", "fetch", "push", "rebase", "cherry-pick", "revert",
-    "worktree add", "worktree remove", "mv", "restore", "switch -c",
-    "pull", "clone",
+    "worktree add", "worktree create", "worktree lock", "worktree unlock",
+    "worktree remove", "worktree move", "worktree prune", "mv", "restore",
+    "switch -c", "pull", "clone",
 })
 
 TIER3_OPS: Final[frozenset[str]] = frozenset({
@@ -77,16 +79,61 @@ def classify(command: str) -> int:
     return 2
 
 
-def audit_log(tier: int, command: str, actor: str, approved: bool, detail: str = "") -> None:
-    """Write an audit ledger entry (A46 compliance)."""
+def audit_log(
+    tier: int,
+    command: str,
+    actor: str,
+    approved: bool,
+    detail: str = "",
+    *,
+    operation: str = "",
+    repo_snapshot: dict[str, object] | None = None,
+) -> None:
+    """Write an audit ledger entry (A46 compliance).
+
+    Captures pre-operation repo state so failed Tier-2/3 operations can
+    be recovered to the recorded HEAD revision:
+
+      Before
+      HEAD = abc123
+           |
+      Tier-2 merge
+           |
+      failure
+           |
+      Recovery metadata -> abc123
+
+    Fields:
+      - timestamp: ISO-8601 local time
+      - tier: 1/2/3
+      - operation: normalized operation label (e.g. "merge", "push", "commit")
+      - command: raw git command string
+      - actor: who invoked the operation
+      - approved: whether governance approved it
+      - detail: human-readable detail / failure reason
+      - head_revision: pre-operation HEAD SHA (recovery target)
+      - branch: pre-operation branch name
+      - dirty_files: unstaged-modified paths before operation
+      - staged_files: staged paths before operation
+    """
+    from .snapshot import _capture_repo_snapshot
+
     AUDIT_LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
-    entry = {
+    snapshot = repo_snapshot if repo_snapshot is not None else _capture_repo_snapshot()
+    if not operation:
+        operation = command.strip().split()[0] if command.strip() else "unknown"
+    entry: dict[str, object] = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime()),
         "tier": tier,
+        "operation": operation,
         "command": command,
         "actor": actor,
         "approved": approved,
         "detail": detail,
+        "head_revision": snapshot["head_revision"],
+        "branch": snapshot["branch"],
+        "dirty_files": snapshot["dirty_files"],
+        "staged_files": snapshot["staged_files"],
     }
     with open(AUDIT_LEDGER_PATH, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")

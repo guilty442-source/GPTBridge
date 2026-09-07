@@ -35,7 +35,7 @@ def main() -> int:
     for line in sys.stdin:
         fields = line.split()
         if len(fields) != 4:
-            audit_log(3, f"push {remote}", actor, False, "invalid pre-push input")
+            audit_log(3, f"push {remote}", actor, False, "invalid pre-push input", operation="push")
             return 1
         local_ref, local_oid, remote_ref, remote_oid = fields
         if _is_zero(local_oid):
@@ -48,7 +48,7 @@ def main() -> int:
 
     command = f"push {remote}"
     if not high_risk:
-        audit_log(2, command, actor, True, "pre-push explicit invocation confirmed")
+        audit_log(2, command, actor, True, "pre-push explicit invocation confirmed", operation="push")
         return 0
 
     approved = os.environ.get("GOVERNANCE_AUTHORITY_APPROVAL", "").casefold() in {
@@ -57,7 +57,7 @@ def main() -> int:
         "yes",
     }
     detail = ",".join(high_risk)
-    audit_log(3, command, actor, approved, detail)
+    audit_log(3, command, actor, approved, detail, operation="push")
     if approved:
         return 0
     print(

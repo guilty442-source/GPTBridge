@@ -25,11 +25,11 @@ def main() -> int:
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     if result.returncode != 0:
-        audit_log(2, "merge", actor, False, "pre-merge-commit patch check failed")
+        audit_log(2, "merge", actor, False, "pre-merge-commit patch check failed", operation="merge")
         sys.stderr.write(result.stdout)
         sys.stderr.write(result.stderr)
         return result.returncode
-    audit_log(2, "merge", actor, True, "pre-merge-commit explicit invocation confirmed")
+    audit_log(2, "merge", actor, True, "pre-merge-commit explicit invocation confirmed", operation="merge")
     return 0
 
 
