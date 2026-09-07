@@ -55,7 +55,11 @@ class CommandChannelsMixin:
                 "execution_owner": "governed-executor",
                 "self_model_data_exception": "read-write",
                 "git": git_status,
-                "sql": {"engine": "local-sqlite3", "role": "structured-mutable-source-of-truth"},
+                "sql": {
+                    "engine": "local-sqlite3",
+                    "role": "owner-private-operational-state",
+                    "canonical_central_engine": "postgresql",
+                },
                 "rag": rag_status,
                 "llm": {"engine": "ollama", "role": "local-understanding-reasoning-and-operations"},
             }

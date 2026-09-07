@@ -20,7 +20,8 @@ python global-cleaner/src/main.py --cleanup-garbage --scope global --dry-run --j
 python global-cleaner/src/main.py --system-check --json
 python global-cleaner/src/main.py --list-managed-backups --json
 ```
-# Test sandbox
+
+## Test sandbox
 
 Run repository tests through `src/test_runner.py`. Test caches and temporary
 files are redirected into `global-cleaner/runtime/test-sandbox` and removed

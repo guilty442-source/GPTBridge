@@ -392,7 +392,7 @@ class LocalRagService:
             "skipped_count": len(skipped),
             "errors": errors,
             "embedding_model": embedding_model,
-            "retrieval": "local-semantic-index+local-sqlite3-fts",
+            "retrieval": "local-vector-degraded-cache+local-sqlite3-fts",
             "available_to_all_local_models": True,
             "network_used": False,
         }
@@ -595,7 +595,7 @@ class LocalRagService:
             "reranker": reranker, "generation_model": generated.get("model"),
             "generation_attempts": attempts, "generation": generated,
             "embedding_model": str(self.transformer_runtime.EMBEDDING_MODEL),
-            "retrieval": "local-semantic-index+local-sqlite3-fts+rrf+qwen3-reranker",
+            "retrieval": "local-vector-degraded-cache+local-sqlite3-fts+rrf+qwen3-reranker",
             "grounding_policy": "shared-retrieved-context-only-with-inline-citations",
             "knowledge_base": "shared", "available_to_all_local_models": True,
             "network_used": False, "remote_model_used": False,
@@ -606,9 +606,10 @@ class LocalRagService:
         vector_ready = vector_status.get("available") is True
         return {
             "enabled": True,
-            "mode": "shared-persistent-hybrid-local-rag",
-            "knowledge_base": "shared",
-            "available_to_all_local_models": True,
+            "mode": "bounded-degraded-hybrid-local-rag",
+            "canonical_vector_database": "qdrant",
+            "knowledge_base": "tool-private-degraded-cache",
+            "available_to_all_local_models": False,
             "embedding_model": str(self.transformer_runtime.EMBEDDING_MODEL),
             "vector_database": vector_status,
             "keyword_index": {"engine": "local-sqlite3", **self.repository.status()},

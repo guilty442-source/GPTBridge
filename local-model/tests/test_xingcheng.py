@@ -170,8 +170,8 @@ def test_xingcheng_role_setting_is_optional_single_personality_record() -> None:
         ROOT / "main-system" / "scripts" / "provision_local_architecture.py"
     ).read_text(encoding="utf-8")
     assert "engine" in provisioner
-    assert "local-sqlite3" in provisioner
-    assert "deprecated_postgresql" in provisioner
+    assert "local-sqlite3-degraded" in provisioner
+    assert '"canonical_engine": "postgresql"' in provisioner
 
 
 
@@ -4052,7 +4052,8 @@ def test_local_vector_store_persists_points_to_sqlite(tmp_path: Path) -> None:
     assert results
     assert results[0]["point_id"] == "point-1"
     assert results[0]["vector_score"] == pytest.approx(1.0)
-    assert store.status()["engine"] == "local-semantic-index"
+    assert store.status()["engine"] == "local-vector-degraded-cache"
+    assert store.status()["canonical"] is False
     assert store.status()["point_count"] == 1
 
 

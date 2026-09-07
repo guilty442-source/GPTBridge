@@ -207,6 +207,15 @@ export function startBackend() {
     return
   }
 
+  if (!fs.existsSync(paths.pythonEntry)) {
+    backendStatus = 'error'
+    backendMessage = `Python entry not found: ${paths.pythonEntry}`
+    console.error(
+      `[Python Backend Manager] Python entry not found: ${paths.pythonEntry}`
+    )
+    return
+  }
+
   backendStatus = 'starting'
   backendStartedAt = Date.now()
   backendReadyAt = null

@@ -99,6 +99,14 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
     capability_boundaries, repair_boundaries = capability_boundary_snapshot()
     errors.extend(source_ownership_errors(root))
 
+    if GOVERNANCE_CODEX.codex_version < 3:
+        errors.append("governance codex version must include the unified architecture policy")
+    if policy.authority != "governance-codex-v3-derived-enforcement-policy":
+        errors.append("governance policy must remain the codex-v3-derived enforcement projection")
+    if policy.top_level_rule != "governance_codex" or policy.governance_rule_sources != (
+        "governance_rule/codex/__init__.py",
+    ):
+        errors.append("governance codex must be the sole top-level rule source")
     if policy.governance_rule_count != 1:
         errors.append("governance rule count must equal one")
     if policy.governance_rule_partitioning:
@@ -115,6 +123,8 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         errors.append("code rule directory version does not match governance")
     if code_rules.governing_source != policy.governance_rule_sources[0]:
         errors.append("code rule directory is not governed by the single rule")
+    if "codex-v3-is-sole-rule-source" not in code_rules.requirements:
+        errors.append("code rule directory does not declare the codex v3 authority source")
     if code_rules.independent_authority or code_rules.runtime_write_allowed:
         errors.append("code rule directory must be subordinate and read-only")
     if code_rules.canonical_project_root != policy.code_architecture.all_source_code_root:
@@ -125,10 +135,14 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
     if (
         responsibilities.git != "system-version-and-development-history"
         or responsibilities.sql != "structured-mutable-official-data-postgresql"
+        or responsibilities.sqlite
+        != "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only"
         or responsibilities.qdrant_rag != "qdrant-semantic-knowledge-index"
+        or responsibilities.local_vector_fallback
+        != "bounded-observable-degraded-cache-only-never-canonical"
         or responsibilities.llm != "understanding-reasoning-and-operations"
         or responsibilities.separation
-        != "git-sql-rag-and-llm-must-not-replace-one-another"
+        != "git-postgresql-sqlite-qdrant-rag-and-llm-roles-must-not-replace-one-another"
         or responsibilities.governed_flow
         != "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes"
         or responsibilities.management_owner
@@ -143,6 +157,42 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         or responsibilities.llm_inference_as_source_of_truth
     ):
         errors.append("system responsibility architecture does not match governance")
+    architecture_sources = {
+        "shared_database": root / "shared-layer/src/shared_layer/database/__init__.py",
+        "local_vector": root / "local-model/src/backend/services/xingcheng/infrastructure/vector_store.py",
+        "market_network": root / "local-model/src/backend/services/xingcheng/infrastructure/market_data.py",
+        "search_network": root / "local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searxng.py",
+    }
+    architecture_text = {
+        name: path.read_text(encoding="utf-8") if path.is_file() else ""
+        for name, path in architecture_sources.items()
+    }
+    if "POSTGRESQL_CANONICAL: bool = True" not in architecture_text["shared_database"]:
+        errors.append("PostgreSQL must remain the canonical central structured data engine")
+    if (
+        '"engine": "local-vector-degraded-cache"' not in architecture_text["local_vector"]
+        or '"canonical": False' not in architecture_text["local_vector"]
+    ):
+        errors.append("local vector storage must be declared as a non-canonical degraded cache")
+    for source_name in ("market_network", "search_network"):
+        if "NETWORK_DESTINATION_ALLOWLIST" not in architecture_text[source_name]:
+            errors.append(f"governed network adapter lacks a static allowlist: {source_name}")
+    inventory_path = root / "governance_rule/execution/third_party_management/tool_inventory.json"
+    try:
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory_tools = {item["id"]: item for item in inventory["tools"]}
+    except (OSError, KeyError, TypeError, json.JSONDecodeError):
+        inventory_tools = {}
+        errors.append("third-party implementation inventory is invalid")
+    for dependency_id in ("pybind11", "node", "npm", "uv"):
+        dependency = inventory_tools.get(dependency_id, {})
+        if dependency.get("formal") is not False or not str(
+            dependency.get("formality") or ""
+        ).startswith("approved-implementation-"):
+            errors.append(f"implementation dependency is incorrectly authoritative: {dependency_id}")
+    local_rag = inventory_tools.get("local-sqlite-rag", {})
+    if local_rag.get("formal") is not False or local_rag.get("formality") != "bounded-degraded-fallback":
+        errors.append("local SQLite RAG must remain a non-formal degraded fallback")
     shared_policy = directory.shared_layer_access_policy
     if (
         shared_policy.module_root != policy.shared_layer.module_root
@@ -717,6 +767,8 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
             errors.append("git tier module is missing classify/enforce functions")
         if "def audit_log" not in git_tiers_text:
             errors.append("git tier module is missing audit_log function")
+        if governance_rule.execution.git_tiers.classify("unknown-governance-operation") != 3:
+            errors.append("unknown git operations must fail closed as tier 3")
 
     git_gate_source = root / "scripts" / "git-gate.py"
     if not git_gate_source.is_file():

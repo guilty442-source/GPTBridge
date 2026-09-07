@@ -1,9 +1,8 @@
-"""vector_store — codex-native semantic index on pure standard library.
+"""Bounded local vector cache for degraded RAG operation.
 
-Stdlib-only implementation of the RAG ``VectorStore`` protocol (A35/E21 +
-A37/E23).  Vectors persist to local sqlite3 under the governed semantic index
-location (``manifest.json`` ``vector_index``), so the store doubles as both the
-persistent corpus and the candidate scorer.  Two point styles are accepted:
+Qdrant remains the canonical semantic index. Vectors persisted to local SQLite
+provide an observable tool-private cache while Qdrant is unavailable and must
+not be treated as cross-module semantic authority. Two point styles are accepted:
 
 * external vectors — points carry ``vector`` (e.g. an Ollama embedding model,
   the retained local official service); vectors are stored as given, cosine
@@ -82,14 +81,11 @@ def embed_vector(text: str, dimension: int = _DIMENSION) -> list[float]:
 
 
 class LocalVectorStore:
-    """Local sqlite3 semantic index for the shared knowledge base.
+    """Tool-private SQLite vector cache for bounded degraded retrieval.
 
-    Replaces both the retired Qdrant adapter and the old in-memory store:
-    modules may embed chunks through the local Ollama embedding model (the
-    retained local official service) and persist the resulting vectors, or pass
-    raw text for the local n-gram embedding path.  Candidate scoring is plain
-    local cosine similarity.  No PostgreSQL/psycopg, no external vector
-    service, no network (A37/E23).
+    Qdrant remains canonical. Modules may cache embeddings locally for
+    continuity, but these candidates are non-authoritative and must be
+    reconciled through the governed RAG path before canonical use.
     """
 
     DEFAULT_ENDPOINT = DEFAULT_ENDPOINT
@@ -288,7 +284,9 @@ class LocalVectorStore:
             point_count = int(point_row["count"])
             return {
                 "available": True,
-                "engine": "local-semantic-index",
+                "engine": "local-vector-degraded-cache",
+                "canonical": False,
+                "reconciliation_required": True,
                 "native": self._native,
                 "dimension": self._dimension,
                 "points": point_count,
@@ -303,7 +301,9 @@ class LocalVectorStore:
         except (OSError, ValueError, sqlite3.Error) as exc:
             return {
                 "available": False,
-                "engine": "local-semantic-index",
+                "engine": "local-vector-degraded-cache",
+                "canonical": False,
+                "reconciliation_required": True,
                 "native": self._native,
                 "dimension": self._dimension,
                 "points": 0,

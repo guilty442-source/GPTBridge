@@ -52,7 +52,7 @@ TIER3_OPS: Final[frozenset[str]] = frozenset({
 def classify(command: str) -> int:
     """Classify a git command string into tier 1, 2, or 3.
 
-    Returns 1, 2, or 3. Defaults to 2 for unknown write-ish commands.
+    Returns 1, 2, or 3. Unknown commands fail closed strictly as Tier 3.
     """
     cmd = command.strip().lower()
 
@@ -75,8 +75,8 @@ def classify(command: str) -> int:
         if cmd.startswith(op) or cmd == op:
             return 2
 
-    # Unknown — default to Tier 2 (cautious but not blocking)
-    return 2
+    # Unknown operations are unverified and therefore require Tier 3 approval.
+    return 3
 
 
 def audit_log(

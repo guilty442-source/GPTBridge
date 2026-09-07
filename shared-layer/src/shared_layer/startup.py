@@ -4,8 +4,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable
 
-# Codex-native startup gates: local sqlite is the authoritative SQL engine
-# (A44/E30).  PostgreSQL is not part of the governed runtime.
+# This startup probe covers the bounded local degraded store. Canonical shared
+# structured data remains PostgreSQL and must be checked by the host bootstrap.
 from .local.database import DatabaseHealthCheck, DatabaseSettings
 
 STATE_READY = "READY"
@@ -59,9 +59,11 @@ def _gate_data_from_database_health(database: dict[str, object]) -> dict[str, ob
 
 
 class SharedLayerStartup:
-    """Fail-closed on critical (PostgreSQL) and governance gates; Qdrant and
-    Ollama are degradable, so their failure degrades RAG/LLM but does not
-    block the shared-layer channel from reaching READY."""
+    """Probe bounded local degraded storage and optional Qdrant/Ollama health.
+
+    Canonical PostgreSQL readiness is enforced by the host bootstrap before
+    this local recovery surface may be treated as normal operation.
+    """
 
     def __init__(
         self,

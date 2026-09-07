@@ -618,6 +618,7 @@
   place-items: center;
   padding: 24px;
   background: rgba(17, 28, 39, 0.52);
+  -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
 }
 

@@ -958,7 +958,8 @@ class LocalAiService(CommandChannelsMixin, InvestmentChannelMixin, InferenceChan
                 "available_models": transformer_status.get("selectable_models") or [],
             },
             "rag": {
-                "engine": "local-semantic-index",
+                "engine": str(rag_status.get("engine") or "local-vector-degraded-cache"),
+                "canonical_engine": "qdrant",
                 "available": bool(rag_status.get("available")),
                 "state": str(rag_status.get("state") or ("READY" if rag_status.get("available") else "DEGRADED")),
             },

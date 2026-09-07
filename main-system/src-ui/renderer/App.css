@@ -60,6 +60,7 @@ button:focus-visible {
   padding: 10px clamp(24px, 4vw, 64px);
   border-bottom: 1px solid var(--line);
   background: rgba(6, 10, 18, 0.92);
+  -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
 }
 

@@ -147,7 +147,7 @@ class LocalKnowledgeService:
         def _snapshot() -> dict[str, Any]:
             return {
                 "engine": "local-sqlite3",
-                "role": "structured-mutable-source-of-truth",
+                "role": "owner-private-operational-state",
                 "pooled": self.pool_manager.status(),
                 "cognition_initialized": self.cognition.initialized(),
                 "identity_initialized": self.identity.initialized(),

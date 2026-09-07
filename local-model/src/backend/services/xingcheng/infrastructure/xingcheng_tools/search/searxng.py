@@ -21,6 +21,7 @@ from .types import SearchRequest, SearchResult
 from ..fetch.safety import URLSafetyChecker, URLSafetyError
 
 log = logging.getLogger(__name__)
+NETWORK_DESTINATION_ALLOWLIST = frozenset({"127.0.0.1", "localhost", "::1"})
 
 
 class SearXNGProvider(SearchProvider):
@@ -38,8 +39,12 @@ class SearXNGProvider(SearchProvider):
         timeout: float = 15.0,
         max_results_per_query: int = 10,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
+        normalized_url = base_url.rstrip("/")
+        parsed = urllib.parse.urlsplit(normalized_url)
+        if parsed.scheme not in {"http", "https"} or parsed.hostname not in NETWORK_DESTINATION_ALLOWLIST:
+            raise SearchProviderError("SearXNG endpoint must use the governed loopback allowlist")
+        self.base_url = normalized_url
+        self.timeout = max(1.0, min(30.0, float(timeout)))
         self.max_results_per_query = max_results_per_query
         self.safety = safety or URLSafetyChecker()
 
