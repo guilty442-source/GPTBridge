@@ -162,8 +162,10 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def database_integrity(path: Path) -> str:
+def database_integrity(path: Path, owner: str | None = None) -> str:
     raw = path.read_bytes()
+    if raw[:1] == b"{" and owner is not None:
+        raise sqlite3.DatabaseError("protected database verification belongs to the owner tool")
     if raw[:16] != b"SQLite format 3\x00":
         raise sqlite3.DatabaseError("not a valid SQLite file")
     connection = sqlite3.connect(

@@ -622,15 +622,15 @@ def test_mobile_runtime_has_no_separate_repository(tmp_path: Path) -> None:
     status = service.status()
 
     assert status["main_system_independent_tool"] is True
-    assert status["business_layer_owner"] == "xingcheng"
-    assert status["settings_owner"] == "xingcheng"
-    assert status["cache_owner"] == "xingcheng"
+    assert status["business_layer_owner"] == "ai-assistant"
+    assert status["settings_owner"] == "ai-assistant"
+    assert status["cache_owner"] == "ai-assistant"
     assert status["cache_storage"] == (
-        "local-model/runtime/cache/companions/investment-mobile"
+        "ai-assistant/runtime/cache/companions/investment-mobile"
     )
-    assert status["backup_owner"] == "xingcheng"
+    assert status["backup_owner"] == "ai-assistant"
     assert status["backup_storage"] == (
-        "global-cleaner/data/business/backups/xingcheng"
+        "global-cleaner/data/business/backups/ai-assistant"
     )
     assert status["separate_business_layer"] is False
     assert status["separate_settings_layer"] is False
