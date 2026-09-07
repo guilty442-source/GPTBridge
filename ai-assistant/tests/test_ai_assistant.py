@@ -88,6 +88,10 @@ def test_investment_conversation_is_separate_and_uses_automatic_models() -> None
         "net-asset-values",
         "other-current-market-information",
     ]
+    assert policy["computation_service_owner"] == "xingcheng"
+    assert policy["statistics_service_owner"] == "xingcheng"
+    assert policy["network_search_service_owner"] == "xingcheng"
+    assert policy["backend_service_provider"] == "xingcheng"
 
 
 def test_clear_state_requires_explicit_confirmation(tmp_path: Path, monkeypatch) -> None:
@@ -618,19 +622,19 @@ def test_mobile_runtime_has_no_separate_repository(tmp_path: Path) -> None:
     status = service.status()
 
     assert status["main_system_independent_tool"] is True
-    assert status["business_layer_owner"] == "ai-assistant"
-    assert status["settings_owner"] == "ai-assistant"
-    assert status["cache_owner"] == "ai-assistant"
+    assert status["business_layer_owner"] == "xingcheng"
+    assert status["settings_owner"] == "xingcheng"
+    assert status["cache_owner"] == "xingcheng"
     assert status["cache_storage"] == (
-        "ai-assistant/runtime/cache/companions/investment-mobile"
+        "local-model/runtime/cache/companions/investment-mobile"
     )
-    assert status["backup_owner"] == "ai-assistant"
+    assert status["backup_owner"] == "xingcheng"
     assert status["backup_storage"] == (
-        "global-cleaner/data/business/backups/ai-assistant"
+        "global-cleaner/data/business/backups/xingcheng"
     )
     assert status["separate_business_layer"] is False
     assert status["separate_settings_layer"] is False
-    assert status["database"] == "ai-assistant-shared-repository"
+    assert status["database"] == "xingcheng-shared-repository"
     assert not list(tmp_path.rglob("*.sqlite3"))
 
 

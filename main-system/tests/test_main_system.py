@@ -253,13 +253,13 @@ def test_permissions_declare_owned_code_and_database_scope(
         return
     if tool_id == "investment-mobile":
         assert permissions.get("profile") == "ai-investment-manager-v1"
-        assert permissions.get("business_permission_owner") == "ai-assistant"
-        assert permissions.get("settings_owner") == "ai-assistant"
+        assert permissions.get("business_permission_owner") == "xingcheng"
+        assert permissions.get("settings_owner") == "xingcheng"
         assert permissions.get("code_scope") == "tool-root-only"
         assert permissions.get("database_scope") == "tool-database-only"
         assert (
             permissions.get("canonical_database_scope")
-            == "ai-assistant-shared-repository"
+            == "xingcheng-shared-repository"
         )
         assert "direct-database-write" in permissions.get("deny", [])
         return

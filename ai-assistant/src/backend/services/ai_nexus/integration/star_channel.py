@@ -40,7 +40,7 @@ class InvestmentAiConnections:
             "channel_top_level_tool": "xingcheng",
             "roles": {
                 "investment_manager": "offline-portfolio-state-and-settings",
-                "xingcheng": "exclusive-market-search-investment-analysis-service-owner",
+                "xingcheng": "exclusive-computation-statistics-network-search-investment-analysis-service-owner",
                 "external_ai": "unavailable-to-investment-manager",
             },
             "peers": {

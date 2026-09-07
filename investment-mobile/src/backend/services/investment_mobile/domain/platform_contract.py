@@ -22,8 +22,8 @@ def mobile_platform_contract() -> dict[str, Any]:
         "transport": "paired_json_api",
         "source_of_truth": "desktop_shared_repository",
         "shared_repository": True,
-        "business_layer_owner": "ai-assistant",
-        "settings_owner": "ai-assistant",
+        "business_layer_owner": "xingcheng",
+        "settings_owner": "xingcheng",
         "permission_profile": "ai-investment-manager-v1",
         "separate_mobile_business_layer": False,
         "separate_mobile_settings_layer": False,
@@ -32,7 +32,7 @@ def mobile_platform_contract() -> dict[str, Any]:
         "upgrade_compatibility": {
             "mode": "independent-tool",
             "connection_coordinator": "xingcheng",
-            "source_tool": "ai-assistant",
+            "source_tool": "xingcheng",
         },
         "capabilities": list(MOBILE_PLATFORM_CAPABILITIES),
         "routes": {

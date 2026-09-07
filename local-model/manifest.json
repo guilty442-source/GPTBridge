@@ -35,7 +35,10 @@
   "star_fixed_responsibilities": [
     "sql-central-management",
     "rag-central-management",
-    "git-central-management"
+    "git-central-management",
+    "investment-computation-service",
+    "investment-statistics-service",
+    "investment-network-search-service"
   ],
   "star_permission_activation": "governance-rule-explicit-authorization-only",
   "local_model_platform": {
