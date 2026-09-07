@@ -754,6 +754,45 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
             if required_table not in template_text:
                 errors.append(f"SQLite module template is missing table: {required_table}")
 
+    # Embedded browser enforcement (A44/E30 + A49/E35):
+    # ai-collaboration and vaultly must NOT use Playwright or external browsers.
+    for module_path in (
+        "ai-collaboration/src/backend/services/ai_collaboration/integration/browser_automation.py",
+        "ai-collaboration/src/backend/services/ai_collaboration/integration/provider_session.py",
+        "vaultly/src/backend/services/vaultly/integration/browser_session.py",
+    ):
+        full_path = root / module_path
+        if full_path.is_file():
+            content = full_path.read_text(encoding="utf-8")
+            if "from playwright" in content or "import playwright" in content:
+                errors.append(f"module still uses Playwright: {module_path}")
+            if "async_playwright" in content and "InProcessEmbeddedBrowser" not in content:
+                errors.append(f"module still uses async_playwright: {module_path}")
+
+    # requirements.txt must not contain playwright
+    requirements = root / "main-system" / "requirements.txt"
+    if requirements.is_file():
+        req_text = requirements.read_text(encoding="utf-8")
+        if "playwright" in req_text.lower():
+            errors.append("main-system/requirements.txt still depends on playwright")
+
+    # pyproject.toml must not contain playwright
+    pyproject = root / "main-system" / "pyproject.toml"
+    if pyproject.is_file():
+        py_text = pyproject.read_text(encoding="utf-8")
+        if "playwright" in py_text.lower():
+            errors.append("main-system/pyproject.toml still depends on playwright")
+
+    # Embedded browser module must exist
+    embedded_browser = root / "main-system" / "src-ui" / "main" / "embedded-browser.ts"
+    if not embedded_browser.is_file():
+        errors.append("embedded browser module is missing")
+
+    # Embedded browser client must exist
+    browser_client = root / "shared-layer" / "src" / "shared_layer" / "embedded_browser_client.py"
+    if not browser_client.is_file():
+        errors.append("embedded browser client module is missing")
+
     return errors
 
 

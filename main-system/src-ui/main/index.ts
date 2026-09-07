@@ -17,6 +17,11 @@ import { getRuntimeEnv } from './runtime-env'
 import { PRODUCT_VERSION } from './product-version'
 import { preloadDefaultGovernanceAuthority } from './governance-bootstrap'
 import {
+  registerEmbeddedBrowser,
+  registerEmbeddedBrowserIpc,
+  closeAllSessions,
+} from './embedded-browser'
+import {
   getMainSystemSize,
   getPlatformToolSizes,
   getSharedLayerSize,
@@ -213,6 +218,10 @@ async function createWindow(): Promise<void> {
 
   adaptiveZoomController.register(mainWindow)
 
+  // Register embedded browser so tools can use in-app BrowserView
+  // instead of launching external Chrome/Edge (A44/E30 + A49/E35).
+  registerEmbeddedBrowser(mainWindow)
+
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show()
     mainWindow?.focus()
@@ -234,6 +243,9 @@ async function createWindow(): Promise<void> {
 }
 
 function registerIpcHandlers(): void {
+  // Embedded browser IPC (replaces external Playwright/Chrome/Edge)
+  registerEmbeddedBrowserIpc()
+
   ipcMain.handle('app:get-status', async () => {
     const backendRuntime = getBackendRuntimeInfo()
 
@@ -525,12 +537,14 @@ if (!hasSingleInstanceLock) {
 }
 
 app.on('window-all-closed', () => {
+  closeAllSessions()
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
 app.on('before-quit', (event) => {
+  closeAllSessions()
   if (quitting || !shouldManageBackend) return
 
   event.preventDefault()

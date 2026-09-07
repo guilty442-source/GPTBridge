@@ -681,6 +681,11 @@ async def handler(websocket, app_instance):
     except Exception:
         pass
 
+    # Register this UIShell so the status push loop can send real-time updates.
+    if not hasattr(app_instance, "_active_ui_shells"):
+        app_instance._active_ui_shells: set[UIShell] = set()
+    app_instance._active_ui_shells.add(ui)
+
     # Gracefully wait for the backend to finish its heavy initialization.
     # If startup failed outright (startup_dead), do not stall the connection:
     # enter degraded mode so the client stays connected and can observe
@@ -708,6 +713,37 @@ async def handler(websocket, app_instance):
         if pending:
             await ui.send_event("task_recovery_required", {"ok": True, "tasks": pending})
 
+    # Start heartbeat monitor — detects dead clients within 10 seconds.
+    # The frontend responds to "heartbeat_ping" with a "heartbeat_pong" command;
+    # if no pong arrives within HEARTBEAT_TIMEOUT_SECONDS, the connection is
+    # considered dead and closed.
+    heartbeat_dead = asyncio.Event()
+
+    async def _heartbeat_monitor() -> None:
+        HEARTBEAT_INTERVAL = 5.0
+        HEARTBEAT_TIMEOUT = 10.0
+        while not heartbeat_dead.is_set():
+            await asyncio.sleep(HEARTBEAT_INTERVAL)
+            if heartbeat_dead.is_set():
+                break
+            try:
+                await ui.send_event("heartbeat_ping", {"t": time.time()})
+            except Exception:
+                heartbeat_dead.set()
+                break
+            if time.monotonic() - last_pong_time > HEARTBEAT_TIMEOUT:
+                # Client has not responded in 10s — close dead connection
+                heartbeat_dead.set()
+                try:
+                    await websocket.close(code=1001, reason="heartbeat_timeout")
+                except Exception:
+                    pass
+                break
+
+    # Track pong responses via a command handler
+    last_pong_time = time.monotonic()
+    heartbeat_task = asyncio.create_task(_heartbeat_monitor())
+
     try:
         async for message in websocket:
             try:
@@ -730,6 +766,10 @@ async def handler(websocket, app_instance):
                         "task_count": 0,
                     }
                     await ui.send_event("task_recovery_decision_result", result)
+                    continue
+
+                if command == "heartbeat_pong":
+                    last_pong_time = time.monotonic()
                     continue
 
                 if len(connection_tasks) >= MAX_CONNECTION_COMMAND_TASKS:
@@ -755,8 +795,12 @@ async def handler(websocket, app_instance):
             except Exception as exc:
                 await ui.send_error(str(exc))
     except websockets.exceptions.ConnectionClosed:
-        return
+        pass
     finally:
+        heartbeat_dead.set()
+        heartbeat_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await heartbeat_task
         for task in list(connection_tasks):
             if not task.done():
                 task.cancel()
@@ -769,7 +813,41 @@ async def handler(websocket, app_instance):
             write_ipc_connection_state(_PROJECT_ROOT, _active)
         except Exception:
             pass
+        # Remove this UIShell from the real-time push set.
+        try:
+            app_instance._active_ui_shells.discard(ui)
+        except Exception:
+            pass
 
+
+
+async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event) -> None:
+    """Periodically push runtime status to all connected WebSocket clients.
+
+    This replaces the frontend's 5-second polling with real-time server push.
+    The push interval is 2 seconds — fast enough for responsive UI updates
+    without overwhelming the WebSocket channel.
+    """
+    push_interval = 2.0
+    while not shutdown_event.is_set():
+        try:
+            shells = getattr(app_instance, "_active_ui_shells", None)
+            if shells:
+                status_service = getattr(app_instance, "runtime_status_service", None)
+                if status_service is not None:
+                    status_payload = status_service.startup_status()
+                    status_payload["push"] = True
+                    dead: list[UIShell] = []
+                    for ui in list(shells):
+                        try:
+                            await ui.send_event("runtime_status_push", status_payload)
+                        except Exception:
+                            dead.append(ui)
+                    for ui in dead:
+                        shells.discard(ui)
+        except Exception:
+            pass
+        await asyncio.sleep(push_interval)
 
 
 async def run_server(app_instance, auto_kill_backend_port: bool = False):
@@ -881,8 +959,15 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                     memory_maintainer.run(shutdown_event),
                     name="main-system-idle-memory-maintenance",
                 )
+                status_push_task = asyncio.create_task(
+                    _runtime_status_push_loop(app_instance, shutdown_event),
+                    name="main-system-runtime-status-push",
+                )
 
                 await shutdown_event.wait()
+                status_push_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await status_push_task
         except OSError as exc:
             if exc.errno in {98, 10048}:
                 print(

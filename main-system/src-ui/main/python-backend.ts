@@ -40,6 +40,14 @@ let backendReadyAt: number | null = null
 let backendMessage = 'backend idle'
 let backendLastError = ''
 
+// Auto-restart configuration
+const AUTO_RESTART_MAX_ATTEMPTS = 5
+const AUTO_RESTART_BASE_DELAY_MS = 2000
+const AUTO_RESTART_MAX_DELAY_MS = 30000
+let autoRestartAttempts = 0
+let autoRestartTimer: ReturnType<typeof setTimeout> | null = null
+let manualShutdown = false
+
 export function getBackendStatus(): BackendStatus {
   return backendStatus
 }
@@ -117,14 +125,18 @@ function spawnBootCore(
     )
     pythonProcess = null
 
-    if (signal === 'SIGTERM' || code === 0) {
+    if (signal === 'SIGTERM' || code === 0 || manualShutdown) {
       backendStatus = 'idle'
       backendMessage = 'backend stopped'
+      autoRestartAttempts = 0
+      manualShutdown = false
       return
     }
 
+    // Unexpected exit — attempt auto-restart
     backendStatus = 'error'
-    backendMessage = `boot_core exited unexpectedly (code ${code})`
+    backendMessage = `boot_core exited unexpectedly (code ${code}), auto-restarting...`
+    scheduleAutoRestart()
   })
 
   pythonProcess.on('error', (err) => {
@@ -132,6 +144,7 @@ function spawnBootCore(
     pythonProcess = null
     backendStatus = 'error'
     backendMessage = `boot_core spawn failed: ${err.message}`
+    scheduleAutoRestart()
   })
 
   // boot_core is now responsible for starting and supervising main.py.
@@ -140,6 +153,33 @@ function spawnBootCore(
   backendStatus = 'running'
   backendReadyAt = Date.now()
   backendMessage = 'boot_core supervising backend'
+  autoRestartAttempts = 0
+}
+
+function scheduleAutoRestart(): void {
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer)
+    autoRestartTimer = null
+  }
+  if (autoRestartAttempts >= AUTO_RESTART_MAX_ATTEMPTS) {
+    backendMessage = `boot_core auto-restart exhausted (${AUTO_RESTART_MAX_ATTEMPTS} attempts), giving up`
+    console.error(`[Python Backend Manager] ${backendMessage}`)
+    return
+  }
+  autoRestartAttempts++
+  const delay = Math.min(
+    AUTO_RESTART_MAX_DELAY_MS,
+    AUTO_RESTART_BASE_DELAY_MS * Math.pow(2, autoRestartAttempts - 1)
+  )
+  console.log(
+    `[Python Backend Manager] Auto-restart attempt ${autoRestartAttempts}/${AUTO_RESTART_MAX_ATTEMPTS} in ${delay}ms`
+  )
+  autoRestartTimer = setTimeout(() => {
+    autoRestartTimer = null
+    if (manualShutdown) return
+    console.log('[Python Backend Manager] Auto-restarting boot_core...')
+    startBackend()
+  }, delay)
 }
 
 export function startBackend() {
@@ -191,6 +231,11 @@ export function ensureBackendStarted(): BackendStatus {
 }
 
 export async function stopBackend() {
+  manualShutdown = true
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer)
+    autoRestartTimer = null
+  }
   if (!pythonProcess) {
     if (backendStatus === 'starting') {
       backendStatus = 'idle'
@@ -244,9 +289,15 @@ export async function stopBackend() {
 }
 
 export async function restartBackend() {
+  manualShutdown = false
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer)
+    autoRestartTimer = null
+  }
   if (pythonProcess) {
     await stopBackend()
   }
+  manualShutdown = false
   startBackend()
   return backendStatus
 }

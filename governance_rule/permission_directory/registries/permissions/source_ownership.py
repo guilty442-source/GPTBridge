@@ -62,6 +62,7 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "resource_identity.py",
         "metadata_contract.py",
         "reconcile.py",
+        "embedded_browser_client.py",
         "startup.py",
     }
 )

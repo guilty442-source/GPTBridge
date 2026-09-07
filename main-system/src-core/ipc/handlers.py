@@ -25,6 +25,11 @@ MAIN_COMMANDS = {
     "app:get-runtime-status",
     "app:get-governance-rules",
     "app:run-main-system-self-maintenance",
+    "app:get-third-party-status",
+    "app:probe-third-party-versions",
+    "app:check-third-party-updates",
+    "app:update-third-party-tool",
+    "app:auto-update-third-party-tools",
 }
 
 class CommandRouter:
@@ -42,6 +47,13 @@ class CommandRouter:
         self.toolbox_service = toolbox_service
         self.runtime_status_service = runtime_status_service
         self._log_reporter: Any = None
+
+    def _get_third_party_sovereign(self) -> Any:
+        """Resolve the third-party sub-sovereign from the system sovereign."""
+        system_sovereign = getattr(self.app, "system_sovereign_service", None)
+        if system_sovereign is None:
+            return None
+        return getattr(system_sovereign, "third_party_sovereign", None)
 
     async def handle(
         self, command: str, payload: Dict[str, Any]
@@ -113,6 +125,122 @@ class CommandRouter:
                     "message": f"{type(error).__name__}: {error}",
                 }
             return f"{command}_result", report
+
+        # ─── Third-party management commands ───────────────────────────
+        if command == "app:get-third-party-status":
+            sovereign = self._get_third_party_sovereign()
+            if sovereign is None:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "THIRD_PARTY_SOVEREIGN_UNAVAILABLE",
+                    "message": "PERMISSION_DENIED",
+                }
+            return f"{command}_result", {
+                "ok": True,
+                "status": sovereign.get_manager_status(),
+                "live_status": sovereign.live_status(),
+            }
+
+        if command == "app:probe-third-party-versions":
+            sovereign = self._get_third_party_sovereign()
+            if sovereign is None:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "THIRD_PARTY_SOVEREIGN_UNAVAILABLE",
+                    "message": "PERMISSION_DENIED",
+                }
+            try:
+                versions = sovereign.probe_all_versions()
+            except Exception as error:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "PROBE_FAILED",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            return f"{command}_result", {
+                "ok": True,
+                "versions": {tid: info.as_dict() for tid, info in versions.items()},
+            }
+
+        if command == "app:check-third-party-updates":
+            sovereign = self._get_third_party_sovereign()
+            if sovereign is None:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "THIRD_PARTY_SOVEREIGN_UNAVAILABLE",
+                    "message": "PERMISSION_DENIED",
+                }
+            try:
+                updates = sovereign.check_all_for_updates()
+            except Exception as error:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "UPDATE_CHECK_FAILED",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            return f"{command}_result", {
+                "ok": True,
+                "updates": {tid: info.as_dict() for tid, info in updates.items()},
+            }
+
+        if command == "app:update-third-party-tool":
+            sovereign = self._get_third_party_sovereign()
+            if sovereign is None:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "THIRD_PARTY_SOVEREIGN_UNAVAILABLE",
+                    "message": "PERMISSION_DENIED",
+                }
+            tool_id = str(payload.get("tool_id") or "").strip()
+            if not tool_id:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "MISSING_TOOL_ID",
+                    "message": "tool_id is required",
+                }
+            approval_token = str(payload.get("approval_token") or "").strip()
+            try:
+                result = await sovereign.execute_update(
+                    tool_id, approval_token=approval_token or None
+                )
+            except Exception as error:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "UPDATE_EXECUTION_FAILED",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            return f"{command}_result", result.as_dict()
+
+        if command == "app:auto-update-third-party-tools":
+            sovereign = self._get_third_party_sovereign()
+            if sovereign is None:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "THIRD_PARTY_SOVEREIGN_UNAVAILABLE",
+                    "message": "PERMISSION_DENIED",
+                }
+            approval_token = str(payload.get("approval_token") or "").strip()
+            only_available = payload.get("only_available", True) is not False
+            if not approval_token:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "APPROVAL_REQUIRED",
+                    "message": "governance approval token required for auto-update",
+                }
+            try:
+                results = await sovereign.execute_auto_updates(
+                    approval_token=approval_token, only_available=only_available
+                )
+            except Exception as error:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "AUTO_UPDATE_FAILED",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            return f"{command}_result", {
+                "ok": True,
+                "results": {tid: r.as_dict() for tid, r in results.items()},
+            }
 
         handler_name = TOOL_LIFECYCLE_HANDLERS.get(command)
         if handler_name is not None:

@@ -452,10 +452,10 @@ def test_launcher_entrypoints_delegate_to_no_window_hosts() -> None:
     assert '", 0, False' in vbs_source
 
     launcher_source = (
-        ROOT / "main-system" / "launcher" / "src" / "GPTBridgeLauncher.cs"
+        ROOT / "main-system" / "launcher" / "src" / "GPTBridgeLauncher.cpp"
     ).read_text("utf-8")
-    assert "CreateNoWindow = true" in launcher_source
-    assert "WindowStyle = ProcessWindowStyle.Hidden" in launcher_source
+    assert "CREATE_NO_WINDOW" in launcher_source
+    assert "SW_HIDE" in launcher_source
 
 
 def test_manifest_test_targets_resolve_to_real_test_files() -> None:
