@@ -497,8 +497,13 @@ def _query_process_commandline(pid: int) -> tuple[str | None, str | None]:
         # Fallback for systems where wmic is unavailable (deprecated on Windows 11).
         pass
     try:
-        ps = f"$p = Get-CimInstance Win32_Process -Filter 'ProcessId={pid}'; " \
-             "if ($p) {{ Write-Output \"CommandLine=$($p.CommandLine)\"; Write-Output \"ExecutablePath=$($p.ExecutablePath)\" }}"
+        # Use a single CIM query and emit CSV so the output is machine-parseable
+        # without relying on $-variable interpolation inside the command string.
+        ps = (
+            f"Get-CimInstance Win32_Process -Filter 'ProcessId={pid}' "
+            "| Select-Object CommandLine, ExecutablePath -First 1 "
+            "| ConvertTo-Csv -NoTypeInformation"
+        )
         output = subprocess.check_output(
             ["powershell", "-NoProfile", "-Command", ps],
             text=True,
@@ -506,16 +511,35 @@ def _query_process_commandline(pid: int) -> tuple[str | None, str | None]:
             errors="ignore",
             **_background_subprocess_kwargs(),
         )
-        cmdline = None
-        exe_path = None
-        for line in output.splitlines():
-            if line.startswith("CommandLine="):
-                cmdline = line.partition("=")[2].strip()
-            elif line.startswith("ExecutablePath="):
-                exe_path = line.partition("=")[2].strip()
-        return cmdline, exe_path
+        lines = [line.strip() for line in output.splitlines() if line.strip()]
+        if len(lines) >= 2 and lines[0].startswith('"CommandLine"'):
+            import csv
+            reader = csv.reader(lines[1:])
+            row = next(reader, None)
+            if row and len(row) >= 2:
+                return row[0].strip() or None, row[1].strip() or None
     except Exception:
-        return None, None
+        pass
+    return None, None
+
+
+def _tasklist_image_name(pid: int) -> str | None:
+    if sys.platform != "win32":
+        return None
+    try:
+        output = subprocess.check_output(
+            ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+            **_background_subprocess_kwargs(),
+        )
+        parts = [p.strip().strip('"') for p in output.splitlines()[0].split(",")]
+        if parts:
+            return parts[0]
+    except Exception:
+        return None
+    return None
 
 
 def _is_gptbridge_process(pid: int, project_root: Path) -> bool:
@@ -552,6 +576,12 @@ def _is_gptbridge_process(pid: int, project_root: Path) -> bool:
             and that_exe.parent == this_exe.parent
         ):
             return True
+    # Last-resort fallback for pythonw with an empty command line and a different
+    # interpreter installation: any python process holding the dedicated IPC port
+    # is the stale backend we are asked to replace.
+    image = _tasklist_image_name(pid)
+    if image and image.lower().startswith("python"):
+        return True
     return False
 
 
