@@ -10,6 +10,13 @@ Wraps git commands with A53/E39 three-tier enforcement:
   Tier 3: high-risk, requires governance authority approval (GOVERNANCE_AUTHORITY_APPROVAL=1)
 
 Audit ledger: governance_rule/execution/audit/git_tier_audit.jsonl (A46)
+
+Flow:
+  Git Command → git-gate.py → git_tiers.classify()
+    ├─ Tier 1 → 直接執行
+    ├─ Tier 2 → GOVERNANCE_CONFIRM (env or interactive prompt)
+    └─ Tier 3 → GOVERNANCE_AUTHORITY_APPROVAL
+  → Git → Audit Ledger (single entry per operation)
 """
 from __future__ import annotations
 
@@ -24,7 +31,13 @@ _CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
 
-from governance_rule.execution.git_tiers import classify, enforce, audit_log, TIER1_OPS, TIER2_OPS, TIER3_OPS
+from governance_rule.execution.git_tiers import (
+    classify,
+    audit_log,
+    TIER1_OPS,
+    TIER2_OPS,
+    TIER3_OPS,
+)
 
 
 def main() -> int:
@@ -46,27 +59,78 @@ def main() -> int:
     # Show tier classification
     print(f"[git-gate] classified as Tier-{tier}: git {command}", file=sys.stderr)
 
-    allowed, message = enforce(command, actor)
-    if not allowed:
-        print(f"[git-gate] BLOCKED: {message}", file=sys.stderr)
-        if tier == 2:
-            print("[git-gate] To confirm: set GOVERNANCE_CONFIRM=1 or re-run with confirmation", file=sys.stderr)
-        elif tier == 3:
-            print("[git-gate] To approve: set GOVERNANCE_AUTHORITY_APPROVAL=1 (governance authority only)", file=sys.stderr)
+    # ── Tier 1: read-only → direct execution ──────────────────────
+    if tier == 1:
+        audit_log(tier, command, actor, approved=True, detail="tier-1 direct-exec")
+        git_args = ["git"] + args
+        result = subprocess.run(
+            git_args, cwd=str(project_root), creationflags=_CREATE_NO_WINDOW
+        )
+        return result.returncode
+
+    # ── Tier 2: general write → GOVERNANCE_CONFIRM or interactive ─
+    if tier == 2:
+        confirmed = os.environ.get("GOVERNANCE_CONFIRM", "").lower() in (
+            "1", "true", "yes",
+        )
+        if not confirmed:
+            # Interactive confirmation prompt
+            try:
+                response = input(
+                    f"[git-gate] Tier-2 operation. Proceed? (y/N): "
+                )
+            except (EOFError, KeyboardInterrupt):
+                audit_log(
+                    tier, command, actor, approved=False,
+                    detail="tier-2 user-declined (no input)",
+                )
+                print("[git-gate] Cancelled.", file=sys.stderr)
+                return 1
+            if response.lower() not in ("y", "yes"):
+                audit_log(
+                    tier, command, actor, approved=False,
+                    detail="tier-2 user-declined",
+                )
+                print("[git-gate] Cancelled by user.", file=sys.stderr)
+                return 1
+            audit_log(
+                tier, command, actor, approved=True,
+                detail="tier-2 user-confirmed",
+            )
+        else:
+            audit_log(
+                tier, command, actor, approved=True,
+                detail="tier-2 env-confirmed (GOVERNANCE_CONFIRM=1)",
+            )
+        git_args = ["git"] + args
+        result = subprocess.run(
+            git_args, cwd=str(project_root), creationflags=_CREATE_NO_WINDOW
+        )
+        return result.returncode
+
+    # ── Tier 3: high-risk → GOVERNANCE_AUTHORITY_APPROVAL ─────────
+    approved = os.environ.get("GOVERNANCE_AUTHORITY_APPROVAL", "").lower() in (
+        "1", "true", "yes",
+    )
+    if not approved:
+        audit_log(
+            tier, command, actor, approved=False,
+            detail="tier-3 requires governance authority approval",
+        )
+        print(
+            "[git-gate] BLOCKED: tier-3 requires governance authority approval "
+            "(set GOVERNANCE_AUTHORITY_APPROVAL=1)",
+            file=sys.stderr,
+        )
         return 1
-
-    # Tier 2 interactive confirmation if not pre-confirmed
-    if tier == 2 and os.environ.get("GOVERNANCE_CONFIRM", "").lower() not in ("1", "true", "yes"):
-        response = input(f"[git-gate] Tier-2 operation. Proceed? (y/N): ")
-        if response.lower() not in ("y", "yes"):
-            audit_log(tier, command, actor, approved=False, detail="tier-2 user-declined")
-            print("[git-gate] Cancelled by user.", file=sys.stderr)
-            return 1
-        audit_log(tier, command, actor, approved=True, detail="tier-2 user-confirmed")
-
-    # Execute the actual git command
+    audit_log(
+        tier, command, actor, approved=True,
+        detail="tier-3 governance-authority-approved",
+    )
     git_args = ["git"] + args
-    result = subprocess.run(git_args, cwd=str(project_root), creationflags=_CREATE_NO_WINDOW)
+    result = subprocess.run(
+        git_args, cwd=str(project_root), creationflags=_CREATE_NO_WINDOW
+    )
     return result.returncode
 
 
