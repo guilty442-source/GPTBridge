@@ -1,30 +1,61 @@
-"""governance_rule self-health test suite (A57/E43).
+"""governance_rule consolidated test suite (A57/E43)
 
-Single managed test file for the governance_rule module.
-Collected by the maintenance sovereign via SELF_HEALTH_MANAGED_TEST_FILES.
-
-Test stubs — implementation pending.
+One managed test file per module, maintained by the
+maintenance sovereign for self-health (self-test collection).
 """
 from __future__ import annotations
 
-import pytest
+import os
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+for _p in (
+    str(_ROOT),
+    str(_ROOT / "shared-layer" / "src"),
+    str(_ROOT / "main-system" / "src-core"),
+    str(_ROOT / "main-system"),
+    str(_ROOT / "main-system" / "src" / "backend" / "services"),
+    str(_ROOT / "local-model" / "src" / "backend" / "services"),
+    str(_ROOT / "global-cleaner" / "src"),
+    str(_ROOT / "ai-assistant" / "src"),
+    str(_ROOT / "ai-assistant" / "src" / "backend" / "services"),
+    str(_ROOT / "ai-collaboration" / "src" / "backend" / "services"),
+    str(_ROOT / "file-sorter" / "src" / "backend" / "services"),
+    str(_ROOT / "investment-mobile" / "src" / "backend" / "services"),
+    str(_ROOT / "vaultly" / "src" / "backend" / "services"),
+):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+del _p
 
 
-@pytest.mark.skip(reason="skeleton — implementation pending")
-def test_governance_policy_snapshot() -> None:
-    """Verify governance policy snapshot is loadable and immutable."""
+# -- CONSOLIDATED TEST SUITE --
+
+import json
+
+from governance_rule.codex import GOVERNANCE_CODEX, GOVERNANCE_CODEX_CHINESE
 
 
-@pytest.mark.skip(reason="skeleton — implementation pending")
-def test_codex_articles_are_immutable_sealed() -> None:
-    """Verify codex articles and edicts are immutable-sealed."""
+def test_governance_codex_references_are_structurally_aligned() -> None:
+    assert [item.id for item in GOVERNANCE_CODEX.principles] == [
+        item.id for item in GOVERNANCE_CODEX_CHINESE.principles
+    ]
+    assert [item.id for item in GOVERNANCE_CODEX.articles] == [
+        item.id for item in GOVERNANCE_CODEX_CHINESE.articles
+    ]
+    assert [item.id for item in GOVERNANCE_CODEX.edicts] == [
+        item.id for item in GOVERNANCE_CODEX_CHINESE.edicts
+    ]
+    assert [item.id for item in GOVERNANCE_CODEX.sovereigns] == [
+        item.id for item in GOVERNANCE_CODEX_CHINESE.sovereigns
+    ]
 
 
-@pytest.mark.skip(reason="skeleton — implementation pending")
-def test_protected_sources_are_read_only() -> None:
-    """Verify all protected governance sources are OS read-only."""
-
-
-@pytest.mark.skip(reason="skeleton — implementation pending")
-def test_git_tier_enforcement_sources_present() -> None:
-    """Verify git tier enforcement sources are integrity-protected."""
+def test_governance_manifest_declares_collectable_self_health_target() -> None:
+    tool_root = Path(__file__).resolve().parents[1]
+    manifest = json.loads((tool_root / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["id"] == "governance_rule"
+    assert manifest["test_targets"] == ["tests/test_governance_health.py"]
+    assert (tool_root / manifest["test_targets"][0]).is_file()

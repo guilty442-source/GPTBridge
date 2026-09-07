@@ -46,7 +46,7 @@
   },
   "capabilities": {
     "investment-manager": {
-      "shared_mobile_source_root": "ai-assistant/investment-mobile",
+      "shared_mobile_source_root": "investment-mobile",
       "shared_mobile_permission_profile": "ai-investment-manager-v1",
       "mobile_runtime_independent": true,
       "mobile_independent_only_in": "main-system",

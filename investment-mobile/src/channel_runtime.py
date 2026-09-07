@@ -10,13 +10,10 @@ from typing import Any
 TOOL_ID = "investment-mobile"
 ROOT = Path(os.environ.get("GPTBRIDGE_GOVERNANCE_PROJECT_ROOT", "E:/GPTBridge")).resolve()
 TOOL_ROOT = (ROOT / TOOL_ID).resolve()
-MOBILE_ROOT = (ROOT / "ai-assistant" / "investment-mobile").resolve()
-AI_ASSISTANT_ROOT = (ROOT / "ai-assistant").resolve()
+MOBILE_ROOT = TOOL_ROOT
 if (
     ROOT != Path("E:/GPTBridge").resolve()
     or not TOOL_ROOT.is_dir()
-    or not MOBILE_ROOT.is_dir()
-    or not MOBILE_ROOT.is_relative_to(AI_ASSISTANT_ROOT)
 ):
     raise PermissionError("PERMISSION_DENIED")
 sys.path.insert(0, str(ROOT))

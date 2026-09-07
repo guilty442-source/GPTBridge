@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Final
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-AUDIT_LEDGER_PATH = PROJECT_ROOT / "governance_rule" / "execution" / "audit" / "git_tier_audit.jsonl"
+AUDIT_LEDGER_PATH = PROJECT_ROOT / "governance_rule" / "runtime" / "audit" / "git_tier_audit.jsonl"
 
 TIER1_OPS: Final[frozenset[str]] = frozenset({
     "status", "log", "diff", "show", "branch", "remote", "blame",

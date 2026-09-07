@@ -7,7 +7,17 @@
   "status": "stopped",
   "enabled": true,
   "independent_tool": true,
-  "canonical_source_root": "ai-assistant/investment-mobile",
+  "main_system_independent_tool": true,
+  "canonical_source_root": "investment-mobile",
+  "lifecycle": {
+    "startup": "on-demand",
+    "directLoad": false,
+    "encapsulated": true,
+    "optional": true,
+    "stoppable": true,
+    "disableable": true,
+    "unloadable": true
+  },
   "shared_permission_owner": "ai-assistant",
   "shared_permission_profile": "ai-investment-manager-v1",
   "shared_cache_owner": "ai-assistant",

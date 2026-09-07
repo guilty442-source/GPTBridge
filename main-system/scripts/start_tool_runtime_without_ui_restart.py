@@ -50,7 +50,12 @@ async def start_runtime(
             )
         )
         while True:
-            frame = json.loads(await asyncio.wait_for(socket.recv(), timeout=30))
+            frame = json.loads(await asyncio.wait_for(socket.recv(), timeout=120))
+            if frame.get("event") == "heartbeat_ping":
+                await socket.send(
+                    json.dumps({"command": "heartbeat_pong", "payload": {}})
+                )
+                continue
             if frame.get("event") != "toolbox_start_tool_result":
                 continue
             payload = frame.get("payload")
