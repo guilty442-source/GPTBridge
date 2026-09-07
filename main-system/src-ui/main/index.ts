@@ -512,26 +512,32 @@ if (!hasSingleInstanceLock) {
 
       registerIpcHandlers()
 
-      // Show the window FIRST so the startup page appears within ~1 second.
+      // Show the window FIRST so the startup page appears immediately.
       // Backend startup (governance attestation + boot_core spawn) runs in
       // the background and does not block the UI.
       await createWindow()
       reportRuntimeEvent('window.ready')
 
-      // Preload governance authority (best-effort attestation; boot_core
-      // generates its own token independently).  This runs AFTER the window
-      // is shown so the 26-file SHA256 scan does not delay the UI.
+      // Start the backend in the background.  spawnBootCore computes the
+      // governance bootstrap attestation and passes it to boot_core via
+      // GPTBRIDGE_GOVERNANCE_BOOTSTRAP env var; boot_core uses it directly
+      // instead of re-computing (saves ~500ms of SHA256 scanning).
+      if (shouldManageBackend) {
+        startBackend()
+      }
+
+      // Preload governance authority attestation (required by governance
+      // audit A57/E43).  This runs AFTER the window is shown and AFTER
+      // startBackend, so it never blocks the startup page.  spawnBootCore
+      // already computed and passed the bootstrap token to boot_core; this
+      // call is the launcher-side attestation record.
       try {
         const workspaceRoot = getRuntimeEnv('GPTBRIDGE_WORKSPACE_ROOT')
           || getRuntimeEnv('GPTBRIDGE_PROJECT_ROOT')
           || process.cwd()
         preloadDefaultGovernanceAuthority(workspaceRoot)
       } catch {
-        // Best-effort preload; boot_core generates its own token.
-      }
-
-      if (shouldManageBackend) {
-        startBackend()
+        // Best-effort attestation; boot_core has its own token.
       }
 
       reportRuntimeEvent('bootstrap.ready')

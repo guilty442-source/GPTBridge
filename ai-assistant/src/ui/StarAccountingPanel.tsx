@@ -43,12 +43,12 @@ export function StarAccountingPanel(props: StarAccountingPanelProps) {
   const differenceCount = number(reconciliation.difference_count)
 
   return (
-    <section className="nexus-accounting" aria-label="星澄帳務">
+    <section className="nexus-accounting" aria-label="AI帳務">
       <header className="nexus-accounting-head">
         <div>
           <p className="nexus-eyebrow">自主帳務</p>
-          <h2>星澄帳務</h2>
-          <span>星澄核對帳本與持股；AI投資管家驗證後才寫入專屬資料庫。</span>
+          <h2>AI帳務</h2>
+          <span>AI核對帳本與持股；AI投資管家驗證後才寫入專屬資料庫。</span>
         </div>
         <button
           type="button"
@@ -57,7 +57,7 @@ export function StarAccountingPanel(props: StarAccountingPanelProps) {
             void runCommand(
               'investment_watch_run_star_accounting',
               { trigger: 'accounting_workspace' },
-              '星澄自主帳務',
+              'AI自主帳務',
               120000,
               true
             )
@@ -65,8 +65,8 @@ export function StarAccountingPanel(props: StarAccountingPanelProps) {
           disabled={busy || holdingCount === 0}
         >
           {busyAction === 'investment:investment_watch_run_star_accounting'
-            ? '星澄處理中…'
-            : '執行星澄帳務'}
+            ? 'AI處理中…'
+            : '執行AI帳務'}
         </button>
       </header>
 
@@ -114,7 +114,7 @@ export function StarAccountingPanel(props: StarAccountingPanelProps) {
 
       {differenceCount > 0 ? (
         <section className="nexus-accounting-notice" role="status">
-          <strong>星澄將自主檢查 {differenceCount} 筆差異</strong>
+          <strong>AI將自主檢查 {differenceCount} 筆差異</strong>
           <span>資料不一致、零價格或核准後狀態變動時會停止寫入。</span>
         </section>
       ) : null}
@@ -125,7 +125,7 @@ export function StarAccountingPanel(props: StarAccountingPanelProps) {
           <strong>{transactions.length}</strong>
         </div>
         {transactions.length === 0 ? (
-          <p className="nexus-empty-line">尚無帳務紀錄；匯入持股後由星澄建立與維護。</p>
+          <p className="nexus-empty-line">尚無帳務紀錄；匯入持股後由AI建立與維護。</p>
         ) : (
           <div className="nexus-accounting-list">
             {transactions.map((item, index) => (

@@ -25,7 +25,6 @@ import {
   EMPTY_HOLDING_DRAFT,
   EXCEL_COLUMN_OPTIONS,
   EXCEL_MAPPING_FIELDS,
-  STAR_COMMAND_PRESETS,
   WORKSPACE_VIEWS,
   excelColumnLetter,
   socketStatusLabel,
@@ -38,18 +37,6 @@ import {
   type InvestmentShellState,
   type WorkspaceView,
 } from "./aiAssistantDefinitions";
-
-type StarMemoryRecord = {
-  memory_id: string;
-  title: string;
-  content: string;
-  source_type: string;
-  source_id: string;
-  confidence: number;
-  expires_at: string;
-  review_status: "pending-review" | "approved" | "rejected" | "revoked";
-  owner_model_id: string;
-};
 
 export function AiAssistantWindowApp() {
   const {
@@ -80,8 +67,8 @@ export function AiAssistantWindowApp() {
   const [excelConsolidatedDraft, setExcelConsolidatedDraft] =
     useState<ExcelConsolidatedDraft>(EMPTY_CONSOLIDATED_DRAFT);
   const autoMissingInfoKeyRef = useRef("");
-  const [starMemories, setStarMemories] = useState<StarMemoryRecord[]>([]);
-  const [starMemoryLoaded, setStarMemoryLoaded] = useState(false);
+  const [browserUrl, setBrowserUrl] = useState("https://www.google.com");
+  const [browserSession, setBrowserSession] = useState<string | null>(null);
 
   const request = useCallback(
     async (
@@ -109,62 +96,61 @@ export function AiAssistantWindowApp() {
     [sendCommand, waitUntilConnected],
   );
 
-  const loadStarMemories = useCallback(async () => {
-    try {
-      const result = await request("investment_star_memory_list", {
-        include_inactive: true,
-        limit: 100,
-      });
-      const records = Array.isArray(result.records)
-        ? (result.records.filter(
-            (item): item is StarMemoryRecord =>
-              Boolean(item) &&
-              typeof item === "object" &&
-              typeof (item as StarMemoryRecord).memory_id === "string",
-          ) as StarMemoryRecord[])
-        : [];
-      setStarMemories(records);
-      setStarMemoryLoaded(true);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "讀取星澄記憶失敗");
-    }
-  }, [request]);
+  const electron = (window as any).electron as
+    | { invoke: (channel: string, ...args: unknown[]) => Promise<unknown> }
+    | undefined;
 
-  const reviewStarMemory = useCallback(
-    async (memoryId: string, action: "approve" | "reject" | "revoke") => {
-      setBusyAction(`star-memory:${memoryId}`);
-      try {
-        const result = await request("investment_star_memory_review", {
-          memory_id: memoryId,
-          action,
-          reviewer: "investment-manager-owner",
-          reason: "由 AI 投資管家星澄工作區審核",
-        });
-        if (result.ok !== true) {
-          throw new Error(String(result.message || "星澄記憶審核失敗"));
-        }
-        setMessage(
-          action === "approve"
-            ? "星澄記憶已核准"
-            : action === "reject"
-              ? "星澄記憶已拒絕"
-              : "星澄記憶已撤銷",
-        );
-        await loadStarMemories();
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : "星澄記憶審核失敗");
-      } finally {
-        setBusyAction("");
-      }
-    },
-    [loadStarMemories, request],
-  );
+  const openBrowser = useCallback(async () => {
+    if (!electron) {
+      setMessage("瀏覽器 IPC 尚未就緒");
+      return;
+    }
+    const bounds = {
+      x: 0,
+      y: 120,
+      width: window.innerWidth,
+      height: Math.max(200, window.innerHeight - 120),
+    };
+    const result = (await electron.invoke("embedded-browser:create", {
+      id: browserSession || "ai-assistant-browser",
+      ownerModule: "ai-assistant",
+      url: browserUrl,
+      bounds,
+    })) as { ok: boolean; id?: string; message?: string };
+    if (result.ok) {
+      setBrowserSession(result.id || "ai-assistant-browser");
+      setMessage("已開啟瀏覽器");
+    } else {
+      setMessage(result.message || "瀏覽器開啟失敗");
+    }
+  }, [browserSession, browserUrl, electron]);
+
+  const navigateBrowser = useCallback(async () => {
+    if (!electron || !browserSession) {
+      setMessage("請先開啟瀏覽器");
+      return;
+    }
+    const result = (await electron.invoke("embedded-browser:navigate", {
+      id: browserSession,
+      url: browserUrl,
+    })) as { ok: boolean; message?: string };
+    setMessage(result.ok ? "瀏覽器已導航" : (result.message || "導航失敗"));
+  }, [browserSession, browserUrl, electron]);
+
+  const closeBrowser = useCallback(async () => {
+    if (!electron || !browserSession) {
+      return;
+    }
+    await electron.invoke("embedded-browser:close", { id: browserSession });
+    setBrowserSession(null);
+    setMessage("已關閉瀏覽器");
+  }, [browserSession, electron]);
 
   useEffect(() => {
-    if (workspaceView === "star" && !starMemoryLoaded) {
-      void loadStarMemories();
+    if (workspaceView === "browser" && !browserSession) {
+      void openBrowser();
     }
-  }, [loadStarMemories, starMemoryLoaded, workspaceView]);
+  }, [browserSession, openBrowser, workspaceView]);
 
   const investmentWatch = useInvestmentWatchFeature({
     request,
@@ -260,7 +246,7 @@ export function AiAssistantWindowApp() {
   const localAiStatusLabel =
     localAiStatus?.state_label ||
     (investmentWatch.investmentHoldings.length > 0
-      ? "等待星澄分析"
+      ? "等待AI投資管家分析"
       : "等待持股資料");
   const localAiScore =
     typeof localAiStatus?.score === "number"
@@ -396,8 +382,8 @@ export function AiAssistantWindowApp() {
   const localAiRecommendation =
     localAiStatus?.recommendation ||
     (investmentWatch.investmentHoldings.length > 0
-      ? "星澄會依照持倉成本、報價、集中度與動態權重產生風險預告。"
-      : "讀取 Excel 持股檔後，星澄會自動執行監測。");
+      ? "AI投資管家會依照持倉成本、報價、集中度與動態權重產生風險預告。"
+      : "讀取 Excel 持股檔後，AI投資管家會自動執行監測。");
   const holdingValueLabel = useMemo(() => {
     const count = investmentWatch.investmentHoldings.length;
     return `${count} 筆持股`;
@@ -1036,7 +1022,7 @@ export function AiAssistantWindowApp() {
           </strong>
         </div>
         <div>
-          <span>星澄</span>
+          <span>AI投資管家</span>
           <strong>
             {localAiStatusLabel} · {localAiScore}
           </strong>
@@ -1072,7 +1058,7 @@ export function AiAssistantWindowApp() {
               <strong>{workbookDiagnosticLabel}</strong>
             </div>
             <div>
-              <span>星澄風險</span>
+              <span>AI投資管家風險</span>
               <strong>
                 {diagnostics?.xingcheng?.warning_count ?? 0} /{" "}
                 {diagnostics?.xingcheng?.critical_count ?? 0}
@@ -1107,7 +1093,7 @@ export function AiAssistantWindowApp() {
         />
       ) : null}
 
-      {workspaceView === "portfolio" || workspaceView === "star" ? (
+      {workspaceView === "portfolio" || workspaceView === "browser" ? (
         <section
           className={`nexus-workbench nexus-workbench--local nexus-workbench--${workspaceView}`}
         >
@@ -1133,7 +1119,7 @@ export function AiAssistantWindowApp() {
                         void investmentWatch.runInvestmentV2Command(
                           "investment_watch_sync_dividends",
                           {},
-                          "星澄配息搜尋",
+                          "AI投資管家配息搜尋",
                           240000,
                         )
                       }
@@ -1142,7 +1128,7 @@ export function AiAssistantWindowApp() {
                       {busyAction ===
                       "investment:investment_watch_sync_dividends"
                         ? "同步中..."
-                        : "星澄搜尋配息"}
+                        : "AI投資管家搜尋配息"}
                     </button>
                     <button
                       type="button"
@@ -1320,370 +1306,45 @@ export function AiAssistantWindowApp() {
             </section>
           ) : null}
 
-          {workspaceView === "star" ? (
+          {workspaceView === "browser" ? (
             <aside className="nexus-column nexus-column--right">
-              <section className="nexus-surface nexus-xingcheng-status">
-                <div className="nexus-section-head">
-                  <span>星澄</span>
-                  <strong>
-                    {localAiStatus?.watch_status_label || "等待監測"}
-                  </strong>
-                </div>
-                <div
-                  className={`nexus-ai-score nexus-ai-score--${localAiStatus?.state || "empty"}`}
-                >
-                  <strong>{localAiScore}</strong>
-                  <span>{localAiStatusLabel}</span>
-                </div>
-                <p>{localAiRecommendation}</p>
-                <div className="nexus-coordinator-status">
-                  <div>
-                    <span>最終統籌</span>
-                    <strong>{coordinatorLabel}</strong>
-                  </div>
-                  <p>
-                    {externalAiDiscussion?.content ||
-                      externalAiDiscussion?.message ||
-                      "由星澄完成分析後，透過 AI 通道交由 ChatGPT 最終統籌。"}
-                  </p>
-                </div>
-                {localAiDecisionBrief ? (
-                  <div className="nexus-xingcheng-decision">
-                    <span>星澄決策摘要</span>
-                    <strong>
-                      信心{" "}
-                      {localAiConfidence?.label ||
-                        localAiStatus?.confidence_label ||
-                        "-"}
-                      {" · "}
-                      行動{" "}
-                      {localAiStatus?.action_count ?? localAiActionPlan.length}
-                      {" · "}
-                      觸發{" "}
-                      {localAiStatus?.trigger_count ??
-                        localAiWatchTriggers.length}
-                    </strong>
-                    <p>{localAiDecisionBrief}</p>
-                  </div>
-                ) : null}
-                <div className="nexus-xingcheng-meta">
-                  <span>{localAiStatus?.coverage_label || "等待持股資料"}</span>
-                  <span
-                    className={`nexus-network-pill nexus-network-pill--${localAiQuoteHealth}`}
-                  >
-                    {localAiQuoteHealthLabel}
-                  </span>
-                  <span>{localAiNetworkLabel}</span>
-                  <span>{localAiVerificationLabel}</span>
-                  <span>來源 {localAiProviderCount}</span>
-                  <span>
-                    信心 {localAiSourceConfidence?.grade || "-"} ·{" "}
-                    {formatInvestmentNumber(localAiSourceConfidence?.score, 0)}
-                  </span>
-                  <span>
-                    刷新 {localAiStatus?.refreshed_holding_count || 0} · 快取{" "}
-                    {localAiStatus?.reused_holding_count || 0}
-                  </span>
-                  <span>
-                    {localAiExplanation?.mode_label ||
-                      localAiStatus?.explanation_mode_label ||
-                      "規則引擎說明"}
-                  </span>
-                  <span>風險 {localAiStatus?.warning_count ?? 0}</span>
-                  <span>重大 {localAiStatus?.critical_count ?? 0}</span>
-                </div>
-                {localAiExplanation?.text ? (
-                  <div className="nexus-xingcheng-explanation">
-                    <strong>{localAiExplanation.mode_label}</strong>
-                    <p>{localAiExplanation.text}</p>
-                  </div>
-                ) : null}
-                {localAiQuoteGapCount > 0 ? (
-                  <div className="nexus-quote-gaps">
-                    <span>報價缺口 {localAiQuoteGapCount}</span>
-                    {localAiQuoteGaps.length === 0 ? (
-                      <p>有報價缺口，但目前沒有取得明細；請重新執行星澄。</p>
-                    ) : (
-                      localAiQuoteGaps.map((gap, index) => (
-                        <article key={`${gap.symbol || "quote-gap"}:${index}`}>
-                          <strong>
-                            {gap.symbol || "-"}
-                            {gap.name ? ` · ${gap.name}` : ""}
-                          </strong>
-                          <span>
-                            {gap.market || "-"} ·{" "}
-                            {gap.reason || gap.status || "未取得可信報價"}
-                          </span>
-                          <p>
-                            {gap.detail ||
-                              gap.action ||
-                              "請檢查代號、市場或重新執行星澄。"}
-                          </p>
-                        </article>
-                      ))
-                    )}
-                  </div>
-                ) : null}
-                {localAiActions.length > 0 ? (
-                  <ul className="nexus-xingcheng-actions">
-                    {localAiActions.map((action, index) => (
-                      <li key={`${action}:${index}`}>{action}</li>
-                    ))}
-                  </ul>
-                ) : null}
-                <div className="nexus-risk-board">
-                  <span>持倉風險預告</span>
-                  {localAiWarnings.length === 0 ? (
-                    <p>尚無風險預告</p>
-                  ) : (
-                    localAiWarnings.map((warning, index) => (
-                      <article
-                        key={`${warning.code || "risk"}:${warning.symbol || "portfolio"}:${index}`}
-                        className={`nexus-risk-row nexus-risk-row--${warning.severity || "info"}`}
-                      >
-                        <strong>
-                          {warning.title || warning.code || "風險提示"}
-                        </strong>
-                        <span>{warning.detail || warning.action || "-"}</span>
-                      </article>
-                    ))
-                  )}
-                </div>
-                <div className="nexus-command-suggestions">
-                  <span>星澄命令建議</span>
-                  <div>
-                    {localAiCommands.length === 0 ? (
-                      <code>匯入持股後可下達本地分析命令</code>
-                    ) : (
-                      localAiCommands.map((command, index) => (
-                        <button
-                          key={`${command}:${index}`}
-                          type="button"
-                          className="nexus-command-chip"
-                          onClick={() => applyLocalCommandPreset(command)}
-                          disabled={Boolean(busyAction)}
-                        >
-                          {command}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </section>
-
               <section className="nexus-surface">
                 <div className="nexus-section-head">
-                  <span>星澄命令</span>
-                  <strong>{investmentWatch.investmentRuns.length}</strong>
+                  <span>內建瀏覽器</span>
+                  <strong>{browserSession ? "已開啟" : "待命"}</strong>
                 </div>
-                <form
-                  className="nexus-xingcheng-command"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void investmentWatch.sendLocalRiskCommand();
-                  }}
-                >
-                  <label htmlFor="local-risk-command">輸入命令給星澄</label>
-                  <div
-                    className="nexus-command-presets"
-                    aria-label="星澄常用命令"
-                  >
-                    {STAR_COMMAND_PRESETS.map((preset) => (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() => applyLocalCommandPreset(preset.command)}
-                        disabled={
-                          Boolean(busyAction) ||
-                          investmentWatch.investmentHoldings.length === 0
-                        }
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
+                <p>輸入網址後使用下方按鈕開啟或導航。瀏覽器會以嵌入視窗顯示。</p>
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                   <input
-                    id="local-risk-command"
-                    value={investmentWatch.localRiskCommand}
-                    onChange={(event) =>
-                      investmentWatch.setLocalRiskCommand(event.target.value)
-                    }
-                    placeholder={
-                      investmentWatch.investmentHoldings.length === 0
-                        ? "請先讀取 Excel 檔"
-                        : "預設自動連網報價，例如：只看 AAPL 跌破成本 3% 集中度 30%"
-                    }
-                    disabled={
-                      Boolean(busyAction) ||
-                      investmentWatch.investmentHoldings.length === 0
-                    }
+                    type="text"
+                    value={browserUrl}
+                    onChange={(event) => setBrowserUrl(event.target.value)}
+                    placeholder="https://www.google.com"
+                    style={{ flex: 1 }}
+                    disabled={Boolean(busyAction)}
                   />
                   <button
-                    type="submit"
-                    className="nexus-primary nexus-command-submit"
-                    disabled={
-                      Boolean(busyAction) ||
-                      investmentWatch.investmentHoldings.length === 0
-                    }
+                    type="button"
+                    onClick={() => void openBrowser()}
+                    disabled={Boolean(busyAction)}
                   >
-                    {busyAction === "investment:local-risk-command"
-                      ? "星澄執行中..."
-                      : "送出星澄命令"}
+                    開啟
                   </button>
-                </form>
-                {localAiCommandPreview ? (
-                  <div className="nexus-command-result">
-                    <span>星澄回覆</span>
-                    <pre>{localAiCommandPreview}</pre>
-                  </div>
-                ) : null}
-                {localAiActionPlan.length > 0 ? (
-                  <div className="nexus-action-plan">
-                    <span>星澄行動計畫</span>
-                    {localAiActionPlan.map((item, index) => (
-                      <article
-                        key={`${item.symbol || "portfolio"}:${item.title || "action"}:${index}`}
-                        className={`nexus-plan-row nexus-plan-row--${item.priority || "monitor"}`}
-                      >
-                        <strong>{item.title || item.symbol || "行動"}</strong>
-                        <span>
-                          {item.due || "-"} · {item.risk_level_label || "-"}
-                        </span>
-                        <p>{item.action || "-"}</p>
-                      </article>
-                    ))}
-                  </div>
-                ) : null}
-                {localAiWatchTriggers.length > 0 ? (
-                  <div className="nexus-watch-triggers">
-                    <span>監測觸發條件</span>
-                    {localAiWatchTriggers.map((item, index) => (
-                      <article
-                        key={`${item.symbol || "trigger"}:${item.trigger || "condition"}:${index}`}
-                        className={`nexus-trigger-row nexus-trigger-row--${item.severity || "info"}`}
-                      >
-                        <strong>
-                          {item.symbol || "-"} · {item.trigger || "-"}
-                        </strong>
-                        <span>
-                          {item.threshold_text || item.threshold || "-"}
-                        </span>
-                        <p>{item.action || "-"}</p>
-                      </article>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="nexus-run-list">
-                  {latestInvestmentRuns.length === 0 ? (
-                    <p className="nexus-empty-line">尚無分析紀錄</p>
-                  ) : (
-                    latestInvestmentRuns.map((run) => {
-                      const preview = (run.content || run.error || "").trim();
-                      return (
-                        <article key={run.run_id} className="nexus-run-row">
-                          <strong>{investmentRunLabel(run)}</strong>
-                          <span>
-                            {investmentStatusLabel(run.status)} ·{" "}
-                            {formatInvestmentClock(run.created_at)}
-                          </span>
-                          {preview ? (
-                            <pre className="nexus-run-preview">{preview}</pre>
-                          ) : null}
-                        </article>
-                      );
-                    })
-                  )}
-                </div>
-              </section>
-
-              <section className="nexus-surface nexus-star-memory">
-                <div className="nexus-section-head">
-                  <span>星澄可審核記憶</span>
-                  <strong>
-                    待審{" "}
-                    {
-                      starMemories.filter(
-                        (item) => item.review_status === "pending-review",
-                      ).length
-                    }
-                  </strong>
-                </div>
-                <p>外部 AI 只可提出候選記憶；核准前不會進入星澄推理上下文。</p>
-                <button
-                  type="button"
-                  onClick={() => void loadStarMemories()}
-                  disabled={Boolean(busyAction)}
-                >
-                  重新整理記憶
-                </button>
-                <div className="nexus-star-memory-list">
-                  {starMemories.length === 0 ? (
-                    <p className="nexus-empty-line">目前沒有可審核記憶</p>
-                  ) : (
-                    starMemories.map((item) => (
-                      <article key={`${item.owner_model_id}:${item.memory_id}`}>
-                        <div>
-                          <strong>{item.title || "未命名記憶"}</strong>
-                          <span>
-                            {item.review_status} · 信心{" "}
-                            {formatInvestmentNumber(
-                              Number(item.confidence) * 100,
-                              0,
-                            )}
-                            %
-                          </span>
-                        </div>
-                        <p>{item.content}</p>
-                        <small>
-                          來源 {item.source_type || "-"} /{" "}
-                          {item.source_id || "-"}
-                        </small>
-                        <div className="nexus-star-memory-actions">
-                          {item.review_status === "pending-review" ? (
-                            <>
-                              <button
-                                type="button"
-                                className="nexus-primary"
-                                onClick={() =>
-                                  void reviewStarMemory(
-                                    item.memory_id,
-                                    "approve",
-                                  )
-                                }
-                                disabled={Boolean(busyAction)}
-                              >
-                                核准
-                              </button>
-                              <button
-                                type="button"
-                                className="nexus-danger"
-                                onClick={() =>
-                                  void reviewStarMemory(
-                                    item.memory_id,
-                                    "reject",
-                                  )
-                                }
-                                disabled={Boolean(busyAction)}
-                              >
-                                拒絕
-                              </button>
-                            </>
-                          ) : item.review_status === "approved" ? (
-                            <button
-                              type="button"
-                              className="nexus-danger"
-                              onClick={() =>
-                                void reviewStarMemory(item.memory_id, "revoke")
-                              }
-                              disabled={Boolean(busyAction)}
-                            >
-                              撤銷
-                            </button>
-                          ) : null}
-                        </div>
-                      </article>
-                    ))
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => void navigateBrowser()}
+                    disabled={Boolean(busyAction) || !browserSession}
+                  >
+                    導航
+                  </button>
+                  <button
+                    type="button"
+                    className="nexus-danger"
+                    onClick={() => void closeBrowser()}
+                    disabled={!browserSession}
+                  >
+                    關閉
+                  </button>
                 </div>
               </section>
             </aside>
@@ -1698,11 +1359,11 @@ export function AiAssistantWindowApp() {
               <span>服務架構</span>
               <strong>{socketLabel}</strong>
             </div>
-            <p>AI 投資管家只管理本機持股與設定；分析及帳務決策由星澄提供。</p>
+            <p>AI 投資管家只管理本機持股與設定；分析及帳務決策由AI投資管家提供。</p>
             <div className="nexus-system-flow">
               <span>AI 投資管家</span>
               <strong>→ AI 通道 →</strong>
-              <span>星澄</span>
+              <span>AI投資管家</span>
             </div>
           </article>
           <article className="nexus-surface">
@@ -1710,7 +1371,7 @@ export function AiAssistantWindowApp() {
               <span>自動資料</span>
               <strong>{localAiQuoteHealthLabel}</strong>
             </div>
-            <p>配息、股價與淨值由星澄搜尋；未知值不覆寫手動資料。</p>
+            <p>配息、股價與淨值由AI投資管家搜尋；未知值不覆寫手動資料。</p>
             <span>{localAiVerificationLabel}</span>
           </article>
           <article className="nexus-surface">
@@ -1718,21 +1379,21 @@ export function AiAssistantWindowApp() {
               <span>手機工具</span>
               <strong>已分離</strong>
             </div>
-            <p>investment-mobile 經星澄連線；桌面管家不開啟 LAN 服務。</p>
+            <p>investment-mobile 經AI投資管家連線；桌面管家不開啟 LAN 服務。</p>
           </article>
           <article className="nexus-surface">
             <div className="nexus-section-head">
               <span>治理</span>
               <strong>最高權限</strong>
             </div>
-            <p>星澄負責分析與自主帳務；外部 AI 不能直接寫入投資管家。</p>
+            <p>AI投資管家負責分析與自主帳務；外部 AI 不能直接寫入投資管家。</p>
           </article>
           <article className="nexus-surface nexus-system-tools">
             <div className="nexus-section-head">
               <span>維護工具</span>
               <strong>必要時使用</strong>
             </div>
-            <p>低頻率維護操作集中在這裡，不占用日常持股與星澄工作區。</p>
+            <p>低頻率維護操作集中在這裡，不占用日常持股與AI投資管家工作區。</p>
             <div>
               <button
                 type="button"

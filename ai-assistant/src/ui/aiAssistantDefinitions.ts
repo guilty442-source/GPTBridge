@@ -8,14 +8,6 @@ export type InvestmentShellState = {
   local_only?: boolean
 }
 
-export const STAR_COMMAND_PRESETS = [
-  { label: '投資評分', command: '連網 評分 全部持股，列出 100 分制、情境與操作策略' },
-  { label: '防禦模式', command: '連網 防禦 高估值 通膨，檢查資產配置與單一持股上限' },
-  { label: '集中度', command: '連網 配置 集中度 25% 風控優先，找出過度集中部位' },
-  { label: '停損線', command: '連網 停損 8% 盤中 3%，列出需要預警的持股' },
-  { label: 'ETF 檢查', command: '連網 ETF 同業比較 估值 技術面 籌碼，給出再平衡建議' },
-]
-
 export type HoldingDraft = {
   holding_id: string
   symbol: string
@@ -245,11 +237,11 @@ export function waitForIpcEvent<T = Record<string, unknown>>(
   })
 }
 
-export type WorkspaceView = 'portfolio' | 'star' | 'accounting' | 'system'
+export type WorkspaceView = 'portfolio' | 'browser' | 'accounting' | 'system'
 
 export const WORKSPACE_VIEWS: Array<{ key: WorkspaceView; label: string }> = [
   { key: 'portfolio', label: '持股' },
-  { key: 'star', label: '星澄' },
-  { key: 'accounting', label: '星澄帳務' },
+  { key: 'browser', label: '瀏覽器' },
+  { key: 'accounting', label: 'AI帳務' },
   { key: 'system', label: '系統' },
 ]
