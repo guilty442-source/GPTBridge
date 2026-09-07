@@ -130,7 +130,7 @@ class InvestmentMobileBridgeMixin:
         self, _payload: dict[str, Any]
     ) -> dict[str, Any]:
         snapshot = self._mobile_sync_snapshot()
-        snapshot["connection_coordinator"] = "xingcheng"
+        snapshot["connection_coordinator"] = "ai-assistant"
         snapshot["transport"] = "governance-authenticated-shared-layer"
         return snapshot
 

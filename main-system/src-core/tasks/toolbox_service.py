@@ -166,6 +166,11 @@ class ToolboxService:
         self._source_ui_runtime_sessions: dict[str, str] = {}
         self._process_state_lock = asyncio.Lock()
         self._central_repair: CentralRepairService | None = None
+        # Manifest cache: tool_id -> (manifest_dict, tool_dir_path).
+        # Avoids re-reading manifest.json 3+ times per tool start.
+        self._manifest_cache: dict[str, tuple[Dict[str, Any], Path]] = {}
+        # Reverse cache: tool_dir_name -> tool_id, for _tool_directory_for_id.
+        self._tool_dir_index: dict[str, str] | None = None
         # Callback invoked on tool activity (set by Integration Sub-Sovereign
         # for idle management).  Signature: (tool_id: str) -> None.
         self._tool_activity_callback: Callable[[str], None] | None = None
@@ -182,10 +187,7 @@ class ToolboxService:
 
     def _background_restart_policy(self, tool_id: str) -> tuple[int, float] | None:
         try:
-            tool_dir = self._tool_directory_for_id(tool_id)
-            manifest = json.loads(
-                (tool_dir / "manifest.json").read_text(encoding="utf-8")
-            )
+            manifest, _tool_dir = self._load_manifest_cached(tool_id)
             policy = manifest.get("background_service")
             if not isinstance(policy, dict) or policy.get("auto_restart") is not True:
                 return None
@@ -281,10 +283,7 @@ class ToolboxService:
             raise PermissionError("PERMISSION_DENIED")
         if action.casefold() in {"stop", "force-close", "force_close"}:
             try:
-                tool_dir = self._tool_directory_for_id(tool_id)
-                manifest = json.loads(
-                    (tool_dir / "manifest.json").read_text(encoding="utf-8")
-                )
+                manifest, _tool_dir = self._load_manifest_cached(tool_id)
             except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
                 raise PermissionError("PERMISSION_DENIED") from error
             lifecycle = manifest.get("lifecycle")
@@ -1314,20 +1313,56 @@ class ToolboxService:
                 companions.append(candidate)
         return companions
 
+    def _load_manifest_cached(self, tool_id: str) -> tuple[Dict[str, Any], Path]:
+        """Load and cache a tool's manifest, returning (manifest, tool_dir).
+
+        Avoids redundant manifest.json reads during startup — a single
+        tool start previously triggered 3+ manifest reads.
+        """
+        cached = self._manifest_cache.get(tool_id)
+        if cached is not None:
+            return cached
+        tool_dir = self._tool_directory_for_id(tool_id)
+        manifest = json.loads(
+            (tool_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+        self._manifest_cache[tool_id] = (manifest, tool_dir)
+        return manifest, tool_dir
+
+    def _build_tool_dir_index(self) -> dict[str, str]:
+        """Build a one-time index of tool_dir_name -> tool_id.
+
+        Replaces the O(n) scan in _tool_directory_for_id with an O(1)
+        lookup after the first call.
+        """
+        if self._tool_dir_index is not None:
+            return self._tool_dir_index
+        index: dict[str, str] = {}
+        if self.tools_dir.exists():
+            for candidate in self.tools_dir.iterdir():
+                manifest_path = candidate / "manifest.json"
+                if not candidate.is_dir() or not manifest_path.is_file():
+                    continue
+                try:
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                tid = str(manifest.get("id") or "").strip()
+                if tid:
+                    index[candidate.name] = tid
+                    self._manifest_cache[tid] = (manifest, candidate)
+        self._tool_dir_index = index
+        return index
+
     def _tool_directory_for_id(self, tool_id: str) -> Path:
         direct = self.tools_dir / tool_id
         if (direct / "manifest.json").is_file():
             return self._validated_tool_directory(direct)
-        for candidate in self.tools_dir.iterdir():
-            manifest_path = candidate / "manifest.json"
-            if not candidate.is_dir() or not manifest_path.is_file():
-                continue
-            try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            if manifest.get("id") == tool_id:
-                return self._validated_tool_directory(candidate)
+        # Use the cached index instead of scanning every directory each time.
+        index = self._build_tool_dir_index()
+        for dir_name, tid in index.items():
+            if tid == tool_id:
+                return self._validated_tool_directory(self.tools_dir / dir_name)
         for companion in self._declared_companion_tool_directories():
             try:
                 manifest = json.loads(
@@ -1336,6 +1371,7 @@ class ToolboxService:
             except (OSError, json.JSONDecodeError):
                 continue
             if manifest.get("id") == tool_id:
+                self._manifest_cache[tool_id] = (manifest, companion)
                 return companion
         raise ValueError(f"Tool directory is unavailable: {tool_id}")
 
@@ -1534,7 +1570,7 @@ class ToolboxService:
             return {**self._missing_tool_result(tool_id), "request_id": request_id}
 
         try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest, _cached_dir = self._load_manifest_cached(tool_id)
         except Exception as exc:
             return {"ok": False, "tool_id": tool_id, "message": f"Invalid tool manifest: {exc}"}
 

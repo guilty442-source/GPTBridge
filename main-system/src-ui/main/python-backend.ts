@@ -13,10 +13,9 @@
  * The Electron UI queries backend status via IPC commands to the backend
  * itself; this module only tracks whether boot_core is alive.
  *
- * Governance bootstrap material is created by createMainSystemGovernanceBootstrap
- * (from governance-bootstrap.ts) and preloaded by the launcher before the
- * backend starts.  boot_core independently generates its own fresh token per
- * spawn, so the Electron-side bootstrap is a preload attestation only.
+ * Governance bootstrap material is preloaded by preloadDefaultGovernanceAuthority
+ * in app.whenReady() (after the window is shown); boot_core independently
+ * generates its own fresh token per spawn.
  */
 import { ChildProcess, spawn } from 'child_process'
 import fs from 'node:fs'
@@ -26,10 +25,10 @@ import {
   getIpcStateRoot,
   getWorkspaceInstanceId,
 } from './ipcSession'
-import { createMainSystemGovernanceBootstrap } from './governance-bootstrap'
 import { getRuntimePathLibrary } from './pathLibrary'
 import { getRuntimeEnvMap } from './runtime-env'
 import { PRODUCT_VERSION } from './product-version'
+import { createMainSystemGovernanceBootstrap } from './governance-bootstrap'
 
 let pythonProcess: ChildProcess | null = null
 type BackendStatus = 'idle' | 'starting' | 'running' | 'stopping' | 'error'
@@ -81,16 +80,10 @@ function spawnBootCore(
   if (autoKillBackendPort) backendArgs.push('--auto-kill-backend-port')
 
   const runtimeEnvironment = getRuntimeEnvMap()
-  // Preload governance bootstrap material so the launcher attests to the
-  // governance authority before boot_core spawns.  boot_core independently
-  // generates its own fresh token per spawn; this preload is an attestation
-  // that the launcher has verified the governance source integrity.
-  try {
-    const workspaceRoot = paths.workspaceRoot
-    createMainSystemGovernanceBootstrap(workspaceRoot)
-  } catch {
-    // Best-effort preload; boot_core will generate its own token anyway.
-  }
+  // Launcher-side governance bootstrap attestation; boot_core independently
+  // generates a fresh token per spawn, but the launcher proves it can create
+  // the material before waking the screen.
+  const governanceBootstrap = createMainSystemGovernanceBootstrap(paths.workspaceRoot)
   pythonProcess = spawn(
     paths.pythonExecutable,
     backendArgs,
@@ -102,6 +95,7 @@ function spawnBootCore(
         GPTBRIDGE_APP_VERSION: PRODUCT_VERSION,
         GPTBRIDGE_IPC_STATE_ROOT: getIpcStateRoot(),
         GPTBRIDGE_IPC_SESSION_TOKEN: getBackendSessionToken(),
+        GPTBRIDGE_GOVERNANCE_BOOTSTRAP_BASE64: governanceBootstrap,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,

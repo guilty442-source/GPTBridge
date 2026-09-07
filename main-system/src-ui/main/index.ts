@@ -512,8 +512,15 @@ if (!hasSingleInstanceLock) {
 
       registerIpcHandlers()
 
-      // Preload governance authority before starting the backend so the
-      // launcher attests to governance source integrity at startup time.
+      // Show the window FIRST so the startup page appears within ~1 second.
+      // Backend startup (governance attestation + boot_core spawn) runs in
+      // the background and does not block the UI.
+      await createWindow()
+      reportRuntimeEvent('window.ready')
+
+      // Preload governance authority (best-effort attestation; boot_core
+      // generates its own token independently).  This runs AFTER the window
+      // is shown so the 26-file SHA256 scan does not delay the UI.
       try {
         const workspaceRoot = getRuntimeEnv('GPTBRIDGE_WORKSPACE_ROOT')
           || getRuntimeEnv('GPTBRIDGE_PROJECT_ROOT')
@@ -527,7 +534,6 @@ if (!hasSingleInstanceLock) {
         startBackend()
       }
 
-      await createWindow()
       reportRuntimeEvent('bootstrap.ready')
 
       app.on('activate', () => {

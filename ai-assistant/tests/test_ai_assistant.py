@@ -78,20 +78,20 @@ def test_investment_conversation_is_separate_and_uses_automatic_models() -> None
     assert policy["primary_business_models"] == [
         "ibm/granite4.2:30b-q4_K_M",
     ]
-    assert policy["market_search_owner"] == "star-main-native-model"
-    assert policy["market_search_owner_label"] == "星澄原生模型"
-    assert policy["realtime_information_search_owner"] == "star-main-native-model"
-    assert policy["realtime_information_search_owner_label"] == "星澄原生模型"
+    assert policy["market_search_owner"] == "embedded-browser"
+    assert policy["market_search_owner_label"] == "內建瀏覽器"
+    assert policy["realtime_information_search_owner"] == "embedded-browser"
+    assert policy["realtime_information_search_owner_label"] == "內建瀏覽器"
     assert policy["realtime_information_search_scope"] == [
         "dividends",
         "prices",
         "net-asset-values",
         "other-current-market-information",
     ]
-    assert policy["computation_service_owner"] == "xingcheng"
-    assert policy["statistics_service_owner"] == "xingcheng"
-    assert policy["network_search_service_owner"] == "xingcheng"
-    assert policy["backend_service_provider"] == "xingcheng"
+    assert policy["computation_service_owner"] == "ai-assistant"
+    assert policy["statistics_service_owner"] == "ai-assistant"
+    assert policy["network_search_service_owner"] == "embedded-browser"
+    assert policy["backend_service_provider"] == "ai-assistant"
 
 
 def test_clear_state_requires_explicit_confirmation(tmp_path: Path, monkeypatch) -> None:
@@ -265,7 +265,7 @@ def test_investment_analysis_cannot_bypass_star_ai_channel(
         service._close_storage()
 
 
-def test_accounting_is_sent_only_to_star_through_ai_channel() -> None:
+def test_accounting_is_sent_through_embedded_browser() -> None:
     class FakeClient:
         call: tuple[str, str, dict[str, object], int] | None = None
 
@@ -293,14 +293,14 @@ def test_accounting_is_sent_only_to_star_through_ai_channel() -> None:
     assert result["ok"] is True
     assert client.call is not None
     target, command, payload, timeout = client.call
-    assert target == "xingcheng"
-    assert command == "xingcheng_manage_investment_accounting"
+    assert target == "embedded-browser"
+    assert command == "embedded-browser_manage_investment_accounting"
     assert payload["autonomous"] is True
     assert payload["request_origin"] == "offline-ai-investment-manager"
     assert timeout == 120
 
 
-def test_external_discussion_is_requested_through_star_only() -> None:
+def test_external_discussion_is_requested_through_embedded_browser() -> None:
     class FakeClient:
         call: tuple[str, str, dict[str, object], int] | None = None
 
@@ -316,7 +316,7 @@ def test_external_discussion_is_requested_through_star_only() -> None:
             return {
                 "ok": True,
                 "discussion_owner": "ChatGPT",
-                "recipient": "xingcheng",
+                "recipient": "ai-assistant",
             }
 
     connections = InvestmentAiConnections()
@@ -333,8 +333,8 @@ def test_external_discussion_is_requested_through_star_only() -> None:
     assert result["ok"] is True
     assert client.call is not None
     target, command, payload, timeout = client.call
-    assert target == "xingcheng"
-    assert command == "xingcheng_discuss_investment_analysis"
+    assert target == "embedded-browser"
+    assert command == "embedded-browser_discuss_investment_analysis"
     snapshot = payload["analysis_snapshot"]
     assert isinstance(snapshot, dict)
     assert "private_database_path" not in snapshot
@@ -362,11 +362,11 @@ def test_star_autonomous_accounting_is_validated_before_local_write(
             assert len(differences) == 1
             return {
                 "ok": True,
-                "accounting_owner": "星澄",
+                "accounting_owner": "AI投資管家",
                 "decision": "apply_estimated_reconciliation",
                 "apply_reconciliation": True,
                 "approved_action_count": 1,
-                "message": "星澄已核准建立估算對帳調整。",
+                "message": "AI投資管家已核准建立估算對帳調整。",
             }
 
     data_root = tmp_path / "data"
@@ -398,7 +398,7 @@ def test_star_autonomous_accounting_is_validated_before_local_write(
         )
 
         assert result["ok"] is True
-        assert result["star_accounting"]["accounting_owner"] == "星澄"
+        assert result["star_accounting"]["accounting_owner"] == "AI投資管家"
         assert result["ledger_reconciliation"]["applied_count"] == 1
         assert len(service.analytics_store.list_transactions(10)) == 1
     finally:

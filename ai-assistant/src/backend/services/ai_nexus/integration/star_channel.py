@@ -34,21 +34,21 @@ class InvestmentAiConnections:
             "transport": "governance-authenticated-ai-channel",
             "queue_when_offline": False,
             "database_shared": False,
-            "investment_manager_network": "disabled",
-            "service_owner": "xingcheng",
+            "investment_manager_network": "embedded-browser-view",
+            "service_owner": "ai-assistant",
             "highest_authority": "governance-rule",
-            "channel_top_level_tool": "xingcheng",
+            "channel_top_level_tool": "embedded-browser",
             "roles": {
                 "investment_manager": "offline-portfolio-state-and-settings",
-                "xingcheng": "exclusive-computation-statistics-network-search-investment-analysis-service-owner",
-                "external_ai": "unavailable-to-investment-manager",
+                "embedded-browser": "exclusive-computation-statistics-network-search-investment-analysis-service-owner",
+                "external_ai": "browser-authenticated-ai-collaboration",
             },
             "peers": {
-                "xingcheng": {"name": "星澄", "configured": configured},
-                "external_ai": {
+                "embedded-browser": {"name": "內建瀏覽器", "configured": configured},
+                "ai-collaboration": {
                     "name": "外部 AI 協作",
-                    "configured": False,
-                    "permission": "PERMISSION_DENIED",
+                    "configured": configured,
+                    "permission": "ai-collaboration",
                 },
             },
         }
@@ -75,12 +75,12 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         result = await self._client.request(
-            "xingcheng", "xingcheng_infer", {"prompt": prompt}, timeout_seconds=200
+            "embedded-browser", "embedded-browser_infer", {"prompt": prompt}, timeout_seconds=200
         )
         return {
             "ok": result.get("ok") is True,
             "queued": False,
-            "results": {"xingcheng": result},
+            "results": {"embedded-browser": result},
         }
 
     def search_investments_sync(
@@ -93,8 +93,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "xingcheng",
-            "xingcheng_search_investments",
+            "embedded-browser",
+            "embedded-browser_search_investments",
             {
                 "holdings": [
                     {
@@ -130,8 +130,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "xingcheng",
-            "xingcheng_analyze_investments",
+            "embedded-browser",
+            "embedded-browser_analyze_investments",
             {
                 "holdings": holdings,
                 "analysis_parameters": dict(analysis_parameters or {}),
@@ -150,8 +150,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "xingcheng",
-            "xingcheng_manage_investment_accounting",
+            "embedded-browser",
+            "embedded-browser_manage_investment_accounting",
             {
                 "reconciliation": dict(reconciliation),
                 "ledger_summary": dict(ledger_summary),
@@ -209,8 +209,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "xingcheng",
-            "xingcheng_discuss_investment_analysis",
+            "embedded-browser",
+            "embedded-browser_discuss_investment_analysis",
             {
                 "analysis_snapshot": self._discussion_snapshot(analysis),
                 "request_origin": "offline-ai-investment-manager",
@@ -227,8 +227,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "xingcheng",
-            "xingcheng_memory_list",
+            "embedded-browser",
+            "embedded-browser_memory_list",
             {
                 "include_inactive": include_inactive,
                 "limit": max(1, min(500, int(limit))),
@@ -248,8 +248,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "xingcheng",
-            "xingcheng_memory_review",
+            "embedded-browser",
+            "embedded-browser_memory_review",
             {
                 "memory_id": memory_id,
                 "action": action,

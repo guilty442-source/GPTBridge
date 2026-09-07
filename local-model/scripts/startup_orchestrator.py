@@ -233,7 +233,12 @@ def main() -> int:
 
     # Hybrid start: begin the critical local sqlite probe and, in parallel,
     # probe the independent degradable services (vector index, Ollama).
+    # The critical path (sqlite) gates launch; degradables are allowed to
+    # settle in the background and their results are collected with a short
+    # timeout so a slow Ollama startup does not block the launcher.
     local_sqlite: tuple[bool, str] = (False, "not-probed")
+    vector_result: tuple[bool, str] = (False, "not-probed")
+    ollama_result: tuple[bool, str] = (False, "not-probed")
     with ThreadPoolExecutor(max_workers=DEGRADABLE_WORKERS + 1) as pool:
         sqlite_future: Future[tuple[bool, str]] = pool.submit(
             probe_local_sqlite, workspace
@@ -245,13 +250,26 @@ def main() -> int:
             probe_and_start_ollama
         )
 
+        # Wait for the critical path first — this gates launch.
         local_sqlite = sqlite_future.result()
         critical_up = local_sqlite[0]
 
-        # Vector index and Ollama are independent and degradable; wait for
-        # their attempt to settle in the background of the critical path.
-        vector_result = vector_future.result()
-        ollama_result = ollama_future.result()
+        # Vector index and Ollama are independent and degradable; give them
+        # a bounded grace period rather than blocking indefinitely.  A slow
+        # Ollama startup (10-25s) should not delay the launcher.
+        DEGRADABLE_GRACE_SECONDS = 5.0
+        for future, label in (
+            (vector_future, "vector"),
+            (ollama_future, "ollama"),
+        ):
+            try:
+                result = future.result(timeout=DEGRADABLE_GRACE_SECONDS)
+            except TimeoutError:
+                result = (False, f"{label}-probe-timeout-grace-{DEGRADABLE_GRACE_SECONDS}s")
+            if label == "vector":
+                vector_result = result
+            else:
+                ollama_result = result
 
     sqlite_ready, sqlite_detail = local_sqlite
     sqlite_entry = service_entry(
