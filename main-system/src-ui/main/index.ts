@@ -236,10 +236,19 @@ async function createWindow(): Promise<void> {
     reportRuntimeEvent('window.renderer.did-fail-load', { code, desc })
   })
 
-  await mainWindow.loadFile(paths.rendererEntryHtml)
-  reportRuntimeEvent('window.load-file.ok', {
-    rendererEntryHtml: paths.rendererEntryHtml,
-  })
+  // Dev mode: load from Vite dev server (no build needed, HMR active).
+  // Production mode: load built assets from dist-ui/renderer/index.html.
+  const devServerUrl = getRuntimeEnv('GPTBRIDGE_RENDERER_DEV_URL')
+  if (devServerUrl) {
+    await mainWindow.loadURL(devServerUrl)
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
+    reportRuntimeEvent('window.load-url.ok', { devServerUrl })
+  } else {
+    await mainWindow.loadFile(paths.rendererEntryHtml)
+    reportRuntimeEvent('window.load-file.ok', {
+      rendererEntryHtml: paths.rendererEntryHtml,
+    })
+  }
 }
 
 function registerIpcHandlers(): void {

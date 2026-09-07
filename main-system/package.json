@@ -7,6 +7,7 @@
   "main": "dist-ui/main/index.js",
   "scripts": {
     "start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1",
+    "dev": "node scripts/dev.mjs",
     "launcher:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/install.ps1",
     "launcher:prepare": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1 -PrepareOnly",
     "launcher:start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1",
