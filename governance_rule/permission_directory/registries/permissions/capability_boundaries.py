@@ -359,6 +359,20 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
             ),
         ), False, False,
     ),
+    CapabilityAuthority(
+        "central-automatic-repair", "tool:system-rescue",
+        "gptbridge-central-automatic-repair-only", "none",
+        (
+            CapabilityGrant(
+                "repair", "automatic-repair-database:{tool_id}", "tool-stability:{tool_id}",
+                path_match="within", path_roots=("main-system/data/automatic-repair",),
+            ),
+            CapabilityGrant(
+                "diagnose", "global-system-health", "global-read-only",
+                path_match="within", path_roots=(".",),
+            ),
+        ), False, False,
+    ),
 )
 
 AUTOMATIC_REPAIR_BOUNDARIES: Final[tuple[AutomaticRepairBoundary, ...]] = (

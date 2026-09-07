@@ -80,6 +80,7 @@ SOVEREIGNS: Final[Tuple[CodexSovereign, ...]] = (
             "automatic-repair-coordination",
             "fault-determination",
             "backup-coordination",
+            "self-health-test-management",
         ),
         powers=(),
         prohibitions=(
@@ -130,6 +131,7 @@ SOVEREIGNS: Final[Tuple[CodexSovereign, ...]] = (
             "coordination",
             "explanation",
             "management-thinking",
+            "model-mode-convergence",
         ),
         powers=(
             "observe",
@@ -147,6 +149,8 @@ SOVEREIGNS: Final[Tuple[CodexSovereign, ...]] = (
             "self-reason-override-codex",
             "hold-system-exec",
             "proxy-integration-structural-interface",
+            "model-mode-outside-declared-3",
+            "any-mode-hold-exec",
         ),
         basis="codex",
     ),

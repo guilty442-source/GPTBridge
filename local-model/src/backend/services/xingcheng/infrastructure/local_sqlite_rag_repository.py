@@ -7,6 +7,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator, Sequence
 
+from shared_layer.resource_identity import locator_id_for, point_id_for
+
 
 class LocalSqliteRagRepository:
     """Local sqlite3 source of truth for module-scoped RAG keyword metadata.
@@ -98,7 +100,9 @@ class LocalSqliteRagRepository:
     def existing_document(
         self, source: str, *, module_id: str = "xingcheng"
     ) -> dict[str, Any] | None:
-        locator_id = uuid.uuid5(uuid.NAMESPACE_URL, f"{module_id}:{source}")
+        import hashlib
+        document_id = hashlib.sha256(source.encode("utf-8")).hexdigest()[:32]
+        locator_id = locator_id_for(module_id, f"doc-{document_id}")
         with self._connect() as connection:
             row = connection.execute(
                 """
@@ -179,9 +183,7 @@ class LocalSqliteRagRepository:
                 (resource_id,),
             )
             for chunk in chunks:
-                point_id = uuid.uuid5(
-                    uuid.NAMESPACE_URL, "gptbridge-rag:" + str(chunk["chunk_id"])
-                )
+                point_id = point_id_for(str(chunk["chunk_id"]))
                 connection.execute(
                     """
                     INSERT INTO gptbridge_rag_chunk (

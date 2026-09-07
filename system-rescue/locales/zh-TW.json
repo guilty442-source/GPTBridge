@@ -1,0 +1,6 @@
+{
+  "tool.name": "系統救援",
+  "tool.window_title": "系統救援",
+  "tool.description": "主系統中央修復與平台打包整合工具",
+  "errors.permission_denied": "權限不足，操作已被治理規則拒絕。"
+}

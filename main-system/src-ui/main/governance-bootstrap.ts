@@ -23,6 +23,7 @@ const PROTECTED_GOVERNANCE_SOURCES = [
   'governance_rule/execution/tool_runtime/tool_self_repair.py',
   'governance_rule/execution/tool_runtime/tool_local_cleanup.py',
   'governance_rule/execution/tool_runtime/sub_sovereign.py',
+  'governance_rule/execution/git_tiers/__init__.py',
   'governance_rule/permission_directory/registries/permissions/identity_groups.py',
   'governance_rule/permission_directory/registries/permissions/identity_permissions.py',
   'governance_rule/permission_directory/registries/permissions/capability_boundaries.py',

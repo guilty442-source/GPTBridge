@@ -2509,7 +2509,7 @@ function resolvePython(projectRoot) {
     ) {
       continue
     }
-    const requiredImports = ['websockets', 'playwright.async_api']
+    const requiredImports = ['websockets']
     if (toolId === 'file-sorter') {
       requiredImports.push('PIL', 'imageio_ffmpeg')
     } else if (toolId === 'vaultly') {

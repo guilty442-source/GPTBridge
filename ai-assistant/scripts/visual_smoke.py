@@ -12,7 +12,12 @@ import sys
 import threading
 from typing import Any, Iterator
 
-from playwright.sync_api import Browser, Page, sync_playwright
+try:
+    from playwright.sync_api import Browser, Page, sync_playwright
+except ImportError:
+    sync_playwright = None  # type: ignore[assignment]
+    Browser = None  # type: ignore[assignment]
+    Page = None  # type: ignore[assignment]
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -1079,29 +1084,33 @@ def main() -> int:
         "mobile": {},
     }
     try:
-        with renderer_server(RENDERER_DIR) as url, sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=not args.headed)
-            try:
-                report["desktop"] = run_page(
-                    browser,
-                    url,
-                    fixture,
-                    output,
-                    viewport={"width": 1440, "height": 920},
-                    mobile=False,
-                    headed=args.headed,
-                )
-                report["mobile"] = run_page(
-                    browser,
-                    url,
-                    fixture,
-                    output,
-                    viewport={"width": 390, "height": 844},
-                    mobile=True,
-                    headed=args.headed,
-                )
-            finally:
-                browser.close()
+        if sync_playwright is None:
+            report["desktop"] = {"error": "playwright-not-installed"}
+            report["mobile"] = {"error": "playwright-not-installed"}
+        else:
+            with renderer_server(RENDERER_DIR) as url, sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=not args.headed)
+                try:
+                    report["desktop"] = run_page(
+                        browser,
+                        url,
+                        fixture,
+                        output,
+                        viewport={"width": 1440, "height": 920},
+                        mobile=False,
+                        headed=args.headed,
+                    )
+                    report["mobile"] = run_page(
+                        browser,
+                        url,
+                        fixture,
+                        output,
+                        viewport={"width": 390, "height": 844},
+                        mobile=True,
+                        headed=args.headed,
+                    )
+                finally:
+                    browser.close()
     except Exception as error:
         report["fatal_error"] = f"{type(error).__name__}: {error}"
 

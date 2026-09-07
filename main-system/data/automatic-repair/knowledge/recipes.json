@@ -1,0 +1,66 @@
+[
+  {
+    "recipe_id": "main-system-python-source-syntax",
+    "name": "Main-system Python source indentation/syntax self-repair",
+    "failure_signatures": [
+      "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED",
+      "IndentationError",
+      "TabError",
+      "SyntaxError"
+    ],
+    "owner": "main-system",
+    "remedy": "compile self-check over main-system/src-core then deterministic column-0 indentation recovery via tasks.source_repair",
+    "verification": "full source compile passes; repair recorded in automatic-repair store",
+    "automatic": true,
+    "runtime_only": false
+  },
+  {
+    "recipe_id": "tool-package-rebuild",
+    "name": "Tool package rebuild on startup/runtime failure",
+    "failure_signatures": [
+      "BACKEND_CONNECTION_FAILED",
+      "COMMAND_EXECUTION_FAILED",
+      "EXECUTABLE_MISSING",
+      "FRONTEND_BACKEND_DISCONNECTED",
+      "INCOMPATIBLE_TOOL_RUNTIME",
+      "MODEL_RUNTIME_NOT_READY",
+      "PACKAGE_UNVERIFIED",
+      "PROCESS_START_FAILED",
+      "SOURCE_RUNTIME_NOT_READY",
+      "SOURCE_UI_UNAVAILABLE",
+      "STALE_TOOL_PACKAGE",
+      "STREAM_CHANNEL_FAILED",
+      "TOOL_VERSION_MISMATCH"
+    ],
+    "owner": "main-system",
+    "remedy": "plan_repair rebuild-tool-executable via governed package rebuilder",
+    "verification": "owned databases inspected; rebuilt executable starts",
+    "automatic": true,
+    "runtime_only": true
+  },
+  {
+    "recipe_id": "backend-exit-before-health",
+    "name": "Backend exits before health ready",
+    "failure_signatures": [
+      "backend exited before health ready"
+    ],
+    "owner": "main-system",
+    "remedy": "governance-authorized re-spawn with bounded startup/autonomous recovery in launcher",
+    "verification": "health probe returns ready with matching workspace instance id",
+    "automatic": true,
+    "runtime_only": true
+  },
+  {
+    "recipe_id": "governance-codex-tamper",
+    "name": "Governance codex file tamper detection",
+    "failure_signatures": [
+      "PermissionError",
+      "AuthorityIntegrityGuard.verify"
+    ],
+    "owner": "governance-rule",
+    "remedy": "fail-closed denial; restore codex files from trusted backup and re-verify manifest",
+    "verification": "governance:audit and runtime integrity report healthy",
+    "automatic": false,
+    "runtime_only": false
+  }
+]

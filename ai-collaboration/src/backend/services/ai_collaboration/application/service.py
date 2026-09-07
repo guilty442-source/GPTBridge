@@ -122,7 +122,7 @@ class AiCollaborationService:
             "ok": True,
             "version": self.VERSION,
             "provider_execution": {
-                "default_mode": "google-chrome-playwright-foreground",
+                "default_mode": "embedded-browser-view",
                 "release_after_request": True,
                 "uses_external_api": False,
                 "browser_automation_for_inference": True,
@@ -851,7 +851,7 @@ class AiCollaborationService:
                     f"等待前景瀏覽器結果（{attempt}/{self.BROWSER_WAIT_CYCLES}）",
                     error_code="FOREGROUND_BROWSER_INTERACTION_REQUIRED",
                     execution_provider=agent_id,
-                    transport="google-chrome-shared-foreground-tabs",
+                    transport="embedded-browser-view",
                     fallback={
                     "used": False,
                     "wait_attempt": attempt,
@@ -878,7 +878,7 @@ class AiCollaborationService:
                     "content": browser_content,
                     "error": "",
                     "error_code": "",
-                    "transport": "google-chrome-foreground-manual-result",
+                    "transport": "embedded-browser-view",
                     "uses_api_key": False,
                     "memory_candidates": [candidate],
                     "fallback": {
@@ -942,7 +942,7 @@ class AiCollaborationService:
                 "",
                 error_code="",
                 execution_provider=agent_id,
-                transport="google-chrome-foreground-manual-result",
+                transport="embedded-browser-view",
                 fallback={
                     "used": False,
                     "browser_only": True,

@@ -42,6 +42,7 @@
     "usageRate": "使用率",
     "files": "個檔案",
     "systemOverview": "系統概況",
+    "capacityDetails": "系統容量詳情",
     "footerPlatform": "Windows 11 · 本機優先",
     "maintenanceUnavailable": "無法取得啟動維護狀態。",
     "backendResponseTimeout": "等待後端回應逾時"

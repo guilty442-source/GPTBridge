@@ -3,7 +3,7 @@ REM dev-toolchain.cmd -- load the local C/C++ toolchain into this shell.
 REM
 REM Managed by the System Third-Party Sub-Sovereign
 REM (SYSTEM_THIRD_PARTY_MANAGER, authority=third-party-software-management).
-REM Codex basis: P25 / A51 / E37; FORMAL-TOOLS include python/typescript/cpp/c.
+REM Codex basis: P25 / A51 / E37; FORMAL-TOOLS include python/typescript/cpp/c/csharp/sql.
 REM
 REM Usage:
 REM   call dev-toolchain.cmd            opens the MSVC x64 developer shell

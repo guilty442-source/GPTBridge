@@ -13,6 +13,7 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_MAIN_SYSTEM,
     IDENTITY_GROUP_SHARED_LAYER,
     IDENTITY_GROUP_STAR_CHAT,
+    IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
     CapabilityIdentity,
@@ -49,12 +50,18 @@ GOVERNANCE_RULE_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
     bound_tool_id="governance_rule",
     bound_roots=("governance_rule",),
     manifest_binding=ManifestBinding(
-        required=False,
-        path_template="",
-        tool_id_field="",
-        maximum_bytes=0,
-        required_capabilities=(),
-        requirements=(),
+        required=True,
+        path_template="governance_rule/manifest.json",
+        tool_id_field="id",
+        maximum_bytes=1_048_576,
+        required_capabilities=(
+            "governance-authority-read-execute",
+            "permission-directory-read-execute",
+        ),
+        requirements=(
+            ManifestRequirement(("permissions", "code_scope"), "tool-root-only"),
+            ManifestRequirement(("permissions", "database_scope"), "none"),
+        ),
     ),
     authentication="governance-policy-issued-capability-token",
     identity_code="G00001",
@@ -221,6 +228,31 @@ VAULTLY_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
 )
 del _business_tool_identity
 
+SYSTEM_RESCUE_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
+    group_id=IDENTITY_GROUP_SYSTEM_RESCUE,
+    actor="governance/tool/system-rescue",
+    bound_tool_id="system-rescue",
+    bound_roots=("system-rescue",),
+    manifest_binding=ManifestBinding(
+        required=True,
+        path_template="system-rescue/manifest.json",
+        tool_id_field="id",
+        maximum_bytes=1_048_576,
+        required_capabilities=(
+            "system-health-check",
+            "central-automatic-repair",
+        ),
+        requirements=(
+            ManifestRequirement(("permissions", "code_scope"), "tool-root-only"),
+            ManifestRequirement(("permissions", "database_scope"), "tool-database-only"),
+        ),
+    ),
+    authentication="governance-policy-issued-capability-token",
+    identity_code="R00001",
+    language_name="system_rescue",
+    codename="RESCUE",
+)
+
 CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     MAIN_SYSTEM_IDENTITY,
     GOVERNANCE_RULE_IDENTITY,
@@ -233,6 +265,7 @@ CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     INVESTMENT_MOBILE_IDENTITY,
     XINGCHENG_IDENTITY,
     VAULTLY_IDENTITY,
+    SYSTEM_RESCUE_IDENTITY,
 )
 
 ACTIVE_IDENTITY_GROUP: Final[IdentityGroup] = IdentityGroup(

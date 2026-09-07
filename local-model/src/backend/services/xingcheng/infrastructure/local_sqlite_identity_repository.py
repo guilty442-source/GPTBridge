@@ -172,7 +172,7 @@ class LocalSqliteIdentityRepository:
         self._require_identity_db()
         serialized = json.dumps(value, ensure_ascii=False, sort_keys=True)
         content_hash = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
-        resource_id = f"role-personality:{content_hash[:24]}"
+        resource_id = f"role-personality-{content_hash[:24]}"
         label = str(resource_label or "星澄角色設定").strip()[:255]
         resource = self.personality(module_id=module_id)
         if resource is None:
@@ -301,7 +301,7 @@ class LocalSqliteIdentityRepository:
     ) -> None:
         payload = {"action": action, **detail}
         serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True)
-        event_id = f"role-audit:{uuid.uuid4().hex[:24]}"
+        event_id = f"role-audit-{uuid.uuid4().hex[:24]}"
         connection.execute(
             """
             INSERT INTO role_audit_event (
