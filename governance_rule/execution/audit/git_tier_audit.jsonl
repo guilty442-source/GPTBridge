@@ -81,3 +81,13 @@
 {"timestamp": "2026-09-07T10:54:14+0800", "tier": 3, "command": "push --force", "actor": "test", "approved": false, "detail": "tier-3 requires governance authority approval"}
 {"timestamp": "2026-09-07T10:54:14+0800", "tier": 3, "command": "push --force", "actor": "test", "approved": false, "detail": "tier-3 requires governance authority approval"}
 {"timestamp": "2026-09-07T10:54:14+0800", "tier": 3, "command": "push --force", "actor": "test", "approved": true, "detail": "tier-3 governance-authority-approved"}
+{"timestamp": "2026-09-07T12:08:36+0800", "tier": 2, "command": "commit", "actor": "test", "approved": false, "detail": "tier-2 requires confirmation"}
+{"timestamp": "2026-09-07T12:09:31+0800", "tier": 1, "command": "status --short", "actor": "unknown", "approved": true, "detail": "tier-1 direct-exec"}
+{"timestamp": "2026-09-07T12:09:41+0800", "tier": 2, "command": "commit -m test", "actor": "unknown", "approved": false, "detail": "tier-2 user-declined"}
+{"timestamp": "2026-09-07T12:09:44+0800", "tier": 3, "command": "push --force", "actor": "unknown", "approved": false, "detail": "tier-3 requires governance authority approval"}
+{"timestamp": "2026-09-07T12:10:09+0800", "tier": 1, "command": "status", "actor": "test", "approved": true, "detail": "tier-1 direct-exec"}
+{"timestamp": "2026-09-07T12:10:09+0800", "tier": 2, "command": "commit -m test", "actor": "test", "approved": false, "detail": "tier-2 requires confirmation"}
+{"timestamp": "2026-09-07T12:10:09+0800", "tier": 2, "command": "commit -m test", "actor": "test", "approved": true, "detail": "tier-2 confirmed"}
+{"timestamp": "2026-09-07T12:10:09+0800", "tier": 3, "command": "push --force", "actor": "test", "approved": false, "detail": "tier-3 requires governance authority approval"}
+{"timestamp": "2026-09-07T12:10:09+0800", "tier": 3, "command": "push --force", "actor": "test", "approved": false, "detail": "tier-3 requires governance authority approval"}
+{"timestamp": "2026-09-07T12:10:09+0800", "tier": 3, "command": "push --force", "actor": "test", "approved": true, "detail": "tier-3 governance-authority-approved"}

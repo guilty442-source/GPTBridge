@@ -1376,6 +1376,7 @@ class ToolboxService:
         #   - global-cleaner  : governed backup/cleanup infrastructure
         hidden_infrastructure_ids = {
             "global-cleaner",
+            "governance_rule",
         }
         for tool in tools:
             tool_id = str(tool.get("id", "")).strip()

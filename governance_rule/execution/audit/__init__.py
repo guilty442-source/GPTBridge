@@ -833,7 +833,7 @@ def _verify_self_health_test_files(
     """Verify governed test files exist and can be collected by pytest.
 
     Maintained by the maintenance sovereign as the self-detection health
-    barrier (article A55/edict E41): every governed tool keeps a test file
+    barrier (article A57/edict E43): every governed tool keeps a test file
     that can be collected offline so governance health checks never depend
     on a live model server.
     """
@@ -861,6 +861,7 @@ def _verify_self_health_test_files(
                 capture_output=True,
                 text=True,
                 timeout=60,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except subprocess.TimeoutExpired:
             errors.append(f"self-health test collection timed out: {relative_path}")

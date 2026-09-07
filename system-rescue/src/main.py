@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 
-from system_rescue.channel_runtime import main as _channel_main
+from channel_runtime import main as _channel_main
 
 
 def main() -> int:
