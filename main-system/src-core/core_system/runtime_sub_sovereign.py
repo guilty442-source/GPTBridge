@@ -7,8 +7,9 @@ stay alive and serve requests:
   * IPC server health / readiness contract
   * command surface (runtime bootstrap)
   * runtime status reporting
-  * idle memory maintenance (runtime resource health)
   * governance runtime integrity
+
+Idle memory maintenance is owned by the Resource Sub-Sovereign.
 
 It is LOCAL CODE (same process as GPTBridgeApp).  It does not import the heavy
 AI/model stack; it coordinates existing in-process services that are injected
@@ -42,8 +43,9 @@ class RuntimeSubSovereign:
     Responsibilities:
       - Report readiness of the runtime command surface
       - Expose live runtime status (scope, phases, versions)
-      - Own the idle memory maintenance loop (runtime resource health)
       - Track governance runtime integrity readiness
+
+    Idle memory maintenance is owned by the Resource Sub-Sovereign.
     """
 
     ROLE = SYSTEM_RUNTIME_ROLE

@@ -34,7 +34,8 @@ def _ensure_path(path: Path) -> Path:
     return path
 
 
-def _provision_central_index() -> int:
+def _provision_central_index_replica() -> int:
+    """Provision a bounded, non-canonical local replica of the central index."""
     db = sqlite3.connect(_ensure_path(ROOT / "shared-layer" / "runtime" / "central-index.sqlite3"))
     try:
         db.executescript(
@@ -129,7 +130,7 @@ def _provision_module_locators(modules: tuple[str, ...]) -> int:
 
 def main() -> int:
     modules = _module_ids()
-    schema_count = _provision_central_index()
+    replica_count = _provision_central_index_replica()
     transport_count = _provision_transport()
     locator_count = _provision_module_locators(modules)
     print(json.dumps({
@@ -138,7 +139,7 @@ def main() -> int:
         "authority": "non-canonical-reconciliation-required",
         "canonical_engine": "postgresql",
         "modules": modules,
-        "central_schema_tables": schema_count,
+        "central_replica_tables": replica_count,
         "transport_databases": transport_count,
         "module_locator_databases": locator_count,
     }, ensure_ascii=False, sort_keys=True))
