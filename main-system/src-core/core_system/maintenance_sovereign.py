@@ -73,6 +73,162 @@ class MaintenanceSovereign:
         self._capability_task: asyncio.Task[Any] | None = None
         self._capability_interval_seconds = 3600.0
         self._capability_report: dict[str, Any] | None = None
+        # Persistent learning state — survives auto-repair restarts because
+        # it is backed by the SQLite repair-learning store.  The sovereign
+        # loads the last analysis on start so its knowledge is not reset by
+        # a backend crash/restart cycle.
+        self._learning_store: Any | None = None
+        self._learner: Any | None = None
+        self._learning_analysis: dict[str, Any] | None = None
+
+    # ------------------------------------------------------------------
+    # Persistent learning (survives auto-repair restarts)
+    # ------------------------------------------------------------------
+
+    def _ensure_learning_store(self) -> None:
+        """Lazily attach to the persistent repair-learning SQLite store.
+
+        The store lives under ``main-system/data/automatic-repair`` and is
+        shared with ``CentralRepairService``.  By reading from the same
+        SQLite database the sovereign's learning state survives backend
+        restarts triggered by auto-repair — the in-memory sovereign is
+        recreated, but the persisted error signatures, outcomes and learned
+        recipes are reloaded on the next ``start()``.
+        """
+        if self._learning_store is not None:
+            return
+        try:
+            project_root = Path(getattr(self.app, "project_root", ".") or ".")
+            repair_data = project_root / "main-system" / "data" / "automatic-repair"
+            from tasks.repair_learning import RepairLearner, RepairLearningStore
+
+            self._learning_store = RepairLearningStore(repair_data)
+            self._learner = RepairLearner(self._learning_store)
+        except Exception:
+            # Best-effort: learning is optional and never blocks maintenance.
+            self._learning_store = None
+            self._learner = None
+
+    def learning_status(self) -> dict[str, Any]:
+        """Surface the persistent learning state (not reset by auto-repair)."""
+        self._ensure_learning_store()
+        if self._learner is None:
+            return {
+                "enabled": False,
+                "reason": "learning-store-unavailable",
+                "authority": self.ROLE,
+            }
+        try:
+            if self._learning_analysis is None:
+                self._learning_analysis = self._learner.analyze_history()
+            analysis = dict(self._learning_analysis)
+            analysis["enabled"] = True
+            analysis["authority"] = self.ROLE
+            analysis["persistence"] = "sqlite-survives-restart"
+            return analysis
+        except Exception as error:
+            return {
+                "enabled": True,
+                "authority": self.ROLE,
+                "error": f"{type(error).__name__}: {error}",
+                "persistence": "sqlite-survives-restart",
+            }
+
+    def record_repair_outcome(
+        self,
+        *,
+        error_class: str,
+        message: str,
+        failure_code: str,
+        remedy: str,
+        ok: bool,
+        file_path: str = "",
+        target_tool_id: str = "main-system",
+        run_id: str | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Record a repair outcome in the persistent learning store.
+
+        The sovereign coordinates learning: when a governed executor (boot_core,
+        CentralRepairService, ConnectionWatchdog) completes a repair, the
+        sovereign records the outcome so recurring error→remedy patterns can
+        be promoted to learned recipes.  This state is persisted in SQLite and
+        is not reset by subsequent auto-repair restarts.
+        """
+        self._ensure_learning_store()
+        if self._learner is None:
+            return {"recorded": False, "reason": "learning-store-unavailable"}
+        try:
+            from tasks.repair_learning import ErrorSignature, RepairOutcome
+            from uuid import uuid4
+
+            from tasks.repair_learning import _normalize_error_signature
+
+            signature_hash = _normalize_error_signature(
+                error_class, message, file_path=file_path
+            )
+            signature = ErrorSignature(
+                signature_hash=signature_hash,
+                error_class=error_class,
+                message_pattern=message[:200],
+                failure_code=failure_code,
+                file_context=file_path,
+                target_tool_id=target_tool_id,
+            )
+            outcome = RepairOutcome(
+                run_id=run_id or uuid4().hex,
+                signature_hash=signature_hash,
+                remedy=remedy,
+                ok=ok,
+                detail=detail or {},
+            )
+            promotion = self._learner.learn_from_outcome(signature, outcome)
+            # Invalidate cached analysis so the next status call refreshes.
+            self._learning_analysis = None
+            return {
+                "recorded": True,
+                "signature_hash": signature_hash,
+                "promotion": promotion,
+                "persistence": "sqlite-survives-restart",
+            }
+        except Exception as error:
+            return {
+                "recorded": False,
+                "error": f"{type(error).__name__}: {error}",
+            }
+
+    def suggest_remedy(
+        self,
+        *,
+        error_class: str,
+        message: str,
+        failure_code: str = "",
+        file_path: str = "",
+    ) -> dict[str, Any]:
+        """Query the learning store for the best known remedy for an error."""
+        self._ensure_learning_store()
+        if self._learner is None:
+            return {"suggested": False, "reason": "learning-store-unavailable"}
+        try:
+            from tasks.repair_learning import ErrorSignature
+            from tasks.repair_learning import _normalize_error_signature
+
+            signature_hash = _normalize_error_signature(
+                error_class, message, file_path=file_path
+            )
+            signature = ErrorSignature(
+                signature_hash=signature_hash,
+                error_class=error_class,
+                message_pattern=message[:200],
+                failure_code=failure_code,
+                file_context=file_path,
+            )
+            return self._learner.suggest_remedy(signature)
+        except Exception as error:
+            return {
+                "suggested": False,
+                "error": f"{type(error).__name__}: {error}",
+            }
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -113,6 +269,17 @@ class MaintenanceSovereign:
         )
         self._started_at = _iso_now()
         self._started = True
+
+        # Reload persistent learning state so the sovereign's knowledge is
+        # not reset by an auto-repair restart.  The SQLite store survives
+        # backend crashes; the in-memory sovereign is recreated but rehydrates
+        # from the persisted error signatures and learned recipes.
+        self._ensure_learning_store()
+        if self._learner is not None:
+            try:
+                self._learning_analysis = self._learner.analyze_history()
+            except Exception:
+                self._learning_analysis = None
 
         if self._capability_task is None:
             self._capability_task = asyncio.create_task(
@@ -160,6 +327,7 @@ class MaintenanceSovereign:
             "daily_cleaner": self._daily_cleaner_status(),
             "module_cleanup": self._module_cleanup_status(),
             "main_system_self_maintenance": self._main_system_self_maintenance_status(),
+            "learning": self.learning_status(),
             "capability_loop": {
                 "running": self._capability_task is not None and not self._capability_task.done(),
                 "interval_seconds": self._capability_interval_seconds,
@@ -182,6 +350,7 @@ class MaintenanceSovereign:
             "backup": self._backup_status(),
             "module_cleanup": self._module_cleanup_status(),
             "main_system_self_maintenance": self._main_system_self_maintenance_status(),
+            "learning": self.learning_status(),
             "delegation": "governed-executor-only",
             "native_kernel": native_available(),
             "decision": decision_basis(_MAINTENANCE_SOVEREIGN.area),
@@ -231,7 +400,8 @@ class MaintenanceSovereign:
     # ------------------------------------------------------------------
 
     def _update_status(self) -> dict[str, Any]:
-        """Update duty — supervises the version-gated hot-update boundary."""
+        """Update duty — supervises the version-gated hot-update boundary and
+        the system-wide hot-reload capability."""
 
         hot_update = self._hot_update or getattr(self.app, "hot_update_service", None)
         if hot_update is None:
@@ -243,6 +413,98 @@ class MaintenanceSovereign:
             except Exception:
                 return {"duty": "update-management", "owner": self.ROLE, "available": True}
         return {"duty": "update-management", "owner": self.ROLE, "available": True}
+
+    async def _notify_ui(self, event: str, payload: dict[str, Any]) -> int:
+        shells = getattr(self.app, "_active_ui_shells", None) or set()
+        if not shells:
+            return 0
+        count = 0
+        for shell in list(shells):
+            send = getattr(shell, "send_event", None)
+            if not callable(send):
+                continue
+            try:
+                await send(event, payload)
+                count += 1
+            except Exception:
+                pass
+        return count
+
+    async def execute_hot_reload(
+        self,
+        *,
+        approval_token: str | None = None,
+        modules: Any = None,
+    ) -> dict[str, Any]:
+        """Coordinate a system-wide hot-reload of governed backend modules.
+
+        Hot-reload is a maintenance operation under the update-management
+        duty (A24/E8).  It reloads already-loaded Python modules in-place so
+        source edits to governed backend code take effect without a full
+        process restart.  Governance authorization is required; the scope is
+        system-wide (all backend src roots, not just main-system/src-core).
+
+        After a successful reload the self-maintenance stability check is
+        re-run and the frontend is notified so it can refresh in sync.
+        """
+        hot_update = self._hot_update or getattr(self.app, "hot_update_service", None)
+        if hot_update is None:
+            return {
+                "ok": False,
+                "duty": "update-management",
+                "error": "hot-update-service-unavailable",
+            }
+        reload_modules = getattr(hot_update, "reload_modules", None)
+        if not callable(reload_modules):
+            return {
+                "ok": False,
+                "duty": "update-management",
+                "error": "hot-reload-not-supported",
+            }
+        governance = getattr(self.app, "governance", None)
+        report = await asyncio.to_thread(
+            reload_modules,
+            governance=governance,
+            approval_token=approval_token,
+            modules=modules,
+        )
+
+        # Sync the frontend so it can refresh against the newly loaded backend.
+        notified = await self._notify_ui(
+            "maintenance:hot-reload-completed",
+            {
+                "ok": report.ok,
+                "reloaded_count": len(report.reloaded),
+                "skipped_count": len(report.skipped),
+                "errors": list(report.errors)[:8],
+            },
+        )
+
+        # Re-run the stability/version maintenance check (read-only) so any
+        # source drift introduced by the reload is reported immediately.
+        auto_repair: dict[str, Any] = {"ok": True, "skipped": True}
+        maintenance = getattr(self.app, "main_system_self_maintenance", None)
+        if maintenance is not None and hasattr(maintenance, "run_once"):
+            try:
+                auto_repair = await maintenance.run_once()
+            except Exception as error:
+                auto_repair = {
+                    "ok": False,
+                    "error": f"{type(error).__name__}: {error}",
+                }
+
+        return {
+            "ok": report.ok,
+            "duty": "update-management",
+            "operation": "hot-reload",
+            "authority": self.ROLE,
+            "scope": "system-wide",
+            "reloaded": list(report.reloaded),
+            "skipped": list(report.skipped),
+            "errors": list(report.errors),
+            "ui_notified": notified,
+            "auto_repair": auto_repair,
+        }
 
     def _third_party_update_executor(self) -> Any:
         system_sovereign = getattr(self.app, "system_sovereign_service", None)
