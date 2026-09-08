@@ -1,8 +1,9 @@
-"""registry_repository — codex-native central resource registry on sqlite3.
+"""registry_repository — codex-native local resource registry cache on sqlite3.
 
-Stdlib-only replacement for ``shared_layer.registry.repository.ResourceRegistry``
-(A35/E21 + A37/E23).  Keeps the same opaque locator contract: physical locations
-never leave this repository API.
+Stdlib-only local cache for module-private resource locators (A35/E21 +
+A37/E23 + A44/E30).  The canonical central registry lives in PostgreSQL;
+this repository is a bounded, owner-private cache and must not be treated as
+authoritative outside its module scope.
 """
 
 from __future__ import annotations

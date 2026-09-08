@@ -167,7 +167,7 @@ class DataSubSovereign:
         return {
             "duty": "semantic-index",
             "enabled": False,
-            "coordinator": "rag-bridge/vector-store (governed executor)",
+            "coordinator": "qdrant (canonical); local-vector-store as bounded degraded fallback (governed executor)",
             "delegation": "governed-executor-only",
         }
 

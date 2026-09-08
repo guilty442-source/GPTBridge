@@ -1,9 +1,10 @@
 """database — codex-native local storage settings and health.
 
-Stdlib-only replacement for ``shared_layer.database`` (A35/E21 + A37/E23):
-the central store, registry and locator maps all live in local sqlite3
-databases under the governed workspace.  These records are authoritative for
-health and readiness gates.
+Stdlib-only local sqlite helpers for module-private state, transport and
+bounded degraded fallback (A35/E21 + A37/E23 + A44/E30).  PostgreSQL is the
+canonical central structured-data engine; these sqlite records are
+module-owned, never authoritative, and must be reconciled with the central
+store.
 """
 
 from __future__ import annotations

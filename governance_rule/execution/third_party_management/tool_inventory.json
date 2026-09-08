@@ -186,7 +186,7 @@
       "license": "local-owned",
       "status": "active",
       "verified": true,
-      "notes": "local_sqlite_rag_repository + rag_bridge"
+      "notes": "local_sqlite_rag_repository (LocalVectorStore bounded fallback)"
     }
   ],
   "models": [

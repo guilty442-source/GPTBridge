@@ -56,8 +56,8 @@
     "xingcheng_module_id": "xingcheng",
     "xingcheng_folder": "xingcheng",
     "resource_label_format": "{platform_id}:{module_id}:{data_category}:{resource_type}:{resource_id}",
-    "central_index": "shared-layer/runtime/central-index.sqlite3",
-    "vector_index": "shared-layer/runtime/semantic-index",
+    "central_index": "postgresql/shared-layer-runtime",
+    "vector_index": "qdrant/shared-layer-runtime",
     "original_storage": "owner-module-private-ntfs",
     "local_program_priority": "primary",
     "local_models_excluding_xingcheng": "assistive-only"
