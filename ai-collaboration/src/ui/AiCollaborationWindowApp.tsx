@@ -194,7 +194,7 @@ function waitForIpcEvent<T = Record<string, unknown>>(
 export function AiCollaborationWindowApp() {
   const { sendCommand, status: socketStatus } = useLocalBackendSocket()
   const browser = useEmbeddedBrowser()
-  const [activeTab, setActiveTab] = useState<'collaboration' | 'browser'>('collaboration')
+  const rightPanelRef = useRef<HTMLDivElement>(null)
   const [urlInput, setUrlInput] = useState('')
   const [agents, setAgents] = useState<Agent[]>([])
   const [messages, setMessages] = useState<GroupMessage[]>([])
@@ -305,23 +305,40 @@ export function AiCollaborationWindowApp() {
     [browser]
   )
 
-  const switchTab = useCallback(
-    (tab: 'collaboration' | 'browser') => {
-      setActiveTab(tab)
-      if (tab === 'browser') {
-        void browser.showBrowser()
-      } else {
-        void browser.hideBrowser()
-      }
-    },
-    [browser]
-  )
+  const resizeBrowserToRight = useCallback(() => {
+    const node = rightPanelRef.current
+    if (!node) return
+    const rect = node.getBoundingClientRect()
+    void browser.resize({
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+    })
+  }, [])
 
   useEffect(() => {
+    let mounted = true
+    const setup = async () => {
+      await browser.navigate('https://www.google.com')
+      if (!mounted) return
+      resizeBrowserToRight()
+      window.setTimeout(resizeBrowserToRight, 120)
+      void browser.showBrowser()
+    }
+    void setup()
+
+    const handleResize = () => {
+      window.setTimeout(resizeBrowserToRight, 80)
+    }
+    window.addEventListener('resize', handleResize)
+
     return () => {
+      mounted = false
+      window.removeEventListener('resize', handleResize)
       void browser.hideBrowser()
     }
-  }, [browser])
+  }, [resizeBrowserToRight])
 
   const toggleAgent = async (agentId: string) => {
     const next = new Set(selectedAgents)
@@ -544,26 +561,36 @@ export function AiCollaborationWindowApp() {
           </div>
         </div>
         <div className="ai-collab-toolbar">
-          <div className="ai-collab-tab-switch" role="group" aria-label="主要分頁">
+          <form
+            className="ai-collab-url-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleNavigate(urlInput)
+            }}
+          >
+            <input
+              type="text"
+              className="ai-collab-url-input"
+              value={urlInput}
+              onChange={(event) => setUrlInput(event.target.value)}
+              placeholder="輸入網址，例如 google.com 或 https://chat.openai.com"
+              disabled={browser.state.loading}
+            />
             <button
-              type="button"
-              className={activeTab === 'collaboration' ? 'is-active' : ''}
-              onClick={() => switchTab('collaboration')}
+              type="submit"
+              className="ai-collab-primary"
+              disabled={browser.state.loading || !urlInput.trim()}
             >
-              協作
+              {browser.state.loading ? '載入中...' : '前往'}
             </button>
-            <button
-              type="button"
-              className={activeTab === 'browser' ? 'is-active' : ''}
-              onClick={() => switchTab('browser')}
-            >
-              瀏覽器
-            </button>
-          </div>
+          </form>
+          <button type="button" onClick={() => void handleNavigate('https://www.google.com')}>
+            Google
+          </button>
           <button
             type="button"
             onClick={() => void openSelectedAgents()}
-            disabled={Boolean(busyAction) || selectedAgents.size === 0 || activeTab !== 'collaboration'}
+            disabled={Boolean(busyAction) || selectedAgents.size === 0}
           >
             {busyAction === 'open-selected' ? '開啟中...' : '在內建瀏覽器開啟'}
           </button>
@@ -608,85 +635,10 @@ export function AiCollaborationWindowApp() {
         </div>
       </section>
 
-      {activeTab === 'browser' ? (
-        <section className="ai-collab-browser-panel">
-          <div className="ai-collab-browser-toolbar">
-            <button
-              type="button"
-              onClick={() => void browser.showBrowser()}
-              disabled={!browser.state.sessionId}
-              title="顯示瀏覽器"
-            >
-              顯示
-            </button>
-            <button
-              type="button"
-              onClick={() => void browser.hideBrowser()}
-              disabled={!browser.state.sessionId}
-              title="隱藏瀏覽器"
-            >
-              隱藏
-            </button>
-            <form
-              className="ai-collab-url-form"
-              onSubmit={(e) => {
-                e.preventDefault()
-                handleNavigate(urlInput)
-              }}
-            >
-              <input
-                type="text"
-                className="ai-collab-url-input"
-                value={urlInput}
-                onChange={(event) => setUrlInput(event.target.value)}
-                placeholder="輸入網址，例如 google.com 或 https://chat.openai.com"
-                disabled={browser.state.loading}
-              />
-              <button
-                type="submit"
-                className="ai-collab-primary"
-                disabled={browser.state.loading || !urlInput.trim()}
-              >
-                {browser.state.loading ? '載入中...' : '前往'}
-              </button>
-            </form>
-            <button
-              type="button"
-              onClick={() => void browser.closeBrowser()}
-              disabled={!browser.state.sessionId}
-              title="關閉瀏覽器"
-            >
-              關閉
-            </button>
-          </div>
-          <div className="ai-collab-browser-status">
-            {browser.state.error ? (
-              <p className="ai-collab-browser-error">{browser.state.error}</p>
-            ) : browser.state.sessionId ? (
-              <p>
-                目前頁面：<span>{browser.state.currentUrl}</span>
-              </p>
-            ) : (
-              <p>輸入網址後即可在內建瀏覽器中上網；瀏覽器受治理 Embedded BrowserView 保護。</p>
-            )}
-          </div>
-          <div className="ai-collab-browser-bookmarks">
-            <span>快速前往：</span>
-            {agents.map((agent) => (
-              <button
-                key={agent.agent_id}
-                type="button"
-                onClick={() => handleNavigate(agent.home_url)}
-                disabled={browser.state.loading}
-              >
-                {agent.name}
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <section className="ai-collab-workspace">
+        <div className="ai-collab-left">
 
-      {activeTab === 'collaboration' ? (
+
       <section className="ai-collab-grid">
         <aside className="ai-collab-panel">
           <div className="ai-collab-section-head">
@@ -934,7 +886,11 @@ export function AiCollaborationWindowApp() {
           </section>
         </aside>
       </section>
-      ) : null}
+        </div>
+        <div className="ai-collab-right" ref={rightPanelRef}>
+          <div className="ai-collab-browser-canvas" />
+        </div>
+      </section>
     </main>
   )
 }

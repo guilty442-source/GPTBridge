@@ -123,6 +123,19 @@ export function useEmbeddedBrowser() {
     }
   }, [invoke])
 
+  const resize = useCallback(
+    async (bounds: { x: number; y: number; width: number; height: number }) => {
+      const id = sessionRef.current
+      if (!id) return
+      try {
+        await invoke('embedded-browser:resize', { id, bounds })
+      } catch {
+        // best-effort
+      }
+    },
+    [invoke]
+  )
+
   useEffect(() => {
     return () => {
       const id = sessionRef.current
@@ -137,6 +150,7 @@ export function useEmbeddedBrowser() {
     showBrowser,
     hideBrowser,
     closeBrowser,
+    resize,
     getUrl,
   }
 }
