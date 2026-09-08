@@ -1884,6 +1884,12 @@ class LocalAiRepository:
             page_count = int(connection.execute("PRAGMA page_count").fetchone()[0])
             page_size = int(connection.execute("PRAGMA page_size").fetchone()[0])
         return {
+            "engine": "local-sqlite3-degraded",
+            "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+            "canonical_central_engine": "postgresql",
+            "canonical": False,
+            "authority": "non-canonical-reconciliation-required",
+            "reconciliation_required": True,
             "path": str(self.database_path),
             "database_scope": self.database_scope,
             "owner_model_id": self.owner_model_id,

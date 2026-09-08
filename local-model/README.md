@@ -6,7 +6,7 @@
 
 模型載入採效益優先的常駐分級：Qwen3.5 9B Q4_K_M 為唯一常駐 Transformer；Gemma、Qwen3、DeepSeek、Qwen3.8、Qwen3.6 Coding、GPT-OSS 與 Llama 均按需載入。切換到非常駐模型前會先釋放 Qwen3.5，每個階段完成後立即釋放當前模型，且同一時間最多執行一個 Transformer，以符合 64 GB RAM 與 6 GB VRAM 的本機環境。
 
-`model-dialogue/` 是純對話介面與獨立生命週期程式，只在 GPTBridge 主系統中以 `star-chat` 顯示。介面不再提供訓練、外部 AI 協作或能力編成工作區；訓練與能力編成只由星澄原生模型內部自行處理。
+`model-dialogue/` 是純對話介面與獨立生命週期程式，只在 GPTBridge 主系統中以 `star-chat` 顯示。介面不再提供訓練、外部協作或能力編成工作區；訓練與能力編成只由星澄原生模型內部自行處理。
 
 模型對話的 Electron／網路／暫存快取集中於 `local-model/runtime/cache/companions/star-chat`；備份只由全域清理寫入 `global-cleaner/data/business/backups/xingcheng`。測試產生物則統一由 `global-cleaner/runtime/test-artifacts` 建立與清除。
 

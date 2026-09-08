@@ -215,7 +215,7 @@ def test_renderer_has_chat_only_and_internal_native_management_notice() -> None:
     assert "Ollama 模型訓練" not in source
     assert "能力名稱" not in source
     assert "開始討論與投票" not in source
-    assert "外部 AI 協作已停用" in source
+    assert "外部協作已停用" in source
     assert "訓練與能力編成由星澄原生模型內部自行處理" in source
     assert "等待連線" in source
     assert "star_chat_send_message" in source

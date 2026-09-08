@@ -148,7 +148,7 @@ GOVERNANCE_CODEX_CHINESE: Final[ChineseCodexReference] = ChineseCodexReference(
         ChineseCodexArticle(id="A56", section="四", subject="test-framework-tiering", rule="測試分層：單元測試依實作語言分開，跨模組與跨語言整合測試統一使用 Python pytest；Python 單元測試用 pytest、C++ 用 GoogleTest、TypeScript 用 Vitest、C# 用 xUnit、C 用原生/CTest；整合測試（跨模組、跨語言）一律以 Python pytest 撰寫；單元測試歸屬實作語言、整合測試歸屬 Python。", prohibition="禁止跨語言混用單元測試框架、禁止以非 Python 撰寫整合測試、禁止使用非正式測試框架、禁止省略整合測試層"),
         ChineseCodexArticle(id="A57", section="六", subject="self-health-test-necessity", rule="測試檔為自我維護健康之必要組成，由系統維護主宰管理；各受治理工具須宣告其測試檔，測試檔須可離線收集且不得依賴真實模型或網路；治理稽核以動態收集受管理測試檔進行自我檢測。", prohibition="禁止刪除必要測試檔、禁止測試依賴真實模型或網路、禁止不可收集之測試檔"),
         ChineseCodexArticle(id="A58", section="四", subject="governed-network-access", rule="工具網路存取限受治理內建瀏覽器，或具明示網路能力、固定目的地 allowlist、逾時限制與審計的工具擁有 adapter；外部 AI 僅能經 ai-collaboration 或受治理內建瀏覽器。", prohibition="禁止未受治理的網路通道、未列冊目的地、核准通道外的外部 AI，以及內建瀏覽器替代正式職責"),
-        ChineseCodexArticle(id="A59", section="六", subject="tool-level-service-ownership", rule="工具層級服務由工具擁有者於治理法典之下自行擁有計算、分析、統計與帳務；平台層級服務由星澄提供平台層級協調；工具擁有其業務邏輯、平台擁有編排；工具得委派內建瀏覽器執行網路搜尋、得委派 ai-collaboration 執行外部 AI 協作。", prohibition="禁止工具層級服務繞過治理法典、禁止平台服務取代工具業務邏輯、禁止工具層級決策無治理權威"),
+        ChineseCodexArticle(id="A59", section="六", subject="tool-level-service-ownership", rule="工具層級服務由工具擁有者於治理法典之下自行擁有計算、分析、統計與帳務；平台層級服務由星澄提供平台層級協調；工具擁有其業務邏輯、平台擁有編排；工具得委派內建瀏覽器執行網路搜尋、得委派 ai-collaboration 執行外部協作。", prohibition="禁止工具層級服務繞過治理法典、禁止平台服務取代工具業務邏輯、禁止工具層級決策無治理權威"),
     ),
     edicts=(
         ChineseCodexEdict(id="E1", area="sovereignty", edict="主宰體系以法典為最高規則層，一切決策皆引用法典。"),
@@ -195,7 +195,7 @@ GOVERNANCE_CODEX_CHINESE: Final[ChineseCodexReference] = ChineseCodexReference(
         ChineseCodexEdict(id="E42", area="test-framework-tiering", edict="測試分層：單元測試依實作語言分開（Python=pytest、C++=GoogleTest、TypeScript=Vitest、C#=xUnit、C=原生/CTest），跨模組與跨語言整合測試統一使用 Python pytest；禁止跨語言混用單元框架、禁止以非 Python 撰寫整合測試、禁止使用非正式測試框架。"),
         ChineseCodexEdict(id="E43", area="self-health-test", edict="測試檔為自我維護健康之必要組成，由系統維護主宰管理；各受治理工具須宣告其測試檔，測試檔須可離線收集且不得依賴真實模型或網路；治理稽核以動態收集受管理測試檔進行自我檢測；禁止刪除必要測試檔、禁止測試依賴真實模型或網路。"),
         ChineseCodexEdict(id="E44", area="governed-network-access", edict="工具網路存取限受治理內建瀏覽器，或具明示網路能力、固定目的地 allowlist、逾時限制與審計的工具擁有 adapter；外部 AI 僅能透過 ai-collaboration 或受治理內建瀏覽器；禁止未受治理的直接網路存取。"),
-        ChineseCodexEdict(id="E45", area="tool-level-service-ownership", edict="工具層級服務由工具擁有者於治理法典之下擁有計算、分析、統計與帳務；平台層級服務由星澄提供平台層級協調；工具擁有業務邏輯、平台擁有編排；工具得委派內建瀏覽器執行網路搜尋、得委派 ai-collaboration 執行外部 AI 協作。"),
+        ChineseCodexEdict(id="E45", area="tool-level-service-ownership", edict="工具層級服務由工具擁有者於治理法典之下擁有計算、分析、統計與帳務；平台層級服務由星澄提供平台層級協調；工具擁有業務邏輯、平台擁有編排；工具得委派內建瀏覽器執行網路搜尋、得委派 ai-collaboration 執行外部協作。"),
     ),
     sovereigns=SOVEREIGNS_CHINESE,
 )

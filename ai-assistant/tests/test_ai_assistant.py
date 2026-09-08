@@ -657,3 +657,36 @@ def test_ai_assistant_channel_imports_canonical_application_service() -> None:
     assert "from ai_nexus.application.service import AiNexusService" in source
     assert "from ai_nexus.service import AiNexusService" not in source
 
+
+def test_network_policy_is_installed_only_when_channel_runtime_starts() -> None:
+    source = (TOOL_ROOT / "src" / "channel_runtime.py").read_text(
+        encoding="utf-8"
+    )
+
+    main_position = source.index("async def main() -> None:")
+    install_position = source.index(
+        "    install_investment_manager_network_policy()", main_position
+    )
+    uninstall_position = source.index(
+        "    uninstall_investment_manager_network_policy()", install_position
+    )
+
+    assert main_position < install_position < uninstall_position
+
+
+def test_network_policy_restores_socket_operations() -> None:
+    import socket
+
+    from investment_network_policy import (
+        install_investment_manager_network_policy,
+        uninstall_investment_manager_network_policy,
+    )
+
+    original_getaddrinfo = socket.getaddrinfo
+    install_investment_manager_network_policy()
+    try:
+        assert socket.getaddrinfo is not original_getaddrinfo
+    finally:
+        uninstall_investment_manager_network_policy()
+
+    assert socket.getaddrinfo is original_getaddrinfo

@@ -1544,7 +1544,7 @@ class StarNativeLanguageModel:
             )
         elif intent == "search":
             grounding = (
-                "搜尋工作由星澄主要日常模型負責；公開來源採唯讀查詢。需要外部 AI 協作時，"
+                "搜尋工作由星澄主要日常模型負責；公開來源採唯讀查詢。需要外部協作時，"
                 "只由星澄經受治理 AI 通道提出申請並接收結果。"
             )
         elif intent == "calculation":

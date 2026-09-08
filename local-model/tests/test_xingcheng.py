@@ -3051,7 +3051,7 @@ def test_selected_star_defaults_to_main_database_with_project_wide_permission(
             "xingcheng_infer",
             {
                 "prompt": "請說明海岳計畫",
-                "runtime_model": service.NATIVE_MODEL_ID,
+                "runtime_model": StarTransformerRuntime.MODEL,
                 "_runtime_model_selection_authorized": True,
             },
         )
@@ -3071,7 +3071,7 @@ def test_selected_star_defaults_to_main_database_with_project_wide_permission(
             "xingcheng_infer",
             {
                 "prompt": "請記住海岳計畫使用藍色標籤",
-                "runtime_model": service.NATIVE_MODEL_ID,
+                "runtime_model": StarTransformerRuntime.MODEL,
                 "_runtime_model_selection_authorized": True,
             },
         )
@@ -3156,7 +3156,7 @@ def test_selected_star_opens_training_capability_and_operation_records(
             "xingcheng_infer",
             {
                 "prompt": "檢查自己的資料庫",
-                "runtime_model": service.NATIVE_MODEL_ID,
+                "runtime_model": StarTransformerRuntime.MODEL,
                 "_runtime_model_selection_authorized": True,
             },
         )
@@ -3437,7 +3437,7 @@ def _sha(value: str) -> str:
 
 
 def _snapshot(tmp_path: Path, content: str = "training snapshot\n") -> tuple[Path, str]:
-    path = tmp_path / "runtime" / "state" / "transformer-training" / "snapshot.jsonl"
+    path = tmp_path / "xingcheng" / "runtime" / "state" / "transformer-training" / "snapshot.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     return path, hashlib.sha256(path.read_bytes()).hexdigest()
@@ -3489,7 +3489,7 @@ def test_training_database_is_isolated_and_initialized(tmp_path: Path) -> None:
     assert status["ok"] is True
     assert status["schema_version"] == 1
     assert Path(status["path"]) == (
-        tmp_path / "runtime" / "state" / "transformer-training.sqlite3"
+        tmp_path / "xingcheng" / "runtime" / "state" / "transformer-training.sqlite3"
     )
     assert status["tables"]["transformer_runtime_model_state"] == 1
     assert status["base_weights_immutable"] is True
@@ -4173,7 +4173,7 @@ def test_status_reports_counts_without_storing_physical_content(tmp_path: Path) 
 
     status = repository.status()
 
-    assert status["engine"] == "local-sqlite3"
+    assert status["engine"] == "local-sqlite3-degraded"
     assert status["schema"] == "local-rag-keywords"
     assert status["content_storage"] == "excluded-by-architecture"
     assert status["document_count"] == 1
@@ -5039,7 +5039,7 @@ def test_external_ai_training_phrase_does_not_trigger_training(tmp_path: Path) -
             "xingcheng_infer",
             {
                 "prompt": "讓GPT加入訓練星澄，改善閱讀理解",
-                "runtime_model": service.NATIVE_MODEL_ID,
+                "runtime_model": StarTransformerRuntime.MODEL,
                 "_runtime_model_selection_authorized": True,
             },
         )

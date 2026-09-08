@@ -34,7 +34,7 @@
     },
     "external-ai": {
       "tool_id": "ai-collaboration",
-      "display_name": "外部AI協作",
+      "display_name": "外部協作",
       "scope": "embedded-browser-view",
       "api": false,
       "browser_inference": true,

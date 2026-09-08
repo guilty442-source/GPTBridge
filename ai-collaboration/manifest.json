@@ -35,12 +35,12 @@
       "authority": "foreground-browser-automation-under-governance-rule",
       "data_scope": "tool-database-only",
       "xingcheng": false,
-      "transport": "google-chrome-shared-foreground-tabs",
+      "transport": "embedded-browser-view-under-governance",
       "api": false,
       "browser_inference": true,
       "browser": {
-        "product": "google-chrome",
-        "mode": "shared-foreground-tabs",
+        "product": "embedded-browser-view",
+        "mode": "embedded-browser-view",
         "purpose": "login-and-automated-ai-collaboration",
         "shared_browser_context": true,
         "fallback_browser": false

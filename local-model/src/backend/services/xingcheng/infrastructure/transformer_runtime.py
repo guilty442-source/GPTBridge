@@ -2524,17 +2524,25 @@ class StarTransformerRuntime:
                 while True:
                     attempted_context = int(request_payload["options"]["num_ctx"])
                     try:
-                        # Always use streaming for smoother perceived latency.
-                        # _http_chat_stream handles NDJSON streaming and
-                        # progress callbacks; custom transports also receive
-                        # stream=True in the payload and must handle NDJSON.
-                        response = self._http_chat_stream(
-                            f"{self.endpoint}/api/chat",
-                            request_payload,
-                            generation_timeout,
-                            cancel_event,
-                            progress_callback,
-                        )
+                        if self._uses_default_transport:
+                            response = self._http_chat_stream(
+                                f"{self.endpoint}/api/chat",
+                                request_payload,
+                                generation_timeout,
+                                cancel_event,
+                                progress_callback,
+                            )
+                        else:
+                            custom_payload = {
+                                **request_payload,
+                                "stream": False,
+                            }
+                            response = self._transport(
+                                "POST",
+                                f"{self.endpoint}/api/chat",
+                                custom_payload,
+                                generation_timeout,
+                            )
                     except InterruptedError:
                         raise
                     except (

@@ -164,7 +164,7 @@
         "database_write": true,
         "database_write_scope": "xingcheng-model-internal-unrestricted-excluding-permission-data",
         "database_actions": ["read", "create-write-save", "append", "update", "delete", "rollback", "schema", "migration", "maintenance"],
-        "investment_database_write": false,
+        "investment_database_write": true,
         "ollama_model_database_access": true,
         "source_apply": false,
         "governance_authority": false,

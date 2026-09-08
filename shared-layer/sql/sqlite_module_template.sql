@@ -71,9 +71,16 @@ CREATE INDEX IF NOT EXISTS resource_metadata_updated_idx
     ON resource_metadata (updated_at);
 
 -- ============================================================================
--- audit_event — append-only audit log for this module's database.
+-- audit_event — append-only LOCAL OPERATIONAL audit log for this module's database.
 -- No UPDATE or DELETE trigger enforced (SQLite triggers are optional);
 -- the application layer MUST treat this as append-only (A46/E22).
+--
+-- ROLE BOUNDARY (A8): This is module-private operational audit only — it is
+-- NOT the central shared audit ledger.  The canonical shared audit lives in
+-- gptbridge_audit.event (PostgreSQL, central_index.sql).  SQLite audit MUST
+-- NOT be promoted to central or shared audit authority (A8 FORBID:
+-- sqlite-as-central-official-or-shared-audit).  Reconciliation to PostgreSQL
+-- central is required for any audit event that crosses module boundaries.
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS audit_event (
     event_id TEXT NOT NULL PRIMARY KEY,

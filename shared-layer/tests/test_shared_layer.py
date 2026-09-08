@@ -161,7 +161,7 @@ def test_xingcheng_self_database_write_is_executor_only() -> None:
     star = manifest["capabilities"]["xingcheng"]["star_native_model_permissions"]
     assert star["database_write"] is True
     assert star["database_write_scope"] == "xingcheng-model-internal-unrestricted-excluding-permission-data"
-    assert star["investment_database_write"] is False
+    assert star["investment_database_write"] is True
     assert manifest["permissions"]["database_scope"] == "opaque-central-index-read-and-xingcheng-internal-read-write"
 
 

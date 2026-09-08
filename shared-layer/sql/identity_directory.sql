@@ -1,3 +1,18 @@
+-- identity_directory.sql — Identity directory for permission-sovereign governance.
+--
+-- Codex basis:
+--   A6/E4   — Permission: owner=permission-sovereign; actions=manage/issue/terminate/supervise.
+--   A7      — Permission-directory: directory-driven; defines role/capability/action/target/data-scope.
+--   A23/E4  — Permission-identifiers: permission-ID=sovereign-managed; FORBID: module-self-issue.
+--   A42/E28 — Directory-write: permission-sovereign-decision + governed-executor execution;
+--              store=system-data-sub-sovereign-declared.
+--   A39/E25 — Actors: human-operator/governed-app/sovereign/xingcheng; identity verified at entry.
+--   A10/E10 — Authorization: explicit-allowlist; deny-by-default.
+--
+-- This schema stores identity and permission-directory records that drive the
+-- permission-sovereign's issue/terminate/supervise cycle.  Modules MUST NOT
+-- self-issue or mutate their own identity rows (A23 FORBID).
+
 CREATE SCHEMA IF NOT EXISTS gptbridge_identity;
 
 CREATE TABLE IF NOT EXISTS gptbridge_identity.identity_group (

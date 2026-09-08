@@ -146,8 +146,11 @@ class LocalKnowledgeService:
     async def sql_status(self) -> dict[str, Any]:
         def _snapshot() -> dict[str, Any]:
             return {
-                "engine": "local-sqlite3",
-                "role": "owner-private-operational-state",
+                "engine": "local-sqlite3-degraded",
+                "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+                "canonical_central_engine": "postgresql",
+                "authority": "non-canonical-reconciliation-required",
+                "reconciliation_required": True,
                 "pooled": self.pool_manager.status(),
                 "cognition_initialized": self.cognition.initialized(),
                 "identity_initialized": self.identity.initialized(),
@@ -160,7 +163,11 @@ class LocalKnowledgeService:
                 "ok": False,
                 "error_code": str(error),
                 "message": "本機 sqlite cognition/identity 未建立。",
-                "engine": "local-sqlite3",
+                "engine": "local-sqlite3-degraded",
+                "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+                "canonical_central_engine": "postgresql",
+                "authority": "non-canonical-reconciliation-required",
+                "reconciliation_required": True,
                 "pooled": False,
             }
 

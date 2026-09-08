@@ -92,7 +92,12 @@ class LocalSqlitePoolManager:
 
     def status(self) -> dict[str, Any]:
         return {
-            "engine": "local-sqlite3",
+            "engine": "local-sqlite3-degraded",
+            "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+            "canonical_central_engine": "postgresql",
+            "canonical": False,
+            "authority": "non-canonical-reconciliation-required",
+            "reconciliation_required": True,
             "pooled": True,
             "pool_min": _POOL_MIN,
             "pool_max": _POOL_MAX,

@@ -518,27 +518,35 @@ if (!hasSingleInstanceLock) {
       await createWindow()
       reportRuntimeEvent('window.ready')
 
-      // Start the backend in the background.  spawnBootCore computes the
-      // governance bootstrap attestation and passes it to boot_core via
-      // GPTBRIDGE_GOVERNANCE_BOOTSTRAP env var; boot_core uses it directly
-      // instead of re-computing (saves ~500ms of SHA256 scanning).
+      // Start the backend in the background.  spawnBootCore no longer
+      // computes the governance bootstrap attestation; boot_core generates
+      // it independently.  The launcher page therefore appears immediately
+      // and is not blocked by backend path or attestation errors.
       if (shouldManageBackend) {
-        startBackend()
+        try {
+          startBackend()
+        } catch (error) {
+          reportRuntimeEvent('backend.start.failed', {
+            message: error instanceof Error ? error.message : String(error),
+          })
+        }
       }
 
       // Preload governance authority attestation (required by governance
-      // audit A57/E43).  This runs AFTER the window is shown and AFTER
-      // startBackend, so it never blocks the startup page.  spawnBootCore
-      // already computed and passed the bootstrap token to boot_core; this
-      // call is the launcher-side attestation record.
-      try {
-        const workspaceRoot = getRuntimeEnv('GPTBRIDGE_WORKSPACE_ROOT')
-          || getRuntimeEnv('GPTBRIDGE_PROJECT_ROOT')
-          || process.cwd()
-        preloadDefaultGovernanceAuthority(workspaceRoot)
-      } catch {
-        // Best-effort attestation; boot_core has its own token.
-      }
+      // audit A57/E43).  It is deliberately deferred to a later tick so the
+      // renderer finishes its first paint before the launcher does the
+      // heavy SHA256 scan; any failure is best-effort because boot_core has
+      // its own token.
+      setTimeout(() => {
+        try {
+          const workspaceRoot = getRuntimeEnv('GPTBRIDGE_WORKSPACE_ROOT')
+            || getRuntimeEnv('GPTBRIDGE_PROJECT_ROOT')
+            || process.cwd()
+          preloadDefaultGovernanceAuthority(workspaceRoot)
+        } catch {
+          // Best-effort attestation; boot_core has its own token.
+        }
+      }, 0)
 
       reportRuntimeEvent('bootstrap.ready')
 
@@ -552,7 +560,8 @@ if (!hasSingleInstanceLock) {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       })
-      throw error
+      // Do not rethrow: the startup entry's only hard requirement is to show
+      // the page; any remaining errors are reported and tolerated.
     }
   })
 }

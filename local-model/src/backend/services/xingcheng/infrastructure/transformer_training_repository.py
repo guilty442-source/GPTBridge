@@ -785,6 +785,12 @@ class TransformerTrainingRepository:
         audit = self.verify_audit_chain()
         return {
             "ok": integrity.casefold() == "ok" and audit["ok"],
+            "engine": "local-sqlite3-degraded",
+            "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+            "canonical_central_engine": "postgresql",
+            "canonical": False,
+            "authority": "non-canonical-reconciliation-required",
+            "reconciliation_required": True,
             "schema": "star-transformer-training-database/v1",
             "schema_version": user_version,
             "path": str(self.database_path),

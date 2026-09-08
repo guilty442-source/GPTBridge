@@ -455,7 +455,12 @@ class LocalSqliteCognitionRepository:
                 "SELECT COUNT(*) AS c FROM cognition_rag_reference"
             ).fetchone()["c"]
         return {
-            "engine": "local-cognition",
+            "engine": "local-sqlite3-degraded",
+            "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+            "canonical_central_engine": "postgresql",
+            "canonical": False,
+            "authority": "non-canonical-reconciliation-required",
+            "reconciliation_required": True,
             "schema": "cognition",
             "model_data_count": int(model_data),
             "knowledge_count": int(knowledge),

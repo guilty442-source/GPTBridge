@@ -5,6 +5,9 @@ import os
 from pathlib import Path
 from typing import Any
 
+from governance_rule.execution.git_tiers import audit_log, classify, enforce
+from governance_rule.execution.git_tiers.snapshot import _capture_repo_snapshot
+
 
 class LocalGitRepository:
     """Loopback-equivalent Git adapter for system version and development history.
@@ -21,7 +24,24 @@ class LocalGitRepository:
     def __init__(self, project_root: Path) -> None:
         self.project_root = Path(project_root).resolve()
 
-    def _run(self, *arguments: str, check: bool = True) -> str:
+    def _run(
+        self,
+        *arguments: str,
+        check: bool = True,
+        confirmed: bool | None = None,
+        authority_approved: bool | None = None,
+    ) -> str:
+        command = " ".join(arguments)
+        snapshot = _capture_repo_snapshot(self.project_root)
+        allowed, message = enforce(
+            command,
+            "governance/tool/xingcheng",
+            confirmed=confirmed,
+            authority_approved=authority_approved,
+            repo_snapshot=snapshot,
+        )
+        if not allowed:
+            raise PermissionError(message)
         result = subprocess.run(
             ["git", "-C", str(self.project_root), *arguments],
             capture_output=True,
@@ -31,6 +51,17 @@ class LocalGitRepository:
             timeout=30,
             check=False,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+        audit_log(
+            classify(command),
+            command,
+            "governance/tool/xingcheng",
+            True,
+            result.stderr.strip()[:500],
+            repo_snapshot=snapshot,
+            phase="result",
+            result="succeeded" if result.returncode == 0 else "failed",
+            returncode=result.returncode,
         )
         if check and result.returncode != 0:
             raise RuntimeError(
@@ -63,10 +94,6 @@ class LocalGitRepository:
         }
 
     def diff_stat(self, *, confirmed: bool = False) -> dict[str, Any]:
-        self._govern(
-            confirmed,
-            message=self._STAGING_GOVERNANCE_REQUIRED,
-        )
         lines = [
             line
             for line in self._run(
@@ -79,7 +106,7 @@ class LocalGitRepository:
             "instrumentation": "governed-local-read",
             "approved": True,
             "summary": lines,
-            "write_requires_governance_approval": True,
+            "write_requires_governance_approval": False,
         }
 
     def stage(self, paths: Any, *, confirmed: bool = False) -> dict[str, Any]:
@@ -90,7 +117,7 @@ class LocalGitRepository:
         targets = list(dict.fromkeys(str(p).strip() for p in (paths or [])))
         if not targets:
             targets = ["."]
-        self._run("add", "--", *targets)
+        self._run("add", "--", *targets, confirmed=confirmed)
         staged = [
             line
             for line in self._run("diff", "--cached", "--name-only").splitlines()
@@ -112,6 +139,7 @@ class LocalGitRepository:
         *,
         confirmed: bool = False,
         amend: bool = False,
+        authority_approved: bool = False,
     ) -> dict[str, Any]:
         self._govern(
             confirmed,
@@ -124,7 +152,11 @@ class LocalGitRepository:
         if amend:
             arguments.append("--amend")
         arguments += ["-m", subject]
-        self._run(*arguments)
+        self._run(
+            *arguments,
+            confirmed=confirmed,
+            authority_approved=authority_approved,
+        )
         return {
             "ok": True,
             "instrumentation": "governed-local-write",

@@ -448,7 +448,7 @@ class InvestmentWatchService(
         if command not in handlers:
             return f"{command}_result", {
                 "ok": False,
-                "message": "AI投資管家不直接執行外部 AI 協作；投資分析一律由AI投資管家經 AI 通道處理。",
+                "message": "AI投資管家不直接執行外部協作；投資分析一律由AI投資管家經 AI 通道處理。",
             }
         try:
             result = await handlers[command](payload)

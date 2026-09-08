@@ -223,7 +223,8 @@
 }
 
 .ai-collab-business-switch,
-.ai-collab-mode-switch {
+.ai-collab-mode-switch,
+.ai-collab-tab-switch {
   display: inline-flex;
   gap: 4px;
   padding: 3px;
@@ -233,15 +234,106 @@
 }
 
 .ai-collab-business-switch button,
-.ai-collab-mode-switch button {
+.ai-collab-mode-switch button,
+.ai-collab-tab-switch button {
   border-color: transparent;
   background: transparent;
 }
 
 .ai-collab-business-switch button.is-active,
-.ai-collab-mode-switch button.is-active {
+.ai-collab-mode-switch button.is-active,
+.ai-collab-tab-switch button.is-active {
   border-color: #14b8a6;
   background: #0f766e;
+}
+
+.ai-collab-tab-switch button {
+  font-weight: 800;
+  padding: 7px 16px;
+}
+
+/* ── Browser panel ── */
+.ai-collab-browser-panel {
+  margin-top: 12px;
+  border: 1px solid #243044;
+  border-radius: 10px;
+  background: #111827;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.ai-collab-browser-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-collab-url-form {
+  display: flex;
+  flex: 1 1 360px;
+  gap: 6px;
+  min-width: 200px;
+}
+
+.ai-collab-url-input {
+  flex: 1;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e5e7eb;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 14px;
+}
+
+.ai-collab-url-input:focus {
+  outline: 2px solid rgba(20, 184, 166, 0.4);
+  outline-offset: 1px;
+}
+
+.ai-collab-url-form .ai-collab-primary {
+  white-space: nowrap;
+}
+
+.ai-collab-browser-status {
+  padding: 10px 12px;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  background: #0f172a;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.ai-collab-browser-status p {
+  margin: 0;
+}
+
+.ai-collab-browser-status span {
+  color: #5eead4;
+  word-break: break-all;
+}
+
+.ai-collab-browser-error {
+  color: #ff7b8b !important;
+}
+
+.ai-collab-browser-bookmarks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-collab-browser-bookmarks span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.ai-collab-browser-bookmarks button {
+  padding: 5px 10px;
+  font-size: 12px;
 }
 
 .ai-collab-agent-business {

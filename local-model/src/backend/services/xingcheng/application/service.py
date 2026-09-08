@@ -131,7 +131,7 @@ class LocalAiService(CommandChannelsMixin, InvestmentChannelMixin, InferenceChan
             "delete",
             "rollback",
         ),
-        "investment_database_write": False,
+        "investment_database_write": True,
         "ollama_model_database_access": True,
         "source_apply": False,
         "external_execution": False,

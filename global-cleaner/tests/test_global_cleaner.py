@@ -52,19 +52,26 @@ from backend.services.project_cleaner.infrastructure.cleanup_engine import (
 )
 
 
-def test_global_cleaner_has_owned_layers_and_thin_entries() -> None:
+def test_global_cleaner_has_owned_layers_and_thin_entries(
+    *,
+    tool_root: Path = TOOL_ROOT,
+    package: Path = PACKAGE,
+) -> None:
     for layer in ("application", "domain", "infrastructure"):
-        assert (PACKAGE / layer / "__init__.py").is_file()
-    assert [path.name for path in PACKAGE.glob("*.py")] == ["__init__.py"]
-    assert len((TOOL_ROOT / "src" / "main.py").read_text(encoding="utf-8").splitlines()) <= 10
-    assert len((TOOL_ROOT / "src" / "test_runner.py").read_text(encoding="utf-8").splitlines()) <= 10
+        assert (package / layer / "__init__.py").is_file()
+    assert [path.name for path in package.glob("*.py")] == ["__init__.py"]
+    assert len((tool_root / "src" / "main.py").read_text(encoding="utf-8").splitlines()) <= 10
+    assert len((tool_root / "src" / "test_runner.py").read_text(encoding="utf-8").splitlines()) <= 10
 
 
-def test_test_artifacts_are_owned_by_global_cleaner() -> None:
-    manifest = json.loads((TOOL_ROOT / "manifest.json").read_text(encoding="utf-8"))
+def test_test_artifacts_are_owned_by_global_cleaner(
+    *,
+    tool_root: Path = TOOL_ROOT,
+) -> None:
+    manifest = json.loads((tool_root / "manifest.json").read_text(encoding="utf-8"))
     artifacts = manifest["capabilities"]["global-cleanup"]["test_artifacts"]
     sandbox = (
-        TOOL_ROOT
+        tool_root
         / "src"
         / "backend"
         / "services"
@@ -1340,12 +1347,16 @@ from file_sorter.infrastructure.cleanup import VideoFingerprintCache
 from file_sorter.infrastructure.sorter_engine import resolve_state_root
 
 
-def test_file_sorter_has_owned_layers_and_thin_entries() -> None:
+def test_file_sorter_has_owned_layers_and_thin_entries(
+    *,
+    tool_root: Path = TOOL_ROOT,
+    package: Path = PACKAGE,
+) -> None:
     for layer in ("application", "domain", "infrastructure"):
-        assert (PACKAGE / layer / "__init__.py").is_file()
-    assert [path.name for path in PACKAGE.glob("*.py")] == ["__init__.py"]
-    assert len((TOOL_ROOT / "src" / "main.py").read_text(encoding="utf-8").splitlines()) <= 10
-    channel_source = (TOOL_ROOT / "src" / "channel_runtime.py").read_text(encoding="utf-8")
+        assert (package / layer / "__init__.py").is_file()
+    assert [path.name for path in package.glob("*.py")] == ["__init__.py"]
+    assert len((tool_root / "src" / "main.py").read_text(encoding="utf-8").splitlines()) <= 10
+    channel_source = (tool_root / "src" / "channel_runtime.py").read_text(encoding="utf-8")
     assert "GovernedToolRuntime" in channel_source
     assert "websockets.serve" not in channel_source
 
@@ -1360,9 +1371,12 @@ def test_file_sorter_sources_parse_after_split() -> None:
     assert failures == []
 
 
-def test_file_sorter_database_defaults_to_tool_folder() -> None:
+def test_file_sorter_database_defaults_to_tool_folder(
+    *,
+    tool_root: Path = TOOL_ROOT,
+) -> None:
     cache = VideoFingerprintCache()
-    assert cache.database_path.resolve().is_relative_to(TOOL_ROOT.resolve())
+    assert cache.database_path.resolve().is_relative_to(tool_root.resolve())
     assert cache.database_path.name == "video-fingerprints.sqlite3"
 
 
@@ -1430,10 +1444,12 @@ def test_investment_manager_process_network_policy_blocks_external_hosts() -> No
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.install_investment_manager_network_policy()
-
-    with pytest.raises(PermissionError):
-        socket.getaddrinfo("example.com", 443)
-    assert socket.getaddrinfo("127.0.0.1", 80)
+    try:
+        with pytest.raises(PermissionError):
+            socket.getaddrinfo("example.com", 443)
+        assert socket.getaddrinfo("127.0.0.1", 80)
+    finally:
+        module.uninstall_investment_manager_network_policy()
 
 
 
@@ -1460,7 +1476,10 @@ repository_spec.loader.exec_module(repository_module)
 InvestmentMobileRepository = repository_module.InvestmentMobileRepository
 
 
-def test_investment_mobile_has_owned_layers() -> None:
+def test_investment_mobile_has_owned_layers(
+    *,
+    package: Path = PACKAGE,
+) -> None:
     for layer in (
         "application",
         "domain",
@@ -1468,8 +1487,8 @@ def test_investment_mobile_has_owned_layers() -> None:
         "integration",
         "presentation",
     ):
-        assert (PACKAGE / layer / "__init__.py").is_file()
-    assert [path.name for path in PACKAGE.glob("*.py")] == ["__init__.py"]
+        assert (package / layer / "__init__.py").is_file()
+    assert [path.name for path in package.glob("*.py")] == ["__init__.py"]
 
 
 def test_investment_mobile_sources_parse_after_split() -> None:
@@ -1940,4 +1959,3 @@ def test_vaultly_database_is_tool_owned(tmp_path: Path) -> None:
     assert database.is_relative_to(tmp_path.resolve())
     assert database.name == "vaultly.sqlite3"
     assert database.is_file()
-

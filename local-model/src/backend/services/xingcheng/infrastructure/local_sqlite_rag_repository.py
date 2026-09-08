@@ -322,8 +322,12 @@ class LocalSqliteRagRepository:
             except (TypeError, ValueError):
                 pass
         return {
-            "engine": "local-sqlite3",
+            "engine": "local-sqlite3-degraded",
             "schema": "local-rag-keywords",
+            "canonical_central_engine": "postgresql",
+            "canonical": False,
+            "authority": "non-canonical-reconciliation-required",
+            "reconciliation_required": True,
             "fts_enabled": True,
             "content_storage": "excluded-by-architecture",
             "document_count": document_count,

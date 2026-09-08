@@ -46,7 +46,7 @@ class InvestmentAiConnections:
             "peers": {
                 "embedded-browser": {"name": "內建瀏覽器", "configured": configured},
                 "ai-collaboration": {
-                    "name": "外部 AI 協作",
+                    "name": "外部協作",
                     "configured": configured,
                     "permission": "ai-collaboration",
                 },

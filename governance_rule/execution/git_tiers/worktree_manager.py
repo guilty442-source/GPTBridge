@@ -7,8 +7,14 @@ from .git_repository import GitRepository
 class WorktreeManager:
     """Operate on git worktrees in a bare or main repository."""
 
-    def __init__(self, repository: GitRepository | None = None) -> None:
+    def __init__(
+        self,
+        repository: GitRepository | None = None,
+        *,
+        actor: str = "governance/worktree-manager",
+    ) -> None:
         self._repo = repository or GitRepository()
+        self._actor = actor
 
     def list_worktrees(self) -> list[dict[str, str]]:
         result = self._repo.run(["worktree", "list", "--porcelain"])
@@ -32,20 +38,36 @@ class WorktreeManager:
             worktrees.append(current)
         return worktrees
 
-    def create(self, path: str, branch: str) -> bool:
-        result = self._repo.run(["worktree", "add", path, branch], check=False)
+    def create(self, path: str, branch: str, *, confirmed: bool | None = None) -> bool:
+        result = self._repo.run(
+            ["worktree", "add", path, branch],
+            confirmed=confirmed,
+            actor=self._actor,
+        )
         return result.returncode == 0
 
-    def lock(self, path: str) -> bool:
-        result = self._repo.run(["worktree", "lock", path], check=False)
+    def lock(self, path: str, *, confirmed: bool | None = None) -> bool:
+        result = self._repo.run(
+            ["worktree", "lock", path],
+            confirmed=confirmed,
+            actor=self._actor,
+        )
         return result.returncode == 0
 
-    def unlock(self, path: str) -> bool:
-        result = self._repo.run(["worktree", "unlock", path], check=False)
+    def unlock(self, path: str, *, confirmed: bool | None = None) -> bool:
+        result = self._repo.run(
+            ["worktree", "unlock", path],
+            confirmed=confirmed,
+            actor=self._actor,
+        )
         return result.returncode == 0
 
-    def prune(self) -> bool:
-        result = self._repo.run(["worktree", "prune"], check=False)
+    def prune(self, *, confirmed: bool | None = None) -> bool:
+        result = self._repo.run(
+            ["worktree", "prune"],
+            confirmed=confirmed,
+            actor=self._actor,
+        )
         return result.returncode == 0
 
     def stale_worktrees(self) -> list[str]:

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocalBackendSocket } from './backendSocket'
+import { useEmbeddedBrowser } from './useEmbeddedBrowser'
 import './ai-collaboration.css'
 
 type Agent = {
@@ -136,10 +137,10 @@ function responseLabel(status: string): string {
 
 function browserActionMessage(response: AgentResponse): string {
   if (response.error_code === 'BROWSER_LOGIN_OR_INPUT_REQUIRED') {
-    return 'AI 協作前景 Chrome 尚未登入此 AI。請按左側「前景瀏覽器登入」完成一次登入，再重新送出。'
+    return '內建瀏覽器尚未登入此 AI。請按左側「瀏覽器登入」完成一次登入，再重新送出。'
   }
   if (response.error_code === 'BROWSER_VERIFICATION_REQUIRED') {
-    return '此 AI 正等待 Cloudflare／人機驗證。請在同一個 AI 協作前景 Chrome 分頁完成驗證，再重新送出。'
+    return '此 AI 正等待 Cloudflare／人機驗證。請在同一個內建瀏覽器分頁完成驗證，再重新送出。'
   }
   if (response.error_code === 'BROWSER_RESPONSE_CAPTURE_REQUIRED') {
     return '訊息已送出，但尚未自動擷取回覆；可等待完成後貼到下方。'
@@ -147,7 +148,7 @@ function browserActionMessage(response: AgentResponse): string {
   if (response.error_code === 'BROWSER_SEND_CONTROL_NOT_FOUND') {
     return '已開啟 AI 頁面，但找不到可用的送出按鈕；請檢查頁面登入狀態。'
   }
-  return '請在 Chrome 完成操作後，將完整結果貼到下方。'
+  return '請在內建瀏覽器完成操作後，將完整結果貼到下方。'
 }
 
 function socketStatusLabel(status: string): string {
@@ -194,6 +195,9 @@ function waitForIpcEvent<T = Record<string, unknown>>(
 
 export function AiCollaborationWindowApp() {
   const { sendCommand, status: socketStatus } = useLocalBackendSocket()
+  const browser = useEmbeddedBrowser()
+  const [activeTab, setActiveTab] = useState<'collaboration' | 'browser'>('collaboration')
+  const [urlInput, setUrlInput] = useState('')
   const [agents, setAgents] = useState<Agent[]>([])
   const [messages, setMessages] = useState<GroupMessage[]>([])
   const [memoryItems, setMemoryItems] = useState<MemoryItem[]>([])
@@ -297,6 +301,32 @@ export function AiCollaborationWindowApp() {
     return () => window.clearInterval(timer)
   }, [loadState])
 
+  const handleNavigate = useCallback(
+    (url: string) => {
+      setUrlInput(url)
+      void browser.navigate(url)
+    },
+    [browser]
+  )
+
+  const switchTab = useCallback(
+    (tab: 'collaboration' | 'browser') => {
+      setActiveTab(tab)
+      if (tab === 'browser') {
+        void browser.showBrowser()
+      } else {
+        void browser.hideBrowser()
+      }
+    },
+    [browser]
+  )
+
+  useEffect(() => {
+    return () => {
+      void browser.hideBrowser()
+    }
+  }, [browser])
+
   const toggleAgent = async (agentId: string) => {
     const next = new Set(selectedAgents)
     if (next.has(agentId)) next.delete(agentId)
@@ -321,7 +351,7 @@ export function AiCollaborationWindowApp() {
         30000
       )
       if (result.ok === false) throw new Error(String(result.message || '開啟失敗'))
-      setMessage(`${agentId} 已在共用的 AI 協作前景 Chrome 分頁開啟`)
+      setMessage(`${agentId} 已在內建瀏覽器開啟`)
       await loadState(true)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '開啟 AI 失敗')
@@ -335,7 +365,7 @@ export function AiCollaborationWindowApp() {
     try {
       const result = await request('ai_nexus_authorize_agent', { agent_id: agentId }, 30000)
       if (result.ok === false) throw new Error(String(result.message || '啟動授權失敗'))
-      setMessage(`${agentId} 已在共用的 AI 協作前景 Chrome 開啟；請完成一次登入或人機驗證`)
+      setMessage(`${agentId} 已在內建瀏覽器開啟；請完成一次登入或人機驗證`)
       await loadState(true)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '啟動帳號授權失敗')
@@ -488,7 +518,7 @@ export function AiCollaborationWindowApp() {
     const key = `${messageId}:${agentId}`
     const content = String(browserResults[key] || '').trim()
     if (!content) {
-      setMessage('請貼上該責任 AI 在 Chrome 回傳的完整結果')
+      setMessage('請貼上該責任 AI 在內建瀏覽器回傳的完整結果')
       return
     }
     setBusyAction(`browser-result:${key}`)
@@ -514,7 +544,7 @@ export function AiCollaborationWindowApp() {
       <header className="ai-collab-topbar">
         <div>
           <p>獨立應用程式</p>
-          <h1>AI協作工具</h1>
+          <h1>外部協作</h1>
           <div>
             <span>{socketStatusLabel(socketStatus)}</span>
             <span>{selectedAgentSummary} AI</span>
@@ -522,6 +552,22 @@ export function AiCollaborationWindowApp() {
           </div>
         </div>
         <div className="ai-collab-toolbar">
+          <div className="ai-collab-tab-switch" role="group" aria-label="主要分頁">
+            <button
+              type="button"
+              className={activeTab === 'collaboration' ? 'is-active' : ''}
+              onClick={() => switchTab('collaboration')}
+            >
+              協作
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'browser' ? 'is-active' : ''}
+              onClick={() => switchTab('browser')}
+            >
+              瀏覽器
+            </button>
+          </div>
           <div className="ai-collab-mode-switch" role="group" aria-label="協作模式">
             <button
               type="button"
@@ -530,7 +576,7 @@ export function AiCollaborationWindowApp() {
                 setCollaborationMode('general')
                 setMessage('一般模式：勾選 AI、輸入需求後即可直接協作')
               }}
-              disabled={Boolean(busyAction)}
+              disabled={Boolean(busyAction) || activeTab !== 'collaboration'}
             >
               一般模式
             </button>
@@ -541,7 +587,7 @@ export function AiCollaborationWindowApp() {
                 setCollaborationMode('star')
                 setMessage('星澄模式：固定任務由星澄透過治理通道安排')
               }}
-              disabled={Boolean(busyAction)}
+              disabled={Boolean(busyAction) || activeTab !== 'collaboration'}
             >
               星澄模式
             </button>
@@ -549,16 +595,16 @@ export function AiCollaborationWindowApp() {
           <button
             type="button"
             onClick={() => void openSelectedAgents()}
-            disabled={Boolean(busyAction) || selectedAgents.size === 0}
+            disabled={Boolean(busyAction) || selectedAgents.size === 0 || activeTab !== 'collaboration'}
           >
-            {busyAction === 'open-selected' ? '開啟中...' : '在同一前景 Chrome 開啟'}
+            {busyAction === 'open-selected' ? '開啟中...' : '在內建瀏覽器開啟'}
           </button>
           <div className="ai-collab-business-switch" role="group" aria-label="業務類型">
             <button
               type="button"
               className={businessScope === 'general' ? 'is-active' : ''}
               onClick={() => setBusinessScope('general')}
-              disabled={Boolean(busyAction)}
+              disabled={Boolean(busyAction) || activeTab !== 'collaboration'}
             >
               一般業務
             </button>
@@ -566,7 +612,7 @@ export function AiCollaborationWindowApp() {
               type="button"
               className={businessScope === 'investment' ? 'is-active' : ''}
               onClick={() => setBusinessScope('investment')}
-              disabled={Boolean(busyAction)}
+              disabled={Boolean(busyAction) || activeTab !== 'collaboration'}
             >
               投資業務
             </button>
@@ -606,12 +652,91 @@ export function AiCollaborationWindowApp() {
           <p>失敗 {failedResponses} · 待驗證 {waitingVerification}</p>
         </div>
         <div>
-          <span>前景瀏覽器</span>
-          <strong>{diagnostics?.browser?.available ? 'Chrome 可用' : '未找到 Chrome'}</strong>
-          <p>六個 AI 共用同一視窗，以分頁切換</p>
+          <span>內建瀏覽器</span>
+          <strong>{diagnostics?.browser?.available ? '可用' : '未就緒'}</strong>
+          <p>六個 AI 共用同一內建瀏覽器，以分頁切換</p>
         </div>
       </section>
 
+      {activeTab === 'browser' ? (
+        <section className="ai-collab-browser-panel">
+          <div className="ai-collab-browser-toolbar">
+            <button
+              type="button"
+              onClick={() => void browser.showBrowser()}
+              disabled={!browser.state.sessionId}
+              title="顯示瀏覽器"
+            >
+              顯示
+            </button>
+            <button
+              type="button"
+              onClick={() => void browser.hideBrowser()}
+              disabled={!browser.state.sessionId}
+              title="隱藏瀏覽器"
+            >
+              隱藏
+            </button>
+            <form
+              className="ai-collab-url-form"
+              onSubmit={(e) => {
+                e.preventDefault()
+                handleNavigate(urlInput)
+              }}
+            >
+              <input
+                type="text"
+                className="ai-collab-url-input"
+                value={urlInput}
+                onChange={(event) => setUrlInput(event.target.value)}
+                placeholder="輸入網址，例如 google.com 或 https://chat.openai.com"
+                disabled={browser.state.loading}
+              />
+              <button
+                type="submit"
+                className="ai-collab-primary"
+                disabled={browser.state.loading || !urlInput.trim()}
+              >
+                {browser.state.loading ? '載入中...' : '前往'}
+              </button>
+            </form>
+            <button
+              type="button"
+              onClick={() => void browser.closeBrowser()}
+              disabled={!browser.state.sessionId}
+              title="關閉瀏覽器"
+            >
+              關閉
+            </button>
+          </div>
+          <div className="ai-collab-browser-status">
+            {browser.state.error ? (
+              <p className="ai-collab-browser-error">{browser.state.error}</p>
+            ) : browser.state.sessionId ? (
+              <p>
+                目前頁面：<span>{browser.state.currentUrl}</span>
+              </p>
+            ) : (
+              <p>輸入網址後即可在內建瀏覽器中上網；瀏覽器受治理 Embedded BrowserView 保護。</p>
+            )}
+          </div>
+          <div className="ai-collab-browser-bookmarks">
+            <span>快速前往：</span>
+            {agents.map((agent) => (
+              <button
+                key={agent.agent_id}
+                type="button"
+                onClick={() => handleNavigate(agent.home_url)}
+                disabled={browser.state.loading}
+              >
+                {agent.name}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {activeTab === 'collaboration' ? (
       <section className="ai-collab-grid">
         <aside className="ai-collab-panel">
           <div className="ai-collab-section-head">
@@ -679,10 +804,10 @@ export function AiCollaborationWindowApp() {
                     >
                       {busyAction === `authorize:${agent.agent_id}`
                         ? '開啟中...'
-                        : '前景瀏覽器登入'}
+                        : '瀏覽器登入'}
                     </button>
                   ) : null}
-                  <small>共用同一個 AI 協作前景 Chrome，自動送出並擷取回覆；不使用 CLI 或 API</small>
+                  <small>共用同一個內建瀏覽器，自動送出並擷取回覆；不使用 CLI 或 API</small>
                   <div className="ai-collab-agent-business">
                     <label>
                       <span>一般業務 URL</span>
@@ -861,7 +986,7 @@ export function AiCollaborationWindowApp() {
                                     [`${item.message_id}:${response.agent_id}`]: event.target.value,
                                   }))
                                 }
-                                placeholder="在前景 Chrome 完成操作後，貼上該 AI 的完整結果"
+                                placeholder="在內建瀏覽器完成操作後，貼上該 AI 的完整結果"
                                 disabled={Boolean(busyAction)}
                               />
                               <button
@@ -911,11 +1036,12 @@ export function AiCollaborationWindowApp() {
           <section className="ai-collab-system">
             <span>資料庫：{paths.database || '尚未載入'}</span>
             <span>工作區：{paths.workspace || '尚未載入'}</span>
-            <span>瀏覽器：Google Chrome（前景新分頁）</span>
+            <span>瀏覽器：內建瀏覽器（受治理 Embedded BrowserView）</span>
             {safetyNotice ? <p>{safetyNotice}</p> : null}
           </section>
         </aside>
       </section>
+      ) : null}
     </main>
   )
 }

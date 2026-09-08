@@ -98,14 +98,15 @@ def _is_declarable_tool_environment_key(value: Any) -> bool:
 def _background_subprocess_kwargs() -> dict[str, Any]:
     if os.name != "nt":
         return {}
-    # Independent tools must survive a main-system crash.  CREATE_NEW_PROCESS_GROUP
-    # detaches the child from the main-system's process group so that a crash
-    # or forced termination of the mother process does not cascade-kill the
-    # independent tool processes.  CREATE_NO_WINDOW keeps them headless.
+    # Independent tools must survive a main-system crash or restart.
+    # DETACHED_PROCESS removes the console parent/child coupling and
+    # CREATE_NEW_PROCESS_GROUP isolates Ctrl+C/Ctrl+Break handling, so
+    # terminating the main-system (or boot_core/main.py) does not cascade
+    # through to independent tool processes.  CREATE_NO_WINDOW keeps them
+    # headless.
     creationflags = int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
-    new_group = int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) or 0)
-    if new_group:
-        creationflags |= new_group
+    creationflags |= int(getattr(subprocess, "DETACHED_PROCESS", 0) or 0)
+    creationflags |= int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) or 0)
     if not creationflags:
         return {}
     return {"creationflags": creationflags}

@@ -610,7 +610,7 @@ def test_browser_waits_three_cycles_then_uses_chatgpt_terminal_fallback(
     assert result["final_response"]["content"] == "ChatGPT 最終統籌"
 
 
-def test_provider_session_uses_managed_chrome_automation(tmp_path: Path) -> None:
+def test_provider_session_uses_managed_embedded_browser(tmp_path: Path) -> None:
     tool_root = tmp_path / "ai-collaboration"
     tool_root.mkdir()
     session = AiCollaborationProviderSession(tool_root)
@@ -658,7 +658,7 @@ def test_provider_session_uses_embedded_browser(tmp_path: Path) -> None:
     assert session.browser_status()["product"] == "embedded-browser-view"
 
 
-def test_all_provider_authorization_uses_foreground_chrome_only(
+def test_all_provider_authorization_uses_embedded_browser_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     session = AiCollaborationProviderSession(tmp_path)
