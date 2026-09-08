@@ -32,6 +32,7 @@ let mainWindow: BrowserWindow | null = null
 let quitting = false
 let lastCpuSnapshot: { idle: number; total: number } | null = null
 let currentUiZoom = 1
+let mainRendererReloadTimer: NodeJS.Timeout | null = null
 const sourceProduction = !app.isPackaged
 
 if (sourceProduction) {
@@ -248,6 +249,33 @@ async function createWindow(): Promise<void> {
     reportRuntimeEvent('window.load-file.ok', {
       rendererEntryHtml: paths.rendererEntryHtml,
     })
+  }
+}
+
+function startMainRendererWatch() {
+  const paths = getRuntimePathLibrary()
+  if (!paths.rendererEntryHtml || !fs.existsSync(paths.rendererEntryHtml)) return
+  fs.watchFile(paths.rendererEntryHtml, { interval: 500 }, () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    if (mainRendererReloadTimer) {
+      clearTimeout(mainRendererReloadTimer)
+      mainRendererReloadTimer = null
+    }
+    mainRendererReloadTimer = setTimeout(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) return
+      mainWindow.webContents.reloadIgnoringCache()
+    }, 500)
+  })
+}
+
+function stopMainRendererWatch() {
+  if (mainRendererReloadTimer) {
+    clearTimeout(mainRendererReloadTimer)
+    mainRendererReloadTimer = null
+  }
+  const paths = getRuntimePathLibrary()
+  if (paths.rendererEntryHtml) {
+    fs.unwatchFile(paths.rendererEntryHtml)
   }
 }
 
@@ -495,6 +523,9 @@ if (!hasSingleInstanceLock) {
       void createWindow()
       return
     }
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.reloadIgnoringCache()
+    }
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.show()
     mainWindow.focus()
@@ -516,6 +547,7 @@ if (!hasSingleInstanceLock) {
       // Backend startup (governance attestation + boot_core spawn) runs in
       // the background and does not block the UI.
       await createWindow()
+      startMainRendererWatch()
       reportRuntimeEvent('window.ready')
 
       // Start the backend in the background.  spawnBootCore no longer
@@ -568,6 +600,7 @@ if (!hasSingleInstanceLock) {
 
 app.on('window-all-closed', () => {
   closeAllSessions()
+  stopMainRendererWatch()
   if (process.platform !== 'darwin') {
     app.quit()
   }
@@ -575,6 +608,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', (event) => {
   closeAllSessions()
+  stopMainRendererWatch()
   if (quitting || !shouldManageBackend) return
 
   event.preventDefault()

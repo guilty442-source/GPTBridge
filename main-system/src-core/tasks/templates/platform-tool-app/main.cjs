@@ -89,6 +89,8 @@ const startHidden =
   String(process.env.GPTBRIDGE_START_HIDDEN || '').trim() === '1'
 let mainWindow = null
 let mainWindowReady = false
+let rendererReloadTimer = null
+let rendererWatchedPath = ''
 let foregroundRequested = !startHidden
 let backendProcess = null
 let backendLastFailure = ''
@@ -3137,6 +3139,36 @@ function resolveHotUpdateRenderer() {
   }
 }
 
+function startRendererWatch(rendererPath) {
+  if (!fs.existsSync(rendererPath)) return
+  if (rendererWatchedPath && rendererWatchedPath !== rendererPath) {
+    fs.unwatchFile(rendererWatchedPath)
+  }
+  rendererWatchedPath = rendererPath
+  fs.watchFile(rendererPath, { interval: 500 }, () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    if (rendererReloadTimer) {
+      clearTimeout(rendererReloadTimer)
+      rendererReloadTimer = null
+    }
+    rendererReloadTimer = setTimeout(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) return
+      mainWindow.webContents.reloadIgnoringCache()
+    }, 500)
+  })
+}
+
+function stopRendererWatch() {
+  if (rendererReloadTimer) {
+    clearTimeout(rendererReloadTimer)
+    rendererReloadTimer = null
+  }
+  if (rendererWatchedPath) {
+    fs.unwatchFile(rendererWatchedPath)
+    rendererWatchedPath = ''
+  }
+}
+
 function createWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (foregroundRequested && mainWindowReady) {
@@ -3243,6 +3275,9 @@ function createWindow() {
   const packagedRendererPath = path.join(appRoot, 'renderer', 'index.html')
   const rendererPath = resolveHotUpdateRenderer() || packagedRendererPath
   mainWindow.loadFile(rendererPath)
+    .then(() => {
+      startRendererWatch(rendererPath)
+    })
     .catch((error) => writeRuntimeLog('window.loadFile.failed', {
       rendererPath,
       message: error instanceof Error ? error.message : String(error),
@@ -3363,10 +3398,12 @@ if (hasSingleInstanceLock) {
 }
 
 app.on('window-all-closed', () => {
+  stopRendererWatch()
   if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('before-quit', (event) => {
+  stopRendererWatch()
   if (quitAfterBackendShutdown) return
   event.preventDefault()
   quitAfterBackendShutdown = true
