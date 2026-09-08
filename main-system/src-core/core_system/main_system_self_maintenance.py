@@ -2,14 +2,15 @@
 
 Per the Governance Codex the Maintenance Sovereign owns ALL system-maintenance
 matters.  This service is the governed executor for the main system's OWN
-self-maintenance: it runs three bounded, main-system-local duties and reports
+self-maintenance: it runs two bounded, main-system-local duties and reports
 back to the sovereign.  It never touches another module, never crosses the
 governance boundary, and never performs cross-tool repair.
 
 Duties (all main-system-local, all read-only or main-system-rooted):
   1. source self-repair — `SourceRepairService` over `main-system/src-core`
-  2. local cleanup       — `run_local_cleanup` over `main-system/`
-  3. integrity verify    — `GovernanceAuthenticationService.verify_runtime_integrity`
+  2. integrity verify    — `GovernanceAuthenticationService.verify_runtime_integrity`
+
+Local cleanup is exclusively scheduled by ``DailyGlobalCleanerService``.
 
 Triggers:
   * startup  — one run right after the Maintenance Sovereign starts
@@ -24,23 +25,15 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
-from governance_rule.execution.tool_runtime.tool_local_cleanup import (
-    run_local_cleanup,
-    write_local_cleanup_state,
-)
+from .sovereign_utils import _iso_now, _suppress
 
 MAIN_SYSTEM_TOOL_ID: Final[str] = "main-system"
 DEFAULT_INTERVAL_SECONDS: Final[float] = 6 * 60 * 60
 MIN_INTERVAL_SECONDS: Final[float] = 60.0
-SELF_MAINTENANCE_VERSION: Final[str] = "1.0.0"
-
-
-def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+SELF_MAINTENANCE_VERSION: Final[str] = "1.1.0"
 
 
 class MainSystemSelfMaintenance:
@@ -142,11 +135,10 @@ class MainSystemSelfMaintenance:
     async def _run_all_duties(self) -> dict[str, Any]:
         started_at = _iso_now()
         source_report = await self._duty_source_self_repair()
-        cleanup_report = await self._duty_local_cleanup()
         integrity_report = await self._duty_integrity_verify()
         ok = all(
             bool(item.get("ok"))
-            for item in (source_report, cleanup_report, integrity_report)
+            for item in (source_report, integrity_report)
         )
         return {
             "ok": ok,
@@ -157,7 +149,12 @@ class MainSystemSelfMaintenance:
             "completed_at": _iso_now(),
             "duties": {
                 "source_self_repair": source_report,
-                "local_cleanup": cleanup_report,
+                "local_cleanup": {
+                    "ok": True,
+                    "skipped": True,
+                    "reason": "DAILY_GLOBAL_CLEANER_OWNS_SCHEDULE",
+                    "delegated_to": "daily-global-cleaner",
+                },
                 "integrity_verify": integrity_report,
             },
         }
@@ -191,36 +188,8 @@ class MainSystemSelfMaintenance:
             "recorded_run": report.get("recorded_run"),
         }
 
-    async def _duty_local_cleanup(self) -> dict[str, Any]:
-        tool_root = self.project_root / MAIN_SYSTEM_TOOL_ID
-        try:
-            result = await asyncio.to_thread(
-                run_local_cleanup, MAIN_SYSTEM_TOOL_ID, tool_root
-            )
-        except Exception as error:
-            return {
-                "ok": False,
-                "duty": "local-cleanup",
-                "error": f"{type(error).__name__}: {error}",
-            }
-        with _suppress(Exception):
-            await asyncio.to_thread(
-                write_local_cleanup_state, tool_root, result
-            )
-        return {
-            "ok": bool(result.get("ok")),
-            "duty": "local-cleanup",
-            "cleaned_files": result.get("cleaned_files"),
-            "cleaned_directories": result.get("cleaned_directories"),
-            "cleaned_bytes": result.get("cleaned_bytes"),
-            "skipped": result.get("skipped"),
-        }
-
     async def _duty_integrity_verify(self) -> dict[str, Any]:
         auth = self.authentication
-        if auth is None:
-            governance = getattr(_app_proxy, "governance", None)
-            auth = getattr(governance, "authentication", None) if governance else None
         if auth is None or not hasattr(auth, "verify_runtime_integrity"):
             return {
                 "ok": True,
@@ -265,25 +234,8 @@ class MainSystemSelfMaintenance:
                 }
 
 
-# Late-bound app proxy used only for the integrity duty's fallback lookup.
-# Set via ``bind_app`` from the mother process; never imported at module load.
-_app_proxy: Any = None
-
-
-def bind_app(app: Any) -> None:
-    global _app_proxy
-    _app_proxy = app
-
-
-def _suppress(*exceptions: type[BaseException]) -> Any:
-    import contextlib
-
-    return contextlib.suppress(*exceptions)
-
-
 __all__ = [
     "DEFAULT_INTERVAL_SECONDS",
     "MAIN_SYSTEM_TOOL_ID",
     "MainSystemSelfMaintenance",
-    "bind_app",
 ]

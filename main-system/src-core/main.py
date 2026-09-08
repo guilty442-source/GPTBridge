@@ -27,10 +27,7 @@ from core_system.daily_global_cleaner_service import DailyGlobalCleanerService
 from core_system.maintenance_sovereign import MaintenanceSovereign
 from core_system.permission_sovereign import PermissionSovereign
 from core_system.system_sovereign import SystemSovereignService
-from core_system.main_system_self_maintenance import (
-    MainSystemSelfMaintenance,
-    bind_app as bind_self_maintenance_app,
-)
+from core_system.main_system_self_maintenance import MainSystemSelfMaintenance
 from core_system.versioning import application_version
 from ipc.server import run_server
 from tasks.queue import TaskQueue
@@ -246,7 +243,6 @@ class GPTBridgeApp:
 
         # Default governed modules (shared-layer, xingcheng) are now auto-started
         # by the Integration Sub-Sovereign during system_sovereign_service.start().
-        bind_self_maintenance_app(self)
         self.main_system_self_maintenance = MainSystemSelfMaintenance(
             self.project_root,
             authentication=getattr(self.governance, "authentication", None),
