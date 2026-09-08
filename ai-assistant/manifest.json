@@ -46,7 +46,7 @@
   },
   "capabilities": {
     "investment-manager": {
-      "shared_mobile_source_root": "ai-assistant/investment-mobile",
+      "shared_mobile_source_root": "investment-mobile",
       "shared_mobile_permission_profile": "ai-investment-manager-v1",
       "mobile_runtime_independent": true,
       "mobile_independent_only_in": "main-system",
@@ -66,34 +66,46 @@
         "deepseek-r1:8b-0528-qwen3-q4_K_M",
         "qwen3.8:27b-q4_K_M"
       ],
-      "model_dispatch_owner": "xingcheng",
-      "entry_gateway": "xingcheng",
+      "model_dispatch_owner": "ai-assistant",
+      "entry_gateway": "ai-assistant",
       "parameter_scope": "investment-manager-only",
-      "market_search_owner": "star-main-native-model",
-      "market_search_owner_label": "星澄原生模型",
-      "realtime_information_search_owner": "star-main-native-model",
-      "realtime_information_search_owner_label": "星澄原生模型",
+      "market_search_owner": "embedded-browser",
+      "market_search_owner_label": "內建瀏覽器",
+      "realtime_information_search_owner": "embedded-browser",
+      "realtime_information_search_owner_label": "內建瀏覽器",
       "realtime_information_search_scope": ["dividends", "prices", "net-asset-values", "other-current-market-information"],
-      "investment_analysis_owner": "xingcheng",
-      "accounting_owner": "xingcheng",
-      "accounting_mode": "star-autonomous-decision-ai-assistant-validated-write",
-      "discussion_path": "ai-assistant-to-star-to-chatgpt-to-star-to-ai-assistant",
-      "discussion_response_recipient": "xingcheng",
-      "network_access": "disabled-loopback-ipc-only",
-      "service_provider": "xingcheng-via-ai-channel",
-      "external_ai_role": "not-authorized-direct-or-indirect",
-      "ai_authority": "xingcheng-under-governance-rule"
+      "investment_analysis_owner": "ai-assistant",
+      "accounting_owner": "ai-assistant",
+      "accounting_mode": "browser-autonomous-decision-ai-assistant-validated-write",
+      "computation_service_owner": "ai-assistant",
+      "statistics_service_owner": "ai-assistant",
+      "network_search_service_owner": "embedded-browser",
+      "backend_service_provider": "ai-assistant",
+      "discussion_path": "ai-assistant-to-ai-collaboration-to-ai-assistant",
+      "discussion_response_recipient": "ai-assistant",
+      "network_access": "embedded-browser-view",
+      "service_provider": "embedded-browser-view",
+      "external_ai_role": "ai-collaboration",
+      "ai_authority": "ai-assistant-under-governance-rule"
     },
     "ai-connections": {
       "transport": "governance-authenticated-ai-channel",
       "channel": "shared-layer/ai-channel",
-      "peers": ["xingcheng"],
-      "allowed_target": "xingcheng",
-      "external_ai": "PERMISSION_DENIED",
+      "peers": ["ai-collaboration"],
+      "allowed_target": "ai-collaboration",
+      "external_ai": "ai-collaboration",
       "queue_when_offline": false,
       "share_database": false,
       "external_ai_api": false,
-      "direct_cross_tool_connection": false
+      "direct_cross_tool_connection": false,
+      "browser_inference": true,
+      "embedded_browser": {
+        "owner_module": "ai-assistant",
+        "product": "embedded-browser-view",
+        "mode": "in-app-browser",
+        "purpose": "investment-network-search-and-external-ai",
+        "network_access": "embedded-browser-view"
+      }
     }
   },
   "environment": {
@@ -104,10 +116,7 @@
   },
   "has_custom_ui": true,
   "test_targets": [
-    "tests/test_ai_assistant.py",
-    "tests/test_investment_manager.py",
-    "tests/test_investment_analytics.py",
-    "tests/test_investment_v3.py"
+    "tests/test_ai_assistant.py"
   ],
   "window": {
     "width": 1440,

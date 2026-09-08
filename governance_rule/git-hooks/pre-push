@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+WORKTREE_ROOT = Path.cwd()
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from governance_rule.execution.git_tiers import audit_log
+
+
+def _is_zero(oid: str) -> bool:
+    return bool(oid) and not oid.strip("0")
+
+
+def _is_non_fast_forward(remote_oid: str, local_oid: str) -> bool:
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", remote_oid, local_oid],
+        cwd=WORKTREE_ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    return result.returncode != 0
+
+
+def main() -> int:
+    actor = os.environ.get("GIT_AUTHOR_NAME", os.environ.get("USERNAME", "unknown"))
+    remote = sys.argv[1] if len(sys.argv) > 1 else "unknown"
+    high_risk: list[str] = []
+    for line in sys.stdin:
+        fields = line.split()
+        if len(fields) != 4:
+            audit_log(3, f"push {remote}", actor, False, "invalid pre-push input", operation="push")
+            return 1
+        local_ref, local_oid, remote_ref, remote_oid = fields
+        if _is_zero(local_oid):
+            high_risk.append(f"delete:{remote_ref}")
+        elif not _is_zero(remote_oid) and (
+            remote_ref.startswith("refs/tags/")
+            or _is_non_fast_forward(remote_oid, local_oid)
+        ):
+            high_risk.append(f"rewrite:{remote_ref}")
+
+    command = f"push {remote}"
+    if not high_risk:
+        audit_log(2, command, actor, True, "pre-push explicit invocation confirmed", operation="push")
+        return 0
+
+    approved = os.environ.get("GOVERNANCE_AUTHORITY_APPROVAL", "").casefold() in {
+        "1",
+        "true",
+        "yes",
+    }
+    detail = ",".join(high_risk)
+    audit_log(3, command, actor, approved, detail, operation="push")
+    if approved:
+        return 0
+    print(
+        "[pre-push] BLOCKED: ref deletion, tag rewrite, or non-fast-forward push "
+        "requires GOVERNANCE_AUTHORITY_APPROVAL=1",
+        file=sys.stderr,
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
@@ -68,6 +69,19 @@ function pythonExecutableCandidatesFor(root: string): string[] {
   return [toAbsolute(path.join(root, '.venv', 'bin', 'python'))]
 }
 
+function resolveFromPath(name: string): string | null {
+  try {
+    const command = process.platform === 'win32' ? `where.exe ${name}` : `which ${name}`
+    const output = execSync(command, { encoding: 'utf-8', timeout: 3_000 })
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)[0]
+    return output && fs.existsSync(output) ? output : null
+  } catch {
+    return null
+  }
+}
+
 export function getRuntimePathLibrary(): RuntimePathLibrary {
   const mode: RuntimeMode = app.isPackaged ? 'packaged' : 'source-production'
   const executableDir = toAbsolute(path.dirname(app.getPath('exe')))
@@ -86,11 +100,18 @@ export function getRuntimePathLibrary(): RuntimePathLibrary {
     ? toAbsolute(path.join(resourcesRoot, 'app.asar.unpacked'))
     : toAbsolute(path.join(workspaceRoot, 'main-system'))
 
+  const pathPython = resolveFromPath(process.platform === 'win32' ? 'python' : 'python3')
+  const pathPythonw = process.platform === 'win32' ? resolveFromPath('pythonw') : null
+  const pathPythonCandidates = (app.isPackaged
+    ? [pathPythonw, pathPython]
+    : [pathPython, pathPythonw]
+  ).filter((c): c is string => typeof c === 'string' && c.length > 0)
   const pythonExecutableCandidates = [
     ...pythonExecutableCandidatesFor(resourcesRoot),
     ...pythonExecutableCandidatesFor(unpackedRoot),
     ...pythonExecutableCandidatesFor(appRoot),
     ...pythonExecutableCandidatesFor(workspaceRoot),
+    ...pathPythonCandidates,
   ]
 
   const pythonEntryCandidates = [
@@ -114,8 +135,14 @@ export function getRuntimePathLibrary(): RuntimePathLibrary {
     toAbsolute(path.join(workspaceRoot, 'src-core', 'tasks', 'source_repair.py')),
   ]
 
-  const pythonExecutable =
+  let pythonExecutable =
     firstExisting(pythonExecutableCandidates) ?? pythonExecutableCandidates[0]
+  if (process.platform === 'win32' && pythonExecutable.toLowerCase().endsWith('python.exe')) {
+    const pythonw = pythonExecutable.replace(/\\python\.exe$/i, '\\pythonw.exe')
+    if (fs.existsSync(pythonw)) {
+      pythonExecutable = pythonw
+    }
+  }
   const pythonEntry = firstExisting(pythonEntryCandidates) ?? pythonEntryCandidates[0]
   const bootCoreEntry =
     firstExisting(bootCoreEntryCandidates) ?? pythonEntry

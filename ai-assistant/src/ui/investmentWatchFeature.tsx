@@ -258,6 +258,8 @@ type WorkbookSheetScan = {
   usable?: boolean
 }
 
+export type { WorkbookSheetScan }
+
 export type WorkbookScanSummary = {
   sheet_count?: number
   selected_sheet?: WorkbookSheetScan | null
@@ -806,7 +808,7 @@ export function investmentRunLabel(run: InvestmentRun): string {
     run.role === 'investment_risk_monitor' ||
     run.role === 'local_risk_monitor'
   ) {
-    return '星澄投資監測'
+    return 'AI投資管家投資監測'
   }
   if (run.role === 'quote_search') return 'Gemini 報價/搜尋'
   if (run.role === 'feature_extract') return 'GPT 特徵萃取'
@@ -913,7 +915,7 @@ function buildClientInvestmentDiagnostics(
       state: localAiState,
       state_label:
         localAiStatus?.state_label ||
-        (holdings.length > 0 ? '等待星澄分析' : '等待持股資料'),
+        (holdings.length > 0 ? '等待AI投資管家分析' : '等待持股資料'),
       score: localAiStatus?.score ?? null,
       risk_level: localAiStatus?.risk_level,
       risk_level_label: localAiStatus?.risk_level_label,
@@ -977,8 +979,14 @@ function investmentDiagnosticsFromResult(
 }
 
 export async function openInvestmentFile(): Promise<string> {
-  if (window.gptBridge?.openFile) return await window.gptBridge.openFile()
-  const result = await window.electron?.invoke('dialog:open-file')
+  const bridge = (window as any).gptBridge as
+    | { openFile?: () => Promise<string> }
+    | undefined
+  if (bridge?.openFile) return await bridge.openFile()
+  const electron = (window as any).electron as
+    | { invoke?: (channel: string, ...args: unknown[]) => Promise<unknown> }
+    | undefined
+  const result = await electron?.invoke?.('dialog:open-file')
   if (typeof result === 'string') return result
   const payload = result as { filePaths?: unknown } | undefined
   if (
@@ -1368,11 +1376,11 @@ export function useInvestmentWatchFeature({
       return
     }
     if (!instruction) {
-      setMessage('請輸入星澄命令。')
+      setMessage('請輸入AI投資管家命令。')
       return
     }
     setBusyAction('investment:local-risk-command')
-    setMessage('星澄正在分析並交由 ChatGPT 最終統籌...')
+    setMessage('AI投資管家正在分析並交由 ChatGPT 最終統籌...')
     const mutationEpoch = beginStateMutation()
     try {
       const result = (await request(
@@ -1381,13 +1389,13 @@ export function useInvestmentWatchFeature({
         240000
       )) as InvestmentResult
       if (result.ok === false) {
-        throw new Error(String(result.message || '星澄命令失敗'))
+        throw new Error(String(result.message || 'AI投資管家命令失敗'))
       }
       applyInvestmentResult(result, { mutationEpoch })
       setLocalRiskCommand('')
-      setMessage(String(result.message || '星澄命令完成'))
+      setMessage(String(result.message || 'AI投資管家命令完成'))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '星澄命令失敗')
+      setMessage(error instanceof Error ? error.message : 'AI投資管家命令失敗')
     } finally {
       finishStateMutation()
       setBusyAction('')

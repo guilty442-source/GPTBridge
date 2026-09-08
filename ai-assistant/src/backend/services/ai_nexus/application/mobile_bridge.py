@@ -50,7 +50,7 @@ class InvestmentMobileBridgeMixin:
         return {
             "ok": False,
             "error_code": "NETWORK_ACCESS_DISABLED",
-            "message": "AI 投資管家禁止設定遠端橋接；服務由星澄經 AI 通道提供。",
+            "message": "AI 投資管家禁止設定遠端橋接；服務由AI投資管家經 AI 通道提供。",
             "state": state,
             "diagnostics": self._diagnostics(state),
             "mobile_sync": self._mobile_sync_status(),
@@ -130,7 +130,7 @@ class InvestmentMobileBridgeMixin:
         self, _payload: dict[str, Any]
     ) -> dict[str, Any]:
         snapshot = self._mobile_sync_snapshot()
-        snapshot["connection_coordinator"] = "xingcheng"
+        snapshot["connection_coordinator"] = "ai-assistant"
         snapshot["transport"] = "governance-authenticated-shared-layer"
         return snapshot
 
@@ -148,9 +148,9 @@ class InvestmentMobileBridgeMixin:
 
     def _schedule_mobile_xingcheng_command(self, instruction: str) -> dict[str, Any]:
         if not instruction.strip():
-            return {"ok": False, "message": "請輸入星澄命令"}
+            return {"ok": False, "message": "請輸入AI投資管家命令"}
         if self._event_loop is None or self._event_loop.is_closed():
-            return {"ok": False, "message": "手機工具尚未連到星澄 AI 通道"}
+            return {"ok": False, "message": "手機工具尚未連到AI投資管家 AI 通道"}
         future = asyncio.run_coroutine_threadsafe(
             self._queue_mobile_xingcheng_command(instruction),
             self._event_loop,
@@ -176,7 +176,7 @@ class InvestmentMobileBridgeMixin:
         return {
             "ok": bool(result.get("ok")),
             "queued": bool(result.get("queued")),
-            "message": result.get("message") or "星澄命令已排入背景執行",
+            "message": result.get("message") or "AI投資管家命令已排入背景執行",
             "run": result.get("run"),
             "sync": self._mobile_sync_status(expose_pairing_code=False),
         }

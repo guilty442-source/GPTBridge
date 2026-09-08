@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""git-gate.py ??Git operation tier governance wrapper.
+"""git-gate.py — Git operation tier governance wrapper.
 
 Usage:
   python scripts/git-gate.py <git-command> [args...]
@@ -21,12 +21,8 @@ Flow:
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from pathlib import Path
-
-# Windows: suppress console window for background subprocess calls
-_CREATE_NO_WINDOW = 0x08000000 if os.name == 'nt' else 0
 
 project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
@@ -38,6 +34,7 @@ from governance_rule.execution.git_tiers import (
     TIER2_OPS,
     TIER3_OPS,
 )
+from governance_rule.execution.git_tiers.git_repository import GitRepository
 
 
 def main() -> int:
@@ -53,20 +50,19 @@ def main() -> int:
         return 1
 
     command = " ".join(args)
-    actor = os.environ.get("GIT_AUTHOR_NAME", os.environ.get("USER", "unknown"))
+    actor = os.environ.get(
+        "GIT_AUTHOR_NAME",
+        os.environ.get("USERNAME", os.environ.get("USER", "unknown")),
+    )
     tier = classify(command)
+    repository = GitRepository(project_root)
 
     # Show tier classification
     print(f"[git-gate] classified as Tier-{tier}: git {command}", file=sys.stderr)
 
     # ── Tier 1: read-only → direct execution ──────────────────────
     if tier == 1:
-        audit_log(tier, command, actor, approved=True, detail="tier-1 direct-exec")
-        git_args = ["git"] + args
-        result = subprocess.run(
-            git_args, cwd=str(project_root), creationflags=_CREATE_NO_WINDOW
-        )
-        return result.returncode
+        return repository.run(args, actor=actor).returncode
 
     # ── Tier 2: general write → GOVERNANCE_CONFIRM or interactive ─
     if tier == 2:
@@ -93,20 +89,12 @@ def main() -> int:
                 )
                 print("[git-gate] Cancelled by user.", file=sys.stderr)
                 return 1
-            audit_log(
-                tier, command, actor, approved=True,
-                detail="tier-2 user-confirmed",
-            )
-        else:
-            audit_log(
-                tier, command, actor, approved=True,
-                detail="tier-2 env-confirmed (GOVERNANCE_CONFIRM=1)",
-            )
-        git_args = ["git"] + args
-        result = subprocess.run(
-            git_args, cwd=str(project_root), creationflags=_CREATE_NO_WINDOW
-        )
-        return result.returncode
+        return repository.run(
+            args,
+            confirmed=True,
+            authority_approved=False,
+            actor=actor,
+        ).returncode
 
     # ── Tier 3: high-risk → GOVERNANCE_AUTHORITY_APPROVAL ─────────
     approved = os.environ.get("GOVERNANCE_AUTHORITY_APPROVAL", "").lower() in (
@@ -123,15 +111,12 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    audit_log(
-        tier, command, actor, approved=True,
-        detail="tier-3 governance-authority-approved",
-    )
-    git_args = ["git"] + args
-    result = subprocess.run(
-        git_args, cwd=str(project_root), creationflags=_CREATE_NO_WINDOW
-    )
-    return result.returncode
+    return repository.run(
+        args,
+        confirmed=True,
+        authority_approved=True,
+        actor=actor,
+    ).returncode
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ class InvestmentAccountingServiceMixin:
                 "ok": False,
                 "queued": False,
                 "error_code": "STAR_AI_CHANNEL_NOT_CONNECTED",
-                "message": "星澄 AI 通道尚未連線，帳務未執行且不排隊。",
+                "message": "AI投資管家 AI 通道尚未連線，帳務未執行且不排隊。",
                 "state": self._state_with_analytics(state),
             }
 
@@ -36,7 +36,7 @@ class InvestmentAccountingServiceMixin:
             return {
                 "ok": False,
                 "queued": False,
-                "message": str(star_result.get("message") or "星澄帳務服務失敗。"),
+                "message": str(star_result.get("message") or "AI投資管家帳務服務失敗。"),
                 "star_accounting": star_result,
                 "ledger_reconciliation": reconciliation,
                 "state": self._state_with_analytics(state),
@@ -48,7 +48,7 @@ class InvestmentAccountingServiceMixin:
             approved_count = int(star_result.get("approved_action_count") or 0)
             difference_count = int(reconciliation.get("difference_count") or 0)
             if approved_count != difference_count or difference_count <= 0:
-                raise ValueError("星澄帳務核准數與本機對帳差異不一致，已拒絕寫入")
+                raise ValueError("AI投資管家帳務核准數與本機對帳差異不一致，已拒絕寫入")
             with self._snapshot_coordinator() as locked_state:
                 current_reconciliation = self.analytics_store.reconcile_ledger_holdings(
                     locked_state
@@ -70,7 +70,7 @@ class InvestmentAccountingServiceMixin:
                     if isinstance(item, dict)
                 ]
                 if current_fingerprint != approved_fingerprint:
-                    raise ValueError("帳務資料在星澄核准後已變更，已拒絕過期決策")
+                    raise ValueError("帳務資料在AI投資管家核准後已變更，已拒絕過期決策")
                 safety_backup = self.analytics_store.backup_database(
                     "before-star-accounting"
                 )
@@ -96,7 +96,7 @@ class InvestmentAccountingServiceMixin:
             {
                 "ok": True,
                 "queued": False,
-                "message": str(star_result.get("message") or "星澄帳務已完成。"),
+                "message": str(star_result.get("message") or "AI投資管家帳務已完成。"),
                 "star_accounting": star_result,
                 "ledger_reconciliation": final_reconciliation,
                 "safety_backup": safety_backup,

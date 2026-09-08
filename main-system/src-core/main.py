@@ -233,30 +233,40 @@ class GPTBridgeApp:
 
         # 3. 系統主宰 — 啟動其自身的子主宰（runtime/resource/data/
         #    integration/language_review/third_party），並協調維護與權限
+        #    系統主宰與自我維護服務互不依賴，並行啟動以降低總啟動延遲。
         self._mark_startup_phase("sovereign_initializing")
-        try:
-            sovereign = await self.system_sovereign_service.start()
-            self._log(
-                {
-                    "type": "sovereign_startup",
-                    "dependency_state": sovereign.get("dependency_state", ""),
-                }
-            )
-        except Exception as error:
-            self._record_startup_failure("system_sovereign", error)
-        self._mark_startup_phase("sovereign_initialized")
 
         # Default governed modules (shared-layer, xingcheng) are now auto-started
         # by the Integration Sub-Sovereign during system_sovereign_service.start().
-        try:
-            bind_self_maintenance_app(self)
-            self.main_system_self_maintenance = MainSystemSelfMaintenance(
-                self.project_root,
-                authentication=getattr(self.governance, "authentication", None),
-            )
-            await self.main_system_self_maintenance.start()
-        except Exception as error:
-            self._record_startup_failure("main_system_self_maintenance", error)
+        bind_self_maintenance_app(self)
+        self.main_system_self_maintenance = MainSystemSelfMaintenance(
+            self.project_root,
+            authentication=getattr(self.governance, "authentication", None),
+        )
+
+        async def _start_system_sovereign() -> None:
+            try:
+                sovereign = await self.system_sovereign_service.start()
+                self._log(
+                    {
+                        "type": "sovereign_startup",
+                        "dependency_state": sovereign.get("dependency_state", ""),
+                    }
+                )
+            except Exception as error:
+                self._record_startup_failure("system_sovereign", error)
+
+        async def _start_self_maintenance() -> None:
+            try:
+                await self.main_system_self_maintenance.start()
+            except Exception as error:
+                self._record_startup_failure("main_system_self_maintenance", error)
+
+        await asyncio.gather(
+            _start_system_sovereign(),
+            _start_self_maintenance(),
+        )
+        self._mark_startup_phase("sovereign_initialized")
         self._mark_startup_phase("main_runtime_ready")
         self._log({"type": "status", "status": "ready"})
 

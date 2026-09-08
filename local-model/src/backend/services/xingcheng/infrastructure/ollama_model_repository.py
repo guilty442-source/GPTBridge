@@ -179,6 +179,12 @@ class OllamaModelRepository:
             }
             integrity = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
         return {
+            "engine": "local-sqlite3-degraded",
+            "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+            "canonical_central_engine": "postgresql",
+            "canonical": False,
+            "authority": "non-canonical-reconciliation-required",
+            "reconciliation_required": True,
             "owner_model_id": self.model_id,
             "database_path": str(self.database_path),
             "isolation": "one-database-per-ollama-model",

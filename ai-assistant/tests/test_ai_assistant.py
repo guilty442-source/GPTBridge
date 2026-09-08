@@ -1,5 +1,41 @@
+"""ai-assistant consolidated test suite (A57/E43)
+
+One managed test file per module, maintained by the
+maintenance sovereign for self-health (self-test collection).
+"""
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+for _p in (
+    str(_ROOT),
+    str(_ROOT / "shared-layer" / "src"),
+    str(_ROOT / "main-system" / "src-core"),
+    str(_ROOT / "main-system"),
+    str(_ROOT / "main-system" / "src" / "backend" / "services"),
+    str(_ROOT / "local-model" / "src" / "backend" / "services"),
+    str(_ROOT / "global-cleaner" / "src"),
+    str(_ROOT / "ai-assistant" / "src"),
+    str(_ROOT / "ai-assistant" / "src" / "backend" / "services"),
+    str(_ROOT / "ai-collaboration" / "src" / "backend" / "services"),
+    str(_ROOT / "file-sorter" / "src" / "backend" / "services"),
+    str(_ROOT / "investment-mobile" / "src" / "backend" / "services"),
+    str(_ROOT / "vaultly" / "src" / "backend" / "services"),
+):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+del _p
+
+
+# -- CONSOLIDATED TEST SUITE --
+
+########################################################################
+# source: restored_ai_assistant.py
+########################################################################
 import asyncio
 import json
 import sqlite3
@@ -42,16 +78,20 @@ def test_investment_conversation_is_separate_and_uses_automatic_models() -> None
     assert policy["primary_business_models"] == [
         "ibm/granite4.2:30b-q4_K_M",
     ]
-    assert policy["market_search_owner"] == "star-main-native-model"
-    assert policy["market_search_owner_label"] == "星澄原生模型"
-    assert policy["realtime_information_search_owner"] == "star-main-native-model"
-    assert policy["realtime_information_search_owner_label"] == "星澄原生模型"
+    assert policy["market_search_owner"] == "embedded-browser"
+    assert policy["market_search_owner_label"] == "內建瀏覽器"
+    assert policy["realtime_information_search_owner"] == "embedded-browser"
+    assert policy["realtime_information_search_owner_label"] == "內建瀏覽器"
     assert policy["realtime_information_search_scope"] == [
         "dividends",
         "prices",
         "net-asset-values",
         "other-current-market-information",
     ]
+    assert policy["computation_service_owner"] == "ai-assistant"
+    assert policy["statistics_service_owner"] == "ai-assistant"
+    assert policy["network_search_service_owner"] == "embedded-browser"
+    assert policy["backend_service_provider"] == "ai-assistant"
 
 
 def test_clear_state_requires_explicit_confirmation(tmp_path: Path, monkeypatch) -> None:
@@ -225,7 +265,7 @@ def test_investment_analysis_cannot_bypass_star_ai_channel(
         service._close_storage()
 
 
-def test_accounting_is_sent_only_to_star_through_ai_channel() -> None:
+def test_accounting_is_sent_through_embedded_browser() -> None:
     class FakeClient:
         call: tuple[str, str, dict[str, object], int] | None = None
 
@@ -253,14 +293,14 @@ def test_accounting_is_sent_only_to_star_through_ai_channel() -> None:
     assert result["ok"] is True
     assert client.call is not None
     target, command, payload, timeout = client.call
-    assert target == "xingcheng"
-    assert command == "xingcheng_manage_investment_accounting"
+    assert target == "embedded-browser"
+    assert command == "embedded-browser_manage_investment_accounting"
     assert payload["autonomous"] is True
     assert payload["request_origin"] == "offline-ai-investment-manager"
     assert timeout == 120
 
 
-def test_external_discussion_is_requested_through_star_only() -> None:
+def test_external_discussion_is_requested_through_embedded_browser() -> None:
     class FakeClient:
         call: tuple[str, str, dict[str, object], int] | None = None
 
@@ -276,7 +316,7 @@ def test_external_discussion_is_requested_through_star_only() -> None:
             return {
                 "ok": True,
                 "discussion_owner": "ChatGPT",
-                "recipient": "xingcheng",
+                "recipient": "ai-assistant",
             }
 
     connections = InvestmentAiConnections()
@@ -293,8 +333,8 @@ def test_external_discussion_is_requested_through_star_only() -> None:
     assert result["ok"] is True
     assert client.call is not None
     target, command, payload, timeout = client.call
-    assert target == "xingcheng"
-    assert command == "xingcheng_discuss_investment_analysis"
+    assert target == "embedded-browser"
+    assert command == "embedded-browser_discuss_investment_analysis"
     snapshot = payload["analysis_snapshot"]
     assert isinstance(snapshot, dict)
     assert "private_database_path" not in snapshot
@@ -322,11 +362,11 @@ def test_star_autonomous_accounting_is_validated_before_local_write(
             assert len(differences) == 1
             return {
                 "ok": True,
-                "accounting_owner": "星澄",
+                "accounting_owner": "AI投資管家",
                 "decision": "apply_estimated_reconciliation",
                 "apply_reconciliation": True,
                 "approved_action_count": 1,
-                "message": "星澄已核准建立估算對帳調整。",
+                "message": "AI投資管家已核准建立估算對帳調整。",
             }
 
     data_root = tmp_path / "data"
@@ -358,8 +398,295 @@ def test_star_autonomous_accounting_is_validated_before_local_write(
         )
 
         assert result["ok"] is True
-        assert result["star_accounting"]["accounting_owner"] == "星澄"
+        assert result["star_accounting"]["accounting_owner"] == "AI投資管家"
         assert result["ledger_reconciliation"]["applied_count"] == 1
         assert len(service.analytics_store.list_transactions(10)) == 1
     finally:
         service._close_storage()
+
+
+
+########################################################################
+# source: ai-assistant/tests/test_investment_analytics.py
+########################################################################
+from pathlib import Path
+
+from ai_nexus.infrastructure.analytics_repository import InvestmentAnalyticsStore
+
+
+def test_analytics_database_persists_as_encrypted_valid_sqlite(tmp_path: Path) -> None:
+    tool_root = tmp_path / "tool"
+    tool_root.mkdir()
+    store = InvestmentAnalyticsStore(tool_root)
+    store.set_setting("base_currency", "TWD")
+    assert store._database_connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    database_path = store.database_path
+    store.close()
+
+    assert database_path.is_file()
+    assert not database_path.read_bytes().startswith(b"SQLite format 3\x00")
+
+    reopened = InvestmentAnalyticsStore(tool_root)
+    try:
+        assert reopened.get_setting("base_currency") == "TWD"
+        assert reopened._database_connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    finally:
+        reopened.close()
+
+
+
+########################################################################
+# source: ai-assistant/tests/test_investment_manager.py
+########################################################################
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+from ai_nexus.infrastructure.portfolio_file import load_json_portfolio, market_status
+
+
+def test_load_json_portfolio_normalizes_holding(tmp_path: Path) -> None:
+    source = tmp_path / "portfolio.json"
+    source.write_text(
+        json.dumps(
+            {
+                "holdings": [
+                    {
+                        "symbol": "vti",
+                        "name": "US Total Market",
+                        "market": "US",
+                        "quantity": 2,
+                        "average_cost": 250,
+                        "currency": "USD",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    holdings = load_json_portfolio(source)
+    assert len(holdings) == 1
+    assert holdings[0].symbol == "VTI"
+    assert holdings[0].quantity == 2
+    assert holdings[0].currency == "USD"
+
+
+def test_market_status_is_deterministic_for_known_time() -> None:
+    result = market_status("TW", datetime(2026, 8, 12, 2, 0, tzinfo=timezone.utc))
+    assert result["market"] == "TW"
+    assert isinstance(result["is_open"], bool)
+
+
+
+########################################################################
+# source: ai-assistant/tests/test_investment_v3.py
+########################################################################
+from pathlib import Path
+
+from ai_nexus.infrastructure.analytics_repository import InvestmentAnalyticsStore
+from ai_nexus.application.portfolio_engine import InvestmentV3Engine
+
+
+def test_v3_fx_rates_support_direct_and_inverse_lookup(tmp_path: Path) -> None:
+    tool_root = tmp_path / "tool"
+    tool_root.mkdir()
+    store = InvestmentAnalyticsStore(tool_root)
+    try:
+        engine = InvestmentV3Engine(store)
+        count = engine.add_fx_rates(
+            [
+                {
+                    "base_currency": "USD",
+                    "quote_currency": "TWD",
+                    "observed_at": "2026-08-12T00:00:00+00:00",
+                    "rate": 32.0,
+                    "provider": "test",
+                    "verified": True,
+                }
+            ]
+        )
+        assert count == 1
+        assert engine.fx_rate("USD", "TWD")["rate"] == 32.0
+        assert engine.fx_rate("TWD", "USD")["rate"] == 1 / 32.0
+    finally:
+        store.close()
+
+
+
+########################################################################
+# source: ai-assistant/tests/test_shared_mobile_runtime.py
+########################################################################
+import asyncio
+import sys
+from pathlib import Path
+from typing import Any
+
+TOOL_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = TOOL_ROOT.parent
+SHARED_SERVICES = PROJECT_ROOT / "shared-layer" / "src"
+MOBILE_SERVICES = (
+    PROJECT_ROOT
+    / "investment-mobile"
+    / "src"
+    / "backend"
+    / "services"
+)
+for services_path in (SHARED_SERVICES, MOBILE_SERVICES):
+    if str(services_path) not in sys.path:
+        sys.path.insert(0, str(services_path))
+
+from ai_nexus.application.mobile_bridge import InvestmentMobileBridgeMixin  # noqa: E402
+from investment_mobile.application.service import InvestmentMobileService  # noqa: E402
+
+
+class MemorySettings:
+    def __init__(self) -> None:
+        self.values: dict[str, Any] = {}
+
+    def set_setting(self, key: str, value: Any) -> None:
+        self.values[key] = value
+
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        return self.values.get(key, default)
+
+
+class EmptyInvestmentRepository:
+    @staticmethod
+    def load_state() -> dict[str, Any]:
+        return {"holdings": []}
+
+
+class MobileBridgeHarness(InvestmentMobileBridgeMixin):
+    def __init__(self) -> None:
+        self.analytics_store = MemorySettings()
+        self.repository = EmptyInvestmentRepository()
+        self._mobile_sync_start_error = ""
+
+    @staticmethod
+    def _state_response(state: dict[str, Any]) -> dict[str, Any]:
+        return {"ok": True, "state": state}
+
+
+class SharedSettingsClient:
+    def __init__(self) -> None:
+        self.settings: dict[str, Any] = {
+            "enabled": False,
+            "allow_lan": False,
+            "port": 18765,
+        }
+
+    def request_sync(
+        self,
+        command: str,
+        payload: dict[str, Any],
+        *,
+        timeout_seconds: float,
+    ) -> dict[str, Any]:
+        del timeout_seconds
+        assert command in {
+            "xingcheng_mobile_get_investment_snapshot",
+            "xingcheng_mobile_submit_investment_instruction",
+        }
+        if payload.get("operation") == "update_shared_settings":
+            self.settings.update(dict(payload["settings"]))
+        return {"ok": True, "sync": dict(self.settings)}
+
+
+def test_investment_manager_persists_mobile_settings_in_shared_store() -> None:
+    service = MobileBridgeHarness()
+    result = asyncio.run(
+        service._investment_mobile_submit_instruction(
+            {
+                "operation": "update_shared_settings",
+                "settings": {"enabled": True, "allow_lan": True, "port": 19001},
+            }
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["sync"]["enabled"] is True
+    assert result["sync"]["allow_lan"] is True
+    assert result["sync"]["port"] == 19001
+    assert service.analytics_store.values == {
+        "mobile_sync_enabled": True,
+        "mobile_sync_allow_lan": True,
+        "mobile_sync_port": 19001,
+    }
+
+
+def test_mobile_runtime_has_no_separate_repository(tmp_path: Path) -> None:
+    service = InvestmentMobileService(tmp_path)
+    client = SharedSettingsClient()
+    service._client = client
+
+    status = service.status()
+
+    assert status["main_system_independent_tool"] is True
+    assert status["business_layer_owner"] == "ai-assistant"
+    assert status["settings_owner"] == "ai-assistant"
+    assert status["cache_owner"] == "ai-assistant"
+    assert status["cache_storage"] == (
+        "ai-assistant/runtime/cache/companions/investment-mobile"
+    )
+    assert status["backup_owner"] == "ai-assistant"
+    assert status["backup_storage"] == (
+        "global-cleaner/data/business/backups/ai-assistant"
+    )
+    assert status["separate_business_layer"] is False
+    assert status["separate_settings_layer"] is False
+    assert status["database"] == "xingcheng-shared-repository"
+    assert not list(tmp_path.rglob("*.sqlite3"))
+
+
+def test_mobile_runtime_updates_settings_through_shared_route(tmp_path: Path) -> None:
+    service = InvestmentMobileService(tmp_path)
+    client = SharedSettingsClient()
+    service._client = client
+
+    _, result = asyncio.run(service.handle("investment_mobile_stop", {}))
+
+    assert result["shared_settings"]["enabled"] is False
+    assert client.settings["enabled"] is False
+    assert not list(tmp_path.rglob("*.sqlite3"))
+
+
+def test_ai_assistant_channel_imports_canonical_application_service() -> None:
+    source = (TOOL_ROOT / "src" / "channel_runtime.py").read_text(
+        encoding="utf-8"
+    )
+    assert "from ai_nexus.application.service import AiNexusService" in source
+    assert "from ai_nexus.service import AiNexusService" not in source
+
+
+def test_network_policy_is_installed_only_when_channel_runtime_starts() -> None:
+    source = (TOOL_ROOT / "src" / "channel_runtime.py").read_text(
+        encoding="utf-8"
+    )
+
+    main_position = source.index("async def main() -> None:")
+    install_position = source.index(
+        "    install_investment_manager_network_policy()", main_position
+    )
+    uninstall_position = source.index(
+        "    uninstall_investment_manager_network_policy()", install_position
+    )
+
+    assert main_position < install_position < uninstall_position
+
+
+def test_network_policy_restores_socket_operations() -> None:
+    import socket
+
+    from investment_network_policy import (
+        install_investment_manager_network_policy,
+        uninstall_investment_manager_network_policy,
+    )
+
+    original_getaddrinfo = socket.getaddrinfo
+    install_investment_manager_network_policy()
+    try:
+        assert socket.getaddrinfo is not original_getaddrinfo
+    finally:
+        uninstall_investment_manager_network_policy()
+
+    assert socket.getaddrinfo is original_getaddrinfo

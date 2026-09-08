@@ -25,6 +25,13 @@ TWSE_BASE = "https://openapi.twse.com.tw/v1"
 TPEX_BASE = "https://www.tpex.org.tw/openapi/v1"
 
 YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search"
+NETWORK_DESTINATION_ALLOWLIST = frozenset({
+    "www.fundclear.com.tw",
+    "openapi.twse.com.tw",
+    "www.tpex.org.tw",
+    "query1.finance.yahoo.com",
+    "query2.finance.yahoo.com",
+})
 SUPPORTED_QUOTE_TYPES = {"EQUITY", "ETF", "MUTUALFUND", "INDEX"}
 MARKET_SUFFIXES = {
     ".TW": "TW",
@@ -53,6 +60,9 @@ def _number(value: Any, default: float = 0.0) -> float:
 
 
 def _fetch_json(url: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme != "https" or parsed.hostname not in NETWORK_DESTINATION_ALLOWLIST:
+        raise PermissionError("NETWORK_DESTINATION_DENIED")
     data = None if body is None else json.dumps(body, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         url,

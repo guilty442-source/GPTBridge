@@ -1,6 +1,6 @@
 {
-  "tool.name": "外部 AI 協作",
-  "tool.window_title": "外部 AI 協作",
+  "tool.name": "外部協作",
+  "tool.window_title": "外部協作",
   "tool.description": "負責遠端 AI 名單、群組詢問、共享記憶、協作診斷與報告匯出。",
   "errors.permission_denied": "權限不足"
 }

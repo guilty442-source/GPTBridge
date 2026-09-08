@@ -10,30 +10,66 @@ Enforcement: hook + governance gate + audit ledger (A46).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Final
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 AUDIT_LEDGER_PATH = PROJECT_ROOT / "governance_rule" / "execution" / "audit" / "git_tier_audit.jsonl"
+_AUDIT_LOCK: Final[threading.Lock] = threading.Lock()
+_EMPTY_HASH: Final[str] = "0" * 64
+
+# Tier operation lists.
+#
+# A53/E39 declares the canonical TIER-1/2/3 operation sets.  The lists below
+# extend those sets with additional operations, classified per A16 (codex is
+# its own interpreter) and A11 (fail-closed — when uncertain, classify higher):
+#
+# TIER-1 extensions (all read-only, safe to direct-exec):
+#   worktree list/status, reflog show, fsck, count-objects, shortlog,
+#   annotate, name-rev, rev-list, ls-tree, ls-remote, merge-base — these are
+#   read-only inspection commands consistent with the TIER-1 spirit (read-only
+#   + high-frequency + direct-exec).
+#
+# TIER-2 extensions (general-write, requires confirmation):
+#   stash push/pop/apply, branch create, tag -a/-m, worktree lock/unlock/
+#   move/prune, mv, restore, switch -c — standard write operations consistent
+#   with TIER-2 spirit.
+#   pull, clone — these involve NETWORK access.  Per A58/E44 (governed-network-
+#   access), network operations require explicit-capability + static-allowlist
+#   + timeout + audit.  They are classified TIER-2 (requires confirmation) but
+#   callers MUST additionally ensure the network path is governed.  `clone`
+#   especially risks introducing unverified code (A37 code-origin: dependencies
+#   must be approved+inventoried+pinned+license-reviewed+security-reviewed).
+#
+# TIER-3 extensions (high-risk, strictly restricted):
+#   push -f/push +, branch -d (conservative — A53 lists only branch -D),
+#   commit --amend (conservative — A53 specifies "amend-pushed"; we classify
+#   ALL amend as TIER-3 per A11 fail-closed), gc --aggressive, gc --prune=now,
+#   reflog expire --expire=now, push --delete, tag -d, replace, notes remove —
+#   all destructive or history-rewriting, consistent with TIER-3 spirit.
 
 TIER1_OPS: Final[frozenset[str]] = frozenset({
     "status", "log", "diff", "show", "branch", "remote", "blame",
     "ls-files", "cat-file", "rev-parse", "describe", "tag -l",
     "for-each-ref", "stash list", "config --get", "config --list",
-    "worktree list", "reflog show", "fsck", "count-objects", "shortlog",
-    "annotate", "name-rev", "rev-list", "ls-tree", "ls-remote",
+    "worktree list", "worktree list --porcelain", "worktree status",
+    "worktree prune --dry-run", "reflog show", "fsck", "count-objects", "shortlog",
+    "annotate", "name-rev", "rev-list", "ls-tree", "ls-remote", "merge-base",
 })
 
 TIER2_OPS: Final[frozenset[str]] = frozenset({
     "add", "commit", "stash", "stash push", "stash pop", "stash apply",
     "branch create", "checkout", "switch", "merge", "tag create", "tag -a",
     "tag -m", "fetch", "push", "rebase", "cherry-pick", "revert",
-    "worktree add", "worktree remove", "mv", "restore", "switch -c",
-    "pull", "clone",
+    "worktree add", "worktree create", "worktree lock", "worktree unlock",
+    "worktree remove", "worktree move", "worktree prune", "mv", "restore",
+    "switch -c", "pull", "clone",
 })
 
 TIER3_OPS: Final[frozenset[str]] = frozenset({
@@ -50,7 +86,7 @@ TIER3_OPS: Final[frozenset[str]] = frozenset({
 def classify(command: str) -> int:
     """Classify a git command string into tier 1, 2, or 3.
 
-    Returns 1, 2, or 3. Defaults to 2 for unknown write-ish commands.
+    Returns 1, 2, or 3. Unknown commands fail closed strictly as Tier 3.
     """
     cmd = command.strip().lower()
 
@@ -60,7 +96,7 @@ def classify(command: str) -> int:
 
     # Check Tier 3 first (most restrictive)
     for op in TIER3_OPS:
-        if op in cmd:
+        if op.casefold() in cmd:
             return 3
 
     # Check Tier 1 (read-only)
@@ -73,54 +109,97 @@ def classify(command: str) -> int:
         if cmd.startswith(op) or cmd == op:
             return 2
 
-    # Unknown — default to Tier 2 (cautious but not blocking)
-    return 2
+    # Unknown operations are unverified and therefore require Tier 3 approval.
+    return 3
 
 
-def audit_log(tier: int, command: str, actor: str, approved: bool, detail: str = "") -> None:
+def audit_log(
+    tier: int,
+    command: str,
+    actor: str,
+    approved: bool,
+    detail: str = "",
+    *,
+    operation: str = "",
+    repo_snapshot: dict[str, object] | None = None,
+    phase: str = "decision",
+    result: str = "pending",
+    returncode: int | None = None,
+) -> dict[str, object]:
     """Write an audit ledger entry (A46 compliance)."""
+    from .snapshot import _capture_repo_snapshot
+
+    snapshot = repo_snapshot if repo_snapshot is not None else _capture_repo_snapshot()
+    if not operation:
+        operation = command.strip().split()[0] if command.strip() else "unknown"
     AUDIT_LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
-    entry = {
+    entry: dict[str, object] = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime()),
         "tier": tier,
+        "operation": operation,
         "command": command,
         "actor": actor,
         "approved": approved,
+        "phase": phase,
+        "result": result,
+        "returncode": returncode,
         "detail": detail,
+        "head_revision": snapshot.get("head_revision", ""),
+        "branch": snapshot.get("branch", "HEAD"),
+        "dirty_files": snapshot.get("dirty_files", []),
+        "staged_files": snapshot.get("staged_files", []),
+        "untracked_files": snapshot.get("untracked_files", []),
     }
-    with open(AUDIT_LEDGER_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    with _AUDIT_LOCK, AUDIT_LEDGER_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+    return entry
 
 
-def enforce(command: str, actor: str = "unknown") -> tuple[bool, str]:
-    """Enforce tier rules on a git command.
-
-    Returns (allowed, message).
-    Tier 1: always allowed.
-    Tier 2: allowed if GOVERNANCE_CONFIRM env var is set.
-    Tier 3: allowed only if GOVERNANCE_AUTHORITY_APPROVAL env var is set.
-    """
+def enforce(
+    command: str,
+    actor: str = "unknown",
+    *,
+    confirmed: bool | None = None,
+    authority_approved: bool | None = None,
+    repo_snapshot: dict[str, object] | None = None,
+) -> tuple[bool, str]:
+    """Authorize one classified Git operation and record the decision."""
     tier = classify(command)
+    if confirmed is None:
+        confirmed = os.environ.get("GOVERNANCE_CONFIRM", "").casefold() in {
+            "1", "true", "yes",
+        }
+    if authority_approved is None:
+        authority_approved = os.environ.get(
+            "GOVERNANCE_AUTHORITY_APPROVAL", ""
+        ).casefold() in {"1", "true", "yes"}
 
     if tier == 1:
-        audit_log(tier, command, actor, approved=True, detail="tier-1 direct-exec")
-        return True, "tier-1: read-only, direct execution"
-
-    if tier == 2:
-        confirmed = os.environ.get("GOVERNANCE_CONFIRM", "").lower() in ("1", "true", "yes")
-        if confirmed:
-            audit_log(tier, command, actor, approved=True, detail="tier-2 confirmed")
-            return True, "tier-2: confirmed"
-        audit_log(tier, command, actor, approved=False, detail="tier-2 requires confirmation")
-        return False, "tier-2: requires confirmation (set GOVERNANCE_CONFIRM=1)"
-
-    # Tier 3
-    approved = os.environ.get("GOVERNANCE_AUTHORITY_APPROVAL", "").lower() in ("1", "true", "yes")
-    if approved:
-        audit_log(tier, command, actor, approved=True, detail="tier-3 governance-authority-approved")
-        return True, "tier-3: governance authority approved"
-    audit_log(tier, command, actor, approved=False, detail="tier-3 requires governance authority approval")
-    return False, "tier-3: requires governance authority approval (set GOVERNANCE_AUTHORITY_APPROVAL=1)"
+        allowed = True
+        message = "tier-1: read-only, direct execution"
+    elif tier == 2 and confirmed:
+        allowed = True
+        message = "tier-2: confirmed"
+    elif tier == 2:
+        allowed = False
+        message = "tier-2: requires explicit confirmation"
+    elif authority_approved:
+        allowed = True
+        message = "tier-3: governance authority approved"
+    else:
+        allowed = False
+        message = "tier-3: requires governance authority approval"
+    audit_log(
+        tier,
+        command,
+        actor,
+        allowed,
+        message,
+        repo_snapshot=repo_snapshot,
+        phase="decision",
+        result="authorized" if allowed else "denied",
+    )
+    return allowed, message
 
 
 def cli_main(argv: list[str] | None = None) -> int:

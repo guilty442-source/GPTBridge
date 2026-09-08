@@ -25,9 +25,40 @@ from shared_layer.resource_identity import (
     point_id_for,
 )
 
+# A52/E38 — Validate against the declarative RAG four-sub-architecture package.
+# This execution implementation MUST acknowledge all four sub-architectures
+# declared in src/rag/ (hybrid-rag, code-rag, agentic-rag, memory-rag).
+# Omitting any sub-architecture is FORBIDDEN (A52 prohibition).
+try:
+    from rag import SUB_ARCHITECTURES as _DECLARED_SUB_ARCHITECTURES
+    from rag import validate_architecture as _validate_rag_architecture
+except ImportError:
+    _DECLARED_SUB_ARCHITECTURES = (
+        "hybrid-rag", "code-rag", "agentic-rag", "memory-rag",
+    )
+
+    def _validate_rag_architecture(arch_ids: tuple[str, ...]) -> bool:
+        return set(arch_ids) == set(_DECLARED_SUB_ARCHITECTURES)
+
 
 class LocalRagService:
-    """Governed hybrid retrieval over centrally labelled, module-owned data."""
+    """Governed hybrid retrieval over centrally labelled, module-owned data.
+
+    Codex basis:
+      A52/E38 — RAG architecture: hybrid-rag + code-rag + agentic-rag + memory-rag.
+                 This implementation provides the *execution* surface for all four
+                 sub-architectures.  The *declaration* lives in ``src/rag/`` (A2:
+                 pure-declaration; A5: execution delegated to governed-executor).
+      A8/E21  — Qdrant is the canonical semantic index; LocalVectorStore is a
+                 bounded degraded cache only (FORBID: local-vector-as-canonical).
+      A44/E30 — Fallback: sqlite-private + local-vector-cache + bounded +
+                 observable + reconciled + non-canonical.  This service operates
+                 in degraded mode when Qdrant is unavailable; all results are
+                 non-canonical and reconciliation_required=True.
+      A49/E35 — Formal-tools: Qdrant is a formal tool; implementation dependencies
+                 (LocalVectorStore, SQLite FTS) are approved-inventory, NOT role
+                 authority — they do not replace Qdrant's canonical role.
+    """
 
     MAX_FILES = 256
     MAX_FILE_BYTES = 4_000_000
@@ -392,7 +423,7 @@ class LocalRagService:
             "skipped_count": len(skipped),
             "errors": errors,
             "embedding_model": embedding_model,
-            "retrieval": "local-semantic-index+local-sqlite3-fts",
+            "retrieval": "local-vector-degraded-cache+local-sqlite3-fts",
             "available_to_all_local_models": True,
             "network_used": False,
         }
@@ -595,7 +626,7 @@ class LocalRagService:
             "reranker": reranker, "generation_model": generated.get("model"),
             "generation_attempts": attempts, "generation": generated,
             "embedding_model": str(self.transformer_runtime.EMBEDDING_MODEL),
-            "retrieval": "local-semantic-index+local-sqlite3-fts+rrf+qwen3-reranker",
+            "retrieval": "local-vector-degraded-cache+local-sqlite3-fts+rrf+qwen3-reranker",
             "grounding_policy": "shared-retrieved-context-only-with-inline-citations",
             "knowledge_base": "shared", "available_to_all_local_models": True,
             "network_used": False, "remote_model_used": False,
@@ -604,14 +635,30 @@ class LocalRagService:
     def status(self) -> dict[str, Any]:
         vector_status = self.vector_store.status()
         vector_ready = vector_status.get("available") is True
+        sub_architectures = (
+            "hybrid-rag",
+            "code-rag",
+            "agentic-rag",
+            "memory-rag",
+        )
+        # A52 validation: all four sub-architectures must be present.
+        arch_valid = _validate_rag_architecture(sub_architectures)
         return {
             "enabled": True,
-            "mode": "shared-persistent-hybrid-local-rag",
-            "knowledge_base": "shared",
-            "available_to_all_local_models": True,
+            "mode": "bounded-degraded-hybrid-local-rag",
+            "sub_architectures": list(sub_architectures),
+            "sub_architecture_valid": arch_valid,
+            "codex_basis": "A52/E38+A8/E21+A44/E30+A49/E35",
+            "canonical_vector_database": "qdrant",
+            "knowledge_base": "tool-private-degraded-cache",
+            "canonical": False,
+            "reconciliation_required": True,
+            "authority": "non-canonical-reconciliation-required",
+            "fallback_basis": "A44-degraded-bounded-observable-reconciled",
+            "available_to_all_local_models": False,
             "embedding_model": str(self.transformer_runtime.EMBEDDING_MODEL),
             "vector_database": vector_status,
-            "keyword_index": {"engine": "local-sqlite3", **self.repository.status()},
+            "keyword_index": self.repository.status(),
             "reranker": self.reranker.status(),
             "router_model": self.ROUTER_MODEL,
             "rag_models": {key: list(value) for key, value in self.RAG_MODELS.items()},

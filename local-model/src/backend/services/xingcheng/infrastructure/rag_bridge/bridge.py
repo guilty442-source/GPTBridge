@@ -20,7 +20,11 @@ class VectorStore(Protocol):
 
 
 class RagAuthorizationBridge:
-    """Treat index hits as candidates, never as authorization."""
+    """Treat index hits as candidates, never as authorization.
+
+    Codex basis: A10/E10 (deny-by-default, explicit-allow) — vector matches
+    grant no access; every hit must pass the authorizer callback.
+    """
 
     def __init__(self, authorizer: Callable[[str, str], bool]) -> None:
         self._authorizer = authorizer
@@ -30,7 +34,14 @@ class RagAuthorizationBridge:
 
 
 class RagIndexCoordinator:
-    """Local index lifecycle plus mapping; vector matches grant no access."""
+    """Local index lifecycle plus mapping; vector matches grant no access.
+
+    Codex basis: A8 (Qdrant=canonical semantic index; local-vector=degraded
+    cache only), A44 (fallback bounded+observable+reconciled), A10 (index
+    hits are candidates not authorization).  The forbidden-payload check
+    enforces A11 (fail-closed) — physical paths/content must not leak into
+    index payloads.
+    """
 
     def __init__(
         self,
@@ -68,6 +79,13 @@ class RagIndexCoordinator:
         return self.vector_store.status()
 
 
+# QdrantHit is a type alias for LocalHit — both represent index *candidates*
+# that must pass authorization filtering before use.  The alias exists so
+# callers that conceptually target Qdrant (the canonical semantic index, A8)
+# can use a descriptive name, but the runtime object is the same: a
+# non-authoritative hit from whatever index backend is active (Qdrant when
+# canonical, or LocalVectorStore when in A44 degraded-fallback mode).
+# Index hits NEVER grant access — RagAuthorizationBridge enforces this (A10).
 QdrantHit = LocalHit
 
 __all__ = ["LocalHit", "QdrantHit", "RagAuthorizationBridge", "RagIndexCoordinator", "VectorStore"]

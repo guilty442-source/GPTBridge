@@ -1,3 +1,16 @@
+-- module_private_template.sql — Module-private PostgreSQL schema template.
+--
+-- Codex basis:
+--   A8/E21  — PostgreSQL: central-structured-official-data; this template is for
+--              module-private structured data within a module-owned PostgreSQL database.
+--   A46/E32 — module_audit.event is LOCAL OPERATIONAL audit only (bounded, module-scoped).
+--              It is NOT the central shared audit ledger — that role belongs to
+--              gptbridge_audit.event in central_index.sql (A8 FORBID: sqlite-as-central-
+--              official-or-shared-audit extends to any module-private audit promoted
+--              to central/shared authority).
+--   A10/E10 — RLS deny-by-default; no PUBLIC grants; deployment replaces MODULE_ROLE.
+--   A44/E30 — Module-private state is bounded and must be reconciled with central.
+--
 -- Apply this schema inside every module-owned PostgreSQL database.
 -- Raw and derived files remain in the module's own NTFS directory.
 CREATE SCHEMA IF NOT EXISTS module_data;

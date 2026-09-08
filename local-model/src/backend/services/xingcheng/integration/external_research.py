@@ -151,7 +151,7 @@ class ExternalAiResearch:
                 "transport": "ai-channel",
                 "uses_api": False,
                 "error_code": str(result.get("error_code") or "EXTERNAL_AI_FAILED"),
-                "message": str(result.get("message") or "外部 AI 協作失敗"),
+                "message": str(result.get("message") or "外部協作失敗"),
             }
         group = result.get("group_message")
         responses = group.get("responses", []) if isinstance(group, dict) else []

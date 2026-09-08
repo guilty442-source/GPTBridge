@@ -126,7 +126,7 @@ class GovernanceCodex:
 
 GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
     schema="gptbridge-governance-codex-v1",
-    codex_version=2,
+    codex_version=3,
     preamble=CodexPreamble(
         title="GPTBridge Governance Codex",
         authority_rank="supreme",
@@ -183,7 +183,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P2",
-            statement="FORM:pure-declaration; EXEC:none; DELEGATE:governed-executor",
+            statement="FORM:pure-declaration; ENFORCEMENT:none; REPRESENTATION:frozen-schema-construction+read-only-export; EXEC:delegated-to-governed-executor",
             binding=True,
         ),
         CodexPrinciple(
@@ -208,7 +208,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P7",
-            statement="SYSTEMS:git/postgresql/qdrant/rag/llm; PRINCIPLE:separation; FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; FORBID:mutual-replacement; FORBID:non-formal-third-party",
+            statement="SYSTEMS:git/postgresql/qdrant/rag/llm; PRINCIPLE:separation; FORMAL-ROLES:postgresql-central-structured-data/qdrant-canonical-semantic-index/git-version-history/rag-retrieval/llm-reasoning; DEPENDENCIES:governance-approved-inventory-only; FALLBACK:bounded+declared+reconciled; FORBID:role-substitution",
             binding=True,
         ),
         CodexPrinciple(
@@ -263,7 +263,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P18",
-            statement="CODE-ORIGIN:local-only; STACK:python+typescript+cpp+c+csharp+sql; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:non-formal-third-party/package/external-service/non-local-env; EXEC:local-owned-code",
+            statement="CODE-ORIGIN:local-owned-application-code; STACK:python+typescript+cpp+c+csharp+sql; DEPENDENCIES:explicit-inventory+version+license+security-review+local-execution; EXTERNAL-SERVICE:governed-network-capability-only; FORBID:unapproved-dependency/unmanaged-binary/uncontrolled-hosting",
             binding=True,
         ),
         CodexPrinciple(
@@ -314,8 +314,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A2",
             section="1",
             subject="function",
-            rule="SURFACE:no-executable-function/no-callable-interface",
-            prohibition="FORBID:define-function-or-executable-component-in-codex",
+            rule="AUTHORITY-SURFACE:pure-declarative-provisions; ENFORCEMENT:none; REPRESENTATION:frozen-schema-construction+read-only-export",
+            prohibition="FORBID:business-logic/permission-decision/runtime-mutation/side-effecting-enforcement-in-codex",
         ),
         CodexArticle(
             id="A3",
@@ -370,15 +370,15 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A8",
             section="4",
             subject="system-responsibility",
-            rule="GIT:version+history; SQL:structured-formal-data; ENGINE:postgresql(local-owned); QDRANT:semantic-index(local-owned); RAG:retrieval-augmented-generation(local-owned)+hybrid-rag+code-rag+agentic-rag+memory-rag; LLM:understand-reason-operate(local-owned); FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; OWNERSHIP:local-owned",
-            prohibition="FORBID:four-mutual-replacement; FORBID:non-formal-substitution",
+            rule="GIT:version+history; POSTGRESQL:central-structured-official-data+shared-transport+audit; SQLITE:owner-private-operational-state/cache/checkpoint+bounded-degraded-fallback-with-reconciliation; QDRANT:canonical-semantic-index; LOCAL-VECTOR:bounded-degraded-cache-only; RAG:hybrid+code+agentic+memory; LLM:understand-reason-operate; OWNERSHIP:local-governed",
+            prohibition="FORBID:role-substitution/sqlite-as-central-official-or-shared-audit/local-vector-as-canonical-semantic-index/unreconciled-fallback",
         ),
         CodexArticle(
             id="A9",
             section="4",
             subject="management-owner",
-            rule="MANAGEMENT:xingcheng-core; MODE:read-only-under-codex",
-            prohibition="FORBID:management-exec-or-formal-write",
+            rule="MANAGEMENT:xingcheng-core-for-platform; TOOL-LEVEL-MANAGEMENT:tool-owner-under-governance-rule; MODE:read-only-under-codex",
+            prohibition="FORBID:management-exec-or-formal-write; FORBID:tool-management-bypass-governance",
         ),
         CodexArticle(
             id="A10",
@@ -419,8 +419,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A19",
             section="6",
             subject="xingcheng-thinking",
-            rule="XINGCHENG:decision+management-thinking-reference-codex; SOURCE:no-embedded",
-            prohibition="FORBID:xingcheng-self-reason-override-codex",
+            rule="XINGCHENG:decision+management-thinking-reference-codex; SOURCE:codex-basis; TOOL-DECISION:tool-owner-may-self-decide-under-governance",
+            prohibition="FORBID:xingcheng-self-reason-override-codex; FORBID:tool-decision-bypass-governance",
         ),
         CodexArticle(
             id="A20",
@@ -539,8 +539,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A34",
             section="6",
             subject="boundary-integration-xingcheng",
-            rule="INTEGRATION:structural-interface+sync; XINGCHENG:decision-layer-intelligent-coordinate+advice",
-            prohibition="FORBID:integration-proxy-xingcheng-decision; FORBID:xingcheng-proxy-integration-structural-interface",
+            rule="INTEGRATION:structural-interface+sync; XINGCHENG:platform-level-decision-coordinate+advice; TOOL-LEVEL-DECISION:tool-owner-under-governance-rule",
+            prohibition="FORBID:integration-proxy-xingcheng-platform-decision; FORBID:xingcheng-proxy-integration-structural-interface; FORBID:tool-decision-bypass-governance",
         ),
         CodexArticle(
             id="A35",
@@ -560,8 +560,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A37",
             section="4",
             subject="code-origin",
-            rule="CODE-ORIGIN:local-owned; STACK:python+typescript+cpp+c+csharp+sql-hybrid-only; FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; FORBID-deps:non-formal-third-party/package/external-service/non-local-env",
-            prohibition="FORBID:reference/install/import/exec-any-non-formal-third-party-package/external-service/non-local-env/binary",
+            rule="CODE-ORIGIN:local-owned-application-code; STACK:python+typescript+cpp+c+csharp+sql; DEPENDENCIES:system-third-party-sub-sovereign-approved+inventory-pinned+license-reviewed+security-reviewed+local-execution; NETWORK:explicit-capability+static-allowlist+auditable-adapter; EXTERNAL-AI:ai-collaboration-or-governed-embedded-browser-only",
+            prohibition="FORBID:unapproved/uninventoried/unpinned-dependency+unmanaged-binary+uncontrolled-cloud-runtime+network-without-explicit-governed-adapter",
         ),
         CodexArticle(
             id="A38",
@@ -609,8 +609,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A44",
             section="4",
             subject="four-functions-local",
-            rule="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; REALIZATION:local-python-typescript-cpp-c-csharp-sql-governed; UNAVAILABLE:declare-closed-not-replace",
-            prohibition="FORBID:non-formal-external-service-substitution/binary-replacement",
+            rule="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; REALIZATION:local-python-typescript-cpp-c-csharp-sql-governed; UNAVAILABLE:declare-closed-not-replace; EMBEDDED-BROWSER:governed-in-app-browser-view-allowed-for-tool-network-search; EXTERNAL-AI-VIA-BROWSER:ai-collaboration-tool-under-governance",
+            prohibition="FORBID:non-formal-external-service-substitution/binary-replacement; FORBID:embedded-browser-bypass-governance; FORBID:direct-external-ai-without-ai-collaboration-tool",
         ),
         CodexArticle(
             id="A45",
@@ -644,8 +644,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A49",
             section="4",
             subject="formal-tools",
-            rule="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; OWNERSHIP:local-owned; GOVERNANCE:governed-by-codex; HOSTING:local-only; SUBSTITUTION:non-formal-forbidden",
-            prohibition="FORBID:non-formal-substitution-of-postgresql/qdrant/git/rag/python/typescript/cpp/c/csharp/sql; FORBID:external-or-cloud-hosting-of-formal-tools",
+            rule="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; OWNERSHIP:local-owned; GOVERNANCE:governed-by-codex; HOSTING:local-only; SUBSTITUTION:non-formal-forbidden; EMBEDDED-BROWSER:governed-in-app-browser-view-not-a-formal-tool-substitute-but-a-tool-network-access-channel",
+            prohibition="FORBID:non-formal-substitution-of-postgresql/qdrant/git/rag/python/typescript/cpp/c/csharp/sql; FORBID:external-or-cloud-hosting-of-formal-tools; FORBID:embedded-browser-as-formal-tool-replacement",
         ),
         CodexArticle(
             id="A50",
@@ -702,6 +702,20 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             subject="self-health-test-necessity",
             rule="SELF-HEALTH-TEST:necessary-for-self-maintenance-health; OWNER:maintenance-sovereign; SCOPE:governed-tools-declare-test-files; REQUIRE:collectable-offline+no-live-model-dependency; DETECT:governance-audit-collects-managed-test-files; BASIS:codex+A56-test-framework-tiering",
             prohibition="FORBID:delete-required-test-file; FORBID:test-depends-on-live-model/network; FORBID:uncollectable-test-file",
+        ),
+        CodexArticle(
+            id="A58",
+            section="4",
+            subject="embedded-browser-governed-access",
+            rule="EMBEDDED-BROWSER:in-app-browser-view-under-governance; OWNER:tool-owner-module; PURPOSE:network-search-and-ai-collaboration; AUTHORITY:governance-rule; NETWORK:embedded-browser-view-only; EXTERNAL-AI:via-ai-collaboration-tool-only; FORBID:direct-external-network-from-tool-core; FORBID:embedded-browser-as-formal-tool-substitute; BASIS:codex+A44+A37-exception",
+            prohibition="FORBID:embedded-browser-bypass-governance; FORBID:external-ai-without-ai-collaboration-tool; FORBID:embedded-browser-replace-formal-tools; FORBID:tool-core-direct-network-access",
+        ),
+        CodexArticle(
+            id="A59",
+            section="6",
+            subject="tool-level-service-ownership",
+            rule="TOOL-LEVEL-SERVICE:tool-owner-may-own-computation+analysis+statistics+accounting-under-governance; PLATFORM-SERVICE:xingcheng-provides-platform-level-coordination; SEPARATION:tool-owns-its-business-logic+platform-owns-orchestration; DELEGATION:tool-may-delegate-to-embedded-browser-for-network-search; DELEGATION:tool-may-delegate-to-ai-collaboration-for-external-ai; BASIS:codex+A9+A19+A34+E20",
+            prohibition="FORBID:tool-service-bypass-governance; FORBID:platform-service-replace-tool-business-logic; FORBID:tool-decision-without-governance-authority",
         ),
     ),
     edicts=(
@@ -822,7 +836,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E20",
             area="boundary",
-            edict="OWNERSHIPS:exclusive-and-independent; DATA-INTEGRITY=system-data-sub-sovereign; HEALTH=maintenance-sovereign; STRUCTURAL-INTERFACE=system-integration-sub-sovereign; DECISION-COORDINATE=xingcheng",
+            edict="OWNERSHIPS:exclusive-and-independent; DATA-INTEGRITY=system-data-sub-sovereign; HEALTH=maintenance-sovereign; STRUCTURAL-INTERFACE=system-integration-sub-sovereign; PLATFORM-DECISION-COORDINATE=xingcheng; TOOL-LEVEL-DECISION=tool-owner-under-governance-rule",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -840,7 +854,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E23",
             area="code-origin",
-            edict="CODE-ORIGIN:local-owned; STACK:python+typescript+cpp+c+csharp+sql-hybrid-only; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:non-formal-third-party/package/external-service",
+            edict="CODE-ORIGIN:local-owned; STACK:python+typescript+cpp+c+csharp+sql-hybrid-only; FORMAL-TOOLS:postgresql,qdrant,git,rag; FORBID:non-formal-third-party/package/external-service; EMBEDDED-BROWSER-EXCEPTION:governed-in-app-browser-view-for-tool-network-search",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -882,7 +896,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E30",
             area="four-functions-local",
-            edict="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; LOCAL:python-typescript-cpp-c-csharp-sql-governed; UNAVAILABLE:declare-closed",
+            edict="FUNCTIONS:git/sql/semantic-index/rag/llm; FORMAL-TOOLS:postgresql,qdrant,git,rag; LOCAL:python-typescript-cpp-c-csharp-sql-governed; UNAVAILABLE:declare-closed; EMBEDDED-BROWSER:governed-tool-network-access-channel-not-formal-tool-substitute",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -912,7 +926,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E35",
             area="formal-tools",
-            edict="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; OWNERSHIP:local-owned; GOVERNANCE:governed-by-codex; HOSTING:local-only; SUBSTITUTION:non-formal-forbidden",
+            edict="FORMAL-TOOLS:postgresql,qdrant,git,rag,python,typescript,cpp,c,csharp,sql; OWNERSHIP:local-owned; GOVERNANCE:governed-by-codex; HOSTING:local-only; SUBSTITUTION:non-formal-forbidden; EMBEDDED-BROWSER:tool-network-access-channel-not-formal-tool-replacement",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -961,6 +975,18 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="E43",
             area="self-health-test",
             edict="SELF-HEALTH-TEST:necessary-for-self-maintenance-health; OWNER:maintenance-sovereign; GOVERNED-TOOLS:declare-required-test-files; REQUIRE:offline-collectable; DETECT:governance-audit-collects-managed-test-files; FORBID:delete-required-test-file+live-model-test-dependency",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E44",
+            area="embedded-browser-governed-access",
+            edict="EMBEDDED-BROWSER:in-app-browser-view-under-governance; OWNER:tool-owner-module; PURPOSE:network-search+ai-collaboration; NETWORK:embedded-browser-view-only; EXTERNAL-AI:via-ai-collaboration-tool-only; FORBID:tool-core-direct-network+embedded-browser-as-formal-tool-substitute",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E45",
+            area="tool-level-service-ownership",
+            edict="TOOL-LEVEL-SERVICE:tool-owner-owns-computation+analysis+statistics+accounting-under-governance; PLATFORM-SERVICE:xingcheng-platform-level-coordination; SEPARATION:tool-business-logic+platform-orchestration; DELEGATION:embedded-browser-for-network+ai-collaboration-for-external-ai",
             immutability="immutable-sealed",
         ),
     ),

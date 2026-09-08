@@ -230,13 +230,15 @@ class ResourceManager:
                                  {"model": name, "prompt": "", "stream": False,
                                   "keep_alive": keep_alive, "options": options}, 120.0)
         self._active_model = name
+        # Bounded exponential backoff instead of fixed 0.05s polling.
+        # The /api/generate call above already loads the model; the poll
+        # is just a confirmation.  Start at 0.02s, double each iteration.
         deadline = time.monotonic() + 2.0
+        delay = 0.02
         loaded = self.verify_gpu_residency(name)
         while not loaded and time.monotonic() < deadline:
-            time.sleep(0.05)
-            loaded = self.verify_gpu_residency(name)
-        if not loaded:
-            time.sleep(0.3)
+            time.sleep(delay)
+            delay = min(delay * 1.5, 0.2)
             loaded = self.verify_gpu_residency(name)
         return {"model": name, "mode": selected_mode, "loaded": loaded, "response": result}
 

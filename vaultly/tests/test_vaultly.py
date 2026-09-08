@@ -1,5 +1,41 @@
+"""vaultly consolidated test suite (A57/E43)
+
+One managed test file per module, maintained by the
+maintenance sovereign for self-health (self-test collection).
+"""
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+for _p in (
+    str(_ROOT),
+    str(_ROOT / "shared-layer" / "src"),
+    str(_ROOT / "main-system" / "src-core"),
+    str(_ROOT / "main-system"),
+    str(_ROOT / "main-system" / "src" / "backend" / "services"),
+    str(_ROOT / "local-model" / "src" / "backend" / "services"),
+    str(_ROOT / "global-cleaner" / "src"),
+    str(_ROOT / "ai-assistant" / "src"),
+    str(_ROOT / "ai-assistant" / "src" / "backend" / "services"),
+    str(_ROOT / "ai-collaboration" / "src" / "backend" / "services"),
+    str(_ROOT / "file-sorter" / "src" / "backend" / "services"),
+    str(_ROOT / "investment-mobile" / "src" / "backend" / "services"),
+    str(_ROOT / "vaultly" / "src" / "backend" / "services"),
+):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+del _p
+
+
+# -- CONSOLIDATED TEST SUITE --
+
+########################################################################
+# source: restored_vaultly.py
+########################################################################
 import sys
 from datetime import datetime, timezone
 from pathlib import Path

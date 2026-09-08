@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-"""provision_local_architecture — codex-native local sqlite provisioning.
+"""Provision bounded SQLite stores for private and degraded operation.
 
-Replaces the retired ``provision_postgresql_architecture.py`` (PostgreSQL
-provisioning).  Per Governance Codex A44/E30 the SQL engine is local sqlite3,
-provisioned here with the central-index schema, the transport store schema and
-the module locator map.  No PostgreSQL/psycopg, no external service.
+PostgreSQL remains canonical for central structured data and shared transport.
+Files created here are local recovery replicas and must never be promoted to
+canonical authority without governed reconciliation.
 """
 
 import json
@@ -135,12 +134,13 @@ def main() -> int:
     locator_count = _provision_module_locators(modules)
     print(json.dumps({
         "ok": True,
-        "engine": "local-sqlite3",
+        "engine": "local-sqlite3-degraded",
+        "authority": "non-canonical-reconciliation-required",
+        "canonical_engine": "postgresql",
         "modules": modules,
         "central_schema_tables": schema_count,
         "transport_databases": transport_count,
         "module_locator_databases": locator_count,
-        "deprecated_postgresql": True,
     }, ensure_ascii=False, sort_keys=True))
     return 0
 

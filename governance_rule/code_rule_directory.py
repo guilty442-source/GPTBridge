@@ -39,8 +39,8 @@ class CodeRuleDirectorySnapshot:
 CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
     CodeRuleDirectorySnapshot(
         authority_version=3,
-        managing_authority="governance-policy-only",
-        governing_source="governance_rule/governance_policy.py",
+        managing_authority="governance-codex-via-enforcement-policy",
+        governing_source="governance_rule/codex/__init__.py",
         independent_authority=False,
         runtime_write_allowed=False,
         canonical_project_root="E:/GPTBridge",
@@ -226,6 +226,7 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
         ),
         category_labels=False,
         requirements=(
+            "codex-v3-is-sole-rule-source",
             "all-source-code-within-canonical-project-root",
             "main-system-code-within-main-system-root-only",
             "independent-tool-code-within-own-direct-root-only",

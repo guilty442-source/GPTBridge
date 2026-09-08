@@ -1,3 +1,24 @@
+-- central_index.sql — PostgreSQL central structured official data + shared transport + audit.
+--
+-- Codex basis:
+--   A8/E21  — PostgreSQL: central-structured-official-data + shared-transport + audit;
+--              FORBID: sqlite-as-central-official-or-shared-audit.
+--   A46/E32 — Audit: mandatory-ledger; write=governed-executor; store=system-data-sub-sovereign-declared.
+--   A10/E10 — Authorization: explicit-allowlist; deny-by-default; fail-closed.
+--   A52/E38 — RAG: gptbridge_rag schema stores Qdrant point/collection *metadata* only;
+--              Qdrant remains the canonical semantic index (local-owned, local-only).
+--              This schema MUST NOT store vector payloads — that would substitute PostgreSQL
+--              for Qdrant's canonical role (A8 FORBID: role-substitution).
+--   A49/E35 — Formal-tools: implementation-dependencies=approved-inventory-not-role-authority.
+--
+-- Role boundary:
+--   gptbridge_index    — central resource registry (structured metadata).
+--   gptbridge_rag      — RAG chunk/index-state metadata pointing to Qdrant canonical vectors.
+--   gptbridge_transport— shared tool-request transport channel.
+--   gptbridge_audit    — central shared audit ledger (A46).  Module-private audit (SQLite)
+--                        is bounded operational state only, NEVER a substitute for this schema.
+--   gptbridge_security — principal/scope definitions driving RLS (A10 deny-by-default).
+
 CREATE SCHEMA IF NOT EXISTS gptbridge_index;
 CREATE SCHEMA IF NOT EXISTS gptbridge_rag;
 CREATE SCHEMA IF NOT EXISTS gptbridge_transport;

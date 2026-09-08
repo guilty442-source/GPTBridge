@@ -258,7 +258,9 @@ class SharedLayerPolicy:
 class SystemResponsibilityPolicy:
     git: str
     sql: str
+    sqlite: str
     qdrant_rag: str
+    local_vector_fallback: str
     llm: str
     separation: str
     governed_flow: str
@@ -317,7 +319,7 @@ class GovernancePolicy:
 
 GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
     authority_version=3,
-    authority="governance-rule-only-top-level",
+    authority="governance-codex-v3-derived-enforcement-policy",
     permission_hierarchy_role="only-top-level-permission-authority",
     authority_files=(
         "governance_rule/governance_policy.py",
@@ -341,9 +343,9 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
         "governance_rule/execution/tool_runtime/sub_sovereign.py",
         "governance_rule/execution/git_tiers/__init__.py",
     ),
-    top_level_rule="governance_policy",
+    top_level_rule="governance_codex",
     governance_rule_sources=(
-        "governance_rule/governance_policy.py",
+        "governance_rule/codex/__init__.py",
     ),
     governance_rule_count=1,
     governance_rule_partitioning=False,
@@ -719,9 +721,11 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
     system_responsibilities=SystemResponsibilityPolicy(
         git="system-version-and-development-history",
         sql="structured-mutable-official-data-postgresql",
+        sqlite="owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
         qdrant_rag="qdrant-semantic-knowledge-index",
+        local_vector_fallback="bounded-observable-degraded-cache-only-never-canonical",
         llm="understanding-reasoning-and-operations",
-        separation="git-sql-rag-and-llm-must-not-replace-one-another",
+        separation="git-postgresql-sqlite-qdrant-rag-and-llm-roles-must-not-replace-one-another",
         governed_flow="llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes",
         management_owner="xingcheng-core-orchestrator-under-governance-rule",
         management_source_basis=(

@@ -36,7 +36,7 @@ class InvestmentStarServiceMixin:
                 "ok": False,
                 "queued": False,
                 "error_code": "STAR_AI_CHANNEL_NOT_CONNECTED",
-                "message": "星澄 AI 通道尚未連線；AI 投資管家不執行舊本機 AI 分析。",
+                "message": "AI投資管家 AI 通道尚未連線；AI 投資管家不執行舊本機 AI 分析。",
                 "state": state,
                 "diagnostics": self._diagnostics(state),
                 "mobile_sync": self._mobile_sync_status(),
@@ -80,7 +80,7 @@ class InvestmentStarServiceMixin:
             )
             if not search.get("results"):
                 raise RuntimeError(
-                    str(search.get("message") or "星澄尚未連線；分析未送出且不排隊。")
+                    str(search.get("message") or "AI投資管家尚未連線；分析未送出且不排隊。")
                 )
             quote_map = {
                 (
@@ -122,7 +122,7 @@ class InvestmentStarServiceMixin:
                         {
                             "web_current_price": parameters.get("price"),
                             "market_parameters": dict(parameters),
-                            "market_data_source": "星澄即時網路搜尋",
+                            "market_data_source": "AI投資管家即時網路搜尋",
                             "market_data_source_url": source.get("url"),
                             "market_data_updated_at": quote.get("observed_at"),
                             "source_confidence": quote.get("confidence"),
@@ -151,7 +151,7 @@ class InvestmentStarServiceMixin:
             )
             if analysis.get("ok") is not True:
                 raise RuntimeError(
-                    str(analysis.get("message") or "星澄投資分析失敗。")
+                    str(analysis.get("message") or "AI投資管家投資分析失敗。")
                 )
             discuss_with_external_ai = (
                 explicit_request
@@ -183,9 +183,9 @@ class InvestmentStarServiceMixin:
                 "warning_count": len(warnings),
                 "active_holding_count": portfolio.get("active_holding_count", len(holdings)),
                 "market_data_coverage_percent": portfolio.get("market_data_coverage_percent", 0),
-                "analysis_owner": "星澄",
+                "analysis_owner": "AI投資管家",
                 "discussion_owner": (
-                    "ChatGPT（星澄統整）"
+                    "ChatGPT（AI投資管家統整）"
                     if discussion.get("ok")
                     else "等待 ChatGPT"
                     if discussion.get("queued")
@@ -195,8 +195,11 @@ class InvestmentStarServiceMixin:
             product_status = {
                 "state": "ready" if not warnings else "warning",
                 "state_label": "分析完成" if not warnings else "分析完成，有風險提醒",
-                "analysis_owner": "星澄",
-                "market_data_provider": "星澄即時網路搜尋",
+                "analysis_owner": "AI投資管家",
+                "computation_service_owner": "AI投資管家",
+                "statistics_service_owner": "AI投資管家",
+                "network_search_service_owner": "內建瀏覽器",
+                "market_data_provider": "內建瀏覽器即時網路搜尋",
                 "external_discussion_connected": discussion.get("ok") is True,
                 "queue_when_offline": False,
             }
@@ -208,11 +211,11 @@ class InvestmentStarServiceMixin:
                 full_analysis=analysis,
                 explanation={
                     "mode": "star-analysis",
-                    "mode_label": "星澄分析",
-                    "text": "市場搜尋與投資分析由星澄執行；外部 AI 僅討論分析結果。",
+                    "mode_label": "AI投資管家分析",
+                    "text": "市場搜尋與投資分析由AI投資管家執行；外部 AI 僅討論分析結果。",
                 },
             )
-            prompt = "星澄：搜尋可驗證市場資料並執行投資分析。"
+            prompt = "AI投資管家：搜尋可驗證市場資料並執行投資分析。"
             if instruction:
                 prompt += f" 使用者指令：{instruction}"
             if run_id:
@@ -225,7 +228,7 @@ class InvestmentStarServiceMixin:
             else:
                 run = self.repository.add_ai_run(
                     role="investment_analysis",
-                    provider="星澄",
+                    provider="AI投資管家",
                     prompt=prompt,
                     status="completed",
                     content=json.dumps(summary, ensure_ascii=False),
@@ -234,7 +237,7 @@ class InvestmentStarServiceMixin:
             return {
                 "ok": True,
                 "queued": False,
-                "message": f"星澄分析完成：{len(warnings)} 項風險提醒。",
+                "message": f"AI投資管家分析完成：{len(warnings)} 項風險提醒。",
                 "run": run,
                 "summary": summary,
                 "product_status": product_status,
@@ -256,8 +259,8 @@ class InvestmentStarServiceMixin:
             else:
                 run = self.repository.add_ai_run(
                     role="investment_analysis",
-                    provider="星澄",
-                    prompt="星澄投資分析",
+                    provider="AI投資管家",
+                    prompt="AI投資管家投資分析",
                     status="failed",
                     content="",
                     error=str(exc),
@@ -285,18 +288,18 @@ class InvestmentStarServiceMixin:
                 "ok": False,
                 "queued": False,
                 "error_code": "STAR_AI_CHANNEL_NOT_CONNECTED",
-                "message": "星澄 AI 通道尚未連線，未建立背景工作。",
+                "message": "AI投資管家 AI 通道尚未連線，未建立背景工作。",
                 "state": state,
                 "product_status": state.get("xingcheng_product_status"),
             }
         prompt = (
-            "星澄服務：持股更新後由星澄取得資料並執行風險監測"
+            "AI投資管家服務：持股更新後由AI投資管家取得資料並執行風險監測"
             if payload.get("trigger") == "manual_holding_change"
-            else "星澄服務：Excel 匯入後由星澄取得資料並執行風險監測"
+            else "AI投資管家服務：Excel 匯入後由AI投資管家取得資料並執行風險監測"
         )
         run = self.repository.add_ai_run(
             role="investment_risk_monitor",
-            provider="星澄",
+            provider="AI投資管家",
             prompt=prompt,
             status="running",
             content="",
@@ -325,7 +328,7 @@ class InvestmentStarServiceMixin:
         return {
             "ok": True,
             "queued": True,
-            "message": "已交由星澄服務處理；投資管家本身不聯網。",
+            "message": "已交由AI投資管家服務處理；投資管家本身不聯網。",
             "run": run,
             "state": state_with_run,
             "product_status": state_with_run.get("xingcheng_product_status"),

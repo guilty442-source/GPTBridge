@@ -497,7 +497,7 @@ export function StarChatWindowApp() {
           <div className={`connection-dot ${connected ? 'online' : ''}`} />
           <div><strong>{statusLabel}</strong><small>{models.find((item) => item.name === selectedModel)?.parameterCount || '本機'} 模型 · v1.0</small></div>
         </div>
-        <div className="privacy-note">外部 AI 協作已停用<br />訓練與能力編成由星澄原生模型內部自行處理</div>
+        <div className="privacy-note">外部協作已停用<br />訓練與能力編成由星澄原生模型內部自行處理</div>
       </aside>
 
       <main className="star-main">

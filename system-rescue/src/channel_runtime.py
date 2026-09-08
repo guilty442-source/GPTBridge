@@ -15,6 +15,7 @@ TOOL_ROOT = (ROOT / "system-rescue").resolve()
 if ROOT != Path("E:/GPTBridge").resolve() or not TOOL_ROOT.is_dir():
     raise PermissionError("PERMISSION_DENIED")
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
 sys.path.insert(0, str(TOOL_ROOT / "src" / "backend" / "services"))
 
 from governance_rule.execution.tool_runtime.governed_runtime import GovernedToolRuntime  # noqa: E402

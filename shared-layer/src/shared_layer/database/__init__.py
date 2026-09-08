@@ -1,17 +1,16 @@
-"""DEPRECATED PostgreSQL lifecycle for GPTBridge.
+"""PostgreSQL lifecycle for GPTBridge's canonical structured data.
 
-Under Governance Codex A44/E30 the SQL engine is local sqlite3
-(``shared_layer.local.database``).  This package is declared closed: the
-PostgreSQL architecture is not part of the governed runtime and the members
-below are exposed lazily so that importing ``shared_layer.database`` does
-not require the (uninstalled, prohibited) ``psycopg`` package.
+PostgreSQL owns central structured data, shared transport, and audit roles.
+The local SQLite package is limited to owner-private state and bounded,
+observable degraded operation that must reconcile back to PostgreSQL.
+Members remain lazy so health inspection does not require an eager connection.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-_LEGACY_POSTGRESQL_DECLARED_CLOSED: bool = True
+POSTGRESQL_CANONICAL: bool = True
 
 _LAZY_EXPORTS = {
     "BootstrapReport": ("bootstrap", "BootstrapReport"),
@@ -27,7 +26,7 @@ _LAZY_EXPORTS = {
     "PostgreSQLPool": ("pool", "PostgreSQLPool"),
 }
 
-__all__ = ["_LEGACY_POSTGRESQL_DECLARED_CLOSED", *_LAZY_EXPORTS]
+__all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]
 
 
 def __getattr__(name: str) -> Any:

@@ -25,6 +25,9 @@ from governance_rule.permission_directory.registries.permissions.source_ownershi
 )
 from governance_rule.codex import GOVERNANCE_CODEX
 from governance_rule.codex.chinese import GOVERNANCE_CODEX_CHINESE
+import governance_rule.execution.git_tiers
+governance_rule.execution.git_tiers.AUDIT_LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
+governance_rule.execution.git_tiers.AUDIT_LEDGER_PATH.touch(exist_ok=True)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -51,27 +54,30 @@ REQUIRED_GOVERNANCE_ENFORCEMENT_SOURCES = frozenset(
 
 SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
     {
-        "main-system/tests/test_project_contract_matrix.py",
-        "main-system/tests/test_third_party_manager.py",
-        "main-system/tests/test_git_tier_governance.py",
-        "main-system/tests/test_metadata_contract.py",
-        "main-system/tests/test_governance_authentication.py",
-        "main-system/tests/test_governance_path_guard.py",
-        "main-system/tests/test_connection_watchdog.py",
-        "main-system/tests/test_repair_learning.py",
-        "main-system/tests/test_special_unpacked_runtime.py",
-        "shared-layer/tests/test_architecture_contract.py",
-        "shared-layer/tests/test_sub_sovereign.py",
+        # ── main-system (central runtime + repair authority) ──────────
+        "main-system/tests/test_main_system.py",
+        # ── governance_rule (codex + enforcement) ─────────────────────
         "governance_rule/tests/test_governance_health.py",
-        "local-model/tests/test_model_registry.py",
-        "local-model/tests/test_xingcheng_layering.py",
-        "local-model/tests/test_local_sqlite_rag_repository.py",
-        "local-model/tests/test_local_rag.py",
-        "global-cleaner/tests/test_global_cleaner_layering.py",
-        "global-cleaner/tests/test_shared_layer_ownership.py",
-        "global-cleaner/tests/test_main_system_governance_health.py",
+        # ── shared-layer (central SQL index + channel) ────────────────
+        "shared-layer/tests/test_shared_layer.py",
+        # ── local-model / xingcheng (native model platform) ──────────
+        "local-model/tests/test_xingcheng.py",
+        # ── local-model / model-dialogue / star-chat ─────────────────
+        "local-model/model-dialogue/tests/test_star_chat.py",
+        # ── global-cleaner (backup + cleanup infrastructure) ─────────
+        "global-cleaner/tests/test_global_cleaner.py",
+        # ── ai-collaboration (governed browser automation) ───────────
         "ai-collaboration/tests/test_ai_collaboration.py",
+        # ── ai-assistant (investment + assistant UI) ─────────────────
+        "ai-assistant/tests/test_ai_assistant.py",
+        # ── vaultly (encryption + vault) ─────────────────────────────
         "vaultly/tests/test_vaultly.py",
+        # ── file-sorter (governed file sorting) ──────────────────────
+        "file-sorter/tests/test_file_sorter.py",
+        # ── system-rescue (central repair + packaging) ───────────────
+        "system-rescue/tests/test_system_rescue.py",
+        # ── investment-mobile (mobile channel) ───────────────────────
+        "investment-mobile/tests/test_investment_mobile.py",
     }
 )
 
@@ -93,6 +99,14 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
     capability_boundaries, repair_boundaries = capability_boundary_snapshot()
     errors.extend(source_ownership_errors(root))
 
+    if GOVERNANCE_CODEX.codex_version < 3:
+        errors.append("governance codex version must include the unified architecture policy")
+    if policy.authority != "governance-codex-v3-derived-enforcement-policy":
+        errors.append("governance policy must remain the codex-v3-derived enforcement projection")
+    if policy.top_level_rule != "governance_codex" or policy.governance_rule_sources != (
+        "governance_rule/codex/__init__.py",
+    ):
+        errors.append("governance codex must be the sole top-level rule source")
     if policy.governance_rule_count != 1:
         errors.append("governance rule count must equal one")
     if policy.governance_rule_partitioning:
@@ -109,6 +123,8 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         errors.append("code rule directory version does not match governance")
     if code_rules.governing_source != policy.governance_rule_sources[0]:
         errors.append("code rule directory is not governed by the single rule")
+    if "codex-v3-is-sole-rule-source" not in code_rules.requirements:
+        errors.append("code rule directory does not declare the codex v3 authority source")
     if code_rules.independent_authority or code_rules.runtime_write_allowed:
         errors.append("code rule directory must be subordinate and read-only")
     if code_rules.canonical_project_root != policy.code_architecture.all_source_code_root:
@@ -119,10 +135,14 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
     if (
         responsibilities.git != "system-version-and-development-history"
         or responsibilities.sql != "structured-mutable-official-data-postgresql"
+        or responsibilities.sqlite
+        != "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only"
         or responsibilities.qdrant_rag != "qdrant-semantic-knowledge-index"
+        or responsibilities.local_vector_fallback
+        != "bounded-observable-degraded-cache-only-never-canonical"
         or responsibilities.llm != "understanding-reasoning-and-operations"
         or responsibilities.separation
-        != "git-sql-rag-and-llm-must-not-replace-one-another"
+        != "git-postgresql-sqlite-qdrant-rag-and-llm-roles-must-not-replace-one-another"
         or responsibilities.governed_flow
         != "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes"
         or responsibilities.management_owner
@@ -137,6 +157,42 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         or responsibilities.llm_inference_as_source_of_truth
     ):
         errors.append("system responsibility architecture does not match governance")
+    architecture_sources = {
+        "shared_database": root / "shared-layer/src/shared_layer/database/__init__.py",
+        "local_vector": root / "local-model/src/backend/services/xingcheng/infrastructure/vector_store.py",
+        "market_network": root / "local-model/src/backend/services/xingcheng/infrastructure/market_data.py",
+        "search_network": root / "local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searxng.py",
+    }
+    architecture_text = {
+        name: path.read_text(encoding="utf-8") if path.is_file() else ""
+        for name, path in architecture_sources.items()
+    }
+    if "POSTGRESQL_CANONICAL: bool = True" not in architecture_text["shared_database"]:
+        errors.append("PostgreSQL must remain the canonical central structured data engine")
+    if (
+        '"engine": "local-vector-degraded-cache"' not in architecture_text["local_vector"]
+        or '"canonical": False' not in architecture_text["local_vector"]
+    ):
+        errors.append("local vector storage must be declared as a non-canonical degraded cache")
+    for source_name in ("market_network", "search_network"):
+        if "NETWORK_DESTINATION_ALLOWLIST" not in architecture_text[source_name]:
+            errors.append(f"governed network adapter lacks a static allowlist: {source_name}")
+    inventory_path = root / "governance_rule/execution/third_party_management/tool_inventory.json"
+    try:
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory_tools = {item["id"]: item for item in inventory["tools"]}
+    except (OSError, KeyError, TypeError, json.JSONDecodeError):
+        inventory_tools = {}
+        errors.append("third-party implementation inventory is invalid")
+    for dependency_id in ("pybind11", "node", "npm", "uv"):
+        dependency = inventory_tools.get(dependency_id, {})
+        if dependency.get("formal") is not False or not str(
+            dependency.get("formality") or ""
+        ).startswith("approved-implementation-"):
+            errors.append(f"implementation dependency is incorrectly authoritative: {dependency_id}")
+    local_rag = inventory_tools.get("local-sqlite-rag", {})
+    if local_rag.get("formal") is not False or local_rag.get("formality") != "bounded-degraded-fallback":
+        errors.append("local SQLite RAG must remain a non-formal degraded fallback")
     shared_policy = directory.shared_layer_access_policy
     if (
         shared_policy.module_root != policy.shared_layer.module_root
@@ -711,6 +767,8 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
             errors.append("git tier module is missing classify/enforce functions")
         if "def audit_log" not in git_tiers_text:
             errors.append("git tier module is missing audit_log function")
+        if governance_rule.execution.git_tiers.classify("unknown-governance-operation") != 3:
+            errors.append("unknown git operations must fail closed as tier 3")
 
     git_gate_source = root / "scripts" / "git-gate.py"
     if not git_gate_source.is_file():
@@ -720,15 +778,18 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         if "from governance_rule.execution.git_tiers import" not in git_gate_text:
             errors.append("git gate wrapper does not import git_tiers module")
 
-    pre_push_hook = root / ".git" / "hooks" / "pre-push"
-    if not pre_push_hook.is_file():
-        errors.append("pre-push hook is missing")
-    else:
-        hook_text = pre_push_hook.read_text(encoding="utf-8")
+    hook_root = root / "governance_rule" / "git-hooks"
+    for hook_name in ("pre-commit", "pre-merge-commit", "pre-push"):
+        hook_source = hook_root / hook_name
+        if not hook_source.is_file():
+            errors.append(f"governed Git hook is missing: {hook_name}")
+    pre_push_source = hook_root / "pre-push"
+    if pre_push_source.is_file():
+        hook_text = pre_push_source.read_text(encoding="utf-8")
         if "GOVERNANCE_AUTHORITY_APPROVAL" not in hook_text:
-            errors.append("pre-push hook does not enforce governance authority approval for force-push")
-        if "force" not in hook_text.lower():
-            errors.append("pre-push hook does not detect force-push operations")
+            errors.append("pre-push hook does not enforce governance authority approval")
+        if "merge-base" not in hook_text or "refs/tags/" not in hook_text:
+            errors.append("pre-push hook does not detect non-fast-forward or tag rewrites")
 
     # Metadata contract (A8/E21): verify the canonical metadata contract module
     # exists and exports the required fixed field names.
@@ -826,6 +887,55 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
     return errors
 
 
+def _declared_self_health_test_files(
+    root: Path,
+    errors: list[str],
+) -> frozenset[str]:
+    declared_files = {"main-system/tests/test_main_system.py"}
+    manifest_paths = [
+        *root.glob("*/manifest.json"),
+        *root.glob("*/*/manifest.json"),
+    ]
+    for manifest_path in sorted(set(manifest_paths)):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(
+                f"self-health manifest is unreadable: "
+                f"{manifest_path.relative_to(root).as_posix()}: {exc}"
+            )
+            continue
+        tool_id = str(manifest.get("id") or "").strip()
+        targets = manifest.get("test_targets")
+        if not tool_id or not isinstance(targets, list) or not targets:
+            errors.append(
+                "governed tool must declare test_targets: "
+                f"{manifest_path.relative_to(root).as_posix()}"
+            )
+            continue
+        tool_root = manifest_path.parent.resolve()
+        for raw_target in targets:
+            relative_target = Path(str(raw_target or "").strip())
+            candidate = (tool_root / relative_target).resolve()
+            try:
+                candidate.relative_to(tool_root)
+                relative_path = candidate.relative_to(root).as_posix()
+            except ValueError:
+                errors.append(f"self-health test target escaped tool root: {tool_id}")
+                continue
+            if (
+                relative_target.is_absolute()
+                or candidate.suffix.casefold() != ".py"
+                or not candidate.name.startswith("test_")
+            ):
+                errors.append(
+                    f"invalid self-health test target: {tool_id}: {raw_target}"
+                )
+                continue
+            declared_files.add(relative_path)
+    return frozenset(declared_files)
+
+
 def _verify_self_health_test_files(
     root: Path,
     errors: list[str],
@@ -833,14 +943,14 @@ def _verify_self_health_test_files(
     """Verify governed test files exist and can be collected by pytest.
 
     Maintained by the maintenance sovereign as the self-detection health
-    barrier (article A55/edict E41): every governed tool keeps a test file
+    barrier (article A57/edict E43): every governed tool keeps a test file
     that can be collected offline so governance health checks never depend
     on a live model server.
     """
 
     venv_python = root / "main-system" / ".venv" / "Scripts" / "python.exe"
     python_executable = str(venv_python) if venv_python.is_file() else sys.executable
-    for relative_path in sorted(SELF_HEALTH_MANAGED_TEST_FILES):
+    for relative_path in sorted(_declared_self_health_test_files(root, errors)):
         test_path = root / relative_path
         if not test_path.is_file():
             errors.append(f"self-health test file is missing: {relative_path}")
@@ -861,6 +971,7 @@ def _verify_self_health_test_files(
                 capture_output=True,
                 text=True,
                 timeout=60,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except subprocess.TimeoutExpired:
             errors.append(f"self-health test collection timed out: {relative_path}")

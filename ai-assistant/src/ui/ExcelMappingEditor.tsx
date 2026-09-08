@@ -2,7 +2,7 @@ import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import {
   formatInvestmentNumber,
   investmentCodeLabel,
-  type ExcelHorizontalSheetPreview,
+  type ExcelHorizontalHoldingPreview,
   type ExcelMappingPreview,
   type ExcelMappingSheetPreview,
 } from './investmentWatchFeature'
@@ -29,7 +29,7 @@ type ExcelMappingEditorProps = {
   excelHorizontalSheets: ExcelHorizontalSheetDraft[]
   selectedHorizontalSheets: ExcelHorizontalSheetDraft[]
   horizontalHoldingCount: number
-  horizontalSampleHoldings: ExcelHorizontalSheetPreview['sample_holdings']
+  horizontalSampleHoldings: Array<ExcelHorizontalHoldingPreview & { source_sheet: string }>
   updateHorizontalSheet: (
     sheetName: string,
     changes: Partial<ExcelHorizontalSheetDraft>

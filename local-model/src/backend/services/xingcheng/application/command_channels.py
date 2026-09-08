@@ -55,7 +55,13 @@ class CommandChannelsMixin:
                 "execution_owner": "governed-executor",
                 "self_model_data_exception": "read-write",
                 "git": git_status,
-                "sql": {"engine": "local-sqlite3", "role": "structured-mutable-source-of-truth"},
+                "sql": {
+                    "engine": "local-sqlite3-degraded",
+                    "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+                    "canonical_central_engine": "postgresql",
+                    "authority": "non-canonical-reconciliation-required",
+                    "reconciliation_required": True,
+                },
                 "rag": rag_status,
                 "llm": {"engine": "ollama", "role": "local-understanding-reasoning-and-operations"},
             }
@@ -197,7 +203,7 @@ class CommandChannelsMixin:
                 "generative_ai": True,
                 "self_training": {
                     "mode": "continuous-verified-self-distillation",
-                    "training_coordinator_model": self.TRAINING_COORDINATOR_MODEL,
+                    "training_coordinator_model": "gemma4:e2b-it-qat",
                     "quality_gate_required": True,
                     "ollama_training": {
                         "enabled": True,
@@ -270,7 +276,10 @@ class CommandChannelsMixin:
                     "workflow_sequence": [
                         *self.AUTOMATIC_WORKFLOW_SEQUENCE,
                     ],
-                    "understanding_authority": self.COMMAND_UNDERSTANDING_MODEL,
+                    "understanding_authority": {
+                        "primary": "qwen3.5:9b-q4_K_M",
+                        "backup": "nemotron-3-nano:4b",
+                    },
                     "allocation_authority": self.GENERALIST_COORDINATOR_MODEL,
                     "integration_authority": self.FINAL_COORDINATOR_MODEL,
                     "execution_authority": self.CODING_EXPERT_MODEL,
@@ -356,11 +365,12 @@ class CommandChannelsMixin:
                         *self.AUTOMATIC_WORKFLOW_SEQUENCE,
                     ],
                     "command_understanding_model": self.COMMAND_UNDERSTANDING_MODEL,
-                    "task_allocation_model": self.GENERALIST_COORDINATOR_MODEL,
-                    "integration_model": self.FINAL_COORDINATOR_MODEL,
-                    "execution_model": self.CODING_EXPERT_MODEL,
+                    "task_allocation_model": "qwen3:30b-a3b-instruct-2507-q4_K_M",
+                    "integration_model": "gpt-oss:20b",
+                    "integration_backup": "qwen3:30b-a3b-instruct-2507-q4_K_M",
+                    "execution_model": "qwen3.6:35b-a3b-coding",
                     "inspection_model": self.RELEASE_REVIEW_MODEL,
-                    "result_model": self.FINAL_COORDINATOR_MODEL,
+                    "result_model": "gemma4:e2b-it-qat",
                     "backup_policy": "none",
                     "failure_adjudicator": self.COMMAND_UNDERSTANDING_MODEL,
                     "commander_dynamic_reassignment": True,

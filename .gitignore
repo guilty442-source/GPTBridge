@@ -21,6 +21,8 @@ release/*
 !release/child-tools/**
 release/child-tools/**/build/
 runtime/
+governance_rule/execution/audit/git_tier_audit.jsonl
+main-system/data/automatic-repair/**/*.sqlite3*
 ai-assistant/data/business/
 src-core/runtime/
 main-system/shared-layer/data/

@@ -1,5 +1,41 @@
+"""local-model consolidated test suite (A57/E43)
+
+One managed test file per module, maintained by the
+maintenance sovereign for self-health (self-test collection).
+"""
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+for _p in (
+    str(_ROOT),
+    str(_ROOT / "shared-layer" / "src"),
+    str(_ROOT / "main-system" / "src-core"),
+    str(_ROOT / "main-system"),
+    str(_ROOT / "main-system" / "src" / "backend" / "services"),
+    str(_ROOT / "local-model" / "src" / "backend" / "services"),
+    str(_ROOT / "global-cleaner" / "src"),
+    str(_ROOT / "ai-assistant" / "src"),
+    str(_ROOT / "ai-assistant" / "src" / "backend" / "services"),
+    str(_ROOT / "ai-collaboration" / "src" / "backend" / "services"),
+    str(_ROOT / "file-sorter" / "src" / "backend" / "services"),
+    str(_ROOT / "investment-mobile" / "src" / "backend" / "services"),
+    str(_ROOT / "vaultly" / "src" / "backend" / "services"),
+):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+del _p
+
+
+# -- CONSOLIDATED TEST SUITE --
+
+########################################################################
+# source: restored_star_chat.py
+########################################################################
 import json
 from pathlib import Path
 from typing import Any
@@ -179,7 +215,7 @@ def test_renderer_has_chat_only_and_internal_native_management_notice() -> None:
     assert "Ollama 模型訓練" not in source
     assert "能力名稱" not in source
     assert "開始討論與投票" not in source
-    assert "外部 AI 協作已停用" in source
+    assert "外部協作已停用" in source
     assert "訓練與能力編成由星澄原生模型內部自行處理" in source
     assert "等待連線" in source
     assert "star_chat_send_message" in source

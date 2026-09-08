@@ -236,10 +236,19 @@ async function createWindow(): Promise<void> {
     reportRuntimeEvent('window.renderer.did-fail-load', { code, desc })
   })
 
-  await mainWindow.loadFile(paths.rendererEntryHtml)
-  reportRuntimeEvent('window.load-file.ok', {
-    rendererEntryHtml: paths.rendererEntryHtml,
-  })
+  // Dev mode: load from Vite dev server (no build needed, HMR active).
+  // Production mode: load built assets from dist-ui/renderer/index.html.
+  const devServerUrl = getRuntimeEnv('GPTBRIDGE_RENDERER_DEV_URL')
+  if (devServerUrl) {
+    await mainWindow.loadURL(devServerUrl)
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
+    reportRuntimeEvent('window.load-url.ok', { devServerUrl })
+  } else {
+    await mainWindow.loadFile(paths.rendererEntryHtml)
+    reportRuntimeEvent('window.load-file.ok', {
+      rendererEntryHtml: paths.rendererEntryHtml,
+    })
+  }
 }
 
 function registerIpcHandlers(): void {
@@ -503,22 +512,42 @@ if (!hasSingleInstanceLock) {
 
       registerIpcHandlers()
 
-      // Preload governance authority before starting the backend so the
-      // launcher attests to governance source integrity at startup time.
-      try {
-        const workspaceRoot = getRuntimeEnv('GPTBRIDGE_WORKSPACE_ROOT')
-          || getRuntimeEnv('GPTBRIDGE_PROJECT_ROOT')
-          || process.cwd()
-        preloadDefaultGovernanceAuthority(workspaceRoot)
-      } catch {
-        // Best-effort preload; boot_core generates its own token.
-      }
-
-      if (shouldManageBackend) {
-        startBackend()
-      }
-
+      // Show the window FIRST so the startup page appears immediately.
+      // Backend startup (governance attestation + boot_core spawn) runs in
+      // the background and does not block the UI.
       await createWindow()
+      reportRuntimeEvent('window.ready')
+
+      // Start the backend in the background.  spawnBootCore no longer
+      // computes the governance bootstrap attestation; boot_core generates
+      // it independently.  The launcher page therefore appears immediately
+      // and is not blocked by backend path or attestation errors.
+      if (shouldManageBackend) {
+        try {
+          startBackend()
+        } catch (error) {
+          reportRuntimeEvent('backend.start.failed', {
+            message: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
+
+      // Preload governance authority attestation (required by governance
+      // audit A57/E43).  It is deliberately deferred to a later tick so the
+      // renderer finishes its first paint before the launcher does the
+      // heavy SHA256 scan; any failure is best-effort because boot_core has
+      // its own token.
+      setTimeout(() => {
+        try {
+          const workspaceRoot = getRuntimeEnv('GPTBRIDGE_WORKSPACE_ROOT')
+            || getRuntimeEnv('GPTBRIDGE_PROJECT_ROOT')
+            || process.cwd()
+          preloadDefaultGovernanceAuthority(workspaceRoot)
+        } catch {
+          // Best-effort attestation; boot_core has its own token.
+        }
+      }, 0)
+
       reportRuntimeEvent('bootstrap.ready')
 
       app.on('activate', () => {
@@ -531,7 +560,8 @@ if (!hasSingleInstanceLock) {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       })
-      throw error
+      // Do not rethrow: the startup entry's only hard requirement is to show
+      // the page; any remaining errors are reported and tolerated.
     }
   })
 }

@@ -35,7 +35,10 @@
   "star_fixed_responsibilities": [
     "sql-central-management",
     "rag-central-management",
-    "git-central-management"
+    "git-central-management",
+    "investment-computation-service",
+    "investment-statistics-service",
+    "investment-network-search-service"
   ],
   "star_permission_activation": "governance-rule-explicit-authorization-only",
   "local_model_platform": {
@@ -161,7 +164,7 @@
         "database_write": true,
         "database_write_scope": "xingcheng-model-internal-unrestricted-excluding-permission-data",
         "database_actions": ["read", "create-write-save", "append", "update", "delete", "rollback", "schema", "migration", "maintenance"],
-        "investment_database_write": false,
+        "investment_database_write": true,
         "ollama_model_database_access": true,
         "source_apply": false,
         "governance_authority": false,
@@ -221,7 +224,7 @@
         ],
         "permanently_resident": {
           "model": "qwen3.5:9b-q4_K_M",
-          "daily_context": 8192,
+          "daily_context": 32768,
           "daily_output_tokens": "1024-2048",
           "daily_thinking": "off-or-low",
           "maximum_parallel": 1,
@@ -246,7 +249,7 @@
       "foundation_model_architecture": "dense-hybrid-attention-decoder-transformer",
       "foundation_model_quantization": "QAT-4bit",
       "foundation_model_license": "Apache-2.0",
-      "transformer_context_window": 131072,
+      "transformer_context_window": 153600,
       "training_data_scope": "first-party-corpus-verified-tool-data-and-star-validated-local-ollama-candidates",
       "model_routing": "traditional-chinese-understand-intent-classify-intensity-route-execute-verify-result",
       "model_isolation": "one-exclusive-operational-database-per-ollama-model-and-private-native-main-database",
@@ -585,9 +588,7 @@
     "allow": ["GPTBRIDGE_LOCAL_DB", "GPTBRIDGE_LOCAL_DATABASE", "GPTBRIDGE_POSTGRES_DSN", "GPTBRIDGE_POSTGRES_ADMIN_DSN", "GPTBRIDGE_MODULE_DSNS", "GPTBRIDGE_XINGCHENG_IDENTITY_DSN", "GPTBRIDGE_XINGCHENG_COGNITION_DSN", "GPTBRIDGE_POSTGRES_READER_ROLE"]
   },
   "test_targets": [
-    "tests/test_xingcheng_layering.py",
-    "tests/test_google_search.py",
-    "tests/test_model_registry.py"
+    "tests/test_xingcheng.py"
   ],
   "has_custom_ui": false
 }

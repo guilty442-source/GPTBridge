@@ -33,6 +33,7 @@ in-process services; they never run heavy work in this mother process.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from datetime import datetime, timezone
@@ -114,64 +115,82 @@ class SystemSovereignService:
         dependency_state = self._dependency_state()
         self._startup_failures: list[dict[str, str]] = []
 
-        # Runtime Sub-Sovereign coordinates the mother process's liveness services.
+        # All 6 sub-sovereigns are started in parallel because:
+        # - None depend on another's start() completing (they reference
+        #   app.* attributes already set before this method is called).
+        # - Single-fault isolation is already implemented per-sovereign.
+        # - This eliminates serial await latency (6 sequential awaits
+        #   become 1 concurrent gather).
         memory_maintainer = getattr(self.app, "_idle_memory_maintainer", None)
-        runtime: dict[str, Any] = {}
-        try:
-            runtime = await self.runtime_sovereign.start(
-                memory_maintainer=memory_maintainer,
-            )
-        except Exception as error:
-            self._startup_failures.append(
-                {"sub_sovereign": "runtime", "error": f"{type(error).__name__}: {error}"}
-            )
 
-        # Resource Sub-Sovereign coordinates all resource-body concerns.
-        resource: dict[str, Any] = {}
-        try:
-            resource = await self.resource_sovereign.start(
-                memory_maintainer=memory_maintainer,
-            )
-        except Exception as error:
-            self._startup_failures.append(
-                {"sub_sovereign": "resource", "error": f"{type(error).__name__}: {error}"}
-            )
+        async def _start_runtime() -> dict[str, Any]:
+            try:
+                return await self.runtime_sovereign.start(
+                    memory_maintainer=memory_maintainer,
+                )
+            except Exception as error:
+                self._startup_failures.append(
+                    {"sub_sovereign": "runtime", "error": f"{type(error).__name__}: {error}"}
+                )
+                return {}
 
-        # Data Sub-Sovereign coordinates all data-body concerns.
-        data: dict[str, Any] = {}
-        try:
-            data = await self.data_sovereign.start()
-        except Exception as error:
-            self._startup_failures.append(
-                {"sub_sovereign": "data", "error": f"{type(error).__name__}: {error}"}
-            )
+        async def _start_resource() -> dict[str, Any]:
+            try:
+                return await self.resource_sovereign.start(
+                    memory_maintainer=memory_maintainer,
+                )
+            except Exception as error:
+                self._startup_failures.append(
+                    {"sub_sovereign": "resource", "error": f"{type(error).__name__}: {error}"}
+                )
+                return {}
 
-        # Integration Sub-Sovereign coordinates all cross-sovereign-module structural interface concerns.
-        integration: dict[str, Any] = {}
-        try:
-            integration = await self.integration_sovereign.start()
-        except Exception as error:
-            self._startup_failures.append(
-                {"sub_sovereign": "integration", "error": f"{type(error).__name__}: {error}"}
-            )
+        async def _start_data() -> dict[str, Any]:
+            try:
+                return await self.data_sovereign.start()
+            except Exception as error:
+                self._startup_failures.append(
+                    {"sub_sovereign": "data", "error": f"{type(error).__name__}: {error}"}
+                )
+                return {}
 
-        # Language Review Sub-Sovereign coordinates programming-language conformance.
-        language_review: dict[str, Any] = {}
-        try:
-            language_review = await self.language_review_sovereign.start()
-        except Exception as error:
-            self._startup_failures.append(
-                {"sub_sovereign": "language_review", "error": f"{type(error).__name__}: {error}"}
-            )
+        async def _start_integration() -> dict[str, Any]:
+            try:
+                return await self.integration_sovereign.start()
+            except Exception as error:
+                self._startup_failures.append(
+                    {"sub_sovereign": "integration", "error": f"{type(error).__name__}: {error}"}
+                )
+                return {}
 
-        # Third-Party Sub-Sovereign coordinates third-party software management.
-        third_party: dict[str, Any] = {}
-        try:
-            third_party = await self.third_party_sovereign.start()
-        except Exception as error:
-            self._startup_failures.append(
-                {"sub_sovereign": "third_party", "error": f"{type(error).__name__}: {error}"}
+        async def _start_language_review() -> dict[str, Any]:
+            try:
+                return await self.language_review_sovereign.start()
+            except Exception as error:
+                self._startup_failures.append(
+                    {"sub_sovereign": "language_review", "error": f"{type(error).__name__}: {error}"}
+                )
+                return {}
+
+        async def _start_third_party() -> dict[str, Any]:
+            try:
+                return await self.third_party_sovereign.start()
+            except Exception as error:
+                self._startup_failures.append(
+                    {"sub_sovereign": "third_party", "error": f"{type(error).__name__}: {error}"}
+                )
+                return {}
+
+        runtime, resource, data, integration, language_review, third_party = (
+            await asyncio.gather(
+                _start_runtime(),
+                _start_resource(),
+                _start_data(),
+                _start_integration(),
+                _start_language_review(),
+                _start_third_party(),
             )
+        )
 
         sub_sovereign_roles = [
             result.get("role", "")

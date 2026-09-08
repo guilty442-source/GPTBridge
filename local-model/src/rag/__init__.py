@@ -1,4 +1,4 @@
-"""RAG four-sub-architecture — A52/E38 implementation.
+"""RAG four-sub-architecture — A52/E38 declaration (pure-declaration layer).
 
 Per the Governance Codex (A52 / E38), the RAG architecture consists of four
 sub-architectures sharing Qdrant (local-owned) as the semantic index backend:
@@ -12,8 +12,21 @@ All four are local-owned and local-only hosted.  Non-formal RAG substitution,
 external/cloud hosting, replacing the hybrid architecture, or omitting any
 sub-architecture is FORBIDDEN.
 
-This package declares the four-sub-architecture surface; actual retrieval
-execution is delegated to the governed executor (Qdrant loopback).
+Declaration vs execution (A2/A5):
+  This package is the *pure-declaration* authority surface — it holds no
+  enforcement, no business logic, no runtime mutation (A2).  The *execution*
+  implementation lives in the governed executor:
+    local-model/src/backend/services/xingcheng/application/local_rag.py
+  That implementation operates in A44 degraded-fallback mode (bounded +
+  observable + reconciled + non-canonical) using LocalVectorStore (SQLite
+  cache) and SQLite FTS, while Qdrant remains the canonical semantic index
+  (A8: local-vector-as-canonical is FORBIDDEN).  The execution layer imports
+  SUB_ARCHITECTURES and validate_architecture from this package to verify
+  all four sub-architectures are acknowledged at runtime (A52 prohibition).
+
+  This separation enforces A5 (execution delegated to governed-executor;
+  sovereign+codex do not directly execute) and A4 (decision/execution
+  separation — no single party holds both).
 """
 
 from __future__ import annotations

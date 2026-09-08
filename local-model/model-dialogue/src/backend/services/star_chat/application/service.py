@@ -143,10 +143,10 @@ class StarChatService:
     @staticmethod
     def _context_budget(payload: dict[str, Any]) -> int:
         try:
-            requested = int(payload.get("context_budget_characters") or 20_000)
+            requested = int(payload.get("context_budget_characters") or 500_000)
         except (TypeError, ValueError):
-            requested = 20_000
-        return max(4_000, min(24_000, requested))
+            requested = 500_000
+        return max(4_000, min(600_000, requested))
 
     @classmethod
     def _conversation_context(cls, payload: dict[str, Any]) -> str:
@@ -154,13 +154,13 @@ class StarChatService:
         context_budget = cls._context_budget(payload)
         rows: list[str] = []
         if isinstance(history, list):
-            for item in history[-12:]:
+            for item in history[-50:]:
                 if not isinstance(item, dict):
                     continue
                 role = str(item.get("role") or "").strip().casefold()
                 if role not in {"user", "assistant"}:
                     continue
-                content = cls._bounded_text(item.get("content"), 4_000)
+                content = cls._bounded_text(item.get("content"), 32_000)
                 if content:
                     rows.append(f"{'使用者' if role == 'user' else '星澄'}：{content}")
         return "\n".join(rows)[-context_budget:]

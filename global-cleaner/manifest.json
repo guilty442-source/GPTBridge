@@ -68,10 +68,7 @@
   },
   "environment": { "allow": [] },
   "test_targets": [
-    "tests/test_global_cleaner_layering.py",
-    "tests/test_global_cleaner_precision.py",
-    "tests/test_governed_backup_and_repair.py",
-    "tests/test_managed_temp_cleanup.py"
+    "tests/test_global_cleaner.py"
   ],
   "window": {
     "width": 1040,

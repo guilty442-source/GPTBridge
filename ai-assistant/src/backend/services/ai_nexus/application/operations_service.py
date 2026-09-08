@@ -357,7 +357,7 @@ class InvestmentOperationsServiceMixin:
                 sync_result = await asyncio.to_thread(
                     self.ai_connections.search_investments_sync, holdings
                 )
-                sync_result["service_owner"] = "星澄"
+                sync_result["service_owner"] = "AI投資管家"
                 sync_result["transport"] = "governance-authenticated-ai-channel"
         alerts = self.analytics_store.evaluate_alerts(state)
         for alert in alerts:

@@ -24,7 +24,7 @@ class InvestmentPortfolioServiceMixin:
         response = self._state_response(self.repository.load_state())
         response.update(
             {
-                "message": "交易已寫入本機帳本，星澄帳務已接續排程。",
+                "message": "交易已寫入本機帳本，AI投資管家帳務已接續排程。",
                 "transaction": transaction,
                 "star_accounting": accounting,
             }
@@ -417,7 +417,7 @@ class InvestmentPortfolioServiceMixin:
         state = self.repository.load_state()
         holdings = [dict(item) for item in state.get("holdings", []) if isinstance(item, dict)]
         if self.ai_connections is None:
-            raise ValueError("星澄 AI 通道尚未連線，基金辨識未執行且不排隊。")
+            raise ValueError("AI投資管家 AI 通道尚未連線，基金辨識未執行且不排隊。")
         star_result = await asyncio.to_thread(
             self.ai_connections.search_investments_sync,
             holdings[: self._int_value(payload.get("limit")) or 50],
@@ -450,7 +450,7 @@ class InvestmentPortfolioServiceMixin:
             "attempted_count": len(holdings),
             "matched_count": matched,
             "auto_confirmed_count": matched,
-            "provider": "xingcheng",
+            "provider": "ai-assistant",
             "transport": "governance-authenticated-ai-channel",
         }
         saved = self.repository.replace_holdings(
@@ -584,15 +584,15 @@ class InvestmentPortfolioServiceMixin:
             raise ValueError("請先讀取持股檔，再同步市場情報")
         del payload
         if self.ai_connections is None:
-            raise ValueError("星澄 AI 通道尚未連線，市場情報未執行且不排隊。")
+            raise ValueError("AI投資管家 AI 通道尚未連線，市場情報未執行且不排隊。")
         star_result = await asyncio.to_thread(
             self.ai_connections.search_investments_sync, holdings
         )
         if star_result.get("ok") is not True:
-            raise ValueError(str(star_result.get("message") or "星澄市場情報服務失敗。"))
+            raise ValueError(str(star_result.get("message") or "AI投資管家市場情報服務失敗。"))
         result = {
-            "provider": "xingcheng",
-            "service_owner": "星澄",
+            "provider": "ai-assistant",
+            "service_owner": "AI投資管家",
             "transport": "governance-authenticated-ai-channel",
             "requested_count": star_result.get("requested_count", len(holdings)),
             "updated_count": star_result.get("updated_count", 0),
@@ -702,7 +702,7 @@ class InvestmentPortfolioServiceMixin:
             )
             if not star_result.get("results"):
                 raise ValueError(
-                    str(star_result.get("message") or "星澄尚未連線，報價未送出且不排隊。")
+                    str(star_result.get("message") or "AI投資管家尚未連線，報價未送出且不排隊。")
                 )
             quotes: list[dict[str, Any]] = []
             bars: list[dict[str, Any]] = []
@@ -744,7 +744,7 @@ class InvestmentPortfolioServiceMixin:
                 )
             prices_added = self.analytics_store.add_price_bars(bars) if bars else 0
             result = {
-                "provider": "星澄即時網路搜尋",
+                "provider": "內建瀏覽器即時網路搜尋",
                 "updated_at": star_result.get("searched_at"),
                 "data_as_of": max((str(item.get("observed_at") or "") for item in quotes), default=""),
                 "open_markets": open_markets,
@@ -755,11 +755,11 @@ class InvestmentPortfolioServiceMixin:
                 "quotes": quotes,
                 "error_count": star_result.get("error_count", 0),
                 "errors": star_result.get("errors", []),
-                "methodology": "星澄搜尋具來源與日期的市價或基金淨值",
+                "methodology": "內建瀏覽器搜尋具來源與日期的市價或基金淨值",
                 "limitations": ["共同基金淨值不是盤中成交價。", "無法驗證的結果不寫入。"],
             }
         else:
-            raise ValueError("星澄 AI 通道尚未連線，報價未執行且不排隊。")
+            raise ValueError("AI投資管家 AI 通道尚未連線，報價未執行且不排隊。")
         quote_map = {
             (
                 str(item.get("market") or "").upper(),
@@ -786,7 +786,7 @@ class InvestmentPortfolioServiceMixin:
                     enriched["web_current_price"] = current_price
                     enriched["web_current_price_currency"] = source_currency
                     enriched["market_data_source"] = str(
-                        result.get("provider") or "星澄即時網路搜尋"
+                        result.get("provider") or "內建瀏覽器即時網路搜尋"
                     )
                     enriched["market_data_source_url"] = str(
                         quote.get("source_url") or ""
@@ -867,7 +867,7 @@ class InvestmentPortfolioServiceMixin:
         response.update(
             {
                 "message": (
-                    f"星澄報價已更新 "
+                    f"內建瀏覽器報價已更新 "
                     f"{result.get('updated_count', 0)} 筆。"
                 ),
                 "market_sessions": sessions,
@@ -882,7 +882,7 @@ class InvestmentPortfolioServiceMixin:
             dict(item) for item in state.get("holdings", []) if isinstance(item, dict)
         ]
         if not holdings:
-            raise ValueError("請先讀取持股檔，再由星澄搜尋配息")
+            raise ValueError("請先讀取持股檔，再由內建瀏覽器搜尋配息")
         currencies = [
             str(currency or "")
             for item in holdings
@@ -892,8 +892,8 @@ class InvestmentPortfolioServiceMixin:
             )
         ]
         fx_result = {
-            "fx_provider": "xingcheng",
-            "fx_service_owner": "星澄",
+            "fx_provider": "ai-assistant",
+            "fx_service_owner": "AI投資管家",
             "fx_requested_currencies": sorted(set(currencies)),
         }
         if self.ai_connections is not None:
@@ -903,7 +903,7 @@ class InvestmentPortfolioServiceMixin:
             )
             if not star_result.get("results"):
                 raise ValueError(
-                    str(star_result.get("message") or "星澄尚未連線，配息搜尋未送出且不排隊。")
+                    str(star_result.get("message") or "AI投資管家尚未連線，配息搜尋未送出且不排隊。")
                 )
             star_updates: list[dict[str, Any]] = []
             for item in star_result.get("results", []):
@@ -946,7 +946,7 @@ class InvestmentPortfolioServiceMixin:
                         "dividend_frequency_label": str(distribution.get("frequency_label") or "待累積資料"),
                         "dividend_frequency_per_year": distribution.get("frequency_per_year"),
                         "dividend_frequency_confidence": distribution.get("frequency_confidence"),
-                        "source": "星澄即時網路搜尋",
+                        "source": "內建瀏覽器即時網路搜尋",
                         "source_url": str(source.get("url") or ""),
                         "updated_at": str(item.get("observed_at") or star_result.get("searched_at") or ""),
                         "status": "updated" if trailing > 0 else "no_distribution" if distribution.get("frequency") == "none" else "distribution_evidence_only" if events or distribution.get("frequency") not in {None, "", "unknown"} else "no_external_dividend",
@@ -961,14 +961,14 @@ class InvestmentPortfolioServiceMixin:
                 "error_count": star_result.get("error_count", 0),
                 "updates": star_updates,
                 "errors": star_result.get("errors", []),
-                "provider": "星澄即時網路搜尋",
+                "provider": "內建瀏覽器即時網路搜尋",
                 "updated_at": star_result.get("searched_at"),
                 "coverage_percent": round(len(star_updates) / max(1, int(star_result.get("requested_count") or 0)) * 100, 2),
-                "methodology": "星澄搜尋公開市場配息事件與官方基金配息公告",
+                "methodology": "內建瀏覽器搜尋公開市場配息事件與官方基金配息公告",
                 "limitations": ["基金公告未揭露可驗證金額時只保存公告與頻率，不推造配息金額。"],
             }
         else:
-            raise ValueError("星澄 AI 通道尚未連線，配息搜尋未執行且不排隊。")
+            raise ValueError("AI投資管家 AI 通道尚未連線，配息搜尋未執行且不排隊。")
         updates = {
             (str(item.get("market") or ""), str(item.get("symbol") or "")): item
             for item in dividend_result.get("updates", [])
@@ -986,7 +986,7 @@ class InvestmentPortfolioServiceMixin:
             if not isinstance(update, dict):
                 updated_holdings.append(enriched)
                 continue
-            enriched["dividend_source"] = str(update.get("source") or "星澄即時網路搜尋")
+            enriched["dividend_source"] = str(update.get("source") or "內建瀏覽器即時網路搜尋")
             enriched["dividend_source_url"] = str(update.get("source_url") or "")
             enriched["dividend_updated_at"] = str(update.get("updated_at") or "")
             enriched["dividend_status"] = str(update.get("status") or "")
@@ -996,7 +996,7 @@ class InvestmentPortfolioServiceMixin:
                 not current_name or current_name.upper() == key[1].upper()
             ):
                 enriched["name"] = online_name
-                enriched["name_source"] = str(update.get("source") or "星澄即時網路搜尋")
+                enriched["name_source"] = str(update.get("source") or "內建瀏覽器即時網路搜尋")
             instrument_type = str(update.get("instrument_type") or "").upper()
             asset_type_map = {
                 "EQUITY": "STOCK",
@@ -1011,7 +1011,7 @@ class InvestmentPortfolioServiceMixin:
             online_currency = str(update.get("currency") or "").upper()
             if online_currency and not str(enriched.get("currency") or "").strip():
                 enriched["currency"] = online_currency
-            enriched["market_data_source"] = str(update.get("source") or "星澄即時網路搜尋")
+            enriched["market_data_source"] = str(update.get("source") or "內建瀏覽器即時網路搜尋")
             if update.get("official_code"):
                 enriched["fund_quote_symbol"] = str(update["official_code"])
                 enriched["fund_identity_status"] = "confirmed"
@@ -1079,7 +1079,7 @@ class InvestmentPortfolioServiceMixin:
                     {
                         "event_type": "dividend",
                         "symbol": key[1],
-                        "title": f"{key[1]} 星澄配息搜尋",
+                        "title": f"{key[1]} 內建瀏覽器配息搜尋",
                         "scheduled_at": event.get("occurred_at"),
                         "source": update.get("source") or "Yahoo Finance",
                         "source_url": event.get("source_url") or update.get("source_url") or "",
@@ -1169,7 +1169,7 @@ class InvestmentPortfolioServiceMixin:
         response.update(
             {
                 "message": (
-                    f"星澄配息搜尋已更新 {dividend_result.get('updated_count', 0)} 筆；"
+                    f"內建瀏覽器配息搜尋已更新 {dividend_result.get('updated_count', 0)} 筆；"
                     "週配息已依華南銀行匯率換算為新台幣。"
                 ),
                 "dividend_sync": dividend_result,

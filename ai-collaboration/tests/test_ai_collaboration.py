@@ -1,5 +1,41 @@
+"""ai-collaboration consolidated test suite (A57/E43)
+
+One managed test file per module, maintained by the
+maintenance sovereign for self-health (self-test collection).
+"""
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+for _p in (
+    str(_ROOT),
+    str(_ROOT / "shared-layer" / "src"),
+    str(_ROOT / "main-system" / "src-core"),
+    str(_ROOT / "main-system"),
+    str(_ROOT / "main-system" / "src" / "backend" / "services"),
+    str(_ROOT / "local-model" / "src" / "backend" / "services"),
+    str(_ROOT / "global-cleaner" / "src"),
+    str(_ROOT / "ai-assistant" / "src"),
+    str(_ROOT / "ai-assistant" / "src" / "backend" / "services"),
+    str(_ROOT / "ai-collaboration" / "src" / "backend" / "services"),
+    str(_ROOT / "file-sorter" / "src" / "backend" / "services"),
+    str(_ROOT / "investment-mobile" / "src" / "backend" / "services"),
+    str(_ROOT / "vaultly" / "src" / "backend" / "services"),
+):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+del _p
+
+
+# -- CONSOLIDATED TEST SUITE --
+
+########################################################################
+# source: restored_ai_collaboration.py
+########################################################################
 import asyncio
 import sys
 from pathlib import Path
@@ -574,7 +610,7 @@ def test_browser_waits_three_cycles_then_uses_chatgpt_terminal_fallback(
     assert result["final_response"]["content"] == "ChatGPT 最終統籌"
 
 
-def test_provider_session_uses_managed_chrome_automation(tmp_path: Path) -> None:
+def test_provider_session_uses_managed_embedded_browser(tmp_path: Path) -> None:
     tool_root = tmp_path / "ai-collaboration"
     tool_root.mkdir()
     session = AiCollaborationProviderSession(tool_root)
@@ -622,7 +658,7 @@ def test_provider_session_uses_embedded_browser(tmp_path: Path) -> None:
     assert session.browser_status()["product"] == "embedded-browser-view"
 
 
-def test_all_provider_authorization_uses_foreground_chrome_only(
+def test_all_provider_authorization_uses_embedded_browser_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     session = AiCollaborationProviderSession(tmp_path)

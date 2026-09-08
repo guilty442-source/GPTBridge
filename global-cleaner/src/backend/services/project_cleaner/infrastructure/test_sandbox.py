@@ -56,11 +56,9 @@ def main() -> int:
         )
         return int(completed.returncode)
     finally:
+        # Only remove the per-run directory. The shared sandbox_root must not be
+        # removed while other workers may still be using it.
         shutil.rmtree(run_root, ignore_errors=False)
-        try:
-            sandbox_root.rmdir()
-        except OSError:
-            pass
 
 
 if __name__ == "__main__":

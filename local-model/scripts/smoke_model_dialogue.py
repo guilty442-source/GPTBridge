@@ -107,11 +107,11 @@ async def main() -> int:
         }
 
         _, rag = await xingcheng.handle("xingcheng_rag_status", {})
+        keyword_engine = (rag.get("keyword_index") or {}).get("engine") or ""
         report["rag"] = {
             "enabled": rag.get("enabled") is True,
             "vector": (rag.get("vector_database") or {}).get("available") is True,
-            "local-sqlite": (rag.get("keyword_index") or {}).get("engine")
-            == "local-sqlite3",
+            "local-sqlite": keyword_engine.startswith("local-sqlite3"),
         }
         report["cancel_unknown_request"] = (
             await dialogue.cancel_request("smoke-not-running") is False
