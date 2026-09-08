@@ -55,6 +55,10 @@ class CommandRouter:
             return None
         return getattr(system_sovereign, "third_party_sovereign", None)
 
+    def _get_maintenance_sovereign(self) -> Any:
+        """Resolve the sole update-management owner."""
+        return getattr(self.app, "maintenance_sovereign", None)
+
     async def handle(
         self, command: str, payload: Dict[str, Any]
     ) -> tuple[str, Dict[str, Any]]:
@@ -184,11 +188,11 @@ class CommandRouter:
             }
 
         if command == "app:update-third-party-tool":
-            sovereign = self._get_third_party_sovereign()
+            sovereign = self._get_maintenance_sovereign()
             if sovereign is None:
                 return f"{command}_result", {
                     "ok": False,
-                    "error_code": "THIRD_PARTY_SOVEREIGN_UNAVAILABLE",
+                    "error_code": "MAINTENANCE_SOVEREIGN_UNAVAILABLE",
                     "message": "PERMISSION_DENIED",
                 }
             tool_id = str(payload.get("tool_id") or "").strip()
@@ -200,7 +204,7 @@ class CommandRouter:
                 }
             approval_token = str(payload.get("approval_token") or "").strip()
             try:
-                result = await sovereign.execute_update(
+                result = await sovereign.execute_third_party_update(
                     tool_id, approval_token=approval_token or None
                 )
             except Exception as error:
@@ -212,11 +216,11 @@ class CommandRouter:
             return f"{command}_result", result.as_dict()
 
         if command == "app:auto-update-third-party-tools":
-            sovereign = self._get_third_party_sovereign()
+            sovereign = self._get_maintenance_sovereign()
             if sovereign is None:
                 return f"{command}_result", {
                     "ok": False,
-                    "error_code": "THIRD_PARTY_SOVEREIGN_UNAVAILABLE",
+                    "error_code": "MAINTENANCE_SOVEREIGN_UNAVAILABLE",
                     "message": "PERMISSION_DENIED",
                 }
             approval_token = str(payload.get("approval_token") or "").strip()
@@ -228,7 +232,7 @@ class CommandRouter:
                     "message": "governance approval token required for auto-update",
                 }
             try:
-                results = await sovereign.execute_auto_updates(
+                results = await sovereign.execute_auto_third_party_updates(
                     approval_token=approval_token, only_available=only_available
                 )
             except Exception as error:

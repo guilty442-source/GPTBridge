@@ -27,10 +27,10 @@ from pathlib import Path
 from typing import Any
 
 from .codex_decision import decision_basis
-
-INTEGRATION_SUB_SOVEREIGN_ROLE = "system-integration-sub-sovereign"
-
-INTEGRATION_DECISION_AREA = "integration"
+from governance_rule.execution.tool_runtime.sub_sovereign import (
+    SYSTEM_INTEGRATION_AUTHORITY,
+    SYSTEM_INTEGRATION_ROLE,
+)
 
 # Fallback resident service IDs used when manifest scanning is unavailable.
 _FALLBACK_RESIDENT_TOOL_IDS = ("shared-layer", "xingcheng")
@@ -54,15 +54,13 @@ class IntegrationSubSovereign:
       - bus coordination
     """
 
-    ROLE = INTEGRATION_SUB_SOVEREIGN_ROLE
+    ROLE = SYSTEM_INTEGRATION_ROLE
 
     def __init__(self, app: Any) -> None:
         self.app = app
         self._started = False
         self._started_at: str | None = None
         self._stopped_at: str | None = None
-        self._supervision_task: asyncio.Task[Any] | None = None
-        self._supervision_interval_seconds = 300.0
         self._command_router: Any | None = None
         self._toolbox: Any | None = None
         self._task_queue: Any | None = None
@@ -84,10 +82,8 @@ class IntegrationSubSovereign:
 
     async def start(
         self,
-        *,
-        supervision_interval_seconds: float = 300.0,
     ) -> dict[str, Any]:
-        """Start the Integration Sub-Sovereign and its in-process supervision loop.
+        """Start the Integration Sub-Sovereign.
 
         The sovereign captures the cross-module structural-interface governed
         executors from the app (decision-only supervision; it never executes
@@ -98,18 +94,11 @@ class IntegrationSubSovereign:
           active IPC command tasks — channel / synchronization activity.
         """
 
-        self._supervision_interval_seconds = max(60.0, float(supervision_interval_seconds))
         self._command_router = getattr(self.app, "command_router", None)
         self._toolbox = getattr(self.app, "toolbox_service", None)
         self._task_queue = getattr(self.app, "task_queue", None)
         self._started_at = self._iso_now()
         self._started = True
-
-        if self._supervision_task is None:
-            self._supervision_task = asyncio.create_task(
-                self._supervision_loop(),
-                name="system-integration-sub-sovereign-supervision",
-            )
 
         # Auto-start the governed default modules through the toolbox service.
         # The permission sovereign (started by the app before the system
@@ -133,15 +122,10 @@ class IntegrationSubSovereign:
             "role": self.ROLE,
             "started_at": self._started_at,
             "default_tools": dict(self._default_tool_startup),
-            "decision": decision_basis(INTEGRATION_DECISION_AREA),
+            "decision": decision_basis(SYSTEM_INTEGRATION_AUTHORITY),
         }
 
     async def stop(self) -> None:
-        if self._supervision_task is not None:
-            self._supervision_task.cancel()
-            with _suppress(asyncio.CancelledError):
-                await self._supervision_task
-            self._supervision_task = None
         if self._idle_monitor_task is not None:
             self._idle_monitor_task.cancel()
             with _suppress(asyncio.CancelledError):
@@ -412,7 +396,7 @@ class IntegrationSubSovereign:
     def integration_status(self) -> dict[str, Any]:
         """Snapshot the structural-interface state."""
 
-        decision = decision_basis(INTEGRATION_DECISION_AREA)
+        decision = decision_basis(SYSTEM_INTEGRATION_AUTHORITY)
         return {
             "role": self.ROLE,
             "scope": "cross-sovereign-module-structural-interface",
@@ -446,11 +430,7 @@ class IntegrationSubSovereign:
                 "monitored_tools": list(self._tool_last_activity.keys()),
                 "resident_exempt": True,
             },
-            "supervision_loop": {
-                "running": self._supervision_task is not None and not self._supervision_task.done(),
-                "interval_seconds": self._supervision_interval_seconds,
-            },
-            "decision": decision_basis(INTEGRATION_DECISION_AREA),
+            "decision": decision_basis(SYSTEM_INTEGRATION_AUTHORITY),
             "started_at": self._started_at,
             "stopped_at": self._stopped_at,
         }
@@ -474,7 +454,7 @@ class IntegrationSubSovereign:
                 "resident_exempt": True,
             },
             "synchronization": self._synchronization_status(),
-            "decision": decision_basis(INTEGRATION_DECISION_AREA),
+            "decision": decision_basis(SYSTEM_INTEGRATION_AUTHORITY),
         }
 
     # ------------------------------------------------------------------
@@ -503,7 +483,7 @@ class IntegrationSubSovereign:
         return {
             "duty": "cross-sovereign-interfaces",
             "delegation": "governed-executor-only",
-            "decision": decision_basis(INTEGRATION_DECISION_AREA)["edicts"],
+            "decision": decision_basis(SYSTEM_INTEGRATION_AUTHORITY)["edicts"],
         }
 
     def _cross_module_interfaces_status(self) -> dict[str, Any]:
@@ -569,10 +549,6 @@ class IntegrationSubSovereign:
     # Internals
     # ------------------------------------------------------------------
 
-    async def _supervision_loop(self) -> None:
-        while self._started:
-            await asyncio.sleep(self._supervision_interval_seconds)
-
     @staticmethod
     def _iso_now() -> str:
         return datetime.now(timezone.utc).isoformat()
@@ -585,7 +561,5 @@ def _suppress(*exceptions: type[BaseException]) -> Any:
 
 
 __all__ = [
-    "INTEGRATION_DECISION_AREA",
-    "INTEGRATION_SOVEREIGN_ROLE",
     "IntegrationSubSovereign",
 ]

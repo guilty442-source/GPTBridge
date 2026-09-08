@@ -23,6 +23,10 @@ from pathlib import Path
 from typing import Any
 
 from .codex_decision import decision_basis
+from governance_rule.execution.tool_runtime.sub_sovereign import (
+    SYSTEM_THIRD_PARTY_MANAGER_AUTHORITY,
+    SYSTEM_THIRD_PARTY_MANAGER_ROLE,
+)
 from .third_party_manager import (
     AUTO_UPDATABLE_TOOLS,
     ThirdPartyManager,
@@ -31,8 +35,7 @@ from .third_party_manager import (
     UpdateExecutionResult,
 )
 
-THIRD_PARTY_ROLE = "system-third-party-sub-sovereign"
-THIRD_PARTY_AREA = "third-party-management"
+
 
 FORMAL_TOOLS = ("postgresql", "qdrant", "git", "rag", "python", "typescript", "cpp", "c", "csharp", "sql")
 
@@ -49,7 +52,7 @@ class ThirdPartySubSovereign:
       - update detection and governed update execution
     """
 
-    ROLE = THIRD_PARTY_ROLE
+    ROLE = SYSTEM_THIRD_PARTY_MANAGER_ROLE
 
     def __init__(self, app: Any) -> None:
         self.app = app
@@ -104,7 +107,7 @@ class ThirdPartySubSovereign:
             "formal_tools": list(FORMAL_TOOLS),
             "inventory_loaded": self._tool_inventory is not None,
             "auto_updatable_tools": sorted(AUTO_UPDATABLE_TOOLS),
-            "decision": decision_basis(THIRD_PARTY_AREA),
+            "decision": decision_basis(SYSTEM_THIRD_PARTY_MANAGER_AUTHORITY),
         }
 
     async def stop(self) -> None:
@@ -132,20 +135,20 @@ class ThirdPartySubSovereign:
             return {}
         return self._manager.check_all_for_updates()
 
-    async def execute_update(
+    async def apply_approved_update(
         self, tool_id: str, *, approval_token: str | None = None
     ) -> UpdateExecutionResult:
-        """Execute a governed update for a single tool."""
+        """Apply an update already managed and delegated by maintenance."""
         if self._manager is None:
             return UpdateExecutionResult(
                 tool_id=tool_id, error="manager not initialized"
             )
         return await self._manager.execute_update(tool_id, approval_token=approval_token)
 
-    async def execute_auto_updates(
+    async def apply_approved_auto_updates(
         self, *, approval_token: str, only_available: bool = True
     ) -> dict[str, UpdateExecutionResult]:
-        """Execute updates for all auto-updatable tools."""
+        """Apply updates already managed and delegated by maintenance."""
         if self._manager is None:
             return {}
         return await self._manager.execute_auto_updates(
@@ -169,11 +172,12 @@ class ThirdPartySubSovereign:
             "auto_updatable_tools": sorted(AUTO_UPDATABLE_TOOLS),
             "inventory": self._inventory_status(),
             "manager": self.get_manager_status() if self._manager else None,
+            "update_boundary": "maintenance-sovereign-managed; execution-only",
             "supervision_loop": {
                 "running": self._supervision_task is not None and not self._supervision_task.done(),
                 "interval_seconds": self._supervision_interval_seconds,
             },
-            "decision": decision_basis(THIRD_PARTY_AREA),
+            "decision": decision_basis(SYSTEM_THIRD_PARTY_MANAGER_AUTHORITY),
             "started_at": self._started_at,
             "stopped_at": self._stopped_at,
         }
@@ -187,7 +191,7 @@ class ThirdPartySubSovereign:
             "delegation": "governed-executor-only",
             "formal_tools": list(FORMAL_TOOLS),
             "auto_updatable_tools": sorted(AUTO_UPDATABLE_TOOLS),
-            "decision": decision_basis(THIRD_PARTY_AREA),
+            "decision": decision_basis(SYSTEM_THIRD_PARTY_MANAGER_AUTHORITY),
         }
 
     def _inventory_status(self) -> dict[str, Any]:
@@ -239,7 +243,5 @@ def _suppress(*exceptions: type[BaseException]) -> Any:
 
 __all__ = [
     "FORMAL_TOOLS",
-    "THIRD_PARTY_AREA",
-    "THIRD_PARTY_ROLE",
     "ThirdPartySubSovereign",
 ]

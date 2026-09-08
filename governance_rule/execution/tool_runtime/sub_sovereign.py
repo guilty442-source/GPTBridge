@@ -19,7 +19,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Protocol, runtime_checkable
 
 
-SUB_SOVEREIGN_ROLE: str = "sub-sovereign"
+SUB_SOVEREIGN_ROLE: str = "tool-runtime-sub-sovereign"
 
 SUB_SOVEREIGN_AUTHORITY: str = (
     "information-management-delivery-channels-and-channel-health"
@@ -48,7 +48,7 @@ SUB_SOVEREIGN_UNDER: tuple[str, ...] = ("system", "maintenance")
 # 六者皆為統一子主宰（role=sub-sovereign），隸屬系統主宰（system）。
 # ---------------------------------------------------------------------------
 
-SYSTEM_RUNTIME_ROLE: str = "sub-sovereign"
+SYSTEM_RUNTIME_ROLE: str = "system-runtime-sub-sovereign"
 SYSTEM_RUNTIME_AUTHORITY: str = "runtime"
 SYSTEM_RUNTIME_SCOPE: str = "runtime-duties"
 SYSTEM_RUNTIME_DUTY: tuple[str, ...] = (
@@ -59,7 +59,7 @@ SYSTEM_RUNTIME_DUTY: tuple[str, ...] = (
 SYSTEM_RUNTIME_UNDER: tuple[str, ...] = ("system",)
 
 
-SYSTEM_RESOURCE_ROLE: str = "sub-sovereign"
+SYSTEM_RESOURCE_ROLE: str = "system-resource-sub-sovereign"
 SYSTEM_RESOURCE_AUTHORITY: str = "resource"
 SYSTEM_RESOURCE_SCOPE: str = "resource-duties"
 SYSTEM_RESOURCE_DUTY: tuple[str, ...] = (
@@ -74,7 +74,7 @@ SYSTEM_RESOURCE_DUTY: tuple[str, ...] = (
 SYSTEM_RESOURCE_UNDER: tuple[str, ...] = ("system",)
 
 
-SYSTEM_DATA_ROLE: str = "sub-sovereign"
+SYSTEM_DATA_ROLE: str = "system-data-sub-sovereign"
 SYSTEM_DATA_AUTHORITY: str = "data"
 SYSTEM_DATA_SCOPE: str = "data-duties"
 SYSTEM_DATA_DUTY: tuple[str, ...] = (
@@ -88,7 +88,7 @@ SYSTEM_DATA_DUTY: tuple[str, ...] = (
 SYSTEM_DATA_UNDER: tuple[str, ...] = ("system",)
 
 
-SYSTEM_INTEGRATION_ROLE: str = "sub-sovereign"
+SYSTEM_INTEGRATION_ROLE: str = "system-integration-sub-sovereign"
 SYSTEM_INTEGRATION_AUTHORITY: str = "integration"
 SYSTEM_INTEGRATION_SCOPE: str = "integration-duties"
 SYSTEM_INTEGRATION_DUTY: tuple[str, ...] = (
@@ -101,7 +101,7 @@ SYSTEM_INTEGRATION_DUTY: tuple[str, ...] = (
 SYSTEM_INTEGRATION_UNDER: tuple[str, ...] = ("system",)
 
 
-SYSTEM_LANGUAGE_REVIEWER_ROLE: str = "sub-sovereign"
+SYSTEM_LANGUAGE_REVIEWER_ROLE: str = "system-language-review-sub-sovereign"
 SYSTEM_LANGUAGE_REVIEWER_AUTHORITY: str = "programming-language-review"
 SYSTEM_LANGUAGE_REVIEWER_SCOPE: str = "programming-language-review-duties"
 SYSTEM_LANGUAGE_REVIEWER_DUTY: tuple[str, ...] = (
@@ -112,7 +112,7 @@ SYSTEM_LANGUAGE_REVIEWER_DUTY: tuple[str, ...] = (
 SYSTEM_LANGUAGE_REVIEWER_UNDER: tuple[str, ...] = ("system",)
 
 
-SYSTEM_THIRD_PARTY_MANAGER_ROLE: str = "sub-sovereign"
+SYSTEM_THIRD_PARTY_MANAGER_ROLE: str = "system-third-party-sub-sovereign"
 SYSTEM_THIRD_PARTY_MANAGER_AUTHORITY: str = "third-party-software-management"
 SYSTEM_THIRD_PARTY_MANAGER_SCOPE: str = "third-party-software-management-duties"
 SYSTEM_THIRD_PARTY_MANAGER_DUTY: tuple[str, ...] = (
@@ -129,7 +129,7 @@ SYSTEM_THIRD_PARTY_MANAGER_UNDER: tuple[str, ...] = ("system",)
 # 三者皆為統一子主宰（role=sub-sovereign），隸屬權限主宰（permission）。
 # ---------------------------------------------------------------------------
 
-PERMISSION_SUPERVISOR_ROLE: str = "sub-sovereign"
+PERMISSION_SUPERVISOR_ROLE: str = "permission-supervisor-sub-sovereign"
 PERMISSION_SUPERVISOR_AUTHORITY: str = "permission-supervision"
 PERMISSION_SUPERVISOR_SCOPE: str = "permission-supervision-duties"
 PERMISSION_SUPERVISOR_DUTY: tuple[str, ...] = (
@@ -140,7 +140,7 @@ PERMISSION_SUPERVISOR_DUTY: tuple[str, ...] = (
 PERMISSION_SUPERVISOR_UNDER: tuple[str, ...] = ("permission",)
 
 
-PERMISSION_GRANTER_ROLE: str = "sub-sovereign"
+PERMISSION_GRANTER_ROLE: str = "permission-granter-sub-sovereign"
 PERMISSION_GRANTER_AUTHORITY: str = "permission-issue"
 PERMISSION_GRANTER_SCOPE: str = "permission-issue-duties"
 PERMISSION_GRANTER_DUTY: tuple[str, ...] = (
@@ -150,7 +150,7 @@ PERMISSION_GRANTER_DUTY: tuple[str, ...] = (
 PERMISSION_GRANTER_UNDER: tuple[str, ...] = ("permission",)
 
 
-PERMISSION_REVOKER_ROLE: str = "sub-sovereign"
+PERMISSION_REVOKER_ROLE: str = "permission-revoker-sub-sovereign"
 PERMISSION_REVOKER_AUTHORITY: str = "permission-termination"
 PERMISSION_REVOKER_SCOPE: str = "permission-termination-duties"
 PERMISSION_REVOKER_DUTY: tuple[str, ...] = (
@@ -166,7 +166,7 @@ PERMISSION_REVOKER_UNDER: tuple[str, ...] = ("permission",)
 # 五者皆為統一子主宰（role=sub-sovereign），隸屬維護主宰（maintenance）。
 # ---------------------------------------------------------------------------
 
-MAINTENANCE_CLEANER_ROLE: str = "sub-sovereign"
+MAINTENANCE_CLEANER_ROLE: str = "maintenance-cleaner-sub-sovereign"
 MAINTENANCE_CLEANER_AUTHORITY: str = "automatic-cleanup"
 MAINTENANCE_CLEANER_SCOPE: str = "automatic-cleanup-duties"
 MAINTENANCE_CLEANER_DUTY: tuple[str, ...] = (
@@ -177,7 +177,7 @@ MAINTENANCE_CLEANER_DUTY: tuple[str, ...] = (
 MAINTENANCE_CLEANER_UNDER: tuple[str, ...] = ("maintenance",)
 
 
-MAINTENANCE_BACKER_ROLE: str = "sub-sovereign"
+MAINTENANCE_BACKER_ROLE: str = "maintenance-backer-sub-sovereign"
 MAINTENANCE_BACKER_AUTHORITY: str = "automatic-backup"
 MAINTENANCE_BACKER_SCOPE: str = "automatic-backup-duties"
 MAINTENANCE_BACKER_DUTY: tuple[str, ...] = (
@@ -187,7 +187,7 @@ MAINTENANCE_BACKER_DUTY: tuple[str, ...] = (
 MAINTENANCE_BACKER_UNDER: tuple[str, ...] = ("maintenance",)
 
 
-MAINTENANCE_REPAIRER_ROLE: str = "sub-sovereign"
+MAINTENANCE_REPAIRER_ROLE: str = "maintenance-repairer-sub-sovereign"
 MAINTENANCE_REPAIRER_AUTHORITY: str = "automatic-repair"
 MAINTENANCE_REPAIRER_SCOPE: str = "automatic-repair-duties"
 MAINTENANCE_REPAIRER_DUTY: tuple[str, ...] = (
@@ -198,7 +198,7 @@ MAINTENANCE_REPAIRER_DUTY: tuple[str, ...] = (
 MAINTENANCE_REPAIRER_UNDER: tuple[str, ...] = ("maintenance",)
 
 
-MAINTENANCE_UPDATER_ROLE: str = "sub-sovereign"
+MAINTENANCE_UPDATER_ROLE: str = "maintenance-updater-sub-sovereign"
 MAINTENANCE_UPDATER_AUTHORITY: str = "automatic-update"
 MAINTENANCE_UPDATER_SCOPE: str = "automatic-update-duties"
 MAINTENANCE_UPDATER_DUTY: tuple[str, ...] = (
@@ -208,7 +208,7 @@ MAINTENANCE_UPDATER_DUTY: tuple[str, ...] = (
 MAINTENANCE_UPDATER_UNDER: tuple[str, ...] = ("maintenance",)
 
 
-MAINTENANCE_HEALTH_MONITOR_ROLE: str = "sub-sovereign"
+MAINTENANCE_HEALTH_MONITOR_ROLE: str = "maintenance-health-monitor-sub-sovereign"
 MAINTENANCE_HEALTH_MONITOR_AUTHORITY: str = "health-monitoring"
 MAINTENANCE_HEALTH_MONITOR_SCOPE: str = "health-monitoring-duties"
 MAINTENANCE_HEALTH_MONITOR_DUTY: tuple[str, ...] = (

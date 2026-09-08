@@ -14,7 +14,6 @@ never holds an execution power itself.
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
@@ -47,8 +46,6 @@ class ResourceSubSovereign:
         self._started_at: str | None = None
         self._stopped_at: str | None = None
         self._memory_maintainer: Any | None = None
-        self._supervision_task: asyncio.Task[Any] | None = None
-        self._supervision_interval_seconds = 300.0
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -58,9 +55,8 @@ class ResourceSubSovereign:
         self,
         *,
         memory_maintainer: Any = None,
-        supervision_interval_seconds: float = 300.0,
     ) -> dict[str, Any]:
-        """Start the Resource Sub-Sovereign and its in-process supervision loop.
+        """Start the Resource Sub-Sovereign.
 
         ``memory_maintainer``: the IdleMemoryMaintainer instance already built
             by the app; the sovereign coordinates/supervises it but the actual
@@ -68,15 +64,8 @@ class ResourceSubSovereign:
         """
 
         self._memory_maintainer = memory_maintainer
-        self._supervision_interval_seconds = max(60.0, float(supervision_interval_seconds))
         self._started_at = self._iso_now()
         self._started = True
-
-        if self._supervision_task is None:
-            self._supervision_task = asyncio.create_task(
-                self._supervision_loop(),
-                name="system-resource-sub-sovereign-supervision",
-            )
 
         return {
             "ok": True,
@@ -87,11 +76,6 @@ class ResourceSubSovereign:
         }
 
     async def stop(self) -> None:
-        if self._supervision_task is not None:
-            self._supervision_task.cancel()
-            with _suppress(asyncio.CancelledError):
-                await self._supervision_task
-            self._supervision_task = None
         self._memory_maintainer = None
         self._started = False
         self._stopped_at = self._iso_now()
@@ -147,10 +131,6 @@ class ResourceSubSovereign:
             "native": resource_status(),
             "native_available": native_available(),
             "memory_maintenance": self._memory_maintainer_status(),
-            "supervision_loop": {
-                "running": self._supervision_task is not None and not self._supervision_task.done(),
-                "interval_seconds": self._supervision_interval_seconds,
-            },
             "decision": decision_basis(RESOURCE_DECISION_AREA),
             "started_at": self._started_at,
             "stopped_at": self._stopped_at,
@@ -179,19 +159,9 @@ class ResourceSubSovereign:
             return get_status()
         return {"enabled": True}
 
-    async def _supervision_loop(self) -> None:
-        while self._started:
-            await asyncio.sleep(self._supervision_interval_seconds)
-
     @staticmethod
     def _iso_now() -> str:
         return datetime.now(timezone.utc).isoformat()
-
-
-def _suppress(*exceptions: type[BaseException]) -> Any:
-    import contextlib
-
-    return contextlib.suppress(*exceptions)
 
 
 __all__ = [

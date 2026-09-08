@@ -15,14 +15,14 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from .codex_decision import decision_basis
-from core.health import check_core_health
-
-DATA_SUB_SOVEREIGN_ROLE = "system-data-sub-sovereign"
-
-DATA_DECISION_AREA = "data"
+from governance_rule.execution.tool_runtime.sub_sovereign import (
+    SYSTEM_DATA_AUTHORITY,
+    SYSTEM_DATA_ROLE,
+)
 
 
 class DataSubSovereign:
@@ -36,7 +36,7 @@ class DataSubSovereign:
       - data directory maintenance
     """
 
-    ROLE = DATA_SUB_SOVEREIGN_ROLE
+    ROLE = SYSTEM_DATA_ROLE
 
     def __init__(self, app: Any) -> None:
         self.app = app
@@ -49,7 +49,6 @@ class DataSubSovereign:
         self._cleaner: Any | None = None
         self._task_queue: Any | None = None
         self._repair_service: Any | None = None
-        self._data_health_checker: Any = check_core_health
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -63,7 +62,6 @@ class DataSubSovereign:
         cleaner: Any = None,
         task_queue: Any = None,
         repair_service: Any = None,
-        data_health_checker: Any = None,
     ) -> dict[str, Any]:
         """Start the Data Sub-Sovereign and its in-process supervision loop.
 
@@ -83,10 +81,7 @@ class DataSubSovereign:
         """
 
         self._supervision_interval_seconds = max(60.0, float(supervision_interval_seconds))
-        governance = getattr(self.app, "governance", None)
         self._integrity_checker = integrity_checker
-        if self._integrity_checker is None and governance is not None:
-            self._integrity_checker = getattr(governance, "runtime_integrity_ready", None)
         self._cleaner = cleaner
         if self._cleaner is None:
             self._cleaner = getattr(self.app, "daily_global_cleaner_service", None)
@@ -101,8 +96,6 @@ class DataSubSovereign:
                     self._repair_service = toolbox.central_repair()
                 except Exception:
                     self._repair_service = None
-        if data_health_checker is not None:
-            self._data_health_checker = data_health_checker
         self._started_at = self._iso_now()
         self._started = True
 
@@ -116,7 +109,7 @@ class DataSubSovereign:
             "ok": True,
             "role": self.ROLE,
             "started_at": self._started_at,
-            "decision": decision_basis(DATA_DECISION_AREA),
+            "decision": decision_basis(SYSTEM_DATA_AUTHORITY),
         }
 
     async def stop(self) -> None:
@@ -139,7 +132,7 @@ class DataSubSovereign:
     def data_status(self) -> dict[str, Any]:
         """Snapshot the data-BODY state."""
 
-        decision = decision_basis(DATA_DECISION_AREA)
+        decision = decision_basis(SYSTEM_DATA_AUTHORITY)
         return {
             "role": self.ROLE,
             "scope": "all-data-body-functions",
@@ -167,7 +160,7 @@ class DataSubSovereign:
                 "running": self._supervision_task is not None and not self._supervision_task.done(),
                 "interval_seconds": self._supervision_interval_seconds,
             },
-            "decision": decision_basis(DATA_DECISION_AREA),
+            "decision": decision_basis(SYSTEM_DATA_AUTHORITY),
             "started_at": self._started_at,
             "stopped_at": self._stopped_at,
         }
@@ -181,7 +174,7 @@ class DataSubSovereign:
             "delegation": "governed-executor-only",
             "integrity_ready": self._integrity_ready(),
             "data_directory_report": self._data_directory_report(),
-            "decision": decision_basis(DATA_DECISION_AREA),
+            "decision": decision_basis(SYSTEM_DATA_AUTHORITY),
         }
 
     # ------------------------------------------------------------------
@@ -233,7 +226,7 @@ class DataSubSovereign:
             "integrity_ready": integrity_ready,
             "pending_recovery": recovery,
             "repair_service": self._repair_service is not None,
-            "decision": decision_basis(DATA_DECISION_AREA)["edicts"],
+            "decision": decision_basis(SYSTEM_DATA_AUTHORITY)["edicts"],
         }
 
     def _data_directory_status(self) -> dict[str, Any]:
@@ -255,13 +248,14 @@ class DataSubSovereign:
         return bool(report and report.get("enabled"))
 
     def _data_directory_report(self) -> dict[str, Any]:
-        checker = self._data_health_checker
-        if not callable(checker):
-            return {}
-        try:
-            return checker(getattr(self.app, "project_root", None))
-        except Exception:
-            return {"error": "data-health-checker-unavailable"}
+        root = Path(getattr(self.app, "project_root", ".") or ".").resolve()
+        checks = {
+            "shared_layer": (root / "shared-layer").is_dir(),
+            "central_index": (
+                root / "shared-layer" / "sql" / "central_index.sql"
+            ).is_file(),
+        }
+        return {"ok": all(checks.values()), "checks": checks, "owner": self.ROLE}
 
     # ------------------------------------------------------------------
     # Internals
@@ -283,7 +277,5 @@ def _suppress(*exceptions: type[BaseException]) -> Any:
 
 
 __all__ = [
-    "DATA_DECISION_AREA",
-    "DATA_SOVEREIGN_ROLE",
     "DataSubSovereign",
 ]

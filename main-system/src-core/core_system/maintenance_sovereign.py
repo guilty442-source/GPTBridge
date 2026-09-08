@@ -60,7 +60,7 @@ class MaintenanceSovereign:
       - (plus periodic/resource maintenance delegated to governed executors)
     """
 
-    ROLE = "maintenance-sovereign"
+    ROLE = _MAINTENANCE_SOVEREIGN.id
 
     def __init__(self, app: Any) -> None:
         self.app = app
@@ -189,7 +189,7 @@ class MaintenanceSovereign:
                 "interval_seconds": self._capability_interval_seconds,
             },
             "native": resource_status(),
-            "decision": decision_basis("maintenance"),
+            "decision": decision_basis(_MAINTENANCE_SOVEREIGN.area),
             "started_at": self._started_at,
             "stopped_at": self._stopped_at,
         }
@@ -208,7 +208,7 @@ class MaintenanceSovereign:
             "main_system_self_maintenance": self._main_system_self_maintenance_status(),
             "delegation": "governed-executor-only",
             "native_kernel": native_available(),
-            "decision": decision_basis("maintenance"),
+            "decision": decision_basis(_MAINTENANCE_SOVEREIGN.area),
         }
 
     # ------------------------------------------------------------------
@@ -230,6 +230,7 @@ class MaintenanceSovereign:
                 report = checker(getattr(self.app, "project_root", None))
             except Exception:
                 report = {"error": "health-checker-unavailable"}
+        self.app.health_snapshot = report
 
         governance = getattr(self.app, "governance", None)
         integrity_ready: bool | None = None
@@ -238,6 +239,7 @@ class MaintenanceSovereign:
                 integrity_ready = bool(governance.runtime_integrity_ready())
             except Exception:
                 integrity_ready = None
+        self.app.governance_integrity_ready = integrity_ready
 
         return {
             "monitoring": "system-health",
@@ -245,7 +247,7 @@ class MaintenanceSovereign:
             "report": report,
             "capability_check": self._capability_status(),
             "governance_integrity_ready": integrity_ready,
-            "decision": decision_basis("maintenance")["edicts"],
+            "decision": decision_basis(_MAINTENANCE_SOVEREIGN.area)["edicts"],
         }
 
     # ------------------------------------------------------------------
@@ -257,14 +259,42 @@ class MaintenanceSovereign:
 
         hot_update = self._hot_update or getattr(self.app, "hot_update_service", None)
         if hot_update is None:
-            return {"duty": "update", "enabled": False}
+            return {"duty": "update-management", "owner": self.ROLE, "enabled": False}
         get_status = getattr(hot_update, "status", None)
         if callable(get_status):
             try:
-                return {"duty": "update", **get_status()}
+                return {"duty": "update-management", "owner": self.ROLE, **get_status()}
             except Exception:
-                return {"duty": "update", "available": True}
-        return {"duty": "update", "available": True}
+                return {"duty": "update-management", "owner": self.ROLE, "available": True}
+        return {"duty": "update-management", "owner": self.ROLE, "available": True}
+
+    def _third_party_update_executor(self) -> Any:
+        system_sovereign = getattr(self.app, "system_sovereign_service", None)
+        if system_sovereign is None:
+            return None
+        return getattr(system_sovereign, "third_party_sovereign", None)
+
+    async def execute_third_party_update(
+        self, tool_id: str, *, approval_token: str | None = None
+    ) -> Any:
+        """Manage one update and delegate only its execution."""
+        executor = self._third_party_update_executor()
+        if executor is None:
+            raise RuntimeError("third-party update executor unavailable")
+        return await executor.apply_approved_update(
+            tool_id, approval_token=approval_token
+        )
+
+    async def execute_auto_third_party_updates(
+        self, *, approval_token: str, only_available: bool = True
+    ) -> dict[str, Any]:
+        """Manage approved automatic updates and delegate their execution."""
+        executor = self._third_party_update_executor()
+        if executor is None:
+            raise RuntimeError("third-party update executor unavailable")
+        return await executor.apply_approved_auto_updates(
+            approval_token=approval_token, only_available=only_available
+        )
 
     def _automatic_repair_status(self) -> dict[str, Any]:
         """Automatic-repair duty — coordinates the governed repair service."""
@@ -291,7 +321,7 @@ class MaintenanceSovereign:
         return {
             "duty": "fault-determination",
             "enabled": repair is not None,
-            "decision": decision_basis("maintenance")["edicts"],
+            "decision": decision_basis(_MAINTENANCE_SOVEREIGN.area)["edicts"],
         }
 
     def _backup_status(self) -> dict[str, Any]:

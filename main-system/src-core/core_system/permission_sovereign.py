@@ -28,15 +28,19 @@ from __future__ import annotations
 from typing import Any
 
 from governance_rule.code_rule_directory import code_rule_directory_snapshot
+from governance_rule.codex import GOVERNANCE_CODEX
 from governance_rule.permission_directory.registries.permissions.identity_groups import (
     identity_group_snapshot,
 )
 
 from .codex_decision import decision_basis
 
-PERMISSION_SOVEREIGN_ROLE = "permission-sovereign"
-
-PERMISSION_DECISION_AREA = "permission"
+_PERMISSION_SOVEREIGN = next(
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "permission"),
+    None,
+)
+if _PERMISSION_SOVEREIGN is None:
+    raise RuntimeError("permission sovereign not found in Governance Codex")
 
 
 class PermissionSovereign:
@@ -52,7 +56,7 @@ class PermissionSovereign:
     basis.
     """
 
-    ROLE = PERMISSION_SOVEREIGN_ROLE
+    ROLE = _PERMISSION_SOVEREIGN.id
 
     def __init__(self, app: Any, *, governance: Any = None) -> None:
         self.app = app
@@ -66,7 +70,7 @@ class PermissionSovereign:
         """Snapshot of the permission sovereign (owner of permission matters)."""
 
         directory = code_rule_directory_snapshot()
-        decision = decision_basis(PERMISSION_DECISION_AREA)
+        decision = decision_basis(_PERMISSION_SOVEREIGN.area)
 
         return {
             "role": self.ROLE,
@@ -135,7 +139,7 @@ class PermissionSovereign:
             "supervision": True,
             "decision_source": "governance-codex",
             "delegation": "governed-executor-only",
-            "decision": decision_basis(PERMISSION_DECISION_AREA),
+            "decision": decision_basis(_PERMISSION_SOVEREIGN.area),
         }
 
     # ------------------------------------------------------------------
@@ -175,7 +179,7 @@ class PermissionSovereign:
         PermissionError if not delegable.
         """
 
-        decision = decision_basis(PERMISSION_DECISION_AREA)
+        decision = decision_basis(_PERMISSION_SOVEREIGN.area)
         governance = self._governance()
         if governance is None or not hasattr(governance, "authorize"):
             from governance_rule.permission_directory.execution.path_guard import permission_denied
@@ -198,7 +202,7 @@ class PermissionSovereign:
         directory-driven adjudication to the governed executor.
         """
 
-        decision_basis(PERMISSION_DECISION_AREA)
+        decision_basis(_PERMISSION_SOVEREIGN.area)
         governance = self._governance()
         if governance is None or not hasattr(governance, "authorize_tool_lifecycle"):
             from governance_rule.permission_directory.execution.path_guard import permission_denied
@@ -209,7 +213,7 @@ class PermissionSovereign:
     def can_start_tool(self, tool_id: str) -> bool:
         """Master-entry: can a tool start (permission capability gate)."""
 
-        decision_basis(PERMISSION_DECISION_AREA)
+        decision_basis(_PERMISSION_SOVEREIGN.area)
         governance = self._governance()
         if governance is None or not hasattr(governance, "can_start_tool"):
             return False
@@ -244,7 +248,7 @@ class PermissionSovereign:
         directory-driven bootstrap minting to the governed executor.
         """
 
-        decision_basis(PERMISSION_DECISION_AREA)
+        decision_basis(_PERMISSION_SOVEREIGN.area)
         governance = self._governance()
         if governance is None or not hasattr(
             governance, "create_tool_governance_bootstrap"
@@ -266,7 +270,7 @@ class PermissionSovereign:
         directory-driven adjudication to the governed executor.
         """
 
-        decision_basis(PERMISSION_DECISION_AREA)
+        decision_basis(_PERMISSION_SOVEREIGN.area)
         governance = self._governance()
         if governance is None or not hasattr(
             governance, "submit_tool_execution_request"
@@ -287,7 +291,7 @@ class PermissionSovereign:
         directory-driven adjudication to the governed executor.
         """
 
-        decision_basis(PERMISSION_DECISION_AREA)
+        decision_basis(_PERMISSION_SOVEREIGN.area)
         governance = self._governance()
         if governance is None or not hasattr(
             governance, "cancel_tool_execution_request"
@@ -308,7 +312,7 @@ class PermissionSovereign:
         directory-driven adjudication to the governed executor.
         """
 
-        decision_basis(PERMISSION_DECISION_AREA)
+        decision_basis(_PERMISSION_SOVEREIGN.area)
         governance = self._governance()
         if governance is None or not hasattr(governance, "tool_execution_response"):
             from governance_rule.permission_directory.execution.path_guard import permission_denied
@@ -336,8 +340,8 @@ class PermissionSovereign:
                 "cancel_tool_execution_request",
                 "tool_execution_response",
             ],
-            "decision": decision_basis(PERMISSION_DECISION_AREA),
+            "decision": decision_basis(_PERMISSION_SOVEREIGN.area),
         }
 
 
-__all__ = ["PERMISSION_DECISION_AREA", "PERMISSION_SOVEREIGN_ROLE", "PermissionSovereign"]
+__all__ = ["PermissionSovereign"]
