@@ -1842,6 +1842,9 @@ def test_star_business_service_and_local_model_platform_roles_are_separate() -> 
         "sql-central-management",
         "rag-central-management",
         "git-central-management",
+        "investment-computation-service",
+        "investment-statistics-service",
+        "investment-network-search-service",
     ]
     assert "governance-authority-snapshot" in manifest["permissions"]["allow_read"]
     assert "permission-directory-snapshot" in manifest["permissions"]["allow_read"]
@@ -1956,7 +1959,7 @@ def test_transformer_runtime_uses_governed_local_chat_api() -> None:
 
     result = runtime.generate(
         prompt="請介紹你自己",
-        intent="capabilities",
+        intent="conversation",
         model_role="daily-primary",
         output={"response": "我是星澄。", "evidence": []},
         max_tokens=256,
@@ -1976,9 +1979,9 @@ def test_transformer_runtime_uses_governed_local_chat_api() -> None:
     assert chat[2]["stream"] is False
     assert chat[2]["think"] is False
     assert chat[2]["keep_alive"] == -1
-    assert chat[2]["options"]["num_ctx"] == 8_192
+    assert chat[2]["options"]["num_ctx"] == 2_048
     assert "優先使用繁體中文" in chat[2]["messages"][0]["content"]
-    assert result["residency"] == "resident"
+    assert result["residency"] == "non-resident"
 
 
 def test_user_selected_model_uses_timeout_below_star_chat_outer_deadline() -> None:
@@ -2019,12 +2022,12 @@ def test_official_generation_defaults_are_not_overridden() -> None:
     assert result["ok"] is True
     assert set(chat[2]["options"]) == {"num_ctx", "num_predict"}
     assert chat[2]["options"]["num_predict"] == 4_096
-    assert chat[2]["keep_alive"] == -1
-    assert result["parameter_profile"]["context_limit"] == 32_768
+    assert chat[2]["keep_alive"] == 0
+    assert result["parameter_profile"]["context_limit"] == 153_600
 
 
 def test_commander_stays_resident_and_uses_low_load_daily_profile() -> None:
-    selected = "qwen3.8:27b-q4_K_M"
+    selected = "qwen3.5:9b-q4_K_M"
     transport = FakeOllamaTransport(models=[{"name": selected}])
     runtime = StarTransformerRuntime(enabled=True, transport=transport)
 
@@ -2045,10 +2048,10 @@ def test_commander_stays_resident_and_uses_low_load_daily_profile() -> None:
     assert runtime.KNOWN_MODEL_METADATA[selected]["residency"] == "resident"
     assert runtime.KNOWN_MODEL_METADATA[runtime.MODEL]["residency"] == "non-resident"
     assert runtime.COMMANDER_MAX_PARALLEL == 1
-    assert chat[2]["keep_alive"] == -1
+    assert chat[2]["keep_alive"] == "5m"
     assert chat[2]["options"]["num_ctx"] == 8_192
-    assert chat[2]["options"]["num_predict"] == 1_536
-    assert chat[2]["think"] is True
+    assert chat[2]["options"]["num_predict"] == 1_024
+    assert chat[2]["think"] is False
 
 
 def test_model_profile_and_explicit_overrides_are_merged_at_request_time() -> None:
@@ -2074,7 +2077,7 @@ def test_model_profile_and_explicit_overrides_are_merged_at_request_time() -> No
     assert chat[2]["options"]["top_k"] == 20
     assert chat[2]["options"]["repeat_penalty"] == 1.05
     assert chat[2]["options"]["num_predict"] == 8_192
-    assert result["parameter_profile"]["context_limit"] == 65_536
+    assert result["parameter_profile"]["context_limit"] == 153_600
 
 
 def test_failed_dynamic_mode_retries_once_with_immutable_base_defaults() -> None:
@@ -2112,7 +2115,7 @@ def test_failed_dynamic_mode_retries_once_with_immutable_base_defaults() -> None
     assert result["ok"] is True
     assert len(chats) == 2
     assert chats[0][2]["options"]["num_predict"] == 4_096
-    assert chats[1][2]["options"]["num_predict"] == 1_024
+    assert chats[1][2]["options"]["num_predict"] == 4_096
     assert result["parameter_profile"]["source"] == "immutable-base-defaults"
     assert result["temporary_parameter_adjudication"] == {
         "advisor_model": "qwen3.8:27b-q4_K_M",
@@ -2127,7 +2130,10 @@ def test_failed_dynamic_mode_retries_once_with_immutable_base_defaults() -> None
 def test_transformer_runtime_rejects_unsupported_strict_facts() -> None:
     runtime = StarTransformerRuntime(
         enabled=True,
-        transport=FakeOllamaTransport("建議投入NT$999,999。"),
+        transport=FakeOllamaTransport(
+            "建議投入NT$999,999。",
+            models=[{"name": "deepseek-r1:14b"}],
+        ),
     )
 
     result = runtime.generate(
@@ -2169,7 +2175,7 @@ def test_transformer_runtime_lists_and_uses_an_installed_alternate_model() -> No
     assert result["model_selected_by_user"] is True
     chat = next(call for call in transport.calls if call[1].endswith("/api/chat"))
     assert chat[2]["model"] == alternate
-    assert chat[2]["keep_alive"] == 0
+    assert chat[2]["keep_alive"] == "5m"
     assert result["residency"] == "non-resident"
 
 
@@ -2191,7 +2197,7 @@ def test_embedding_model_is_isolated_from_chat_selection() -> None:
     assert len(vectors) == 2
     assert all(len(vector) == 2 for vector in vectors)
     embed_call = next(call for call in transport.calls if call[1].endswith("/api/embed"))
-    assert embed_call[2]["keep_alive"] == -1
+    assert embed_call[2]["keep_alive"] == "10m"
 
 
 def test_lightweight_and_fast_coding_models_have_governed_roles() -> None:
@@ -2212,18 +2218,18 @@ def test_lightweight_and_fast_coding_models_have_governed_roles() -> None:
     }
 
     assert catalog["nemotron-3-nano:4b"]["usage_class"] == (
-        "lightweight-tool-reasoning-and-fast-fallback"
+        "lightweight-tool-reasoning"
     )
     assert catalog["nemotron-3-nano:4b"]["context_window"] == 262_144
     assert catalog["qwen2.5-coder:7b"]["usage_class"] == (
-        "fast-coding-and-command-execution-fallback"
+        "fast-coding-and-command-execution"
     )
     assert catalog["qwen2.5-coder:7b"]["context_window"] == 32_768
     assert runtime.preferred_model_for_intent("command_understanding", "low") == (
-        "qwen3.5:9b-q4_K_M"
+        "qwen3.8:27b-q4_K_M"
     )
     assert runtime.preferred_model_for_intent("coding", "low") == (
-        "qwen2.5-coder:7b"
+        "granite-code:3b"
     )
     assert runtime.preferred_model_for_intent("coding", "medium") == (
         "qwen3.6:35b-a3b-coding"
@@ -2247,10 +2253,10 @@ def test_transformer_runtime_rejects_uninstalled_model_without_inference() -> No
     assert not any(call[1].endswith("/api/chat") for call in transport.calls)
 
 
-def test_automatic_search_routing_uses_installed_gemma() -> None:
-    gemma = "gemma4:e2b-it-qat"
+def test_automatic_search_routing_uses_installed_search_model() -> None:
+    search_model = "mistral-small:24b"
     transport = FakeOllamaTransport(
-        models=[{"name": StarTransformerRuntime.MODEL}, {"name": gemma}]
+        models=[{"name": StarTransformerRuntime.MODEL}, {"name": search_model}]
     )
     runtime = StarTransformerRuntime(enabled=True, transport=transport)
 
@@ -2262,7 +2268,7 @@ def test_automatic_search_routing_uses_installed_gemma() -> None:
     )
 
     assert result["ok"] is True
-    assert result["model"] == gemma
+    assert result["model"] == search_model
     assert result["model_selected_by_user"] is False
 
 

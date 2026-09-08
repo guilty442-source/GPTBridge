@@ -28,15 +28,35 @@ $vcvarsCandidates = @(
     "$env:ProgramFiles\Microsoft Visual Studio\17\Community\VC\Auxiliary\Build\vcvars64.bat"
 )
 $vcvars = $vcvarsCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-if (-not $vcvars) {
-    throw "MSVC vcvars64.bat was not found."
-}
 
 $BuiltExe = Join-Path $InstallBin "GPTBridgeLauncher.build.exe"
-$clCommand = "call `"$vcvars`" >nul && cl /nologo /O2 /EHsc /utf-8 /D UNICODE /D _UNICODE /Fe:`"$BuiltExe`" `"$SourceFile`" /link /SUBSYSTEM:WINDOWS user32.lib"
-& cmd.exe /c $clCommand
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $BuiltExe)) {
-    throw "Launcher EXE compilation failed."
+if ($vcvars) {
+    $clCommand = "call `"$vcvars`" >nul && cl /nologo /O2 /EHsc /utf-8 /D UNICODE /D _UNICODE /Fe:`"$BuiltExe`" `"$SourceFile`" /link /SUBSYSTEM:WINDOWS user32.lib"
+    & cmd.exe /c $clCommand
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $BuiltExe)) {
+        throw "Launcher EXE compilation failed."
+    }
+} else {
+    # Fallback toolchain: .NET Framework csc.exe compiles the C# port
+    # (GPTBridgeLauncher.cs) with identical hidden-launch behaviour.
+    $CSharpSourceFile = Join-Path $LauncherRoot "src\GPTBridgeLauncher.cs"
+    if (-not (Test-Path -LiteralPath $CSharpSourceFile)) {
+        throw "MSVC vcvars64.bat was not found and C# fallback source is missing: $CSharpSourceFile"
+    }
+    $csc = Join-Path "$env:SystemRoot\Microsoft.NET\Framework64\v4.0.30319" "csc.exe"
+    if (-not (Test-Path -LiteralPath $csc)) {
+        $csc = (Get-Command csc.exe -ErrorAction SilentlyContinue).Source
+    }
+    if (-not $csc) {
+        throw "No compiler available: MSVC vcvars64.bat and csc.exe were both not found."
+    }
+    & $csc /nologo /target:winexe /platform:anycpu /utf8output `
+        "/out:$BuiltExe" `
+        "/r:System.dll" "/r:System.Windows.Forms.dll" `
+        $CSharpSourceFile
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $BuiltExe)) {
+        throw "Launcher EXE compilation failed."
+    }
 }
 Move-Item -LiteralPath $BuiltExe -Destination $InstalledExe -Force
 

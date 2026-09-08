@@ -647,6 +647,7 @@ class ToolboxService:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             env=environment,
+            **_background_subprocess_kwargs(),
         )
         self._source_ui_processes[tool_id] = process
         self._source_ui_runtime_sessions[tool_id] = session_fingerprint
@@ -1500,6 +1501,7 @@ class ToolboxService:
                     tool_dir,
                     manifest,
                 ),
+                **_background_subprocess_kwargs(),
             )
         except Exception as exc:
             return {
@@ -2072,6 +2074,7 @@ class ToolboxService:
                         manifest,
                         start_hidden=background,
                     ),
+                    **_background_subprocess_kwargs(),
                 )
         except Exception as exc:
             await self._release_tool_process(request_id)

@@ -258,6 +258,8 @@ type WorkbookSheetScan = {
   usable?: boolean
 }
 
+export type { WorkbookSheetScan }
+
 export type WorkbookScanSummary = {
   sheet_count?: number
   selected_sheet?: WorkbookSheetScan | null
@@ -977,8 +979,14 @@ function investmentDiagnosticsFromResult(
 }
 
 export async function openInvestmentFile(): Promise<string> {
-  if (window.gptBridge?.openFile) return await window.gptBridge.openFile()
-  const result = await window.electron?.invoke('dialog:open-file')
+  const bridge = (window as any).gptBridge as
+    | { openFile?: () => Promise<string> }
+    | undefined
+  if (bridge?.openFile) return await bridge.openFile()
+  const electron = (window as any).electron as
+    | { invoke?: (channel: string, ...args: unknown[]) => Promise<unknown> }
+    | undefined
+  const result = await electron?.invoke?.('dialog:open-file')
   if (typeof result === 'string') return result
   const payload = result as { filePaths?: unknown } | undefined
   if (

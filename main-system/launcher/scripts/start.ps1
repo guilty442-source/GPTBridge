@@ -57,6 +57,48 @@ function Show-LauncherError {
     }
 }
 
+function ConvertTo-ProcessArguments {
+    param([string[]]$Arguments)
+    return (($Arguments | ForEach-Object {
+        if ($_ -match '[\s"&|<>^]') {
+            '"' + ($_ -replace '(\\*)"', '$1$1\"') + '"'
+        } else {
+            $_
+        }
+    }) -join ' ')
+}
+
+function New-HiddenProcessStartInfo {
+    param(
+        [string]$FilePath,
+        [string[]]$Arguments,
+        [string]$WorkingDirectory
+    )
+
+    # CreateNoWindow (CREATE_NO_WINDOW) prevents conhost from allocating a
+    # console window at all.  Start-Process -WindowStyle Hidden only passes
+    # SW_HIDE, which still lets a black console window flash briefly for
+    # console-subsystem targets such as python.exe or .cmd shims (cmd.exe).
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.WorkingDirectory = $WorkingDirectory
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+    if ($FilePath -match '\.(cmd|bat)$') {
+        # CreateProcess cannot execute batch files directly; run them through
+        # cmd.exe with the quoting form required by /c.
+        $inner = ((ConvertTo-ProcessArguments @($FilePath)) + ' ' +
+            (ConvertTo-ProcessArguments $Arguments)).Trim()
+        $startInfo.FileName = Join-Path $env:SystemRoot 'System32\cmd.exe'
+        $startInfo.Arguments = '/d /s /c "' + $inner + '"'
+    } else {
+        $startInfo.FileName = $FilePath
+        $startInfo.Arguments = ConvertTo-ProcessArguments $Arguments
+    }
+    return $startInfo
+}
+
 function Invoke-LauncherCommand {
     param(
         [string]$FilePath,
@@ -65,13 +107,10 @@ function Invoke-LauncherCommand {
     )
 
     Write-LauncherStatus "Run: $FilePath $($Arguments -join ' ')"
-    $process = Start-Process `
-        -FilePath $FilePath `
-        -ArgumentList $Arguments `
-        -WorkingDirectory $WorkingDirectory `
-        -WindowStyle Hidden `
-        -Wait `
-        -PassThru
+    $startInfo = New-HiddenProcessStartInfo `
+        -FilePath $FilePath -Arguments $Arguments -WorkingDirectory $WorkingDirectory
+    $process = [System.Diagnostics.Process]::Start($startInfo)
+    $process.WaitForExit()
     if ($process.ExitCode -ne 0) {
         throw "Command failed with exit code $($process.ExitCode): $FilePath"
     }
@@ -91,15 +130,18 @@ function Invoke-DependencyOrchestrator {
     Remove-Item -LiteralPath $tempOut -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $tempErr -Force -ErrorAction SilentlyContinue
 
-    $process = Start-Process `
+    $startInfo = New-HiddenProcessStartInfo `
         -FilePath $PythonExecutable `
-        -ArgumentList @($OrchestratorPath) `
-        -WorkingDirectory $WorkingDirectory `
-        -WindowStyle Hidden `
-        -Wait `
-        -PassThru `
-        -RedirectStandardOutput $tempOut `
-        -RedirectStandardError $tempErr
+        -Arguments @($OrchestratorPath) `
+        -WorkingDirectory $WorkingDirectory
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $process = [System.Diagnostics.Process]::Start($startInfo)
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $process.WaitForExit()
+    Set-Content -LiteralPath $tempOut -Value $stdoutTask.Result -Encoding UTF8
+    Set-Content -LiteralPath $tempErr -Value $stderrTask.Result -Encoding UTF8
 
     $report = $null
     if (Test-Path -LiteralPath $tempOut) {
