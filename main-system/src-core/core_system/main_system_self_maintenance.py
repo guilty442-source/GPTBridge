@@ -134,7 +134,16 @@ class MainSystemSelfMaintenance:
 
     async def _run_all_duties(self) -> dict[str, Any]:
         started_at = _iso_now()
-        source_report = await self._duty_source_self_repair()
+        # Source self-repair is disabled by default.  Automatic write-back of
+        # source files was mutating user changes before they could be reviewed
+        # and committed, so the repair surface is now manual-only (CLI or
+        # explicit IPC trigger) and this service only verifies integrity.
+        source_report = {
+            "ok": True,
+            "duty": "source-self-repair",
+            "skipped": True,
+            "reason": "AUTOMATIC_SOURCE_REPAIR_DISABLED",
+        }
         integrity_report = await self._duty_integrity_verify()
         ok = all(
             bool(item.get("ok"))
