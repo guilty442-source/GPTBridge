@@ -3790,7 +3790,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 from xingcheng.application.local_rag import LocalRagService
-from xingcheng.infrastructure.local_vector_store import LocalVectorStore
+from xingcheng.infrastructure.vector_store import LocalVectorStore
 
 
 class FakeRuntime:

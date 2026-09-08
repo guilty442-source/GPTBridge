@@ -11,7 +11,7 @@ from typing import Any
 
 
 class DailyGlobalCleanerService:
-    """Main-owned daily trigger; execution remains with governed Global Cleaner."""
+    """Maintenance-owned daily trigger for the governed Global Cleaner."""
 
     INTERVAL_SECONDS = 24 * 60 * 60
     FAILURE_RETRY_SECONDS = 15 * 60
@@ -43,10 +43,7 @@ class DailyGlobalCleanerService:
         return datetime.now(timezone.utc).isoformat()
 
     def _permission_master_entry(self) -> Any:
-        sovereign_service = getattr(self.app, "system_sovereign_service", None)
-        if sovereign_service is None:
-            return None
-        return getattr(sovereign_service, "permission_sovereign", None)
+        return getattr(self.app, "permission_sovereign", None)
 
     def _load_state(self) -> dict[str, Any]:
         try:
@@ -85,7 +82,7 @@ class DailyGlobalCleanerService:
         state = self._load_state()
         return {
             "enabled": True,
-            "owner": "main-system",
+            "owner": "maintenance-sovereign",
             "executor": "global-cleaner",
             "channel": "governance-authenticated-shared-layer",
             "interval_hours": 24,

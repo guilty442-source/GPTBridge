@@ -187,36 +187,37 @@ class DataSubSovereign:
                 recovery = self._task_queue.pending_recovery() or []
             except Exception:
                 recovery = []
-        maintenance = getattr(self.app, "maintenance_sovereign", None)
-        repair_service = getattr(maintenance, "_repair_service", None) if maintenance is not None else None
+        executors = self._maintenance_executor_status()
         return {
             "duty": "consistency-integrity",
             "integrity_ready": integrity_ready,
             "pending_recovery": recovery,
-            "repair_service": repair_service is not None,
+            "repair_delegated": bool(executors.get("central_repair")),
+            "executor_owner": executors.get("owner", "maintenance-sovereign"),
             "decision": decision_basis(SYSTEM_DATA_AUTHORITY)["edicts"],
         }
 
     def _data_directory_status(self) -> dict[str, Any]:
+        executors = self._maintenance_executor_status()
         return {
             "duty": "data-directory",
-            "cleaner_enabled": self._cleaner_status(),
+            "cleanup_delegated": bool(executors.get("daily_global_cleaner")),
+            "executor_owner": executors.get("owner", "maintenance-sovereign"),
             "health_report": self._data_directory_report(),
             "delegation": "governed-executor-only",
         }
 
-    def _cleaner_status(self) -> bool:
+    def _maintenance_executor_status(self) -> dict[str, Any]:
         maintenance = getattr(self.app, "maintenance_sovereign", None)
         if maintenance is None:
-            return False
-        status = getattr(maintenance, "_daily_cleaner_status", None)
+            return {}
+        status = getattr(maintenance, "executor_ownership_status", None)
         if not callable(status):
-            return False
+            return {}
         try:
-            report = status()
+            return status()
         except Exception:
-            return False
-        return bool(report and report.get("enabled"))
+            return {}
 
     def _data_directory_report(self) -> dict[str, Any]:
         checker = self._data_health_checker

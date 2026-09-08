@@ -14,7 +14,7 @@ from typing import Any, Iterable
 from xml.etree import ElementTree
 
 from ..infrastructure.local_sqlite_rag_repository import LocalSqliteRagRepository
-from ..infrastructure.local_vector_store import LocalVectorStore
+from ..infrastructure.vector_store import LocalVectorStore
 from ..infrastructure.qwen_reranker import QwenReranker
 from shared_layer.resource_identity import (
     PLATFORM_ID,

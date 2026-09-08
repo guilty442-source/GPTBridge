@@ -254,15 +254,25 @@ class ThirdPartyManager:
 
         info.path = executable
         try:
-            result = subprocess.run(
-                [command, *args],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=10,
-                **_background_subprocess_kwargs(),
-            )
+            if tool_id == "git":
+                from governance_rule.execution.git_tiers.git_repository import (
+                    GitRepository,
+                )
+
+                result = GitRepository(Path.cwd()).run(
+                    args,
+                    actor="system-third-party-sub-sovereign/version-probe",
+                )
+            else:
+                result = subprocess.run(
+                    [command, *args],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=10,
+                    **_background_subprocess_kwargs(),
+                )
             output = (result.stdout or "") + (result.stderr or "")
             match = re.search(version_regex, output)
             if match:

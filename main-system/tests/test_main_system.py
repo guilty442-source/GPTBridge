@@ -726,10 +726,16 @@ class TestVersionProbe:
     def test_probe_version_success(self, inventory_file: Path) -> None:
         manager = ThirdPartyManager(inventory_file)
         with patch("shutil.which", return_value="/usr/bin/git"):
-            with patch("subprocess.run") as mock_run:
+            with patch(
+                "governance_rule.execution.git_tiers.git_repository.GitRepository.run"
+            ) as mock_run:
                 mock_run.return_value.stdout = "git version 2.45.0\n"
                 mock_run.return_value.stderr = ""
                 info = manager.probe_version("git")
+                mock_run.assert_called_once_with(
+                    ["--version"],
+                    actor="system-third-party-sub-sovereign/version-probe",
+                )
         assert info.detected is True
         assert info.detected_version == "2.45.0"
         assert info.error == ""
@@ -750,7 +756,9 @@ class TestVersionProbe:
     def test_probe_version_pattern_not_found(self, inventory_file: Path) -> None:
         manager = ThirdPartyManager(inventory_file)
         with patch("shutil.which", return_value="/usr/bin/git"):
-            with patch("subprocess.run") as mock_run:
+            with patch(
+                "governance_rule.execution.git_tiers.git_repository.GitRepository.run"
+            ) as mock_run:
                 mock_run.return_value.stdout = "unexpected output\n"
                 mock_run.return_value.stderr = ""
                 info = manager.probe_version("git")
@@ -3349,4 +3357,3 @@ def _evaluate_probe(probe: ContractProbe) -> bool:
 @pytest.mark.parametrize("probe", CASES, ids=lambda probe: probe.test_id)
 def test_project_governance_contract_per_tool_matrix(probe: ContractProbe) -> None:
     assert _evaluate_probe(probe) is probe.expected
-

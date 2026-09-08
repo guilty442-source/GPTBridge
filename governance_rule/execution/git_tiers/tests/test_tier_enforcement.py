@@ -29,6 +29,7 @@ class TestClassifyTier1:
     """Tier-1: read-only, high-frequency, direct execution."""
 
     @pytest.mark.parametrize("cmd", [
+        "git --version",
         "git status",
         "git log",
         "git diff",

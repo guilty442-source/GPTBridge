@@ -273,7 +273,7 @@ class XingchengOrchestrator:
 
     def _probe_vector(self) -> SubsystemHealth:
         try:
-            from ..infrastructure.local_vector_store import LocalVectorStore
+            from ..infrastructure.vector_store import LocalVectorStore
             store = LocalVectorStore(
                 self.tool_root / "runtime" / "state" / "local-rag-vectors.sqlite3"
             )

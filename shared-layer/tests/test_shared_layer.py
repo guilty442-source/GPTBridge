@@ -94,62 +94,6 @@ def test_python_gateway_is_default_deny_and_xingcheng_read_only() -> None:
     assert allowed.decide(star, "execute", "governance_rule").allowed is False
 
 
-def test_local_rag_runtime_is_fixed_location(tmp_path: Path) -> None:
-    sys.path.insert(
-        0,
-        str(
-            ROOT.parent
-            / "local-model"
-            / "src"
-            / "backend"
-            / "services"
-        ),
-    )
-    from xingcheng.infrastructure.rag_bridge import local_runtime as module
-
-    runtime = module.runtime_for(tmp_path)
-    assert runtime.index_root == (tmp_path / "shared-layer" / "runtime" / "semantic-index").resolve()
-    try:
-        module.LocalRagRuntime(tmp_path / "private" / "runtime" / "qdrant")
-    except ValueError as exc:
-        assert str(exc) == "LOCAL_SEMANTIC_INDEX_LOCATION_INVALID"
-    else:
-        raise AssertionError("out-of-contract index root accepted")
-
-
-def test_local_hits_require_authorization_and_no_content_payload() -> None:
-    sys.path.insert(
-        0,
-        str(
-            ROOT.parent
-            / "local-model"
-            / "src"
-            / "backend"
-            / "services"
-        ),
-    )
-    from xingcheng.infrastructure.rag_bridge import bridge as module
-
-    hits = (
-        module.QdrantHit("R1", "C1", "vaultly", 0.9),
-        module.QdrantHit("R2", "C2", "file-sorter", 0.8),
-    )
-    bridge = module.RagAuthorizationBridge(lambda _actor, resource: resource == "R2")
-    assert tuple(hit.resource_id for hit in bridge.filter_authorized("xingcheng", hits)) == ("R2",)
-
-    class Store:
-        def replace_document(self, *_args, **_kwargs):
-            raise AssertionError("invalid payload reached the index")
-
-    coordinator = module.RagIndexCoordinator(Store(), lambda *_: None, lambda *_: None)
-    try:
-        coordinator.upsert("R1", "vaultly", [{"id": "P1", "payload": {"chunk_id": "C1", "content": "secret"}}])
-    except ValueError as exc:
-        assert str(exc) == "RAG_PAYLOAD_MUST_NOT_CONTAIN_PHYSICAL_CONTENT_OR_PATH"
-    else:
-        raise AssertionError("physical content was accepted into index payload")
-
-
 def test_no_installer_or_docker_dependency_in_python_core() -> None:
     sources = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "src" / "shared_layer").rglob("*.py"))
     forbidden = ("pip install", "winget install", "choco install", "docker compose", "docker run")

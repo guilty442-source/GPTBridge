@@ -55,7 +55,7 @@ _EMPTY_HASH: Final[str] = "0" * 64
 #   all destructive or history-rewriting, consistent with TIER-3 spirit.
 
 TIER1_OPS: Final[frozenset[str]] = frozenset({
-    "status", "log", "diff", "show", "branch", "remote", "blame",
+    "--version", "status", "log", "diff", "show", "branch", "remote", "blame",
     "ls-files", "cat-file", "rev-parse", "describe", "tag -l",
     "for-each-ref", "stash list", "config --get", "config --list",
     "worktree list", "worktree list --porcelain", "worktree status",

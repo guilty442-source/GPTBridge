@@ -323,6 +323,14 @@ class MaintenanceSovereign:
             return get_status()
         return {"enabled": True}
 
+    def executor_ownership_status(self) -> dict[str, Any]:
+        """Expose executor availability without leaking executor references."""
+        return {
+            "owner": self.ROLE,
+            "daily_global_cleaner": self._daily_cleaner is not None,
+            "central_repair": self._repair_service is not None,
+        }
+
     def _module_cleanup_status(self) -> dict[str, Any]:
         """Unified oversight of devolved per-module self-cleanup.
 
