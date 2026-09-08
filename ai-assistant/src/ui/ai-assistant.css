@@ -1,3 +1,5 @@
+/* ===== App Shell & Base ===== */
+
 .nexus-app {
   min-height: 100vh;
   box-sizing: border-box;
@@ -10,6 +12,9 @@
 
 /* The Star workspace presents decisions first. Low-frequency diagnostics stay
    available through the System workspace and are not duplicated here. */
+
+/* ===== LEGACY — unused by current components — do not remove (kept for reference) ===== */
+
 .nexus-workbench--star .nexus-xingcheng-explanation,
 .nexus-workbench--star .nexus-quote-gaps,
 .nexus-workbench--star .nexus-xingcheng-actions,
@@ -111,6 +116,9 @@
   font-size: 11px;
 }
 
+
+/* ===== LEGACY — unused by current components — do not remove (kept for reference) ===== */
+
 .nexus-xingcheng-explanation {
   display: grid;
   gap: 5px;
@@ -183,6 +191,9 @@
   background: #fff8f7 !important;
 }
 
+
+/* ===== Topbar ===== */
+
 .nexus-topbar {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) auto;
@@ -238,6 +249,9 @@
   align-items: center;
 }
 
+
+/* ===== Workspace Nav ===== */
+
 .nexus-workspace-nav {
   display: grid;
   grid-template-columns: repeat(4, minmax(120px, 1fr));
@@ -259,6 +273,9 @@
   color: #ffffff;
   background: #256f5b;
 }
+
+
+/* ===== StatusStrip ===== */
 
 .nexus-status-strip {
   display: grid;
@@ -294,6 +311,9 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+
+/* ===== SystemWorkspace ===== */
 
 .nexus-diagnostics-panel {
   display: grid;
@@ -363,6 +383,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+
+/* ===== Workbench / Portfolio ===== */
 
 .nexus-workbench {
   display: grid;
@@ -444,6 +467,9 @@
   margin-bottom: 10px;
 }
 
+
+/* ===== LEGACY — unused by current components — do not remove (kept for reference) ===== */
+
 .nexus-section-head--button {
   align-items: start;
 }
@@ -453,6 +479,9 @@
   display: grid;
   gap: 3px;
 }
+
+
+/* ===== Toggle/Shared controls ===== */
 
 .nexus-toggle-button {
   min-height: 30px !important;
@@ -469,6 +498,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+
+/* ===== LEGACY — unused by current components — do not remove (kept for reference) ===== */
 
 .nexus-agent-summary {
   margin: 0;
@@ -578,6 +610,9 @@
   background: #ffe1df;
 }
 
+
+/* ===== HoldingTable ===== */
+
 .nexus-holding-table {
   display: grid;
   gap: 1px;
@@ -599,6 +634,9 @@
   gap: 6px;
   align-items: center;
 }
+
+
+/* ===== HoldingEditor ===== */
 
 .nexus-holding-editor {
   display: grid;
@@ -710,6 +748,9 @@
 .nexus-holding-editor-actions {
   justify-content: flex-end;
 }
+
+
+/* ===== StarAccountingPanel ===== */
 
 .nexus-accounting {
   display: grid;
@@ -832,6 +873,9 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+
+
+/* ===== Excel Mapping Editor ===== */
 
 .nexus-excel-mapper {
   display: grid;
@@ -1341,6 +1385,9 @@
   padding: 10px;
   background: #ffffff;
 }
+
+
+/* ===== LEGACY — unused by current components — do not remove (kept for reference) ===== */
 
 .nexus-composer textarea,
 .nexus-memory-input,
@@ -1921,6 +1968,9 @@
   color: #52606c;
   line-height: 1.45;
 }
+
+
+/* ===== Browser/Sidebar ===== */
 
 .investment-v2 {
   min-width: 0;
