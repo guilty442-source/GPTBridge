@@ -157,16 +157,25 @@ class BootCore:
     # child lifecycle
     # --------------------------------------------------------------
 
+    def _python_executable(self) -> str:
+        exe = Path(sys.executable).resolve()
+        if os.name == "nt":
+            pythonw = exe.with_name("pythonw.exe")
+            if pythonw.is_file():
+                return os.fspath(pythonw)
+        return os.fspath(exe)
+
     def _spawn_backend(self, args: list[str]) -> subprocess.Popen[bytes]:
         command = [
-            os.fspath(Path(sys.executable).resolve()),
+            self._python_executable(),
             "-u",
             "-B",
             os.fspath(self.backend_entry),
             *args,
         ]
-        creationflags = int(
-            getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0
+        creationflags = (
+            int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
+            | int(getattr(subprocess, "DETACHED_PROCESS", 0) or 0)
         )
         env = dict(os.environ)
         # Generate a fresh governance bootstrap token for each spawn so the

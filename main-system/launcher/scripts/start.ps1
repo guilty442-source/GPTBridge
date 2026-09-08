@@ -537,11 +537,11 @@ try {
 
     Write-LauncherStatus "Launching source-production Electron runtime."
     Write-StartupJournal -Event "launcher.phase.electron.start" @{}
-    $electronProcess = Start-Process `
+    $electronStartInfo = New-HiddenProcessStartInfo `
         -FilePath $electronExe `
-        -ArgumentList @($mainEntry) `
-        -WorkingDirectory $ProjectRoot `
-        -PassThru
+        -Arguments @($mainEntry) `
+        -WorkingDirectory $ProjectRoot
+    $electronProcess = [System.Diagnostics.Process]::Start($electronStartInfo)
     Start-Sleep -Milliseconds 800
 
     if ($electronProcess.HasExited) {

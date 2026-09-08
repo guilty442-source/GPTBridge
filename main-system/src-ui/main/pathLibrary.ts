@@ -135,8 +135,14 @@ export function getRuntimePathLibrary(): RuntimePathLibrary {
     toAbsolute(path.join(workspaceRoot, 'src-core', 'tasks', 'source_repair.py')),
   ]
 
-  const pythonExecutable =
+  let pythonExecutable =
     firstExisting(pythonExecutableCandidates) ?? pythonExecutableCandidates[0]
+  if (process.platform === 'win32' && pythonExecutable.toLowerCase().endsWith('python.exe')) {
+    const pythonw = pythonExecutable.replace(/\\python\.exe$/i, '\\pythonw.exe')
+    if (fs.existsSync(pythonw)) {
+      pythonExecutable = pythonw
+    }
+  }
   const pythonEntry = firstExisting(pythonEntryCandidates) ?? pythonEntryCandidates[0]
   const bootCoreEntry =
     firstExisting(bootCoreEntryCandidates) ?? pythonEntry
