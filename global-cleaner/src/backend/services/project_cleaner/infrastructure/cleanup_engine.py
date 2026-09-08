@@ -25,6 +25,12 @@ from urllib import request as urllib_request
 
 from .business_history import BusinessHistoryStore
 
+try:
+    from governance_rule.execution.git_tiers import audit_log, enforce
+except Exception:
+    audit_log = None
+    enforce = None
+
 
 SECONDS_PER_DAY = 24 * 60 * 60
 LEGACY_QUARANTINE_ROOT_NAME = ".GPTBridge_CleanerQuarantine"
@@ -1563,6 +1569,22 @@ class ProjectCleanupService:
             self._git_tracked_cache = set()
             self._git_status_cache = {"available": False, "repository": False, "error": ""}
             return self._git_tracked_cache, self._git_status_cache
+
+        command = "git ls-files -z"
+        actor = "global-cleaner"
+        if enforce is not None:
+            allowed, message = enforce(command, actor=actor)
+            if not allowed:
+                self._git_tracked_cache = set()
+                self._git_status_cache = {
+                    "available": False,
+                    "repository": True,
+                    "tracked_count": 0,
+                    "error": message,
+                    "audit": {"allowed": False, "message": message},
+                }
+                return self._git_tracked_cache, self._git_status_cache
+
         try:
             completed = subprocess.run(
                 ["git", "-C", str(self.project_root), "ls-files", "-z"],
@@ -1585,6 +1607,17 @@ class ProjectCleanupService:
                 "tracked_count": len(tracked),
                 "error": "",
             }
+            if audit_log is not None:
+                audit_log(
+                    1,
+                    command,
+                    actor,
+                    True,
+                    f"tier-1 direct execution; cwd={self.project_root}",
+                    phase="execution",
+                    result="success",
+                    returncode=completed.returncode,
+                )
         except (OSError, subprocess.SubprocessError) as exc:
             self._git_tracked_cache = set()
             self._git_status_cache = {
@@ -1593,6 +1626,17 @@ class ProjectCleanupService:
                 "tracked_count": 0,
                 "error": str(exc),
             }
+            if audit_log is not None:
+                audit_log(
+                    1,
+                    command,
+                    actor,
+                    True,
+                    f"execution failed: {exc}; cwd={self.project_root}",
+                    phase="execution",
+                    result="failure",
+                    returncode=None,
+                )
         return self._git_tracked_cache, self._git_status_cache
 
     def _git_protection_reason(self, path: Path, item_type: str) -> str:
