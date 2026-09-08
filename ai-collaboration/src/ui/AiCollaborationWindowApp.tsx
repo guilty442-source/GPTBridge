@@ -9,7 +9,10 @@ type Agent = {
   provider: string
   home_url: string
   general_url: string
+  investment_url: string
+  star_training_url: string
   general_enabled: number
+  investment_enabled: number
   business_capabilities: string[]
   enabled: number
   selected: number
@@ -408,7 +411,7 @@ export function AiCollaborationWindowApp() {
 
   const updateAgentSetting = (
     agentId: string,
-    field: 'general_url' | 'general_enabled',
+    field: 'general_url' | 'investment_url' | 'star_training_url' | 'general_enabled' | 'investment_enabled',
     value: string | number
   ) => {
     setAgents((current) =>
@@ -424,7 +427,10 @@ export function AiCollaborationWindowApp() {
       const result = (await request('ai_nexus_update_agent_business_settings', {
         agent_id: agent.agent_id,
         general_url: agent.general_url,
+        investment_url: agent.investment_url,
+        star_training_url: agent.star_training_url,
         general_enabled: Boolean(agent.general_enabled),
+        investment_enabled: Boolean(agent.investment_enabled),
         business_capabilities: agent.business_capabilities,
       })) as CollaborationState
       if (result.ok === false) throw new Error(String(result.message || '設定儲存失敗'))
