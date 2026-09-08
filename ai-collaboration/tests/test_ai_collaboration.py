@@ -1,5 +1,41 @@
+﻿"""ai-collaboration consolidated test suite (A57/E43)
+
+One managed test file per module, maintained by the
+maintenance sovereign for self-health (self-test collection).
+"""
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+for _p in (
+    str(_ROOT),
+    str(_ROOT / "shared-layer" / "src"),
+    str(_ROOT / "main-system" / "src-core"),
+    str(_ROOT / "main-system"),
+    str(_ROOT / "main-system" / "src" / "backend" / "services"),
+    str(_ROOT / "local-model" / "src" / "backend" / "services"),
+    str(_ROOT / "global-cleaner" / "src"),
+    str(_ROOT / "ai-assistant" / "src"),
+    str(_ROOT / "ai-assistant" / "src" / "backend" / "services"),
+    str(_ROOT / "ai-collaboration" / "src" / "backend" / "services"),
+    str(_ROOT / "file-sorter" / "src" / "backend" / "services"),
+    str(_ROOT / "investment-mobile" / "src" / "backend" / "services"),
+    str(_ROOT / "vaultly" / "src" / "backend" / "services"),
+):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+del _p
+
+
+# -- CONSOLIDATED TEST SUITE --
+
+########################################################################
+# source: restored_ai_collaboration.py
+########################################################################
 import asyncio
 import sys
 from pathlib import Path
@@ -97,11 +133,11 @@ class _FakeBrowserSession:
         self.sent_agents.append(dict(agent))
         self.sent_providers.append(str(agent["provider"]))
         if agent["provider"] == "gemini":
-            assert "Gemini 支援的 Google" in prompt
-            return {"status": "completed", "content": "Gemini 已整理", "error": ""}
+            assert "Gemini ?舀??Google" in prompt
+            return {"status": "completed", "content": "Gemini 撌脫??, "error": ""}
         assert agent["provider"] == "chatgpt"
-        assert "最終統籌" in prompt
-        return {"status": "completed", "content": "ChatGPT 最終統籌", "error": ""}
+        assert "?蝯絞蝐? in prompt
+        return {"status": "completed", "content": "ChatGPT ?蝯絞蝐?, "error": ""}
 
     async def close_background_context(self) -> None:
         return None
@@ -120,7 +156,7 @@ class _FakeProviderSession:
         return {
             "status": "completed",
             "provider": "chatgpt",
-            "content": "已整合",
+            "content": "撌脫??,
             "transport": "embedded-browser-view",
             "fallback": {
                 "used": True,
@@ -131,8 +167,8 @@ class _FakeProviderSession:
                 {
                     "candidate_id": "candidate-1",
                     "kind": "longform",
-                    "title": "摘要",
-                    "content": "已整合",
+                    "title": "??",
+                    "content": "撌脫??,
                     "status": "candidate",
                     "source_agent_id": agent["agent_id"],
                     "direct_database_write": False,
@@ -188,7 +224,7 @@ def test_star_training_routes_chatgpt_to_its_dedicated_conversation_url(
         service.handle(
             "ai_nexus_send_message",
             {
-                "content": "請建立星澄訓練候選。",
+                "content": "隢遣蝡?瞉?蝺游??,
                 "business_task": "training-candidate-authoring",
                 "business_scope": "general",
                 "_authorized_requester_actor": "governance/tool/xingcheng",
@@ -204,7 +240,7 @@ def test_star_training_routes_chatgpt_to_its_dedicated_conversation_url(
         service.handle(
             "ai_nexus_send_message",
             {
-                "content": "請協助星澄整理這項需求。",
+                "content": "隢??拇?瞉???瘙?,
                 "business_task": "general",
                 "business_scope": "general",
                 "_authorized_requester_actor": "governance/tool/xingcheng",
@@ -246,7 +282,7 @@ def test_google_results_are_processed_by_gemini_before_returning_to_star(
         service.handle(
             "ai_nexus_send_message",
             {
-                "content": "2330 配息 股價 淨值 官方",
+                "content": "2330 ? ?∪ 瘛典?摰",
                 "agent_ids": ["google-search", "gemini"],
                 "business_scope": "investment",
                 "research_pipeline": "google-gemini",
@@ -260,8 +296,8 @@ def test_google_results_are_processed_by_gemini_before_returning_to_star(
     assert group["google_raw_results_exposed"] is False
     assert group["processor"] == "gemini"
     assert {item["agent_id"] for item in group["responses"]} == {"gemini", "chatgpt"}
-    assert next(item for item in group["responses"] if item["agent_id"] == "gemini")["content"] == "Gemini 已整理"
-    assert result["final_response"]["content"] == "ChatGPT 最終統籌"
+    assert next(item for item in group["responses"] if item["agent_id"] == "gemini")["content"] == "Gemini 撌脫??
+    assert result["final_response"]["content"] == "ChatGPT ?蝯絞蝐?
     assert session.sent_providers == ["gemini", "chatgpt"]
 
 
@@ -275,7 +311,7 @@ def test_official_cli_task_carries_star_memory_and_returns_candidates_only(
         service.handle(
             "ai_nexus_send_message",
             {
-                "content": "整理內容",
+                "content": "?渡??批捆",
                 "agent_ids": ["claude"],
                 "business_scope": "general",
                 "business_task": "longform",
@@ -283,8 +319,8 @@ def test_official_cli_task_carries_star_memory_and_returns_candidates_only(
                     {
                         "memory_id": "m1",
                         "kind": "instruction",
-                        "title": "偏好",
-                        "content": "使用繁體中文",
+                        "title": "?末",
+                        "content": "雿輻蝜?銝剜?",
                         "origin_model_id": "star-main-native-model",
                         "business_scope": "general",
                     }
@@ -295,7 +331,7 @@ def test_official_cli_task_carries_star_memory_and_returns_candidates_only(
 
     assert result["ok"] is True
     assert session.tasks[0]["requested_by"] == "xingcheng"
-    assert session.tasks[0]["memory_context"][0]["content"] == "使用繁體中文"
+    assert session.tasks[0]["memory_context"][0]["content"] == "雿輻蝜?銝剜?"
     assert result["memory_interchange"]["direct_database_access"] is False
     assert result["memory_interchange"]["candidate_count"] == 2
     response = result["group_message"]["responses"][0]
@@ -310,7 +346,7 @@ def test_investment_manager_cannot_request_external_ai_directly(tmp_path: Path) 
         service.handle(
             "ai_nexus_send_message",
             {
-                "content": "越權要求",
+                "content": "頞?閬?",
                 "agent_ids": ["chatgpt"],
                 "business_scope": "investment",
                 "_authorized_requester_actor": "governance/tool/ai-assistant",
@@ -330,7 +366,7 @@ def test_tool_general_mode_runs_only_selected_agents_in_parallel(tmp_path: Path)
         service.handle(
             "ai_nexus_send_message",
             {
-                "content": "一般協作需求",
+                "content": "銝?砍?雿?瘙?,
                 "agent_ids": ["claude", "gemini"],
                 "business_scope": "general",
                 "business_task": "general",
@@ -359,7 +395,7 @@ def test_tool_general_mode_cannot_start_star_fixed_workflow(tmp_path: Path) -> N
         service.handle(
             "ai_nexus_send_message",
             {
-                "content": "嘗試指定固定任務",
+                "content": "?岫???箏?隞餃?",
                 "agent_ids": ["deepseek"],
                 "business_task": "reasoning",
                 "_authorized_requester_actor": "governance/tool/ai-collaboration",
@@ -397,7 +433,7 @@ def test_tool_general_mode_returns_immediately_for_browser_results(
         service.handle(
             "ai_nexus_send_message",
             {
-                "content": "瀏覽器協作需求",
+                "content": "?汗?典?雿?瘙?,
                 "agent_ids": ["chatgpt"],
                 "business_task": "general",
                 "_authorized_requester_actor": actor,
@@ -415,7 +451,7 @@ def test_tool_general_mode_returns_immediately_for_browser_results(
             {
                 "message_id": result["group_message"]["message_id"],
                 "agent_id": "chatgpt",
-                "content": "瀏覽器回覆",
+                "content": "?汗?典?閬?,
                 "_authorized_requester_actor": actor,
             },
         )
@@ -424,7 +460,7 @@ def test_tool_general_mode_returns_immediately_for_browser_results(
     assert completed["ok"] is True
     saved = completed["messages"][0]["responses"][0]
     assert saved["status"] == "completed"
-    assert saved["content"] == "瀏覽器回覆"
+    assert saved["content"] == "?汗?典?閬?
     assert saved["transport"] == "embedded-browser-view"
 
 
@@ -436,7 +472,7 @@ def test_star_fixed_task_plan_ignores_manual_agent_rerouting(tmp_path: Path) -> 
         service.handle(
             "ai_nexus_send_message",
             {
-                "content": "進行深度推理",
+                "content": "?脰?瘛勗漲?函?",
                 "agent_ids": ["gemini", "claude"],
                 "business_task": "reasoning",
                 "business_scope": "general",
@@ -472,12 +508,12 @@ def test_star_can_run_all_fixed_ai_workflows_concurrently(tmp_path: Path) -> Non
     session = ParallelSession()
     service = AiCollaborationService(tmp_path, session=session)
     tasks = [
-        {"task_type": "general", "content": "一般"},
-        {"task_type": "search", "content": "搜尋"},
-        {"task_type": "longform", "content": "長文"},
-        {"task_type": "reasoning", "content": "推理"},
-        {"task_type": "social_media", "content": "社群"},
-        {"task_type": "advanced_search", "content": "高階搜尋"},
+        {"task_type": "general", "content": "銝??},
+        {"task_type": "search", "content": "??"},
+        {"task_type": "longform", "content": "?瑟?"},
+        {"task_type": "reasoning", "content": "?函?"},
+        {"task_type": "social_media", "content": "蝷曄黎"},
+        {"task_type": "advanced_search", "content": "擃???"},
     ]
 
     _event, result = asyncio.run(
@@ -516,7 +552,7 @@ def test_browser_waits_three_cycles_then_uses_chatgpt_terminal_fallback(
                 return {
                     "status": "completed",
                     "provider": "chatgpt",
-                    "content": "ChatGPT 最終統籌",
+                    "content": "ChatGPT ?蝯絞蝐?,
                     "memory_candidates": [],
                 }
             return {
@@ -537,7 +573,7 @@ def test_browser_waits_three_cycles_then_uses_chatgpt_terminal_fallback(
             return {
                 "status": "completed",
                 "provider": "chatgpt",
-                "content": "ChatGPT 接手原任務",
+                "content": "ChatGPT ?交??遙??,
                 "memory_candidates": [],
                 "fallback": {
                     "used": True,
@@ -557,7 +593,7 @@ def test_browser_waits_three_cycles_then_uses_chatgpt_terminal_fallback(
         service.handle(
             "ai_nexus_send_message",
             {
-                "content": "處理長文",
+                "content": "???瑟?",
                 "business_task": "longform",
                 "business_scope": "general",
             },
@@ -571,10 +607,10 @@ def test_browser_waits_three_cycles_then_uses_chatgpt_terminal_fallback(
     )
     assert claude["execution_provider"] == "chatgpt"
     assert claude["fallback"]["terminal_fallback_only"] is True
-    assert result["final_response"]["content"] == "ChatGPT 最終統籌"
+    assert result["final_response"]["content"] == "ChatGPT ?蝯絞蝐?
 
 
-def test_provider_session_uses_managed_chrome_automation(tmp_path: Path) -> None:
+def test_provider_session_uses_managed_embedded_browser(tmp_path: Path) -> None:
     tool_root = tmp_path / "ai-collaboration"
     tool_root.mkdir()
     session = AiCollaborationProviderSession(tool_root)
@@ -622,7 +658,7 @@ def test_provider_session_uses_embedded_browser(tmp_path: Path) -> None:
     assert session.browser_status()["product"] == "embedded-browser-view"
 
 
-def test_all_provider_authorization_uses_foreground_chrome_only(
+def test_all_provider_authorization_uses_embedded_browser_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     session = AiCollaborationProviderSession(tmp_path)

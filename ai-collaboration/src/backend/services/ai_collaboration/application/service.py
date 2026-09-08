@@ -146,7 +146,7 @@ class AiCollaborationService:
             "diagnostics": diagnostics,
             "database_path": str(self.repository.db_path),
             "workspace_path": str(self.tool_root),
-            "safety_notice": "所有外部 AI 均使用前景 Google Chrome；工具會自動輸入、送出並擷取回覆，不使用 CLI 或 API。",
+            "safety_notice": "所有外部 AI 均使用內建瀏覽器（受治理 Embedded BrowserView）；工具會自動輸入、送出並擷取回覆，不使用 CLI 或 API。",
         }
 
     async def _open_agent(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -220,7 +220,7 @@ class AiCollaborationService:
             "opened": opened,
             "results": results,
             "message": (
-                f"已在同一個 AI 協作前景 Chrome 開啟 "
+                f"已在內建瀏覽器開啟 "
                 f"{opened} / {len(agents)} 個 AI 分頁。"
             ),
         }
@@ -406,7 +406,7 @@ class AiCollaborationService:
         return {
             "ok": True,
             "message": (
-                f"已在 Chrome 開啟 {awaiting_count} 個 AI，請完成操作並貼回結果。"
+                f"已在內建瀏覽器開啟 {awaiting_count} 個 AI，請完成操作並貼回結果。"
                 if awaiting_count
                 else f"一般模式已收集 {len(responses)} 個 AI 回覆。"
             ),
@@ -1115,9 +1115,9 @@ class AiCollaborationService:
             self.session.browser_status()
             if hasattr(self.session, "browser_status")
             else {
-                "product": "google-chrome",
+                "product": "embedded-browser-view",
                 "available": False,
-                "mode": "shared-foreground-tabs",
+                "mode": "embedded-browser-view",
                 "automation": False,
             }
         )
