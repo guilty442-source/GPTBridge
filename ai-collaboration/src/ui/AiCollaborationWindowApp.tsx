@@ -9,10 +9,7 @@ type Agent = {
   provider: string
   home_url: string
   general_url: string
-  investment_url: string
-  star_training_url: string
   general_enabled: number
-  investment_enabled: number
   business_capabilities: string[]
   enabled: number
   selected: number

@@ -22,7 +22,7 @@
     "other_tools": "governed-request-only-no-direct-access",
     "backup_max_records_per_owner": 1,
     "replacement_order": "create-verify-publish-delete-excess-same-owner",
-    "automatic_backup_owner": "main-system-daily-governed-trigger",
+    "automatic_backup_owner": "global-cleaner-only",
     "automatic_repair_extract": "governed-shared-layer-request-only"
   },
   "tool_settings": {
@@ -63,7 +63,7 @@
     "root": "shared-layer",
     "request_model": "governance-authenticated-shared-layer",
     "direct_cross_tool_instruction": "PERMISSION_DENIED",
-    "role": "central-sql-index-center",
+    "role": "structured-index-relations-status-and-audit-source-of-truth",
     "central_index": {
       "engine": "postgresql",
       "schema": "gptbridge_index",

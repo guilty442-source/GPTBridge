@@ -523,6 +523,18 @@ def test_runtime_contract_matches_every_governed_request_channel() -> None:
         assert channel["direct_instruction"] == direct_instruction
 
 
+def test_runtime_contract_uses_canonical_backup_and_index_roles() -> None:
+    from governance_rule.governance_policy import governance_policy_snapshot
+
+    contract = _load_json(ROOT / "main-system" / "config" / "tool-runtime-contract.json")
+    policy = governance_policy_snapshot()
+
+    assert contract["managed_storage"]["automatic_backup_owner"] == (
+        policy.automatic_repair.backup_owner
+    )
+    assert contract["shared_layer"]["role"] == policy.shared_layer.central_index_role
+
+
 def test_project_root_contains_only_governed_modules_and_control_files() -> None:
     governed_modules = {
         path.parent.name

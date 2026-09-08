@@ -100,11 +100,11 @@ GPTBridge 的資料層分為**兩大引擎**與**三種典範**：
 | 存取層 | 檔案 | 使用的庫 | 覆蓋範圍 |
 | -------- | ------ | ---------- | ---------- |
 | `SharedLayerStore` | `shared-layer/src/shared_layer/store.py` | psycopg + psycopg_pool（**連線池**） | `gptbridge_transport.tool_request` |
-| `PostgresRagRepository`（已退役） | `local-model/.../infrastructure/postgres_rag_repository.py` | psycopg + psycopg_pool（連線池） | `gptbridge_index.*`、`gptbridge_rag.*` |
+| `LocalSqliteRagRepository`（取代已退役的 `PostgresRagRepository`） | `local-model/src/backend/services/xingcheng/infrastructure/local_sqlite_rag_repository.py` | 內建 sqlite3 | `xingcheng/runtime/state/local-rag-keywords.sqlite3` |
 | 本地 SQLite `repository.py` | `local-model/.../infrastructure/repository.py` | 內建 sqlite3 | `xingcheng/runtime/state/models/*.sqlite3` |
 | 本地 SQLite `local_command_parser.py` | `local-model/.../infrastructure/local_command_parser.py` | 內建 sqlite3 | 常用命令歷史 |
 | 本地 SQLite `ollama_model_repository.py` | `local-model/.../infrastructure/ollama_model_repository.py` | 內建 sqlite3 | 推論記錄、能力投票、訓練貢獻 |
-| 本地 SQLite 統一語義索引（B 方案） | `shared-layer/src/shared_layer/local/vector_store.py`（`xingcheng/infrastructure/local_vector_store.py` 為相容 shim） | 內建 sqlite3 | 語義索引 `local-rag-vectors.sqlite3`／`shared-layer/runtime/semantic-index/vectors.sqlite3` |
+| 本地 SQLite 語義索引快取（B 方案） | `local-model/src/backend/services/xingcheng/infrastructure/vector_store.py` | 內建 sqlite3 | 工具私有快取 `xingcheng/runtime/state/local-rag-vectors.sqlite3` |
 
 ---
 
