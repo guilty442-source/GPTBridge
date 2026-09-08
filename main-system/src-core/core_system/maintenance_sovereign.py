@@ -22,17 +22,16 @@ import asyncio
 import shutil
 import socket
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from governance_rule.codex import GOVERNANCE_CODEX
 
 from .codex_decision import decision_basis
+from .sovereign_utils import _iso_now, _suppress
 from .native import (
     monotonic_seconds,
     native_available,
-    release_resources,
     resource_status,
 )
 from core.health import check_core_health
@@ -68,8 +67,6 @@ class MaintenanceSovereign:
         self._started_at: str | None = None
         self._stopped_at: str | None = None
         self._daily_cleaner: Any | None = None
-        self._resource_task: asyncio.Task[Any] | None = None
-        self._resource_interval_seconds = 300.0
         self._hot_update: Any | None = None
         self._repair_service: Any | None = None
         self._health_checker: Any = check_core_health
@@ -85,8 +82,6 @@ class MaintenanceSovereign:
         self,
         *,
         daily_cleaner: Any = None,
-        resource_release: Any = None,
-        resource_interval_seconds: float = 300.0,
         hot_update: Any = None,
         repair_service: Any = None,
         health_checker: Any = None,
@@ -96,8 +91,6 @@ class MaintenanceSovereign:
 
         ``daily_cleaner``: the DailyGlobalCleanerService instance already built
             and started by the app (its loop runs independently).
-        ``resource_release``: a callable returning a dict (e.g. a memory
-            release function); run periodically on a thread if provided.
         ``hot_update``: the governed HotUpdateService; the sovereign supervises
             the frozen, version-gated update boundary (decision only).
         ``repair_service``: the governed CentralRepairService; the sovereign
@@ -111,8 +104,6 @@ class MaintenanceSovereign:
         """
 
         self._daily_cleaner = daily_cleaner
-        self.resource_release = resource_release or release_resources
-        self._resource_interval_seconds = max(60.0, float(resource_interval_seconds))
         self._hot_update = hot_update
         self._repair_service = repair_service
         if health_checker is not None:
@@ -120,14 +111,9 @@ class MaintenanceSovereign:
         self._capability_interval_seconds = max(
             300.0, float(capability_interval_seconds)
         )
-        self._started_at = self._iso_now()
+        self._started_at = _iso_now()
         self._started = True
 
-        if self._resource_task is None:
-            self._resource_task = asyncio.create_task(
-                self._resource_loop(),
-                name="maintenance-sovereign-resource",
-            )
         if self._capability_task is None:
             self._capability_task = asyncio.create_task(
                 self._capability_check_loop(),
@@ -143,11 +129,6 @@ class MaintenanceSovereign:
         }
 
     async def stop(self) -> None:
-        if self._resource_task is not None:
-            self._resource_task.cancel()
-            with _suppress(asyncio.CancelledError):
-                await self._resource_task
-            self._resource_task = None
         if self._capability_task is not None:
             self._capability_task.cancel()
             with _suppress(asyncio.CancelledError):
@@ -155,11 +136,10 @@ class MaintenanceSovereign:
             self._capability_task = None
         self._capability_report = None
         self._daily_cleaner = None
-        self.resource_release = None
         self._hot_update = None
         self._repair_service = None
         self._started = False
-        self._stopped_at = self._iso_now()
+        self._stopped_at = _iso_now()
 
     # ------------------------------------------------------------------
     # Maintenance status
@@ -180,10 +160,6 @@ class MaintenanceSovereign:
             "daily_cleaner": self._daily_cleaner_status(),
             "module_cleanup": self._module_cleanup_status(),
             "main_system_self_maintenance": self._main_system_self_maintenance_status(),
-            "resource_loop": {
-                "running": self._resource_task is not None and not self._resource_task.done(),
-                "interval_seconds": self._resource_interval_seconds,
-            },
             "capability_loop": {
                 "running": self._capability_task is not None and not self._capability_task.done(),
                 "interval_seconds": self._capability_interval_seconds,
@@ -484,7 +460,7 @@ class MaintenanceSovereign:
         return {
             "ok": ok,
             "status": "healthy" if ok else "degraded",
-            "checked_at": self._iso_now(),
+            "checked_at": _iso_now(),
             "interval_seconds": self._capability_interval_seconds,
             "mode": "read-only-detection-no-auto-install",
             "functions": functions,
@@ -517,7 +493,7 @@ class MaintenanceSovereign:
                 self._capability_report = {
                     "ok": False,
                     "status": "check-failed",
-                    "checked_at": self._iso_now(),
+                    "checked_at": _iso_now(),
                     "mode": "read-only-detection-no-auto-install",
                     "error": f"{type(error).__name__}: {error}",
                 }
@@ -526,34 +502,8 @@ class MaintenanceSovereign:
             except asyncio.CancelledError:
                 raise
 
-    async def _resource_loop(self) -> None:
-        while not self._stop_requested():
-            try:
-                await asyncio.sleep(self._resource_interval_seconds)
-            except asyncio.CancelledError:
-                raise
-            release = self.resource_release
-            if release is None:
-                continue
-            try:
-                await asyncio.to_thread(release)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                pass
 
     def _stop_requested(self) -> bool:
         return not self._started
-
-    @staticmethod
-    def _iso_now() -> str:
-        return datetime.now(timezone.utc).isoformat()
-
-
-def _suppress(*exceptions: type[BaseException]) -> Any:
-    import contextlib
-
-    return contextlib.suppress(*exceptions)
-
 
 __all__ = ["MAINTENANCE_RESPONSIBILITIES", "MaintenanceSovereign"]

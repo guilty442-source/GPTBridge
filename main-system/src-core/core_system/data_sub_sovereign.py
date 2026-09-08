@@ -13,16 +13,15 @@ executors; it never holds an execution power itself.
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from .codex_decision import decision_basis
-from governance_rule.execution.tool_runtime.sub_sovereign import (
-    SYSTEM_DATA_AUTHORITY,
-    SYSTEM_DATA_ROLE,
-)
+from .sovereign_utils import _iso_now
+from core.health import check_core_health
+
+DATA_SUB_SOVEREIGN_ROLE = "system-data-sub-sovereign"
+
+SYSTEM_DATA_AUTHORITY = "data"
 
 
 class DataSubSovereign:
@@ -36,19 +35,16 @@ class DataSubSovereign:
       - data directory maintenance
     """
 
-    ROLE = SYSTEM_DATA_ROLE
+    ROLE = DATA_SUB_SOVEREIGN_ROLE
 
     def __init__(self, app: Any) -> None:
         self.app = app
         self._started = False
         self._started_at: str | None = None
         self._stopped_at: str | None = None
-        self._supervision_task: asyncio.Task[Any] | None = None
-        self._supervision_interval_seconds = 300.0
         self._integrity_checker: Any | None = None
-        self._cleaner: Any | None = None
         self._task_queue: Any | None = None
-        self._repair_service: Any | None = None
+        self._data_health_checker: Any = check_core_health
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -57,13 +53,11 @@ class DataSubSovereign:
     async def start(
         self,
         *,
-        supervision_interval_seconds: float = 300.0,
         integrity_checker: Any = None,
-        cleaner: Any = None,
         task_queue: Any = None,
-        repair_service: Any = None,
+        data_health_checker: Any = None,
     ) -> dict[str, Any]:
-        """Start the Data Sub-Sovereign and its in-process supervision loop.
+        """Start the Data Sub-Sovereign.
 
         The sub-sovereign captures the data-body governed executors from the app
         (decision-only supervision; it never executes the heavy data work
@@ -71,39 +65,22 @@ class DataSubSovereign:
           ``integrity_checker`` — callable returning a bool/status (defaults to
               ``app.governance.runtime_integrity_ready``) for consistency and
               integrity checks.
-          ``cleaner`` — the DailyGlobalCleanerService for data-directory
-              maintenance scheduling.
           ``task_queue`` — the TaskQueue for data consistency / recovery.
-          ``repair_service`` — the CentralRepairService for database integrity
-              checks and backup-extraction.
           ``data_health_checker`` — callable returning a health report dict
               (default ``core.health.check_core_health``).
         """
 
-        self._supervision_interval_seconds = max(60.0, float(supervision_interval_seconds))
+        governance = getattr(self.app, "governance", None)
         self._integrity_checker = integrity_checker
-        self._cleaner = cleaner
-        if self._cleaner is None:
-            self._cleaner = getattr(self.app, "daily_global_cleaner_service", None)
+        if self._integrity_checker is None and governance is not None:
+            self._integrity_checker = getattr(governance, "runtime_integrity_ready", None)
         self._task_queue = task_queue
         if self._task_queue is None:
             self._task_queue = getattr(self.app, "task_queue", None)
-        self._repair_service = repair_service
-        if self._repair_service is None:
-            toolbox = getattr(self.app, "toolbox_service", None)
-            if toolbox is not None and hasattr(toolbox, "central_repair"):
-                try:
-                    self._repair_service = toolbox.central_repair()
-                except Exception:
-                    self._repair_service = None
-        self._started_at = self._iso_now()
+        if data_health_checker is not None:
+            self._data_health_checker = data_health_checker
+        self._started_at = _iso_now()
         self._started = True
-
-        if self._supervision_task is None:
-            self._supervision_task = asyncio.create_task(
-                self._supervision_loop(),
-                name="system-data-sub-sovereign-supervision",
-            )
 
         return {
             "ok": True,
@@ -113,17 +90,10 @@ class DataSubSovereign:
         }
 
     async def stop(self) -> None:
-        if self._supervision_task is not None:
-            self._supervision_task.cancel()
-            with _suppress(asyncio.CancelledError):
-                await self._supervision_task
-            self._supervision_task = None
         self._integrity_checker = None
-        self._cleaner = None
         self._task_queue = None
-        self._repair_service = None
         self._started = False
-        self._stopped_at = self._iso_now()
+        self._stopped_at = _iso_now()
 
     # ------------------------------------------------------------------
     # Data authority surface
@@ -156,10 +126,6 @@ class DataSubSovereign:
             "version_history": self._version_history_status(),
             "consistency_integrity": self._consistency_integrity_status(),
             "data_directory": self._data_directory_status(),
-            "supervision_loop": {
-                "running": self._supervision_task is not None and not self._supervision_task.done(),
-                "interval_seconds": self._supervision_interval_seconds,
-            },
             "decision": decision_basis(SYSTEM_DATA_AUTHORITY),
             "started_at": self._started_at,
             "stopped_at": self._stopped_at,
@@ -193,7 +159,7 @@ class DataSubSovereign:
     def _structured_data_status(self) -> dict[str, Any]:
         return {
             "duty": "structured-data",
-            "enabled": bool(self._task_queue is not None or self._repair_service is not None),
+            "enabled": bool(self._task_queue is not None),
             "delegation": "governed-executor-only",
         }
 
@@ -221,11 +187,13 @@ class DataSubSovereign:
                 recovery = self._task_queue.pending_recovery() or []
             except Exception:
                 recovery = []
+        maintenance = getattr(self.app, "maintenance_sovereign", None)
+        repair_service = getattr(maintenance, "_repair_service", None) if maintenance is not None else None
         return {
             "duty": "consistency-integrity",
             "integrity_ready": integrity_ready,
             "pending_recovery": recovery,
-            "repair_service": self._repair_service is not None,
+            "repair_service": repair_service is not None,
             "decision": decision_basis(SYSTEM_DATA_AUTHORITY)["edicts"],
         }
 
@@ -238,7 +206,10 @@ class DataSubSovereign:
         }
 
     def _cleaner_status(self) -> bool:
-        status = getattr(self._cleaner, "status", None)
+        maintenance = getattr(self.app, "maintenance_sovereign", None)
+        if maintenance is None:
+            return False
+        status = getattr(maintenance, "_daily_cleaner_status", None)
         if not callable(status):
             return False
         try:
@@ -248,34 +219,20 @@ class DataSubSovereign:
         return bool(report and report.get("enabled"))
 
     def _data_directory_report(self) -> dict[str, Any]:
-        root = Path(getattr(self.app, "project_root", ".") or ".").resolve()
-        checks = {
-            "shared_layer": (root / "shared-layer").is_dir(),
-            "central_index": (
-                root / "shared-layer" / "sql" / "central_index.sql"
-            ).is_file(),
-        }
-        return {"ok": all(checks.values()), "checks": checks, "owner": self.ROLE}
+        checker = self._data_health_checker
+        if not callable(checker):
+            return {}
+        try:
+            return checker(getattr(self.app, "project_root", None))
+        except Exception:
+            return {"error": "data-health-checker-unavailable"}
 
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
 
-    async def _supervision_loop(self) -> None:
-        while self._started:
-            await asyncio.sleep(self._supervision_interval_seconds)
-
-    @staticmethod
-    def _iso_now() -> str:
-        return datetime.now(timezone.utc).isoformat()
-
-
-def _suppress(*exceptions: type[BaseException]) -> Any:
-    import contextlib
-
-    return contextlib.suppress(*exceptions)
-
-
 __all__ = [
+    "SYSTEM_DATA_AUTHORITY",
+    "DATA_SOVEREIGN_ROLE",
     "DataSubSovereign",
 ]

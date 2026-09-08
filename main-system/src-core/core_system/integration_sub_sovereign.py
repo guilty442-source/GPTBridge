@@ -22,11 +22,11 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .codex_decision import decision_basis
+from .sovereign_utils import _iso_now, _suppress
 from governance_rule.execution.tool_runtime.sub_sovereign import (
     SYSTEM_INTEGRATION_AUTHORITY,
     SYSTEM_INTEGRATION_ROLE,
@@ -97,7 +97,7 @@ class IntegrationSubSovereign:
         self._command_router = getattr(self.app, "command_router", None)
         self._toolbox = getattr(self.app, "toolbox_service", None)
         self._task_queue = getattr(self.app, "task_queue", None)
-        self._started_at = self._iso_now()
+        self._started_at = _iso_now()
         self._started = True
 
         # Auto-start the governed default modules through the toolbox service.
@@ -140,7 +140,7 @@ class IntegrationSubSovereign:
         self._bus_status_fn = None
         self._default_tools_started = False
         self._started = False
-        self._stopped_at = self._iso_now()
+        self._stopped_at = _iso_now()
 
     # ------------------------------------------------------------------
     # Resident / non-resident classification + auto-start
@@ -548,17 +548,6 @@ class IntegrationSubSovereign:
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
-
-    @staticmethod
-    def _iso_now() -> str:
-        return datetime.now(timezone.utc).isoformat()
-
-
-def _suppress(*exceptions: type[BaseException]) -> Any:
-    import contextlib
-
-    return contextlib.suppress(*exceptions)
-
 
 __all__ = [
     "IntegrationSubSovereign",

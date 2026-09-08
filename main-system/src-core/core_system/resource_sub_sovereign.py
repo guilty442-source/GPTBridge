@@ -14,10 +14,10 @@ never holds an execution power itself.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 
 from .codex_decision import decision_basis
+from .sovereign_utils import _iso_now
 from .native import (
     native_available,
     release_resources,
@@ -64,7 +64,7 @@ class ResourceSubSovereign:
         """
 
         self._memory_maintainer = memory_maintainer
-        self._started_at = self._iso_now()
+        self._started_at = _iso_now()
         self._started = True
 
         return {
@@ -78,7 +78,7 @@ class ResourceSubSovereign:
     async def stop(self) -> None:
         self._memory_maintainer = None
         self._started = False
-        self._stopped_at = self._iso_now()
+        self._stopped_at = _iso_now()
 
     # ------------------------------------------------------------------
     # Resource authority surface
@@ -158,11 +158,6 @@ class ResourceSubSovereign:
         if callable(get_status):
             return get_status()
         return {"enabled": True}
-
-    @staticmethod
-    def _iso_now() -> str:
-        return datetime.now(timezone.utc).isoformat()
-
 
 __all__ = [
     "RESOURCE_DECISION_AREA",

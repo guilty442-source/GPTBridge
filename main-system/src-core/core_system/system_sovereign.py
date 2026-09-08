@@ -36,7 +36,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +45,7 @@ from .integration_sub_sovereign import IntegrationSubSovereign
 from .language_review_sub_sovereign import LanguageReviewSubSovereign
 from .resource_sub_sovereign import ResourceSubSovereign
 from .runtime_sub_sovereign import RuntimeSubSovereign
+from .sovereign_utils import _iso_now
 from .third_party_sub_sovereign import ThirdPartySubSovereign
 from .xingcheng_coordination import XingchengCoordination
 
@@ -125,9 +125,7 @@ class SystemSovereignService:
 
         async def _start_runtime() -> dict[str, Any]:
             try:
-                return await self.runtime_sovereign.start(
-                    memory_maintainer=memory_maintainer,
-                )
+                return await self.runtime_sovereign.start()
             except Exception as error:
                 self._startup_failures.append(
                     {"sub_sovereign": "runtime", "error": f"{type(error).__name__}: {error}"}
@@ -214,7 +212,7 @@ class SystemSovereignService:
             "ok": len(self._startup_failures) == 0,
             "sovereign": "system-sovereign",
             "dependency_state": dependency_state,
-            "started_at": self._iso_now(),
+            "started_at": _iso_now(),
             "execution_delegation": "governed-executor-only",
             "sub_sovereigns": sub_sovereign_roles,
             "startup_failures": list(self._startup_failures),
@@ -267,7 +265,7 @@ class SystemSovereignService:
                 await sovereign.stop()
             except Exception:
                 pass
-        self._save_state({"stopped_at": self._iso_now()})
+        self._save_state({"stopped_at": _iso_now()})
 
     # ------------------------------------------------------------------
     # Status
@@ -396,10 +394,6 @@ class SystemSovereignService:
     # ------------------------------------------------------------------
     # State persistence
     # ------------------------------------------------------------------
-
-    @staticmethod
-    def _iso_now() -> str:
-        return datetime.now(timezone.utc).isoformat()
 
     def _load_state(self) -> dict[str, Any]:
         try:

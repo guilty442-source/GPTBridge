@@ -18,11 +18,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .codex_decision import decision_basis
+from .sovereign_utils import _iso_now, _suppress
 from governance_rule.execution.tool_runtime.sub_sovereign import (
     SYSTEM_THIRD_PARTY_MANAGER_AUTHORITY,
     SYSTEM_THIRD_PARTY_MANAGER_ROLE,
@@ -85,7 +85,7 @@ class ThirdPartySubSovereign:
             )
         self._tool_inventory = self._load_inventory()
         self._manager = ThirdPartyManager(self._inventory_path)
-        self._started_at = self._iso_now()
+        self._started_at = _iso_now()
         self._started = True
 
         # Perform an initial version probe on startup
@@ -119,7 +119,7 @@ class ThirdPartySubSovereign:
         self._manager = None
         self._tool_inventory = None
         self._started = False
-        self._stopped_at = self._iso_now()
+        self._stopped_at = _iso_now()
 
     # ─── Delegated operations ──────────────────────────────────────────
 
@@ -229,17 +229,6 @@ class ThirdPartySubSovereign:
             except Exception:
                 pass  # Supervision must never crash the sub-sovereign.
             await asyncio.sleep(self._supervision_interval_seconds)
-
-    @staticmethod
-    def _iso_now() -> str:
-        return datetime.now(timezone.utc).isoformat()
-
-
-def _suppress(*exceptions: type[BaseException]) -> Any:
-    import contextlib
-
-    return contextlib.suppress(*exceptions)
-
 
 __all__ = [
     "FORMAL_TOOLS",

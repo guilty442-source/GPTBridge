@@ -13,10 +13,10 @@ enforcement to governed executors; it never holds an execution power itself.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 
 from .codex_decision import decision_basis
+from .sovereign_utils import _iso_now
 from governance_rule.execution.tool_runtime.sub_sovereign import (
     SYSTEM_LANGUAGE_REVIEWER_AUTHORITY,
     SYSTEM_LANGUAGE_REVIEWER_ROLE,
@@ -56,7 +56,7 @@ class LanguageReviewSubSovereign:
         self._python_audit = python_audit
         if self._python_audit is None:
             self._python_audit = getattr(self.app, "governance", None)
-        self._started_at = self._iso_now()
+        self._started_at = _iso_now()
         self._started = True
 
         return {
@@ -71,7 +71,7 @@ class LanguageReviewSubSovereign:
         self._typescript_checkers = None
         self._python_audit = None
         self._started = False
-        self._stopped_at = self._iso_now()
+        self._stopped_at = _iso_now()
 
     def live_status(self) -> dict[str, Any]:
         return {
@@ -112,11 +112,6 @@ class LanguageReviewSubSovereign:
             "health_owner": "maintenance-sovereign",
             "delegation": "governed-executor-only",
         }
-
-    @staticmethod
-    def _iso_now() -> str:
-        return datetime.now(timezone.utc).isoformat()
-
 
 __all__ = [
     "ALLOWED_LANGUAGES",

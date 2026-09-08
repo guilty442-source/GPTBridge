@@ -190,6 +190,8 @@ class GPTBridgeApp:
         try:
             from core_system.resource_maintenance import release_unused_memory
 
+            self.resource_release = release_unused_memory
+
             toolbox = self.toolbox_service
             central_repair = None
             if toolbox is not None and hasattr(toolbox, "central_repair"):
@@ -200,7 +202,6 @@ class GPTBridgeApp:
             await self.daily_global_cleaner_service.start()
             maintenance_report = await self.maintenance_sovereign.start(
                 daily_cleaner=self.daily_global_cleaner_service,
-                resource_release=release_unused_memory,
                 hot_update=self.hot_update_service,
                 repair_service=central_repair,
             )
