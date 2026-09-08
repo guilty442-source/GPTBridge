@@ -29,11 +29,11 @@ OLLAMA_ENDPOINT = "http://127.0.0.1:11434"
 QDRANT_ENDPOINT = "http://127.0.0.1:6333"
 WARM_MODEL = "gemma4:e2b-it-qat"
 
-# Hybrid startup: the critical launch path is PostgreSQL (canonical central SQL)
-# and the local sqlite store (owner-private state / transport). Qdrant and
-# Ollama are independent degradable services; the warm-model preload is a
-# non-blocking background task.
-DEGRADABLE_WORKERS = 2
+# Hybrid startup: the critical launch path is PostgreSQL (canonical central SQL).
+# Local sqlite (owner-private state / transport), Qdrant and Ollama are
+# independent degradable services; the warm-model preload is a non-blocking
+# background task.
+DEGRADABLE_WORKERS = 3
 WARM_MODEL_TIMEOUT = float(os.environ.get("GPTBRIDGE_WARM_MODEL_TIMEOUT", "60"))
 
 
@@ -137,18 +137,6 @@ def probe_qdrant() -> tuple[bool, str]:
             raise RuntimeError("INVALID_QDRANT_RESPONSE")
 
     return retry(qdrant_health, 3)
-
-
-def probe_local_vector(workspace: Path) -> tuple[bool, str]:
-    database = (
-        workspace / "local-model" / "runtime" / "state" / "local-rag-vectors.sqlite3"
-    )
-
-    def vector_health() -> None:
-        with sqlite3.connect(str(database), timeout=3) as connection:
-            connection.execute("SELECT 1").fetchone()
-
-    return retry(vector_health, 3)
 
 
 def probe_and_start_ollama() -> tuple[bool, str]:
@@ -263,7 +251,7 @@ def main() -> int:
     local_sqlite: tuple[bool, str] = (False, "not-probed")
     qdrant_result: tuple[bool, str] = (False, "not-probed")
     ollama_result: tuple[bool, str] = (False, "not-probed")
-    with ThreadPoolExecutor(max_workers=DEGRADABLE_WORKERS + 2) as pool:
+    with ThreadPoolExecutor(max_workers=DEGRADABLE_WORKERS + 1) as pool:
         postgresql_future: Future[tuple[bool, str]] = pool.submit(
             probe_postgresql
         )
@@ -279,14 +267,13 @@ def main() -> int:
 
         # Wait for the critical path first — this gates launch.
         postgresql = postgresql_future.result()
-        local_sqlite = sqlite_future.result()
-        critical_up = postgresql[0] and local_sqlite[0]
+        critical_up = postgresql[0]
 
-        # Qdrant and Ollama are independent and degradable; give them a bounded
-        # grace period rather than blocking indefinitely.  A slow Ollama startup
-        # (10-25s) should not delay the launcher.
+        # Local sqlite, Qdrant and Ollama are independent and degradable; give
+        # them a bounded grace period rather than blocking indefinitely.
         DEGRADABLE_GRACE_SECONDS = 5.0
         for future, label in (
+            (sqlite_future, "local-sqlite"),
             (qdrant_future, "qdrant"),
             (ollama_future, "ollama"),
         ):
@@ -294,7 +281,9 @@ def main() -> int:
                 result = future.result(timeout=DEGRADABLE_GRACE_SECONDS)
             except TimeoutError:
                 result = (False, f"{label}-probe-timeout-grace-{DEGRADABLE_GRACE_SECONDS}s")
-            if label == "qdrant":
+            if label == "local-sqlite":
+                local_sqlite = result
+            elif label == "qdrant":
                 qdrant_result = result
             else:
                 ollama_result = result
@@ -315,8 +304,8 @@ def main() -> int:
         "local-sqlite",
         sqlite_ready,
         sqlite_detail,
-        critical=True,
-        state=STATE_READY if sqlite_ready else STATE_FAILED,
+        critical=False,
+        state=STATE_READY if sqlite_ready else STATE_RECOVERING,
         fault_code="LOCAL_SQLITE_READY" if sqlite_ready else "LOCAL_SQLITE_UNAVAILABLE",
     )
     report["local-sqlite"] = sqlite_entry
@@ -353,7 +342,7 @@ def main() -> int:
     degradable_up = all(
         entry.get("ready") is True
         for entry in report.values()
-        if isinstance(entry, dict) and entry.get("component") in {"qdrant", "ollama"}
+        if isinstance(entry, dict) and entry.get("component") in {"local-sqlite", "qdrant", "ollama"}
     )
     if not critical_up:
         report["state"] = STATE_FAILED
@@ -362,8 +351,8 @@ def main() -> int:
     else:
         report["state"] = STATE_DEGRADED
 
-    report["critical_services"] = ["postgresql", "local-sqlite"]
-    report["degradable_services"] = ["qdrant", "ollama"]
+    report["critical_services"] = ["postgresql"]
+    report["degradable_services"] = ["local-sqlite", "qdrant", "ollama"]
     report["exit_code"] = EXIT_ALL_CRITICAL_UP if critical_up else EXIT_CRITICAL_FAILED
     report["total_duration_ms"] = int((time.monotonic() - started_at) * 1000)
 

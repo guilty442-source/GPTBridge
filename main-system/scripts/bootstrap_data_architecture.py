@@ -2,9 +2,10 @@ from __future__ import annotations
 
 """bootstrap_data_architecture — codex-native local PostgreSQL architecture bootstrap.
 
-Provisions and migrates the governed local PostgreSQL architecture
-(A44/E30).  Uses PostgreSQL/psycopg as the canonical structured-data engine;
-runs without external management tools or services.
+Provisions the governed local PostgreSQL architecture (A44/E30).  Uses
+PostgreSQL/psycopg as the canonical structured-data engine; runs without
+external management tools or services.  Legacy index migration is now handled
+inline by the PostgreSQL provisioning step (central-index-is-already-postgresql).
 """
 
 import json
@@ -35,7 +36,6 @@ def _run(script: str) -> None:
 
 def main() -> int:
     _run("provision_postgresql_architecture.py")
-    _run("migrate_legacy_indexes_to_postgresql.py")
     print(json.dumps({
         "ok": True,
         "executor": "python",

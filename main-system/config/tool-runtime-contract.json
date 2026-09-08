@@ -72,7 +72,6 @@
       "original_content": false,
       "model_direct_sql": false,
       "write_owner": "governance-validated-python-executor",
-      "migration_executor": "main-system/scripts/migrate_legacy_indexes_to_postgresql.py",
       "provisioning_executor": "main-system/scripts/provision_postgresql_architecture.py",
       "bootstrap_executor": "main-system/scripts/bootstrap_data_architecture.py",
       "runtime_language": "python"
