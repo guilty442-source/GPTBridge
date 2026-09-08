@@ -183,7 +183,6 @@ class GPTBridgeApp:
 
         try:
             await self.runtime_bootstrap.initialize_main()
-            self.maintenance_ready = True
         except Exception as error:
             self._record_startup_failure("runtime_bootstrap", error)
 
@@ -248,6 +247,23 @@ class GPTBridgeApp:
             authentication=getattr(self.governance, "authentication", None),
         )
 
+        async def _start_self_maintenance() -> None:
+            try:
+                await self.main_system_self_maintenance.start()
+            except Exception as error:
+                self._record_startup_failure("main_system_self_maintenance", error)
+
+        # Startup maintenance (version compatibility + stability check) runs
+        # before the system sovereign so that maintenance_ready is already true
+        # when the sovereign tries to start resident tools.  No global lock is
+        # used; the boolean flag is the only gate for tool status changes.
+        await _start_self_maintenance()
+        startup_report = getattr(self.main_system_self_maintenance, "_last_report", None)
+        startup_ok = startup_report is not None and bool(startup_report.get("ok"))
+        self.maintenance_ready = startup_ok
+        if self.governance is not None:
+            self.governance.maintenance_ready = startup_ok
+
         async def _start_system_sovereign() -> None:
             try:
                 sovereign = await self.system_sovereign_service.start()
@@ -260,19 +276,14 @@ class GPTBridgeApp:
             except Exception as error:
                 self._record_startup_failure("system_sovereign", error)
 
-        async def _start_self_maintenance() -> None:
-            try:
-                await self.main_system_self_maintenance.start()
-            except Exception as error:
-                self._record_startup_failure("main_system_self_maintenance", error)
-
-        await asyncio.gather(
-            _start_system_sovereign(),
-            _start_self_maintenance(),
-        )
+        await _start_system_sovereign()
         self._mark_startup_phase("sovereign_initialized")
         self._mark_startup_phase("main_runtime_ready")
-        self._log({"type": "status", "status": "ready"})
+        self._log({
+            "type": "status",
+            "status": "ready" if startup_ok else "maintenance_incomplete",
+            "maintenance_ready": startup_ok,
+        })
 
     async def shutdown(self) -> None:
         if self._shutdown_started:

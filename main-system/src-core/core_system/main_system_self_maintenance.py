@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import asyncio
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Final
 
@@ -84,7 +86,9 @@ class MainSystemSelfMaintenance:
             return self.status()
         self._running = True
         # Startup pass — fail-safe, never aborts the loop on a duty error.
-        self._last_report = await self._run_all_duties()
+        # The startup pass explicitly runs version compatibility and source
+        # stability repair; runtime status changes stay deferred until it ends.
+        self._last_report = await self._run_all_duties(startup=True)
         self._loop_task = asyncio.create_task(
             self._periodic_loop(),
             name="main-system-self-maintenance",
@@ -132,22 +136,16 @@ class MainSystemSelfMaintenance:
     # Duties
     # ------------------------------------------------------------------
 
-    async def _run_all_duties(self) -> dict[str, Any]:
+    async def _run_all_duties(self, startup: bool = False) -> dict[str, Any]:
         started_at = _iso_now()
-        # Source self-repair is disabled by default.  Automatic write-back of
-        # source files was mutating user changes before they could be reviewed
-        # and committed, so the repair surface is now manual-only (CLI or
-        # explicit IPC trigger) and this service only verifies integrity.
-        source_report = {
-            "ok": True,
-            "duty": "source-self-repair",
-            "skipped": True,
-            "reason": "AUTOMATIC_SOURCE_REPAIR_DISABLED",
-        }
+        version_report = await self._duty_version_compatibility()
+        # Stability fix runs only during the startup pass; the periodic loop
+        # reports it as skipped to avoid mutating sources after every interval.
+        stability_report = await self._duty_stability_fix(startup=startup)
         integrity_report = await self._duty_integrity_verify()
         ok = all(
             bool(item.get("ok"))
-            for item in (source_report, integrity_report)
+            for item in (version_report, stability_report, integrity_report)
         )
         return {
             "ok": ok,
@@ -157,7 +155,8 @@ class MainSystemSelfMaintenance:
             "started_at": started_at,
             "completed_at": _iso_now(),
             "duties": {
-                "source_self_repair": source_report,
+                "version_compatibility": version_report,
+                "stability_fix": stability_report,
                 "local_cleanup": {
                     "ok": True,
                     "skipped": True,
@@ -168,33 +167,104 @@ class MainSystemSelfMaintenance:
             },
         }
 
-    async def _duty_source_self_repair(self) -> dict[str, Any]:
-        try:
-            from tasks.source_repair import self_repair_sources
-        except Exception as error:
+    async def _duty_version_compatibility(self) -> dict[str, Any]:
+        script = self.project_root / "main-system" / "scripts" / "sync_version.py"
+        if not script.is_file():
             return {
-                "ok": False,
-                "duty": "source-self-repair",
-                "error": f"{type(error).__name__}: {error}",
+                "ok": True,
+                "duty": "version-compatibility",
+                "skipped": True,
+                "reason": "sync_version.py-not-found",
             }
         try:
-            report = await asyncio.to_thread(
-                self_repair_sources, self.project_root, record=True
+            result = await asyncio.to_thread(
+                subprocess.run,
+                [sys.executable, str(script), "check"],
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
+        except subprocess.TimeoutExpired:
+            return {
+                "ok": False,
+                "duty": "version-compatibility",
+                "error": "version-compatibility-check-timeout",
+            }
         except Exception as error:
             return {
                 "ok": False,
-                "duty": "source-self-repair",
+                "duty": "version-compatibility",
                 "error": f"{type(error).__name__}: {error}",
             }
         return {
-            "ok": bool(report.get("ok")) or not report.get("errors"),
-            "duty": "source-self-repair",
+            "ok": result.returncode == 0,
+            "duty": "version-compatibility",
+            "returncode": result.returncode,
+            "stdout": result.stdout.strip() if result.stdout else "",
+            "stderr": result.stderr.strip() if result.stderr else "",
+        }
+
+    async def _duty_stability_fix(self, startup: bool = False) -> dict[str, Any]:
+        if not startup:
+            return {
+                "ok": True,
+                "duty": "stability-fix",
+                "skipped": True,
+                "reason": "stability-fix-runs-only-at-startup",
+            }
+        try:
+            from tasks.source_repair import SourceRepairService, syntax_problems
+        except Exception as error:
+            return {
+                "ok": False,
+                "duty": "stability-fix",
+                "error": f"{type(error).__name__}: {error}",
+            }
+
+        def _check() -> dict[str, Any]:
+            service = SourceRepairService(self.project_root)
+            problems: list[dict[str, Any]] = []
+            try:
+                sources = service.python_sources()
+            except Exception as probe_error:
+                return {
+                    "ok": False,
+                    "probed_sources": 0,
+                    "problems": problems,
+                    "error": f"{type(probe_error).__name__}: {probe_error}",
+                }
+            for source_path in sources:
+                problem = syntax_problems(source_path)
+                if not problem.get("ok"):
+                    problems.append(
+                        {
+                            "file": str(
+                                source_path.relative_to(self.project_root).as_posix()
+                            ),
+                            "error": problem.get("error"),
+                            "message": problem.get("message"),
+                        }
+                    )
+            return {
+                "ok": len(problems) == 0,
+                "probed_sources": len(sources),
+                "problems": problems,
+            }
+
+        try:
+            report = await asyncio.to_thread(_check)
+        except Exception as error:
+            return {
+                "ok": False,
+                "duty": "stability-fix",
+                "error": f"{type(error).__name__}: {error}",
+            }
+        return {
+            "ok": report.get("ok"),
+            "duty": "stability-fix",
             "probed_sources": report.get("probed_sources"),
-            "repaired_files": report.get("repaired_files"),
-            "ambiguous_files": report.get("ambiguous_files"),
-            "errors": report.get("errors"),
-            "recorded_run": report.get("recorded_run"),
+            "problems": report.get("problems"),
+            "error": report.get("error"),
         }
 
     async def _duty_integrity_verify(self) -> dict[str, Any]:
@@ -231,7 +301,7 @@ class MainSystemSelfMaintenance:
             if not self._running:
                 return
             try:
-                self._last_report = await self._run_all_duties()
+                self._last_report = await self._run_all_duties(startup=False)
             except asyncio.CancelledError:
                 raise
             except Exception as error:
