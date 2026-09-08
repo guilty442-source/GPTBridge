@@ -9,11 +9,12 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <windows.h>
+#include <cstdio>
 #include <string>
 #include <vector>
 
 static const wchar_t* kAppDisplayName =
-    L"\x7A0B\x5F0F\x5EAB";
+    L"\x5C08\x6848\x7A0B\x5F0F\x5EAB";
 
 static const wchar_t* kMsgNotInstalled =
     L"\x7A0B\x5F0F\x5EAB\x555F\x52D5\x5668\x5C1A\x672A\x5B89\x88DD"
@@ -117,8 +118,44 @@ static std::wstring GetLastErrorResource()
 
 static void ShowError(const std::wstring& message)
 {
-    MessageBoxW(nullptr, message.c_str(), kAppDisplayName,
-                MB_OK | MB_ICONERROR | MB_TOPMOST);
+    std::wstring localAppData = GetLocalAppData();
+    if (localAppData.empty()) {
+        return;
+    }
+
+    std::wstring logDir = localAppData + L"\\GPTBridgeLauncher\\logs";
+    CreateDirectoryW(logDir.c_str(), nullptr);
+    std::wstring logPath = logDir + L"\\launcher.log";
+
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    wchar_t timeBuf[64];
+    swprintf_s(timeBuf, L"[%04d-%02d-%02d %02d:%02d:%02d.%03d] ",
+               st.wYear, st.wMonth, st.wDay,
+               st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+
+    std::wstring full = std::wstring(timeBuf) + kAppDisplayName + L" ERROR: " + message + L"\r\n";
+
+    int utf8Size = WideCharToMultiByte(CP_UTF8, 0, full.c_str(), -1,
+                                       nullptr, 0, nullptr, nullptr);
+    if (utf8Size <= 0) {
+        return;
+    }
+    std::vector<char> utf8(static_cast<size_t>(utf8Size));
+    WideCharToMultiByte(CP_UTF8, 0, full.c_str(), -1,
+                        utf8.data(), utf8Size, nullptr, nullptr);
+
+    HANDLE file = CreateFileW(logPath.c_str(), FILE_APPEND_DATA | FILE_WRITE_DATA,
+                              FILE_SHARE_READ, nullptr, OPEN_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    SetFilePointer(file, 0, nullptr, FILE_END);
+    DWORD written;
+    WriteFile(file, utf8.data(), static_cast<DWORD>(utf8Size - 1),
+              &written, nullptr);
+    CloseHandle(file);
 }
 
 static int LaunchHost(const std::wstring& projectRoot,

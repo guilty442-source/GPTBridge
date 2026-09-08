@@ -336,3 +336,63 @@
 {"timestamp":"2026-09-08T10:34:21.8082485Z","event":"launcher.phase.prepare.done","total_ms":608}
 {"timestamp":"2026-09-08T10:34:21.8112453Z","event":"launcher.phase.electron.start"}
 {"timestamp":"2026-09-08T10:34:22.7652681Z","event":"launcher.electron.handoff"}
+{"timestamp":"2026-09-08T10:35:57.5446715Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T10:35:57.5877725Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788863757.7696447}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 16, "timestamp": 1788863757.7939425}
+{"timestamp":"2026-09-08T10:35:57.8521682Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T10:35:57.8526908Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T10:35:57.9415023Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T10:35:57.9425012Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T10:35:58.1453169Z","event":"launcher.phase.prepare.done","total_ms":600}
+{"timestamp":"2026-09-08T10:58:04.6178975Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T10:58:04.6594574Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788865084.8463993}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 16, "timestamp": 1788865084.8697395}
+{"timestamp":"2026-09-08T10:58:04.9241825Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T10:58:04.9241825Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T10:58:05.0028001Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T10:58:05.0038045Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T10:58:05.2023094Z","event":"launcher.phase.prepare.done","total_ms":583}
+{"timestamp":"2026-09-08T10:58:05.2053114Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T10:58:06.1273195Z","event":"launcher.electron.handoff"}
+{"timestamp":"2026-09-08T11:03:02.1788396Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T11:03:02.2267287Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788865382.4394243}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 30, "timestamp": 1788865382.467426}
+{"timestamp":"2026-09-08T11:03:02.5286291Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T11:03:02.5291594Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T11:03:02.6120990Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T11:03:02.6131372Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T11:03:02.8264734Z","event":"launcher.phase.prepare.done","total_ms":648}
+{"timestamp":"2026-09-08T11:03:02.8309820Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T11:03:03.7506106Z","event":"launcher.electron.accepted","pid":37984}
+{"timestamp":"2026-09-08T11:09:46.0812542Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T11:09:46.1252754Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788865786.325622}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 30, "timestamp": 1788865786.351677}
+{"timestamp":"2026-09-08T11:09:46.4117719Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T11:09:46.4127708Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T11:09:46.5039299Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T11:09:46.5049321Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T11:09:46.7224787Z","event":"launcher.phase.prepare.done","total_ms":639}
+{"timestamp":"2026-09-08T12:10:52.5968892Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T12:10:52.6399692Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788869452.8366005}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 32, "timestamp": 1788869452.863199}
+{"timestamp":"2026-09-08T12:10:52.9182391Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T12:10:52.9182391Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T12:10:52.9980851Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T12:10:52.9990862Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T12:10:53.2006810Z","event":"launcher.phase.prepare.done","total_ms":603}
+{"timestamp":"2026-09-08T12:10:53.2032610Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T12:10:54.1168429Z","event":"launcher.electron.handoff"}
+{"timestamp":"2026-09-08T12:12:22.6006310Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T12:12:22.6435902Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788869542.8327966}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 16, "timestamp": 1788869542.8598826}
+{"timestamp":"2026-09-08T12:12:22.9195957Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T12:12:22.9205951Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T12:12:23.0048379Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T12:12:23.0048379Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T12:12:23.2077392Z","event":"launcher.phase.prepare.done","total_ms":605}

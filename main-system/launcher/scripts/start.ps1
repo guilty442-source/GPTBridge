@@ -5,7 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$AppDisplayName = -join ([char[]](0x7A0B, 0x5F0F, 0x5EAB))
+$AppDisplayName = -join ([char[]](0x5C08, 0x6848, 0x7A0B, 0x5F0F, 0x5EAB))
 $EXIT_CRITICAL_FAILED = 2
 
 if (-not $ProjectRoot) {
@@ -44,16 +44,14 @@ function Write-LauncherStatus {
 
 function Show-LauncherError {
     param([string]$Message)
+    $logRoot = Join-Path $env:LOCALAPPDATA "GPTBridgeLauncher\logs"
+    $logPath = Join-Path $logRoot "launcher.log"
     try {
-        Add-Type -AssemblyName System.Windows.Forms
-        [System.Windows.Forms.MessageBox]::Show(
-            $Message,
-            $AppDisplayName,
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        ) | Out-Null
+        New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
+        $line = "[{0}] {1} ERROR: {2}" -f ([DateTime]::Now.ToString("yyyy-MM-dd HH:mm:ss.fff")), $AppDisplayName, $Message
+        Add-Content -LiteralPath $logPath -Value $line -Encoding UTF8 -ErrorAction Stop
     } catch {
-        Write-Warning "Unable to show error dialog: $($_.Exception.Message)"
+        Write-Warning "Unable to write launcher log: $($_.Exception.Message)"
     }
 }
 

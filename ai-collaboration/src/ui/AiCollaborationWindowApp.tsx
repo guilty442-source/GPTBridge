@@ -87,8 +87,6 @@ type CollaborationState = {
   safety_notice?: string
 }
 
-type CollaborationMode = 'general' | 'star'
-
 const PROMPT_PRESETS = [
   {
     id: 'summarize',
@@ -204,8 +202,6 @@ export function AiCollaborationWindowApp() {
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set())
   const [agentListCollapsed, setAgentListCollapsed] = useState(true)
   const [draft, setDraft] = useState('')
-  const [businessScope, setBusinessScope] = useState<'general' | 'investment'>('general')
-  const [collaborationMode, setCollaborationMode] = useState<CollaborationMode>('general')
   const [memoryDraft, setMemoryDraft] = useState('')
   const [message, setMessage] = useState('AI協作工具已就緒')
   const [busyAction, setBusyAction] = useState('')
@@ -347,7 +343,7 @@ export function AiCollaborationWindowApp() {
     try {
       const result = await request(
         'ai_nexus_open_agent',
-        { agent_id: agentId, business_scope: businessScope },
+        { agent_id: agentId, business_scope: 'general' },
         30000
       )
       if (result.ok === false) throw new Error(String(result.message || '開啟失敗'))
@@ -385,7 +381,7 @@ export function AiCollaborationWindowApp() {
         'ai_nexus_open_selected_agents',
         {
           agent_ids: Array.from(selectedAgents),
-          business_scope: businessScope,
+          business_scope: 'general',
         },
         60000
       )) as CollaborationState
@@ -415,7 +411,7 @@ export function AiCollaborationWindowApp() {
 
   const updateAgentSetting = (
     agentId: string,
-    field: 'general_url' | 'investment_url' | 'star_training_url' | 'general_enabled' | 'investment_enabled',
+    field: 'general_url' | 'general_enabled',
     value: string | number
   ) => {
     setAgents((current) =>
@@ -431,10 +427,7 @@ export function AiCollaborationWindowApp() {
       const result = (await request('ai_nexus_update_agent_business_settings', {
         agent_id: agent.agent_id,
         general_url: agent.general_url,
-        investment_url: agent.investment_url,
-        star_training_url: agent.star_training_url,
         general_enabled: Boolean(agent.general_enabled),
-        investment_enabled: Boolean(agent.investment_enabled),
         business_capabilities: agent.business_capabilities,
       })) as CollaborationState
       if (result.ok === false) throw new Error(String(result.message || '設定儲存失敗'))
@@ -455,10 +448,6 @@ export function AiCollaborationWindowApp() {
   }
 
   const sendGroupMessage = async () => {
-    if (collaborationMode !== 'general') {
-      setMessage('星澄模式由星澄透過治理通道啟動；請切換至一般模式直接協作')
-      return
-    }
     if (!draft.trim()) {
       setMessage('請輸入要交給 AI 協作的內容')
       return
@@ -468,14 +457,14 @@ export function AiCollaborationWindowApp() {
       return
     }
     setBusyAction('send')
-    setMessage(`一般模式正在交給 ${selectedAgents.size} 個 AI 協作...`)
+    setMessage(`正在交給 ${selectedAgents.size} 個 AI 協作...`)
     try {
       const result = (await request(
         'ai_nexus_send_message',
         {
           content: draft,
           agent_ids: Array.from(selectedAgents),
-          business_scope: businessScope,
+          business_scope: 'general',
           business_task: 'general',
         },
         180000
@@ -568,30 +557,6 @@ export function AiCollaborationWindowApp() {
               瀏覽器
             </button>
           </div>
-          <div className="ai-collab-mode-switch" role="group" aria-label="協作模式">
-            <button
-              type="button"
-              className={collaborationMode === 'general' ? 'is-active' : ''}
-              onClick={() => {
-                setCollaborationMode('general')
-                setMessage('一般模式：勾選 AI、輸入需求後即可直接協作')
-              }}
-              disabled={Boolean(busyAction) || activeTab !== 'collaboration'}
-            >
-              一般模式
-            </button>
-            <button
-              type="button"
-              className={collaborationMode === 'star' ? 'is-active' : ''}
-              onClick={() => {
-                setCollaborationMode('star')
-                setMessage('星澄模式：固定任務由星澄透過治理通道安排')
-              }}
-              disabled={Boolean(busyAction) || activeTab !== 'collaboration'}
-            >
-              星澄模式
-            </button>
-          </div>
           <button
             type="button"
             onClick={() => void openSelectedAgents()}
@@ -599,24 +564,6 @@ export function AiCollaborationWindowApp() {
           >
             {busyAction === 'open-selected' ? '開啟中...' : '在內建瀏覽器開啟'}
           </button>
-          <div className="ai-collab-business-switch" role="group" aria-label="業務類型">
-            <button
-              type="button"
-              className={businessScope === 'general' ? 'is-active' : ''}
-              onClick={() => setBusinessScope('general')}
-              disabled={Boolean(busyAction) || activeTab !== 'collaboration'}
-            >
-              一般業務
-            </button>
-            <button
-              type="button"
-              className={businessScope === 'investment' ? 'is-active' : ''}
-              onClick={() => setBusinessScope('investment')}
-              disabled={Boolean(busyAction) || activeTab !== 'collaboration'}
-            >
-              投資業務
-            </button>
-          </div>
           <button
             type="button"
             onClick={() => void exportReport()}
@@ -820,30 +767,6 @@ export function AiCollaborationWindowApp() {
                         disabled={Boolean(busyAction)}
                       />
                     </label>
-                    <label>
-                      <span>投資業務 URL</span>
-                      <input
-                        type="url"
-                        value={agent.investment_url || ''}
-                        onChange={(event) =>
-                          updateAgentSetting(agent.agent_id, 'investment_url', event.target.value)
-                        }
-                        disabled={Boolean(busyAction)}
-                      />
-                    </label>
-                    {agent.agent_id === 'chatgpt' ? (
-                      <label>
-                        <span>星澄訓練專用 URL</span>
-                        <input
-                          type="url"
-                          value={agent.star_training_url || ''}
-                          onChange={(event) =>
-                            updateAgentSetting(agent.agent_id, 'star_training_url', event.target.value)
-                          }
-                          disabled={Boolean(busyAction)}
-                        />
-                      </label>
-                    ) : null}
                     <div className="ai-collab-agent-business-flags">
                       <label>
                         <input
@@ -858,20 +781,6 @@ export function AiCollaborationWindowApp() {
                           }
                         />
                         一般
-                      </label>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(agent.investment_enabled)}
-                          onChange={(event) =>
-                            updateAgentSetting(
-                              agent.agent_id,
-                              'investment_enabled',
-                              event.target.checked ? 1 : 0
-                            )
-                          }
-                        />
-                        投資
                       </label>
                       <button
                         type="button"
@@ -893,27 +802,21 @@ export function AiCollaborationWindowApp() {
           <section className="ai-collab-panel ai-collab-composer">
             <div className="ai-collab-section-head">
               <div>
-                <span>{collaborationMode === 'general' ? '一般模式' : '星澄模式'}</span>
-                <strong>
-                  {collaborationMode === 'general'
-                    ? '依目前勾選的 AI 直接協作；最多六個 AI 同時處理'
-                    : '固定任務只由星澄拆分、決定並透過治理通道啟動'}
-                </strong>
+                <span>協作</span>
+                <strong>依目前勾選的 AI 直接協作；最多六個 AI 同時處理</strong>
               </div>
             </div>
             <div className="ai-collab-preset-row">
               <label className="ai-collab-task-select">
                 任務路由
-                <span className="ai-collab-route-label">
-                  {collaborationMode === 'general' ? '依勾選 AI' : '星澄固定責任路由'}
-                </span>
+                <span className="ai-collab-route-label">依勾選 AI</span>
               </label>
               {PROMPT_PRESETS.map((preset) => (
                 <button
                   key={preset.id}
                   type="button"
                   onClick={() => applyPromptPreset(preset.prompt)}
-                  disabled={collaborationMode !== 'general' || Boolean(busyAction)}
+                  disabled={Boolean(busyAction)}
                 >
                   {preset.label}
                 </button>
@@ -922,29 +825,16 @@ export function AiCollaborationWindowApp() {
             <textarea
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder={
-                collaborationMode === 'general'
-                  ? '輸入要交給已勾選 AI 的協作需求'
-                  : '星澄模式由星澄透過治理通道啟動'
-              }
-              disabled={collaborationMode !== 'general' || Boolean(busyAction)}
+              placeholder="輸入要交給已勾選 AI 的協作需求"
+              disabled={Boolean(busyAction)}
             />
             <button
               type="button"
               className="ai-collab-primary"
               onClick={() => void sendGroupMessage()}
-              disabled={
-                collaborationMode !== 'general'
-                || Boolean(busyAction)
-                || !draft.trim()
-                || selectedAgents.size === 0
-              }
+              disabled={Boolean(busyAction) || !draft.trim() || selectedAgents.size === 0}
             >
-              {busyAction === 'send'
-                ? '協作中...'
-                : collaborationMode === 'general'
-                  ? '送出一般協作'
-                  : '由星澄安排協作（唯讀）'}
+              {busyAction === 'send' ? '協作中...' : '送出協作'}
             </button>
           </section>
 

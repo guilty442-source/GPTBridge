@@ -10,11 +10,9 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
-using System.Windows.Forms;
-
 internal static class GPTBridgeLauncher
 {
-    private const string AppDisplayName = "程式庫";
+    private const string AppDisplayName = "專案程式庫";
 
     private const string MsgNotInstalled =
         "程式庫啟動器尚未安裝，請執行 launcher\\scripts\\install.ps1。";
@@ -52,10 +50,20 @@ internal static class GPTBridgeLauncher
 
     private static void ShowError(string message)
     {
-        MessageBox.Show(message, AppDisplayName,
-            MessageBoxButtons.OK, MessageBoxIcon.Error,
-            MessageBoxDefaultButton.Button1,
-            MessageBoxOptions.DefaultDesktopOnly);
+        try
+        {
+            var localAppData = Environment.GetEnvironmentVariable("LOCALAPPDATA");
+            var logDir = Path.Combine(localAppData, "GPTBridgeLauncher", "logs");
+            Directory.CreateDirectory(logDir);
+            var logPath = Path.Combine(logDir, "launcher.log");
+            var line = string.Format(
+                "[{0:yyyy-MM-dd HH:mm:ss.fff}] {1} ERROR: {2}",
+                DateTime.Now, AppDisplayName, message);
+            File.AppendAllText(logPath, line + Environment.NewLine, Encoding.UTF8);
+        }
+        catch
+        {
+        }
     }
 
     private static int LaunchHost(string projectRoot, string launchScript)

@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$AppDisplayName = -join ([char[]](0x7A0B, 0x5F0F, 0x5EAB))
+$AppDisplayName = -join ([char[]](0x5C08, 0x6848, 0x7A0B, 0x5F0F, 0x5EAB))
 
 if (-not $ProjectRoot) {
     $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
@@ -20,6 +20,8 @@ $Desktop = [Environment]::GetFolderPath("Desktop")
 $DesktopExe = Join-Path $Desktop "$AppDisplayName.exe"
 $LegacyInstalledExe = Join-Path $InstallBin "GPTBridge.exe"
 $LegacyDesktopExe = Join-Path $Desktop "GPTBridge.exe"
+$OldInstalledExe = Join-Path $InstallBin "程式庫.exe"
+$OldDesktopExe = Join-Path $Desktop "程式庫.exe"
 
 New-Item -ItemType Directory -Force -Path $InstallBin, $InstallConfig | Out-Null
 
@@ -52,7 +54,7 @@ if ($vcvars) {
     }
     & $csc /nologo /target:winexe /platform:anycpu /utf8output `
         "/out:$BuiltExe" `
-        "/r:System.dll" "/r:System.Windows.Forms.dll" `
+        "/r:System.dll" `
         $CSharpSourceFile
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $BuiltExe)) {
         throw "Launcher EXE compilation failed."
@@ -85,7 +87,7 @@ if (Test-Path -LiteralPath $DesktopExe) {
 }
 New-Item -ItemType HardLink -Path $DesktopExe -Target $InstalledExe | Out-Null
 
-foreach ($legacyExe in @($LegacyDesktopExe, $LegacyInstalledExe)) {
+foreach ($legacyExe in @($LegacyDesktopExe, $LegacyInstalledExe, $OldDesktopExe, $OldInstalledExe)) {
     if (Test-Path -LiteralPath $legacyExe) {
         Remove-Item -LiteralPath $legacyExe -Force
     }
