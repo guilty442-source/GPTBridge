@@ -137,11 +137,16 @@ class ToolboxService:
         *,
         governance: Any = None,
         allowed_tool_ids: set[str] | frozenset[str] | None = None,
+        permission_sovereign: Any = None,
     ):
         self.project_root = project_root
         self.tools_dir = self.project_root
         self.governance = governance
-        self.permission_sovereign = PermissionSovereign(None, governance=governance)
+        self.permission_sovereign = (
+            permission_sovereign
+            if permission_sovereign is not None
+            else PermissionSovereign(None, governance=governance)
+        )
         self.allowed_tool_ids = (
             None
             if allowed_tool_ids is None

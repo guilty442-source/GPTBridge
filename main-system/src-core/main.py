@@ -170,10 +170,16 @@ class GPTBridgeApp:
             self.governance = MainSystemGovernance.from_environment(project_root)
         if self.task_queue is None:
             self.task_queue = TaskQueue(project_root, self.core_logger)
+        if self.permission_sovereign is None:
+            self.permission_sovereign = PermissionSovereign(
+                self,
+                governance=self.governance,
+            )
         if self.toolbox_service is None:
             self.toolbox_service = ToolboxService(
                 project_root,
                 governance=self.governance,
+                permission_sovereign=self.permission_sovereign,
             )
         if self.runtime_status_service is None:
             self.runtime_status_service = RuntimeStatusService(self)
@@ -218,10 +224,11 @@ class GPTBridgeApp:
         # 2. 權限主宰 — 權限管理與授權面（唯讀協調層，無執行權）
         self._mark_startup_phase("permission_sovereign_starting")
         try:
-            self.permission_sovereign = PermissionSovereign(
-                self,
-                governance=self.governance,
-            )
+            if self.permission_sovereign is None:
+                self.permission_sovereign = PermissionSovereign(
+                    self,
+                    governance=self.governance,
+                )
             self._log(
                 {
                     "type": "permission_sovereign_startup",
