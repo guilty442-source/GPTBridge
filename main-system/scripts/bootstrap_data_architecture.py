@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-"""bootstrap_data_architecture — codex-native local architecture bootstrap.
+"""bootstrap_data_architecture — codex-native local PostgreSQL architecture bootstrap.
 
-Provisions and migrates the governed local sqlite architecture
-(A44/E30).  No PostgreSQL/psycopg, no external service.
+Provisions and migrates the governed local PostgreSQL architecture
+(A44/E30).  Uses PostgreSQL/psycopg as the canonical structured-data engine;
+runs without external management tools or services.
 """
 
 import json
