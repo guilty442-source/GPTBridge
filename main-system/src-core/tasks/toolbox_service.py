@@ -1431,9 +1431,11 @@ class ToolboxService:
         # must not appear as toolbox cards on the main screen. They remain
         # governed and supervised but are hidden from the toolbox UI:
         #   - global-cleaner  : governed backup/cleanup infrastructure
+        #   - shared-layer     : now a sovereign, not a user-facing tool
         hidden_infrastructure_ids = {
             "global-cleaner",
             "governance_rule",
+            "shared-layer",
         }
         for tool in tools:
             tool_id = str(tool.get("id", "")).strip()
