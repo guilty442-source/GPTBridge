@@ -396,3 +396,25 @@
 {"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T12:12:23.0048379Z","event":"launcher.governance.cache-hit"}
 {"timestamp":"2026-09-08T12:12:23.0048379Z","event":"launcher.phase.governance.done"}
 {"timestamp":"2026-09-08T12:12:23.2077392Z","event":"launcher.phase.prepare.done","total_ms":605}
+{"timestamp":"2026-09-08T12:12:52.7974264Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T12:12:52.8430697Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788869573.0327833}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 15, "timestamp": 1788869573.0583568}
+{"timestamp":"2026-09-08T12:12:53.1173136Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T12:12:53.1183147Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T12:12:53.2009532Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T12:12:53.2014758Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T12:12:53.4046306Z","event":"launcher.phase.prepare.done","total_ms":607}
+{"timestamp":"2026-09-08T12:12:53.4071967Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T12:12:54.3174594Z","event":"launcher.electron.handoff"}
+{"timestamp":"2026-09-08T12:14:32.3801902Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T12:14:32.4285362Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788869672.6219115}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 31, "timestamp": 1788869672.6468036}
+{"timestamp":"2026-09-08T12:14:32.7064537Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T12:14:32.7074549Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T12:14:32.7898823Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T12:14:32.7908885Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T12:14:32.9938954Z","event":"launcher.phase.prepare.done","total_ms":613}
+{"timestamp":"2026-09-08T12:14:32.9968972Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T12:14:33.9406693Z","event":"launcher.electron.accepted","pid":51440}
