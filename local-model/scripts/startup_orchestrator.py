@@ -13,6 +13,8 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable
 
+import psycopg
+
 # Lifecycle states from the startup contract.
 STATE_READY = "READY"
 STATE_DEGRADED = "DEGRADED"
@@ -21,15 +23,16 @@ STATE_RECOVERING = "RECOVERING"
 
 # Exit codes consumed by launcher/scripts/start.ps1
 EXIT_ALL_CRITICAL_UP = 0  # READY or DEGRADED; launch may continue
-EXIT_CRITICAL_FAILED = 2  # local sqlite unavailable; do not pretend READY
+EXIT_CRITICAL_FAILED = 2  # critical service unavailable; do not pretend READY
 
 OLLAMA_ENDPOINT = "http://127.0.0.1:11434"
+QDRANT_ENDPOINT = "http://127.0.0.1:6333"
 WARM_MODEL = "gemma4:e2b-it-qat"
 
-# Hybrid startup: the critical launch path is only the local sqlite store. The
-# local semantic vector index and Ollama are independent degradable services
-# that may be probed concurrently, and the warm-model preload is a non-blocking
-# background task.
+# Hybrid startup: the critical launch path is PostgreSQL (canonical central SQL)
+# and the local sqlite store (owner-private state / transport). Qdrant and
+# Ollama are independent degradable services; the warm-model preload is a
+# non-blocking background task.
 DEGRADABLE_WORKERS = 2
 WARM_MODEL_TIMEOUT = float(os.environ.get("GPTBRIDGE_WARM_MODEL_TIMEOUT", "60"))
 
@@ -103,6 +106,18 @@ def service_entry(
     return entry
 
 
+def probe_postgresql() -> tuple[bool, str]:
+    dsn = str(os.environ.get("GPTBRIDGE_POSTGRES_DSN") or "").strip()
+    if not dsn:
+        return False, "missing GPTBRIDGE_POSTGRES_DSN"
+
+    def postgres_health() -> None:
+        with psycopg.connect(dsn, connect_timeout=3) as connection:
+            connection.execute("SELECT 1").fetchone()
+
+    return retry(postgres_health)
+
+
 def probe_local_sqlite(workspace: Path) -> tuple[bool, str]:
     database = (
         workspace / "local-model" / "runtime" / "state" / "local-rag-keywords.sqlite3"
@@ -113,6 +128,15 @@ def probe_local_sqlite(workspace: Path) -> tuple[bool, str]:
             connection.execute("SELECT 1").fetchone()
 
     return retry(sqlite_health)
+
+
+def probe_qdrant() -> tuple[bool, str]:
+    def qdrant_health() -> None:
+        value = get_json(f"{QDRANT_ENDPOINT}/collections", timeout=2.0)
+        if not isinstance(value, dict):
+            raise RuntimeError("INVALID_QDRANT_RESPONSE")
+
+    return retry(qdrant_health, 3)
 
 
 def probe_local_vector(workspace: Path) -> tuple[bool, str]:
@@ -225,51 +249,66 @@ def append_startup_journal(entry: dict[str, Any]) -> None:
 def main() -> int:
     workspace = Path(__file__).resolve().parents[2]
     report: dict[str, Any] = {
-        "startup_order": ["local-sqlite", "vector", "ollama", "warm_model"],
+        "startup_order": ["postgresql", "local-sqlite", "qdrant", "ollama", "warm_model"],
         "mode": "hybrid-parallel-degradables",
     }
     started_at = time.monotonic()
     append_startup_journal({"event": "orchestrator.start", "mode": report["mode"]})
 
-    # Hybrid start: begin the critical local sqlite probe and, in parallel,
-    # probe the independent degradable services (vector index, Ollama).
-    # The critical path (sqlite) gates launch; degradables are allowed to
-    # settle in the background and their results are collected with a short
-    # timeout so a slow Ollama startup does not block the launcher.
+    # Hybrid start: probe critical services (PostgreSQL, local sqlite) and, in
+    # parallel, probe the independent degradable services (qdrant, Ollama).
+    # The critical path gates launch; degradables are allowed to settle in the
+    # background with a bounded timeout so a slow Ollama startup does not block.
+    postgresql: tuple[bool, str] = (False, "not-probed")
     local_sqlite: tuple[bool, str] = (False, "not-probed")
-    vector_result: tuple[bool, str] = (False, "not-probed")
+    qdrant_result: tuple[bool, str] = (False, "not-probed")
     ollama_result: tuple[bool, str] = (False, "not-probed")
-    with ThreadPoolExecutor(max_workers=DEGRADABLE_WORKERS + 1) as pool:
+    with ThreadPoolExecutor(max_workers=DEGRADABLE_WORKERS + 2) as pool:
+        postgresql_future: Future[tuple[bool, str]] = pool.submit(
+            probe_postgresql
+        )
         sqlite_future: Future[tuple[bool, str]] = pool.submit(
             probe_local_sqlite, workspace
         )
-        vector_future: Future[tuple[bool, str]] = pool.submit(
-            probe_local_vector, workspace
+        qdrant_future: Future[tuple[bool, str]] = pool.submit(
+            probe_qdrant
         )
         ollama_future: Future[tuple[bool, str]] = pool.submit(
             probe_and_start_ollama
         )
 
         # Wait for the critical path first — this gates launch.
+        postgresql = postgresql_future.result()
         local_sqlite = sqlite_future.result()
-        critical_up = local_sqlite[0]
+        critical_up = postgresql[0] and local_sqlite[0]
 
-        # Vector index and Ollama are independent and degradable; give them
-        # a bounded grace period rather than blocking indefinitely.  A slow
-        # Ollama startup (10-25s) should not delay the launcher.
+        # Qdrant and Ollama are independent and degradable; give them a bounded
+        # grace period rather than blocking indefinitely.  A slow Ollama startup
+        # (10-25s) should not delay the launcher.
         DEGRADABLE_GRACE_SECONDS = 5.0
         for future, label in (
-            (vector_future, "vector"),
+            (qdrant_future, "qdrant"),
             (ollama_future, "ollama"),
         ):
             try:
                 result = future.result(timeout=DEGRADABLE_GRACE_SECONDS)
             except TimeoutError:
                 result = (False, f"{label}-probe-timeout-grace-{DEGRADABLE_GRACE_SECONDS}s")
-            if label == "vector":
-                vector_result = result
+            if label == "qdrant":
+                qdrant_result = result
             else:
                 ollama_result = result
+
+    postgresql_ready, postgresql_detail = postgresql
+    postgresql_entry = service_entry(
+        "postgresql",
+        postgresql_ready,
+        postgresql_detail,
+        critical=True,
+        state=STATE_READY if postgresql_ready else STATE_FAILED,
+        fault_code="POSTGRESQL_READY" if postgresql_ready else "POSTGRESQL_UNAVAILABLE",
+    )
+    report["postgresql"] = postgresql_entry
 
     sqlite_ready, sqlite_detail = local_sqlite
     sqlite_entry = service_entry(
@@ -282,16 +321,16 @@ def main() -> int:
     )
     report["local-sqlite"] = sqlite_entry
 
-    vector_ready, vector_detail = vector_result
-    vector_entry = service_entry(
-        "vector",
-        vector_ready,
-        vector_detail,
+    qdrant_ready, qdrant_detail = qdrant_result
+    qdrant_entry = service_entry(
+        "qdrant",
+        qdrant_ready,
+        qdrant_detail,
         critical=False,
-        state=STATE_READY if vector_ready else STATE_RECOVERING,
-        fault_code="VECTOR_READY" if vector_ready else "VECTOR_UNAVAILABLE",
+        state=STATE_READY if qdrant_ready else STATE_RECOVERING,
+        fault_code="QDRANT_READY" if qdrant_ready else "QDRANT_UNAVAILABLE",
     )
-    report["vector"] = vector_entry
+    report["qdrant"] = qdrant_entry
 
     ollama_ready, ollama_detail = ollama_result
     ollama_entry = service_entry(
@@ -314,7 +353,7 @@ def main() -> int:
     degradable_up = all(
         entry.get("ready") is True
         for entry in report.values()
-        if isinstance(entry, dict) and entry.get("component") in {"vector", "ollama"}
+        if isinstance(entry, dict) and entry.get("component") in {"qdrant", "ollama"}
     )
     if not critical_up:
         report["state"] = STATE_FAILED
@@ -323,8 +362,8 @@ def main() -> int:
     else:
         report["state"] = STATE_DEGRADED
 
-    report["critical_services"] = ["local-sqlite"]
-    report["degradable_services"] = ["vector", "ollama"]
+    report["critical_services"] = ["postgresql", "local-sqlite"]
+    report["degradable_services"] = ["qdrant", "ollama"]
     report["exit_code"] = EXIT_ALL_CRITICAL_UP if critical_up else EXIT_CRITICAL_FAILED
     report["total_duration_ms"] = int((time.monotonic() - started_at) * 1000)
 
