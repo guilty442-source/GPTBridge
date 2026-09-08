@@ -67,6 +67,7 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock({ toolId })
 if (!hasSingleInstanceLock) app.quit()
 
 let mainWindow = null
+let reloadTimer = null
 
 function showWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return
@@ -101,6 +102,31 @@ function createWindow() {
     mainWindow = null
   })
   void mainWindow.loadFile(rendererEntry)
+}
+
+function startRendererWatch() {
+  // Hot-reload: when the built renderer entry is overwritten by a fresh
+  // `vite build`, reload the tool window without restarting the whole app.
+  if (!fs.existsSync(rendererEntry)) return
+  fs.watchFile(rendererEntry, { interval: 500 }, () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    if (reloadTimer) {
+      clearTimeout(reloadTimer)
+      reloadTimer = null
+    }
+    reloadTimer = setTimeout(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) return
+      mainWindow.webContents.reloadIgnoringCache()
+    }, 500)
+  })
+}
+
+function stopRendererWatch() {
+  if (reloadTimer) {
+    clearTimeout(reloadTimer)
+    reloadTimer = null
+  }
+  fs.unwatchFile(rendererEntry)
 }
 
 ipcMain.handle('app:ensure-backend-started', async () => ({
@@ -159,9 +185,15 @@ if (hasSingleInstanceLock) {
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null)
     createWindow()
+    startRendererWatch()
   })
 }
 
 app.on('window-all-closed', () => {
+  stopRendererWatch()
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('before-quit', () => {
+  stopRendererWatch()
 })
