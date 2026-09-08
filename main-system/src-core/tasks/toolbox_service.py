@@ -182,6 +182,20 @@ class ToolboxService:
         self._tool_activity_callback: Callable[[str], None] | None = None
 
     @property
+    def _maintenance_ready(self) -> bool:
+        # No full lock: a boolean flag on the governance boundary tells whether
+        # the startup maintenance pass has finished.
+        return bool(getattr(self.governance, "maintenance_ready", False))
+
+    def _maintenance_not_ready_result(self, operation: str) -> Dict[str, Any]:
+        return {
+            "ok": False,
+            "error_code": "STARTUP_MAINTENANCE_IN_PROGRESS",
+            "message": "啟動維護尚未完成：正在檢查版本相容性並執行主系統穩定性修正，完成前不開放狀態變更。",
+            "operation": operation,
+        }
+
+    @property
     def central_repair(self) -> CentralRepairService:
         if self._central_repair is None:
             repair_data_root = self.project_root / "main-system" / "data" / "automatic-repair"
@@ -1465,6 +1479,8 @@ class ToolboxService:
         return {"ok": True, "tools": tools}
 
     async def update_status(self, tool_id: str, status: str) -> Dict[str, Any]:
+        if not self._maintenance_ready:
+            return self._maintenance_not_ready_result("update_status")
         try:
             manifest_path = self._tool_directory_for_id(tool_id) / "manifest.json"
         except ValueError:
@@ -1527,6 +1543,8 @@ class ToolboxService:
         }
 
     async def start_tool(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if not self._maintenance_ready:
+            return self._maintenance_not_ready_result("start_tool")
         tool_id = str(payload.get("tool_id", "")).strip()
         background = payload.get("background") is True
         managed_restart = payload.get("_managed_restart") is True
@@ -2300,6 +2318,8 @@ class ToolboxService:
     async def force_close_tool(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Force-close the complete tool process tree and verify no process remains."""
 
+        if not self._maintenance_ready:
+            return self._maintenance_not_ready_result("force_close_tool")
         tool_id = str(payload.get("tool_id", "")).strip()
         command_request_id = str(payload.get("request_id") or "").strip()
         if not tool_id:
