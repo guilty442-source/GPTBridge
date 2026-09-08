@@ -334,6 +334,4 @@ class LocalVectorStore:
             )
 
 
-VectorStore = LocalVectorStore
-
-__all__ = ["LocalVectorStore", "VectorStore", "embed_vector"]
+__all__ = ["LocalVectorStore", "embed_vector"]

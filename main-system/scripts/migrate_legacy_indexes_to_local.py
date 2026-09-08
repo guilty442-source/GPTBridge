@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-"""migrate_legacy_indexes_to_local — codex-native legacy index migration.
+"""migrate_legacy_indexes_to_local — codex-native legacy index fallback migration.
 
-Replaces the retired ``migrate_legacy_indexes_to_postgresql.py``.  Migrates
-any legacy sqlite channel/RAG databases straight into the local governed
-sqlite stores (A44/E30).  No PostgreSQL/psycopg, no external service.
+Migrates any legacy sqlite channel/RAG databases into the local governed
+sqlite stores (A44/E30).  These stores are a bounded, degraded, owner-private
+fallback only; PostgreSQL remains the canonical structured-data engine
+(A8/E21).  No external management tools.
 """
 
 import json
@@ -156,7 +157,7 @@ def main() -> int:
         "channels": channel_counts,
         "rag_chunks": rag_chunks,
         "legacy_deleted": all(cleanup),
-        "deprecated_postgresql": True,
+        "degraded_replica": True,
     }, ensure_ascii=False, sort_keys=True))
     return 0
 
