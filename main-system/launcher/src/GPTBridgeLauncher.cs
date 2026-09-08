@@ -33,7 +33,12 @@ internal static class GPTBridgeLauncher
         {
             var bytes = File.ReadAllBytes(rootFile);
             if (bytes.Length > 1048576) return "";
-            return Encoding.UTF8.GetString(bytes).Trim();
+            var text = Encoding.UTF8.GetString(bytes);
+            if (text.Length > 0 && text[0] == '\ufeff')
+            {
+                text = text.Substring(1);
+            }
+            return text.Trim();
         }
         catch (IOException)
         {

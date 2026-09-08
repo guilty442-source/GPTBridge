@@ -78,6 +78,9 @@ static std::wstring ReadRootFile(const std::wstring& rootFile)
     MultiByteToWideChar(CP_UTF8, 0,
                         reinterpret_cast<LPCCH>(buffer.data()),
                         static_cast<int>(read), &text[0], wide);
+    if (!text.empty() && text[0] == L'\ufeff') {
+        text = text.substr(1);
+    }
     size_t start = text.find_first_not_of(L" \t\r\n");
     size_t end = text.find_last_not_of(L" \t\r\n");
     if (start == std::wstring::npos) {

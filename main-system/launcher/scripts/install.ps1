@@ -60,7 +60,11 @@ if ($vcvars) {
 }
 Move-Item -LiteralPath $BuiltExe -Destination $InstalledExe -Force
 
-Set-Content -LiteralPath (Join-Path $InstallConfig "root.txt") -Value $ProjectRoot -Encoding UTF8
+[System.IO.File]::WriteAllText(
+    (Join-Path $InstallConfig "root.txt"),
+    $ProjectRoot,
+    (New-Object System.Text.UTF8Encoding($false))
+)
 
 foreach ($shortcut in Get-ChildItem -LiteralPath $Desktop -Filter "*.lnk" -File -ErrorAction SilentlyContinue) {
     try {

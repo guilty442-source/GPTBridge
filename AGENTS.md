@@ -64,6 +64,31 @@ Hooks are installed in `.git/hooks/` and shared across all worktrees.
 
 Worktrees share the same `.git` directory. Hooks, config, and objects are common.
 
+## Automatic Self-Commit (per worktree)
+
+Each worktree can automatically commit the changes made inside its own checkout.
+The service only commits — it **never pushes**.
+
+```powershell
+# One-shot (scheduler / on-demand), act on every worktree including main
+& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --all --once
+
+# One-shot, single worktree
+& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --worktree E:\GPTBridge-worktrees\ui --once
+
+# Long-running watcher for one worktree (interval + stability debounce in seconds)
+& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --worktree E:\GPTBridge-worktrees\ui --watch --interval 30 --debounce 60
+
+# Spawn one background watcher per worktree (no console window)
+& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --all --watch
+```
+
+Guards: skipped while merge/rebase/cherry-pick/revert is in progress, when the
+worktree is clean, and when git identity is missing. Honours `.gitignore`
+(ignored paths are never staged). Commits are recorded in the audit ledger with
+operation `auto-commit`. Implementation:
+`governance_rule/execution/git_tiers/self_commit.py`.
+
 ## Governance
 
 - Codex files (`governance_rule/codex/*.py`) are **read-only** — do not modify without explicit user approval.

@@ -316,3 +316,23 @@
 {"timestamp":"2026-09-08T10:28:41.2803267Z","event":"launcher.phase.prepare.done","total_ms":617}
 {"timestamp":"2026-09-08T10:28:41.2838797Z","event":"launcher.phase.electron.start"}
 {"timestamp":"2026-09-08T10:28:42.1940225Z","event":"launcher.electron.accepted","pid":38000}
+{"timestamp":"2026-09-08T10:34:11.6319820Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T10:34:11.6770044Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788863651.8647926}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 15, "timestamp": 1788863651.8907523}
+{"timestamp":"2026-09-08T10:34:11.9463948Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T10:34:11.9473947Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T10:34:12.0363254Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T10:34:12.0374025Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T10:34:12.2723409Z","event":"launcher.phase.prepare.done","total_ms":637}
+{"timestamp":"2026-09-08T10:34:21.1997996Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T10:34:21.2444237Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788863661.4367032}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 30, "timestamp": 1788863661.4627035}
+{"timestamp":"2026-09-08T10:34:21.5187897Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T10:34:21.5197896Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T10:34:21.6015010Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T10:34:21.6025020Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T10:34:21.8082485Z","event":"launcher.phase.prepare.done","total_ms":608}
+{"timestamp":"2026-09-08T10:34:21.8112453Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T10:34:22.7652681Z","event":"launcher.electron.handoff"}
