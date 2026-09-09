@@ -10,7 +10,7 @@ from typing import Any
 
 import json
 
-REPAIR_VERSION: str = "1.0.0"
+REPAIR_VERSION: str = "1.00000"
 
 
 def _inside(candidate: Path, root: Path) -> bool:

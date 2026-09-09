@@ -32,7 +32,7 @@ class AiCollaborationService(
     CollabSvcMemoryMixin,
     CollabSvcDiagnosticsMixin,
 ):
-    VERSION = "1.0.0"
+    VERSION = "1.00000"
     MAX_PARALLEL_AI = 6
     BROWSER_WAIT_CYCLES = 3
     BROWSER_WAIT_SECONDS = 20

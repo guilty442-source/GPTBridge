@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import Any, Final
 from uuid import uuid4
 
-REPAIR_COORDINATOR_VERSION: Final[str] = "1.0.0"
+REPAIR_COORDINATOR_VERSION: Final[str] = "1.00000"
 
 # How long a repair lock is considered valid before it's treated as stale
 # (the owner likely crashed).  This bounds the window for duplicate repair.

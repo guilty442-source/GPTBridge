@@ -55,7 +55,7 @@ class LocalAiService(
     InvestmentChannelMixin,
     InferenceChannelMixin,
 ):
-    VERSION = "1.0.0"
+    VERSION = "1.00000"
     NATIVE_MODEL_ID = "star-main-native-model"
     PLATFORM_MODE = "context-aware-multitask-model-platform"
     ENTRY_GATEWAY = "all-ai-business-entries"

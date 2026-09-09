@@ -8,7 +8,7 @@ from typing import Any, Callable
 class StarChatService:
     """A separated, governed client for local model conversation."""
 
-    VERSION = "1.0.0"
+    VERSION = "1.00000"
     PRIMARY_LANGUAGE = "zh-TW"
     AUTOMATIC_WORKFLOW_SEQUENCE = (
         "receive-original-traditional-chinese",

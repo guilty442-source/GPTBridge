@@ -173,7 +173,7 @@ def _package_tool_locked(
 
         app_manifest = dict(manifest)
         app_manifest["id"] = tool_id
-        app_manifest["version"] = str(manifest.get("version", "1.0.0"))
+        app_manifest["version"] = str(manifest.get("version", "1.00000"))
         app_manifest["standalone"] = {
             "backend_entry": backend_entry_relative,
             "backend_service_version": str(manifest.get("version", "1.0.0")),

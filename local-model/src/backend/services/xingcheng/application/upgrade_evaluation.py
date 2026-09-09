@@ -116,7 +116,7 @@ def evaluate_star_upgrade(
             market_data_age_hours = None
 
     checks = {
-        "version_locked_to_1_0": version == "1.0.0",
+        "version_locked_to_1_0": version == "1.00000",
         "tool_databases_isolated": databases_isolated,
         "sqlite_integrity_verified": sqlite_integrity_ok,
         "investment_parameters_ready": parameter_count >= MINIMUM_INVESTMENT_PARAMETERS,

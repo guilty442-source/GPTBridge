@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 SEMVER_PATTERN = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
-LOCKED_APPLICATION_VERSION = "1.0.0"
+LOCKED_APPLICATION_VERSION = "1.00000"
 
 
 def application_version(project_root: Path) -> str:

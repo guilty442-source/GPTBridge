@@ -35,7 +35,7 @@ from .sovereign_utils import _iso_now, _suppress
 MAIN_SYSTEM_TOOL_ID: Final[str] = "main-system"
 DEFAULT_INTERVAL_SECONDS: Final[float] = 6 * 60 * 60
 MIN_INTERVAL_SECONDS: Final[float] = 60.0
-SELF_MAINTENANCE_VERSION: Final[str] = "1.1.0"
+SELF_MAINTENANCE_VERSION: Final[str] = "1.00000"
 
 
 class MainSystemSelfMaintenance:

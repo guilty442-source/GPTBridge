@@ -16,7 +16,7 @@ if __package__ in (None, ""):
     if str(_SRC_CORE_ROOT) not in sys.path:
         sys.path.insert(0, str(_SRC_CORE_ROOT))
 
-SOURCE_REPAIR_VERSION: Final[str] = "1.1.0"
+SOURCE_REPAIR_VERSION: Final[str] = "1.00000"
 SOURCE_REPAIR_RECIPE_ID: Final[str] = "main-system-python-source-syntax"
 FAILURE_CODE: Final[str] = "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED"
 

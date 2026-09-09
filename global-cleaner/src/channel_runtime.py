@@ -26,7 +26,7 @@ executor = GovernedCliExecutor(TOOL_ID, TOOL_ROOT)
 async def main() -> None:
     runtime = GovernedToolRuntime(
         tool_id=TOOL_ID,
-        version="1.0.0",
+        version="1.00000",
         executor=executor,
         cancellation=executor.cancel,
         health=lambda: {"service_ready": True},

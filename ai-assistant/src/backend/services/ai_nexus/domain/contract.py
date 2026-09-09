@@ -4,7 +4,7 @@ from __future__ import annotations
 # Application releases and persisted-data schemas intentionally evolve
 # independently.  Keeping them separate prevents a UI/feature release from
 # being mistaken for a destructive data migration.
-INVESTMENT_APP_VERSION = "1.0.0"
+INVESTMENT_APP_VERSION = "1.00000"
 INVESTMENT_STATE_SCHEMA_VERSION = 2
 INVESTMENT_STATE_MIN_SUPPORTED_SCHEMA_VERSION = 1
 INVESTMENT_ANALYTICS_SCHEMA_VERSION = 5

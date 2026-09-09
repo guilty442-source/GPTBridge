@@ -125,8 +125,8 @@ class GovernanceCodex:
 # ---------------------------------------------------------------------------
 
 GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
-    schema="gptbridge-governance-codex-v1",
-    codex_version=1.0,
+    schema="gptbridge-governance-codex-v1.00000",
+    codex_version=1.00000,
     preamble=CodexPreamble(
         title="GPTBridge Governance Codex",
         authority_rank="supreme",

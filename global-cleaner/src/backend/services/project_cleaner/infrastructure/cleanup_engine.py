@@ -320,7 +320,7 @@ def _parse_iso(value: str) -> datetime | None:
 
 
 class ProjectCleanupService:
-    VERSION = "1.0.0"
+    VERSION = "1.00000"
 
     def purge_legacy_artifacts(self, *, force: bool = False) -> dict[str, Any]:
         """Delete only declared obsolete package and root-level runtime artifacts.

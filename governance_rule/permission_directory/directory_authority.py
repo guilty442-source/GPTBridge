@@ -407,7 +407,7 @@ AUTHORITY_VERSION_POLICY: Final[AuthorityVersionPolicy] = AuthorityVersionPolicy
 )
 
 CODE_VERSION_POLICY: Final[CodeVersionPolicy] = CodeVersionPolicy(
-    initial_version="1",
+    initial_version="1.00000",
     scope="all-source-code",
     explicit_target_version_required=True,
     unversioned_update=False,

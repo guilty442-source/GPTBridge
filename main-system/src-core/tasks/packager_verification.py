@@ -67,7 +67,7 @@ def verify_tool_package(
         else None
     )
     expected_port = standalone_backend_port(tool_id)
-    expected_version = str(manifest.get("version", "1.0.0"))
+    expected_version = str(manifest.get("version", "1.00000"))
     request_channel = manifest.get("request_channel")
     governed_channel = (
         isinstance(request_channel, dict)

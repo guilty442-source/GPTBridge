@@ -58,7 +58,7 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
         path_resolution="canonical-authority-path-module-only",
         source_language="programming-language-only",
         localization_source="external-language-plugin-only",
-        initial_code_version="1.0.0",
+        initial_code_version="1.00000",
         implicit_version_change=False,
         identifier_label_schema="gptbridge-identifier-label-v1",
         approved_tool_ids=(
@@ -226,7 +226,7 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
         ),
         category_labels=False,
         requirements=(
-            "codex-v1-is-sole-rule-source",
+            "codex-v1.00000-is-sole-rule-source",
             "all-source-code-within-canonical-project-root",
             "main-system-code-within-main-system-root-only",
             "independent-tool-code-within-own-direct-root-only",

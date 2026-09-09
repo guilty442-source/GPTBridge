@@ -61,7 +61,7 @@ from .response_validator import ResponseValidator, ValidationResult
 from .trace import SearchTrace, TraceEvent
 from .pipeline import WebSearchPipeline, PipelineConfig, PipelineResult
 
-__version__ = "1.0.0"
+__version__ = "1.00000"
 
 __all__ = [
     # Source

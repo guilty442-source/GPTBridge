@@ -38,7 +38,7 @@ class VaultlyService(
     behaviour is identical to the original monolithic implementation.
     """
 
-    VERSION = "1.0.0"
+    VERSION = "1.00000"
     AUTO_SCAN_SUCCESS_INTERVAL_SECONDS = 30 * 60
     AUTO_SCAN_RETRY_INTERVAL_SECONDS = 30
     MAX_MEDIA_BYTES = 150 * 1024 * 1024

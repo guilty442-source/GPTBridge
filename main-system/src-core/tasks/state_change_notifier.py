@@ -33,7 +33,7 @@ from typing import Any, Final
 
 from tasks.readiness_gate import ReadinessGate, ReadinessSnapshot
 
-STATE_NOTIFIER_VERSION: Final[str] = "1.1.0"
+STATE_NOTIFIER_VERSION: Final[str] = "1.00000"
 
 # Information-layer state file for cross-UI readiness propagation.
 READINESS_STATE_RELATIVE: Final[tuple[str, ...]] = (

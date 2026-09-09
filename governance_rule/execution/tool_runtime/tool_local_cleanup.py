@@ -12,7 +12,7 @@ from typing import Any
 
 SECONDS_PER_DAY = 24 * 60 * 60
 
-CLEANUP_VERSION: str = "1.0.0"
+CLEANUP_VERSION: str = "1.00000"
 
 EXCLUDED_DIRECTORY_NAMES = frozenset(
     {
