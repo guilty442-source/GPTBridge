@@ -1,4 +1,4 @@
-"""Connection watchdog — monitors frontend-backend connection health and triggers repair.
+"""Connection watchdog — monitors frontend-backend connection health and records learning.
 
 Architecture:
 
@@ -9,7 +9,7 @@ Architecture:
 
   Health layers:
     1. Backend process alive (boot_core supervises)
-    2. Backend HTTP /health returns 200 (boot_core probes every 5s)
+    2. Backend HTTP /health returns ready with governance_ready=true (boot_core probes every 5s)
     3. Frontend WebSocket connected (IPC server tracks active connections)
     4. ConnectionWatchdog polls all three and records state transitions
 
@@ -23,7 +23,8 @@ Architecture:
     - Polls backend /health every CONNECTION_PROBE_INTERVAL seconds
     - Polls IPC connection state file every CONNECTION_PROBE_INTERVAL seconds
     - Records state transitions to the learning store
-    - Triggers CentralRepairService when FRONTEND_BACKEND_DISCONNECTED is detected
+    - Records the connection outcome via CentralRepairService for learning only;
+      actual repair is requested through the governed repair path (A72).
     - Writes connection state to boot-core.json for observability
 """
 
@@ -91,7 +92,8 @@ class ConnectionWatchdog:
     degrades or drops, it:
     1. Records the state transition.
     2. Notifies the learning store (for pattern recognition).
-    3. Triggers CentralRepairService if the disconnection persists.
+    3. Records the connection outcome via CentralRepairService for learning;
+       actual repair is requested through the governed repair path (A72).
     4. Writes connection state to a file for observability.
     """
 
