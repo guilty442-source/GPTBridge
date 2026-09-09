@@ -74,7 +74,6 @@ Interface layer development (P20/A45/E31 — presentation only, no decide/exec).
 | --- | --- | --- |
 | Main Process | `main-system/src-ui/main/` | TypeScript |
 | Renderer | `main-system/src-ui/renderer/` | TypeScript/React |
-| Governance Bootstrap | `main-system/src-ui/main/governance-bootstrap.ts` | TypeScript |
 | IPC Transport | `main-system/src-ui/main/ipc-transport.ts` | TypeScript |
 | Path Library | `main-system/src-ui/main/pathLibrary.ts` | TypeScript |
 | TS Checkers | `governance_rule/execution/typescript/` | TypeScript |

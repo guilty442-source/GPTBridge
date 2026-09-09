@@ -186,7 +186,10 @@ export function useStarChatBackend() {
             // Ignore frames which do not match the governed response contract.
           }
         }
-        socket.onerror = () => setStatus('Error')
+        socket.onerror = () => {
+          setStatus('Error')
+          if (socket.readyState < WebSocket.CLOSING) socket.close()
+        }
         socket.onclose = () => {
           if (socketRef.current === socket) socketRef.current = null
           setStatus('Disconnected')

@@ -24,6 +24,37 @@
 .toolbox-header__actions { display: flex; align-items: center; gap: 12px; }
 .sync-time { color: var(--subtle); font-size: 10px; white-space: nowrap; }
 
+.toolbox-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.tool-search {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--subtle);
+  background: rgba(6, 10, 18, 0.58);
+}
+
+.tool-search:focus-within { border-color: rgba(91, 140, 255, 0.55); }
+.tool-search input { width: 100%; border: 0; outline: 0; color: var(--text); background: transparent; }
+.tool-search input::placeholder { color: var(--subtle); }
+.tool-search button { border: 0; color: var(--muted); background: transparent; cursor: pointer; font-size: 18px; }
+
+.tool-filters { display: flex; gap: 5px; padding: 4px; border: 1px solid var(--line); border-radius: 11px; background: rgba(6, 10, 18, 0.46); }
+.tool-filters button { min-height: 32px; padding: 0 11px; border: 0; border-radius: 8px; color: var(--muted); background: transparent; cursor: pointer; font-size: 10px; font-weight: 750; }
+.tool-filters button:hover { color: var(--text); }
+.tool-filters button.is-active { color: #dce8ff; background: var(--brand-soft); box-shadow: inset 0 0 0 1px rgba(91, 140, 255, 0.2); }
+.tool-result-count { color: var(--subtle); font-size: 10px; white-space: nowrap; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
 .toolbox-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 
 /* ── Tool card (compact, clean) ── */
@@ -252,6 +283,8 @@
   text-align: center;
   font-size: 12px;
 }
+.empty-state strong, .empty-state span { display: block; }
+.empty-state span { margin-top: 8px; color: var(--subtle); }
 
 /* ── Tool detail drawer content ── */
 .tool-detail {
@@ -353,5 +386,7 @@
 
 @media (max-width: 900px) {
   .toolbox-header { align-items: flex-start; flex-direction: column; }
+  .toolbox-toolbar { grid-template-columns: 1fr; }
+  .tool-filters { width: 100%; overflow-x: auto; }
   .toolbox-grid { grid-template-columns: 1fr; }
 }

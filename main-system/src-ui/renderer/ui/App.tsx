@@ -295,6 +295,21 @@ export default function App() {
       </header>
 
       <main className="product-main">
+        <section className="workspace-intro" aria-labelledby="workspace-title">
+          <div>
+            <span className="eyebrow">控制中心</span>
+            <h1 id="workspace-title">今天想使用哪個工具？</h1>
+            <p>從下方直接啟動工具；系統狀態、容量與第三方元件集中在右側快捷入口。</p>
+          </div>
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={toolboxSyncing}
+            onClick={() => void refreshToolboxTools()}
+          >
+            {toolboxSyncing ? '同步中…' : '同步工具狀態'}
+          </button>
+        </section>
         {!operational && (
           <aside className="connection-notice" role="status">
             <strong>{connected ? t.maintenanceIncomplete : t.offlineSafeMode}</strong>
@@ -306,13 +321,7 @@ export default function App() {
           </aside>
         )}
 
-        {backendSocket.lastError && !connected && (
-          <aside className="error-notice" role="alert" data-testid="backend-error">
-            {t.backendConnectionFailed}
-          </aside>
-        )}
-
-        {/* Clean tech-feel summary cards */}
+        {/* Operational summary */}
         <section className="hero-grid" aria-label={t.systemOverview}>
           <article className="hero-card hero-card--primary">
             <span className="hero-card__label">{t.availableTools}</span>
@@ -335,6 +344,14 @@ export default function App() {
             <small className="hero-card__hint">{t.commandStrategyHint}</small>
           </article>
         </section>
+
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">系統管理</span>
+            <h2>常用管理入口</h2>
+          </div>
+          <span>詳細設定不干擾日常工具操作</span>
+        </div>
 
         {/* Drawer trigger row */}
         <section className="drawer-triggers">

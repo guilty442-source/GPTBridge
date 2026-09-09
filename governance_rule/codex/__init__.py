@@ -768,7 +768,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A66",
             section="4",
             subject="module-execution-layer",
-            rule="MODULE-EXECUTION-LAYER:local-model+model-dialogue+ai-investment-manager+ai-investment-manager-mobile+ai-collaboration+file-management+global-cleaner+vaultly+system-rescue; XINGCHENG:excluded-from-system-module-layer+isolated-owned-folder",
+            rule="MODULE-EXECUTION-LAYER:local-model+model-dialogue+ai-assistant+investment-mobile+ai-collaboration+file-sorter+global-cleaner+vaultly+system-rescue; XINGCHENG:excluded-from-system-module-layer+isolated-owned-folder",
             prohibition="FORBID:module-self-governance; FORBID:module-cross-owner-execution; FORBID:system-access-xingcheng-folder; FORBID:xingcheng-access-system-modules",
         ),
         CodexArticle(
@@ -1088,7 +1088,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E46",
             area="gptbridge-layered-architecture",
-            edict="LAYERS:startup-entry(ui-only)>startup-core(governance+system-core)>governance-authority>{sovereign-decision(system+maintenance+permission)||cross-layer-information-peer-authority(shared-layer+postgresql+qdrant+status+events+ipc)}>sub-sovereign-control-dispatch(system+maintenance+permission)>module-execution(local-model-xingcheng-folder+model-dialogue+ai-investment-manager+mobile+ai-collaboration+file-management+global-cleaner+vaultly+system-rescue); INFORMATION-AUTHORITY-RANK:equal-to-sovereign-layer; FORBID:mutual-override+layer-collapse+bypass+duty-substitution",
+            edict="LAYERS:startup-entry(ui-only)>startup-core(governance+system-core)>governance-authority>{sovereign-decision(system+maintenance+permission)||cross-layer-information-peer-authority(shared-layer+postgresql+qdrant+status+events+ipc)}>sub-sovereign-control-dispatch(system+maintenance+permission)>module-execution(local-model-xingcheng-folder+model-dialogue+ai-assistant+investment-mobile+ai-collaboration+file-sorter+global-cleaner+vaultly+system-rescue); INFORMATION-AUTHORITY-RANK:equal-to-sovereign-layer; FORBID:mutual-override+layer-collapse+bypass+duty-substitution",
             immutability="immutable-sealed",
         ),
         CodexEdict(

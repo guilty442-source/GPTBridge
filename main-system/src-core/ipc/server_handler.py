@@ -32,7 +32,9 @@ async def handler(websocket, app_instance):
     connection_tasks: set[asyncio.Task] = set()
 
     # Track active WebSocket connections for the connection watchdog.
-    _PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    # write_ipc_connection_state expects the workspace root and appends
+    # main-system/runtime/state itself.
+    _PROJECT_ROOT = Path(__file__).resolve().parents[3]
     try:
         _active_connections = getattr(app_instance, "_active_ws_connections", 0) + 1
         app_instance._active_ws_connections = _active_connections

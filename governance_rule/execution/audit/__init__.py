@@ -47,7 +47,6 @@ REQUIRED_GOVERNANCE_ENFORCEMENT_SOURCES = frozenset(
         "governance_rule/execution/git_tiers/__init__.py",
         "governance_rule/permission_directory/execution/identity_registry/__init__.py",
         "governance_rule/permission_directory/execution/path_guard/__init__.py",
-        "main-system/src-ui/main/governance-bootstrap.ts",
         "main-system/src-core/core_system/governance_runtime.py",
     }
 )
@@ -486,24 +485,12 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
                 errors.append(f"shared layer source is missing: {source.name}")
             elif not _is_operating_system_read_only(source):
                 errors.append(f"shared layer source is not read-only: {source.name}")
-    launcher_source = (root / "main-system/src-ui/main/python-backend.ts").read_text(
-        encoding="utf-8"
-    )
-    if "createMainSystemGovernanceBootstrap" not in launcher_source:
-        errors.append("shared launcher does not create governance bootstrap material")
-    bootstrap_source = (
-        root / "main-system/src-ui/main/governance-bootstrap.ts"
-    ).read_text(encoding="utf-8")
-    bootstrap_protected_sources = tuple(
-        re.findall(
-            r"'((?:governance_rule|main-system)/[^']+\.(?:py|ts))'",
-            bootstrap_source,
-        )
-    )
-    if bootstrap_protected_sources != protected_sources:
-        errors.append(
-            "main-system governance bootstrap sources do not match governance authority"
-        )
+    # A60: the launcher (Electron main) must NOT generate governance bootstrap
+    # material (FORBID:governance-system-start).  boot_core is the sole startup
+    # orchestrator (A61) and generates its own fresh governance bootstrap token
+    # per spawn via ``build_integrity_manifest`` + ``sign_launcher_attestation``,
+    # using ``policy.authority_files`` + ``directory.managed_read_only_registry_paths``
+    # as the protected-sources list.  No launcher-side reference list is needed.
 
     runtime_source = (
         root / "main-system/src-core/core_system/governance_runtime.py"

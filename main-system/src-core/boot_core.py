@@ -461,18 +461,19 @@ class BootCore:
         env = dict(os.environ)
         # Generate a fresh governance bootstrap token for each spawn so the
         # 30-second identity attestation expiry is always within window.
-        if not env.get("GPTBRIDGE_GOVERNANCE_BOOTSTRAP"):
-            try:
-                env["GPTBRIDGE_GOVERNANCE_BOOTSTRAP"] = (
-                    self._generate_governance_bootstrap()
-                )
-            except Exception as error:
-                self._last_exit = {
-                    "error": f"governance-bootstrap-failed: {type(error).__name__}: {error}"
-                }
-                self._status = "governance-bootstrap-failed"
-                self._write_state()
-                raise
+        try:
+            # Bootstrap attestations are single-use. Never inherit a token
+            # consumed by the previous backend process.
+            env["GPTBRIDGE_GOVERNANCE_BOOTSTRAP"] = (
+                self._generate_governance_bootstrap()
+            )
+        except Exception as error:
+            self._last_exit = {
+                "error": f"governance-bootstrap-failed: {type(error).__name__}: {error}"
+            }
+            self._status = "governance-bootstrap-failed"
+            self._write_state()
+            raise
         env["GPTBRIDGE_PROJECT_ROOT"] = str(self.workspace_root)
         if startup_state:
             env["GPTBRIDGE_STARTUP_STATE"] = startup_state

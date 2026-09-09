@@ -32,6 +32,8 @@ const INITIAL_STATE: BackendSocketState = {
 
 const WS_RECONNECT_BASE_DELAY_MS = 500
 const WS_RECONNECT_MAX_DELAY_MS = 8000
+const WS_CONNECT_TIMEOUT_MS = 8000
+const WS_READINESS_RETRY_MS = 1500
 const WS_COMMAND_QUEUE_MAX = 50
 const openBackendSockets = new Set<WebSocket>()
 
@@ -71,6 +73,8 @@ export const useBackendSocket = () => {
   const [lastError, setLastError] = useState<string | null>(null)
   const socketRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<number | null>(null)
+  const connectTimeoutRef = useRef<number | null>(null)
+  const readinessTimerRef = useRef<number | null>(null)
   const reconnectAttemptRef = useRef(0)
   const commandQueueRef = useRef<Array<{ command: string; payload: unknown }>>([])
 
@@ -139,6 +143,20 @@ export const useBackendSocket = () => {
       }
     }
 
+    const clearConnectTimeout = () => {
+      if (connectTimeoutRef.current !== null) {
+        window.clearTimeout(connectTimeoutRef.current)
+        connectTimeoutRef.current = null
+      }
+    }
+
+    const clearReadinessTimer = () => {
+      if (readinessTimerRef.current !== null) {
+        window.clearTimeout(readinessTimerRef.current)
+        readinessTimerRef.current = null
+      }
+    }
+
     const scheduleReconnect = () => {
       if (disposed) return
       clearReconnectTimer()
@@ -195,8 +213,48 @@ export const useBackendSocket = () => {
       BootLogger.log('WebSocket', 'CONNECTING', { endpoint: '127.0.0.1:8765' })
       const socket = new WebSocket(wsUrl)
       socketRef.current = socket
+      clearConnectTimeout()
+      connectTimeoutRef.current = window.setTimeout(() => {
+        if (socket.readyState === WebSocket.CONNECTING) socket.close()
+      }, WS_CONNECT_TIMEOUT_MS)
+
+      const requestRuntimeStatus = () => {
+        if (disposed || socket.readyState !== WebSocket.OPEN) return
+        socket.send(JSON.stringify({ command: 'app:get-runtime-status', payload: {} }))
+      }
+
+      const scheduleReadinessCheck = () => {
+        clearReadinessTimer()
+        readinessTimerRef.current = window.setTimeout(() => {
+          readinessTimerRef.current = null
+          requestRuntimeStatus()
+        }, WS_READINESS_RETRY_MS)
+      }
+
+      const applyRuntimeReadiness = (runtime: Record<string, unknown>) => {
+        const ready =
+          runtime.ok === true &&
+          runtime.runtime_state === 'ready' &&
+          runtime.governance_ready === true &&
+          runtime.startup_dead !== true
+        if (ready) {
+          clearReadinessTimer()
+          reconnectAttemptRef.current = 0
+          updateBackendConnectionSnapshot('Connected', socket, true)
+          setState((prev) => ({ ...prev, status: 'Connected', reconnectAttempt: 0 }))
+          eventBus.emit('socket_connected', { connected: true })
+          flushCommandQueue()
+          setState((prev) => ({ ...prev, queuedCommands: 0 }))
+        } else {
+          updateBackendConnectionSnapshot('Synchronizing', socket, false)
+          setState((prev) => ({ ...prev, status: 'Synchronizing' }))
+          eventBus.emit('socket_connected', { connected: false })
+          scheduleReadinessCheck()
+        }
+      }
 
       socket.onopen = () => {
+        clearConnectTimeout()
         clearReconnectTimer()
         setLastError(null)
         updateBackendConnectionSnapshot('Synchronizing')
@@ -208,36 +266,19 @@ export const useBackendSocket = () => {
           queuedCommands: commandQueueRef.current.length,
         }))
         BootLogger.log('WebSocket', 'OPEN', { endpoint: '127.0.0.1:8765' })
-        socket.send(JSON.stringify({ command: 'app:get-runtime-status', payload: {} }))
+        requestRuntimeStatus()
       }
 
       socket.onmessage = (event) => {
         try {
           const payload = JSON.parse(String(event.data)) as Record<string, unknown>
 
-          if (payload.event === 'app:get-runtime-status_result') {
+          if (
+            payload.event === 'app:get-runtime-status_result' ||
+            payload.event === 'runtime_status_push'
+          ) {
             const runtime = (payload.payload ?? {}) as Record<string, unknown>
-            const ready =
-              runtime.ok === true &&
-              runtime.runtime_state === 'ready' &&
-              runtime.governance_ready === true &&
-              runtime.startup_dead !== true
-            if (ready) {
-              reconnectAttemptRef.current = 0
-              updateBackendConnectionSnapshot('Connected', socket, true)
-              setState((prev) => ({
-                ...prev,
-                status: 'Connected',
-                reconnectAttempt: 0,
-              }))
-              eventBus.emit('socket_connected', { connected: true })
-              flushCommandQueue()
-              setState((prev) => ({ ...prev, queuedCommands: 0 }))
-            } else {
-              updateBackendConnectionSnapshot('Degraded', socket, false)
-              setState((prev) => ({ ...prev, status: 'Degraded' }))
-              eventBus.emit('socket_connected', { connected: false })
-            }
+            applyRuntimeReadiness(runtime)
           }
 
           // Respond to heartbeat ping immediately
@@ -283,9 +324,12 @@ export const useBackendSocket = () => {
           lastError: errorMsg,
         }))
         BootLogger.log('WebSocket', 'ERROR', {}, 'error')
+        if (socket.readyState < WebSocket.CLOSING) socket.close()
       }
 
       socket.onclose = () => {
+        clearConnectTimeout()
+        clearReadinessTimer()
         if (socketRef.current === socket) {
           socketRef.current = null
         }
@@ -306,6 +350,8 @@ export const useBackendSocket = () => {
     const reconnectNow = () => {
       if (document.visibilityState === 'hidden') return
       clearReconnectTimer()
+      clearConnectTimeout()
+      clearReadinessTimer()
       void connect()
     }
     window.addEventListener('online', reconnectNow)

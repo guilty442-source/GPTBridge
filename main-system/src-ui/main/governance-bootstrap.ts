@@ -2,7 +2,6 @@ import { createHash, createHmac, randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
-
 const PROTECTED_GOVERNANCE_SOURCES = [
   'governance_rule/governance_policy.py',
   'governance_rule/codex/__init__.py',
@@ -32,15 +31,10 @@ const PROTECTED_GOVERNANCE_SOURCES = [
 ] as const
 
 function canonicalJson(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => canonicalJson(item)).join(',')}]`
-  }
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
   if (value !== null && typeof value === 'object') {
     const record = value as Record<string, unknown>
-    return `{${Object.keys(record)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
-      .join(',')}}`
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(',')}}`
   }
   return JSON.stringify(value)
 }
@@ -49,18 +43,12 @@ function protectedFileDigest(workspaceRoot: string, relativePath: string): strin
   const root = fs.realpathSync.native(workspaceRoot)
   const candidate = path.resolve(root, ...relativePath.split('/'))
   const relative = path.relative(root, candidate)
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error('PERMISSION_DENIED')
-  }
+  if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('PERMISSION_DENIED')
   const stat = fs.lstatSync(candidate)
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    throw new Error('PERMISSION_DENIED')
-  }
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('PERMISSION_DENIED')
   const realCandidate = fs.realpathSync.native(candidate)
   const realRelative = path.relative(root, realCandidate)
-  if (realRelative.startsWith('..') || path.isAbsolute(realRelative)) {
-    throw new Error('PERMISSION_DENIED')
-  }
+  if (realRelative.startsWith('..') || path.isAbsolute(realRelative)) throw new Error('PERMISSION_DENIED')
   return createHash('sha256').update(fs.readFileSync(realCandidate)).digest('hex')
 }
 
@@ -69,17 +57,9 @@ function signatureHex(key: Buffer, value: unknown): string {
 }
 
 function governanceAuthorityVersion(workspaceRoot: string): number {
-  const policyPath = path.resolve(
-    fs.realpathSync.native(workspaceRoot),
-    'governance_rule',
-    'governance_policy.py'
-  )
-  const policySource = fs.readFileSync(policyPath, 'utf8')
-  const match = /\bauthority_version\s*=\s*(\d+)\s*,/.exec(policySource)
-  const authorityVersion = Number(match?.[1] || 0)
-  if (!Number.isSafeInteger(authorityVersion) || authorityVersion <= 0) {
-    throw new Error('PERMISSION_DENIED')
-  }
+  const policySource = fs.readFileSync(path.resolve(fs.realpathSync.native(workspaceRoot), 'governance_rule', 'governance_policy.py'), 'utf8')
+  const authorityVersion = Number(/\bauthority_version\s*=\s*(\d+)\s*,/.exec(policySource)?.[1] || 0)
+  if (!Number.isSafeInteger(authorityVersion) || authorityVersion <= 0) throw new Error('PERMISSION_DENIED')
   return authorityVersion
 }
 
@@ -90,45 +70,27 @@ export function createMainSystemGovernanceBootstrap(workspaceRoot: string): stri
     const keyId = randomBytes(16).toString('hex')
     const integrityPayload = {
       authority_version: governanceAuthorityVersion(workspaceRoot),
-      file_digests: PROTECTED_GOVERNANCE_SOURCES.map((relativePath) => [
-        relativePath,
-        protectedFileDigest(workspaceRoot, relativePath),
-      ]),
+      file_digests: PROTECTED_GOVERNANCE_SOURCES.map((relativePath) => [relativePath, protectedFileDigest(workspaceRoot, relativePath)]),
       issued_at: issuedAt,
       key_id: keyId,
-    }
-    const integrityManifest = {
-      ...integrityPayload,
-      signature: signatureHex(launcherKey, integrityPayload),
     }
     const identityPayload = {
-      issuer: 'main-system-launcher-only',
-      actor: 'governance/main-system',
-      bound_tool_id: 'main-system',
-      caller_path: 'main-system/src-core',
-      process_id: process.pid,
-      issued_at: issuedAt,
-      expires_at: issuedAt + 30,
-      nonce: randomBytes(16).toString('hex'),
-      key_id: keyId,
+      issuer: 'main-system-launcher-only', actor: 'governance/main-system',
+      bound_tool_id: 'main-system', caller_path: 'main-system/src-core',
+      process_id: process.pid, issued_at: issuedAt, expires_at: issuedAt + 30,
+      nonce: randomBytes(16).toString('hex'), key_id: keyId,
     }
-    const identityAttestation = {
-      ...identityPayload,
-      signature: signatureHex(launcherKey, identityPayload),
-    }
-    const bootstrap = {
+    return Buffer.from(JSON.stringify({
       format_version: 1,
       launcher_key: launcherKey.toString('base64'),
-      integrity_manifest: integrityManifest,
-      identity_attestation: identityAttestation,
-    }
-    return Buffer.from(JSON.stringify(bootstrap), 'utf8').toString('base64')
+      integrity_manifest: { ...integrityPayload, signature: signatureHex(launcherKey, integrityPayload) },
+      identity_attestation: { ...identityPayload, signature: signatureHex(launcherKey, identityPayload) },
+    }), 'utf8').toString('base64')
   } finally {
     launcherKey.fill(0)
   }
 }
 
 export function preloadDefaultGovernanceAuthority(workspaceRoot: string): void {
-  const bootstrap = createMainSystemGovernanceBootstrap(workspaceRoot)
-  if (!bootstrap) throw new Error('PERMISSION_DENIED')
+  if (!createMainSystemGovernanceBootstrap(workspaceRoot)) throw new Error('PERMISSION_DENIED')
 }

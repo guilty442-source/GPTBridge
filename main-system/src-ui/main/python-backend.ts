@@ -82,11 +82,10 @@ function spawnBootCore(
     if (autoKillBackendPort) backendArgs.push('--auto-kill-backend-port')
 
     const runtimeEnvironment = getRuntimeEnvMap()
-    // Launcher-side governance bootstrap attestation; boot_core independently
-    // generates a fresh token per spawn, but the launcher proves it can create
-    // the material before waking the screen.  Computed lazily in a microtask
-    // so it never blocks first paint.
-    const governanceBootstrap = createMainSystemGovernanceBootstrap(paths.workspaceRoot)
+    // A60: the launcher must NOT generate governance bootstrap material
+    // (FORBID:governance-system-start).  boot_core generates its own fresh
+    // governance bootstrap token per spawn in ``_generate_governance_bootstrap``
+    // when GPTBRIDGE_GOVERNANCE_BOOTSTRAP is not set.
     pythonProcess = spawn(
       paths.pythonExecutable,
       backendArgs,
@@ -98,7 +97,6 @@ function spawnBootCore(
           GPTBRIDGE_APP_VERSION: PRODUCT_VERSION,
           GPTBRIDGE_IPC_STATE_ROOT: getIpcStateRoot(),
           GPTBRIDGE_IPC_SESSION_TOKEN: getBackendSessionToken(),
-          GPTBRIDGE_GOVERNANCE_BOOTSTRAP: governanceBootstrap,
         },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,

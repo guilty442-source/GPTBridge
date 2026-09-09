@@ -541,16 +541,18 @@ if (!hasSingleInstanceLock) {
       registerIpcHandlers()
 
       // Show the window FIRST so the startup page appears immediately.
-      // Backend startup (governance attestation + boot_core spawn) runs in
-      // the background and does not block the UI.
+      // Backend startup (boot_core spawn) runs in the background and does
+      // not block the UI.  A60: the launcher does NOT generate governance
+      // bootstrap material — boot_core generates its own fresh token per
+      // spawn.  The launcher only spawns boot_core and tracks its liveness.
       await createWindow()
       startMainRendererWatch()
       reportRuntimeEvent('window.ready')
 
-      // Start the backend in the background.  spawnBootCore no longer
-      // computes the governance bootstrap attestation; boot_core generates
-      // it independently.  The launcher page therefore appears immediately
-      // and is not blocked by backend path or attestation errors.
+      // Start the backend in the background.  A60: the launcher only spawns
+      // boot_core; boot_core independently performs environment check,
+      // governance audit, dependency start, governance-system start, and
+      // system-core start per A61 ordering.
       if (shouldManageBackend) {
         try {
           startBackend()

@@ -131,6 +131,7 @@ export function useLocalBackendSocket() {
 
       socket.onerror = () => {
         setStatus('Error')
+        if (socket.readyState < WebSocket.CLOSING) socket.close()
       }
 
       socket.onclose = () => {

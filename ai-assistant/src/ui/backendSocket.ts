@@ -216,6 +216,7 @@ export function useLocalBackendSocket() {
         }
         socket.onerror = () => {
           if (!disposed && socketRef.current === socket) setStatus('Error')
+          if (socket.readyState < WebSocket.CLOSING) socket.close()
         }
         socket.onclose = () => {
           if (socketRef.current === socket) socketRef.current = null
