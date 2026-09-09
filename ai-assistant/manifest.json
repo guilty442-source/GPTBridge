@@ -9,6 +9,7 @@
   "managed_backup_storage": "global-cleaner/data/business/backups/ai-assistant",
   "status": "stopped",
   "enabled": true,
+  "has_custom_ui": true,
   "permissions": {
     "profile": "ai-investment-manager-v1",
     "business_permission_owner": "ai-assistant",
@@ -129,7 +130,6 @@
       "GPTBRIDGE_AI_ASSISTANT_PROFILE"
     ]
   },
-  "has_custom_ui": true,
   "test_targets": [
     "tests/test_ai_assistant.py"
   ],
