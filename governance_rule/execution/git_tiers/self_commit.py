@@ -134,7 +134,16 @@ def run_once(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
     except OSError as exc:
         return f"error:write-msg:{exc}"
 
+    locked = False
     try:
+        lock_result = repo.run(
+            ["worktree", "lock", str(repo.path)],
+            confirmed=True,
+            actor=actor,
+        )
+        if lock_result.returncode != 0:
+            return f"error:lock:{lock_result.stderr.strip()[:200]}"
+        locked = True
         add_result = repo.run(["add", "-A"], confirmed=True, actor=actor)
         if add_result.returncode != 0:
             return f"error:add:{add_result.stderr.strip()[:200]}"
@@ -159,6 +168,12 @@ def run_once(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
             )
             return f"error:commit:{commit_result.stderr.strip()[:200]}"
     finally:
+        if locked:
+            repo.run(
+                ["worktree", "unlock", str(repo.path)],
+                confirmed=True,
+                actor=actor,
+            )
         try:
             msg_file.unlink(missing_ok=True)
         except OSError:

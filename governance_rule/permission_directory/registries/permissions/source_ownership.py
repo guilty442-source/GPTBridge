@@ -64,6 +64,8 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "reconcile.py",
         "embedded_browser_client.py",
         "startup.py",
+        "runtime_gateway.py",
+        "service_probe.py",
     }
 )
 SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (

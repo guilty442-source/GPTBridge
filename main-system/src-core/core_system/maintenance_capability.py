@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import asyncio
 import shutil
-import socket
 import sys
 from pathlib import Path
 from typing import Any
+
+from shared_layer.service_probe import probe_registered_local_service
 
 from .sovereign_utils import _iso_now
 
@@ -35,12 +36,8 @@ class MaintenanceCapabilityMixin:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _probe_tcp(port: int) -> bool:
-        try:
-            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
-                return True
-        except OSError:
-            return False
+    def _probe_service(service: str) -> bool:
+        return probe_registered_local_service(service, timeout=0.5).reachable
 
     def _run_capability_checks(self) -> dict[str, Any]:
         """Detect whether maintenance-relevant functions/components are present.
@@ -72,18 +69,18 @@ class MaintenanceCapabilityMixin:
             "git": {"installed": shutil.which("git") is not None},
             "ollama": {
                 "installed": shutil.which("ollama") is not None,
-                "reachable": self._probe_tcp(11434),
+                "reachable": self._probe_service("ollama"),
             },
             "postgresql": {
                 "installed": shutil.which("psql") is not None
                 or shutil.which("pg_isready") is not None,
-                "reachable": self._probe_tcp(5432),
+                "reachable": self._probe_service("postgresql"),
             },
             "qdrant": {
                 "installed": (
                     root / "local-model" / "runtime" / "qdrant"
                 ).is_dir(),
-                "reachable": self._probe_tcp(6333),
+                "reachable": self._probe_service("qdrant"),
             },
             "shared_layer_data": {
                 "installed": (root / "shared-layer" / "data").is_dir()

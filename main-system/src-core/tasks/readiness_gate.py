@@ -18,10 +18,11 @@ dependencies.  Repair belongs to the maintenance sovereign decision path.
 
 from __future__ import annotations
 
-import socket
 from dataclasses import dataclass, field
 from typing import Any, Final
 from datetime import datetime, timezone
+
+from shared_layer.service_probe import probe_registered_local_service
 
 READINESS_GATE_VERSION: Final[str] = "1.0.0"
 
@@ -37,15 +38,6 @@ DEPENDENCY_PROBE_TIMEOUT: Final[float] = 0.75
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _probe_tcp(host: str, port: int, timeout: float = DEPENDENCY_PROBE_TIMEOUT) -> bool:
-    """Probe a TCP port to check if a local service is reachable."""
-    try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
-    except OSError:
-        return False
 
 
 @dataclass
@@ -118,7 +110,9 @@ class ReadinessGate:
         statuses: list[DependencyStatus] = []
         all_reachable = True
         for name, port in REQUIRED_DEPENDENCIES:
-            reachable = _probe_tcp("127.0.0.1", port)
+            reachable = probe_registered_local_service(
+                name, timeout=DEPENDENCY_PROBE_TIMEOUT
+            ).reachable
             statuses.append(DependencyStatus(name=name, port=port, reachable=reachable))
             if not reachable:
                 all_reachable = False

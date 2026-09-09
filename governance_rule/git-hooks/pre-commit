@@ -30,7 +30,24 @@ def main() -> int:
         sys.stderr.write(result.stdout)
         sys.stderr.write(result.stderr)
         return result.returncode
-    audit_log(2, "commit", actor, True, "pre-commit explicit invocation confirmed", operation="commit")
+
+    audit = subprocess.run(
+        [sys.executable, "-m", "governance_rule.execution.audit"],
+        cwd=WORKTREE_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    if audit.returncode != 0:
+        audit_log(2, "commit", actor, False, "governance audit failed", operation="commit")
+        sys.stderr.write(audit.stdout)
+        sys.stderr.write(audit.stderr)
+        return audit.returncode
+
+    audit_log(2, "commit", actor, True, "pre-commit governance audit passed", operation="commit")
     return 0
 
 

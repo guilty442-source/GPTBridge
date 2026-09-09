@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from main import GPTBridgeApp
 
 from core.ui_shell import UIShell
+from shared_layer.runtime_gateway import InformationChannelGateway
 
 
 def result_event_for_command(command: str) -> str:
@@ -102,7 +103,21 @@ async def process_command_task(
                 )
                 return
 
-        event_name, payload_out = await app.command_router.handle(command, payload)
+        gateway = getattr(app, "_information_channel_gateway", None)
+        if not isinstance(gateway, InformationChannelGateway):
+            gateway = InformationChannelGateway(
+                app.command_router.handle,
+                audit=lambda record: _write_core_log_safely(
+                    app, "information-channel", "command routed", record
+                ),
+            )
+            app._information_channel_gateway = gateway
+        event_name, payload_out = await gateway.dispatch(
+            sender="authenticated-ui",
+            destination="main-system",
+            command=command,
+            payload=payload,
+        )
 
         if isinstance(payload_out, dict) and payload.get("request_id"):
             payload_out.setdefault("request_id", str(payload.get("request_id")))

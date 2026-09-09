@@ -261,7 +261,7 @@ class GitCoordinator:
         self,
         slot: WorktreeSlot,
         *,
-        target_branch: str = "main",
+        target_branch: str = "integration",
     ) -> MergeQueueEntry:
         """Enqueue a merge from the worker's branch into target (main).
 
@@ -282,8 +282,9 @@ class GitCoordinator:
         self,
         slot: WorktreeSlot,
         *,
-        target: str = "main",
+        target: str = "integration",
         confirmed: bool | None = None,
+        authority_approved: bool | None = None,
     ) -> MergeQueueEntry:
         """Execute one validated merge while holding the cross-process queue lock."""
         from governance_rule.execution.git_tiers.snapshot import _capture_repo_snapshot
@@ -295,9 +296,11 @@ class GitCoordinator:
             status="pending",
         )
         entry.write()
-        if target != "main":
+        if target == "main" and not (
+            authority_approved or os.environ.get("GOVERNANCE_AUTHORITY_APPROVAL") == "1"
+        ):
             entry.status = "failed"
-            entry.detail = "merge target must be main"
+            entry.detail = "merge to main requires authority approval"
             entry.write()
             return entry
         if not slot.exists or not slot.branch or slot.branch.startswith("-"):
