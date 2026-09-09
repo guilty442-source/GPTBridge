@@ -43,6 +43,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import secrets
 import signal
 import socket
@@ -68,6 +69,18 @@ STATE_RELATIVE = ("main-system", "runtime", "state", "boot-core.json")
 
 # Crash exit codes that trigger automatic source repair before restart.
 CRASH_REPAIR_UPTIME_THRESHOLD = 30.0
+
+# Crash-diagnosis regexes (compiled once).
+_DIAGNOSIS_TAIL_LINES = 50
+_RE_CRASH_ERROR = re.compile(
+    r"^([A-Z]\w*(?:Error|Warning|Exception))\s*[:({]"
+)
+_RE_CRASH_FRAME = re.compile(
+    r'^File\s+"([^"]+)",\s+line\s+(\d+),\s+in\s'
+)
+_INDENTATION_ERRORS: frozenset[str] = frozenset(
+    {"IndentationError", "TabError", "SyntaxError"}
+)
 
 # Five pre-spawn dependency gates (A61/E47/P26).
 BOOT_PHASES: Final[tuple[str, ...]] = (
@@ -545,78 +558,54 @@ class BootCore(PhaseMixin, GovernanceMixin):
         with self._child_output_lock:
             lines = list(self._child_output)
 
-        diagnosis: dict[str, object] = {"action": "fallback"}
+        diagnosis: dict[str, object] = {
+            "action": "fallback",
+            "error_type": "",
+            "file": "",
+            "line": None,
+        }
+        if not lines:
+            return diagnosis
 
-        # Walk backwards through the output to find the traceback.
-        # A Python traceback ends with ``Error: message`` and contains
-        # ``File "path", line N, in ...`` frames.
+        # Walk the most recent tail of the output once, finding the last
+        # exception name and the last traceback frame in a single pass.
         error_type = ""
         error_file = ""
         error_line: int | None = None
-
-        # Find the last ``Error: ...`` or ``Error(...)`` line.
-        for i in range(len(lines) - 1, max(len(lines) - 50, -1) - 1, -1):
-            line = lines[i].strip()
-            # Match ``SomeError: message`` or ``SomeError(message)``
-            # at the end of a traceback.
+        for raw in reversed(lines[-_DIAGNOSIS_TAIL_LINES:]):
+            stripped = raw.strip()
             if not error_type:
-                import re
-
-                match = re.match(
-                    r"^([A-Z]\w*(?:Error|Warning|Exception))\s*[:({]",
-                    line,
-                )
+                match = _RE_CRASH_ERROR.match(stripped)
                 if match:
                     error_type = match.group(1)
-
-        # Find the last ``File "path", line N, in ...`` frame.
-        import re
-
-        for i in range(len(lines) - 1, max(len(lines) - 50, -1) - 1, -1):
-            line = lines[i].strip()
-            match = re.match(
-                r'^File\s+"([^"]+)",\s+line\s+(\d+),\s+in\s',
-                line,
-            )
-            if match:
-                raw_file = match.group(1)
-                error_line = int(match.group(2))
-                # Resolve to a project-relative path if possible.
-                try:
-                    resolved = Path(raw_file).resolve()
-                    rel = resolved.relative_to(self.project_root.resolve())
-                    error_file = rel.as_posix()
-                except (OSError, ValueError):
-                    error_file = raw_file
-                break
+            if not error_file:
+                match = _RE_CRASH_FRAME.match(stripped)
+                if match:
+                    raw_file = match.group(1)
+                    try:
+                        error_line = int(match.group(2))
+                        resolved = Path(raw_file).resolve()
+                        error_file = resolved.relative_to(
+                            self.project_root.resolve()
+                        ).as_posix()
+                    except (OSError, ValueError):
+                        error_file = raw_file
 
         diagnosis["error_type"] = error_type
         diagnosis["file"] = error_file
         diagnosis["line"] = error_line
 
-        # Decide the action based on what we found.
-        if not error_file:
-            # No file in traceback — can't do targeted repair.
-            if error_type:
-                # We have an error type but no file — likely a runtime
-                # error, not a source syntax issue.
-                diagnosis["action"] = "skip"
-            else:
-                diagnosis["action"] = "fallback"
+        if not error_file or not error_type:
+            # No usable traceback frame, or we could not identify the
+            # exception class — do not guess a target file.
+            diagnosis["action"] = "fallback"
+        elif error_type in _INDENTATION_ERRORS:
+            # Indentation / syntax error that source_repair can fix.
+            diagnosis["action"] = "targeted"
         else:
-            # We have a file. Check if the error is indentation/syntax family.
-            indentation_family = error_type in (
-                "IndentationError",
-                "TabError",
-                "SyntaxError",
-                "",
-            )
-            if indentation_family:
-                diagnosis["action"] = "targeted"
-            else:
-                # Import errors, runtime errors, etc. — source repair
-                # (which only fixes indentation) won't help.
-                diagnosis["action"] = "skip"
+            # Import errors, runtime errors, dependency issues, etc.
+            # Source repair (which only fixes indentation) won't help.
+            diagnosis["action"] = "skip"
 
         return diagnosis
 
