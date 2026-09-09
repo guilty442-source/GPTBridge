@@ -32,8 +32,8 @@ def check_authority_policy(root: Path, errors: list[str]) -> None:
 
     if GOVERNANCE_CODEX.codex_version < 1.00000:
         errors.append("governance codex version must include the unified architecture policy")
-    if policy.authority != "governance-codex-v1.00000-derived-enforcement-policy":
-        errors.append("governance policy must remain the codex-v1.00000-derived enforcement projection")
+    if policy.authority != "governance-codex-v1.32010-derived-enforcement-policy":
+        errors.append("governance policy must remain the codex-v1.32010-derived enforcement projection")
     if policy.top_level_rule != "governance_codex" or policy.governance_rule_sources != (
         "governance_rule/codex/__init__.py",
     ):
@@ -54,8 +54,8 @@ def check_authority_policy(root: Path, errors: list[str]) -> None:
         errors.append("code rule directory version does not match governance")
     if code_rules.governing_source != policy.governance_rule_sources[0]:
         errors.append("code rule directory is not governed by the single rule")
-    if "codex-v1.00000-is-sole-rule-source" not in code_rules.requirements:
-        errors.append("code rule directory does not declare the codex v1.00000 authority source")
+    if "codex-v1.32010-is-sole-rule-source" not in code_rules.requirements:
+        errors.append("code rule directory does not declare the codex v1.32010 authority source")
     if code_rules.independent_authority or code_rules.runtime_write_allowed:
         errors.append("code rule directory must be subordinate and read-only")
     if code_rules.canonical_project_root != policy.code_architecture.all_source_code_root:

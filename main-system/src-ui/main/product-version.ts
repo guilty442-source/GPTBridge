@@ -1,7 +1,7 @@
 import packageMetadata from '../../package.json'
 
 const bundledVersion = String(packageMetadata.version || '').trim()
-const LOCKED_PRODUCT_VERSION = '1.0.0'
+const LOCKED_PRODUCT_VERSION = '1.00000'
 
 if (bundledVersion !== LOCKED_PRODUCT_VERSION) {
   throw new Error(

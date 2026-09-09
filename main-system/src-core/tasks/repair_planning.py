@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Final
 
-CENTRAL_REPAIR_VERSION: Final[str] = "1.2.0"
+CENTRAL_REPAIR_VERSION: Final[str] = "1.00000"
 
 SOURCE_SELF_REPAIR_FAILURES: Final[frozenset[str]] = frozenset(
     {

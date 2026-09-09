@@ -226,7 +226,7 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
         ),
         category_labels=False,
         requirements=(
-            "codex-v1.00000-is-sole-rule-source",
+            "codex-v1.32010-is-sole-rule-source",
             "all-source-code-within-canonical-project-root",
             "main-system-code-within-main-system-root-only",
             "independent-tool-code-within-own-direct-root-only",

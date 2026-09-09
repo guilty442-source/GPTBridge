@@ -319,7 +319,7 @@ class GovernancePolicy:
 
 GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
     authority_version=1,
-    authority="governance-codex-v1.00000-derived-enforcement-policy",
+    authority="governance-codex-v1.32010-derived-enforcement-policy",
     permission_hierarchy_role="only-top-level-permission-authority",
     authority_files=(
         "governance_rule/governance_policy.py",
