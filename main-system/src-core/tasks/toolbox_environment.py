@@ -77,23 +77,9 @@ class EnvironmentMixin:
         requested_mode: str,
         executable_exists: bool,
     ) -> bool:
-        if not ToolPathResolver.has_governed_source_runtime(manifest):
-            return False
-        if requested_mode == "source":
-            return True
-        if requested_mode == "executable":
-            return False
-        if ToolPathResolver.is_special_unpacked(manifest):
-            return True
-        launch = manifest.get("launch")
-        primary = str(launch.get("primary") or "") if isinstance(launch, dict) else ""
-        if background:
-            return True
-        if ToolPathResolver.is_dual_runtime(manifest):
-            return not executable_exists
-        if ToolPathResolver.has_governed_background_source(manifest):
-            return not executable_exists
-        return primary != "executable" or not executable_exists
+        # Independent tools always launch from governed native source code;
+        # packaged EXEs are no longer used for startup.
+        return ToolPathResolver.has_governed_source_runtime(manifest)
 
     @staticmethod
     def _source_fallback_allowed(
@@ -119,16 +105,8 @@ class EnvironmentMixin:
         requested_mode: str,
         executable_exists: bool,
     ) -> bool:
-        if requested_mode == "executable" or not executable_exists:
-            return False
-        if ToolPathResolver.is_dual_runtime(manifest):
-            return True
-        launch = manifest.get("launch")
-        return bool(
-            isinstance(launch, dict)
-            and str(launch.get("fallback") or "").strip().casefold()
-            == "executable"
-        )
+        # EXE fallback is disabled; independent tools run from native source.
+        return False
 
     @staticmethod
     def _tool_version_failure(

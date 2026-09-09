@@ -324,9 +324,9 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
     authority_files=(
         "governance_rule/governance_policy.py",
         "governance_rule/codex/__init__.py",
-        "governance_rule/codex/sovereigns.py",
-        "governance_rule/codex/chinese.py",
-        "governance_rule/codex/sovereigns_chinese.py",
+        "governance_rule/codex/data/governance_codex.sqlite3",
+        "governance_rule/codex/governance_codex.zh-TW.txt",
+        "governance_rule/execution/codex_repository.py",
         "governance_rule/code_rule_directory.py",
         "governance_rule/permission_directory/directory_authority.py",
         "governance_rule/execution/authentication/__init__.py",

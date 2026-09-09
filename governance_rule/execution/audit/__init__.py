@@ -1,8 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import ast
 import json
 import re
+import sqlite3
 import stat
 import subprocess
 import sys
@@ -24,7 +25,6 @@ from governance_rule.permission_directory.registries.permissions.source_ownershi
     source_ownership_errors,
 )
 from governance_rule.codex import GOVERNANCE_CODEX
-from governance_rule.codex.chinese import GOVERNANCE_CODEX_CHINESE
 import governance_rule.execution.git_tiers
 governance_rule.execution.git_tiers.AUDIT_LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
 governance_rule.execution.git_tiers.AUDIT_LEDGER_PATH.touch(exist_ok=True)
@@ -275,12 +275,19 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
             errors.append(f"protected governance source is missing: {relative}")
             continue
         try:
-            content = source.read_text(encoding="utf-8")
             if source.suffix == ".py":
+                content = source.read_text(encoding="utf-8")
                 ast.parse(content, filename=relative)
             elif source.suffix == ".ts":
+                content = source.read_text(encoding="utf-8")
                 if not content.strip() or "\x00" in content:
                     raise ValueError("empty or invalid TypeScript source")
+            elif source.suffix == ".sqlite3":
+                with sqlite3.connect(f"file:{source.as_posix()}?mode=ro&immutable=1", uri=True) as db:
+                    if db.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+                        raise ValueError("invalid SQLite codex")
+            elif source.suffix == ".txt":
+                json.loads(source.read_text(encoding="utf-8"))
             else:
                 raise ValueError("unsupported protected source type")
         except (OSError, SyntaxError, UnicodeError, ValueError) as error:
@@ -696,46 +703,32 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
 
     # Codex consistency: the Chinese backup reference must contain every
     # principle, article, edict and sovereign declared in the authoritative
-    # codex (A36/E22/P17 — Chinese codex is backup-only but must stay complete).
-    auth_principle_ids = {p.id for p in GOVERNANCE_CODEX.principles}
-    chinese_principle_ids = {p.id for p in GOVERNANCE_CODEX_CHINESE.principles}
-    if auth_principle_ids != chinese_principle_ids:
-        missing = sorted(auth_principle_ids - chinese_principle_ids)
-        extra = sorted(chinese_principle_ids - auth_principle_ids)
-        if missing:
-            errors.append(f"Chinese codex is missing principles: {missing}")
-        if extra:
-            errors.append(f"Chinese codex has extra principles: {extra}")
-
-    auth_article_ids = {a.id for a in GOVERNANCE_CODEX.articles}
-    chinese_article_ids = {a.id for a in GOVERNANCE_CODEX_CHINESE.articles}
-    if auth_article_ids != chinese_article_ids:
-        missing = sorted(auth_article_ids - chinese_article_ids)
-        extra = sorted(chinese_article_ids - auth_article_ids)
-        if missing:
-            errors.append(f"Chinese codex is missing articles: {missing}")
-        if extra:
-            errors.append(f"Chinese codex has extra articles: {extra}")
-
-    auth_edict_ids = {e.id for e in GOVERNANCE_CODEX.edicts}
-    chinese_edict_ids = {e.id for e in GOVERNANCE_CODEX_CHINESE.edicts}
-    if auth_edict_ids != chinese_edict_ids:
-        missing = sorted(auth_edict_ids - chinese_edict_ids)
-        extra = sorted(chinese_edict_ids - auth_edict_ids)
-        if missing:
-            errors.append(f"Chinese codex is missing edicts: {missing}")
-        if extra:
-            errors.append(f"Chinese codex has extra edicts: {extra}")
-
-    auth_sovereign_ids = {s.id for s in GOVERNANCE_CODEX.sovereigns}
-    chinese_sovereign_ids = {s.id for s in GOVERNANCE_CODEX_CHINESE.sovereigns}
-    if auth_sovereign_ids != chinese_sovereign_ids:
-        missing = sorted(auth_sovereign_ids - chinese_sovereign_ids)
-        extra = sorted(chinese_sovereign_ids - auth_sovereign_ids)
-        if missing:
-            errors.append(f"Chinese codex is missing sovereigns: {missing}")
-        if extra:
-            errors.append(f"Chinese codex has extra sovereigns: {extra}")
+    chinese_path = root / "governance_rule" / "codex" / "governance_codex.zh-TW.txt"
+    try:
+        chinese = json.loads(chinese_path.read_text(encoding="utf-8"))
+        tables = chinese["tables"]
+    except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError) as error:
+        errors.append(f"Chinese codex reference is invalid: {error}")
+        chinese, tables = {}, {}
+    if str(chinese.get("codex_version")) != f"{GOVERNANCE_CODEX.codex_version:.5f}":
+        errors.append("Chinese codex version is not synchronized")
+    expected_ids = {
+        "principles": {item.id for item in GOVERNANCE_CODEX.principles},
+        "articles": {item.id for item in GOVERNANCE_CODEX.articles},
+        "edicts": {item.id for item in GOVERNANCE_CODEX.edicts},
+        "sovereigns": {item.id for item in GOVERNANCE_CODEX.sovereigns},
+    }
+    for table_name, expected in expected_ids.items():
+        key = "sovereign_id" if table_name == "sovereigns" else "provision_id"
+        actual = {str(row.get(key)) for row in tables.get(table_name, [])}
+        if actual != expected:
+            errors.append(f"Chinese codex identities are not synchronized: {table_name}")
+    for required_table in (
+        "metadata", "revision_history", "seal_manifest", "certification_policy",
+        "version_evolution_rules", "provision_identities", "provision_lineage",
+    ):
+        if required_table not in tables:
+            errors.append(f"Chinese codex metadata is missing: {required_table}")
 
     # Git tier enforcement (A53/E39): verify the three enforcement layers
     # exist and contain the required governance logic.

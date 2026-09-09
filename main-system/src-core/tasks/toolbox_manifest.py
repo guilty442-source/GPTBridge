@@ -159,22 +159,14 @@ class ManifestMixin:
             if isinstance(launch, dict)
             else ""
         )
-        if self._is_dual_runtime(manifest):
-            record["runtime_mode"] = "dual-runtime"
-            record["automatic_runtime_mode"] = (
-                "executable" if executable_file.exists() else "governed-source"
-            )
+        # Independent tools always use governed native source code; EXE is not a startup option.
+        if source_runtime:
+            record["runtime_mode"] = "governed-source"
+            record["automatic_runtime_mode"] = "governed-source"
         else:
-            record["runtime_mode"] = (
-                "executable"
-                if executable_file.exists() and primary_launch == "executable"
-                else "governed-source"
-                if source_runtime
-                else "executable"
-            )
-        record["runtime_available"] = bool(
-            source_runtime_entry is not None or executable_file.exists()
-        )
+            record["runtime_mode"] = "executable"
+            record["automatic_runtime_mode"] = "executable"
+        record["runtime_available"] = source_runtime_entry is not None
         if source_runtime_entry is not None:
             record["source_runtime_entry"] = str(source_runtime_entry)
         # Folder size is populated by the trusted Electron main process. Do

@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 from governance_rule.code_rule_directory import code_rule_directory_snapshot
-from governance_rule.codex import GOVERNANCE_CODEX, GOVERNANCE_CODEX_CHINESE
+from governance_rule.codex import GOVERNANCE_CODEX
 from governance_rule.governance_policy import (
     DEFAULT_ACTIVE_GOVERNANCE_RULES,
     GOVERNANCE_POLICY,
@@ -112,12 +112,12 @@ class GovernanceRuleCoordination:
                 "function": False,
             },
             "chinese_reference": {
-                "status": GOVERNANCE_CODEX_CHINESE.binding_status,
-                "scope": GOVERNANCE_CODEX_CHINESE.binding_scope,
-                "principles_count": len(GOVERNANCE_CODEX_CHINESE.principles),
-                "articles_count": len(GOVERNANCE_CODEX_CHINESE.articles),
-                "edicts_count": len(GOVERNANCE_CODEX_CHINESE.edicts),
-                "sovereigns_count": len(GOVERNANCE_CODEX_CHINESE.sovereigns),
+                "status": "synchronized-non-authoritative-reference",
+                "scope": "human-reference-only",
+                "principles_count": len(GOVERNANCE_CODEX.principles),
+                "articles_count": len(GOVERNANCE_CODEX.articles),
+                "edicts_count": len(GOVERNANCE_CODEX.edicts),
+                "sovereigns_count": len(GOVERNANCE_CODEX.sovereigns),
             },
             "decision": "read-only",
         }

@@ -179,49 +179,23 @@ class StartMixin:
                 ),
                 "message": str(error),
             }
-        launch = manifest.get("launch")
-        primary_launch = (
-            str(launch.get("primary") or "").strip().casefold()
-            if isinstance(launch, dict)
-            else ""
-        )
         use_source_runtime = self._source_launch_requested(
             manifest,
             background=background,
             requested_mode=requested_mode,
             executable_exists=executable_file.exists(),
         )
-        executable_preferred = (
-            not use_source_runtime
-            and not background
-            and requested_mode != "source"
-            and (requested_mode == "executable" or primary_launch == "executable")
-        )
-        if executable_preferred and not executable_file.exists() and not repair_attempted:
-            failure_result = {
+        # Independent tools must launch from governed native source code;
+        # packaged EXE startup is no longer supported.
+        if not source_runtime:
+            await self.update_status(tool_id, "stopped")
+            return {
                 "ok": False,
                 "tool_id": tool_id,
                 "request_id": request_id,
-                "error_code": "EXECUTABLE_MISSING",
-                "message": "Standalone EXE is missing",
-                "executable_path": str(executable_file),
+                "error_code": "GOVERNED_SOURCE_RUNTIME_REQUIRED",
+                "message": "Independent tools must launch from governed source code; EXE launch is disabled",
             }
-            if (
-                not fallback_attempted
-                and self._source_fallback_allowed(manifest, requested_mode)
-            ):
-                fallback_payload = dict(payload)
-                fallback_payload["runtime_mode"] = "source"
-                fallback_payload["_source_fallback_attempted"] = True
-                fallback_payload["_executable_fallback_attempted"] = True
-                return await self.start_tool(fallback_payload)
-            return await self._retry_start_after_central_repair(
-                payload,
-                tool_id,
-                tool_dir,
-                manifest,
-                failure_result,
-            )
         runtime_path = source_entry if use_source_runtime else executable_file
         runtime_mode = "governed-source" if use_source_runtime else "executable"
         if not use_source_runtime and not executable_file.exists():

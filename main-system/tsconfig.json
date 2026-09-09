@@ -27,8 +27,14 @@
     "src-ui/**/*.tsx",
     "../file-sorter/src/ui/**/*.ts",
     "../file-sorter/src/ui/**/*.tsx",
+    "../global-cleaner/src/ui/**/*.ts",
+    "../global-cleaner/src/ui/**/*.tsx",
+    "../vaultly/src/ui/**/*.ts",
+    "../vaultly/src/ui/**/*.tsx",
     "../local-model/model-dialogue/src/ui/**/*.ts",
-    "../local-model/model-dialogue/src/ui/**/*.tsx"
+    "../local-model/model-dialogue/src/ui/**/*.tsx",
+    "../shared-layer/src/ui/**/*.ts",
+    "../shared-layer/src/ui/**/*.tsx"
   ],
   "exclude": [
     "node_modules",
