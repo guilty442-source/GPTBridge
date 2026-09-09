@@ -106,7 +106,7 @@ class GovernanceCodex:
     """
 
     schema: str
-    codex_version: int
+    codex_version: float
     preamble: CodexPreamble
     sections: Tuple[CodexSection, ...] = field(default_factory=tuple)
     principles: Tuple[CodexPrinciple, ...] = field(default_factory=tuple)
@@ -125,8 +125,8 @@ class GovernanceCodex:
 # ---------------------------------------------------------------------------
 
 GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
-    schema="gptbridge-governance-codex-v2",
-    codex_version=2,
+    schema="gptbridge-governance-codex-v1",
+    codex_version=1.0,
     preamble=CodexPreamble(
         title="GPTBridge Governance Codex",
         authority_rank="supreme",
@@ -642,7 +642,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A48",
             section="7",
             subject="amendment-execution",
-            rule="AMENDMENT-EXEC:full-file-replacement; VERSION:system-auto-increment; SIGN:deliberate-governor-act; RE-SEAL:immediate-after-replacement; READONLY:restore-before-any-load",
+            rule="AMENDMENT-EXEC:full-file-replacement; VERSION:system-auto-increment-decimal-5-fractional-digits; SIGN:deliberate-governor-act; RE-SEAL:immediate-after-replacement; READONLY:restore-before-any-load",
             prohibition="FORBID:partial-patch/version-skip/unsealed-load",
         ),
         CodexArticle(
@@ -1016,7 +1016,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E34",
             area="amendment-execution",
-            edict="AMENDMENT-EXEC:full-replacement; VERSION:system-auto-increment; SEAL:re-seal; READONLY:restore",
+            edict="AMENDMENT-EXEC:full-replacement; VERSION:system-auto-increment-decimal-5-fractional-digits; SEAL:re-seal; READONLY:restore",
             immutability="immutable-sealed",
         ),
         CodexEdict(

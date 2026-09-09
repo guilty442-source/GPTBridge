@@ -394,7 +394,7 @@ SHARED_LAYER_ACCESS_POLICY: Final[SharedLayerAccessPolicy] = (
 )
 
 AUTHORITY_VERSION_POLICY: Final[AuthorityVersionPolicy] = AuthorityVersionPolicy(
-    current_version=3,
+    current_version=1,
     initial_version=1,
     explicit_target_version_required=True,
     version_increment_required=True,

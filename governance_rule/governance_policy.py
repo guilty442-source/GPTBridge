@@ -318,8 +318,8 @@ class GovernancePolicy:
 
 
 GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
-    authority_version=3,
-    authority="governance-codex-v3-derived-enforcement-policy",
+    authority_version=1,
+    authority="governance-codex-v1-derived-enforcement-policy",
     permission_hierarchy_role="only-top-level-permission-authority",
     authority_files=(
         "governance_rule/governance_policy.py",
@@ -334,7 +334,6 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
         "governance_rule/execution/versioning/__init__.py",
         "governance_rule/permission_directory/execution/identity_registry/__init__.py",
         "governance_rule/permission_directory/execution/path_guard/__init__.py",
-        "main-system/src-ui/main/governance-bootstrap.ts",
         "main-system/src-core/core_system/governance_runtime.py",
         "governance_rule/execution/tool_runtime/__init__.py",
         "governance_rule/execution/tool_runtime/governed_runtime.py",

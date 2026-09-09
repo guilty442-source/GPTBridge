@@ -38,7 +38,7 @@ class CodeRuleDirectorySnapshot:
 
 CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
     CodeRuleDirectorySnapshot(
-        authority_version=3,
+        authority_version=1,
         managing_authority="governance-codex-via-enforcement-policy",
         governing_source="governance_rule/codex/__init__.py",
         independent_authority=False,
@@ -226,7 +226,7 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
         ),
         category_labels=False,
         requirements=(
-            "codex-v3-is-sole-rule-source",
+            "codex-v1-is-sole-rule-source",
             "all-source-code-within-canonical-project-root",
             "main-system-code-within-main-system-root-only",
             "independent-tool-code-within-own-direct-root-only",
