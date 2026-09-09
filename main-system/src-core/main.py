@@ -64,6 +64,7 @@ class GPTBridgeApp:
         self.permission_sovereign: PermissionSovereign | None = None
         self.system_sovereign_service = SystemSovereignService(self)
         self.main_system_self_maintenance: MainSystemSelfMaintenance | None = None
+        self.hot_reload_watcher: Any | None = None
         self._command_tasks: set[asyncio.Task[Any]] = set()
         self._command_task_meta: dict[asyncio.Task[Any], dict[str, Any]] = {}
         # A67 connection counters.  ``_active_ws_connections`` tracks any open
@@ -292,6 +293,20 @@ class GPTBridgeApp:
 
         await _start_system_sovereign()
         self._mark_startup_phase("sovereign_initialized")
+
+        # Automated hot-reload watcher — requests a governed, module-scoped
+        # reload through the maintenance sovereign when backend source changes
+        # quiet down.  Observation is separate from decision/execution.
+        self._mark_startup_phase("hot_reload_watcher_starting")
+        try:
+            from tasks.hot_reload_watcher import HotReloadWatcher
+
+            self.hot_reload_watcher = HotReloadWatcher(self)
+            await self.hot_reload_watcher.start()
+        except Exception as error:
+            self._record_startup_failure("hot_reload_watcher", error)
+        self._mark_startup_phase("hot_reload_watcher_started")
+
         self._mark_startup_phase("main_runtime_ready")
         self._log({
             "type": "status",
@@ -316,6 +331,9 @@ class GPTBridgeApp:
         await self.maintenance_sovereign.stop()
         await self.daily_global_cleaner_service.stop()
         await self.hot_update_service.stop()
+        watcher = self.hot_reload_watcher
+        if watcher is not None:
+            await watcher.stop()
 
         # Independent tools (非常駐服務) are NOT stopped here.  They run in
         # detached process groups (CREATE_NEW_PROCESS_GROUP) so they survive

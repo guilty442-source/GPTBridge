@@ -52,6 +52,10 @@ Service Worker/
 *.pyo
 *.log
 *.tmp
+*.tmp.py
+_skill_tmp*.py
+_test_*.py
+_hc.py
 *.zip
 *.7z
 *.exe

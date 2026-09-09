@@ -4,6 +4,8 @@ const allowedInvokeChannels = new Set([
   'app:get-status',
   'app:get-backend-session',
   'app:restart',
+  'app:restart-backend',
+  'app:ensure-backend-started',
   'app:get-repair-status',
   'app:get-platform-tool-sizes',
   'app:reload-window',
@@ -43,4 +45,6 @@ contextBridge.exposeInMainWorld('gptBridge', {
     ipcRenderer.invoke('dialog:open-file', defaultPath),
   openPath: (payload: unknown) => ipcRenderer.invoke('app:open-path', payload),
   restartApp: () => ipcRenderer.invoke('app:restart'),
+  restartBackend: () => ipcRenderer.invoke('app:restart-backend'),
+  ensureBackendStarted: () => ipcRenderer.invoke('app:ensure-backend-started'),
 })

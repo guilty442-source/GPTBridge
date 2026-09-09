@@ -2,6 +2,10 @@
 import { BootLogger } from '../BootLogger'
 import { eventBus } from '../RuntimeEventBus'
 import { getAuthenticatedBackendWebSocketUrl } from '../services/backendSession'
+import {
+  requestBackendRestart,
+  resetBackendRecovery,
+} from '../services/backendRecovery'
 type BackendSocketState = {
   status: string
   lastStatusAt: number | null
@@ -237,9 +241,10 @@ export const useBackendSocket = () => {
           runtime.runtime_state === 'ready' &&
           runtime.governance_ready === true &&
           runtime.startup_dead !== true
-        if (ready) {
+if (ready) {
           clearReadinessTimer()
           reconnectAttemptRef.current = 0
+          resetBackendRecovery()
           updateBackendConnectionSnapshot('Connected', socket, true)
           setState((prev) => ({ ...prev, status: 'Connected', reconnectAttempt: 0 }))
           eventBus.emit('socket_connected', { connected: true })
@@ -250,6 +255,18 @@ export const useBackendSocket = () => {
           setState((prev) => ({ ...prev, status: 'Synchronizing' }))
           eventBus.emit('socket_connected', { connected: false })
           scheduleReadinessCheck()
+          // A verified dead backend cannot recover by reconnecting — request a
+          // governed boot_core restart (Electron main executes it). Cooldown +
+          // attempt cap live in backendRecovery (FORBID:duplicate owner).
+          if (runtime.startup_dead === true) {
+            void requestBackendRestart('startup-dead').then((result) => {
+              if (result.requested) {
+                BootLogger.log('WebSocket', 'BACKEND_RESTART_REQUESTED', {
+                  reason: result.reason,
+                })
+              }
+            })
+          }
         }
       }
 

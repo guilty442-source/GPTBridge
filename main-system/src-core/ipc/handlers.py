@@ -31,6 +31,7 @@ MAIN_COMMANDS = {
     "app:update-third-party-tool",
     "app:auto-update-third-party-tools",
     "app:get-repair-status",
+    "app:hot-reload-backend",
 }
 
 class CommandRouter:
@@ -265,6 +266,43 @@ class CommandRouter:
                 "coordinator_initialized": True,
                 **coordinator.get_status(),
             }
+
+        # app:hot-reload-backend — governed system-wide hot-reload trigger.
+        # The maintenance sovereign re-executes already-loaded governed backend
+        # modules in place; an approval token (capability hot-update/hot-reload)
+        # minted through the same governance authorization path is required.
+        if command == "app:hot-reload-backend":
+            sovereign = self._get_maintenance_sovereign()
+            if sovereign is None:
+                return f"{command}_result", {
+                    "ok": False,
+                    "duty": "update-management",
+                    "error_code": "MAINTENANCE_SOVEREIGN_UNAVAILABLE",
+                    "message": "PERMISSION_DENIED",
+                }
+            approval_token = str(payload.get("approval_token") or "").strip()
+            modules = payload.get("modules")
+            if modules is not None and (
+                isinstance(modules, (str, bytes))
+                or not isinstance(modules, (list, tuple))
+            ):
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "INVALID_MODULES",
+                    "message": "modules must be a list of dotted module names",
+                }
+            try:
+                result = await sovereign.execute_hot_reload(
+                    approval_token=approval_token or None,
+                    modules=modules,
+                )
+            except Exception as error:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "HOT_RELOAD_FAILED",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            return f"{command}_result", result
 
         handler_name = TOOL_LIFECYCLE_HANDLERS.get(command)
         if handler_name is not None:

@@ -224,8 +224,16 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
     without overwhelming the WebSocket channel.
     """
     push_interval = 2.0
+    _PROJECT_ROOT = Path(__file__).resolve().parents[3]
     while not shutdown_event.is_set():
         try:
+            # Keep ipc-connections.json fresh for the connection watchdog.
+            # The watchdog rejects a state file older than 30s, while the
+            # open/close hooks only write on transitions, so a stable healthy
+            # connection would otherwise be misread as a frontend disconnect.
+            _connection_count = getattr(app_instance, "_active_ws_connections", 0)
+            write_ipc_connection_state(_PROJECT_ROOT, _connection_count)
+
             shells = getattr(app_instance, "_active_ui_shells", None)
             if shells:
                 status_service = getattr(app_instance, "runtime_status_service", None)
