@@ -211,6 +211,19 @@ class IntegrationSubSovereign:
         # Classify tools by manifest before starting.
         self._classify_tools_by_manifest()
 
+        # Governance Authority is loaded in-process by Boot Core.  It is not
+        # an independent child runtime and must never enter the toolbox
+        # lifecycle path.
+        if "governance_rule" in self._resident_tool_ids:
+            self._resident_tool_ids.discard("governance_rule")
+            self._default_tool_startup["governance_rule"] = {
+                "ok": True,
+                "runtime_mode": "in-process-authority",
+                "error_code": "",
+                "message": "Governance Authority already loaded",
+                "resident": True,
+            }
+
         permission = getattr(self.app, "permission_sovereign", None)
 
         async def _start_one(tool_id: str) -> tuple[str, dict[str, Any]]:

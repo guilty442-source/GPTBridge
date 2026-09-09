@@ -142,7 +142,7 @@ class SystemSovereignService:
             central_repair = None
             if toolbox is not None and hasattr(toolbox, "central_repair"):
                 try:
-                    central_repair = toolbox.central_repair()
+                    central_repair = toolbox.central_repair
                 except Exception:
                     central_repair = None
             await app.daily_global_cleaner_service.start()

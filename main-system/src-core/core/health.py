@@ -12,7 +12,7 @@ def check_core_health(project_root: str | Path | None = None) -> dict[str, Any]:
     root = Path(project_root or Path.cwd()).resolve()
     checks = {
         "project_root_exists": root.exists(),
-        "package_json_exists": (root / "package.json").exists(),
+        "package_json_exists": (root / "main-system" / "package.json").exists(),
         "main_system_exists": (root / "main-system" / "src-core").exists(),
         "governance_rule_exists": (root / "governance_rule").exists(),
         "permission_directory_exists": (

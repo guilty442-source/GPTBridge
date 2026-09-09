@@ -54,7 +54,7 @@ class MaintenanceCapabilityMixin:
             "automatic_repair": self._repair_service is not None,
             "hot_update": self._hot_update is not None,
             "resource_release": callable(
-                getattr(self, "resource_release", None)
+                getattr(self.app, "resource_release", None)
             ),
             "governance": getattr(self.app, "governance", None) is not None,
         }

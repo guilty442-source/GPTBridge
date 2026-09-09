@@ -112,6 +112,9 @@ class BootCore(PhaseMixin, GovernanceMixin):
         self._health_thread: threading.Thread | None = None
         self._watchdog: threading.Thread | None = None
         self._connection_watchdog: Any = None
+        # Rolling buffer of recent child stdout lines for crash diagnosis.
+        self._child_output: list[str] = []
+        self._child_output_lock = threading.Lock()
 
     # --------------------------------------------------------------
     # runtime paths (shared by governance bootstrap + phase imports)
@@ -382,7 +385,12 @@ class BootCore(PhaseMixin, GovernanceMixin):
             pass  # Learning is best-effort.
 
     def _relay(self, stream: object) -> None:
-        """Forward child output so the launcher sees readiness lines."""
+        """Forward child output so the launcher sees readiness lines.
+
+        Also captures the last N lines into ``_child_output`` so that
+        ``_run_auto_repair`` can diagnose the actual crash cause instead
+        of running a blind full-source scan.
+        """
 
         try:
             for raw in iter(stream.readline, b""):
@@ -391,6 +399,16 @@ class BootCore(PhaseMixin, GovernanceMixin):
                     sys.stdout.buffer.flush()
                 except (BrokenPipeError, OSError):
                     return
+                try:
+                    line = raw.decode("utf-8", errors="replace").rstrip("\n\r")
+                    with self._child_output_lock:
+                        self._child_output.append(line)
+                        # Keep only the last 200 lines — enough for any
+                        # realistic traceback without unbounded memory.
+                        if len(self._child_output) > 200:
+                            del self._child_output[:100]
+                except Exception:
+                    pass
         except (ValueError, OSError):
             return
 
@@ -424,11 +442,17 @@ class BootCore(PhaseMixin, GovernanceMixin):
     # --------------------------------------------------------------
 
     def _run_auto_repair(self, exit_code: int, uptime: float) -> dict[str, object]:
-        """Run source self-repair when the backend crashes during startup.
+        """Dynamically diagnose and repair the actual crash cause.
 
-        Returns a repair report dict.  The repair is best-effort: if it fails,
-        the restart still proceeds (the backend may crash again, but the
-        restart budget will eventually exhaust).
+        Instead of a fixed full-source scan, this method:
+        1. Captures the child's last output (traceback) to identify the
+           exact file and error type that caused the crash.
+        2. Only repairs that specific file if the error is an
+           indentation/syntax family issue.
+        3. Falls back to full-source scan only if the traceback cannot
+           be parsed (no file identified).
+        4. Skips repair entirely for non-source errors (import failures,
+           runtime exceptions, dependency issues).
 
         Learning integration: after each repair attempt, the outcome is
         recorded in the learning store.  Recurring error→remedy patterns
@@ -440,6 +464,14 @@ class BootCore(PhaseMixin, GovernanceMixin):
             "reason": "",
             "ok": False,
         }
+        # Skip auto-repair entirely in dev mode — the developer is actively
+        # editing source and automated indentation rewrites would clobber
+        # in-progress changes (even committed code can be mid-edit via the
+        # hot-reload watcher's transient save states).
+        if os.environ.get("GPTBRIDGE_RENDERER_DEV_URL"):
+            report["reason"] = "dev-mode; auto-repair disabled"
+            return report
+
         # Only repair on crashes that happened early (likely startup failure
         # from corrupted source) and with a non-zero exit code.
         if exit_code == 0 or uptime >= CRASH_REPAIR_UPTIME_THRESHOLD:
@@ -469,15 +501,124 @@ class BootCore(PhaseMixin, GovernanceMixin):
                     report["learned_suggestion"] = suggestion
             except Exception:
                 pass
-            result = service.self_repair_main_system_sources()
-            report["ok"] = bool(result.get("ok"))
-            report["result"] = result
-            # Learning is integrated inside self_repair_main_system_sources;
-            # the learner records errors and outcomes automatically.
+
+            # ── Dynamic diagnosis: parse the crash traceback ──
+            diagnosis = self._diagnose_crash()
+            report["diagnosis"] = diagnosis
+
+            if diagnosis.get("action") == "skip":
+                # Non-source error (import, runtime, dependency) — source
+                # repair won't help; just record and continue.
+                report["ok"] = False
+                report["reason"] = f"non-source: {diagnosis.get('error_type', 'unknown')}"
+            elif diagnosis.get("action") == "targeted":
+                # Repair only the specific file identified in the traceback.
+                target_file = diagnosis.get("file", "")
+                report["targeted_file"] = target_file
+                result = service.self_repair_targeted_source(target_file)
+                report["ok"] = bool(result.get("ok"))
+                report["result"] = result
+            else:
+                # Fallback: traceback couldn't be parsed — run the full
+                # source scan as a last resort.
+                report["fallback"] = "full-scan"
+                result = service.self_repair_main_system_sources()
+                report["ok"] = bool(result.get("ok"))
+                report["result"] = result
+            # Learning is integrated inside the repair methods; the learner
+            # records errors and outcomes automatically.
         except Exception as error:
             report["ok"] = False
             report["error"] = f"{type(error).__name__}: {error}"
         return report
+
+    def _diagnose_crash(self) -> dict[str, object]:
+        """Parse the child's last output to identify the crash cause.
+
+        Returns a dict with:
+          * ``action``: "targeted" | "skip" | "fallback"
+          * ``file``: relative path to the failing source file (if found)
+          * ``error_type``: the exception class name (if found)
+          * ``line``: the line number (if found)
+        """
+
+        with self._child_output_lock:
+            lines = list(self._child_output)
+
+        diagnosis: dict[str, object] = {"action": "fallback"}
+
+        # Walk backwards through the output to find the traceback.
+        # A Python traceback ends with ``Error: message`` and contains
+        # ``File "path", line N, in ...`` frames.
+        error_type = ""
+        error_file = ""
+        error_line: int | None = None
+
+        # Find the last ``Error: ...`` or ``Error(...)`` line.
+        for i in range(len(lines) - 1, max(len(lines) - 50, -1) - 1, -1):
+            line = lines[i].strip()
+            # Match ``SomeError: message`` or ``SomeError(message)``
+            # at the end of a traceback.
+            if not error_type:
+                import re
+
+                match = re.match(
+                    r"^([A-Z]\w*(?:Error|Warning|Exception))\s*[:({]",
+                    line,
+                )
+                if match:
+                    error_type = match.group(1)
+
+        # Find the last ``File "path", line N, in ...`` frame.
+        import re
+
+        for i in range(len(lines) - 1, max(len(lines) - 50, -1) - 1, -1):
+            line = lines[i].strip()
+            match = re.match(
+                r'^File\s+"([^"]+)",\s+line\s+(\d+),\s+in\s',
+                line,
+            )
+            if match:
+                raw_file = match.group(1)
+                error_line = int(match.group(2))
+                # Resolve to a project-relative path if possible.
+                try:
+                    resolved = Path(raw_file).resolve()
+                    rel = resolved.relative_to(self.project_root.resolve())
+                    error_file = rel.as_posix()
+                except (OSError, ValueError):
+                    error_file = raw_file
+                break
+
+        diagnosis["error_type"] = error_type
+        diagnosis["file"] = error_file
+        diagnosis["line"] = error_line
+
+        # Decide the action based on what we found.
+        if not error_file:
+            # No file in traceback — can't do targeted repair.
+            if error_type:
+                # We have an error type but no file — likely a runtime
+                # error, not a source syntax issue.
+                diagnosis["action"] = "skip"
+            else:
+                diagnosis["action"] = "fallback"
+        else:
+            # We have a file. Check if the error is indentation/syntax family.
+            indentation_family = error_type in (
+                "IndentationError",
+                "TabError",
+                "SyntaxError",
+                "",
+            )
+            if indentation_family:
+                diagnosis["action"] = "targeted"
+            else:
+                # Import errors, runtime errors, etc. — source repair
+                # (which only fixes indentation) won't help.
+                diagnosis["action"] = "skip"
+
+        return diagnosis
 
     # --------------------------------------------------------------
     # supervise loop

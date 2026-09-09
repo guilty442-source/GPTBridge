@@ -148,6 +148,103 @@ class CentralRepairService:
             self._learn_from_repair(repaired, report)
         return {"repair_service": self.VERSION, **report}
 
+    def self_repair_targeted_source(self, relative_path: str) -> dict[str, Any]:
+        """Repair a single source file identified by crash diagnosis.
+
+        Unlike ``self_repair_main_system_sources`` which scans every Python
+        file, this only touches the specific file that the traceback pointed
+        to.  If the file is outside the governed source roots, has
+        uncommitted git changes, or is not an indentation-family error, it
+        is skipped.
+        """
+        from .source_repair import (
+            SourceRepairService,
+            syntax_problems,
+            IndentationRepairer,
+            _git_has_uncommitted_change,
+        )
+
+        report: dict[str, Any] = {
+            "operation": "targeted-source-repair",
+            "authority": "main-system",
+            "target": relative_path,
+            "ok": False,
+            "skipped": False,
+            "reason": "",
+        }
+        service = SourceRepairService(self.project_root)
+        target = (self.project_root / relative_path).resolve()
+        # Security: the file must be inside the project root.
+        from .source_repair import _inside
+
+        if not _inside(target, self.project_root):
+            report["reason"] = "outside project root"
+            report["skipped"] = True
+            return report
+        if not target.is_file():
+            report["reason"] = "file not found"
+            report["skipped"] = True
+            return report
+        # Only repair Python files.
+        if target.suffix != ".py":
+            report["reason"] = "not a Python file"
+            report["skipped"] = True
+            return report
+        # Check if the file actually has a syntax problem.
+        problem = syntax_problems(target)
+        if problem.get("ok"):
+            report["reason"] = "file compiles; not a source issue"
+            report["skipped"] = True
+            return report
+        if not problem.get("indentation_family"):
+            report["reason"] = f"not indentation-family: {problem.get('error')}"
+            report["skipped"] = True
+            return report
+        # Skip files with uncommitted developer changes.
+        if _git_has_uncommitted_change(self.project_root, target):
+            report["reason"] = "uncommitted git changes"
+            report["skipped"] = True
+            return report
+        # Skip hot-reload protected files.
+        if service._hot_reload_protected(target):
+            report["reason"] = "hot-reload protected"
+            report["skipped"] = True
+            return report
+        # Attempt the repair.
+        try:
+            repairer = IndentationRepairer(target.read_text(encoding="utf-8"))
+            repaired_source, repaired_indices = repairer.repair()
+        except (OSError, UnicodeError, ValueError) as error:
+            report["reason"] = f"repair failed: {error}"
+            self._learn_from_problem(
+                {"file": relative_path, **problem}, report
+            )
+            return report
+        try:
+            service._backup(target)
+            service._atomic_write(target, repaired_source)
+        except (OSError, PermissionError) as error:
+            report["reason"] = f"write failed: {error.__class__.__name__}"
+            return report
+        # Verify the repair.
+        verification = syntax_problems(target)
+        if not verification.get("ok"):
+            report["reason"] = "post-verification failed"
+            try:
+                service._restore_latest(target)
+            except (OSError, PermissionError):
+                pass
+            return report
+        report["ok"] = True
+        report["repaired_lines"] = repaired_indices
+        report["verification"] = "compile-ok"
+        # Learn from this targeted repair.
+        self._learn_from_repair(
+            {"file": relative_path, "repaired_lines": repaired_indices},
+            report,
+        )
+        return report
+
     def _learn_from_problem(self, problem: dict[str, Any], report: dict[str, Any]) -> None:
         """Record an error signature from a detected problem."""
         try:

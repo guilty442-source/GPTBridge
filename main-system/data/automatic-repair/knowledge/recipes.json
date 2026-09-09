@@ -51,6 +51,18 @@
     "runtime_only": true
   },
   {
+    "recipe_id": "frontend-backend-disconnected",
+    "name": "Frontend-backend WebSocket disconnection repair",
+    "failure_signatures": [
+      "FRONTEND_BACKEND_DISCONNECTED"
+    ],
+    "owner": "main-system",
+    "remedy": "connection watchdog detects persistent disconnection; frontend auto-reconnects (3 attempts) then triggers app:restart-backend via Electron IPC; boot_core restarts backend; learning store records the outage pattern",
+    "verification": "backend /health returns 200 and frontend WebSocket reconnects within probe interval",
+    "automatic": true,
+    "runtime_only": true
+  },
+  {
     "recipe_id": "governance-codex-tamper",
     "name": "Governance codex file tamper detection",
     "failure_signatures": [
@@ -62,5 +74,117 @@
     "verification": "governance:audit and runtime integrity report healthy",
     "automatic": false,
     "runtime_only": false
+  },
+  {
+    "recipe_id": "learned-5b388bcda7249635",
+    "name": "Learned repair for CONNECTION_CONNECTED in ipc/connection",
+    "failure_signatures": [
+      "CONNECTION_CONNECTED",
+      "CONNECTION_CONNECTED"
+    ],
+    "remedy": "connection-watchdog",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-09T16:28:26.642770+00:00",
+    "occurrence_count": 79,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-5f8ed440f46d6ad3",
+    "name": "Learned repair for CONNECTION_CONNECTED in ipc/connection",
+    "failure_signatures": [
+      "CONNECTION_CONNECTED",
+      "CONNECTION_CONNECTED"
+    ],
+    "remedy": "connection-watchdog",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-09T14:22:25.344625+00:00",
+    "occurrence_count": 29,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-b60e075a27335143",
+    "name": "Learned repair for CONNECTION_CONNECTED in ipc/connection",
+    "failure_signatures": [
+      "CONNECTION_CONNECTED",
+      "CONNECTION_CONNECTED"
+    ],
+    "remedy": "connection-watchdog",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-09T04:34:18.419441+00:00",
+    "occurrence_count": 3,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-788a995786789ff5",
+    "name": "Learned repair for CONNECTION_CONNECTED in ipc/connection",
+    "failure_signatures": [
+      "CONNECTION_CONNECTED",
+      "CONNECTION_CONNECTED"
+    ],
+    "remedy": "connection-watchdog",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-09T14:21:09.217609+00:00",
+    "occurrence_count": 3,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-governance-audit-compliance-repair",
+    "name": "Governance Audit Compliance Repair",
+    "failure_signatures": [
+      "a52bb7d8f5d3aa84",
+      "96ddab135ced5784"
+    ],
+    "remedy": "governance-audit-compliance-repair",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": false,
+    "learned_at": "2026-09-06T11:58:18.690727+00:00",
+    "occurrence_count": 2,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-eb66415204a70968",
+    "name": "Learned repair for SOURCE_RUNTIME_EXITED in file-sorter",
+    "failure_signatures": [
+      "SOURCE_RUNTIME_EXITED",
+      "SOURCE_RUNTIME_EXITED"
+    ],
+    "remedy": "inspect-owned-databases",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-07T04:23:26.983846+00:00",
+    "occurrence_count": 2,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-b8710b1dcdfd3240",
+    "name": "Learned repair for TOOL_VERSION_MISMATCH in shared-layer",
+    "failure_signatures": [
+      "TOOL_VERSION_MISMATCH",
+      "TOOL_VERSION_MISMATCH"
+    ],
+    "remedy": "inspect-owned-databases,rebuild-tool-executable",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-09T06:38:47.110501+00:00",
+    "occurrence_count": 2,
+    "success_rate": 1.0,
+    "source": "learned"
   }
 ]
