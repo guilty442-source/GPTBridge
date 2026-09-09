@@ -57,9 +57,9 @@ class GPTBridgeApp:
         self.runtime_bootstrap = RuntimeBootstrap(self)
         self.hot_update_service = HotUpdateService(self)
         self.daily_global_cleaner_service = DailyGlobalCleanerService(self)
-        # 維護主宰與權限主宰為頂層主宰，由啟動核心按序啟動於系統主宰之前。
-        # 系統主宰僅啟動其自身的子主宰（runtime/resource/data/integration/
-        # language_review/third_party），不再啟動維護與權限。
+        # 維護、權限與系統主宰皆由 SystemSovereignService 統一分派啟動。
+        # main.py 不再直接 materialize 或啟動任何主宰，只透過
+        # system_sovereign_service.start_sovereign_stack() 發出啟動指令。
         self.maintenance_sovereign = MaintenanceSovereign(self)
         self.permission_sovereign: PermissionSovereign | None = None
         self.system_sovereign_service = SystemSovereignService(self)
@@ -201,98 +201,10 @@ class GPTBridgeApp:
         except Exception as error:
             self._record_startup_failure("runtime_bootstrap", error)
 
-        # ── 啟動核心按序啟動三大主宰 ──────────────────────────────
-        # 1. 維護主宰 — 週期性維護、健康監控、自動修復協調
-        self._mark_startup_phase("maintenance_sovereign_starting")
-        try:
-            from core_system.resource_maintenance import release_unused_memory
-
-            self.resource_release = release_unused_memory
-
-            toolbox = self.toolbox_service
-            central_repair = None
-            if toolbox is not None and hasattr(toolbox, "central_repair"):
-                try:
-                    central_repair = toolbox.central_repair()
-                except Exception:
-                    central_repair = None
-            await self.daily_global_cleaner_service.start()
-            maintenance_report = await self.maintenance_sovereign.start(
-                daily_cleaner=self.daily_global_cleaner_service,
-                hot_update=self.hot_update_service,
-                repair_service=central_repair,
-            )
-            self._log(
-                {
-                    "type": "maintenance_sovereign_startup",
-                    "role": maintenance_report.get("role", ""),
-                }
-            )
-        except Exception as error:
-            self._record_startup_failure("maintenance_sovereign", error)
-        self._mark_startup_phase("maintenance_sovereign_started")
-
-        # 2. 權限主宰 — 權限管理與授權面（唯讀協調層，無執行權）
-        self._mark_startup_phase("permission_sovereign_starting")
-        try:
-            if self.permission_sovereign is None:
-                self.permission_sovereign = PermissionSovereign(
-                    self,
-                    governance=self.governance,
-                )
-            self._log(
-                {
-                    "type": "permission_sovereign_startup",
-                    "role": self.permission_sovereign.ROLE,
-                }
-            )
-        except Exception as error:
-            self._record_startup_failure("permission_sovereign", error)
-        self._mark_startup_phase("permission_sovereign_started")
-
-        # 3. 系統主宰 — 啟動其自身的子主宰（runtime/resource/data/
-        #    integration/language_review/third_party），並協調維護與權限
-        #    系統主宰與自我維護服務互不依賴，並行啟動以降低總啟動延遲。
-        self._mark_startup_phase("sovereign_initializing")
-
-        # Default governed modules (shared-layer, xingcheng) are now auto-started
-        # by the Integration Sub-Sovereign during system_sovereign_service.start().
-        self.main_system_self_maintenance = MainSystemSelfMaintenance(
-            self.project_root,
-            authentication=getattr(self.governance, "authentication", None),
-        )
-
-        async def _start_self_maintenance() -> None:
-            try:
-                await self.main_system_self_maintenance.start()
-            except Exception as error:
-                self._record_startup_failure("main_system_self_maintenance", error)
-
-        # Startup maintenance (version compatibility + stability check) runs
-        # before the system sovereign so that maintenance_ready is already true
-        # when the sovereign tries to start resident tools.  No global lock is
-        # used; the boolean flag is the only gate for tool status changes.
-        await _start_self_maintenance()
-        startup_report = getattr(self.main_system_self_maintenance, "_last_report", None)
-        startup_ok = startup_report is not None and bool(startup_report.get("ok"))
-        self.maintenance_ready = startup_ok
-        if self.governance is not None:
-            self.governance.maintenance_ready = startup_ok
-
-        async def _start_system_sovereign() -> None:
-            try:
-                sovereign = await self.system_sovereign_service.start()
-                self._log(
-                    {
-                        "type": "sovereign_startup",
-                        "dependency_state": sovereign.get("dependency_state", ""),
-                    }
-                )
-            except Exception as error:
-                self._record_startup_failure("system_sovereign", error)
-
-        await _start_system_sovereign()
-        self._mark_startup_phase("sovereign_initialized")
+        # A63/A64: GPTBridgeApp 不再直接 materialize 主宰，而是把整個
+        # 主宰啟動序列分派給 SystemSovereignService 執行。該服務依序啟動
+        # 維護主宰、權限主宰、主系統自我維護，最後啟動系統主宰與其子主宰。
+        startup_ok = await self.system_sovereign_service.start_sovereign_stack()
 
         # Automated hot-reload watcher — requests a governed, module-scoped
         # reload through the maintenance sovereign when backend source changes

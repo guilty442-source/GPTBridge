@@ -1,4 +1,4 @@
-"""System Sovereign — top-level startup entry after dependency checks.
+"""System Sovereign — top-level startup dispatch after dependency checks.
 
 The launcher (start.ps1) performs environment loading, runtime checks,
 PostgreSQL/Qdrant/Ollama probing, and a governance audit BEFORE the Electron
@@ -8,8 +8,10 @@ the backend through two channels:
   * GPTBRIDGE_STARTUP_STATE            -- the READY/DEGRADED/RECOVERY string
   * <main-system>/launcher/state/orchestrator-report.json -- full service report
 
-The startup core (boot_core / GPTBridgeApp.initialize) starts three top-level
-sovereigns in order:
+Per A63/A64, the mother process (GPTBridgeApp) must not directly materialize
+or start sovereigns.  Instead, it delegates the sovereign stack startup to this
+service via ``SystemSovereignService.start_sovereign_stack``.  This service
+materializes the three top-level sovereigns in order:
 
   1. 維護主宰 (Maintenance Sovereign)  — periodic maintenance, health, repair
   2. 權限主宰 (Permission Sovereign)   — permission management (read-only surface)
@@ -22,10 +24,6 @@ The System Sovereign starts its own in-process sub-sovereigns:
   * integration-sub-sovereign   -- owns cross-sovereign structural interfaces
   * language-review-sub-sovereign -- programming-language conformance
   * third-party-sub-sovereign   -- third-party software management
-
-The Maintenance Sovereign and Permission Sovereign are started by the app
-BEFORE this service; this service coordinates them (for status reporting) but
-does not own their startup or shutdown.
 
 All are LOCAL CODE (same process as GPTBridgeApp) and coordinate existing
 in-process services; they never run heavy work in this mother process.
@@ -43,6 +41,8 @@ from .data_sub_sovereign import DataSubSovereign
 from .governance_rule_coordination import GovernanceRuleCoordination
 from .integration_sub_sovereign import IntegrationSubSovereign
 from .language_review_sub_sovereign import LanguageReviewSubSovereign
+from .main_system_self_maintenance import MainSystemSelfMaintenance
+from .permission_sovereign import PermissionSovereign
 from .resource_sub_sovereign import ResourceSubSovereign
 from .runtime_sub_sovereign import RuntimeSubSovereign
 from .sovereign_utils import _iso_now
@@ -51,16 +51,18 @@ from .third_party_sub_sovereign import ThirdPartySubSovereign
 
 
 class SystemSovereignService:
-    """Created after maintenance and permission sovereigns; owns the platform
-    sub-sovereign startup.
+    """Sovereign-stack startup dispatcher (A64) and platform sub-sovereign owner.
 
     Responsibilities at startup:
+      - Receive the dispatch from GPTBridgeApp to materialize the entire
+        sovereign stack in order (maintenance, permission, self-maintenance,
+        then the System Sovereign and its sub-sovereigns)
       - Consume the validated dependency state (env var + orchestrator report)
       - Record the sovereign startup phase into the platform startup status
       - Start its own sub-sovereigns: Runtime, Resource, Data, Integration,
         Language Review, Third-Party
       - Coordinate (read-only) the Maintenance Sovereign and Permission Sovereign
-        already started by the app
+        after this service has materialized them
       - Delegate all execution to governed executors (never in this process)
     """
 
@@ -97,13 +99,117 @@ class SystemSovereignService:
     # Lifecycle
     # ------------------------------------------------------------------
 
+    async def start_sovereign_stack(self) -> bool:
+        """Governed-executor startup of the entire sovereign stack.
+
+        Per A63 (sovereigns are decision-only) and A64 (sub-sovereigns
+        control/dispatch under parent authority), the mother process
+        (GPTBridgeApp) must not directly materialize sovereigns.  Instead,
+        it dispatches to this service, which materializes the top-level
+        sovereigns in order and then starts the System Sovereign's own
+        sub-sovereigns.  All work remains delegated to governed executors.
+
+        Order:
+          1. Maintenance Sovereign
+          2. Permission Sovereign
+          3. Main-system self-maintenance (governed executor)
+          4. System Sovereign and its six sub-sovereigns
+
+        Returns the maintenance_ready flag for the final readiness log.
+        """
+
+        app = self.app
+
+        # 1. Maintenance Sovereign — periodic maintenance, health, repair
+        app._mark_startup_phase("maintenance_sovereign_starting")
+        try:
+            from .resource_maintenance import release_unused_memory
+
+            app.resource_release = release_unused_memory
+            toolbox = app.toolbox_service
+            central_repair = None
+            if toolbox is not None and hasattr(toolbox, "central_repair"):
+                try:
+                    central_repair = toolbox.central_repair()
+                except Exception:
+                    central_repair = None
+            await app.daily_global_cleaner_service.start()
+            maintenance_report = await app.maintenance_sovereign.start(
+                daily_cleaner=app.daily_global_cleaner_service,
+                hot_update=app.hot_update_service,
+                repair_service=central_repair,
+            )
+            app._log(
+                {
+                    "type": "maintenance_sovereign_startup",
+                    "role": maintenance_report.get("role", ""),
+                }
+            )
+        except Exception as error:
+            app._record_startup_failure("maintenance_sovereign", error)
+        app._mark_startup_phase("maintenance_sovereign_started")
+
+        # 2. Permission Sovereign — read-only permission coordination
+        app._mark_startup_phase("permission_sovereign_starting")
+        try:
+            if app.permission_sovereign is None:
+                app.permission_sovereign = PermissionSovereign(
+                    app,
+                    governance=app.governance,
+                )
+            app._log(
+                {
+                    "type": "permission_sovereign_startup",
+                    "role": app.permission_sovereign.ROLE,
+                }
+            )
+        except Exception as error:
+            app._record_startup_failure("permission_sovereign", error)
+        app._mark_startup_phase("permission_sovereign_started")
+
+        # 3. Main-system self-maintenance runs before the System Sovereign
+        #    so that maintenance_ready is already true when resident tools
+        #    try to start.  No global lock; the boolean flag is the only gate.
+        app._mark_startup_phase("sovereign_initializing")
+        app.main_system_self_maintenance = MainSystemSelfMaintenance(
+            self.workspace_root,
+            authentication=getattr(app.governance, "authentication", None),
+        )
+
+        async def _start_self_maintenance() -> None:
+            try:
+                await app.main_system_self_maintenance.start()
+            except Exception as error:
+                app._record_startup_failure("main_system_self_maintenance", error)
+
+        await _start_self_maintenance()
+        startup_report = getattr(app.main_system_self_maintenance, "_last_report", None)
+        startup_ok = startup_report is not None and bool(startup_report.get("ok"))
+        app.maintenance_ready = startup_ok
+        if app.governance is not None:
+            app.governance.maintenance_ready = startup_ok
+
+        # 4. System Sovereign and its six sub-sovereigns
+        try:
+            sovereign = await self.start()
+            app._log(
+                {
+                    "type": "sovereign_startup",
+                    "dependency_state": sovereign.get("dependency_state", ""),
+                }
+            )
+        except Exception as error:
+            app._record_startup_failure("system_sovereign", error)
+        app._mark_startup_phase("sovereign_initialized")
+        return startup_ok
+
     async def start(self) -> dict[str, Any]:
         """Start the System Sovereign's own sub-sovereigns.
 
-        Maintenance Sovereign and Permission Sovereign are started by the app
-        BEFORE this method is called; this method only starts the sub-sovereigns
-        owned by the System Sovereign: runtime, resource, data, integration,
-        language_review, third_party.
+        The top-level Maintenance and Permission sovereigns are materialized
+        by ``start_sovereign_stack`` before this method is called.  This
+        method only starts the sub-sovereigns owned by the System Sovereign:
+        runtime, resource, data, integration, language_review, third_party.
 
         Single-fault isolation: each sub-sovereign is started independently.
         A failure in one does not prevent the rest from starting, and all
