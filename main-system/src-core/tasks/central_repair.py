@@ -175,10 +175,19 @@ class CentralRepairService:
         service = SourceRepairService(self.project_root)
         target = (self.project_root / relative_path).resolve()
         # Security: the file must be inside the project root.
-        from .source_repair import _inside
+        from .source_repair import _inside, SOURCE_ROOTS
 
         if not _inside(target, self.project_root):
             report["reason"] = "outside project root"
+            report["skipped"] = True
+            return report
+        # Security: the file must be inside a governed source root.
+        target_relative = target.relative_to(self.project_root).as_posix()
+        if not any(
+            target_relative.startswith(str(root).rstrip("/") + "/")
+            for root in SOURCE_ROOTS
+        ):
+            report["reason"] = "outside governed source roots"
             report["skipped"] = True
             return report
         if not target.is_file():

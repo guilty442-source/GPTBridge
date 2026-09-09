@@ -55,7 +55,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 from startup_core.phases import PhaseMixin
 from startup_core.governance import GovernanceMixin
 
@@ -69,18 +69,6 @@ STATE_RELATIVE = ("main-system", "runtime", "state", "boot-core.json")
 
 # Crash exit codes that trigger automatic source repair before restart.
 CRASH_REPAIR_UPTIME_THRESHOLD = 30.0
-
-# Crash-diagnosis regexes (compiled once).
-_DIAGNOSIS_TAIL_LINES = 50
-_RE_CRASH_ERROR = re.compile(
-    r"^([A-Z]\w*(?:Error|Warning|Exception))\s*[:({]"
-)
-_RE_CRASH_FRAME = re.compile(
-    r'^File\s+"([^"]+)",\s+line\s+(\d+),\s+in\s'
-)
-_INDENTATION_ERRORS: frozenset[str] = frozenset(
-    {"IndentationError", "TabError", "SyntaxError"}
-)
 
 # Five pre-spawn dependency gates (A61/E47/P26).
 BOOT_PHASES: Final[tuple[str, ...]] = (
@@ -107,6 +95,130 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+class CrashDiagnoser:
+    """Dynamic crash diagnosis: turn recent child stdout into an action.
+
+    This component never writes files.  It only decides whether the crash
+    is a targetable source issue, a non-source error, or an unparseable
+    traceback.  The actual repair decision/execution lives in ``CrashRepair``.
+    """
+
+    TAIL_LINES: ClassVar[int] = 50
+    _RE_ERROR: ClassVar[re.Pattern[str]] = re.compile(
+        r"^([A-Z]\w*(?:Error|Warning|Exception))\s*[:({]"
+    )
+    _RE_FRAME: ClassVar[re.Pattern[str]] = re.compile(
+        r'^File\s+"([^"]+)",\s+line\s+(\d+),\s+in\s'
+    )
+    _INDENTATION_ERRORS: ClassVar[frozenset[str]] = frozenset(
+        {"IndentationError", "TabError", "SyntaxError"}
+    )
+
+    def diagnose(
+        self,
+        child_output: list[str],
+        project_root: Path,
+    ) -> dict[str, object]:
+        """Parse the child output and return a diagnosis dict."""
+        diagnosis: dict[str, object] = {
+            "action": "fallback",
+            "error_type": "",
+            "file": "",
+            "line": None,
+        }
+        if not child_output:
+            return diagnosis
+
+        error_type = ""
+        error_file = ""
+        error_line: int | None = None
+        for raw in reversed(child_output[-self.TAIL_LINES :]):
+            stripped = raw.strip()
+            if not error_type:
+                match = self._RE_ERROR.match(stripped)
+                if match:
+                    error_type = match.group(1)
+            if not error_file:
+                match = self._RE_FRAME.match(stripped)
+                if match:
+                    raw_file = match.group(1)
+                    try:
+                        error_line = int(match.group(2))
+                        resolved = Path(raw_file).resolve()
+                        error_file = resolved.relative_to(
+                            project_root.resolve()
+                        ).as_posix()
+                    except (OSError, ValueError):
+                        error_file = raw_file
+
+        diagnosis["error_type"] = error_type
+        diagnosis["file"] = error_file
+        diagnosis["line"] = error_line
+
+        if not error_file or not error_type:
+            diagnosis["action"] = "fallback"
+        elif error_type in self._INDENTATION_ERRORS:
+            diagnosis["action"] = "targeted"
+        else:
+            diagnosis["action"] = "skip"
+        return diagnosis
+
+
+class CrashRepair:
+    """Minimal, targeted crash repair executor.
+
+    This is a dynamic repair component, not a rescue-style reset.  It only
+    touches the one file identified by the traceback and only for
+    indentation/syntax-family errors.
+    """
+
+    def __init__(self, project_root: Path) -> None:
+        self.project_root = Path(project_root).resolve()
+        self._repair_root = (
+            self.project_root / "main-system" / "data" / "automatic-repair"
+        )
+        self._repair_root.mkdir(parents=True, exist_ok=True)
+
+    def repair(self, diagnosis: dict[str, object]) -> dict[str, Any]:
+        """Execute the minimal repair dictated by ``diagnosis``."""
+        from tasks.central_repair import CentralRepairService
+
+        report: dict[str, Any] = {
+            "operation": "dynamic-crash-repair",
+            "authority": "boot-core",
+            "ok": False,
+            "reason": "",
+        }
+
+        service = CentralRepairService(self.project_root, self._repair_root)
+        try:
+            suggestion = service.suggest_remedy_for_error(
+                "BackendCrash",
+                f"action={diagnosis.get('action')} "
+                f"error_type={diagnosis.get('error_type')}",
+                file_path=str(diagnosis.get("file") or ""),
+            )
+            if suggestion.get("suggested"):
+                report["learned_suggestion"] = suggestion
+        except Exception:
+            pass
+
+        action = str(diagnosis.get("action", "fallback"))
+        if action == "skip":
+            report["reason"] = f"non-source: {diagnosis.get('error_type', 'unknown')}"
+        elif action == "targeted":
+            target_file = str(diagnosis.get("file", ""))
+            report["targeted_file"] = target_file
+            result = service.self_repair_targeted_source(target_file)
+            report["ok"] = bool(result.get("ok"))
+            report["result"] = result
+            if not report["ok"]:
+                report["reason"] = result.get("reason", "targeted-repair-failed")
+        else:
+            report["reason"] = "unparseable-traceback; no targeted repair"
+        return report
+
+
 class BootCore(PhaseMixin, GovernanceMixin):
     """Spawn, relay, and supervise the main backend process."""
 
@@ -128,6 +240,9 @@ class BootCore(PhaseMixin, GovernanceMixin):
         # Rolling buffer of recent child stdout lines for crash diagnosis.
         self._child_output: list[str] = []
         self._child_output_lock = threading.Lock()
+        # Split diagnosis and repair into discrete dynamic components.
+        self._crash_diagnoser = CrashDiagnoser()
+        self._crash_repair = CrashRepair(self.project_root)
 
     # --------------------------------------------------------------
     # runtime paths (shared by governance bootstrap + phase imports)
@@ -455,17 +570,18 @@ class BootCore(PhaseMixin, GovernanceMixin):
     # --------------------------------------------------------------
 
     def _run_auto_repair(self, exit_code: int, uptime: float) -> dict[str, object]:
-        """Dynamically diagnose and repair the actual crash cause.
+        """Dynamically diagnose and, only when safe, repair the crash cause.
 
-        Instead of a fixed full-source scan, this method:
+        This is a minimal, targeted dynamic repair path, not a rescue-style
+        reset/overwrite.  It:
         1. Captures the child's last output (traceback) to identify the
            exact file and error type that caused the crash.
         2. Only repairs that specific file if the error is an
            indentation/syntax family issue.
-        3. Falls back to full-source scan only if the traceback cannot
-           be parsed (no file identified).
+        3. Never falls back to a full-source scan — that would violate the
+           minimal-repair principle and risk clobbering unrelated files.
         4. Skips repair entirely for non-source errors (import failures,
-           runtime exceptions, dependency issues).
+           runtime exceptions, dependency issues) or unparseable output.
 
         Learning integration: after each repair attempt, the outcome is
         recorded in the learning store.  Recurring error→remedy patterns
@@ -498,116 +614,25 @@ class BootCore(PhaseMixin, GovernanceMixin):
 
         try:
             self._ensure_runtime_paths()
-            from tasks.central_repair import CentralRepairService
 
-            repair_root = self.project_root / "main-system" / "data" / "automatic-repair"
-            repair_root.mkdir(parents=True, exist_ok=True)
-            service = CentralRepairService(self.project_root, repair_root)
-            # Consult learned recipes before attempting repair.
-            try:
-                suggestion = service.suggest_remedy_for_error(
-                    "BackendCrash",
-                    f"exit_code={exit_code} uptime={uptime:.1f}s",
-                    file_path="main-system/src-core/main.py",
-                )
-                if suggestion.get("suggested"):
-                    report["learned_suggestion"] = suggestion
-            except Exception:
-                pass
-
-            # ── Dynamic diagnosis: parse the crash traceback ──
-            diagnosis = self._diagnose_crash()
+            with self._child_output_lock:
+                child_output = list(self._child_output)
+            diagnosis = self._crash_diagnoser.diagnose(
+                child_output, self.project_root
+            )
             report["diagnosis"] = diagnosis
 
-            if diagnosis.get("action") == "skip":
-                # Non-source error (import, runtime, dependency) — source
-                # repair won't help; just record and continue.
-                report["ok"] = False
-                report["reason"] = f"non-source: {diagnosis.get('error_type', 'unknown')}"
-            elif diagnosis.get("action") == "targeted":
-                # Repair only the specific file identified in the traceback.
-                target_file = diagnosis.get("file", "")
-                report["targeted_file"] = target_file
-                result = service.self_repair_targeted_source(target_file)
-                report["ok"] = bool(result.get("ok"))
-                report["result"] = result
-            else:
-                # Fallback: traceback couldn't be parsed — run the full
-                # source scan as a last resort.
-                report["fallback"] = "full-scan"
-                result = service.self_repair_main_system_sources()
-                report["ok"] = bool(result.get("ok"))
-                report["result"] = result
+            repair_report = self._crash_repair.repair(diagnosis)
+            report["ok"] = bool(repair_report.get("ok"))
+            if repair_report.get("reason"):
+                report["reason"] = str(repair_report["reason"])
+            report["repair"] = repair_report
             # Learning is integrated inside the repair methods; the learner
             # records errors and outcomes automatically.
         except Exception as error:
             report["ok"] = False
             report["error"] = f"{type(error).__name__}: {error}"
         return report
-
-    def _diagnose_crash(self) -> dict[str, object]:
-        """Parse the child's last output to identify the crash cause.
-
-        Returns a dict with:
-          * ``action``: "targeted" | "skip" | "fallback"
-          * ``file``: relative path to the failing source file (if found)
-          * ``error_type``: the exception class name (if found)
-          * ``line``: the line number (if found)
-        """
-
-        with self._child_output_lock:
-            lines = list(self._child_output)
-
-        diagnosis: dict[str, object] = {
-            "action": "fallback",
-            "error_type": "",
-            "file": "",
-            "line": None,
-        }
-        if not lines:
-            return diagnosis
-
-        # Walk the most recent tail of the output once, finding the last
-        # exception name and the last traceback frame in a single pass.
-        error_type = ""
-        error_file = ""
-        error_line: int | None = None
-        for raw in reversed(lines[-_DIAGNOSIS_TAIL_LINES:]):
-            stripped = raw.strip()
-            if not error_type:
-                match = _RE_CRASH_ERROR.match(stripped)
-                if match:
-                    error_type = match.group(1)
-            if not error_file:
-                match = _RE_CRASH_FRAME.match(stripped)
-                if match:
-                    raw_file = match.group(1)
-                    try:
-                        error_line = int(match.group(2))
-                        resolved = Path(raw_file).resolve()
-                        error_file = resolved.relative_to(
-                            self.project_root.resolve()
-                        ).as_posix()
-                    except (OSError, ValueError):
-                        error_file = raw_file
-
-        diagnosis["error_type"] = error_type
-        diagnosis["file"] = error_file
-        diagnosis["line"] = error_line
-
-        if not error_file or not error_type:
-            # No usable traceback frame, or we could not identify the
-            # exception class — do not guess a target file.
-            diagnosis["action"] = "fallback"
-        elif error_type in _INDENTATION_ERRORS:
-            # Indentation / syntax error that source_repair can fix.
-            diagnosis["action"] = "targeted"
-        else:
-            # Import errors, runtime errors, dependency issues, etc.
-            # Source repair (which only fixes indentation) won't help.
-            diagnosis["action"] = "skip"
-
-        return diagnosis
 
     # --------------------------------------------------------------
     # supervise loop
