@@ -5,14 +5,17 @@ Entry responsibility boundary (per architecture decision):
   * 啟動入口 (Electron main) — only wakes the screen; it spawns this
     startup core and does not manage the backend directly.
   * 啟動核心 (this process) — **sole startup orchestrator** (A61):
-    executes the six-phase startup sequence in order:
+    executes the five pre-spawn dependency gates in order:
 
         environment-check  →  governance-audit  →  postgresql-start
-        →  qdrant-start  →  ollama-start  →  governance-system-start
+        →  qdrant-start  →  ollama-start
 
-    Each required phase must be verified before the next advances (GATE).
-    Then spawns the main backend (``main.py --serve``), which awakens the
-    sovereigns, and supervises the backend for its whole lifetime.
+    Each required gate must be verified before the next advances (GATE).
+    It then spawns the main backend (``main.py --serve``).  After spawning,
+    boot_core waits for the backend's own ``governance-system-start`` to
+    complete by probing ``/health`` until ``governance_ready`` is true
+    (A67 — a live socket alone is not ready).  Only then is the backend
+    considered healthy and supervised for its whole lifetime.
   * Crash recovery — when the backend crashes with a non-zero exit code
     during startup (uptime < 30s), the startup core runs automatic source
     self-repair (``CentralRepairService.self_repair_main_system_sources``)
@@ -66,7 +69,7 @@ STATE_RELATIVE = ("main-system", "runtime", "state", "boot-core.json")
 # Crash exit codes that trigger automatic source repair before restart.
 CRASH_REPAIR_UPTIME_THRESHOLD = 30.0
 
-# Six-phase startup sequence (A61/E47/P26).
+# Five pre-spawn dependency gates (A61/E47/P26).
 BOOT_PHASES: Final[tuple[str, ...]] = (
     "environment-check",
     "governance-audit",
@@ -236,7 +239,12 @@ class BootCore(PhaseMixin, GovernanceMixin):
         )
 
     def _probe_health(self) -> bool:
-        """Probe the backend HTTP /health endpoint."""
+        """Probe the backend HTTP /health endpoint.
+
+        A67: a live socket alone is NOT "ready".  The backend is only healthy
+        for boot_core purposes once ok=True, runtime_state=ready,
+        governance_ready=True and startup_dead is not True.
+        """
         try:
             request = urllib.request.Request(
                 f"http://127.0.0.1:{HEALTH_PROBE_PORT}/health",
@@ -245,8 +253,14 @@ class BootCore(PhaseMixin, GovernanceMixin):
             with urllib.request.urlopen(
                 request, timeout=HEALTH_PROBE_TIMEOUT
             ) as response:
-                return 200 <= response.status < 300
-        except (OSError, urllib.error.URLError):
+                payload = json.loads(response.read().decode("utf-8"))
+                return bool(
+                    payload.get("ok") is True
+                    and payload.get("runtime_state") == "ready"
+                    and payload.get("governance_ready") is True
+                    and payload.get("startup_dead") is not True
+                )
+        except (OSError, urllib.error.URLError, ValueError, UnicodeDecodeError):
             return False
 
     def _health_loop(self) -> None:
@@ -473,7 +487,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
         self._install_signals()
         self._write_state()
         while not self._stop.is_set():
-            # --- six-phase startup gate (A61/E47/P26) ---
+            # --- five pre-spawn dependency gates (A61/E47/P26) ---
             startup = self._run_startup_phases()
             self._write_orchestrator_report(startup)
 
@@ -503,7 +517,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
                     return 0
                 continue
 
-            # --- all required phases verified — spawn governance system ---
+            # --- all required pre-spawn gates verified — spawn backend ---
             try:
                 self._child = self._spawn_backend(
                     args,
