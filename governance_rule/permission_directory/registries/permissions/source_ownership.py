@@ -51,6 +51,18 @@ VAULTLY_PACKAGE_ROOT: Final[str] = "vaultly/src/backend/services/vaultly"
 VAULTLY_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application", "domain", "infrastructure", "integration"}
 )
+STAR_CHAT_PACKAGE_ROOT: Final[str] = (
+    "local-model/model-dialogue/src/backend/services/star_chat"
+)
+STAR_CHAT_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
+    {"application"}
+)
+SYSTEM_RESCUE_PACKAGE_ROOT: Final[str] = (
+    "system-rescue/src/backend/services/system_rescue"
+)
+SYSTEM_RESCUE_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
+    {"integration"}
+)
 SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
     {
         "__init__.py",
@@ -144,6 +156,8 @@ OWNED_IMPORT_PREFIXES: Final[dict[str, str]] = {
     "xingcheng": "local-model",
     "project_cleaner": "global-cleaner",
     "vaultly": "vaultly",
+    "star_chat": "local-model",
+    "system_rescue": "system-rescue",
 }
 
 
@@ -299,6 +313,21 @@ def source_ownership_errors(project_root: Path) -> list[str]:
         if (root / relative).exists():
             errors.append(f"legacy global-cleaner source remains: {relative}")
 
+    cleaner_owned_sources = list(cleaner_package.rglob("*.py"))
+    cleaner_rules = root / "global-cleaner/src/backend/services/project_cleaner/domain/cleanup_rules.json"
+    if cleaner_rules.is_file():
+        cleaner_owned_sources.append(cleaner_rules)
+    for source in cleaner_owned_sources:
+        try:
+            content = source.read_text(encoding="utf-8").replace("\\", "/").casefold()
+        except (OSError, UnicodeError):
+            continue
+        if "vaultly/data/" in content:
+            errors.append(
+                "global-cleaner must not address vaultly private storage: "
+                f"{source.relative_to(root).as_posix()}"
+            )
+
     vaultly_package = root / VAULTLY_PACKAGE_ROOT
     for layer in VAULTLY_REQUIRED_LAYERS:
         if not (vaultly_package / layer / "__init__.py").is_file():
@@ -307,6 +336,28 @@ def source_ownership_errors(project_root: Path) -> list[str]:
         if source.name != "__init__.py":
             errors.append(
                 f"vaultly source is outside an owned layer: "
+                f"{source.relative_to(root).as_posix()}"
+            )
+
+    star_chat_package = root / STAR_CHAT_PACKAGE_ROOT
+    for layer in STAR_CHAT_REQUIRED_LAYERS:
+        if not (star_chat_package / layer / "__init__.py").is_file():
+            errors.append(f"star-chat layer is missing: {layer}")
+    for source in star_chat_package.glob("*.py"):
+        if source.name != "__init__.py":
+            errors.append(
+                f"star-chat source is outside an owned layer: "
+                f"{source.relative_to(root).as_posix()}"
+            )
+
+    system_rescue_package = root / SYSTEM_RESCUE_PACKAGE_ROOT
+    for layer in SYSTEM_RESCUE_REQUIRED_LAYERS:
+        if not (system_rescue_package / layer / "__init__.py").is_file():
+            errors.append(f"system-rescue layer is missing: {layer}")
+    for source in system_rescue_package.glob("*.py"):
+        if source.name != "__init__.py":
+            errors.append(
+                f"system-rescue source is outside an owned layer: "
                 f"{source.relative_to(root).as_posix()}"
             )
 
@@ -370,6 +421,10 @@ __all__ = (
     "GLOBAL_CLEANER_REQUIRED_LAYERS",
     "VAULTLY_PACKAGE_ROOT",
     "VAULTLY_REQUIRED_LAYERS",
+    "STAR_CHAT_PACKAGE_ROOT",
+    "STAR_CHAT_REQUIRED_LAYERS",
+    "SYSTEM_RESCUE_PACKAGE_ROOT",
+    "SYSTEM_RESCUE_REQUIRED_LAYERS",
     "FORBIDDEN_LEGACY_BUSINESS_SOURCES",
     "OWNED_IMPORT_PREFIXES",
     "REQUIRED_OWNED_SOURCES",

@@ -567,7 +567,10 @@ try {
 
     Remove-Item Env:\ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
     $env:GPTBRIDGE_SOURCE_PRODUCTION = "1"
-    $env:GPTBRIDGE_MANAGE_BACKEND = "0"
+    # boot_core is the sole startup orchestrator (A60/A61/E47/P26): it runs the
+    # six-phase startup sequence and spawns main.py.  Enable the Electron-managed
+    # backend so the UI wakes the startup core to perform those phases.
+    $env:GPTBRIDGE_MANAGE_BACKEND = "1"
     $env:GPTBRIDGE_WORKSPACE_ROOT = $WorkspaceRoot
     $env:GPTBRIDGE_PROJECT_ROOT = $WorkspaceRoot
     $env:NODE_ENV = "production"

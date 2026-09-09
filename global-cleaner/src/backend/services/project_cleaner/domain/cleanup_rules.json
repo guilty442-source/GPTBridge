@@ -135,7 +135,6 @@
   ],
   "file_rules": [
     {"id": "legacy-shared-channel-database", "relative_patterns": ["shared-layer/data/shared-layer.sqlite3", "shared-layer/data/shared-layer.sqlite3-wal", "shared-layer/data/shared-layer.sqlite3-shm"], "reason": "legacy combined channel database replaced by isolated system and AI channels", "risk": "medium", "min_age_days": 0, "allow_tracked": true, "allow_direct_delete": true},
-    {"id": "legacy-vaultly-database", "relative_patterns": ["vaultly/data/business/vaultly.sqlite3"], "reason": "legacy Vaultly database replaced by tool-owned runtime state", "risk": "medium", "min_age_days": 0, "allow_tracked": true, "allow_direct_delete": true},
     {"id": "obsolete-cleaner-history", "relative_patterns": ["global-cleaner/data/business/history.sqlite3"], "reason": "obsolete global cleaner business history", "risk": "medium", "min_age_days": 0, "allow_direct_delete": true},
     {"id": "temporary", "patterns": ["*.tmp", "*.temp"], "reason": "temporary file", "risk": "low", "min_age_days": 1},
     {"id": "old-copy", "patterns": ["*.old"], "reason": "old file copy", "risk": "medium", "min_age_days": 14},

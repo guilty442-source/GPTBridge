@@ -307,7 +307,7 @@ def test_known_legacy_data_is_targeted_without_removing_owner_folders(
     items = {str(item["path"]): item for item in plan["items"]}
 
     assert "shared-layer/data/shared-layer.sqlite3" in items
-    assert "vaultly/data/business/vaultly.sqlite3" in items
+    assert "vaultly/data/business/vaultly.sqlite3" not in items
     assert items["runtime/global-cleaner"]["contents_only"] is True
     assert items["main-system/src-core/edge-profile"]["contents_only"] is True
 

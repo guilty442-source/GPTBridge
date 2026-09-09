@@ -1346,7 +1346,7 @@ def test_xingcheng_forbidden_classifications() -> None:
 # ---------------------------------------------------------------------------
 
 def test_reconcile_pending_without_postgresql(tmp_path: Path) -> None:
-    from shared_layer.reconcile import ReconcileService
+    from core_system.data_reconciliation import ReconcileService
     conn = sqlite3.connect(str(tmp_path / "test.sqlite3"))
     service = ReconcileService(conn, pg_connection=None)
     service.mark_pending("xingcheng", "doc-1", version=2,
@@ -1361,7 +1361,7 @@ def test_reconcile_pending_without_postgresql(tmp_path: Path) -> None:
 
 
 def test_reconcile_mark_and_count(tmp_path: Path) -> None:
-    from shared_layer.reconcile import ReconcileService
+    from core_system.data_reconciliation import ReconcileService
     conn = sqlite3.connect(str(tmp_path / "test.sqlite3"))
     service = ReconcileService(conn, pg_connection=None)
     service.mark_pending("xingcheng", "doc-1", 1, "2026-01-01T00:00:00Z")

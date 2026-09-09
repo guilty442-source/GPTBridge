@@ -141,7 +141,7 @@ def _normalized_profile(value: Any) -> str:
 
 
 def _same_path_identity(left: Path, right: Path) -> bool:
-    return os.normcase(str(left)) == os.normcase(str(right))
+    return os.path.normcase(str(left)) == os.path.normcase(str(right))
 
 
 def _is_link_or_reparse(path: Path) -> bool:

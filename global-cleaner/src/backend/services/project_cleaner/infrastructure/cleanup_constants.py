@@ -234,15 +234,6 @@ FALLBACK_RULES: dict[str, Any] = {
             "allow_direct_delete": True,
         },
         {
-            "id": "legacy-vaultly-database",
-            "relative_patterns": ["vaultly/data/business/vaultly.sqlite3"],
-            "reason": "legacy Vaultly database replaced by tool-owned runtime state",
-            "risk": "medium",
-            "min_age_days": 0,
-            "allow_tracked": True,
-            "allow_direct_delete": True,
-        },
-        {
             "id": "obsolete-cleaner-history",
             "relative_patterns": ["global-cleaner/data/business/history.sqlite3"],
             "reason": "obsolete global cleaner business history",

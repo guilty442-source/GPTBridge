@@ -66,6 +66,15 @@ class GPTBridgeApp:
         self.main_system_self_maintenance: MainSystemSelfMaintenance | None = None
         self._command_tasks: set[asyncio.Task[Any]] = set()
         self._command_task_meta: dict[asyncio.Task[Any], dict[str, Any]] = {}
+        # A67 connection counters.  ``_active_ws_connections`` tracks any open
+        # WebSocket socket (for the connection watchdog).  The independent
+        # ``_authenticated_ipc_connections`` counter is incremented ONLY for
+        # sockets that passed ``_websocket_request_authorized`` in the
+        # handshake — it is the verified channel the readiness gate consults
+        # for condition 4 (authenticated-ipc-connected), not an inference
+        # from the session token.
+        self._active_ws_connections: int = 0
+        self._authenticated_ipc_connections: int = 0
 
         self.governance_rules_read_only = True
         self.governance_rules = self._load_governance_rules()

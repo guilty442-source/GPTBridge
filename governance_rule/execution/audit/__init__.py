@@ -808,13 +808,27 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
     # Reconcile service (A44/E30): one-directional SQLite→PostgreSQL flow
     reconcile_module = root / "shared-layer" / "src" / "shared_layer" / "reconcile.py"
     if not reconcile_module.is_file():
-        errors.append("reconcile service module is missing")
+        errors.append("reconcile state store module is missing")
     else:
         reconcile_text = reconcile_module.read_text(encoding="utf-8")
-        if "ReconcileService" not in reconcile_text:
-            errors.append("reconcile module is missing ReconcileService class")
-        if "reconcile_module" not in reconcile_text:
-            errors.append("reconcile module is missing reconcile_module method")
+        if "ReconcileStateStore" not in reconcile_text:
+            errors.append("reconcile module is missing ReconcileStateStore class")
+        for forbidden_decision in (
+            "class ReconcileService",
+            "def _push_to_central",
+            "def _pull_from_central",
+        ):
+            if forbidden_decision in reconcile_text:
+                errors.append(
+                    f"shared layer contains reconciliation decision: {forbidden_decision}"
+                )
+    reconciliation_owner = (
+        root / "main-system" / "src-core" / "core_system" / "data_reconciliation.py"
+    )
+    if not reconciliation_owner.is_file():
+        errors.append("system data reconciliation owner is missing")
+    elif "class ReconcileService" not in reconciliation_owner.read_text(encoding="utf-8"):
+        errors.append("system data reconciliation owner lacks decision service")
 
     # SQL migrations: verify new migration files exist (A8/E21)
     migrations_dir = root / "shared-layer" / "migrations"

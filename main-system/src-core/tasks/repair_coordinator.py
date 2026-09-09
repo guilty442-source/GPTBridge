@@ -208,6 +208,167 @@ class RepairCoordinator:
                 "updated_at": _iso_now(),
             }
 
+    # ------------------------------------------------------------------
+    # A72 governed repair request — signal-and-request-only for boot_core
+    # ------------------------------------------------------------------
+
+    def _requests_file(self) -> Path:
+        """Information-layer state file for governed repair requests."""
+        return (
+            self.project_root
+            / "main-system"
+            / "runtime"
+            / "state"
+            / "repair-requests.json"
+        )
+
+    def _read_requests(self) -> list[dict[str, Any]]:
+        path = self._requests_file()
+        if not path.is_file():
+            return []
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                return data
+        except (OSError, json.JSONDecodeError):
+            pass
+        return []
+
+    def _write_requests(self, requests: list[dict[str, Any]]) -> None:
+        path = self._requests_file()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(
+                json.dumps(requests, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(tmp, path)
+        except OSError:
+            pass
+
+    def request_governed_repair(
+        self,
+        failure_code: str,
+        owner: str,
+        *,
+        decision_proof: dict[str, Any],
+        repair_executor: Any | None = None,
+        signal_only: bool = False,
+    ) -> dict[str, Any]:
+        """A72 governed repair entry — records decision proof before mutation.
+
+        Per A72: ``DECISION-PROOF:required-before-repair-mutation`` and
+        ``BOOT-CORE+WATCHDOG+UI+MODULE:signal-and-request-only``.
+
+        * ``decision_proof`` — the governance authorization that permits
+          this repair (e.g. governance bootstrap attestation for crash
+          repair, or a maintenance-sovereign decision token for live repair).
+        * ``repair_executor`` — callable that performs the actual repair
+          mutation.  Required for crash repair (backend is dead, no
+          maintenance sovereign is available).  When ``None`` or
+          ``signal_only=True``, only a signal is written to the
+          information layer for the maintenance sovereign to pick up.
+        * Returns a report dict with the repair outcome or signal record.
+
+        This method acquires the coordination lock (FORBID:duplicate-repair-owner),
+        records the request + decision proof to the information layer, and
+        either executes the repair (crash case) or leaves a pending signal
+        (backend-alive case) for the maintenance sovereign decision chain.
+        """
+        report: dict[str, Any] = {
+            "governed": True,
+            "failure_code": failure_code,
+            "owner": owner,
+            "signal_only": signal_only or repair_executor is None,
+            "ok": False,
+        }
+
+        # FORBID:duplicate-repair-owner — acquire lock first.
+        if not self.try_acquire(failure_code=failure_code, owner=owner):
+            report["reason"] = "duplicate-repair-owner; another owner holds the lock"
+            report["decision_proof"] = decision_proof
+            return report
+
+        request_id = uuid4().hex
+        request_record: dict[str, Any] = {
+            "request_id": request_id,
+            "failure_code": failure_code,
+            "owner": owner,
+            "decision_proof": decision_proof,
+            "requested_at": _iso_now(),
+            "status": "pending",
+            "signal_only": signal_only or repair_executor is None,
+        }
+
+        if signal_only or repair_executor is None:
+            # Signal-only: write to information layer, maintenance sovereign
+            # will pick up and make the repair decision.
+            requests = self._read_requests()
+            requests.append(request_record)
+            self._write_requests(requests)
+            report["request_id"] = request_id
+            report["ok"] = True
+            report["reason"] = "signal written to information layer; awaiting maintenance-sovereign decision"
+            self.release(owner=owner, failure_code=failure_code)
+            return report
+
+        # Crash repair: backend is dead, maintenance sovereign unavailable.
+        # The governance bootstrap attestation IS the decision proof.
+        # Execute the repair mutation under the coordination lock.
+        request_record["status"] = "executing"
+        requests = self._read_requests()
+        requests.append(request_record)
+        self._write_requests(requests)
+
+        try:
+            result = repair_executor()  # type: ignore[misc]
+            report["ok"] = bool(result.get("ok")) if isinstance(result, dict) else True
+            report["result"] = result
+            request_record["status"] = "completed" if report["ok"] else "failed"
+            request_record["completed_at"] = _iso_now()
+        except Exception as error:
+            report["ok"] = False
+            report["error"] = f"{type(error).__name__}: {error}"
+            request_record["status"] = "failed"
+            request_record["error"] = report["error"]
+            request_record["completed_at"] = _iso_now()
+
+        # Update the request record in the information layer.
+        requests = self._read_requests()
+        for i, req in enumerate(requests):
+            if req.get("request_id") == request_id:
+                requests[i] = request_record
+                break
+        self._write_requests(requests)
+
+        self.release(owner=owner, failure_code=failure_code)
+        return report
+
+    def pending_requests(self) -> list[dict[str, Any]]:
+        """Return pending repair requests for the maintenance sovereign to process."""
+        return [
+            req for req in self._read_requests()
+            if req.get("status") == "pending"
+        ]
+
+    def acknowledge_request(
+        self,
+        request_id: str,
+        *,
+        maintenance_sovereign_decision: str,
+        ok: bool,
+    ) -> None:
+        """Record the maintenance sovereign's decision on a repair request."""
+        requests = self._read_requests()
+        for req in requests:
+            if req.get("request_id") == request_id:
+                req["status"] = maintenance_sovereign_decision
+                req["sovereign_decided_at"] = _iso_now()
+                req["sovereign_decision_ok"] = ok
+                break
+        self._write_requests(requests)
+
 
 # Module-level singleton — initialized lazily by the backend on startup.
 _coordinator: RepairCoordinator | None = None

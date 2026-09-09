@@ -121,14 +121,25 @@ class ReadinessGate:
     def _check_authenticated_ipc(self) -> bool:
         """Condition 4: authenticated IPC connected.
 
-        At least one WebSocket client must be connected AND the backend
-        runtime must have progressed past the initial wait (command router
-        present or startup_dead).  The WebSocket origin authentication is
-        enforced by the IPC server's ``process_request`` handler; reaching
-        this check means the connection passed origin validation.
+        Uses an INDEPENDENT verification channel — the explicit
+        ``_authenticated_ipc_connections`` counter maintained by the IPC
+        server handler — rather than inferring authentication from the
+        WebSocket session token.  The handler only increments this
+        counter for connections that passed ``_websocket_request_authorized``
+        (HMAC token + instance id check) during the handshake; an
+        unauthenticated socket is rejected with 403 before reaching the
+        handler and is never counted.  This satisfies A67's requirement
+        that authenticated-ipc-connected be a verified condition, not an
+        inference from socket state.
+
+        At least one authenticated IPC client must be connected AND the
+        backend runtime must have progressed past the initial wait
+        (command router present or startup_dead).  A connected socket
+        alone is not enough — the runtime must not be in a degraded/dead
+        state (FORBID:ui-connected-while-runtime-degraded).
         """
-        active = getattr(self.app, "_active_ws_connections", 0)
-        if not isinstance(active, int) or active <= 0:
+        authed = getattr(self.app, "_authenticated_ipc_connections", 0)
+        if not isinstance(authed, int) or authed <= 0:
             return False
         # A connected socket alone is not enough — the runtime must not be
         # in a degraded/dead state (FORBID:ui-connected-while-runtime-degraded).

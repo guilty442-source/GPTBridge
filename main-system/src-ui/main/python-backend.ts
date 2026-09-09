@@ -1,9 +1,14 @@
 /**
  * python-backend — Electron-side boot_core process manager.
  *
- * Architecture boundary (per architecture decision):
+ * Architecture boundary (A60/A61):
  *   啟動入口 (Electron main) 僅啟動頁面；後續交由啟動核心 (boot_core)
  *   去啟動主宰 (system sovereign)。
+ *
+ * A60: LAUNCHER:interface-presentation-only; BOOT-OPERATIONS:none.
+ * The launcher must NOT generate governance bootstrap material
+ * (FORBID:governance-system-start).  boot_core generates its own fresh
+ * governance bootstrap token per spawn in ``_generate_governance_bootstrap``.
  *
  * This module ONLY spawns and stops the boot_core process.  It does NOT:
  *   - generate governance bootstrap tokens (boot_core does this)
@@ -12,10 +17,6 @@
  *
  * The Electron UI queries backend status via IPC commands to the backend
  * itself; this module only tracks whether boot_core is alive.
- *
- * Governance bootstrap material is preloaded by preloadDefaultGovernanceAuthority
- * in app.whenReady() (after the window is shown); boot_core independently
- * generates its own fresh token per spawn.
  */
 import { ChildProcess, spawn } from 'child_process'
 import fs from 'node:fs'
@@ -29,7 +30,6 @@ import {
 import { getRuntimePathLibrary } from './pathLibrary'
 import { getRuntimeEnvMap } from './runtime-env'
 import { PRODUCT_VERSION } from './product-version'
-import { createMainSystemGovernanceBootstrap } from './governance-bootstrap'
 
 let pythonProcess: ChildProcess | null = null
 type BackendStatus = 'idle' | 'starting' | 'running' | 'stopping' | 'error'

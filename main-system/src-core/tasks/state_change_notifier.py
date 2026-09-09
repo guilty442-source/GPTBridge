@@ -12,16 +12,38 @@ event to every active UIShell when any of the four readiness conditions or
 the overall runtime state changes.  The existing 2-second push loop
 remains as a safety-net keepalive; this notifier eliminates the up-to-2s
 latency for state transitions.
+
+A67 SCOPE: ``main-ui+all-independent-tool-ui``.  In addition to the
+in-process WebSocket push, the notifier writes the readiness snapshot to
+an information-layer state file (``runtime-readiness.json``) so that
+independent tool UIs that have not yet registered a UIShell (or that
+connect via the governed source-runtime IPC rather than the main UI
+socket) can observe the latest readiness state without waiting for a
+push they may never receive.  This closes the gap for unregistered
+independent tool UIs.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
+import os
+from pathlib import Path
 from typing import Any, Final
 
 from tasks.readiness_gate import ReadinessGate, ReadinessSnapshot
 
-STATE_NOTIFIER_VERSION: Final[str] = "1.0.0"
+STATE_NOTIFIER_VERSION: Final[str] = "1.1.0"
+
+# Information-layer state file for cross-UI readiness propagation.
+READINESS_STATE_RELATIVE: Final[tuple[str, ...]] = (
+    "main-system", "runtime", "state", "runtime-readiness.json",
+)
+
+
+def _iso_now() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
 
 
 class StateChangeNotifier:
@@ -31,7 +53,9 @@ class StateChangeNotifier:
     ``maybe_notify`` after any event that may change readiness (command
     router initialization, governance audit, dependency start, WebSocket
     connect/disconnect).  It compares against the last snapshot and, if
-    the state changed, pushes immediately to all active UI shells.
+    the state changed, pushes immediately to all active UI shells AND
+    writes the snapshot to the information-layer state file so unregistered
+    independent tool UIs can observe it.
     """
 
     VERSION = STATE_NOTIFIER_VERSION
@@ -40,6 +64,13 @@ class StateChangeNotifier:
         self.app = app
         self._gate = ReadinessGate(app)
         self._last_snapshot: ReadinessSnapshot | None = None
+        self._state_file = self._resolve_state_file()
+
+    def _resolve_state_file(self) -> Path:
+        project_root = getattr(self.app, "project_root", None)
+        if project_root is None:
+            project_root = Path.cwd()
+        return Path(project_root).joinpath(*READINESS_STATE_RELATIVE)
 
     def _active_shells(self) -> set:
         shells = getattr(self.app, "_active_ui_shells", None)
@@ -88,6 +119,32 @@ class StateChangeNotifier:
             or last.runtime_state != new.runtime_state
         )
 
+    def _write_readiness_state(self, snapshot: ReadinessSnapshot) -> None:
+        """Write the readiness snapshot to the information-layer state file.
+
+        This is the A67 propagation channel for independent tool UIs that
+        are not registered as UIShell connections on the main backend
+        socket (e.g. companion windows whose WebSocket session is to a
+        governed source-runtime, or tools that poll /health before
+        establishing a push subscription).  Writing the snapshot here lets
+        them observe the latest readiness state atomically.
+        """
+        try:
+            self._state_file.parent.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "version": STATE_NOTIFIER_VERSION,
+                "snapshot": snapshot.as_dict(),
+                "updated_at": _iso_now(),
+            }
+            tmp = self._state_file.with_suffix(".tmp")
+            tmp.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(tmp, self._state_file)
+        except OSError:
+            pass  # Best-effort; never block the push path.
+
     async def maybe_notify(self) -> ReadinessSnapshot | None:
         """Evaluate readiness and push immediately if the state changed.
 
@@ -99,6 +156,10 @@ class StateChangeNotifier:
             if not self._state_changed(snapshot):
                 return None
             self._last_snapshot = snapshot
+            # A67: propagate to the information layer first so unregistered
+            # independent tool UIs see the transition even if no UIShell
+            # push reaches them.
+            self._write_readiness_state(snapshot)
             shells = self._active_shells()
             if not shells:
                 return snapshot

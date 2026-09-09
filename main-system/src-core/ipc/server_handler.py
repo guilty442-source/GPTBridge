@@ -40,6 +40,22 @@ async def handler(websocket, app_instance):
     except Exception:
         pass
 
+    # A67 condition 4: authenticated-ipc-connected — tracked as an
+    # INDEPENDENT verification channel, not inferred from the session
+    # token.  Reaching ``handler`` means the WebSocket handshake passed
+    # ``_websocket_request_authorized`` (token + instance id HMAC check)
+    # in ``process_request``; an unauthenticated connection is rejected
+    # with 403 before it ever gets here.  We therefore count this as an
+    # explicitly authenticated IPC connection, distinct from the raw
+    # ``_active_ws_connections`` counter (which only reflects an open
+    # socket).  The readiness gate consults this independent counter so
+    # readiness cannot be satisfied by a socket that bypassed auth.
+    try:
+        _authed = getattr(app_instance, "_authenticated_ipc_connections", 0) + 1
+        app_instance._authenticated_ipc_connections = _authed
+    except Exception:
+        pass
+
     # Register this UIShell so the status push loop can send real-time updates.
     if not hasattr(app_instance, "_active_ui_shells"):
         app_instance._active_ui_shells: set[UIShell] = set()
@@ -176,6 +192,12 @@ async def handler(websocket, app_instance):
             _active = max(0, getattr(app_instance, "_active_ws_connections", 1) - 1)
             app_instance._active_ws_connections = _active
             write_ipc_connection_state(_PROJECT_ROOT, _active)
+        except Exception:
+            pass
+        # A67 condition 4: decrement the independent authenticated-IPC counter.
+        try:
+            _authed = max(0, getattr(app_instance, "_authenticated_ipc_connections", 1) - 1)
+            app_instance._authenticated_ipc_connections = _authed
         except Exception:
             pass
         # Remove this UIShell from the real-time push set.

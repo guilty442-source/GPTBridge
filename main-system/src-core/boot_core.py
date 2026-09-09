@@ -1,13 +1,18 @@
-"""boot_core — independent startup core (啟動核心).
+"""boot_core — independent startup core (啟動核心) and sole startup orchestrator (A61/E47/P26).
 
 Entry responsibility boundary (per architecture decision):
 
   * 啟動入口 (Electron main) — only wakes the screen; it spawns this
     startup core and does not manage the backend directly.
-  * 啟動核心 (this process) — awakens the system core: it generates the
-    governance bootstrap token, spawns the main backend (``main.py --serve``),
-    which in turn awakens the sovereigns, and supervises the backend for its
-    whole lifetime.
+  * 啟動核心 (this process) — **sole startup orchestrator** (A61):
+    executes the six-phase startup sequence in order:
+
+        environment-check  →  governance-audit  →  postgresql-start
+        →  qdrant-start  →  ollama-start  →  governance-system-start
+
+    Each required phase must be verified before the next advances (GATE).
+    Then spawns the main backend (``main.py --serve``), which awakens the
+    sovereigns, and supervises the backend for its whole lifetime.
   * Crash recovery — when the backend crashes with a non-zero exit code
     during startup (uptime < 30s), the startup core runs automatic source
     self-repair (``CentralRepairService.self_repair_main_system_sources``)
@@ -21,10 +26,13 @@ Entry responsibility boundary (per architecture decision):
     backoff; if THIS process dies, the launcher's own recovery respawns it
     while the backend (if still alive) keeps serving.
 
-The startup core generates the governance bootstrap token in-process (so the
-entry does not need governance knowledge), forwards the environment to the
-backend, relays the child's stdout/stderr so the launcher can observe
-readiness lines, and persists a small status file for maintenance oversight.
+The startup core:
+  1. Runs the six-phase startup gate sequence.
+  2. Generates the governance bootstrap token in-process.
+  3. Writes the orchestrator report to ``launcher/state/orchestrator-report.json``
+     for system_sovereign consumption (stale-safe: always overwritten on boot).
+  4. Sets ``GPTBRIDGE_STARTUP_STATE`` in the child env (READY/DEGRADED/FAILED).
+  5. Spawns main.py, relays stdout/stderr, and supervises the child lifetime.
 """
 
 from __future__ import annotations
@@ -34,6 +42,7 @@ import json
 import os
 import secrets
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -42,6 +51,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Final
 
 MAX_RESTARTS = 10
 BACKOFF_SCHEDULE_SECONDS = (2, 5, 10, 20, 30, 45, 60)
@@ -52,9 +62,27 @@ HEALTH_PROBE_INTERVAL = 5.0
 STATE_RELATIVE = ("main-system", "runtime", "state", "boot-core.json")
 
 # Crash exit codes that trigger automatic source repair before restart.
-# A non-zero exit with a short uptime suggests a startup-time failure that
-# may be caused by corrupted source (e.g. SyntaxError, IndentationError).
 CRASH_REPAIR_UPTIME_THRESHOLD = 30.0
+
+# Six-phase startup sequence (A61/E47/P26).
+BOOT_PHASES: Final[tuple[str, ...]] = (
+    "environment-check",
+    "governance-audit",
+    "postgresql-start",
+    "qdrant-start",
+    "ollama-start",
+)
+# Required phases — failure gates the entire sequence (A61 GATE).
+REQUIRED_BOOT_PHASES: Final[tuple[str, ...]] = (
+    "environment-check",
+    "governance-audit",
+    "postgresql-start",
+)
+POSTGRES_PROBE_ATTEMPTS: Final[int] = 6
+POSTGRES_PROBE_DELAY: Final[float] = 5.0
+POSTGRES_CONNECT_TIMEOUT: Final[float] = 3.0
+QDRANT_PROBE_TIMEOUT: Final[float] = 0.75
+OLLAMA_PROBE_TIMEOUT: Final[float] = 0.75
 
 
 def _iso_now() -> str:
@@ -81,6 +109,18 @@ class BootCore:
         self._connection_watchdog: Any = None
 
     # --------------------------------------------------------------
+    # runtime paths (shared by governance bootstrap + phase imports)
+    # --------------------------------------------------------------
+
+    def _ensure_runtime_paths(self) -> None:
+        workspace = str(self.workspace_root)
+        src_core = str(self.workspace_root / "main-system" / "src-core")
+        shared = str(self.workspace_root / "shared-layer" / "src")
+        for p in (workspace, src_core, shared):
+            if p not in sys.path:
+                sys.path.insert(0, p)
+
+    # --------------------------------------------------------------
     # governance bootstrap
     # --------------------------------------------------------------
 
@@ -90,10 +130,7 @@ class BootCore:
         Called before each spawn (and re-spawn) so the 30-second expiry
         window in the identity attestation is always fresh.
         """
-        workspace = self.workspace_root
-        sys.path.insert(0, str(workspace))
-        sys.path.insert(0, str(workspace / "main-system" / "src-core"))
-        sys.path.insert(0, str(workspace / "shared-layer" / "src"))
+        self._ensure_runtime_paths()
 
         from dataclasses import asdict
         from governance_rule.execution.authentication import (
@@ -101,6 +138,7 @@ class BootCore:
         )
         from governance_rule.execution.integrity import build_integrity_manifest
 
+        workspace = self.workspace_root
         launcher_key = secrets.token_bytes(32)
         issued_at = int(time.time())
         key_id = secrets.token_hex(16)
@@ -154,6 +192,247 @@ class BootCore:
             pass
 
     # --------------------------------------------------------------
+    # TCP probe helper
+    # --------------------------------------------------------------
+
+    @staticmethod
+    def _probe_tcp(host: str, port: int, timeout: float = 0.75) -> bool:
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except OSError:
+            return False
+
+    # --------------------------------------------------------------
+    # six-phase startup orchestrator (A61/E47/P26)
+    # --------------------------------------------------------------
+
+    def _phase_environment_check(self) -> dict[str, Any]:
+        start = time.monotonic()
+        try:
+            self._ensure_runtime_paths()
+            from core.environment_doctor import collect_environment_report
+            app_root = self.workspace_root / "main-system"
+            report = collect_environment_report(app_root)
+            paths = report.get("paths", {})
+            ok = bool(paths.get("ok"))
+            detail = f"paths_ok={ok} modules_ok={report.get('python', {}).get('ok', '?')}"
+        except Exception as exc:
+            ok = False
+            detail = f"{type(exc).__name__}: {exc}"
+        return {
+            "phase": "environment-check",
+            "label": "環境檢查",
+            "critical": True,
+            "ready": ok,
+            "state": "ok" if ok else "fault",
+            "fault_code": "ENVIRONMENT_OK" if ok else "ENVIRONMENT_FAULT",
+            "message": detail,
+            "duration_ms": int((time.monotonic() - start) * 1000),
+        }
+
+    def _phase_governance_audit(self) -> dict[str, Any]:
+        start = time.monotonic()
+        try:
+            self._ensure_runtime_paths()
+            from governance_rule.execution.audit import audit_runtime_governance
+            errors = audit_runtime_governance(self.workspace_root)
+            ok = len(errors) == 0
+            detail = "; ".join(errors[:5]) if errors else "audit-pass"
+        except Exception as exc:
+            ok = False
+            detail = f"{type(exc).__name__}: {exc}"
+        return {
+            "phase": "governance-audit",
+            "label": "治理審計",
+            "critical": True,
+            "ready": ok,
+            "state": "ok" if ok else "fault",
+            "fault_code": "GOVERNANCE_AUDIT_PASS" if ok else "GOVERNANCE_AUDIT_FAULT",
+            "message": detail,
+            "duration_ms": int((time.monotonic() - start) * 1000),
+        }
+
+    def _phase_postgresql(self) -> dict[str, Any]:
+        start = time.monotonic()
+        dsn = os.environ.get("GPTBRIDGE_POSTGRES_DSN", "").strip()
+
+        def _check() -> bool:
+            if dsn:
+                try:
+                    import psycopg  # noqa: WPS433 — conditional import
+                    with psycopg.connect(dsn, connect_timeout=int(POSTGRES_CONNECT_TIMEOUT)) as conn:
+                        conn.execute("SELECT 1").fetchone()
+                    return True
+                except Exception:
+                    pass
+            return self._probe_tcp("127.0.0.1", 5432, timeout=POSTGRES_CONNECT_TIMEOUT)
+
+        for attempt in range(POSTGRES_PROBE_ATTEMPTS):
+            if self._stop.is_set():
+                break
+            if _check():
+                return {
+                    "phase": "postgresql-start",
+                    "label": "啟動 PostgreSQL",
+                    "critical": True,
+                    "ready": True,
+                    "state": "ok",
+                    "fault_code": "POSTGRESQL_READY",
+                    "message": "ready",
+                    "duration_ms": int((time.monotonic() - start) * 1000),
+                }
+            if attempt < POSTGRES_PROBE_ATTEMPTS - 1:
+                if self._stop.wait(timeout=POSTGRES_PROBE_DELAY):
+                    break
+        return {
+            "phase": "postgresql-start",
+            "label": "啟動 PostgreSQL",
+            "critical": True,
+            "ready": False,
+            "state": "fault",
+            "fault_code": "POSTGRESQL_UNREACHABLE",
+            "message": f"not reachable after {POSTGRES_PROBE_ATTEMPTS} attempts",
+            "duration_ms": int((time.monotonic() - start) * 1000),
+        }
+
+    def _phase_qdrant(self) -> dict[str, Any]:
+        start = time.monotonic()
+        ok = self._probe_tcp("127.0.0.1", 6333, timeout=QDRANT_PROBE_TIMEOUT)
+        return {
+            "phase": "qdrant-start",
+            "label": "啟動 Qdrant",
+            "critical": False,
+            "ready": ok,
+            "state": "ok" if ok else "degraded",
+            "fault_code": "QDRANT_READY" if ok else "QDRANT_UNREACHABLE",
+            "message": "ready" if ok else "not reachable (degradable)",
+            "duration_ms": int((time.monotonic() - start) * 1000),
+        }
+
+    def _phase_ollama(self) -> dict[str, Any]:
+        start = time.monotonic()
+
+        def _check_api() -> bool:
+            return self._probe_tcp("127.0.0.1", 11434, timeout=OLLAMA_PROBE_TIMEOUT)
+
+        ok = _check_api()
+        if not ok:
+            # Attempt to start Ollama (mirrors startup_orchestrator behavior).
+            appdata = os.environ.get("LOCALAPPDATA", "")
+            ollama_root = Path(appdata) / "Programs" / "Ollama"
+            app = ollama_root / "ollama app.exe"
+            server = ollama_root / "ollama.exe"
+            creationflags = (
+                int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
+                | int(getattr(subprocess, "DETACHED_PROCESS", 0) or 0)
+            )
+            try:
+                cmd = (
+                    [str(app)] if app.is_file()
+                    else [str(server), "serve"] if server.is_file()
+                    else None
+                )
+                if cmd:
+                    subprocess.Popen(  # noqa: S603 — governed local tool spawn
+                        cmd,
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        creationflags=creationflags,
+                    )
+            except Exception:
+                pass
+            if not self._stop.wait(timeout=3.0):
+                ok = _check_api()
+        return {
+            "phase": "ollama-start",
+            "label": "啟動 Ollama",
+            "critical": False,
+            "ready": ok,
+            "state": "ok" if ok else "degraded",
+            "fault_code": "OLLAMA_READY" if ok else "OLLAMA_UNREACHABLE",
+            "message": "ready" if ok else "not reachable (degradable)",
+            "duration_ms": int((time.monotonic() - start) * 1000),
+        }
+
+    _PHASE_HANDLERS: Final[dict[str, Any]] = {}  # populated after class body below
+
+    def _run_startup_phases(self) -> dict[str, Any]:
+        """Execute the six-phase startup sequence per A61/E47/P26.
+
+        Returns a report dict containing phase results, startup state,
+        and gate_ok (True = safe to spawn governance system).
+        """
+        total_start = time.monotonic()
+        results: list[dict[str, Any]] = []
+        gate_ok = True
+        handlers = self._PHASE_HANDLERS
+
+        for phase in BOOT_PHASES:
+            if self._stop.is_set():
+                gate_ok = False
+                break
+            result = handlers[phase](self)
+            results.append(result)
+            # Required phase failed → gate blocks subsequent phases (A61 GATE).
+            if result.get("critical") and not result.get("ready"):
+                gate_ok = False
+                break
+
+        total_ms = int((time.monotonic() - total_start) * 1000)
+
+        postgres_ok = next((r["ready"] for r in results if r["phase"] == "postgresql-start"), False)
+        qdrant_ok = next((r["ready"] for r in results if r["phase"] == "qdrant-start"), False)
+        ollama_ok = next((r["ready"] for r in results if r["phase"] == "ollama-start"), False)
+
+        if not gate_ok:
+            startup_state = "FAILED"
+        elif not (qdrant_ok and ollama_ok):
+            startup_state = "DEGRADED"
+        else:
+            startup_state = "READY"
+
+        exit_code = 0 if startup_state in ("READY", "DEGRADED") else 2
+
+        report: dict[str, Any] = {
+            "state": startup_state,
+            "startup_order": list(BOOT_PHASES),
+            "critical_services": ["postgresql"],
+            "degradable_services": ["qdrant", "ollama"],
+            "postgresql": next((r for r in results if r["phase"] == "postgresql-start"), {}),
+            "qdrant": next((r for r in results if r["phase"] == "qdrant-start"), {}),
+            "ollama": next((r for r in results if r["phase"] == "ollama-start"), {}),
+            "environment": next((r for r in results if r["phase"] == "environment-check"), {}),
+            "governance_audit": next((r for r in results if r["phase"] == "governance-audit"), {}),
+            "exit_code": exit_code,
+            "total_duration_ms": total_ms,
+            "gate_ok": gate_ok,
+            "phases": results,
+        }
+        return report
+
+    def _write_orchestrator_report(self, report: dict[str, Any]) -> None:
+        """Write orchestrator report for system_sovereign consumption."""
+        path = (
+            self.workspace_root
+            / "main-system"
+            / "launcher"
+            / "state"
+            / "orchestrator-report.json"
+        )
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".json.tmp")
+            tmp.write_text(
+                json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(tmp, path)
+        except OSError:
+            pass
+
+    # --------------------------------------------------------------
     # child lifecycle
     # --------------------------------------------------------------
 
@@ -165,7 +444,9 @@ class BootCore:
                 return os.fspath(pythonw)
         return os.fspath(exe)
 
-    def _spawn_backend(self, args: list[str]) -> subprocess.Popen[bytes]:
+    def _spawn_backend(
+        self, args: list[str], startup_state: str = ""
+    ) -> subprocess.Popen[bytes]:
         command = [
             self._python_executable(),
             "-u",
@@ -193,6 +474,8 @@ class BootCore:
                 self._write_state()
                 raise
         env["GPTBRIDGE_PROJECT_ROOT"] = str(self.workspace_root)
+        if startup_state:
+            env["GPTBRIDGE_STARTUP_STATE"] = startup_state
         return subprocess.Popen(  # noqa: S603 - governed local spawn
             command,
             cwd=os.fspath(self.project_root),
@@ -231,8 +514,7 @@ class BootCore:
     def _start_connection_watchdog(self) -> None:
         """Start the connection watchdog thread."""
         try:
-            sys.path.insert(0, str(self.workspace_root))
-            sys.path.insert(0, str(self.project_root / "main-system" / "src-core"))
+            self._ensure_runtime_paths()
             from tasks.connection_watchdog import ConnectionWatchdog
             from tasks.repair_learning import RepairLearningStore
 
@@ -281,8 +563,7 @@ class BootCore:
         duplicate the repair.
         """
         try:
-            sys.path.insert(0, str(self.workspace_root))
-            sys.path.insert(0, str(self.project_root / "main-system" / "src-core"))
+            self._ensure_runtime_paths()
             from tasks.repair_coordinator import RepairCoordinator
 
             # Cross-process coordination via the shared state file.
@@ -407,9 +688,7 @@ class BootCore:
         self._write_state(repair=report)
 
         try:
-            sys.path.insert(0, str(self.workspace_root))
-            sys.path.insert(0, str(self.project_root / "main-system" / "src-core"))
-            sys.path.insert(0, str(self.workspace_root / "shared-layer" / "src"))
+            self._ensure_runtime_paths()
             from tasks.central_repair import CentralRepairService
 
             repair_root = self.project_root / "main-system" / "data" / "automatic-repair"
@@ -444,14 +723,21 @@ class BootCore:
         self._install_signals()
         self._write_state()
         while not self._stop.is_set():
-            try:
-                self._child = self._spawn_backend(args)
-            except OSError as error:
-                self._status = "spawn-failed"
-                self._last_exit = {"error": f"{type(error).__name__}: {error}"}
+            # --- six-phase startup gate (A61/E47/P26) ---
+            startup = self._run_startup_phases()
+            self._write_orchestrator_report(startup)
+
+            if not startup.get("gate_ok"):
+                # Required phase failed — do NOT spawn governance system (A61 GATE).
+                self._status = "startup-phase-blocked"
+                self._last_exit = {
+                    "startup": "required-phase-failed",
+                    "startup_state": startup.get("state", "FAILED"),
+                    "at": _iso_now(),
+                }
                 self._write_state()
-                # Attempt auto-repair on spawn failure (e.g. corrupted
-                # governance bootstrap source) before giving up.
+                # Run auto-repair (best-effort; source repair is unlikely to
+                # help dependency failures, but it records the event).
                 self._run_auto_repair(1, 0.0)
                 if self._restarts >= MAX_RESTARTS:
                     return 2
@@ -466,6 +752,32 @@ class BootCore:
                     self._write_state()
                     return 0
                 continue
+
+            # --- all required phases verified — spawn governance system ---
+            try:
+                self._child = self._spawn_backend(
+                    args,
+                    startup_state=startup.get("state", ""),
+                )
+            except OSError as error:
+                self._status = "spawn-failed"
+                self._last_exit = {"error": f"{type(error).__name__}: {error}"}
+                self._write_state()
+                self._run_auto_repair(1, 0.0)
+                if self._restarts >= MAX_RESTARTS:
+                    return 2
+                self._restarts += 1
+                delay = BACKOFF_SCHEDULE_SECONDS[
+                    min(self._restarts - 1, len(BACKOFF_SCHEDULE_SECONDS) - 1)
+                ]
+                self._status = "backend-restarting"
+                self._write_state(next_retry_in_seconds=delay)
+                if self._stop.wait(timeout=delay):
+                    self._status = "stopped"
+                    self._write_state()
+                    return 0
+                continue
+
             child_started_at = time.monotonic()
             self._backend_healthy = False
             self._status = "backend-running"
@@ -521,6 +833,16 @@ class BootCore:
         self._status = "stopped"
         self._write_state()
         return 0
+
+
+# Wire up phase handlers (avoids forward-reference issues in class body).
+BootCore._PHASE_HANDLERS = {  # type: ignore[attr-defined]
+    "environment-check": BootCore._phase_environment_check,
+    "governance-audit": BootCore._phase_governance_audit,
+    "postgresql-start": BootCore._phase_postgresql,
+    "qdrant-start": BootCore._phase_qdrant,
+    "ollama-start": BootCore._phase_ollama,
+}
 
 
 def main() -> int:
