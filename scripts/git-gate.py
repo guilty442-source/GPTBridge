@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""git-gate.py — Git operation tier governance wrapper.
+"""git-gate.py ??Git operation tier governance wrapper.
 
 Usage:
   python scripts/git-gate.py <git-command> [args...]
