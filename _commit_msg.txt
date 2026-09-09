@@ -1,18 +1,1 @@
-Unify all project version numbers to 1.00000.
-
-- codex_version: 1.0 -> 1.00000
-- schema: gptbridge-governance-codex-v1 -> v1.00000
-- authority string: codex-v1-derived -> codex-v1.00000-derived
-- code_rule_directory: initial_code_version 1.0.0 -> 1.00000
-- directory_authority: initial_version "1" -> "1.00000"
-- package.json: 1.0.0 -> 1.00000
-- VERSION file: v1.0.0 -> v1.00000
-- sync_version.py: accept new version format, LOCKED_VERSION 1.00000
-- All module VERSION constants unified to 1.00000
-- All manifest.json versions unified to 1.00000
-- Fix phases.py: add missing BOOT_PHASES + constants, fix @staticmethod bug
-- Fix boot_core.py: remove orphaned @staticmethod decorator
-
-Generated with [Devin](https://devin.ai)
-
-Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Remove accidentally committed temp file
