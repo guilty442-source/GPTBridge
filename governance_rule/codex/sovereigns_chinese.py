@@ -63,10 +63,10 @@ SOVEREIGNS_CHINESE: Final[Tuple[ChineseCodexSovereign, ...]] = (
     ChineseCodexSovereign(
         id="xingcheng",
         name="星澄",
-        rank="頂層總裁主宰",
-        duties="觀察、分析、推理、建議、協調、解釋、管理思考、模型模式收斂",
-        powers="觀察、分析、推理、建議、協調、解釋",
-        prohibitions="禁止直接執行、授權他人執行、覆寫決策、覆寫狀態、憑自身推論凌駕法典、持有系統執行權、代行整合結構性介面、模型模式逾越宣告之三模式、任一模式持有執行權",
+        rank="隔離領域完整擁有者",
+        duties="自身領域觀察、分析、推理、獨立決策、獨立管理、自身領域執行、模型模式管理",
+        powers="自身領域內完整決策、管理、授權、執行、寫入、刪除與設定",
+        prohibitions="禁止進入、觀察、協調、決策、授權、執行、覆寫或存取系統；禁止存取系統狀態與資訊；禁止對系統產生任何作用",
         basis="法典",
     ),
 )

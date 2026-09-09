@@ -125,7 +125,7 @@ class GovernanceCodex:
 # ---------------------------------------------------------------------------
 
 GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
-    schema="gptbridge-governance-codex-v1",
+    schema="gptbridge-governance-codex-v2",
     codex_version=3,
     preamble=CodexPreamble(
         title="GPTBridge Governance Codex",
@@ -213,7 +213,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P8",
-            statement="DECISION-SOURCE:codex; APPLIES:all-sovereigns-and-xingcheng; FORBID:embedded-own-source",
+            statement="DECISION-SOURCE:codex; APPLIES:all-system-sovereigns; XINGCHENG:outside-system-decision-chain",
             binding=True,
         ),
         CodexPrinciple(
@@ -223,7 +223,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         ),
         CodexPrinciple(
             id="P10",
-            statement="XINGCHENG:local-native-model; RANK:top-orchestrator; EXEC:none; THINKING:codex-referenced",
+            statement="XINGCHENG:local-native-model; AUTHORITY:complete-owned-domain; ISOLATION:system-detached; SYSTEM-PARTICIPATION:none",
             binding=True,
         ),
         CodexPrinciple(
@@ -299,6 +299,11 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexPrinciple(
             id="P25",
             statement="SYSTEM-THIRD-PARTY-SUB-SOVEREIGN:own-third-party-software-management; SCOPE:introduction-version-license-security; EXEC:delegated",
+            binding=True,
+        ),
+        CodexPrinciple(
+            id="P26",
+            statement="GPTBRIDGE-BOOT:launcher-interface-only>boot-core-environment-check+governance-audit+postgresql+qdrant+ollama+governance-system; POST-BOOT:{sovereign-decision||information-peer-authority}>sub-sovereign-dispatch>module-execution; BOUNDARIES:exclusive",
             binding=True,
         ),
     ),
@@ -377,7 +382,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A9",
             section="4",
             subject="management-owner",
-            rule="MANAGEMENT:xingcheng-core-for-platform; TOOL-LEVEL-MANAGEMENT:tool-owner-under-governance-rule; MODE:read-only-under-codex",
+            rule="PLATFORM-MANAGEMENT:system-sovereign; XINGCHENG-MANAGEMENT:isolated-owned-domain-only+complete; TOOL-LEVEL-MANAGEMENT:tool-owner-under-governance-rule",
             prohibition="FORBID:management-exec-or-formal-write; FORBID:tool-management-bypass-governance",
         ),
         CodexArticle(
@@ -398,7 +403,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A12",
             section="6",
             subject="sovereign-decision",
-            rule="DECISION-SOURCE:codex; APPLIES:runtime/maintenance/permission-sovereigns+xingcheng",
+            rule="DECISION-SOURCE:codex; APPLIES:runtime/maintenance/permission-sovereigns; XINGCHENG:outside-system-decision-chain",
             prohibition="FORBID:sovereign-embedded-decision-source",
         ),
         CodexArticle(
@@ -412,29 +417,29 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A18",
             section="6",
             subject="xingcheng",
-            rule="XINGCHENG:local-native-model; RANK:top-orchestrator; THINKING:codex-basis",
-            prohibition="FORBID:xingcheng-exec-or-hold-system-exec",
+            rule="XINGCHENG:local-native-model; DOMAIN:fully-owned+physically-logically-system-isolated; AUTHORITY:complete-inside-own-domain; SYSTEM-RANK:none",
+            prohibition="FORBID:xingcheng-enter-observe-coordinate-decide-authorize-execute-override-or-access-system; FORBID:system-enter-or-control-xingcheng-domain",
         ),
         CodexArticle(
             id="A19",
             section="6",
             subject="xingcheng-thinking",
-            rule="XINGCHENG:decision+management-thinking-reference-codex; SOURCE:codex-basis; TOOL-DECISION:tool-owner-may-self-decide-under-governance",
-            prohibition="FORBID:xingcheng-self-reason-override-codex; FORBID:tool-decision-bypass-governance",
+            rule="XINGCHENG:independent-thinking+decision+management-inside-isolated-owned-domain; SYSTEM-CONTEXT:no-access+no-role",
+            prohibition="FORBID:xingcheng-thinking-as-system-decision-source; FORBID:cross-isolation-boundary",
         ),
         CodexArticle(
             id="A20",
             section="6",
             subject="xingcheng-power",
-            rule="XINGCHENG-POWER:observe/analyze/reason/advise/coordinate/explain",
-            prohibition="FORBID:xingcheng-any-power-not-listed",
+            rule="XINGCHENG-POWER:complete-inside-owned-domain including observe+analyze+reason+decide+manage+authorize+execute+write+delete+configure",
+            prohibition="FORBID:any-xingcheng-power-outside-owned-domain; FORBID:any-system-target-or-effect",
         ),
         CodexArticle(
             id="A21",
             section="6",
             subject="xingcheng-no-power",
-            rule="XINGCHENG:no-direct-exec/no-grant/no-override",
-            prohibition="FORBID:direct-exec/authorize-other-exec/override-any-decision-or-state",
+            rule="XINGCHENG-SYSTEM-POWER:none; XINGCHENG-OWN-DOMAIN-POWER:complete",
+            prohibition="FORBID:system-exec/system-grant/system-override/system-state-access/system-information-access",
         ),
         CodexArticle(
             id="A14",
@@ -539,8 +544,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A34",
             section="6",
             subject="boundary-integration-xingcheng",
-            rule="INTEGRATION:structural-interface+sync; XINGCHENG:platform-level-decision-coordinate+advice; TOOL-LEVEL-DECISION:tool-owner-under-governance-rule",
-            prohibition="FORBID:integration-proxy-xingcheng-platform-decision; FORBID:xingcheng-proxy-integration-structural-interface; FORBID:tool-decision-bypass-governance",
+            rule="INTEGRATION:system-structural-interface+sync; XINGCHENG:fully-detached-no-system-interface; TOOL-LEVEL-DECISION:tool-owner-under-governance-rule",
+            prohibition="FORBID:integration-bridge-to-xingcheng; FORBID:xingcheng-system-integration; FORBID:tool-decision-bypass-governance",
         ),
         CodexArticle(
             id="A35",
@@ -679,8 +684,8 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A54",
             section="6",
             subject="xingcheng-model-modes",
-            rule="XINGCHENG-MODEL:converge-into-3-modes; MAIN-MODEL:comprehensive(coordination/understanding/integration/inspection/adjudication); CHAT-MODEL:conversation-understanding-response(document-reading+visual-recognition); PROGRAMMING-MODEL:code-execution-generation-analysis; MODE-SELECTION:automatic-by-task-intent; EXEC:none-all-modes; DELEGATE:governed-executor-only; BASIS:codex",
-            prohibition="FORBID:model-mode-outside-declared-3; FORBID:any-mode-hold-exec; FORBID:manual-model-override; FORBID:mode-bypass-governance",
+            rule="XINGCHENG-MODEL:3-modes-inside-isolated-owned-domain; MAIN:comprehensive; CHAT:conversation+document+visual; PROGRAMMING:code-execution+generation+analysis; AUTHORITY:complete-own-domain; SYSTEM-CONNECTION:none",
+            prohibition="FORBID:any-mode-access-or-affect-system; FORBID:system-use-xingcheng-as-system-component",
         ),
         CodexArticle(
             id="A55",
@@ -714,8 +719,92 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="A59",
             section="6",
             subject="tool-level-service-ownership",
-            rule="TOOL-LEVEL-SERVICE:tool-owner-may-own-computation+analysis+statistics+accounting-under-governance; PLATFORM-SERVICE:xingcheng-provides-platform-level-coordination; SEPARATION:tool-owns-its-business-logic+platform-owns-orchestration; DELEGATION:tool-may-delegate-to-embedded-browser-for-network-search; DELEGATION:tool-may-delegate-to-ai-collaboration-for-external-ai; BASIS:codex+A9+A19+A34+E20",
+            rule="TOOL-LEVEL-SERVICE:tool-owner-under-governance; PLATFORM-SERVICE:system-sovereign-coordination; XINGCHENG:no-platform-role+isolated-own-domain-only; SEPARATION:tool-business-logic+platform-orchestration",
             prohibition="FORBID:tool-service-bypass-governance; FORBID:platform-service-replace-tool-business-logic; FORBID:tool-decision-without-governance-authority",
+        ),
+        CodexArticle(
+            id="A60",
+            section="4",
+            subject="startup-entry-layer",
+            rule="LAUNCHER:interface-presentation-only; FUNCTION:bring-up-official-gptbridge-ui; BOOT-OPERATIONS:none; SYSTEM-OPERATIONS:none",
+            prohibition="FORBID:launcher-environment-check/governance-audit/dependency-start/governance-system-start/system-core/module-execution",
+        ),
+        CodexArticle(
+            id="A61",
+            section="4",
+            subject="startup-core-layer",
+            rule="BOOT-CORE:sole-startup-orchestrator; ORDER:environment-check>governance-audit>postgresql-start>qdrant-start>ollama-start>governance-system-start; GATE:verify-each-required-phase-before-next; OUTPUT:governed-runtime-ready",
+            prohibition="FORBID:launcher-or-module-own-boot-phase; FORBID:governance-system-before-audit-and-required-dependencies; FORBID:module-execution-before-governance-ready; FORBID:boot-core-own-business-decision",
+        ),
+        CodexArticle(
+            id="A62",
+            section="4",
+            subject="governance-authority-layer",
+            rule="GOVERNANCE-AUTHORITY-LAYER:highest-operational-governance-below-codex; SCOPE:authenticate+authorize+audit+enforce-codex; PRECEDENCE:before-all-decisions-dispatch-and-execution",
+            prohibition="FORBID:bypass-governance-authority; FORBID:governance-authority-own-business-execution",
+        ),
+        CodexArticle(
+            id="A63",
+            section="6",
+            subject="sovereign-decision-layer",
+            rule="SOVEREIGN-DECISION-LAYER:system-sovereign+maintenance-sovereign+permission-sovereign; FUNCTION:decision-only; OUTPUT:governed-decisions-to-corresponding-sub-sovereigns",
+            prohibition="FORBID:sovereign-direct-execution; FORBID:cross-sovereign-duty-collision",
+        ),
+        CodexArticle(
+            id="A64",
+            section="6",
+            subject="sub-sovereign-control-dispatch-layer",
+            rule="SUB-SOVEREIGN-LAYER:system-sub-sovereigns+maintenance-sub-sovereigns+permission-sub-sovereigns; FUNCTION:execution-control+task-dispatch; AUTHORITY:parent-sovereign-decision+governance-authorization; EXECUTION:delegated-to-module-execution-layer",
+            prohibition="FORBID:sub-sovereign-create-independent-policy; FORBID:sub-sovereign-replace-parent-sovereign; FORBID:ungoverned-dispatch",
+        ),
+        CodexArticle(
+            id="A65",
+            section="4",
+            subject="cross-layer-information-layer",
+            rule="INFORMATION-LAYER:cross-layer-peer-authority; AUTHORITY-RANK:equal-to-sovereign-layer; COMPONENTS:shared-layer+postgresql+qdrant+status+events+ipc; EXCLUSIVE-AUTHORITY:information-channel+transport+state+structured-data+semantic-index; CONTENT-OWNERSHIP:source-and-authorized-consumer; GOVERNANCE:directly-bound-by-codex+governance-authority",
+            prohibition="FORBID:sovereign-or-sub-sovereign-override-information-layer-authority; FORBID:information-layer-own-sovereign-business-decision-or-module-execution; FORBID:component-duty-substitution; FORBID:alter-message-or-authoritative-data-outside-governed-operation",
+        ),
+        CodexArticle(
+            id="A66",
+            section="4",
+            subject="module-execution-layer",
+            rule="MODULE-EXECUTION-LAYER:local-model+model-dialogue+ai-investment-manager+ai-investment-manager-mobile+ai-collaboration+file-management+global-cleaner+vaultly+system-rescue; XINGCHENG:excluded-from-system-module-layer+isolated-owned-folder",
+            prohibition="FORBID:module-self-governance; FORBID:module-cross-owner-execution; FORBID:system-access-xingcheng-folder; FORBID:xingcheng-access-system-modules",
+        ),
+        CodexArticle(
+            id="A67",
+            section="6",
+            subject="frontend-backend-startup-sync-and-repair",
+            rule="FRONTEND-BACKEND:startup-real-time-synchronized; READY:backend-runtime-ready+governance-ready+required-dependencies-ready+authenticated-ipc-connected; STATUS:events-propagated-immediately-to-all-active-ui; FAILURE:maintenance-sovereign-decides-auto-repair>maintenance-sub-sovereign-controls-and-dispatches>governed-executor-repairs>boot-core-revalidates>ui-resynchronizes; SCOPE:main-ui+all-independent-tool-ui",
+            prohibition="FORBID:socket-open-alone-as-ready; FORBID:ui-connected-while-runtime-degraded-or-governance-unready; FORBID:stale-status/manual-refresh-dependency/duplicate-repair-owner/ungoverned-restart; FORBID:module-self-repair-system",
+        ),
+        CodexArticle(
+            id="A68",
+            section="4",
+            subject="module-fine-grained-decomposition",
+            rule="EACH-MODULE:decompose-into-owned-submodules; REQUIRED-LAYERS:presentation+channel-api+application-use-case+domain-business+service+repository-data-access+integration-adapter+execution-worker; EACH-SUBMODULE:single-responsibility+single-owner+explicit-input-output+declared-dependencies; SHARING:contracts-and-neutral-infrastructure-only; BUSINESS-LOGIC:remains-with-module-owner",
+            prohibition="FORBID:monolithic-module+duplicate-responsibility+multiple-owners+implicit-dependency+cross-module-private-import+shared-layer-business-logic+presentation-direct-data-or-execution-access",
+        ),
+        CodexArticle(
+            id="A69",
+            section="4",
+            subject="execution-layer-internal-tiering",
+            rule="EXECUTION-LAYER-TIERS:dispatch-intake>authorization-and-governance-gate>task-planning>specialized-executor>result-verification>state-event-audit-publication; CONTROL:sub-sovereign; WORK:specialized-module-executor; VERIFY:independent-from-work-step; RESULT:returned-through-information-layer; FAILURE:maintenance-path-only",
+            prohibition="FORBID:tier-skip+executor-self-authorize+executor-self-dispatch+work-step-self-verify+direct-ui-to-executor+cross-module-executor-substitution+unrecorded-result",
+        ),
+        CodexArticle(
+            id="A70",
+            section="4",
+            subject="information-layer-exclusive-channel-gateway",
+            rule="ALL-CHANNELS:owned-and-connected-exclusively-by-information-layer; SCOPE:launcher-ui+boot-core+governance-authority+sovereigns+sub-sovereigns+module-layers+execution-tiers+frontend-backend+independent-tools+shared-layer+postgresql+qdrant+status+events+ipc; ROUTE:sender>information-layer>authorized-destination; REQUIRE:authenticated+authorized+typed+observable+audited; DIRECT-CONNECTION:none",
+            prohibition="FORBID:any-peer-to-peer/direct/cross-layer/cross-module/frontend-backend/sovereign-sub-sovereign/module-database/module-executor-bypass-channel; FORBID:private-side-channel+implicit-callback-channel+unregistered-bus+direct-socket+direct-database-link-outside-information-layer",
+        ),
+        CodexArticle(
+            id="A71",
+            section="4",
+            subject="git-multi-worker-concurrent-work-and-commit",
+            rule="GIT-CONCURRENCY:one-worker>one-worktree>one-branch; STORAGE:shared-git-object-database; ISOLATION:independent-working-tree+independent-index+independent-branch; READ-CROSS-BRANCH:git-show+git-diff+git-log; WRITE-SCOPE:worker-owned-worktree-only; COMMIT:worktree-local-lock+own-changes-only+governance-audit-before-commit; INTEGRATION:designated-integrator-only-via-merge-or-cherry-pick; AUTO-COMMIT:commit-only+never-push; CONFLICT:resolve-on-integration-branch+preserve-source-branches",
+            prohibition="FORBID:multiple-workers-same-worktree+cross-worktree-stage+cross-worker-commit+shared-index+direct-write-other-branch+automatic-push+force-overwrite-source-branch+conflict-resolution-by-source-destruction",
         ),
     ),
     edicts=(
@@ -746,13 +835,13 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E5",
             area="xingcheng",
-            edict="XINGCHENG:local-native-model; RANK:top-orchestrator; EXEC:none; THINKING+MANAGEMENT:codex-referenced",
+            edict="XINGCHENG:local-native-model; AUTHORITY:complete-inside-owned-domain; ISOLATION:physical+logical-from-system; SYSTEM-AUTHORITY:none; SYSTEM-PARTICIPATION:forbidden",
             immutability="immutable-sealed",
         ),
         CodexEdict(
             id="E14",
             area="xingcheng-power",
-            edict="XINGCHENG-POWER:observe/analyze/reason/advise/coordinate/explain; FORBID:direct-exec/grant/override",
+            edict="XINGCHENG-POWER:complete-inside-owned-domain; SYSTEM-POWER:none; FORBID:system-observe/coordinate/decide/authorize/execute/override/access",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -800,7 +889,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E13",
             area="xingcheng-thinking",
-            edict="XINGCHENG:local-native-model; RANK:top-orchestrator; EXEC:none; THINKING+MANAGEMENT:reference-codex",
+            edict="XINGCHENG:independent-inside-owned-isolated-domain; SYSTEM-DECISION-SOURCE:none; SYSTEM-CONNECTION:none",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -836,7 +925,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E20",
             area="boundary",
-            edict="OWNERSHIPS:exclusive-and-independent; DATA-INTEGRITY=system-data-sub-sovereign; HEALTH=maintenance-sovereign; STRUCTURAL-INTERFACE=system-integration-sub-sovereign; PLATFORM-DECISION-COORDINATE=xingcheng; TOOL-LEVEL-DECISION=tool-owner-under-governance-rule",
+            edict="OWNERSHIPS:exclusive-and-independent; DATA-INTEGRITY=system-data-sub-sovereign; HEALTH=maintenance-sovereign; STRUCTURAL-INTERFACE=system-integration-sub-sovereign; PLATFORM-DECISION-COORDINATE=system-sovereign; XINGCHENG=outside-system",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -956,7 +1045,7 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E40",
             area="xingcheng-model-modes",
-            edict="XINGCHENG-MODEL:3-modes-converged; MAIN:comprehensive; CHAT:conversation+document+visual; PROGRAMMING:code-exec+generation+analysis; ALL-MODES:exec-none+governed-executor-only+codex-referenced",
+            edict="XINGCHENG-MODEL:3-modes-inside-isolated-owned-domain; AUTHORITY:complete-own-domain; SYSTEM-CONNECTION:none; FORBID:any-mode-access-or-affect-system",
             immutability="immutable-sealed",
         ),
         CodexEdict(
@@ -986,7 +1075,43 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
         CodexEdict(
             id="E45",
             area="tool-level-service-ownership",
-            edict="TOOL-LEVEL-SERVICE:tool-owner-owns-computation+analysis+statistics+accounting-under-governance; PLATFORM-SERVICE:xingcheng-platform-level-coordination; SEPARATION:tool-business-logic+platform-orchestration; DELEGATION:embedded-browser-for-network+ai-collaboration-for-external-ai",
+            edict="TOOL-LEVEL-SERVICE:tool-owner-under-governance; PLATFORM-SERVICE:system-sovereign-coordination; XINGCHENG:no-platform-role+isolated-own-domain-only",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E46",
+            area="gptbridge-layered-architecture",
+            edict="LAYERS:startup-entry(ui-only)>startup-core(governance+system-core)>governance-authority>{sovereign-decision(system+maintenance+permission)||cross-layer-information-peer-authority(shared-layer+postgresql+qdrant+status+events+ipc)}>sub-sovereign-control-dispatch(system+maintenance+permission)>module-execution(local-model-xingcheng-folder+model-dialogue+ai-investment-manager+mobile+ai-collaboration+file-management+global-cleaner+vaultly+system-rescue); INFORMATION-AUTHORITY-RANK:equal-to-sovereign-layer; FORBID:mutual-override+layer-collapse+bypass+duty-substitution",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E47",
+            area="startup-boundary",
+            edict="LAUNCHER:interface-only; BOOT-CORE:environment-check>governance-audit>postgresql>qdrant>ollama>governance-system; GATE:verify-each-required-phase; FORBID:launcher-boot-operations+boot-duty-duplication+bypass+out-of-order-start",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E48",
+            area="frontend-backend-live-sync-auto-repair",
+            edict="STARTUP-SYNC:frontend+backend real-time; READY:runtime+governance+dependencies+authenticated-ipc; STATUS:immediate-to-main-ui+independent-tools; AUTO-REPAIR:maintenance-sovereign-decision>maintenance-sub-sovereign-control-dispatch>governed-executor>boot-core-revalidation>ui-resync; FORBID:false-ready+stale-state+duplicate-owner+ungoverned-restart",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E49",
+            area="fine-grained-module-and-execution-tiering",
+            edict="MODULE-LAYERS:presentation>channel-api>application-use-case>domain-business>service>repository-data-access>integration-adapter>execution-worker; EXECUTION-TIERS:dispatch>authorization-governance>planning>specialized-execution>independent-verification>state-event-audit-publication; REQUIRE:single-responsibility+single-owner+explicit-contract; FORBID:monolith+duplicate-duty+tier-skip+self-authorization+self-verification+direct-ui-execution",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E50",
+            area="information-layer-exclusive-channels",
+            edict="CHANNEL-AUTHORITY:information-layer-only; ALL-COMMUNICATION:sender>information-layer>authorized-destination; COVER:all-system-layers+all-modules+all-execution-tiers+frontend-backend+data-and-event-channels; REQUIRE:authenticated+authorized+typed+observable+audited; FORBID:any-direct-link+bypass+private-side-channel+unregistered-bus",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E51",
+            area="git-multi-worker-concurrency",
+            edict="WORKER-ISOLATION:one-worker-one-worktree-one-branch; SHARED:git-object-database-only; CROSS-READ:show+diff+log; COMMIT:owned-worktree+local-lock+own-changes+precommit-governance-audit; INTEGRATION:designated-integrator-merge-or-cherry-pick; AUTO-COMMIT:no-push; CONFLICT:integration-branch-only+preserve-source; FORBID:same-worktree-multi-worker+shared-index+cross-commit+force-overwrite",
             immutability="immutable-sealed",
         ),
     ),

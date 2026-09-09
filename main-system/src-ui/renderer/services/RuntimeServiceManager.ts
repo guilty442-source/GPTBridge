@@ -28,6 +28,11 @@ type AppStatus = {
   backendMessage?: string
   backendStatus?: string
   systemReady?: boolean
+  // A67 four-condition readiness (mirrored from backend /health)
+  backend_runtime_ready?: boolean
+  governance_ready?: boolean
+  dependencies_ready?: boolean
+  authenticated_ipc_connected?: boolean
 }
 
 export class RuntimeServiceManager {
@@ -116,6 +121,7 @@ export class RuntimeServiceManager {
     this._statusPushHandler = (payload: unknown) => {
       const status = payload as AppStatus | undefined
       if (!status) return
+      this._lastStatus = status
       this._updateBackendStatus(status)
       this._updateWebSocketStatus()
     }
@@ -126,21 +132,30 @@ export class RuntimeServiceManager {
       const customEvent = event as CustomEvent
       const detail = customEvent.detail || {}
       if (detail.event !== 'runtime_status_push') return
+      this._lastStatus = detail.payload as AppStatus
       this._updateBackendStatus(detail.payload as AppStatus)
       this._updateWebSocketStatus()
     }
     window.addEventListener('ipc_event', this._ipcStatusHandler)
 
-    // Safety-net heartbeat: 30s fallback in case push events stop arriving
+    // Safety-net heartbeat: 30s fallback in case push events stop arriving.
+    // A67 FORBID:stale-status — on transient IPC failure we re-fetch fresh
+    // status rather than keeping a stale snapshot indefinitely.
     this.heartbeatTimer = setInterval(async () => {
       const api = (window as any).electron as ElectronApi | undefined
       if (!api?.invoke) return
       try {
         const status = (await api.invoke('app:get-status')) as AppStatus
+        this._lastStatus = status
         this._updateBackendStatus(status)
         this._updateWebSocketStatus()
       } catch {
-        // Keep last known state during transient IPC failures.
+        // IPC unavailable — mark backend as degraded rather than stale.
+        const backend = this.services.backend
+        if (backend && backend.status !== 'SKIP' && backend.status === 'SUCCESS') {
+          this.services.backend = { ...backend, status: 'DEGRADED' }
+          eventBus.emit('service_update', this.getAllStates())
+        }
       }
     }, 30000)
   }
@@ -162,10 +177,14 @@ export class RuntimeServiceManager {
 
   private _statusPushHandler: ((payload: unknown) => void) | null = null
   private _ipcStatusHandler: ((event: Event) => void) | null = null
+  // Last backend status snapshot — used by _updateWebSocketStatus to apply
+  // the A67 four-condition gate (socket-open alone is not ready).
+  private _lastStatus: AppStatus | null = null
 
   private _updateBackendStatus(status: AppStatus) {
     const backend = this.services.backend
-    const nextBackendStatus: ServiceStatus = status?.systemReady
+    // A67: backend ready requires all four conditions, not just systemReady.
+    const nextBackendStatus: ServiceStatus = this._isFullyReady(status)
       ? 'SUCCESS'
       : 'FAIL'
     if (backend && backend.status !== 'SKIP' && backend.status !== nextBackendStatus) {
@@ -180,10 +199,22 @@ export class RuntimeServiceManager {
   private _updateWebSocketStatus() {
     const websocket = this.services.websocket
     if (websocket) {
-      const nextWebSocketStatus: ServiceStatus = getBackendConnectionSnapshot()
-        .connected
-        ? 'SUCCESS'
-        : 'FAIL'
+      // A67 FORBID:socket-open-alone-as-ready — the WebSocket service is only
+      // SUCCESS when the socket is connected AND the backend is fully ready
+      // (runtime + governance + dependencies + authenticated IPC).  While the
+      // backend is still booting or degraded, the websocket status reflects
+      // the degraded state rather than claiming success on socket open alone.
+      const socketConnected = getBackendConnectionSnapshot().connected
+      const backendReady = this._isFullyReady(this._lastStatus)
+      let nextWebSocketStatus: ServiceStatus
+      if (!socketConnected) {
+        nextWebSocketStatus = 'FAIL'
+      } else if (backendReady) {
+        nextWebSocketStatus = 'SUCCESS'
+      } else {
+        // Socket is open but backend not fully ready — degraded, not success.
+        nextWebSocketStatus = 'DEGRADED'
+      }
       if (websocket.status !== nextWebSocketStatus) {
         this.services.websocket = {
           ...websocket,
@@ -192,6 +223,27 @@ export class RuntimeServiceManager {
         eventBus.emit('service_update', this.getAllStates())
       }
     }
+  }
+
+  /** A67: true only when all four readiness conditions are satisfied. */
+  private _isFullyReady(status: AppStatus | undefined | null): boolean {
+    if (!status) return false
+    // Prefer the granular four-condition fields when the backend provides them;
+    // fall back to systemReady for backward compatibility with older backends.
+    if (
+      'backend_runtime_ready' in status ||
+      'governance_ready' in status ||
+      'dependencies_ready' in status ||
+      'authenticated_ipc_connected' in status
+    ) {
+      return Boolean(
+        status.backend_runtime_ready &&
+        status.governance_ready &&
+        status.dependencies_ready &&
+        status.authenticated_ipc_connected
+      )
+    }
+    return Boolean(status.systemReady)
   }
 }
 

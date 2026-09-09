@@ -1,7 +1,7 @@
 [
   {
     "recipe_id": "main-system-python-source-syntax",
-    "name": "Main-system Python source indentation/syntax self-repair",
+    "name": "Backend Python source indentation/syntax self-repair",
     "failure_signatures": [
       "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED",
       "IndentationError",
@@ -9,8 +9,8 @@
       "SyntaxError"
     ],
     "owner": "main-system",
-    "remedy": "compile self-check over main-system/src-core then deterministic column-0 indentation recovery via tasks.source_repair",
-    "verification": "full source compile passes; repair recorded in automatic-repair store",
+    "remedy": "compile self-check over all backend src roots then deterministic column-0 indentation recovery via tasks.source_repair (skips files with uncommitted git changes)",
+    "verification": "full source compile passes across all backend src roots; repair recorded in automatic-repair store; files with uncommitted git changes are skipped",
     "automatic": true,
     "runtime_only": false
   },

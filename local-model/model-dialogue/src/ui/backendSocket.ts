@@ -101,7 +101,7 @@ export function useStarChatBackend() {
       reconnectTimerRef.current = window.setTimeout(() => {
         reconnectTimerRef.current = null
         void connect()
-      }, 1_500)
+      }, 500)
     }
 
     const socketUrl = async (): Promise<string> => {
@@ -199,9 +199,21 @@ export function useStarChatBackend() {
       }
     }
 
+    const reconnectNow = () => {
+      if (document.visibilityState === 'hidden') return
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
+      }
+      void connect()
+    }
+    window.addEventListener('online', reconnectNow)
+    document.addEventListener('visibilitychange', reconnectNow)
     void connect()
     return () => {
       disposed = true
+      window.removeEventListener('online', reconnectNow)
+      document.removeEventListener('visibilitychange', reconnectNow)
       if (reconnectTimerRef.current !== null) window.clearTimeout(reconnectTimerRef.current)
       rejectPending('對話視窗已關閉。')
       const socket = socketRef.current

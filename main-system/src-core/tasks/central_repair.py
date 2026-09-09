@@ -80,7 +80,7 @@ def plan_repair(failure_code: str) -> RepairPlan:
 REPAIR_RECIPES: Final[tuple[dict[str, Any], ...]] = (
     {
         "recipe_id": "main-system-python-source-syntax",
-        "name": "Main-system Python source indentation/syntax self-repair",
+        "name": "Backend Python source indentation/syntax self-repair",
         "failure_signatures": (
             "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED",
             "IndentationError",
@@ -89,10 +89,15 @@ REPAIR_RECIPES: Final[tuple[dict[str, Any], ...]] = (
         ),
         "owner": "main-system",
         "remedy": (
-            "compile self-check over main-system/src-core then deterministic "
-            "column-0 indentation recovery via tasks.source_repair"
+            "compile self-check over all backend src roots then deterministic "
+            "column-0 indentation recovery via tasks.source_repair "
+            "(skips files with uncommitted git changes)"
         ),
-        "verification": "full source compile passes; repair recorded in automatic-repair store",
+        "verification": (
+            "full source compile passes across all backend src roots; "
+            "repair recorded in automatic-repair store; files with "
+            "uncommitted git changes are skipped"
+        ),
         "automatic": True,
         "runtime_only": False,
     },
@@ -599,6 +604,67 @@ class CentralRepairService:
         )
         return self.learner.suggest_remedy(sig)
 
+    def record_connection_outcome(
+        self,
+        failure_code: str,
+        from_state: str,
+        to_state: str,
+        *,
+        remedy: str,
+        ok: bool,
+        run_id: str = "",
+    ) -> None:
+        """Record a connection/sync failure outcome with a consistent signature.
+
+        The signature is derived from (failure_code, from_state->to_state,
+        "ipc/connection") so that record and lookup use the same components.
+        This closes the learning loop for connection failures: the same
+        signature used to record an outcome is used to look up suggestions.
+        """
+        try:
+            message = f"{from_state}->{to_state}"
+            sig = ErrorSignature(
+                signature_hash=_normalize_error_signature(
+                    failure_code, message, file_path="ipc/connection",
+                ),
+                error_class=failure_code,
+                message_pattern=message,
+                failure_code=failure_code,
+                file_context="ipc/connection",
+                target_tool_id="main-system",
+            )
+            outcome = RepairOutcome(
+                run_id=run_id or uuid.uuid4().hex,
+                signature_hash=sig.signature_hash,
+                remedy=remedy,
+                ok=ok,
+                detail={"from_state": from_state, "to_state": to_state},
+            )
+            self.learner.learn_from_outcome(sig, outcome)
+        except Exception:
+            pass  # Learning is best-effort.
+
+    def suggest_connection_remedy(
+        self, failure_code: str, from_state: str, to_state: str
+    ) -> dict[str, Any]:
+        """Look up the best known remedy for a connection failure.
+
+        Uses the same signature components as ``record_connection_outcome``
+        so the learning loop is closed: recorded outcomes are discoverable.
+        """
+        message = f"{from_state}->{to_state}"
+        sig = ErrorSignature(
+            signature_hash=_normalize_error_signature(
+                failure_code, message, file_path="ipc/connection",
+            ),
+            error_class=failure_code,
+            message_pattern=message,
+            failure_code=failure_code,
+            file_context="ipc/connection",
+            target_tool_id="main-system",
+        )
+        return self.learner.suggest_remedy(sig)
+
     def learning_report(self) -> dict[str, Any]:
         """Return a full learning analysis report."""
         return self.learner.analyze_history()
@@ -611,6 +677,6 @@ __all__ = [
     "RepairPlan",
     "RepairRunStore",
     "SOURCE_SELF_REPAIR_FAILURES",
-    "plan_repair",
     "database_integrity",
+    "plan_repair",
 ]

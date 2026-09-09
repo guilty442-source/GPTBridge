@@ -181,6 +181,11 @@ class GPTBridgeApp:
         if self.runtime_status_service is None:
             self.runtime_status_service = RuntimeStatusService(self)
 
+        # A67: initialize the repair coordinator to prevent duplicate repair
+        # owners (boot_core watchdog + frontend restart).
+        from tasks.repair_coordinator import init_repair_coordinator
+        init_repair_coordinator(project_root)
+
         try:
             await self.runtime_bootstrap.initialize_main()
         except Exception as error:

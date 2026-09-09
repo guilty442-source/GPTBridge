@@ -73,7 +73,7 @@ export function useLocalBackendSocket() {
       reconnectTimerRef.current = window.setTimeout(() => {
         reconnectTimerRef.current = null
         void connect()
-      }, 1500)
+      }, 500)
     }
 
     const connect = async () => {
@@ -143,10 +143,19 @@ export function useLocalBackendSocket() {
       }
     }
 
+    const reconnectNow = () => {
+      if (document.visibilityState === 'hidden') return
+      clearReconnectTimer()
+      void connect()
+    }
+    window.addEventListener('online', reconnectNow)
+    document.addEventListener('visibilitychange', reconnectNow)
     void connect()
 
     return () => {
       disposed = true
+      window.removeEventListener('online', reconnectNow)
+      document.removeEventListener('visibilitychange', reconnectNow)
       clearReconnectTimer()
       const socket = socketRef.current
       socketRef.current = null

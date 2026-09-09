@@ -166,7 +166,26 @@ export const useBackendSocket = () => {
                 attempt: nextAttempt,
               })
               try {
-                await api.invoke('app:restart-backend')
+                // A67 FORBID:duplicate-repair-owner — check if another owner
+                // (e.g. boot_core watchdog) is already repairing before
+                // triggering our own restart.
+                let repairInProgress = false
+                try {
+                  const repairStatus = (await api.invoke('app:get-repair-status')) as
+                    | { repair_in_progress?: boolean }
+                    | undefined
+                  repairInProgress = Boolean(repairStatus?.repair_in_progress)
+                } catch {
+                  // If we can't check, proceed with restart (fail-open for
+                  // the coordination check; the restart itself is governed).
+                }
+                if (repairInProgress) {
+                  BootLogger.log('WebSocket', 'REPAIR_ALREADY_IN_PROGRESS', {
+                    owner: 'external',
+                  })
+                } else {
+                  await api.invoke('app:restart-backend')
+                }
               } catch (error) {
                 const message = error instanceof Error ? error.message : String(error)
                 BootLogger.log(
@@ -325,10 +344,19 @@ export const useBackendSocket = () => {
       }
     }
 
+    const reconnectNow = () => {
+      if (document.visibilityState === 'hidden') return
+      clearReconnectTimer()
+      void connect()
+    }
+    window.addEventListener('online', reconnectNow)
+    document.addEventListener('visibilitychange', reconnectNow)
     void connect()
 
     return () => {
       disposed = true
+      window.removeEventListener('online', reconnectNow)
+      document.removeEventListener('visibilitychange', reconnectNow)
       clearReconnectTimer()
       reconnectAttemptRef.current = 0
       commandQueueRef.current = []

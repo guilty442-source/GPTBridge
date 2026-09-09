@@ -375,6 +375,7 @@ function Get-LatestSourceWriteTime {
         (Join-Path $ProjectRoot "tsconfig.json"),
         (Join-Path $ProjectRoot "tsconfig.main.json")
     )
+    $sourceRoots += Get-IndependentToolUiSourceRoots
 
     foreach ($sourceRoot in $sourceRoots) {
         if (-not (Test-Path -LiteralPath $sourceRoot)) {
@@ -396,6 +397,47 @@ function Get-LatestSourceWriteTime {
     return $latest
 }
 
+function Get-IndependentToolUiDefinitions {
+    $definitions = @()
+    $manifestPaths = @()
+    foreach ($toolRoot in Get-ChildItem -LiteralPath $WorkspaceRoot -Directory) {
+        $manifestPaths += Get-Item -LiteralPath (Join-Path $toolRoot.FullName "manifest.json") -ErrorAction SilentlyContinue
+        foreach ($companionRoot in Get-ChildItem -LiteralPath $toolRoot.FullName -Directory) {
+            $manifestPaths += Get-Item -LiteralPath (Join-Path $companionRoot.FullName "manifest.json") -ErrorAction SilentlyContinue
+        }
+    }
+    foreach ($manifestPath in $manifestPaths) {
+        $uiRoot = Join-Path $manifestPath.Directory.FullName "src\ui"
+        if (-not (Test-Path -LiteralPath (Join-Path $uiRoot "index.html"))) {
+            continue
+        }
+        try {
+            $manifest = Get-Content -LiteralPath $manifestPath.FullName -Raw | ConvertFrom-Json
+        } catch {
+            continue
+        }
+        $toolId = [string]$manifest.id
+        if (-not $toolId -or $manifest.has_custom_ui -eq $false) {
+            continue
+        }
+        $definitions += [pscustomobject]@{
+            ToolId = $toolId
+            ManifestPath = $manifestPath.FullName
+            UiRoot = $uiRoot
+        }
+    }
+    return $definitions
+}
+
+function Get-IndependentToolUiSourceRoots {
+    $roots = @()
+    foreach ($definition in Get-IndependentToolUiDefinitions) {
+        $roots += $definition.ManifestPath
+        $roots += $definition.UiRoot
+    }
+    return $roots
+}
+
 function Get-ProductionSourceSignature {
     $sourceRoots = @(
         (Join-Path $ProjectRoot "src-ui"),
@@ -406,9 +448,12 @@ function Get-ProductionSourceSignature {
         (Join-Path $ProjectRoot "requirements.txt"),
         (Join-Path $ProjectRoot "vite.config.ts"),
         (Join-Path $ProjectRoot "vite.main.config.ts"),
+        (Join-Path $ProjectRoot "vite.platform-tools.config.ts"),
+        (Join-Path $ProjectRoot "src-core\tasks\platform_packager.py"),
         (Join-Path $ProjectRoot "tsconfig.json"),
         (Join-Path $ProjectRoot "tsconfig.main.json")
     )
+    $sourceRoots += Get-IndependentToolUiSourceRoots
     $files = foreach ($sourceRoot in $sourceRoots) {
         if (-not (Test-Path -LiteralPath $sourceRoot)) {
             continue
@@ -424,7 +469,7 @@ function Get-ProductionSourceSignature {
         }
     }
     $lines = foreach ($file in ($files | Sort-Object FullName)) {
-        $relative = $file.FullName.Substring($ProjectRoot.Length).TrimStart('\')
+        $relative = $file.FullName.Substring($WorkspaceRoot.Length).TrimStart('\')
         $digest = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
         "$relative`0$digest"
     }
@@ -450,6 +495,12 @@ function Ensure-ProductionBuild {
     $outputsReady =
         (Test-Path -LiteralPath $mainOutput) -and
         (Test-Path -LiteralPath $rendererOutput)
+    foreach ($definition in Get-IndependentToolUiDefinitions) {
+        $toolRendererOutput = Join-Path $ProjectRoot (
+            "dist-ui\independent-tools\{0}\renderer\index.html" -f $definition.ToolId
+        )
+        $outputsReady = $outputsReady -and (Test-Path -LiteralPath $toolRendererOutput)
+    }
 
     $needsBuild =
         $ForceBuild -or

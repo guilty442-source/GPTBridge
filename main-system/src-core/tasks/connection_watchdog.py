@@ -222,40 +222,59 @@ class ConnectionWatchdog:
             # Keep only the last 100 events.
             if len(self._events) > 100:
                 self._events = self._events[-100:]
-        # Record in learning store.
+        # Record in learning store using the consistent connection signature
+        # (failure_code, from_state->to_state, "ipc/connection") so that
+        # record and lookup use the same components — closing the loop.
         if self._learning_store is not None:
             try:
-                from .repair_learning import (
-                    ErrorSignature,
-                    RepairOutcome,
-                    _normalize_error_signature,
-                )
+                from .repair_learning import ErrorSignature, _normalize_error_signature
                 failure_code = (
                     "FRONTEND_BACKEND_DISCONNECTED"
                     if to_state == "disconnected"
                     else f"CONNECTION_{to_state.upper()}"
                 )
+                message = f"{from_state}->{to_state}"
                 sig = ErrorSignature(
                     signature_hash=_normalize_error_signature(
                         failure_code,
-                        f"{from_state}->{to_state}",
+                        message,
                         file_path="ipc/connection",
                     ),
                     error_class=failure_code,
-                    message_pattern=f"{from_state}->{to_state}",
+                    message_pattern=message,
                     failure_code=failure_code,
                     file_context="ipc/connection",
                     target_tool_id="main-system",
                 )
-                outcome = RepairOutcome(
-                    run_id=event.event_id,
-                    signature_hash=sig.signature_hash,
-                    remedy="connection-watchdog",
-                    ok=to_state == "connected",
-                    detail=event.as_dict(),
-                )
-                self._learning_store.record_error(sig)
-                self._learning_store.record_outcome(outcome)
+                # Use the CentralRepairService's connection learning methods
+                # if available (they close the loop with consistent signatures).
+                try:
+                    from .central_repair import CentralRepairService
+                    repair_root = (
+                        self.project_root / "main-system" / "data" / "automatic-repair"
+                    )
+                    repair_root.mkdir(parents=True, exist_ok=True)
+                    service = CentralRepairService(self.project_root, repair_root)
+                    service.record_connection_outcome(
+                        failure_code,
+                        from_state,
+                        to_state,
+                        remedy="connection-watchdog",
+                        ok=to_state == "connected",
+                        run_id=event.event_id,
+                    )
+                except Exception:
+                    # Fallback: record directly in the learning store.
+                    from .repair_learning import RepairOutcome
+                    outcome = RepairOutcome(
+                        run_id=event.event_id,
+                        signature_hash=sig.signature_hash,
+                        remedy="connection-watchdog",
+                        ok=to_state == "connected",
+                        detail=event.as_dict(),
+                    )
+                    self._learning_store.record_error(sig)
+                    self._learning_store.record_outcome(outcome)
             except Exception:
                 pass  # Learning is best-effort.
         return event

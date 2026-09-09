@@ -30,6 +30,7 @@ MAIN_COMMANDS = {
     "app:check-third-party-updates",
     "app:update-third-party-tool",
     "app:auto-update-third-party-tools",
+    "app:get-repair-status",
 }
 
 class CommandRouter:
@@ -244,6 +245,25 @@ class CommandRouter:
             return f"{command}_result", {
                 "ok": True,
                 "results": {tid: r.as_dict() for tid, r in results.items()},
+            }
+
+        # A67: repair coordination status — lets the frontend check whether
+        # a repair is already in progress before triggering its own restart,
+        # preventing duplicate repair owners.
+        if command == "app:get-repair-status":
+            from tasks.repair_coordinator import get_repair_coordinator
+
+            coordinator = get_repair_coordinator()
+            if coordinator is None:
+                return f"{command}_result", {
+                    "ok": True,
+                    "repair_in_progress": False,
+                    "coordinator_initialized": False,
+                }
+            return f"{command}_result", {
+                "ok": True,
+                "coordinator_initialized": True,
+                **coordinator.get_status(),
             }
 
         handler_name = TOOL_LIFECYCLE_HANDLERS.get(command)

@@ -274,26 +274,64 @@ class BootCore:
     def _on_connection_disconnected(self, failure_code: str, snapshot: Any) -> None:
         """Callback when the connection watchdog detects a persistent disconnection.
 
-        This triggers a CentralRepairService repair for FRONTEND_BACKEND_DISCONNECTED,
-        which records the event in the learning store and may trigger source repair.
+        A67 failure path: maintenance-sovereign-decides > sub-sovereign-dispatch
+        > governed-executor-repairs > boot-core-revalidates > ui-resynchronizes.
+        A67 FORBID:duplicate-repair-owner — acquire the repair coordination
+        lock before acting; if another owner already holds it, do not
+        duplicate the repair.
         """
         try:
             sys.path.insert(0, str(self.workspace_root))
             sys.path.insert(0, str(self.project_root / "main-system" / "src-core"))
+            from tasks.repair_coordinator import RepairCoordinator
+
+            # Cross-process coordination via the shared state file.
+            coordinator = RepairCoordinator(self.project_root)
+            if not coordinator.try_acquire(
+                failure_code=failure_code,
+                owner="boot-core-connection-watchdog",
+            ):
+                # Another owner is already repairing — do not duplicate.
+                return
+
             from tasks.central_repair import CentralRepairService
 
             repair_root = self.project_root / "main-system" / "data" / "automatic-repair"
             repair_root.mkdir(parents=True, exist_ok=True)
             service = CentralRepairService(self.project_root, repair_root)
+            # Consult learned recipes with the consistent connection signature
+            # (continuous learning: recorded outcomes are discoverable here).
+            try:
+                suggestion = service.suggest_connection_remedy(
+                    failure_code,
+                    getattr(snapshot, "overall_state", "unknown"),
+                    "disconnected",
+                )
+                if suggestion.get("suggested"):
+                    # A learned recipe exists — record that it was consulted.
+                    service.record_connection_outcome(
+                        failure_code,
+                        getattr(snapshot, "overall_state", "unknown"),
+                        "disconnected",
+                        remedy=str(suggestion.get("remedy", "connection-watchdog")),
+                        ok=False,
+                        run_id=f"watchdog-{int(time.time())}",
+                    )
+            except Exception:
+                pass
             # Record the connection failure for learning.
-            service._learn_from_tool_repair(
-                "main-system", failure_code,
-                {
-                    "run_id": f"watchdog-{int(time.time())}",
-                    "ok": False,
-                    "executed_actions": ["connection-watchdog"],
-                    "failure_code": failure_code,
-                },
+            service.record_connection_outcome(
+                failure_code,
+                getattr(snapshot, "overall_state", "unknown"),
+                "disconnected",
+                remedy="connection-watchdog",
+                ok=False,
+                run_id=f"watchdog-{int(time.time())}",
+            )
+            # Release the lock so the frontend or boot_core restart can proceed.
+            coordinator.release(
+                owner="boot-core-connection-watchdog",
+                failure_code=failure_code,
             )
         except Exception:
             pass  # Learning is best-effort.

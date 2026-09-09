@@ -45,7 +45,7 @@
 
 | # | 職責 | 說明 |
 |---|---|---|
-| 1 | `update-management` | 系統/模組更新管理；監督版本凍結的熱更新邊界（決策層，不執行） |
+| 1 | `update-management` | 系統/模組更新管理；監督版本凍結的熱更新邊界（決策層，不執行）；協調全系統熱重載（hot-reload） |
 | 2 | `system-health-monitoring` | 系統健康監控，含運行、資源、資料完整性之健康狀態呈現 |
 | 3 | `data-integrity-presentation` | 資料完整性之健康呈現（查核執行歸資料主宰，A33） |
 | 4 | `automatic-repair-coordination` | 自動修復協調；隔離受損狀態、執行修復、隔離管理 |
@@ -91,7 +91,8 @@
 | `live_status()` | 全部 | 即時狀態：更新/健康/修復/故障/備份/清理/自維護 |
 | `orchestration_status()` | 全部 | 編排狀態摘要 |
 | `_health_monitoring()` | 健康監控 | 呼叫 `core.health.check_core_health` + 治理完整性就緒狀態 |
-| `_update_status()` | 更新管理 | 監督 HotUpdateService 的版本凍結邊界 |
+| `_update_status()` | 更新管理 | 監督 HotUpdateService 的版本凍結邊界與全系統熱重載能力 |
+| `execute_hot_reload()` | 更新管理 | 協調全系統熱重載（需治理授權，範圍為所有後端 src roots） |
 | `_automatic_repair_status()` | 自動修復 | 協調 CentralRepairService |
 | `_fault_determination_status()` | 故障判定 | 呈現修復規劃器就緒狀態 |
 | `_backup_status()` | 備份協調 | 協調受治理備份/備份提取執行器 |
@@ -176,7 +177,29 @@
 | `--tool <id> --package` | 打包指定工具 |
 | `--tool <id> --verify` | 驗證指定工具 |
 
-### 4.8 運行子主宰（系統主宰底下）
+### 4.8 熱重載（全系統範圍）
+
+**檔案**：`main-system/src-core/core_system/hot_update_service.py`
+
+`HotUpdateService` 在更新管理職責下提供全系統熱重載能力。熱重載與熱更新不同：熱重載是原地重新載入已載入的 Python 模組，不需要版本變更；熱更新是版本閘控的凍結邊界，需要版本變更與治理授權。
+
+| 項目 | 值 |
+|---|---|
+| 範圍 | 全系統（10 個後端 src roots） |
+| 治理授權 | 必需（`governance.authorize_hot_update`） |
+| 標的限制 | 僅受治理可執行程式碼（Python 模組） |
+| 不可重載 | 法典、資料、權限目錄、封印清單（A43/E29） |
+| 不可重載模組 | `governance_rule.codex.*`、`governance_rule.permission_directory.*`、`core_system.hot_update_service` |
+
+全系統後端 src roots：
+
+```
+main-system/src-core, shared-layer/src, local-model/src,
+ai-collaboration/src, ai-assistant/src, global-cleaner/src,
+system-rescue/src, file-sorter/src, vaultly/src, investment-mobile/src
+```
+
+### 4.9 運行子主宰（系統主宰底下）
 
 **檔案**：`main-system/src-core/core_system/runtime_sub_sovereign.py`
 
@@ -223,6 +246,7 @@
 | **法典中文備用** | `governance_rule/codex/chinese.py` |
 | **主宰宣告** | `governance_rule/codex/sovereigns.py` |
 | **子主宰契約** | `governance_rule/execution/tool_runtime/sub_sovereign.py` |
+| **熱更新/熱重載服務** | `main-system/src-core/core_system/hot_update_service.py` |
 | **維護主宰實作** | `main-system/src-core/core_system/maintenance_sovereign.py` |
 | **主系統自維護** | `main-system/src-core/core_system/main_system_self_maintenance.py` |
 | **每日全域清理** | `main-system/src-core/core_system/daily_global_cleaner_service.py` |

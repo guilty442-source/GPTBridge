@@ -1,0 +1,98 @@
+﻿{"timestamp":"2026-09-08T15:32:14.9960250Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T15:32:17.7514392Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788881538.237881}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 92, "timestamp": 1788881538.3351376}
+{"timestamp":"2026-09-08T15:32:18.4102170Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T15:32:18.4112182Z","event":"launcher.phase.governance.start"}
+{"timestamp":"2026-09-08T15:32:18.4944670Z","event":"launcher.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T15:32:28.0948894Z","event":"launcher.governance.pass"}
+{"timestamp":"2026-09-08T15:32:28.0963974Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T15:32:30.4633957Z","event":"launcher.phase.prepare.done","total_ms":15464}
+{"timestamp":"2026-09-08T15:33:08.9710201Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T15:33:09.0166447Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788881589.338035}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 79, "timestamp": 1788881589.421206}
+{"timestamp":"2026-09-08T15:33:09.4714091Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T15:33:09.4714091Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T15:33:09.5499616Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T15:33:09.5509656Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T15:33:09.7415725Z","event":"launcher.phase.prepare.done","total_ms":769}
+{"timestamp":"2026-09-08T15:33:09.7475715Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T15:33:10.5690927Z","event":"launcher.electron.accepted","pid":60284}
+{"timestamp":"2026-09-08T15:48:32.4589079Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T15:48:32.5004962Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788882512.8113174}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 93, "timestamp": 1788882512.896922}
+{"timestamp":"2026-09-08T15:48:32.9602803Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T15:48:32.9612835Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T15:48:33.0371264Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T15:48:33.0381261Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T15:48:35.3179635Z","event":"launcher.phase.prepare.done","total_ms":2857}
+{"timestamp":"2026-09-08T15:48:35.3199590Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T15:48:36.1410765Z","event":"launcher.electron.accepted","pid":59980}
+{"timestamp":"2026-09-08T15:55:15.5258699Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T15:55:15.5714281Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788882915.8900483}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 93, "timestamp": 1788882915.9731936}
+{"timestamp":"2026-09-08T15:55:16.0343464Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T15:55:16.0353463Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T15:55:16.1119692Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T15:55:16.1129691Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T15:55:31.1892397Z","event":"launcher.phase.prepare.done","total_ms":15662}
+{"timestamp":"2026-09-08T15:55:31.1922383Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T15:55:32.0088814Z","event":"launcher.electron.accepted","pid":40352}
+{"timestamp":"2026-09-08T16:03:27.5446747Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T16:03:27.5852310Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788883407.9183311}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 92, "timestamp": 1788883408.0074222}
+{"timestamp":"2026-09-08T16:03:28.0745052Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T16:03:28.0745052Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T16:03:28.1628715Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T16:03:28.1638716Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T16:03:39.6785502Z","event":"launcher.phase.prepare.done","total_ms":12132}
+{"timestamp":"2026-09-08T16:03:39.6825512Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T16:03:40.5140202Z","event":"launcher.electron.handoff"}
+{"timestamp":"2026-09-08T16:05:50.4555668Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T16:05:50.4986730Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788883550.837145}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 79, "timestamp": 1788883550.921265}
+{"timestamp":"2026-09-08T16:05:50.9889379Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T16:05:50.9899385Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T16:05:51.0691663Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T16:05:51.0701657Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T16:06:02.4790873Z","event":"launcher.phase.prepare.done","total_ms":12023}
+{"timestamp":"2026-09-08T16:06:02.4820903Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T16:06:03.3055467Z","event":"launcher.electron.accepted","pid":41200}
+{"timestamp":"2026-09-08T16:08:24.7671521Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T16:08:24.8081414Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788883705.1295347}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 77, "timestamp": 1788883705.2129183}
+{"timestamp":"2026-09-08T16:08:25.2759390Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T16:08:25.2769385Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T16:08:25.3537718Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T16:08:25.3547758Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T16:08:36.3655766Z","event":"launcher.phase.prepare.done","total_ms":11596}
+{"timestamp":"2026-09-08T16:08:36.3685764Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T16:08:37.1932875Z","event":"launcher.electron.accepted","pid":59812}
+{"timestamp":"2026-09-08T16:24:48.1952102Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T16:24:48.2383111Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788884688.5660753}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 77, "timestamp": 1788884688.654849}
+{"timestamp":"2026-09-08T16:24:48.7194315Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T16:24:48.7204315Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T16:24:48.7974602Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T16:24:48.7984604Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T16:24:59.8883462Z","event":"launcher.phase.prepare.done","total_ms":11692}
+{"timestamp":"2026-09-08T16:24:59.8903493Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T16:25:00.7207659Z","event":"launcher.electron.accepted","pid":32948}
+{"timestamp":"2026-09-08T18:06:02.1425148Z","projectRoot":"E:\\GPTBridge\\main-system","event":"launcher.start"}
+{"timestamp":"2026-09-08T18:06:02.2146790Z","event":"launcher.phase.dependencies.start"}
+{"event": "orchestrator.start", "mode": "hybrid-parallel-degradables", "timestamp": 1788890762.5583513}
+{"event": "orchestrator.done", "state": "READY", "critical_up": true, "total_duration_ms": 93, "timestamp": 1788890762.6531875}
+{"timestamp":"2026-09-08T18:06:02.7344386Z","event":"launcher.phase.dependencies.done","state":"READY"}
+{"timestamp":"2026-09-08T18:06:02.7354397Z","event":"launcher.phase.governance.start"}
+{"signature":"7096BE68F66F0FEF0408502F83643436342BE73016E291172FB6A304148BB6DE","timestamp":"2026-09-08T18:06:02.8185847Z","event":"launcher.governance.cache-hit"}
+{"timestamp":"2026-09-08T18:06:02.8185847Z","event":"launcher.phase.governance.done"}
+{"timestamp":"2026-09-08T18:06:14.5192236Z","event":"launcher.phase.prepare.done","total_ms":12375}
+{"timestamp":"2026-09-08T18:06:14.5212246Z","event":"launcher.phase.electron.start"}
+{"timestamp":"2026-09-08T18:06:15.3316901Z","event":"launcher.electron.accepted","pid":39676}

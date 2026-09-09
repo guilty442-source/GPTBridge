@@ -1,0 +1,283 @@
+from __future__ import annotations
+
+from typing import Any, Callable
+
+InvestmentAnalyzer = Callable[[dict[str, Any]], dict[str, Any]]
+MarketSearcher = Callable[[dict[str, Any]], dict[str, Any]]
+
+
+class StarNativeConstantsMixin:
+    """Class-level constants shared across all native-model mixins."""
+
+    MODEL_ID = "star-native-language-model"
+    VERSION = "1.0"
+    ARCHITECTURE = (
+        "star-tokenizer+intent-encoder+local-retrieval+tool-router+"
+        "first-party-lexical-prototype-intent-classifier+"
+        "source-attributed-long-context-reading+"
+        "weighted-backoff-autoregressive-language-model+self-training"
+    )
+
+    _INTENTS = (
+        (
+            "capabilities",
+            (
+                "有哪些能力",
+                "能力清單",
+                "你會什麼",
+                "可以做什麼",
+                "能做什麼",
+                "what can you do",
+                "capabilities",
+            ),
+        ),
+        (
+            "self_upgrade",
+            (
+                "自我升級",
+                "升級自己",
+                "更新自己",
+                "擴充自己",
+                "升級星澄",
+                "改善星澄",
+                "修正星澄",
+                "提升星澄",
+                "檢討星澄",
+                "self-upgrade",
+                "improve yourself",
+                "upgrade star",
+            ),
+        ),
+        (
+            "coding",
+            (
+                "程式碼",
+                "寫程式",
+                "程式設計",
+                "編程",
+                "編碼",
+                "Python",
+                "TypeScript",
+                "JavaScript",
+                "SQL",
+                "重構",
+                "函式",
+                "修正問題",
+                "修正錯誤",
+                "修改程式",
+                "建立功能",
+                "新增功能",
+                "實作功能",
+                "檢查程式",
+                "write code",
+                "coding",
+                "programming",
+                "refactor",
+                "function",
+            ),
+        ),
+        (
+            "visual",
+            (
+                "視覺辨識",
+                "圖片辨識",
+                "照片辨識",
+                "影片辨識",
+                "文件影像",
+                "看圖",
+                "圖像分類",
+                "image recognition",
+                "visual recognition",
+                "video recognition",
+                "document image",
+            ),
+        ),
+        (
+            "file_management",
+            (
+                "檔案管理",
+                "整理檔案",
+                "整理圖片",
+                "整理影片",
+                "檔案分類",
+                "圖片分類",
+                "產生標籤",
+                "自動標籤",
+                "file management",
+                "file classification",
+                "image tagging",
+            ),
+        ),
+        (
+            "reading",
+            (
+                "閱讀",
+                "讀取",
+                "讀完",
+                "摘要",
+                "總結",
+                "重點",
+                "大綱",
+                "文件",
+                "文章",
+                "原文",
+                "reading",
+                "summarize",
+                "summary",
+                "document",
+            ),
+        ),
+        (
+            "statistics",
+            ("統計", "平均", "中位數", "標準差", "變異", "相關性", "共變異", "statistics", "average", "median", "standard deviation"),
+        ),
+        (
+            "data_organization",
+            ("整理資料", "彙整資料", "資料清理", "分類資料", "排序資料", "organize data", "clean data", "sort data"),
+        ),
+        (
+            "calculation",
+            ("計算", "算出", "等於多少", "公式", "數學", "XIRR", "再平衡", "夏普", "Sortino", "calculate", "calculation", "formula"),
+        ),
+        ("reasoning", ("推理", "邏輯", "證明", "推導", "因果", "reasoning", "reason", "logic", "prove")),
+        ("search", ("搜尋", "查詢", "找資料", "查資料", "search", "searching", "look up", "research")),
+        ("distribution", ("配息", "股息", "收益分配", "除息", "dividend", "distribution")),
+        ("quote", ("報價", "價格", "淨值", "行情", "quote", "price", "net asset value")),
+        ("risk", ("風險", "波動", "回撤", "集中", "壓力", "情境", "risk", "volatility", "drawdown", "stress")),
+        ("analysis", ("分析", "評估", "投資", "持股", "資產", "analyze", "analyse", "analysis", "portfolio", "holdings", "investment")),
+        ("status", ("狀態", "健康", "資料庫", "版本", "模型", "status", "health", "version", "model")),
+    )
+    _MARKET_ALIASES = {
+        "台股": "TW",
+        "臺股": "TW",
+        "美股": "US",
+        "港股": "HK",
+        "日股": "JP",
+        "基金": "FUND",
+    }
+    _ACTION_ALIASES: dict[str, tuple[str, ...]] = {
+        "query": ("查詢", "查一下", "看一下", "幫我查", "搜尋", "查找", "look up", "search"),
+        "create": ("建立", "新增", "創建", "create", "add"),
+        "generate": ("產生", "生成", "generate"),
+        "modify": ("修改", "變更", "調整", "更新", "modify", "update", "edit"),
+        "delete": ("刪除", "刪掉", "移除", "砍掉", "清掉", "delete", "remove"),
+        "move": ("搬移", "移動", "搬到", "移到", "move"),
+        "copy": ("複製", "拷貝", "copy"),
+        "rename": ("重新命名", "改名", "rename"),
+        "classify": ("分類", "歸類", "整理", "classify", "organize"),
+        "analyze": ("分析", "解析", "評估", "analyze", "analyse"),
+        "compare": ("比較", "比對", "對照", "compare"),
+        "execute": ("執行", "運行", "跑一下", "啟動", "execute", "run", "start"),
+        "stop": ("停止", "終止", "關閉", "stop", "terminate", "shutdown"),
+        "monitor": ("監控", "監看", "持續觀察", "monitor", "watch"),
+    }
+    _ACTION_LABELS = {
+        "query": "查詢",
+        "create": "建立",
+        "generate": "產生",
+        "modify": "修改",
+        "delete": "刪除",
+        "move": "搬移",
+        "copy": "複製",
+        "rename": "重新命名",
+        "classify": "分類",
+        "analyze": "分析",
+        "compare": "比較",
+        "execute": "執行",
+        "stop": "停止",
+        "monitor": "監控",
+    }
+    _TAIWAN_TERM_ALIASES: dict[str, tuple[str, ...]] = {
+        "資料夾": ("文件夾", "資料加", "資聊夾"),
+        "設定": ("配置", "設訂"),
+        "程序": ("進程", "程續"),
+        "影片": ("視頻", "影篇"),
+        "圖片": ("圖像", "圖篇"),
+        "模型": ("模形",),
+        "檔案": ("檔按",),
+        "程式碼": ("程式馬",),
+        "執行": ("執型", "运行"),
+        "分類": ("分纇",),
+        "監控": ("監空",),
+        "刪除": ("删除",),
+        "查詢": ("查询",),
+    }
+    _OBJECT_ALIASES: dict[str, tuple[str, ...]] = {
+        "model": ("模型", "model", "ollama"),
+        "file": ("檔案", "文件", "file"),
+        "folder": ("資料夾", "目錄", "folder", "directory"),
+        "image": ("圖片", "照片", "影像", "image", "photo"),
+        "video": ("影片", "視訊", "video"),
+        "code": ("程式碼", "原始碼", "code", "source"),
+        "text": ("文字", "文章", "內容", "text"),
+        "database": ("資料庫", "database", "sqlite", "table"),
+        "service": ("服務", "service", "daemon"),
+        "process": ("程序", "進程", "process", "pid"),
+        "config": ("設定檔", "配置檔", "設定", "config", "configuration"),
+    }
+    _REFERENCE_MARKERS = (
+        "這個",
+        "這些",
+        "那個",
+        "那些",
+        "它",
+        "它們",
+        "舊的",
+        "新的",
+        "剛才",
+        "剛剛",
+        "上一個",
+        "上一批",
+        "照前面",
+        "照剛才",
+        "繼續",
+        "確認執行",
+        "確認刪除",
+    )
+    _DESTRUCTIVE_MARKERS = (
+        "刪除",
+        "刪掉",
+        "移除",
+        "砍掉",
+        "清掉",
+        "清空",
+        "永久刪除",
+        "強制刪除",
+        "覆寫",
+        "格式化",
+        "重置",
+        "drop table",
+        "truncate table",
+        "delete",
+        "remove",
+        "overwrite",
+        "format",
+        "reset",
+    )
+    _INTENT_EXAMPLES: dict[str, tuple[str, ...]] = {
+        "conversation": (
+            "你好，請簡短回覆",
+            "確認對話是否正常並回覆指定文字",
+            "針對最新訊息直接回答",
+        ),
+        "capabilities": (
+            "列出目前可以使用的能力",
+            "說明你能協助哪些工作",
+            "你有哪些功能",
+        ),
+        "self_upgrade": ("改善自身模組", "提出系統更新方案", "讓星澄維護自己的程式"),
+        "coding": ("建立資料接收端點", "實作一個服務模組", "檢查這段原始碼的問題"),
+        "visual": ("辨識圖片中的內容", "整理影片畫面重點", "摘要文件掃描影像"),
+        "file_management": ("依圖片內容自動分類檔案", "替影像產生標籤", "建議檔案資料夾"),
+        "reading": ("找出兩份內容的共同觀點", "根據材料回答問題", "整理長篇報告的核心結論"),
+        "statistics": ("描述這批樣本的分布", "求資料的離散程度", "比較兩組數據的關聯"),
+        "data_organization": ("把紀錄依欄位分組", "清除重複列並排列", "將原始資料轉成表格"),
+        "calculation": ("依公式求出結果", "算出投資組合報酬", "列出數值運算步驟"),
+        "reasoning": ("根據前提判斷結論", "找出論述中的矛盾", "說明事件之間的因果"),
+        "search": ("從公開來源取得最新資料", "幫我找到相關公告", "查證這項資訊的來源"),
+        "distribution": ("確認這次收益何時發放", "是否有現金股利", "查核除息與入帳日期"),
+        "quote": ("取得目前成交數值", "查基金最新淨值", "這項資產現在值多少"),
+        "risk": ("檢查最壞情境與曝險", "評估可能損失", "找出組合過度集中的地方"),
+        "analysis": ("評估持倉配置是否合理", "說明資產組合表現", "整合資料提出投資觀察"),
+        "status": ("目前是否正常運作", "顯示系統健康資訊", "確認目前使用的版本"),
+    }

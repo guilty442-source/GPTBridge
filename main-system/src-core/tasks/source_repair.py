@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,11 +16,27 @@ if __package__ in (None, ""):
     if str(_SRC_CORE_ROOT) not in sys.path:
         sys.path.insert(0, str(_SRC_CORE_ROOT))
 
-SOURCE_REPAIR_VERSION: Final[str] = "1.0.0"
+SOURCE_REPAIR_VERSION: Final[str] = "1.1.0"
 SOURCE_REPAIR_RECIPE_ID: Final[str] = "main-system-python-source-syntax"
 FAILURE_CODE: Final[str] = "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED"
 
-SOURCE_ROOTS: Final[tuple[str, ...]] = ("main-system/src-core",)
+# Backend source roots whose Python files are eligible for indentation
+# self-repair.  Each entry is a repository-relative directory that contains
+# authoritative backend Python source.  Front-end (src-ui), build output
+# (dist, dist-ui), tests, scripts, and governance_rule/codex are intentionally
+# excluded — they are either not Python, not backend, or read-only by codex.
+SOURCE_ROOTS: Final[tuple[str, ...]] = (
+    "main-system/src-core",
+    "shared-layer/src",
+    "local-model/src",
+    "ai-collaboration/src",
+    "ai-assistant/src",
+    "global-cleaner/src",
+    "system-rescue/src",
+    "file-sorter/src",
+    "vaultly/src",
+    "investment-mobile/src",
+)
 MAX_ORPHANS_PER_FILE: Final[int] = 8
 
 _SYNTAX_INDENTATION_SIGNATURES: Final[tuple[str, ...]] = (
@@ -40,6 +57,40 @@ def _inside(candidate: Path, root: Path) -> bool:
         return True
     except (OSError, RuntimeError, ValueError):
         return False
+
+
+def _git_has_uncommitted_change(project_root: Path, source_path: Path) -> bool:
+    """Return True if ``source_path`` has uncommitted git modifications.
+
+    The repair surface must never overwrite a file the developer is actively
+    editing.  We ask git directly: if the path is unknown to the index, or
+    the working-tree content differs from HEAD, the file is considered
+    "dirty" and is skipped.  Any git failure (not a repo, git missing) is
+    treated as "clean" so repair can still proceed in non-git environments.
+    """
+    try:
+        relative = source_path.resolve(strict=False).relative_to(
+            project_root.resolve()
+        )
+    except (OSError, ValueError):
+        return False
+    git_path = shutil.which("git")
+    if not git_path:
+        return False
+    try:
+        # `git status --porcelain` returns one line per dirty path.
+        result = subprocess.run(
+            [git_path, "status", "--porcelain", "--", relative.as_posix()],
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if result.returncode != 0:
+        return False
+    return bool(result.stdout.strip())
 
 
 def _contentful_indices(lines: list[str]) -> list[int]:
@@ -244,6 +295,7 @@ class SourceRepairService:
             "problems": [],
             "repaired_files": [],
             "ambiguous_files": [],
+            "skipped_dirty_files": [],
             "errors": [],
         }
         for source_path in self.python_sources():
@@ -257,6 +309,11 @@ class SourceRepairService:
                 report["errors"].append(
                     f"{relative}: {problem.get('error')}; not indentation-family"
                 )
+                continue
+            # Skip files with uncommitted developer changes to avoid
+            # clobbering in-progress edits with an automated rewrite.
+            if _git_has_uncommitted_change(self.project_root, source_path):
+                report["skipped_dirty_files"].append(relative)
                 continue
             try:
                 repairer = IndentationRepairer(

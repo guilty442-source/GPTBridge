@@ -191,12 +191,15 @@ class ToolPathResolver:
                         )
                     )
         if self.allowed_tool_ids is None:
-            candidates.extend(
-                [
-                    tool_root / ".venv" / "Scripts" / "python.exe",
-                    tool_root / ".venv" / "bin" / "python",
-                ]
-            )
+            if os.name == "nt":
+                candidates.extend(
+                    [
+                        tool_root / ".venv" / "Scripts" / "pythonw.exe",
+                        tool_root / ".venv" / "Scripts" / "python.exe",
+                    ]
+                )
+            else:
+                candidates.append(tool_root / ".venv" / "bin" / "python")
         candidates.append(Path(sys.executable))
         for candidate in candidates:
             if candidate.exists():
