@@ -4,11 +4,9 @@ import hashlib
 import json
 import math
 import random
-import re
 import statistics
-import urllib.parse
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Any, Sequence
 
 from ..infrastructure.analytics_repository import (
@@ -27,316 +25,18 @@ from ..infrastructure.analytics_repository import (
     utc_text,
 )
 from ..infrastructure.privacy import protect_text, unprotect_text
-
-
-FACTOR_PROXIES = {
-    "market": ("SPY", None),
-    "size": ("IWM", "SPY"),
-    "value": ("IWD", "IWF"),
-    "momentum": ("MTUM", "SPY"),
-    "quality": ("QUAL", "SPY"),
-}
-
-HUANAN_EXCHANGE_RATE_URL = (
-    "https://lovebank.hncb.com.tw/abank/pages/jsp/ExtSel/"
-    "Accessibility_exchange_rate.html"
+from .portfolio_fx import (
+    FACTOR_PROXIES,
+    sync_factor_proxies_from_yahoo,
+    sync_fx_from_huanan_bank,
+    sync_fx_from_yahoo,
 )
-HUANAN_CURRENCY_NAMES = {
-    "USD": "美金",
-    "HKD": "港幣",
-    "GBP": "英鎊",
-    "NZD": "紐西蘭幣",
-    "AUD": "澳幣",
-    "SGD": "新加坡幣",
-    "CHF": "瑞士法郎",
-    "CAD": "加幣",
-    "JPY": "日幣",
-    "EUR": "歐元",
-    "SEK": "瑞典幣",
-    "ZAR": "南非幣",
-    "CNY": "人民幣",
-}
-
-
-def sync_fx_from_huanan_bank(
-    engine: "InvestmentV3Engine",
-    currencies: Sequence[str],
-    base_currency: str = "TWD",
-    *,
-    fetch_text: Any | None = None,
-) -> dict[str, Any]:
-    target = str(base_currency or "TWD").upper()
-    if target != "TWD":
-        return {
-            "fx_rates_added": 0,
-            "fx_errors": [
-                {
-                    "currency": target,
-                    "message": "華南銀行牌告匯率目前以 TWD 為換算基準。",
-                }
-            ],
-            "base_currency": target,
-            "fx_provider": "Hua Nan Commercial Bank",
-        }
-
-    def default_fetch(url: str) -> str:
-        raise PermissionError(
-            "AI investment manager has no network access; Xingcheng must provide exchange-rate data."
-        )
-
-    html = (fetch_text or default_fetch)(HUANAN_EXCHANGE_RATE_URL)
-    observed_match = re.search(r"資料生效時間\s*[：:]\s*([0-9/]+\s+[0-9:]+)", html)
-    observed_at = datetime.now(timezone(timedelta(hours=8)))
-    if observed_match:
-        try:
-            observed_at = datetime.strptime(
-                observed_match.group(1), "%Y/%m/%d %H:%M:%S"
-            ).replace(tzinfo=timezone(timedelta(hours=8)))
-        except ValueError:
-            pass
-    rows = {
-        re.sub(r"<[^>]+>", "", name).strip(): (float(buy), float(sell))
-        for name, buy, sell in re.findall(
-            r'<td[^>]*class="first"[^>]*>(.*?)</td>\s*'
-            r'<td[^>]*class="textR"[^>]*>\s*([0-9.]+)\s*</td>\s*'
-            r'<td[^>]*class="textR"[^>]*>\s*([0-9.]+)\s*</td>',
-            html,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-    }
-    requested = sorted(
-        {
-            str(currency or "").upper()
-            for currency in currencies
-            if str(currency or "").strip() and str(currency or "").upper() != "TWD"
-        }
-    )
-    rates: list[dict[str, Any]] = []
-    errors: list[dict[str, str]] = []
-    details: list[dict[str, Any]] = []
-    for currency in requested:
-        bank_name = HUANAN_CURRENCY_NAMES.get(currency)
-        quote = rows.get(bank_name or "")
-        if bank_name is None or quote is None:
-            errors.append(
-                {"currency": currency, "message": "華南銀行牌告匯率未提供此幣別。"}
-            )
-            continue
-        buy, sell = quote
-        midpoint = (buy + sell) / 2.0
-        rates.append(
-            {
-                "base_currency": currency,
-                "quote_currency": "TWD",
-                "observed_at": observed_at.isoformat(),
-                "rate": midpoint,
-                "provider": "huanan-bank-spot-mid",
-                "verified": True,
-            }
-        )
-        details.append(
-            {
-                "currency": currency,
-                "bank_name": bank_name,
-                "buy_rate": buy,
-                "sell_rate": sell,
-                "valuation_rate": midpoint,
-            }
-        )
-    return {
-        "fx_rates_added": engine.add_fx_rates(rates),
-        "fx_errors": errors,
-        "base_currency": "TWD",
-        "fx_provider": "Hua Nan Commercial Bank",
-        "fx_rate_type": "spot_midpoint",
-        "fx_observed_at": observed_at.isoformat(),
-        "fx_source_url": HUANAN_EXCHANGE_RATE_URL,
-        "fx_rates": details,
-    }
-
-
-def sync_fx_from_yahoo(
-    engine: "InvestmentV3Engine",
-    currencies: Sequence[str],
-    base_currency: str,
-    *,
-    period: str = "2y",
-    fetch_json: Any | None = None,
-) -> dict[str, Any]:
-    def default_fetch(url: str) -> dict[str, Any]:
-        raise PermissionError(
-            "AI investment manager has no network access; Xingcheng must provide FX history."
-        )
-
-    fetch = fetch_json or default_fetch
-    target = str(base_currency or "TWD").upper()
-    added = 0
-    errors = []
-    for source in sorted({str(value or "").upper() for value in currencies if str(value or "").strip()}):
-        if source == target:
-            continue
-        pair = f"{source}{target}=X"
-        try:
-            url = (
-                "https://query1.finance.yahoo.com/v8/finance/chart/"
-                + urllib.parse.quote(pair, safe="")
-                + "?"
-                + urllib.parse.urlencode({"range": period, "interval": "1d"})
-            )
-            result = fetch(url).get("chart", {}).get("result", [])[0]
-            timestamps = result.get("timestamp") or []
-            closes = ((result.get("indicators", {}).get("quote") or [{}])[0].get("close") or [])
-            rates = [
-                {
-                    "base_currency": source,
-                    "quote_currency": target,
-                    "observed_at": datetime.fromtimestamp(int(timestamp), timezone.utc).isoformat(),
-                    "rate": closes[index],
-                    "provider": "yahoo-fx-history",
-                    "verified": True,
-                }
-                for index, timestamp in enumerate(timestamps)
-                if index < len(closes) and number(closes[index]) > 0
-            ]
-            added += engine.add_fx_rates(rates)
-        except Exception as exc:
-            errors.append({"currency": source, "message": str(exc)})
-    return {"fx_rates_added": added, "fx_errors": errors, "base_currency": target}
-
-
-def sync_factor_proxies_from_yahoo(
-    engine: "InvestmentV3Engine",
-    *,
-    period: str = "2y",
-    fetch_json: Any | None = None,
-) -> dict[str, Any]:
-    def default_fetch(url: str) -> dict[str, Any]:
-        raise PermissionError(
-            "AI investment manager has no network access; Xingcheng must provide factor data."
-        )
-
-    fetch = fetch_json or default_fetch
-    added = 0
-    errors = []
-    symbols = sorted({symbol for pair in FACTOR_PROXIES.values() for symbol in pair if symbol})
-    for symbol in symbols:
-        try:
-            url = (
-                "https://query1.finance.yahoo.com/v8/finance/chart/"
-                + urllib.parse.quote(symbol, safe="")
-                + "?"
-                + urllib.parse.urlencode({"range": period, "interval": "1d"})
-            )
-            result = fetch(url).get("chart", {}).get("result", [])[0]
-            timestamps = result.get("timestamp") or []
-            quote = (result.get("indicators", {}).get("quote") or [{}])[0]
-            closes = quote.get("close") or []
-            bars = [
-                {
-                    "symbol": symbol,
-                    "observed_at": datetime.fromtimestamp(int(timestamp), timezone.utc).isoformat(),
-                    "close": closes[index],
-                    "currency": "USD",
-                    "provider": "yahoo-factor-history",
-                    "verified": True,
-                }
-                for index, timestamp in enumerate(timestamps)
-                if index < len(closes) and number(closes[index]) > 0
-            ]
-            added += engine.store.add_price_bars(bars)
-        except Exception as exc:
-            errors.append({"symbol": symbol, "message": str(exc)})
-    return {"factor_prices_added": added, "factor_errors": errors, "factor_symbols": symbols}
-
-
-def _json_hash(value: Any) -> str:
-    import json
-
-    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def _project_weights(
-    raw: dict[str, float],
-    *,
-    max_weight: float,
-    min_weight: float = 0.0,
-) -> dict[str, float]:
-    symbols = list(raw)
-    if not symbols:
-        return {}
-    cap = max(1 / len(symbols), min(1.0, max(0.01, max_weight)))
-    floor = max(0.0, min(cap, min_weight))
-    weights = {symbol: max(floor, number(raw[symbol])) for symbol in symbols}
-    for _ in range(40):
-        total = sum(weights.values())
-        if total <= 0:
-            weights = {symbol: 1 / len(symbols) for symbol in symbols}
-        else:
-            weights = {symbol: value / total for symbol, value in weights.items()}
-        excess = sum(max(0.0, value - cap) for value in weights.values())
-        weights = {symbol: min(cap, value) for symbol, value in weights.items()}
-        if excess <= 1e-10:
-            break
-        available = [symbol for symbol, value in weights.items() if value < cap - 1e-10]
-        if not available:
-            break
-        room = sum(cap - weights[symbol] for symbol in available)
-        for symbol in available:
-            weights[symbol] += excess * (cap - weights[symbol]) / room if room > 0 else 0
-    total = sum(weights.values())
-    return {symbol: value / total for symbol, value in weights.items()} if total > 0 else weights
-
-
-def _portfolio_stats(
-    weights: dict[str, float],
-    means: dict[str, float],
-    covariance: dict[tuple[str, str], float],
-    samples: dict[str, list[float]],
-) -> dict[str, float | None]:
-    expected_daily = sum(weights.get(symbol, 0) * means.get(symbol, 0) for symbol in weights)
-    variance = sum(
-        weights.get(left, 0) * weights.get(right, 0) * covariance.get((left, right), 0)
-        for left in weights
-        for right in weights
-    )
-    volatility = math.sqrt(max(0.0, variance))
-    common_count = min((len(samples.get(symbol, [])) for symbol in weights), default=0)
-    portfolio_returns = [
-        sum(weights[symbol] * samples[symbol][-common_count + index] for symbol in weights)
-        for index in range(common_count)
-    ] if common_count else []
-    cutoff = _percentile(portfolio_returns, 0.05)
-    tail = [value for value in portfolio_returns if cutoff is not None and value <= cutoff]
-    annual_return = expected_daily * TRADING_DAYS
-    annual_volatility = volatility * math.sqrt(TRADING_DAYS)
-    return {
-        "expected_return_percent": rounded(annual_return * 100, 2),
-        "volatility_percent": rounded(annual_volatility * 100, 2),
-        "sharpe_ratio": rounded(annual_return / annual_volatility, 4) if annual_volatility > 0 else None,
-        "cvar_95_percent": rounded(max(0.0, -_mean(tail)) * 100, 2) if tail else None,
-    }
-
-
-def _solve_linear(matrix: list[list[float]], vector: list[float]) -> list[float] | None:
-    count = len(vector)
-    augmented = [list(matrix[index]) + [vector[index]] for index in range(count)]
-    for pivot in range(count):
-        best = max(range(pivot, count), key=lambda row: abs(augmented[row][pivot]))
-        if abs(augmented[best][pivot]) < 1e-12:
-            return None
-        augmented[pivot], augmented[best] = augmented[best], augmented[pivot]
-        scale = augmented[pivot][pivot]
-        augmented[pivot] = [value / scale for value in augmented[pivot]]
-        for row in range(count):
-            if row == pivot:
-                continue
-            factor = augmented[row][pivot]
-            augmented[row] = [
-                augmented[row][column] - factor * augmented[pivot][column]
-                for column in range(count + 1)
-            ]
-    return [augmented[index][-1] for index in range(count)]
+from .portfolio_math import (
+    _json_hash,
+    _portfolio_stats,
+    _project_weights,
+    _solve_linear,
+)
 
 
 class InvestmentV3Engine:
@@ -1043,3 +743,11 @@ class InvestmentV3Engine:
             "factors": self.factor_attribution(state),
             "corporate_actions": self.corporate_action_governance(),
         }
+
+
+__all__ = [
+    "InvestmentV3Engine",
+    "sync_fx_from_huanan_bank",
+    "sync_fx_from_yahoo",
+    "sync_factor_proxies_from_yahoo",
+]
