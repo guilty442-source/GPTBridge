@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -263,6 +264,26 @@ class SourceRepairService:
                     sources.append(path)
         return sources
 
+    def _hot_reload_protected(self, source_path: Path) -> bool:
+        marker = (
+            self.project_root / "main-system" / "runtime" / "state"
+            / "hot-reload-protection.json"
+        )
+        try:
+            payload = json.loads(marker.read_text(encoding="utf-8"))
+            relative = source_path.resolve().relative_to(
+                self.project_root
+            ).as_posix()
+            expected = str(
+                (payload.get("protected_sources") or {}).get(relative) or ""
+            )
+            if not expected:
+                return False
+            actual = hashlib.sha256(source_path.read_bytes()).hexdigest()
+            return actual == expected
+        except (OSError, ValueError, json.JSONDecodeError, AttributeError):
+            return False
+
     def _backup(self, source_path: Path) -> None:
         if not _inside(source_path, self.project_root):
             raise PermissionError("PERMISSION_DENIED")
@@ -295,6 +316,7 @@ class SourceRepairService:
             "repaired_files": [],
             "ambiguous_files": [],
             "skipped_dirty_files": [],
+            "skipped_hot_reload_files": [],
             "errors": [],
         }
         for source_path in self.python_sources():
@@ -304,6 +326,9 @@ class SourceRepairService:
             if problem.get("ok"):
                 continue
             report["problems"].append({"file": relative, **problem})
+            if self._hot_reload_protected(source_path):
+                report["skipped_hot_reload_files"].append(relative)
+                continue
             if not problem.get("indentation_family"):
                 report["errors"].append(
                     f"{relative}: {problem.get('error')}; not indentation-family"

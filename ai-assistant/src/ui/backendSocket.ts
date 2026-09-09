@@ -13,6 +13,7 @@ type ConnectionWaiter = {
 }
 
 const REQUIRED_PROTOCOL_VERSION = 1
+const RECONNECT_MAX_DELAY_MS = 8_000
 
 function mutationId(command: string): string {
   const suffix =
@@ -57,6 +58,7 @@ export function useLocalBackendSocket() {
   const expectedPackageDigestRef = useRef('')
   const connectionWaitersRef = useRef<Set<ConnectionWaiter>>(new Set())
   const connectGenerationRef = useRef(0)
+  const reconnectAttemptRef = useRef(0)
 
   const waitUntilConnected = useCallback((timeoutMs = 15_000) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) return Promise.resolve()
@@ -117,10 +119,13 @@ export function useLocalBackendSocket() {
 
     const scheduleReconnect = () => {
       if (disposed || reconnectTimerRef.current !== null) return
+      const attempt = ++reconnectAttemptRef.current
+      const baseDelay = Math.min(RECONNECT_MAX_DELAY_MS, 500 * 2 ** (attempt - 1))
+      const delay = Math.round(baseDelay + Math.random() * baseDelay * 0.2)
       reconnectTimerRef.current = window.setTimeout(() => {
         reconnectTimerRef.current = null
         void connect()
-      }, 500)
+      }, delay)
     }
 
     const ensureBackendStarted = async () => {
@@ -195,6 +200,7 @@ export function useLocalBackendSocket() {
             return
           }
           setStatus('Connected')
+          reconnectAttemptRef.current = 0
           clearReconnectTimer()
           for (const waiter of [...connectionWaitersRef.current]) waiter.resolve()
           window.dispatchEvent(new CustomEvent('socket_connected', { detail: { connected: true } }))
@@ -245,6 +251,7 @@ export function useLocalBackendSocket() {
       window.removeEventListener('online', reconnectNow)
       document.removeEventListener('visibilitychange', reconnectNow)
       connectGenerationRef.current += 1
+      reconnectAttemptRef.current = 0
       clearReconnectTimer()
       for (const waiter of [...connectionWaitersRef.current]) {
         waiter.reject(new Error('投資管家視窗已關閉，指令未送出。'))

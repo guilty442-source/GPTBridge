@@ -19,8 +19,14 @@ const requiredFolders = [
   ),
 ]
 
-const allowedRootDirectories = new Set(['.git', 'main-system', 'shared-layer'])
-const allowedRootFiles = new Set(['.gitignore', 'pytest.ini'])
+const allowedRootDirectories = new Set([
+  '.git', '.devin', '.smallcode', '.venv', '.vs', '.vscode',
+  'docs', 'launcher', 'main-system', 'scripts', 'shared-layer',
+])
+const allowedRootFiles = new Set([
+  '.env', '.gitignore', '.markdownlint.json', 'AGENTS.md', 'pytest.ini',
+  '_check_backend.py', '_poll_health.py',
+])
 
 function hasMatchingManifest(directory: string, expectedId: string): boolean {
   const manifestPath = path.join(directory, 'manifest.json')

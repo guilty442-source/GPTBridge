@@ -23,20 +23,18 @@
     "runtime_entry": "src/channel_runtime.py",
     "direct_instruction": "PERMISSION_DENIED"
   },
+  "distribution": {
+    "mode": "special-unpackaged",
+    "package": false
+  },
   "launch": {
-    "mode": "dual-runtime",
-    "selection": "automatic",
+    "mode": "governed-source",
+    "selection": "source-only",
     "runtimes": [
-      "governed-source-ui",
-      "executable"
+      "governed-source-ui"
     ],
     "background": "governed-source-channel",
     "close_program_on_window_exit": true
-  },
-  "executable": {
-    "path": "dist/global-cleaner.exe",
-    "name": "global-cleaner",
-    "console": true
   },
   "timeout_seconds": 900,
   "capabilities": {

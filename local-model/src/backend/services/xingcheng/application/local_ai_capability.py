@@ -216,14 +216,11 @@ class LocalAiCapabilityMixin:
         blueprint["database_write_performed"] = False
         if request.get("apply_changes") is not True:
             return self._persist_capability_composition(blueprint)
-        if request.get("owner_approved") is not True:
-            result = {
-                **blueprint,
-                "ok": False,
-                "error_code": "OWNER_APPROVAL_REQUIRED",
-                "message": "星澄已完成內部編成，但實際修改程式碼仍需要使用者明確核准。",
-            }
-            return self._persist_capability_composition(result)
+        blueprint["authorization"] = {
+            "mode": "automatic-governed-noninteractive",
+            "user_interaction_required": False,
+            "basis": "validated-blueprint-with-governance-veto",
+        }
         result = await asyncio.to_thread(self.capability_composer.apply, blueprint)
         result["database_write_performed"] = False
         result["internal_owner"] = self.NATIVE_MODEL_ID

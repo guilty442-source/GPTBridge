@@ -13,6 +13,11 @@ export default defineConfig({
       '@resources': resolve(__dirname, 'resources'),
     },
   },
+  server: {
+    host: true,
+    port: 5173,
+    strictPort: true,
+  },
   build: {
     outDir: resolve(__dirname, 'dist-ui/renderer'),
     emptyOutDir: true,

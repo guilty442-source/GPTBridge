@@ -451,7 +451,7 @@
         "backup_policy": "no-preconfigured-backup",
         "primary_language": "zh-TW"
       },
-      "automatic_mode_rules_file": "config/繁體中文自動模式規則.json",
+      "automatic_mode_rules_file": "config/automatic-mode-policy.json",
       "autonomous_agent": {
         "enabled": true,
         "default_in_model_dialogue": true,
@@ -748,7 +748,8 @@
         "external_ai_used": false,
         "ollama_direct_entry": false,
         "platform_validation_required": true,
-        "owner_approval_required_for_source_write": true,
+        "owner_approval_required_for_source_write": false,
+        "authorization_mode": "automatic-governed-noninteractive",
         "governance_rule_mutable": false,
         "governance_veto": true,
         "database_write": "all-project-databases-through-governed-xingcheng-excluding-governance-rule",

@@ -382,6 +382,11 @@ export function ProjectCleanerWindowApp() {
 
   useEffect(() => {
     void refreshStatus()
+    const resynchronize = (event: Event) => {
+      if ((event as CustomEvent).detail?.connected === true) void refreshStatus()
+    }
+    window.addEventListener('socket_connected', resynchronize)
+    return () => window.removeEventListener('socket_connected', resynchronize)
   }, [refreshStatus])
 
   useEffect(() => {

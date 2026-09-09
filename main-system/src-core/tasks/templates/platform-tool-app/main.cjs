@@ -3197,6 +3197,19 @@ function createWindow() {
     },
   })
 
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
+    const key = input.key.toLowerCase()
+    const reloadShortcut = key === 'f5' || ((input.control || input.meta) && key === 'r')
+    if (!reloadShortcut) return
+    event.preventDefault()
+    if (input.shift) {
+      mainWindow?.webContents.reloadIgnoringCache()
+    } else {
+      mainWindow?.webContents.reload()
+    }
+  })
+
   mainWindow.once('ready-to-show', () => {
     mainWindowReady = true
     if (!foregroundRequested) {

@@ -295,21 +295,6 @@ export default function App() {
       </header>
 
       <main className="product-main">
-        <section className="workspace-intro" aria-labelledby="workspace-title">
-          <div>
-            <span className="eyebrow">控制中心</span>
-            <h1 id="workspace-title">今天想使用哪個工具？</h1>
-            <p>從下方直接啟動工具；系統狀態、容量與第三方元件集中在右側快捷入口。</p>
-          </div>
-          <button
-            type="button"
-            className="button button--secondary"
-            disabled={toolboxSyncing}
-            onClick={() => void refreshToolboxTools()}
-          >
-            {toolboxSyncing ? '同步中…' : '同步工具狀態'}
-          </button>
-        </section>
         {!operational && (
           <aside className="connection-notice" role="status">
             <strong>{connected ? t.maintenanceIncomplete : t.offlineSafeMode}</strong>

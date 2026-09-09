@@ -215,10 +215,10 @@ class CollabSvcMessagingMixin:
         if pipeline == "google-gemini":
             if business_scope != "investment":
                 raise ValueError("Google-Gemini 管線只允許投資業務")
-            agents = self.repository.get_agents(["google-search", "gemini"])
+            agents = self.repository.get_agents(["gemini"])
             providers = {str(agent.get("provider") or ""): agent for agent in agents}
-            if "google-search" not in providers or "gemini" not in providers:
-                raise ValueError("Google-Gemini 管線需要 Google 搜尋與 Gemini")
+            if "gemini" not in providers:
+                raise ValueError("Google-Gemini 管線需要 Gemini")
         else:
             fixed_owner = self.FIXED_TASK_OWNERS[business_task]
             agents = self.repository.get_agents([fixed_owner])
@@ -246,7 +246,6 @@ class CollabSvcMessagingMixin:
             if pipeline == "google-gemini":
                 await self._run_google_gemini_pipeline(
                     message["message_id"],
-                    providers["google-search"],
                     providers["gemini"],
                     content,
                     business_scope,

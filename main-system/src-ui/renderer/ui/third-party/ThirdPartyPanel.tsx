@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useBackendSocket } from '@/hooks/useBackendSocket'
+import { mainSystemLocale } from '@/locales/main-system'
 import './third-party.css'
 
 interface ToolVersionInfo {
@@ -66,6 +67,8 @@ const STATUS_TONES: Record<string, string> = {
   error: 'danger',
 }
 
+const t = mainSystemLocale.toolbox
+
 export function ThirdPartyPanel() {
   const { sendCommand } = useBackendSocket()
   const [status, setStatus] = useState<ThirdPartyStatus | null>(null)
@@ -93,7 +96,7 @@ export function ThirdPartyPanel() {
         setLoadingState('success')
       } else {
         setLoadingState('error')
-        setErrorMsg(payload.status ? '狀態載入失敗' : '第三方管理服務未啟動')
+        setErrorMsg(payload.status ? '狀態載入失敗' : `第三方管理服務${t.statusStopped}`)
       }
     }
     window.addEventListener('ipc_event', handler)
@@ -200,7 +203,7 @@ export function ThirdPartyPanel() {
       })
       if (!result.ok && !result.queued) {
         setUpdatingTool(null)
-        setErrorMsg(result.message || '無法啟動更新')
+        setErrorMsg(result.message || `無法${t.start}更新`)
         return
       }
       const handler = (event: Event) => {
@@ -255,7 +258,7 @@ export function ThirdPartyPanel() {
             onClick={() => void refreshStatus()}
             disabled={loadingState === 'loading'}
           >
-            重新整理
+            {t.refresh}
           </button>
         </div>
       </header>

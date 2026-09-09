@@ -20,7 +20,6 @@ AI_TASK_PROVIDERS: Final[frozenset[str]] = frozenset(
         "grok",
         "deepseek",
         "perplexity",
-        "google-search",
     }
 )
 AI_TASK_SCOPES: Final[frozenset[str]] = frozenset({"general", "investment"})

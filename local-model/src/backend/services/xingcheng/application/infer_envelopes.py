@@ -36,7 +36,7 @@ class InferEnvelopesMixin:
                 "installed_models",
                 "residency",
             ],
-            "rules_file": "config/繁體中文自動模式規則.json",
+            "rules_file": "config/automatic-mode-policy.json",
             "task_intensity": scheduled_intensity,
             "task_intensity_source": str(
                 inference_payload.get("task_intensity_source")

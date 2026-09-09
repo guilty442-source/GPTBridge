@@ -184,6 +184,14 @@ export const useBackendSocket = () => {
         attempt: nextAttempt,
         delay,
       })
+      if (nextAttempt === 3) {
+        void requestBackendRestart('websocket-reconnect-exhausted').then((result) => {
+          BootLogger.log('WebSocket', 'BACKEND_RECOVERY_SYNC', {
+            requested: result.requested,
+            reason: result.reason,
+          })
+        })
+      }
     }
 
     const connect = async () => {
@@ -241,7 +249,7 @@ export const useBackendSocket = () => {
           runtime.runtime_state === 'ready' &&
           runtime.governance_ready === true &&
           runtime.startup_dead !== true
-if (ready) {
+        if (ready) {
           clearReadinessTimer()
           reconnectAttemptRef.current = 0
           resetBackendRecovery()

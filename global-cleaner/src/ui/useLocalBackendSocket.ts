@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+const RECONNECT_MAX_DELAY_MS = 8_000
+
 export type SendCommandResult = {
   ok: boolean
   queued: boolean
@@ -23,6 +25,7 @@ export function useLocalBackendSocket(requestIds?: Set<string>) {
   const [status, setStatus] = useState('Disconnected')
   const socketRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<number | null>(null)
+  const reconnectAttemptRef = useRef(0)
 
   const removeQueuedCommand = useCallback((_queueId: string): boolean => false, [])
 
@@ -99,10 +102,13 @@ export function useLocalBackendSocket(requestIds?: Set<string>) {
 
     const scheduleReconnect = () => {
       if (disposed || reconnectTimerRef.current !== null) return
+      const attempt = ++reconnectAttemptRef.current
+      const baseDelay = Math.min(RECONNECT_MAX_DELAY_MS, 500 * 2 ** (attempt - 1))
+      const delay = Math.round(baseDelay + Math.random() * baseDelay * 0.2)
       reconnectTimerRef.current = window.setTimeout(() => {
         reconnectTimerRef.current = null
         void connect()
-      }, 500)
+      }, delay)
     }
 
     const connect = async () => {
@@ -140,7 +146,8 @@ export function useLocalBackendSocket(requestIds?: Set<string>) {
       socketRef.current = socket
 
       socket.onopen = () => {
-        setStatus('Connected')
+          setStatus('Connected')
+          reconnectAttemptRef.current = 0
         clearReconnectTimer()
         window.dispatchEvent(
           new CustomEvent('socket_connected', { detail: { connected: true } })
@@ -197,6 +204,7 @@ export function useLocalBackendSocket(requestIds?: Set<string>) {
     const reconnectNow = () => {
       if (document.visibilityState === 'hidden') return
       clearReconnectTimer()
+      reconnectAttemptRef.current = 0
       void connect()
     }
     window.addEventListener('online', reconnectNow)

@@ -97,8 +97,8 @@ export function ToolboxEntry({
         <div className="tool-filters" role="group" aria-label="工具狀態">
           {([
             ['all', '全部'],
-            ['running', '執行中'],
-            ['available', '可啟動'],
+            ['running', t.statusRunning],
+            ['available', `可${t.start}`],
             ['issues', '需處理'],
           ] as const).map(([value, label]) => (
             <button

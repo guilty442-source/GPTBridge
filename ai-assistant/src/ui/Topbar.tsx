@@ -26,7 +26,7 @@ export function Topbar(props: TopbarProps) {
         <h1>AI投資管家</h1>
         <div className="nexus-top-meta">
           <span>{liveUpdateLabel}</span>
-          <span>獨立投資對話 · 模型全自動（Gemma＋GPT 主力）</span>
+          <span>獨立投資對話 · 本機主模型＋備援模型</span>
           <span>{holdingValueLabel}</span>
           <span>
             週配息 NT$ {formatInvestmentNumber(estimatedWeeklyDividendTwd, 2)}

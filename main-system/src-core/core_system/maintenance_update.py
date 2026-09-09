@@ -110,18 +110,13 @@ class MaintenanceUpdateMixin:
             },
         )
 
-        # Re-run the stability/version maintenance check (read-only) so any
-        # source drift introduced by the reload is reported immediately.
-        auto_repair: dict[str, Any] = {"ok": True, "skipped": True}
-        maintenance = getattr(self.app, "main_system_self_maintenance", None)
-        if maintenance is not None and hasattr(maintenance, "run_once"):
-            try:
-                auto_repair = await maintenance.run_once()
-            except Exception as error:
-                auto_repair = {
-                    "ok": False,
-                    "error": f"{type(error).__name__}: {error}",
-                }
+        # A successful reload is an accepted runtime revision.  Automatic
+        # repair must not run from this path or replace that accepted source.
+        auto_repair: dict[str, Any] = {
+            "ok": True,
+            "skipped": True,
+            "reason": "hot-reload-revision-protected",
+        }
 
         return {
             "ok": report.ok,

@@ -177,11 +177,24 @@ function waitForIpcEvent<T = Record<string, unknown>>(
       const customEvent = event as CustomEvent
       const detail = customEvent.detail || {}
       const payload = (detail.payload || {}) as Record<string, unknown>
-      if (detail.event !== eventName) return
-      if (requestId && String(payload.request_id || '') !== requestId) return
-      window.clearTimeout(timer)
-      window.removeEventListener('ipc_event', handler)
-      resolve(payload as T)
+      // Handle the expected result event.
+      if (detail.event === eventName) {
+        if (requestId && String(payload.request_id || '') !== requestId) return
+        window.clearTimeout(timer)
+        window.removeEventListener('ipc_event', handler)
+        resolve(payload as T)
+        return
+      }
+      // Defensive: if the backend sends a generic "error" event that
+      // carries a matching request_id, reject immediately instead of
+      // waiting for the full timeout.
+      if (detail.event === 'error' && requestId) {
+        if (String(payload.request_id || '') === requestId) {
+          window.clearTimeout(timer)
+          window.removeEventListener('ipc_event', handler)
+          reject(new Error(String(payload.message || 'PERMISSION_DENIED')))
+        }
+      }
     }
     timer = window.setTimeout(() => {
       window.removeEventListener('ipc_event', handler)
@@ -192,7 +205,7 @@ function waitForIpcEvent<T = Record<string, unknown>>(
 }
 
 export function AiCollaborationWindowApp() {
-  const { sendCommand, status: socketStatus } = useLocalBackendSocket()
+  const { sendCommand, status: socketStatus, waitUntilConnected } = useLocalBackendSocket()
   const browser = useEmbeddedBrowser()
   const rightPanelRef = useRef<HTMLDivElement>(null)
   const [urlInput, setUrlInput] = useState('')
@@ -200,7 +213,7 @@ export function AiCollaborationWindowApp() {
   const [messages, setMessages] = useState<GroupMessage[]>([])
   const [memoryItems, setMemoryItems] = useState<MemoryItem[]>([])
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set())
-  const [agentListCollapsed, setAgentListCollapsed] = useState(true)
+  const [agentListCollapsed, setAgentListCollapsed] = useState(false)
   const [draft, setDraft] = useState('')
   const [memoryDraft, setMemoryDraft] = useState('')
   const [message, setMessage] = useState('AI協作工具已就緒')
@@ -231,6 +244,16 @@ export function AiCollaborationWindowApp() {
       timeoutMs = 30000
     ) => {
       const requestId = `${command}:${Date.now()}:${Math.random().toString(16).slice(2)}`
+      // Wait for the backend socket to finish connecting before sending.
+      // This prevents the "後端連線尚未就緒" failure during the initial
+      // loadState() call that fires before the WebSocket has opened.
+      try {
+        await waitUntilConnected(Math.min(timeoutMs, 15_000))
+      } catch (error) {
+        throw new Error(
+          error instanceof Error ? error.message : '後端連線尚未就緒，指令未送出，請稍後再試。'
+        )
+      }
       const waitPromise = waitForIpcEvent<Record<string, unknown>>(
         `${command}_result`,
         timeoutMs,
@@ -238,7 +261,10 @@ export function AiCollaborationWindowApp() {
       )
       const sent = sendCommand(command, { ...payload, request_id: requestId })
       if (!sent.ok && !sent.queued) {
-        throw new Error(sent.message || '送出指令失敗')
+        const failure = (await waitPromise) as Record<string, unknown>
+        throw new Error(
+          String(failure.message || sent.message || '送出指令失敗')
+        )
       }
       const response = await waitPromise
       const maybeMemoryItems = (response as CollaborationState).memory_items
@@ -247,7 +273,7 @@ export function AiCollaborationWindowApp() {
       }
       return response
     },
-    [sendCommand]
+    [sendCommand, waitUntilConnected]
   )
 
   const applyState = useCallback((state: CollaborationState) => {
@@ -279,7 +305,11 @@ export function AiCollaborationWindowApp() {
         const result = (await request('ai_nexus_get_state', {}, 15000)) as CollaborationState
         if (result.ok === false) throw new Error(String(result.message || '載入失敗'))
         applyState(result)
-        if (!silent) setMessage('AI協作工具已載入')
+        setMessage((prev) => {
+          if (!silent) return 'AI協作工具已載入'
+          if (/失敗|尚未就緒|逾時|正在載入/.test(prev)) return 'AI協作工具已載入'
+          return prev
+        })
       } catch (error) {
         if (!silent) {
           setMessage(error instanceof Error ? error.message : '載入 AI協作工具失敗')
@@ -294,7 +324,14 @@ export function AiCollaborationWindowApp() {
     const timer = window.setInterval(() => {
       void loadState(true)
     }, 5000)
-    return () => window.clearInterval(timer)
+    const resynchronize = (event: Event) => {
+      if ((event as CustomEvent).detail?.connected === true) void loadState(true)
+    }
+    window.addEventListener('socket_connected', resynchronize)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('socket_connected', resynchronize)
+    }
   }, [loadState])
 
   const handleNavigate = useCallback(
@@ -658,8 +695,11 @@ export function AiCollaborationWindowApp() {
             <p className="ai-collab-muted">{selectedAgentNames || '尚未選擇 AI'}</p>
           ) : (
             <div className="ai-collab-agent-list">
-              {agents.map((agent) => (
-                <article key={agent.agent_id} className="ai-collab-agent">
+              {agents.length === 0 ? (
+                <p className="ai-collab-muted">AI 名單載入中，請確認後端連線...</p>
+              ) : (
+                agents.map((agent) => (
+                  <article key={agent.agent_id} className="ai-collab-agent">
                   <label>
                     <input
                       type="checkbox"
@@ -698,17 +738,15 @@ export function AiCollaborationWindowApp() {
                   >
                     {busyAction === `open:${agent.agent_id}` ? '開啟中...' : '開啟'}
                   </button>
-                  {agent.provider !== 'google-search' ? (
-                    <button
-                      type="button"
-                      onClick={() => void authorizeAgent(agent.agent_id)}
-                      disabled={Boolean(busyAction)}
-                    >
-                      {busyAction === `authorize:${agent.agent_id}`
-                        ? '開啟中...'
-                        : '瀏覽器登入'}
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void authorizeAgent(agent.agent_id)}
+                    disabled={Boolean(busyAction)}
+                  >
+                    {busyAction === `authorize:${agent.agent_id}`
+                      ? '開啟中...'
+                      : '瀏覽器登入'}
+                  </button>
                   <small>共用同一個內建瀏覽器，自動送出並擷取回覆；不使用 CLI 或 API</small>
                   <div className="ai-collab-agent-business">
                     <label>
@@ -748,7 +786,7 @@ export function AiCollaborationWindowApp() {
                   </div>
                   {agent.last_error ? <p>{agent.last_error}</p> : null}
                 </article>
-              ))}
+              )))}
             </div>
           )}
         </aside>

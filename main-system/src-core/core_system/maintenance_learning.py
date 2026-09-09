@@ -40,6 +40,13 @@ class MaintenanceLearningMixin:
         """
         if self._learning_store is not None:
             return
+        learning_sovereign = getattr(self.app, "learning_system_sovereign", None)
+        sovereign_learner = getattr(learning_sovereign, "_learner", None)
+        sovereign_store = getattr(learning_sovereign, "_store", None)
+        if sovereign_learner is not None and sovereign_store is not None:
+            self._learning_store = sovereign_store
+            self._learner = sovereign_learner
+            return
         try:
             project_root = Path(getattr(self.app, "project_root", ".") or ".")
             repair_data = project_root / "main-system" / "data" / "automatic-repair"

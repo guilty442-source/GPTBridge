@@ -29,22 +29,20 @@
     "runtime_entry": "src/channel_runtime.py",
     "direct_instruction": "PERMISSION_DENIED"
   },
+  "distribution": {
+    "mode": "special-unpackaged",
+    "package": false
+  },
   "launch": {
-    "mode": "dual-runtime",
-    "selection": "automatic",
+    "mode": "governed-source",
+    "selection": "source-only",
     "runtimes": [
-      "governed-source-channel",
-      "executable"
+      "governed-source-channel"
     ],
     "background": "governed-source-channel",
     "close_program_on_window_exit": true
   },
   "capabilities": {},
-  "executable": {
-    "path": "dist/vaultly.exe",
-    "name": "vaultly",
-    "console": true
-  },
   "environment": {
     "allow": []
   },

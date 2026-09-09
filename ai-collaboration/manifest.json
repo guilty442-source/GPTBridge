@@ -28,12 +28,15 @@
     "runtime_entry": "src/channel_runtime.py",
     "direct_instruction": "PERMISSION_DENIED"
   },
+  "distribution": {
+    "mode": "special-unpackaged",
+    "package": false
+  },
   "launch": {
-    "mode": "dual-runtime",
-    "selection": "automatic",
+    "mode": "governed-source",
+    "selection": "source-only",
     "runtimes": [
-      "governed-source-ui",
-      "executable"
+      "governed-source-ui"
     ],
     "background": "governed-source-channel",
     "close_program_on_window_exit": true
@@ -83,9 +86,9 @@
         "trends": "grok",
         "breaking_news": "grok"
       },
-      "search_provider": "gemini-browser-google-search",
+      "search_provider": "gemini-browser",
       "search_processor": "gemini",
-      "search_pipeline": "gemini-google-search",
+      "search_pipeline": "gemini-search",
       "search_result_role": "discovery-only",
       "capability_fallback": {
         "policy": "browser-only-no-cross-provider-fallback",
@@ -117,11 +120,6 @@
   },
   "environment": {
     "allow": []
-  },
-  "executable": {
-    "path": "dist/ai-collaboration.exe",
-    "name": "ai-collaboration",
-    "console": true
   },
   "has_custom_ui": true,
   "test_targets": [

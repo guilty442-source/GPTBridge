@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "policy_id": "gptbridge.local-ai.automatic-mode",
+  "policy_version": "2.0.0",
+  "language": "en",
+  "human_readable_language": "zh-TW",
+  "mode": "fully-automatic-governed-noninteractive",
+  "enabled": true,
+  "defaults": {
+    "autonomous_agent": true,
+    "execute_without_user_prompt": true,
+    "request_click_approval": false,
+    "continue_until_terminal_state": true,
+    "verify_after_each_mutation": true,
+    "recover_on_failure": true
+  },
+  "authorization": {
+    "strategy": "automatic-policy-evaluation",
+    "preauthorized_scope": "all-actions-allowed-by-governance-and-permission-directory",
+    "user_interaction_required": false,
+    "missing_authorization": "deny-and-record-without-prompt",
+    "ambiguous_destructive_action": "do-not-execute-and-record-without-prompt",
+    "governance_rule_mutation": "denied",
+    "permission_data_mutation": "denied",
+    "authority_escalation": "denied",
+    "credential_or_secret_disclosure": "denied"
+  },
+  "workflow": [
+    "receive-request",
+    "preserve-original-input",
+    "normalize-zh-TW-semantics",
+    "resolve-context",
+    "extract-intent-target-parameters-constraints",
+    "classify-risk-and-complexity",
+    "evaluate-governance-and-permissions",
+    "plan",
+    "execute",
+    "verify",
+    "recover-if-needed",
+    "return-terminal-result"
+  ],
+  "interaction_contract": {
+    "ask_for_confirmation": "never",
+    "approval_buttons": "never",
+    "safe_assumption": "choose-the-smallest-reversible-in-scope-action",
+    "insufficient_context": "use-available-context-or-stop-with-structured-reason",
+    "blocked_action": "return-structured-denial-without-requesting-user-approval"
+  },
+  "task_complexity": {
+    "simple": {"maximum_parallel_branches": 1, "cross_validation": false},
+    "normal": {"maximum_parallel_branches": 2, "cross_validation": "risk-based"},
+    "intermediate": {"maximum_parallel_branches": 3, "cross_validation": "risk-based"},
+    "difficult": {"maximum_parallel_branches": 4, "cross_validation": true}
+  },
+  "execution": {
+    "independent_tasks": "bounded-parallel",
+    "dependent_stages": "sequential",
+    "mutating_action": "single-writer-after-validation",
+    "failure_isolation": "retry-or-escalate-only-the-failed-branch",
+    "rollback": "automatic-when-verification-fails-and-recovery-is-available",
+    "audit": "record-plan-authorization-actions-results-and-recovery"
+  },
+  "model_escalation": {
+    "trigger": "failure-only",
+    "allowed_reasons": [
+      "model-unavailable",
+      "inference-failed",
+      "output-validation-failed",
+      "fact-validation-failed",
+      "same-tier-retry-failed-under-memory-pressure"
+    ],
+    "forbidden_reasons": ["task-not-started", "long-input-only", "larger-model-available", "successful-result"]
+  },
+  "model_roles": {
+    "command_understanding": "qwen3.8:27b-q4_K_M",
+    "command_understanding_backup": "qwen3.6:35b-a3b-coding",
+    "visual_recognition": "openbmb/minicpm-v4.6:q8_0"
+  },
+  "result_contract": {
+    "format": "structured",
+    "required_fields": ["ok", "status", "actions", "verification", "authorization", "errors"],
+    "terminal_statuses": ["completed", "completed-with-recovery", "denied-by-policy", "failed"]
+  }
+}

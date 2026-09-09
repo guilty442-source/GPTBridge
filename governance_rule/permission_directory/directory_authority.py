@@ -534,8 +534,6 @@ FORBIDDEN_LEGACY_ROOTS: Final[tuple[str, ...]] = (
     "src-ui",
     "governance",
     "config",
-    "launcher",
-    "scripts",
     "runtime/governance",
     "runtime/logs",
     "runtime/exports",

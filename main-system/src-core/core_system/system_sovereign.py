@@ -41,12 +41,14 @@ from .data_sub_sovereign import DataSubSovereign
 from .governance_rule_coordination import GovernanceRuleCoordination
 from .integration_sub_sovereign import IntegrationSubSovereign
 from .language_review_sub_sovereign import LanguageReviewSubSovereign
+from .learning_system_sovereign import LearningSystemSovereign
 from .main_system_self_maintenance import MainSystemSelfMaintenance
 from .permission_sovereign import PermissionSovereign
 from .resource_sub_sovereign import ResourceSubSovereign
 from .runtime_sub_sovereign import RuntimeSubSovereign
 from .sovereign_utils import _iso_now
 from .third_party_sub_sovereign import ThirdPartySubSovereign
+from .system_programming_sovereign import SystemProgrammingSovereign
 
 
 
@@ -93,6 +95,8 @@ class SystemSovereignService:
         self.integration_sovereign = IntegrationSubSovereign(app)
         self.language_review_sovereign = LanguageReviewSubSovereign(app)
         self.third_party_sovereign = ThirdPartySubSovereign(app)
+        self.learning_system_sovereign = LearningSystemSovereign(app)
+        self.system_programming_sovereign = SystemProgrammingSovereign(app)
         self.governance_rule_coordination = GovernanceRuleCoordination(app)
 
     # ------------------------------------------------------------------
@@ -119,6 +123,14 @@ class SystemSovereignService:
         """
 
         app = self.app
+
+        # Learning and programming are peer decision sovereigns. They start
+        # before maintenance so every subsequent failure and repair can be
+        # learned, and every code change has one governed dispatch owner.
+        app.learning_system_sovereign = self.learning_system_sovereign
+        app.system_programming_sovereign = self.system_programming_sovereign
+        await self.learning_system_sovereign.start()
+        await self.system_programming_sovereign.start()
 
         # 1. Maintenance Sovereign — periodic maintenance, health, repair
         app._mark_startup_phase("maintenance_sovereign_starting")
@@ -367,6 +379,8 @@ class SystemSovereignService:
                 await sovereign.stop()
             except Exception:
                 pass
+        await self.system_programming_sovereign.stop()
+        await self.learning_system_sovereign.stop()
         self._save_state({"stopped_at": _iso_now()})
 
     # ------------------------------------------------------------------
@@ -393,7 +407,10 @@ class SystemSovereignService:
                 self.language_review_sovereign.live_status(),
                 self.third_party_sovereign.live_status(),
             ],
-            "peer_systems": {},
+            "peer_systems": {
+                "learning": self.learning_system_sovereign.status(),
+                "programming": self.system_programming_sovereign.status(),
+            },
             "health_owner": "maintenance-sovereign",
             "governance_rules": self.governance_rule_coordination.coordination_status(),
             "runtime": self.runtime_sovereign.live_status(),
@@ -439,7 +456,10 @@ class SystemSovereignService:
                 self.language_review_sovereign.orchestration_status(),
                 self.third_party_sovereign.orchestration_status(),
             ],
-            "peer_systems": {},
+            "peer_systems": {
+                "learning": self.learning_system_sovereign.status(),
+                "programming": self.system_programming_sovereign.status(),
+            },
             "health_owner": "maintenance-sovereign",
             "governance_rules": self.governance_rule_coordination.orchestration_status(),
             "runtime": self.runtime_sovereign.orchestration_status(),

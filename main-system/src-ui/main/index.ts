@@ -220,6 +220,19 @@ async function createWindow(): Promise<void> {
   // instead of launching external Chrome/Edge (A44/E30 + A49/E35).
   registerEmbeddedBrowser(mainWindow)
 
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
+    const key = input.key.toLowerCase()
+    const reloadShortcut = key === 'f5' || ((input.control || input.meta) && key === 'r')
+    if (!reloadShortcut) return
+    event.preventDefault()
+    if (input.shift) {
+      mainWindow?.webContents.reloadIgnoringCache()
+    } else {
+      mainWindow?.webContents.reload()
+    }
+  })
+
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show()
     mainWindow?.focus()
@@ -513,18 +526,21 @@ function registerIpcHandlers(): void {
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 
 if (!hasSingleInstanceLock) {
-  app.quit()
+  // Another instance already holds the lock. Exit immediately without
+  // waiting for the ready event — app.quit() may not fire before-quit
+  // handlers when the app hasn't finished initializing yet.
+  reportRuntimeEvent('main.single-instance.exiting')
+  app.exit(0)
 } else {
   app.on('second-instance', () => {
     if (!mainWindow || mainWindow.isDestroyed()) {
       void createWindow()
       return
     }
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.reloadIgnoringCache()
-    }
+    // Focus the existing window instead of reloading it, so the user's
+    // current state is preserved.
     if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.show()
+    if (!mainWindow.isVisible()) mainWindow.show()
     mainWindow.focus()
   })
 
@@ -580,6 +596,17 @@ if (!hasSingleInstanceLock) {
       // Do not rethrow: the startup entry's only hard requirement is to show
       // the page; any remaining errors are reported and tolerated.
     }
+  })
+}
+
+// In-place relaunch: the dev watcher sends SIGUSR2 after a main rebuild.
+// app.relaunch() reuses the same process tree + env, then app.exit() lets
+// the watcher spawn the fresh bundle without a visible "close + reopen".
+if (process.env.GPTBRIDGE_RENDERER_DEV_URL) {
+  process.on('SIGUSR2', () => {
+    reportRuntimeEvent('main.relaunch.requested')
+    app.relaunch()
+    app.exit(0)
   })
 }
 

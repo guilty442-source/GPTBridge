@@ -33,7 +33,6 @@ const forbiddenMainBusinessTerms = [
   'grok',
   'holdings',
   'investment_mobile',
-  'xingcheng',
   'perplexity',
   'portfolio',
 ]

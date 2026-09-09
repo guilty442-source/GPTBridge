@@ -65,7 +65,6 @@ class CollabSvcCoordinationMixin:
     async def _run_google_gemini_pipeline(
         self,
         message_id: str,
-        google_agent: dict[str, Any],
         gemini_agent: dict[str, Any],
         query: str,
         business_scope: str,
@@ -73,23 +72,6 @@ class CollabSvcCoordinationMixin:
         memory_context: Any,
         memory_writeback: bool,
     ) -> None:
-        self.repository.update_response(
-            message_id,
-            str(google_agent["agent_id"]),
-            "delegated",
-            "",
-            "",
-            execution_provider="gemini",
-            transport="browser-automated-capability-delegation",
-            fallback={
-                "used": True,
-                "requested_provider": "google-search",
-                "effective_provider": "gemini",
-            },
-        )
-        self.repository.update_agent_status(
-            str(google_agent["agent_id"]), "delegated"
-        )
         gemini_prompt = (
             "你是星澄投資研究管線中的搜尋與資料整理者。請使用 Gemini 支援的 Google "
             "搜尋能力，逐項整理配息、股價、淨值線索、來源 URL、資料日期與可信度。搜尋摘要不是"

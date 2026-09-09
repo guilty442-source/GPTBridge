@@ -298,6 +298,26 @@ function setupHotHooks(): void {
   })
 }
 
+function setupBackendHotReloadHook(): void {
+  window.addEventListener('ipc_event', (event) => {
+    const detail = (event as CustomEvent<{
+      event?: string
+      payload?: { ok?: boolean }
+    }>).detail
+    if (
+      detail?.event !== 'maintenance:hot-reload-completed' ||
+      detail.payload?.ok !== true
+    ) {
+      return
+    }
+
+    markHmrHealthy('Backend hot-reload applied; refreshing renderer')
+    window.setTimeout(() => {
+      window.location.reload()
+    }, 100)
+  })
+}
+
 function setupWatchdog(): void {
   if (watchdogTimer) clearInterval(watchdogTimer)
   watchdogTimer = setInterval(() => {
@@ -317,6 +337,7 @@ export const hmrService = {
     initialized = true
 
     setupHotHooks()
+    setupBackendHotReloadHook()
     setupWindowErrorHooks()
     setupWatchdog()
 
