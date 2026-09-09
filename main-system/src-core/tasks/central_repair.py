@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 import json
-import shutil
-import sqlite3
 import uuid
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Final
+from typing import Any
 
 from .repair_learning import (
     ErrorSignature,
@@ -16,281 +12,20 @@ from .repair_learning import (
     RepairOutcome,
     _normalize_error_signature,
 )
-
-CENTRAL_REPAIR_VERSION: Final[str] = "1.2.0"
-
-SOURCE_SELF_REPAIR_FAILURES: Final[frozenset[str]] = frozenset(
-    {
-        "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED",
-        "BACKEND_CONNECTION_FAILED",
-        "FRONTEND_BACKEND_DISCONNECTED",
-        "PROCESS_START_FAILED",
-    }
+from .repair_planning import (
+    CENTRAL_REPAIR_VERSION,
+    REPAIR_RECIPES,
+    SOURCE_SELF_REPAIR_FAILURES,
+    RepairPlan,
+    plan_repair,
 )
-
-PACKAGE_REBUILD_FAILURES: Final[frozenset[str]] = frozenset(
-    {
-        "EXECUTABLE_MISSING",
-        "PACKAGE_UNVERIFIED",
-        "STALE_TOOL_PACKAGE",
-        "INCOMPATIBLE_TOOL_RUNTIME",
-        "PROCESS_START_FAILED",
-        "SOURCE_UI_UNAVAILABLE",
-        "SOURCE_RUNTIME_NOT_READY",
-        "TOOL_VERSION_MISMATCH",
-        "BACKEND_CONNECTION_FAILED",
-        "FRONTEND_BACKEND_DISCONNECTED",
-        "MODEL_RUNTIME_NOT_READY",
-        "COMMAND_EXECUTION_FAILED",
-        "STREAM_CHANNEL_FAILED",
-    }
+from .repair_inspection import (
+    DatabaseRecoveryInspector,
+    RepairRunStore,
+    _inside,
+    _iso_now,
+    database_integrity,
 )
-
-
-@dataclass(frozen=True)
-class RepairPlan:
-    failure_code: str
-    inspect_databases: bool
-    rebuild_executable: bool
-    repair_main_system_source: bool = False
-
-    @property
-    def actions(self) -> tuple[str, ...]:
-        actions = ("inspect-owned-databases",) if self.inspect_databases else ()
-        if self.rebuild_executable:
-            actions = (*actions, "rebuild-tool-executable")
-        if self.repair_main_system_source:
-            actions = (*actions, "repair-main-system-source")
-        return actions
-
-    def as_dict(self) -> dict[str, object]:
-        return {**asdict(self), "actions": list(self.actions)}
-
-
-def plan_repair(failure_code: str) -> RepairPlan:
-    normalized = str(failure_code or "TOOL_START_FAILED").strip().upper()[:128]
-    return RepairPlan(
-        failure_code=normalized or "TOOL_START_FAILED",
-        inspect_databases=True,
-        rebuild_executable=normalized in PACKAGE_REBUILD_FAILURES,
-        repair_main_system_source=normalized in SOURCE_SELF_REPAIR_FAILURES,
-    )
-
-
-REPAIR_RECIPES: Final[tuple[dict[str, Any], ...]] = (
-    {
-        "recipe_id": "main-system-python-source-syntax",
-        "name": "Backend Python source indentation/syntax self-repair",
-        "failure_signatures": (
-            "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED",
-            "IndentationError",
-            "TabError",
-            "SyntaxError",
-        ),
-        "owner": "main-system",
-        "remedy": (
-            "compile self-check over all backend src roots then deterministic "
-            "column-0 indentation recovery via tasks.source_repair "
-            "(skips files with uncommitted git changes)"
-        ),
-        "verification": (
-            "full source compile passes across all backend src roots; "
-            "repair recorded in automatic-repair store; files with "
-            "uncommitted git changes are skipped"
-        ),
-        "automatic": True,
-        "runtime_only": False,
-    },
-    {
-        "recipe_id": "tool-package-rebuild",
-        "name": "Tool package rebuild on startup/runtime failure",
-        "failure_signatures": tuple(sorted(PACKAGE_REBUILD_FAILURES)),
-        "owner": "main-system",
-        "remedy": "plan_repair rebuild-tool-executable via governed package rebuilder",
-        "verification": "owned databases inspected; rebuilt executable starts",
-        "automatic": True,
-        "runtime_only": True,
-    },
-    {
-        "recipe_id": "backend-exit-before-health",
-        "name": "Backend exits before health ready",
-        "failure_signatures": ("backend exited before health ready",),
-        "owner": "main-system",
-        "remedy": "governance-authorized re-spawn with bounded startup/autonomous recovery in launcher",
-        "verification": "health probe returns ready with matching workspace instance id",
-        "automatic": True,
-        "runtime_only": True,
-    },
-    {
-        "recipe_id": "frontend-backend-disconnected",
-        "name": "Frontend-backend WebSocket disconnection repair",
-        "failure_signatures": ("FRONTEND_BACKEND_DISCONNECTED",),
-        "owner": "main-system",
-        "remedy": (
-            "connection watchdog detects persistent disconnection; "
-            "frontend auto-reconnects (3 attempts) then triggers "
-            "app:restart-backend via Electron IPC; boot_core restarts "
-            "backend; learning store records the outage pattern"
-        ),
-        "verification": (
-            "backend /health returns 200 and frontend WebSocket "
-            "reconnects within probe interval"
-        ),
-        "automatic": True,
-        "runtime_only": True,
-    },
-    {
-        "recipe_id": "governance-codex-tamper",
-        "name": "Governance codex file tamper detection",
-        "failure_signatures": ("PermissionError", "AuthorityIntegrityGuard.verify"),
-        "owner": "governance-rule",
-        "remedy": (
-            "fail-closed denial; restore codex files from trusted backup and "
-            "re-verify manifest"
-        ),
-        "verification": "governance:audit and runtime integrity report healthy",
-        "automatic": False,
-        "runtime_only": False,
-    },
-)
-
-
-def _inside(candidate: Path, root: Path) -> bool:
-    try:
-        candidate.resolve(strict=False).relative_to(root.resolve())
-        return True
-    except (OSError, RuntimeError, ValueError):
-        return False
-
-
-def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def database_integrity(path: Path, owner: str | None = None) -> str:
-    raw = path.read_bytes()
-    if raw[:1] == b"{" and owner is not None:
-        raise sqlite3.DatabaseError("protected database verification belongs to the owner tool")
-    if raw[:16] != b"SQLite format 3\x00":
-        raise sqlite3.DatabaseError("not a valid SQLite file")
-    connection = sqlite3.connect(
-        f"file:{path.as_posix()}?mode=ro", uri=True, timeout=3
-    )
-    try:
-        result = connection.execute("PRAGMA integrity_check").fetchone()
-    finally:
-        connection.close()
-    if not result or str(result[0]).casefold() != "ok":
-        raise sqlite3.DatabaseError(str(result))
-    return "ok"
-
-
-class DatabaseRecoveryInspector:
-    def __init__(self, project_root: Path, target_root: Path) -> None:
-        self.project_root = project_root.resolve()
-        self.target_root = target_root.resolve()
-
-    @staticmethod
-    def sqlite_candidates(target_root: Path) -> list[Path]:
-        candidates: set[Path] = set()
-        for relative_root in (Path("runtime") / "state", Path("data") / "business"):
-            root = target_root / relative_root
-            if not root.is_dir():
-                continue
-            for pattern in ("*.sqlite", "*.sqlite3", "*.db"):
-                candidates.update(
-                    path for path in root.rglob(pattern) if path.is_file()
-                )
-        for name in ("system-channel.sqlite3", "ai-channel.sqlite3"):
-            shared_database = target_root / "data" / name
-            if shared_database.is_file():
-                candidates.add(shared_database)
-        return sorted(candidates)
-
-    def inspect(self) -> dict[str, Any]:
-        recovery_root = self.target_root / "runtime" / "recovery" / "database"
-        recovery_root.mkdir(parents=True, exist_ok=True)
-        if not _inside(recovery_root, self.target_root):
-            raise PermissionError("PERMISSION_DENIED")
-
-        checked: list[str] = []
-        preserved: list[str] = []
-        extraction_paths: list[str] = []
-        errors: list[str] = []
-        for database in self.sqlite_candidates(self.target_root):
-            if not _inside(database, self.target_root):
-                continue
-            relative_project = database.relative_to(self.project_root).as_posix()
-            try:
-                database_integrity(database)
-                checked.append(relative_project)
-            except (OSError, sqlite3.DatabaseError) as error:
-                stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-                destination = recovery_root / f"{database.name}.{stamp}.corrupt"
-                try:
-                    shutil.copy2(database, destination)
-                    preserved.append(
-                        destination.relative_to(self.target_root).as_posix()
-                    )
-                except OSError as preserve_error:
-                    errors.append(
-                        f"{relative_project}: preserve failed "
-                        f"({type(preserve_error).__name__})"
-                    )
-                extraction_paths.append(relative_project)
-                errors.append(f"{relative_project}: {type(error).__name__}")
-        return {
-            "checked_databases": checked,
-            "preserved_databases": preserved,
-            "backup_extract_paths": extraction_paths,
-            "backup_extract_required": bool(extraction_paths),
-            "database_errors": errors,
-        }
-
-
-class RepairRunStore:
-    def __init__(self, database_root: Path) -> None:
-        self.database_root = database_root.resolve()
-
-    def _connect(self, target_id: str) -> tuple[sqlite3.Connection, Path]:
-        owner_root = self.database_root / target_id
-        owner_root.mkdir(parents=True, exist_ok=True)
-        path = owner_root / "automatic-repair.sqlite3"
-        connection = sqlite3.connect(path, timeout=10)
-        connection.execute("PRAGMA journal_mode=WAL")
-        connection.execute("PRAGMA synchronous=NORMAL")
-        connection.execute(
-            "CREATE TABLE IF NOT EXISTS repair_runs ("
-            "run_id TEXT PRIMARY KEY, target_tool_id TEXT NOT NULL, "
-            "started_at TEXT NOT NULL, completed_at TEXT NOT NULL, "
-            "failure_code TEXT NOT NULL, ok INTEGER NOT NULL, "
-            "detail_json TEXT NOT NULL)"
-        )
-        return connection, path
-
-    def record(self, target_id: str, result: dict[str, Any]) -> Path:
-        connection, path = self._connect(target_id)
-        try:
-            connection.execute(
-                "INSERT INTO repair_runs "
-                "(run_id, target_tool_id, started_at, completed_at, "
-                "failure_code, ok, detail_json) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    result["run_id"],
-                    target_id,
-                    result["started_at"],
-                    result["completed_at"],
-                    result["failure_code"],
-                    int(bool(result["ok"])),
-                    json.dumps(result, ensure_ascii=False),
-                ),
-            )
-            connection.commit()
-        finally:
-            connection.close()
-        return path
-
 
 class CentralRepairService:
     """Central automatic-repair service, integrated into main-system.
