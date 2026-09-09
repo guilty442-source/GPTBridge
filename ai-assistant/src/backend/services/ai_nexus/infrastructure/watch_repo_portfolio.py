@@ -138,18 +138,18 @@ class WatchRepoPortfolioMixin:
             if isinstance(excel_import_profile, dict)
             else None
         )
-        state["xingcheng_product_status"] = None
-        state["xingcheng_summary"] = None
-        state["xingcheng_risk_warnings"] = []
-        state["xingcheng_command_result"] = None
-        state["xingcheng_action_plan"] = []
-        state["xingcheng_watch_triggers"] = []
-        state["xingcheng_confidence"] = None
-        state["xingcheng_decision_brief"] = ""
-        state["xingcheng_network_context"] = None
-        state["xingcheng_analysis_cache"] = None
-        state["xingcheng_external_discussion"] = None
-        state["xingcheng_explanation"] = None
+        state["ollama_product_status"] = None
+        state["ollama_summary"] = None
+        state["ollama_risk_warnings"] = []
+        state["ollama_command_result"] = None
+        state["ollama_action_plan"] = []
+        state["ollama_watch_triggers"] = []
+        state["ollama_confidence"] = None
+        state["ollama_decision_brief"] = ""
+        state["ollama_network_context"] = None
+        state["ollama_analysis_cache"] = None
+        state["ollama_external_discussion"] = None
+        state["ollama_explanation"] = None
         state["dividend_sync"] = None
         state["market_quote_sync"] = None
         state["portfolio_memory"] = self._portfolio_memory(normalized_holdings)
@@ -197,18 +197,18 @@ class WatchRepoPortfolioMixin:
             "last_manual_change": dict(change),
         }
         state["holdings"] = normalized_holdings
-        state["xingcheng_product_status"] = None
-        state["xingcheng_summary"] = None
-        state["xingcheng_risk_warnings"] = []
-        state["xingcheng_command_result"] = None
-        state["xingcheng_action_plan"] = []
-        state["xingcheng_watch_triggers"] = []
-        state["xingcheng_confidence"] = None
-        state["xingcheng_decision_brief"] = ""
-        state["xingcheng_network_context"] = None
-        state["xingcheng_analysis_cache"] = None
-        state["xingcheng_external_discussion"] = None
-        state["xingcheng_explanation"] = None
+        state["ollama_product_status"] = None
+        state["ollama_summary"] = None
+        state["ollama_risk_warnings"] = []
+        state["ollama_command_result"] = None
+        state["ollama_action_plan"] = []
+        state["ollama_watch_triggers"] = []
+        state["ollama_confidence"] = None
+        state["ollama_decision_brief"] = ""
+        state["ollama_network_context"] = None
+        state["ollama_analysis_cache"] = None
+        state["ollama_external_discussion"] = None
+        state["ollama_explanation"] = None
         state["portfolio_memory"] = self._portfolio_memory(normalized_holdings)
         return self.save_state(state)
 

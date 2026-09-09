@@ -17,7 +17,7 @@ class WatchRepoSharedMixin:
             "Portfolio memory:",
             str(state.get("portfolio_memory") or "尚未匯入持股。"),
         ]
-        product_status = state.get("xingcheng_product_status")
+        product_status = state.get("ollama_product_status")
         if isinstance(product_status, dict):
             network_context = (
                 product_status.get("network_context")
@@ -39,7 +39,7 @@ class WatchRepoSharedMixin:
                     str(product_status.get("recommendation") or ""),
                 ]
             )
-        network_context = state.get("xingcheng_network_context")
+        network_context = state.get("ollama_network_context")
         if isinstance(network_context, dict):
             lines.extend(
                 [
@@ -53,10 +53,10 @@ class WatchRepoSharedMixin:
                     ),
                 ]
             )
-        decision_brief = str(state.get("xingcheng_decision_brief") or "").strip()
+        decision_brief = str(state.get("ollama_decision_brief") or "").strip()
         if decision_brief:
             lines.extend(["", "Local AI decision brief:", decision_brief])
-        action_plan = state.get("xingcheng_action_plan")
+        action_plan = state.get("ollama_action_plan")
         if isinstance(action_plan, list) and action_plan:
             lines.extend(["", "Local AI action plan:"])
             for item in action_plan[:6]:
@@ -68,7 +68,7 @@ class WatchRepoSharedMixin:
                         f"{item.get('title', '-')} -> {item.get('action', '-')}"
                     )
                 )
-        confidence = state.get("xingcheng_confidence")
+        confidence = state.get("ollama_confidence")
         if isinstance(confidence, dict):
             lines.extend(
                 [

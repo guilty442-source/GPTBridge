@@ -506,8 +506,8 @@ class InvestmentImportServiceMixin(ImportSnapshotMixin):
                         "holding_count": len(state.get("holdings") or []),
                         "imported_at": (state.get("portfolio") or {}).get("imported_at"),
                     },
-                    "xingcheng_product_status": state.get("xingcheng_product_status"),
-                    "xingcheng_warning_count": len(state.get("xingcheng_risk_warnings") or []),
+                    "ollama_product_status": state.get("ollama_product_status"),
+                    "ollama_warning_count": len(state.get("ollama_risk_warnings") or []),
                 },
             }
         )

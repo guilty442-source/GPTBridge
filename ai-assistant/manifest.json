@@ -34,23 +34,17 @@
     "direct_instruction": "PERMISSION_DENIED"
   },
   "distribution": {
-    "mode": "dual-runtime",
-    "package": true
+    "mode": "source-runtime",
+    "package": false
   },
   "launch": {
-    "mode": "dual-runtime",
-    "selection": "automatic",
+    "mode": "governed-source",
+    "selection": "source-only",
     "runtimes": [
-      "governed-source-ui",
-      "executable"
+      "governed-source-ui"
     ],
     "background": "governed-source-channel",
     "close_program_on_window_exit": true
-  },
-  "executable": {
-    "path": "dist/ai-assistant.exe",
-    "name": "ai-assistant",
-    "console": true
   },
   "capabilities": {
     "investment-manager": {
@@ -89,11 +83,15 @@
         "net-asset-values",
         "other-current-market-information"
       ],
-      "investment_analysis_owner": "ai-assistant",
+      "investment_analysis_owner": "ollama",
       "accounting_owner": "ai-assistant",
       "accounting_mode": "browser-autonomous-decision-ai-assistant-validated-write",
-      "computation_service_owner": "ai-assistant",
-      "statistics_service_owner": "ai-assistant",
+      "computation_service_owner": "ollama-via-information-layer",
+      "statistics_service_owner": "ollama-via-information-layer",
+      "net_asset_value_update_owner": "ollama-via-information-layer",
+      "stock_price_update_owner": "ollama-via-information-layer",
+      "dividend_update_owner": "ollama-via-information-layer",
+      "symbol_resolution_owner": "ollama-via-information-layer",
       "network_search_service_owner": "embedded-browser",
       "backend_service_provider": "ai-assistant",
       "discussion_path": "ai-assistant-to-ai-collaboration-to-ai-assistant",

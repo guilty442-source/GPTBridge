@@ -279,7 +279,7 @@ class InvestmentStarServiceMixin:
                 "error_code": "STAR_AI_CHANNEL_NOT_CONNECTED",
                 "message": "AI投資管家 AI 通道尚未連線，未建立背景工作。",
                 "state": state,
-                "product_status": state.get("xingcheng_product_status"),
+                "product_status": state.get("ollama_product_status"),
             }
         prompt = (
             "AI投資管家服務：持股更新後由AI投資管家取得資料並執行風險監測"
@@ -320,7 +320,7 @@ class InvestmentStarServiceMixin:
             "message": "已交由AI投資管家服務處理；投資管家本身不聯網。",
             "run": run,
             "state": state_with_run,
-            "product_status": state_with_run.get("xingcheng_product_status"),
+            "product_status": state_with_run.get("ollama_product_status"),
             "star_accounting": accounting,
         }
 
