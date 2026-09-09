@@ -56,6 +56,7 @@ Service Worker/
 _skill_tmp*.py
 _test_*.py
 _hc.py
+_commit_msg.txt
 *.zip
 *.7z
 *.exe
