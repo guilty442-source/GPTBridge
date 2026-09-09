@@ -74,13 +74,13 @@
   "enabled": true,
   "main_system_independent_tool": true,
   "lifecycle": {
-    "startup": "default-before-dependent-tools",
-    "directLoad": true,
-    "encapsulated": false,
-    "optional": false,
-    "stoppable": false,
-    "disableable": false,
-    "unloadable": false
+    "startup": "manual",
+    "directLoad": false,
+    "encapsulated": true,
+    "optional": true,
+    "stoppable": true,
+    "disableable": true,
+    "unloadable": true
   },
   "permissions": {
     "profile": "local-model-platform-v1",
@@ -132,9 +132,9 @@
     "remote_contact_default": false
   },
   "background_service": {
-    "managed_by": "main-system",
+    "managed_by": "local-model",
     "headless": true,
-    "auto_restart": true,
+    "auto_restart": false,
     "max_restart_attempts": 3,
     "restart_backoff_seconds": 2,
     "explicit_force_close_suppresses_restart": true

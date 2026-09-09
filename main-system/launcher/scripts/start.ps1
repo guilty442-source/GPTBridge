@@ -19,9 +19,7 @@ $WorkspaceRoot = (Resolve-Path (Join-Path $ProjectRoot "..")).Path
 foreach ($name in @(
     "GPTBRIDGE_POSTGRES_DSN",
     "GPTBRIDGE_POSTGRES_ADMIN_DSN",
-    "GPTBRIDGE_MODULE_DSNS",
-    "GPTBRIDGE_XINGCHENG_IDENTITY_DSN",
-    "GPTBRIDGE_XINGCHENG_COGNITION_DSN"
+    "GPTBRIDGE_MODULE_DSNS"
 )) {
     if (-not [Environment]::GetEnvironmentVariable($name, "Process")) {
         $value = [Environment]::GetEnvironmentVariable($name, "User")
@@ -551,17 +549,6 @@ try {
     $env:GPTBRIDGE_STATE_ROOT = $ProjectRoot
     Write-StartupJournal -Event "launcher.start" @{ projectRoot = $ProjectRoot }
 
-    $pythonExe = Ensure-PythonRuntime
-    Write-LauncherStatus "Starting local PostgreSQL, Qdrant and Ollama dependencies (hybrid parallel)."
-    Write-StartupJournal -Event "launcher.phase.dependencies.start" @{}
-    $startupState = Invoke-DependencyOrchestrator `
-        -PythonExecutable $pythonExe `
-        -OrchestratorPath (Join-Path $WorkspaceRoot "local-model\scripts\startup_orchestrator.py") `
-        -WorkingDirectory $WorkspaceRoot
-    Write-StartupJournal -Event "launcher.phase.dependencies.done" @{ state = $startupState }
-    Write-StartupJournal -Event "launcher.phase.governance.start" @{}
-    Invoke-DefaultGovernanceAuthority $pythonExe $WorkspaceRoot
-    Write-StartupJournal -Event "launcher.phase.governance.done" @{}
     $electronExe = Ensure-NodeRuntime
     Ensure-ProductionBuild
     Write-StartupJournal -Event "launcher.phase.prepare.done" @{
@@ -569,7 +556,7 @@ try {
     }
 
     if ($PrepareOnly) {
-        Write-LauncherStatus "Preparation complete (dependency state: $startupState)."
+        Write-LauncherStatus "Preparation complete (build-only)."
         exit 0
     }
 
@@ -580,10 +567,9 @@ try {
 
     Remove-Item Env:\ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
     $env:GPTBRIDGE_SOURCE_PRODUCTION = "1"
-    $env:GPTBRIDGE_MANAGE_BACKEND = "1"
+    $env:GPTBRIDGE_MANAGE_BACKEND = "0"
     $env:GPTBRIDGE_WORKSPACE_ROOT = $WorkspaceRoot
     $env:GPTBRIDGE_PROJECT_ROOT = $WorkspaceRoot
-    $env:GPTBRIDGE_STARTUP_STATE = $startupState
     $env:NODE_ENV = "production"
 
     Write-LauncherStatus "Launching source-production Electron runtime."

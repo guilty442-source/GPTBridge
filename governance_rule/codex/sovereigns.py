@@ -122,7 +122,7 @@ SOVEREIGNS: Final[Tuple[CodexSovereign, ...]] = (
         id="xingcheng",
         name="xingcheng",
         area="xingcheng",
-        rank="top-orchestrator",
+        rank="isolated-domain-owner",
         duties=(
             "observation",
             "analysis",

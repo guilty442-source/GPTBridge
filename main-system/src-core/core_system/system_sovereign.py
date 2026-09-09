@@ -47,7 +47,7 @@ from .resource_sub_sovereign import ResourceSubSovereign
 from .runtime_sub_sovereign import RuntimeSubSovereign
 from .sovereign_utils import _iso_now
 from .third_party_sub_sovereign import ThirdPartySubSovereign
-from .xingcheng_coordination import XingchengCoordination
+
 
 
 class SystemSovereignService:
@@ -61,7 +61,6 @@ class SystemSovereignService:
         Language Review, Third-Party
       - Coordinate (read-only) the Maintenance Sovereign and Permission Sovereign
         already started by the app
-      - Coordinate the Xingcheng auxiliary system (intelligent-management)
       - Delegate all execution to governed executors (never in this process)
     """
 
@@ -83,8 +82,8 @@ class SystemSovereignService:
             / "state"
             / "orchestrator-report.json"
         )
-        self.platform_id = "local-model-platform"
-        self.module_id = "xingcheng"
+        self.platform_id = "main-system"
+        self.module_id = "system-sovereign"
         # Sub-sovereigns owned and started by the System Sovereign.
         self.runtime_sovereign = RuntimeSubSovereign(app)
         self.resource_sovereign = ResourceSubSovereign(app)
@@ -92,7 +91,6 @@ class SystemSovereignService:
         self.integration_sovereign = IntegrationSubSovereign(app)
         self.language_review_sovereign = LanguageReviewSubSovereign(app)
         self.third_party_sovereign = ThirdPartySubSovereign(app)
-        self.xingcheng_coordination = XingchengCoordination(app)
         self.governance_rule_coordination = GovernanceRuleCoordination(app)
 
     # ------------------------------------------------------------------
@@ -216,9 +214,7 @@ class SystemSovereignService:
             "execution_delegation": "governed-executor-only",
             "sub_sovereigns": sub_sovereign_roles,
             "startup_failures": list(self._startup_failures),
-            "peer_systems": {
-                "xingcheng": self.xingcheng_coordination.orchestration_status(),
-            },
+            "peer_systems": {},
             "health_owner": "maintenance-sovereign",
             "governance_rules": self.governance_rule_coordination.orchestration_status(),
             "runtime": self.runtime_sovereign.orchestration_status(),
@@ -291,9 +287,7 @@ class SystemSovereignService:
                 self.language_review_sovereign.live_status(),
                 self.third_party_sovereign.live_status(),
             ],
-            "peer_systems": {
-                "xingcheng": self.xingcheng_coordination.coordination_status(),
-            },
+            "peer_systems": {},
             "health_owner": "maintenance-sovereign",
             "governance_rules": self.governance_rule_coordination.coordination_status(),
             "runtime": self.runtime_sovereign.live_status(),
@@ -339,9 +333,7 @@ class SystemSovereignService:
                 self.language_review_sovereign.orchestration_status(),
                 self.third_party_sovereign.orchestration_status(),
             ],
-            "peer_systems": {
-                "xingcheng": self.xingcheng_coordination.orchestration_status(),
-            },
+            "peer_systems": {},
             "health_owner": "maintenance-sovereign",
             "governance_rules": self.governance_rule_coordination.orchestration_status(),
             "runtime": self.runtime_sovereign.orchestration_status(),

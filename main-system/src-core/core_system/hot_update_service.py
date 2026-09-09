@@ -10,7 +10,6 @@ from typing import Any, Final
 RELOADABLE_SRC_ROOTS: Final[tuple[str, ...]] = (
     "main-system/src-core",
     "shared-layer/src",
-    "local-model/src",
     "ai-collaboration/src",
     "ai-assistant/src",
     "global-cleaner/src",

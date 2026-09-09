@@ -28,14 +28,18 @@ class RuntimeStatusService:
         raise ValueError(f"Unknown runtime status command: {command}")
 
     def startup_status(self) -> dict[str, Any]:
+        from .readiness_gate import ReadinessGate
+
+        readiness = ReadinessGate(self.app).evaluate()
         result: dict[str, Any] = {
-            "ok": True,
-            "backend": "ready",
+            "ok": readiness.overall_ready,
+            "backend": readiness.runtime_state,
             "version": str(getattr(self.app, "version", "0.0.0")),
             "runtime_scope": getattr(
                 getattr(self.app, "command_router", None), "scope", "starting"
             ),
             "message": "runtime status ok",
+            **readiness.as_dict(),
         }
         get_startup_status = getattr(self.app, "get_startup_status", None)
         if callable(get_startup_status):

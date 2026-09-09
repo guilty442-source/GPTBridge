@@ -15,7 +15,7 @@ import {
 } from './python-backend'
 import { getRuntimeEnv } from './runtime-env'
 import { PRODUCT_VERSION } from './product-version'
-import { preloadDefaultGovernanceAuthority } from './governance-bootstrap'
+
 import {
   registerEmbeddedBrowser,
   registerEmbeddedBrowserIpc,
@@ -43,10 +43,7 @@ if (sourceProduction) {
   )
 }
 
-const shouldManageBackend =
-  getRuntimeEnv('GPTBRIDGE_MANAGE_BACKEND') === '1' ||
-  sourceProduction ||
-  (app.isPackaged && getRuntimeEnv('GPTBRIDGE_MANAGE_BACKEND') !== '0')
+const shouldManageBackend = getRuntimeEnv('GPTBRIDGE_MANAGE_BACKEND') === '1'
 
 const MIN_UI_ZOOM = 0.85
 const MAX_UI_ZOOM = 1.3
@@ -564,21 +561,7 @@ if (!hasSingleInstanceLock) {
         }
       }
 
-      // Preload governance authority attestation (required by governance
-      // audit A57/E43).  It is deliberately deferred to a later tick so the
-      // renderer finishes its first paint before the launcher does the
-      // heavy SHA256 scan; any failure is best-effort because boot_core has
-      // its own token.
-      setTimeout(() => {
-        try {
-          const workspaceRoot = getRuntimeEnv('GPTBRIDGE_WORKSPACE_ROOT')
-            || getRuntimeEnv('GPTBRIDGE_PROJECT_ROOT')
-            || process.cwd()
-          preloadDefaultGovernanceAuthority(workspaceRoot)
-        } catch {
-          // Best-effort attestation; boot_core has its own token.
-        }
-      }, 0)
+
 
       reportRuntimeEvent('bootstrap.ready')
 

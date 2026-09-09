@@ -29,7 +29,7 @@ from .watch_repo_lock import _RuntimeOwnerLock
 from .watch_repo_utils import WatchRepoUtilsMixin
 from .watch_repo_core import WatchRepoCoreMixin
 from .watch_repo_portfolio import WatchRepoPortfolioMixin
-from .watch_repo_xingcheng import WatchRepoXingchengMixin
+
 from .watch_repo_versions import WatchRepoVersionsMixin
 from .watch_repo_ai_runs import WatchRepoAIRunsMixin
 from .watch_repo_shared import WatchRepoSharedMixin
@@ -38,7 +38,6 @@ from .watch_repo_shared import WatchRepoSharedMixin
 class InvestmentWatchRepository(
     WatchRepoCoreMixin,
     WatchRepoPortfolioMixin,
-    WatchRepoXingchengMixin,
     WatchRepoVersionsMixin,
     WatchRepoAIRunsMixin,
     WatchRepoSharedMixin,
@@ -46,9 +45,9 @@ class InvestmentWatchRepository(
 ):
     """Durable investment-watch state repository.
 
-    Composed from focused mixins that handle portfolio import, xingcheng
-    analysis, state versioning, AI-run tracking, shared memory, and utility
-    helpers.  See the individual ``watch_repo_*`` modules for each concern.
+    Composed from focused mixins that handle portfolio import, state
+    versioning, AI-run tracking, shared memory, and utility helpers.  See the
+    individual ``watch_repo_*`` modules for each concern.
     """
 
 

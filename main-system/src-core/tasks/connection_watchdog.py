@@ -121,6 +121,7 @@ class ConnectionWatchdog:
         )
         self._learning_store: Any = None
         self._repair_callback: Any = None
+        self._repair_triggered = False
 
     def set_repair_callback(self, callback: Any) -> None:
         """Set a callback to invoke when connection repair is needed.
@@ -151,11 +152,17 @@ class ConnectionWatchdog:
                 f"http://127.0.0.1:{self.health_port}/health",
                 headers={"Connection": "close"},
             )
-            with urllib.request.urlopen(
-                request, timeout=self.probe_timeout
-            ) as response:
-                return 200 <= response.status < 300
-        except (OSError, urllib.error.URLError):
+            with urllib.request.urlopen(request, timeout=self.probe_timeout) as response:
+                if not (200 <= response.status < 300):
+                    return False
+                payload = json.loads(response.read().decode("utf-8"))
+                return bool(
+                    payload.get("ok") is True
+                    and payload.get("runtime_state") == "ready"
+                    and payload.get("governance_ready") is True
+                    and payload.get("startup_dead") is not True
+                )
+        except (OSError, ValueError, UnicodeDecodeError, urllib.error.URLError):
             return False
 
     def _check_frontend_connected(self) -> bool:
@@ -316,7 +323,7 @@ class ConnectionWatchdog:
         with self._lock:
             old_state = self._snapshot.overall_state
             old_dead = self._snapshot.consecutive_dead
-            if new_state in ("disconnected", "degraded"):
+            if new_state != "connected":
                 new_dead = old_dead + 1
             else:
                 new_dead = 0
@@ -330,18 +337,28 @@ class ConnectionWatchdog:
                 probe_count=self._snapshot.probe_count + 1,
             )
             snapshot = self._snapshot
-        # Record state transition.
+        trigger = (
+            new_state != "connected"
+            and new_dead >= self.dead_threshold
+            and not self._repair_triggered
+        )
+        if new_state == "connected":
+            self._repair_triggered = False
+        elif trigger:
+            self._repair_triggered = True
+
+        # Record state transition, or the first threshold crossing.
         if new_state != old_state:
-            trigger = new_dead >= self.dead_threshold and new_state == "disconnected"
-            event = self._record_event(
+            self._record_event(
                 old_state, new_state, snapshot, trigger_repair=trigger
             )
-            # Trigger repair if threshold exceeded.
-            if trigger and self._repair_callback is not None:
-                try:
-                    self._repair_callback("FRONTEND_BACKEND_DISCONNECTED", snapshot)
-                except Exception:
-                    pass  # Repair is best-effort.
+        elif trigger:
+            self._record_event(old_state, new_state, snapshot, trigger_repair=True)
+        if trigger and self._repair_callback is not None:
+            try:
+                self._repair_callback("FRONTEND_BACKEND_DISCONNECTED", snapshot)
+            except Exception:
+                pass  # Repair signalling is best-effort.
         self._write_state()
         return snapshot
 

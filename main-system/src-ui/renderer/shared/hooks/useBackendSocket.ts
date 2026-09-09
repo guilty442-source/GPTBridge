@@ -32,7 +32,6 @@ const INITIAL_STATE: BackendSocketState = {
 
 const WS_RECONNECT_BASE_DELAY_MS = 500
 const WS_RECONNECT_MAX_DELAY_MS = 8000
-const WS_REPAIR_AFTER_ATTEMPTS = 5
 const WS_COMMAND_QUEUE_MAX = 50
 const openBackendSockets = new Set<WebSocket>()
 
@@ -132,8 +131,6 @@ export const useBackendSocket = () => {
 
   useEffect(() => {
     let disposed = false
-    let ensureStartPromise: Promise<void> | null = null
-
     const clearReconnectTimer = () => {
       const timer = reconnectTimerRef.current
       if (timer !== null) {
@@ -158,46 +155,6 @@ export const useBackendSocket = () => {
       reconnectTimerRef.current = window.setTimeout(() => {
         reconnectTimerRef.current = null
         void (async () => {
-          if (nextAttempt >= WS_REPAIR_AFTER_ATTEMPTS) {
-            const api = window.electron
-            if (api?.invoke) {
-              setState((prev) => ({ ...prev, status: 'Repairing', reconnectAttempt: nextAttempt }))
-              BootLogger.log('WebSocket', 'AUTO_REPAIR_BACKEND', {
-                attempt: nextAttempt,
-              })
-              try {
-                // A67 FORBID:duplicate-repair-owner — check if another owner
-                // (e.g. boot_core watchdog) is already repairing before
-                // triggering our own restart.
-                let repairInProgress = false
-                try {
-                  const repairStatus = (await api.invoke('app:get-repair-status')) as
-                    | { repair_in_progress?: boolean }
-                    | undefined
-                  repairInProgress = Boolean(repairStatus?.repair_in_progress)
-                } catch {
-                  // If we can't check, proceed with restart (fail-open for
-                  // the coordination check; the restart itself is governed).
-                }
-                if (repairInProgress) {
-                  BootLogger.log('WebSocket', 'REPAIR_ALREADY_IN_PROGRESS', {
-                    owner: 'external',
-                  })
-                } else {
-                  await api.invoke('app:restart-backend')
-                }
-              } catch (error) {
-                const message = error instanceof Error ? error.message : String(error)
-                BootLogger.log(
-                  'WebSocket',
-                  'AUTO_REPAIR_BACKEND_FAILED',
-                  { error: message },
-                  'warn'
-                )
-              }
-            }
-            reconnectAttemptRef.current = 0
-          }
           await connect()
         })()
       }, delay)
@@ -205,22 +162,6 @@ export const useBackendSocket = () => {
         attempt: nextAttempt,
         delay,
       })
-    }
-
-    const ensureBackendStarted = async () => {
-      if (ensureStartPromise) return ensureStartPromise
-      ensureStartPromise = (async () => {
-        const api = (window as any).electron
-        if (!api?.invoke) return
-        try {
-          await api.invoke('app:ensure-backend-started')
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          BootLogger.log('WebSocket', 'ENSURE_BACKEND_FAILED', { error: message }, 'warn')
-        }
-      })()
-      await ensureStartPromise
-      ensureStartPromise = null
     }
 
     const connect = async () => {
@@ -238,9 +179,6 @@ export const useBackendSocket = () => {
         status: 'Connecting',
       }))
       updateBackendConnectionSnapshot('Connecting')
-      await ensureBackendStarted()
-      if (disposed) return
-
       let wsUrl = ''
       try {
         wsUrl = await getAuthenticatedBackendWebSocketUrl()
@@ -259,27 +197,48 @@ export const useBackendSocket = () => {
       socketRef.current = socket
 
       socket.onopen = () => {
-        reconnectAttemptRef.current = 0
         clearReconnectTimer()
         setLastError(null)
-        updateBackendConnectionSnapshot('Connected', socket, true)
+        updateBackendConnectionSnapshot('Synchronizing')
         setState((prev) => ({
           ...prev,
-          status: 'Connected',
+          status: 'Synchronizing',
           lastStatusAt: Date.now(),
-          reconnectAttempt: 0,
+          reconnectAttempt: reconnectAttemptRef.current,
           queuedCommands: commandQueueRef.current.length,
         }))
         BootLogger.log('WebSocket', 'OPEN', { endpoint: '127.0.0.1:8765' })
-        eventBus.emit('socket_connected', { connected: true })
-        // Flush any queued commands that accumulated during disconnect
-        flushCommandQueue()
-        setState((prev) => ({ ...prev, queuedCommands: 0 }))
+        socket.send(JSON.stringify({ command: 'app:get-runtime-status', payload: {} }))
       }
 
       socket.onmessage = (event) => {
         try {
           const payload = JSON.parse(String(event.data)) as Record<string, unknown>
+
+          if (payload.event === 'app:get-runtime-status_result') {
+            const runtime = (payload.payload ?? {}) as Record<string, unknown>
+            const ready =
+              runtime.ok === true &&
+              runtime.runtime_state === 'ready' &&
+              runtime.governance_ready === true &&
+              runtime.startup_dead !== true
+            if (ready) {
+              reconnectAttemptRef.current = 0
+              updateBackendConnectionSnapshot('Connected', socket, true)
+              setState((prev) => ({
+                ...prev,
+                status: 'Connected',
+                reconnectAttempt: 0,
+              }))
+              eventBus.emit('socket_connected', { connected: true })
+              flushCommandQueue()
+              setState((prev) => ({ ...prev, queuedCommands: 0 }))
+            } else {
+              updateBackendConnectionSnapshot('Degraded', socket, false)
+              setState((prev) => ({ ...prev, status: 'Degraded' }))
+              eventBus.emit('socket_connected', { connected: false })
+            }
+          }
 
           // Respond to heartbeat ping immediately
           if (payload.event === 'heartbeat_ping') {

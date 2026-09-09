@@ -162,6 +162,7 @@ GOVERNANCE_CODEX_CHINESE: Final[ChineseCodexReference] = ChineseCodexReference(
         ChineseCodexArticle(id="A69", section="四", subject="execution-layer-internal-tiering", rule="執行層內部固定分為派工接收、授權與治理閘門、任務規劃、專業執行器、結果獨立驗證、狀態事件與稽核發布六階段；子主宰負責控制，模組專業執行器負責工作，結果經資訊層返回，失敗僅進入維護路徑。", prohibition="禁止跳層、執行器自行授權或派工、工作步驟自行驗證、UI 直連執行器、跨模組替代執行器或結果未記錄"),
         ChineseCodexArticle(id="A70", section="四", subject="information-layer-exclusive-channel-gateway", rule="所有通道均由資訊層唯一擁有與連接，範圍包含 Launcher UI、Boot Core、治理權威、主宰、子主宰、模組各層、執行各階段、前後端、獨立工具、Shared Layer、PostgreSQL、Qdrant、狀態、事件與 IPC；一切通訊固定由發送方進入資訊層，再送達已授權目的地，並須完成認證、授權、型別、觀測與稽核。", prohibition="禁止任何點對點直連、跨層直連、跨模組直連、前後端直連、主宰與子主宰直連、模組與資料庫直連、模組與執行器直連；禁止資訊層之外的私有旁路、隱含回呼通道、未登錄匯流排、直接 Socket 或直接資料庫連線"),
         ChineseCodexArticle(id="A71", section="四", subject="git-multi-worker-concurrent-work-and-commit", rule="Git 多工作者並行採一位工作者對應一個 worktree 與一條 branch；僅共用 Git object database，工作目錄、index 與分支各自隔離。工作者只能寫入及提交自身 worktree，得以 git show、git diff、git log 讀取其他分支；提交前須取得該 worktree 本地鎖並完成治理稽核。整合僅由指定整合者於整合分支以 merge 或 cherry-pick 執行；自動提交只 commit、永不 push；衝突僅在整合分支處理並保留來源分支。", prohibition="禁止多人共用同一 worktree、跨 worktree stage、替其他工作者提交、共用 index、直接寫入其他分支、自動 push、強制覆寫來源分支或以破壞來源解決衝突"),
+        ChineseCodexArticle(id="A72", section="六", subject="maintenance-sovereign-exclusive-repair-decision-chain", rule="所有系統修復均由維護主宰唯一決策；固定流程為異常訊號經資訊層送達維護主宰，完成故障判定與修復決策，再由維護子主宰控制派工、權限驗證、受治理執行器修復、獨立驗證，最後經資訊層發布狀態事件與稽核並同步 UI；任何修復異動前必須具備維護主宰決策證明。Boot Core、Watchdog、UI 與模組只能發送訊號及請求。", prohibition="禁止任何直接或平行修復路徑；禁止 Boot Core、Watchdog、UI、模組或修復服務未取得維護主宰決策證明即異動；禁止僅因傳輸失敗直接修復、重複擁有者、隱含授權、未驗證恢復或驗證前發布成功狀態"),
     ),
     edicts=(
         ChineseCodexEdict(id="E1", area="sovereignty", edict="主宰體系以法典為最高規則層，一切決策皆引用法典。"),
@@ -215,6 +216,7 @@ GOVERNANCE_CODEX_CHINESE: Final[ChineseCodexReference] = ChineseCodexReference(
         ChineseCodexEdict(id="E49", area="fine-grained-module-and-execution-tiering", edict="模組依呈現、通道 API、應用案例、領域業務、服務、資料存取、整合轉接、執行工作分層；執行依派工、授權治理、規劃、專業執行、獨立驗證、狀態事件稽核發布分層；每層單一職責、單一擁有者及明確契約；禁止單體化、職責重複、跳層、自行授權、自行驗證或 UI 直接執行。"),
         ChineseCodexEdict(id="E50", area="information-layer-exclusive-channels", edict="資訊層是所有通道的唯一權威；所有系統層、模組、執行階段、前後端、資料與事件通訊皆須經由資訊層送達已授權目的地，並具認證、授權、型別、觀測及稽核；禁止任何直連、繞過、私有旁路或未登錄通道。"),
         ChineseCodexEdict(id="E51", area="git-multi-worker-concurrency", edict="Git 並行固定一位工作者、一個 worktree、一條 branch；僅共用 object database；跨分支只用 show、diff、log 讀取；提交限自身 worktree 並須本地鎖及治理稽核；指定整合者以 merge 或 cherry-pick 整合；自動提交不得 push；衝突只在整合分支處理且保留來源；禁止共用 worktree、共用 index、跨工作者提交或強制覆寫。"),
+        ChineseCodexEdict(id="E52", area="maintenance-exclusive-repair-chain", edict="修復決策唯一歸維護主宰；異常訊號須經資訊層、故障判定與決策、維護子主宰派工、權限驗證、受治理執行、獨立驗證、稽核狀態發布及 UI 同步；Boot Core、Watchdog、UI 與模組僅能請求；禁止直接或平行修復及無決策證明的異動。"),
     ),
     sovereigns=SOVEREIGNS_CHINESE,
 )

@@ -28,7 +28,6 @@ FAILURE_CODE: Final[str] = "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED"
 SOURCE_ROOTS: Final[tuple[str, ...]] = (
     "main-system/src-core",
     "shared-layer/src",
-    "local-model/src",
     "ai-collaboration/src",
     "ai-assistant/src",
     "global-cleaner/src",

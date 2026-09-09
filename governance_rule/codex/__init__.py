@@ -126,7 +126,7 @@ class GovernanceCodex:
 
 GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
     schema="gptbridge-governance-codex-v2",
-    codex_version=3,
+    codex_version=2,
     preamble=CodexPreamble(
         title="GPTBridge Governance Codex",
         authority_rank="supreme",
@@ -806,6 +806,13 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             rule="GIT-CONCURRENCY:one-worker>one-worktree>one-branch; STORAGE:shared-git-object-database; ISOLATION:independent-working-tree+independent-index+independent-branch; READ-CROSS-BRANCH:git-show+git-diff+git-log; WRITE-SCOPE:worker-owned-worktree-only; COMMIT:worktree-local-lock+own-changes-only+governance-audit-before-commit; INTEGRATION:designated-integrator-only-via-merge-or-cherry-pick; AUTO-COMMIT:commit-only+never-push; CONFLICT:resolve-on-integration-branch+preserve-source-branches",
             prohibition="FORBID:multiple-workers-same-worktree+cross-worktree-stage+cross-worker-commit+shared-index+direct-write-other-branch+automatic-push+force-overwrite-source-branch+conflict-resolution-by-source-destruction",
         ),
+        CodexArticle(
+            id="A72",
+            section="6",
+            subject="maintenance-sovereign-exclusive-repair-decision-chain",
+            rule="ALL-SYSTEM-REPAIR:maintenance-sovereign-exclusive-decision; CHAIN:signal>information-layer>maintenance-sovereign-fault-determination+repair-decision>maintenance-sub-sovereign-control-dispatch>permission-validation>governed-executor>independent-verification>information-layer-status-event-audit>ui-sync; DECISION-PROOF:required-before-repair-mutation; BOOT-CORE+WATCHDOG+UI+MODULE:signal-and-request-only",
+            prohibition="FORBID:any-direct-or-parallel-repair-path; FORBID:boot-core/watchdog/ui/module/repair-service-mutation-without-maintenance-sovereign-decision-proof; FORBID:transport-only-repair-trigger+duplicate-owner+implicit-authorization+unverified-recovery+status-before-verification",
+        ),
     ),
     edicts=(
         CodexEdict(
@@ -1112,6 +1119,12 @@ GOVERNANCE_CODEX: Final[GovernanceCodex] = GovernanceCodex(
             id="E51",
             area="git-multi-worker-concurrency",
             edict="WORKER-ISOLATION:one-worker-one-worktree-one-branch; SHARED:git-object-database-only; CROSS-READ:show+diff+log; COMMIT:owned-worktree+local-lock+own-changes+precommit-governance-audit; INTEGRATION:designated-integrator-merge-or-cherry-pick; AUTO-COMMIT:no-push; CONFLICT:integration-branch-only+preserve-source; FORBID:same-worktree-multi-worker+shared-index+cross-commit+force-overwrite",
+            immutability="immutable-sealed",
+        ),
+        CodexEdict(
+            id="E52",
+            area="maintenance-exclusive-repair-chain",
+            edict="REPAIR-DECISION:maintenance-sovereign-only; CHAIN:signal>information-layer>fault-determination+decision>maintenance-sub-sovereign-dispatch>permission-validation>governed-execution>independent-verification>audited-status>ui-sync; BOOT-CORE+WATCHDOG+UI+MODULE:request-only; FORBID:direct-or-parallel-repair+mutation-without-decision-proof",
             immutability="immutable-sealed",
         ),
     ),

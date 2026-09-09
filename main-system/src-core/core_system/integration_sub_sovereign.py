@@ -33,7 +33,7 @@ from governance_rule.execution.tool_runtime.sub_sovereign import (
 )
 
 # Fallback resident service IDs used when manifest scanning is unavailable.
-_FALLBACK_RESIDENT_TOOL_IDS = ("shared-layer", "xingcheng")
+_FALLBACK_RESIDENT_TOOL_IDS = ("shared-layer",)
 
 # Idle timeout: a module with no active execution request for this long is
 # automatically stopped to conserve resources.  A subsequent request will

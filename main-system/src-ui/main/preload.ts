@@ -3,8 +3,6 @@
 const allowedInvokeChannels = new Set([
   'app:get-status',
   'app:get-backend-session',
-  'app:ensure-backend-started',
-  'app:restart-backend',
   'app:restart',
   'app:get-repair-status',
   'app:get-platform-tool-sizes',

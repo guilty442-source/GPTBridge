@@ -17,9 +17,6 @@ from .resource_sub_sovereign import ResourceSubSovereign
 from .runtime_sub_sovereign import RuntimeSubSovereign
 from .system_sovereign import SystemSovereignService
 from .third_party_sub_sovereign import ThirdPartySubSovereign
-from .xingcheng_coordination import XingchengCoordination
-from .xingcheng_native_model import XingchengNativeModel
-from .xingcheng_personality import XingchengPersonality
 
 __all__ = [
     "DataSubSovereign",
@@ -31,9 +28,6 @@ __all__ = [
     "RuntimeSubSovereign",
     "SystemSovereignService",
     "ThirdPartySubSovereign",
-    "XingchengCoordination",
-    "XingchengNativeModel",
-    "XingchengPersonality",
     "codex_edicts",
     "decision_basis",
 ]

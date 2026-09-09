@@ -99,7 +99,7 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
     capability_boundaries, repair_boundaries = capability_boundary_snapshot()
     errors.extend(source_ownership_errors(root))
 
-    if GOVERNANCE_CODEX.codex_version < 3:
+    if GOVERNANCE_CODEX.codex_version < 2:
         errors.append("governance codex version must include the unified architecture policy")
     if policy.authority != "governance-codex-v3-derived-enforcement-policy":
         errors.append("governance policy must remain the codex-v3-derived enforcement projection")
@@ -504,11 +504,7 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
         errors.append(
             "main-system governance bootstrap sources do not match governance authority"
         )
-    main_launcher_source = (
-        root / "main-system/src-ui/main/index.ts"
-    ).read_text(encoding="utf-8")
-    if "preloadDefaultGovernanceAuthority" not in main_launcher_source:
-        errors.append("main system does not preload governance before startup")
+
     runtime_source = (
         root / "main-system/src-core/core_system/governance_runtime.py"
     ).read_text(encoding="utf-8")

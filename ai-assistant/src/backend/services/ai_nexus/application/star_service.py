@@ -203,18 +203,7 @@ class InvestmentStarServiceMixin:
                 "external_discussion_connected": discussion.get("ok") is True,
                 "queue_when_offline": False,
             }
-            state_after_run = self.repository.save_xingcheng_result(
-                product_status,
-                summary,
-                warnings,
-                None,
-                full_analysis=analysis,
-                explanation={
-                    "mode": "star-analysis",
-                    "mode_label": "AI投資管家分析",
-                    "text": "市場搜尋與投資分析由AI投資管家執行；外部 AI 僅討論分析結果。",
-                },
-            )
+            state_after_run = self.repository.load_state()
             prompt = "AI投資管家：搜尋可驗證市場資料並執行投資分析。"
             if instruction:
                 prompt += f" 使用者指令：{instruction}"
