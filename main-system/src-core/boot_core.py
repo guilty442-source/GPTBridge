@@ -100,7 +100,8 @@ class CrashDiagnoser:
 
     This component never writes files.  It only decides whether the crash
     is a targetable source issue, a non-source error, or an unparseable
-    traceback.  The actual repair decision/execution lives in ``CrashRepair``.
+    traceback.  The repair decision is forwarded to ``CrashRepair``; the
+    actual write is deferred to the central repair dynamic program.
     """
 
     TAIL_LINES: ClassVar[int] = 50
@@ -111,7 +112,18 @@ class CrashDiagnoser:
         r'^File\s+"([^"]+)",\s+line\s+(\d+),\s+in\s'
     )
     _INDENTATION_ERRORS: ClassVar[frozenset[str]] = frozenset(
-        {"IndentationError", "TabError", "SyntaxError"}
+        {"IndentationError", "TabError"}
+    )
+    # SyntaxError is only targetable when the message indicates an
+    # indentation-family problem; a bare "invalid syntax" (e.g. missing
+    # colon) is not fixable by the IndentationRepairer.
+    _SYNTAX_INDENTATION_SIGNATURES: ClassVar[frozenset[str]] = frozenset(
+        {
+            "unexpected indent",
+            "unindent does not match any outer indentation level",
+            "expected an indented block",
+            "inconsistent use of tabs and spaces",
+        }
     )
 
     def diagnose(
@@ -159,17 +171,30 @@ class CrashDiagnoser:
             diagnosis["action"] = "fallback"
         elif error_type in self._INDENTATION_ERRORS:
             diagnosis["action"] = "targeted"
+        elif error_type == "SyntaxError":
+            # Only targetable if the message indicates an indentation
+            # family issue; bare "invalid syntax" is not fixable by
+            # the IndentationRepairer.
+            tail = " ".join(
+                line.strip()
+                for line in child_output[-self.TAIL_LINES :]
+            ).casefold()
+            if any(sig in tail for sig in self._SYNTAX_INDENTATION_SIGNATURES):
+                diagnosis["action"] = "targeted"
+            else:
+                diagnosis["action"] = "skip"
         else:
             diagnosis["action"] = "skip"
         return diagnosis
 
 
 class CrashRepair:
-    """Minimal, targeted crash repair executor.
+    """Crash repair planner for the boot core.
 
-    This is a dynamic repair component, not a rescue-style reset.  It only
-    touches the one file identified by the traceback and only for
-    indentation/syntax-family errors.
+    The boot core must not reset/overwrite source code on every startup
+    failure.  This component only records the intended repair plan and
+    consults the central repair knowledge base.  Actual execution is
+    deferred to the central repair dynamic program.
     """
 
     def __init__(self, project_root: Path) -> None:
@@ -177,7 +202,13 @@ class CrashRepair:
         self._repair_root = (
             self.project_root / "main-system" / "data" / "automatic-repair"
         )
-        self._repair_root.mkdir(parents=True, exist_ok=True)
+        self._repair_root_created = False
+
+    def _ensure_repair_root(self) -> None:
+        """Lazily create the repair root only when a repair is attempted."""
+        if not self._repair_root_created:
+            self._repair_root.mkdir(parents=True, exist_ok=True)
+            self._repair_root_created = True
 
     def repair(self, diagnosis: dict[str, object]) -> dict[str, Any]:
         """Execute the minimal repair dictated by ``diagnosis``."""
@@ -190,6 +221,16 @@ class CrashRepair:
             "reason": "",
         }
 
+        action = str(diagnosis.get("action", "fallback"))
+        if action == "skip":
+            report["reason"] = f"non-source: {diagnosis.get('error_type', 'unknown')}"
+            return report
+        if action != "targeted":
+            report["reason"] = "unparseable-traceback; no targeted repair"
+            return report
+
+        # Only create the repair root when we actually attempt a repair.
+        self._ensure_repair_root()
         service = CentralRepairService(self.project_root, self._repair_root)
         try:
             suggestion = service.suggest_remedy_for_error(
@@ -203,19 +244,16 @@ class CrashRepair:
         except Exception:
             pass
 
-        action = str(diagnosis.get("action", "fallback"))
-        if action == "skip":
-            report["reason"] = f"non-source: {diagnosis.get('error_type', 'unknown')}"
-        elif action == "targeted":
-            target_file = str(diagnosis.get("file", ""))
-            report["targeted_file"] = target_file
-            result = service.self_repair_targeted_source(target_file)
-            report["ok"] = bool(result.get("ok"))
-            report["result"] = result
-            if not report["ok"]:
-                report["reason"] = result.get("reason", "targeted-repair-failed")
-        else:
-            report["reason"] = "unparseable-traceback; no targeted repair"
+        # The boot core must not reset/overwrite source code on every
+        # startup failure.  Only record the repair plan; execution is
+        # deferred to the central repair dynamic program.
+        target_file = str(diagnosis.get("file", ""))
+        report["targeted_file"] = target_file
+        report["repair_plan"] = {
+            "action": "targeted",
+            "target_file": target_file,
+        }
+        report["reason"] = "targeted-repair-deferred-to-central-repair"
         return report
 
 
