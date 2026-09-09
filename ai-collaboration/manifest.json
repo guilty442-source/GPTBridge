@@ -3,14 +3,19 @@
   "name_key": "tool.name",
   "description_key": "tool.description",
   "version": "1.00000",
-  "display_version": "1.0",
+  "display_version": "1.00000",
   "status": "stopped",
   "enabled": true,
   "permissions": {
     "code_scope": "tool-root-only",
     "database_scope": "tool-database-only",
-    "allow_modify": ["own-data"],
-    "deny": ["main-program", "other-tools"]
+    "allow_modify": [
+      "own-data"
+    ],
+    "deny": [
+      "main-program",
+      "other-tools"
+    ]
   },
   "entry": "ai-collaboration/src/main",
   "runtime": {
@@ -26,7 +31,10 @@
   "launch": {
     "mode": "dual-runtime",
     "selection": "automatic",
-    "runtimes": ["governed-source-ui", "executable"],
+    "runtimes": [
+      "governed-source-ui",
+      "executable"
+    ],
     "background": "governed-source-channel",
     "close_program_on_window_exit": true
   },
@@ -53,7 +61,9 @@
       "direct_user_business_entry": false,
       "response_recipient": "request-originator",
       "direct_ai_assistant_access": false,
-      "business_scopes": ["general"],
+      "business_scopes": [
+        "general"
+      ],
       "separate_business_urls": false,
       "business_routing": {
         "mode": "general-selection",
@@ -79,12 +89,24 @@
       "search_result_role": "discovery-only",
       "capability_fallback": {
         "policy": "browser-only-no-cross-provider-fallback",
-        "chatgpt": ["chatgpt-browser"],
-        "gemini": ["gemini-browser"],
-        "perplexity": ["perplexity-browser"],
-        "claude": ["claude-browser"],
-        "deepseek": ["deepseek-browser"],
-        "grok": ["grok-browser"]
+        "chatgpt": [
+          "chatgpt-browser"
+        ],
+        "gemini": [
+          "gemini-browser"
+        ],
+        "perplexity": [
+          "perplexity-browser"
+        ],
+        "claude": [
+          "claude-browser"
+        ],
+        "deepseek": [
+          "deepseek-browser"
+        ],
+        "grok": [
+          "grok-browser"
+        ]
       },
       "memory_interchange": {
         "mode": "star-mediated-candidate-writeback",

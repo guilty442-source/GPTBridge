@@ -3,15 +3,20 @@
   "name_key": "tool.name",
   "description_key": "tool.description",
   "version": "1.00000",
-  "display_version": "1.0",
+  "display_version": "1.00000",
   "status": "stopped",
   "enabled": true,
   "has_custom_ui": true,
   "permissions": {
     "code_scope": "tool-root-only",
     "database_scope": "tool-database-only",
-    "allow_modify": ["own-data"],
-    "deny": ["main-program", "other-tools"]
+    "allow_modify": [
+      "own-data"
+    ],
+    "deny": [
+      "main-program",
+      "other-tools"
+    ]
   },
   "entry": "vaultly/src/main",
   "runtime": {
@@ -27,7 +32,10 @@
   "launch": {
     "mode": "dual-runtime",
     "selection": "automatic",
-    "runtimes": ["governed-source-channel", "executable"],
+    "runtimes": [
+      "governed-source-channel",
+      "executable"
+    ],
     "background": "governed-source-channel",
     "close_program_on_window_exit": true
   },

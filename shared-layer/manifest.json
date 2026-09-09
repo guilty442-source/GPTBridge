@@ -3,7 +3,7 @@
   "name_key": "tool.name",
   "description_key": "tool.description",
   "version": "1.00000",
-  "display_version": "1.0",
+  "display_version": "1.00000",
   "status": "running",
   "enabled": true,
   "main_system_independent_tool": false,
@@ -44,14 +44,26 @@
   },
   "capabilities": {
     "authenticated-ipc": {
-      "channels": ["system", "ai"],
+      "channels": [
+        "system",
+        "ai"
+      ],
       "authority": "governance_rule",
       "resident": true,
       "role": "shared-layer-sub-sovereign",
       "subordinate_to": "system"
     }
   },
-  "environment": { "allow": ["GPTBRIDGE_POSTGRES_DSN", "GPTBRIDGE_POSTGRES_ADMIN_DSN", "GPTBRIDGE_MODULE_DSNS", "GPTBRIDGE_XINGCHENG_IDENTITY_DSN", "GPTBRIDGE_XINGCHENG_COGNITION_DSN", "GPTBRIDGE_POSTGRES_READER_ROLE"] },
+  "environment": {
+    "allow": [
+      "GPTBRIDGE_POSTGRES_DSN",
+      "GPTBRIDGE_POSTGRES_ADMIN_DSN",
+      "GPTBRIDGE_MODULE_DSNS",
+      "GPTBRIDGE_XINGCHENG_IDENTITY_DSN",
+      "GPTBRIDGE_XINGCHENG_COGNITION_DSN",
+      "GPTBRIDGE_POSTGRES_READER_ROLE"
+    ]
+  },
   "has_custom_ui": false,
   "test_targets": [
     "tests/test_shared_layer.py"

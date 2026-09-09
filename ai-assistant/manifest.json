@@ -3,7 +3,7 @@
   "name_key": "tool.name",
   "description_key": "tool.description",
   "version": "1.00000",
-  "display_version": "1.0",
+  "display_version": "1.00000",
   "shared_permission_profile": "ai-investment-manager-v1",
   "shared_code_root": "ai-assistant",
   "managed_backup_storage": "global-cleaner/data/business/backups/ai-assistant",
@@ -14,8 +14,13 @@
     "business_permission_owner": "ai-assistant",
     "code_scope": "tool-root-only",
     "database_scope": "tool-database-only",
-    "allow_modify": ["own-data"],
-    "deny": ["main-program", "other-tools"]
+    "allow_modify": [
+      "own-data"
+    ],
+    "deny": [
+      "main-program",
+      "other-tools"
+    ]
   },
   "entry": "ai-assistant/src/main",
   "runtime": {
@@ -35,7 +40,10 @@
   "launch": {
     "mode": "dual-runtime",
     "selection": "automatic",
-    "runtimes": ["governed-source-ui", "executable"],
+    "runtimes": [
+      "governed-source-ui",
+      "executable"
+    ],
     "background": "governed-source-channel",
     "close_program_on_window_exit": true
   },
@@ -60,7 +68,9 @@
       "conversation_isolated_from": "star-chat",
       "context_isolation": "independent-investment-session",
       "model_selection": "automatic-only-no-manual-picker",
-      "primary_business_models": ["ibm/granite4.2:30b-q4_K_M"],
+      "primary_business_models": [
+        "ibm/granite4.2:30b-q4_K_M"
+      ],
       "dynamic_escalation_models": [
         "qwen3:30b-a3b-instruct-2507-q4_K_M",
         "deepseek-r1:8b-0528-qwen3-q4_K_M",
@@ -73,7 +83,12 @@
       "market_search_owner_label": "內建瀏覽器",
       "realtime_information_search_owner": "embedded-browser",
       "realtime_information_search_owner_label": "內建瀏覽器",
-      "realtime_information_search_scope": ["dividends", "prices", "net-asset-values", "other-current-market-information"],
+      "realtime_information_search_scope": [
+        "dividends",
+        "prices",
+        "net-asset-values",
+        "other-current-market-information"
+      ],
       "investment_analysis_owner": "ai-assistant",
       "accounting_owner": "ai-assistant",
       "accounting_mode": "browser-autonomous-decision-ai-assistant-validated-write",
@@ -91,7 +106,9 @@
     "ai-connections": {
       "transport": "governance-authenticated-ai-channel",
       "channel": "shared-layer/ai-channel",
-      "peers": ["ai-collaboration"],
+      "peers": [
+        "ai-collaboration"
+      ],
       "allowed_target": "ai-collaboration",
       "external_ai": "ai-collaboration",
       "queue_when_offline": false,

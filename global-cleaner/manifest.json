@@ -3,7 +3,7 @@
   "name_key": "tool.name",
   "description_key": "tool.description",
   "version": "1.00000",
-  "display_version": "1.0",
+  "display_version": "1.00000",
   "display_name": "全域清理",
   "status": "stopped",
   "enabled": true,
@@ -26,7 +26,10 @@
   "launch": {
     "mode": "dual-runtime",
     "selection": "automatic",
-    "runtimes": ["governed-source-ui", "executable"],
+    "runtimes": [
+      "governed-source-ui",
+      "executable"
+    ],
     "background": "governed-source-channel",
     "close_program_on_window_exit": true
   },
@@ -39,34 +42,81 @@
   "capabilities": {
     "global-cleanup": {
       "operations": {
-        "preview": ["--cleanup-garbage", "--scope", "global", "--dry-run", "--json"],
-        "clean": ["--cleanup-garbage", "--scope", "global", "--json"],
-        "clear-managed-temp-files": ["--clear-managed-temp-files", "--temp-root", "global-cleaner/runtime/temp", "--json"],
-        "clear-test-artifacts": ["--clear-managed-temp-files", "--temp-root", "global-cleaner/runtime/temp/development/test-artifacts", "--json"]
+        "preview": [
+          "--cleanup-garbage",
+          "--scope",
+          "global",
+          "--dry-run",
+          "--json"
+        ],
+        "clean": [
+          "--cleanup-garbage",
+          "--scope",
+          "global",
+          "--json"
+        ],
+        "clear-managed-temp-files": [
+          "--clear-managed-temp-files",
+          "--temp-root",
+          "global-cleaner/runtime/temp",
+          "--json"
+        ],
+        "clear-test-artifacts": [
+          "--clear-managed-temp-files",
+          "--temp-root",
+          "global-cleaner/runtime/temp/development/test-artifacts",
+          "--json"
+        ]
       },
       "test_artifacts": {
         "owner": "global-cleaner",
         "storage": "global-cleaner/runtime/temp/development/test-artifacts/run-{request_id}",
-        "includes": ["pytest-cache", "python-pycache", "temporary-files", "coverage-data", "test-reports"],
+        "includes": [
+          "pytest-cache",
+          "python-pycache",
+          "temporary-files",
+          "coverage-data",
+          "test-reports"
+        ],
         "cleanup": "remove-complete-run-root-after-test"
       }
     },
     "managed-backup": {
       "operations": {
-        "create": ["--create-managed-backup", "--backup-owner", "main-system", "--json"],
-        "list": ["--list-managed-backups", "--json"],
-        "extract": ["--extract-managed-backup", "--backup-owner", "main-system", "--backup-path", "main-system/src-core/main.py", "--json"]
+        "create": [
+          "--create-managed-backup",
+          "--backup-owner",
+          "main-system",
+          "--json"
+        ],
+        "list": [
+          "--list-managed-backups",
+          "--json"
+        ],
+        "extract": [
+          "--extract-managed-backup",
+          "--backup-owner",
+          "main-system",
+          "--backup-path",
+          "main-system/src-core/main.py",
+          "--json"
+        ]
       },
       "retention_per_owner": 1,
       "storage": "global-cleaner/data/business/backups/{owner_id}"
     },
     "system-health-check": {
       "operations": {
-        "check": ["--system-check", "--json"]
+        "check": [
+          "--system-check",
+          "--json"
+        ]
       }
     }
   },
-  "environment": { "allow": [] },
+  "environment": {
+    "allow": []
+  },
   "test_targets": [
     "tests/test_global_cleaner.py"
   ],

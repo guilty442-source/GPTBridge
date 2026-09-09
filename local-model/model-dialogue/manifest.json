@@ -3,7 +3,7 @@
   "name_key": "tool.name",
   "description_key": "tool.description",
   "version": "1.00000",
-  "display_version": "1.0",
+  "display_version": "1.00000",
   "host_tool_id": "xingcheng",
   "runtime_owner_tool_id": "xingcheng",
   "physical_owner_root": "local-model",
@@ -23,9 +23,26 @@
     "settings_owner": "xingcheng",
     "code_scope": "xingcheng-owned-dialogue-interface",
     "database_scope": "all-project-databases-via-xingcheng-excluding-governance-rule",
-    "database_actions": ["read", "create-write-save", "append", "update", "execute", "delete", "rollback"],
-    "allow_modify": ["model-dialogue-interface-via-xingcheng-owner", "all-project-databases-via-governed-xingcheng"],
-    "deny": ["main-program", "other-tools", "direct-model-weights", "separate-business-database", "separate-settings-layer"]
+    "database_actions": [
+      "read",
+      "create-write-save",
+      "append",
+      "update",
+      "execute",
+      "delete",
+      "rollback"
+    ],
+    "allow_modify": [
+      "model-dialogue-interface-via-xingcheng-owner",
+      "all-project-databases-via-governed-xingcheng"
+    ],
+    "deny": [
+      "main-program",
+      "other-tools",
+      "direct-model-weights",
+      "separate-business-database",
+      "separate-settings-layer"
+    ]
   },
   "entry": "local-model/model-dialogue/src/main",
   "runtime": {
@@ -68,7 +85,18 @@
       "transport": "governance-authenticated-ai-channel",
       "route_mode": "direct-passthrough-governance-only-limits",
       "automatic_workflow": true,
-      "workflow_sequence": ["receive-original-traditional-chinese", "qwen3.8-understand-command-and-normalize-taiwan-chinese", "rnj-1-analyze-code-stem-and-tool-calling-at-workflow-front", "extract-actions-objects-parameters-constraints", "classify-task-and-intensity", "apply-safety-and-permission-gates", "decompose-and-route-subtasks", "execute-and-collect-results", "cross-validate-repair-or-escalate", "integrate-localize-apply-verify-and-report"],
+      "workflow_sequence": [
+        "receive-original-traditional-chinese",
+        "qwen3.8-understand-command-and-normalize-taiwan-chinese",
+        "rnj-1-analyze-code-stem-and-tool-calling-at-workflow-front",
+        "extract-actions-objects-parameters-constraints",
+        "classify-task-and-intensity",
+        "apply-safety-and-permission-gates",
+        "decompose-and-route-subtasks",
+        "execute-and-collect-results",
+        "cross-validate-repair-or-escalate",
+        "integrate-localize-apply-verify-and-report"
+      ],
       "language_priority": "traditional-chinese-taiwan-first",
       "translate_to_english_before_intent": true,
       "visual_file_recognition_model": "minicpm-v4.6:q8_0",
@@ -91,7 +119,10 @@
       "additional_application_command_restrictions": false,
       "direct_model_access": false,
       "direct_model_access_note": "no-governance-bypass; selected-model-routing-is-direct-inside-the-governed-channel",
-      "modes": ["unified-dialogue", "user-programming-commands"],
+      "modes": [
+        "unified-dialogue",
+        "user-programming-commands"
+      ],
       "training_ui": false,
       "capability_composition_ui": false,
       "native_internal_training_owner": "star-main-native-model",
@@ -103,7 +134,15 @@
       "capability_composition_route": "star-native-internal-database-only",
       "selected_star_native_database_access": "all-project-databases-excluding-governance-rule",
       "database_write": true,
-      "database_actions": ["read", "create-write-save", "append", "update", "execute", "delete", "rollback"],
+      "database_actions": [
+        "read",
+        "create-write-save",
+        "append",
+        "update",
+        "execute",
+        "delete",
+        "rollback"
+      ],
       "investment_manager_direct_access": false,
       "investment_manager_exchange": "governance-authorized-only"
     }

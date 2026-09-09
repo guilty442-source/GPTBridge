@@ -32,7 +32,7 @@
       "formal": true,
       "formality": "formal-tool",
       "codex_formal_tool_name": "python",
-      "version": "3.13.13",
+      "version": "3.11.9",
       "path": "python",
       "license": "PSF-2.0",
       "status": "active",

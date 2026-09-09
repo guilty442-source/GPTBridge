@@ -56,8 +56,8 @@ _PROBE_COMMANDS: dict[str, tuple[str, list[str], str]] = {
     "node": ("node", ["--version"], r"v(\S+)"),
     "npm": ("npm.cmd", ["--version"], r"(\S+)"),
     "uv": ("uv", ["--version"], r"uv (\S+)"),
-    "ollama": ("ollama", ["--version"], r"version\s+(\S+)"),
-    "qdrant": ("qdrant", ["--version"], r"(\S+)"),
+    "ollama": ("ollama", ["--version"], r"version\s+(?:is\s+)?(\S+)"),
+    "qdrant": ("qdrant", ["--version"], r"qdrant (?:version )?(\S+)"),
     "postgresql": ("psql", ["--version"], r"psql \(PostgreSQL\) (\S+)"),
 }
 

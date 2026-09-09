@@ -7,12 +7,18 @@
   "name_key": "tool.name",
   "description_key": "tool.description",
   "version": "1.00000",
-  "display_version": "1.0",
+  "display_version": "1.00000",
   "physical_owner_root": "local-model",
   "shared_permission_profile": "local-model-platform-v1",
-  "shared_tools": ["xingcheng", "star-chat"],
+  "shared_tools": [
+    "xingcheng",
+    "star-chat"
+  ],
   "shared_code_root": "local-model",
-  "shared_cache_consumers": ["xingcheng", "star-chat"],
+  "shared_cache_consumers": [
+    "xingcheng",
+    "star-chat"
+  ],
   "managed_backup_storage": "global-cleaner/data/business/backups/xingcheng",
   "companion_tools": [
     {
@@ -46,7 +52,12 @@
     "programming_label": "Local Model Platform",
     "display_name_zh_tw": "本地模型",
     "all_local_model_execution_owner": true,
-    "responsibilities": ["model-loading", "model-selection", "inference", "runtime-lifecycle"],
+    "responsibilities": [
+      "model-loading",
+      "model-selection",
+      "inference",
+      "runtime-lifecycle"
+    ],
     "authorization_owner": "governance_rule",
     "business_service_interface": "xingcheng",
     "star_direct_model_operation": false
@@ -63,12 +74,30 @@
     "local_models_excluding_xingcheng": "assistive-only"
   },
   "platform_labels": [
-    {"id": "ai-entry-gateway", "label": "AI 統一入口"},
-    {"id": "context-multitask", "label": "情境多工"},
-    {"id": "local-model-routing", "label": "本機模型路由"},
-    {"id": "selected-model-direct", "label": "選定模型直連"},
-    {"id": "ollama-loopback", "label": "Ollama 本機迴路"},
-    {"id": "governance-controlled", "label": "治理受控"}
+    {
+      "id": "ai-entry-gateway",
+      "label": "AI 統一入口"
+    },
+    {
+      "id": "context-multitask",
+      "label": "情境多工"
+    },
+    {
+      "id": "local-model-routing",
+      "label": "本機模型路由"
+    },
+    {
+      "id": "selected-model-direct",
+      "label": "選定模型直連"
+    },
+    {
+      "id": "ollama-loopback",
+      "label": "Ollama 本機迴路"
+    },
+    {
+      "id": "governance-controlled",
+      "label": "治理受控"
+    }
   ],
   "status": "running",
   "enabled": true,
@@ -87,10 +116,28 @@
     "authority_owner": "xingcheng-platform",
     "code_scope": "project-source-excluding-governance-rule",
     "database_scope": "opaque-central-index-read-and-xingcheng-internal-read-write",
-    "database_actions": ["read", "create-write-save", "append", "update", "delete", "rollback"],
-    "allow_modify": ["local-model/xingcheng-excluding-permissions"],
-    "allow_read": ["governance-authority-snapshot", "permission-directory-snapshot", "opaque-central-index", "local-model/xingcheng", "governed-owner-resolved-resource"],
-    "allow_connect": ["governance-direct-read-channel", "loopback-ollama-runtime"],
+    "database_actions": [
+      "read",
+      "create-write-save",
+      "append",
+      "update",
+      "delete",
+      "rollback"
+    ],
+    "allow_modify": [
+      "local-model/xingcheng-excluding-permissions"
+    ],
+    "allow_read": [
+      "governance-authority-snapshot",
+      "permission-directory-snapshot",
+      "opaque-central-index",
+      "local-model/xingcheng",
+      "governed-owner-resolved-resource"
+    ],
+    "allow_connect": [
+      "governance-direct-read-channel",
+      "loopback-ollama-runtime"
+    ],
     "allow_execute": [
       "ai-entry-intake",
       "context-routing",
@@ -151,7 +198,20 @@
   "capabilities": {
     "xingcheng": {
       "entry_ownership": "all-ai-business-entries",
-      "entry_sources": ["model-dialogue", "investment-manager", "investment-mobile", "training", "programming", "reasoning", "data", "memory", "capability-composition", "autonomous-agent", "command-execution", "command-understanding"],
+      "entry_sources": [
+        "model-dialogue",
+        "investment-manager",
+        "investment-mobile",
+        "training",
+        "programming",
+        "reasoning",
+        "data",
+        "memory",
+        "capability-composition",
+        "autonomous-agent",
+        "command-execution",
+        "command-understanding"
+      ],
       "star_native_model_permissions": {
         "inference": true,
         "understanding": true,
@@ -163,7 +223,17 @@
         "database_read_scope": "all-module-data-read-only-plus-xingcheng-internal",
         "database_write": true,
         "database_write_scope": "xingcheng-model-internal-unrestricted-excluding-permission-data",
-        "database_actions": ["read", "create-write-save", "append", "update", "delete", "rollback", "schema", "migration", "maintenance"],
+        "database_actions": [
+          "read",
+          "create-write-save",
+          "append",
+          "update",
+          "delete",
+          "rollback",
+          "schema",
+          "migration",
+          "maintenance"
+        ],
         "investment_database_write": true,
         "ollama_model_database_access": true,
         "source_apply": false,
@@ -200,7 +270,9 @@
       "remote_model_inference": false,
       "local_transformer_runtime": "ollama-loopback-only",
       "model_residency": {
-        "resident": ["qwen3.5:9b-q4_K_M"],
+        "resident": [
+          "qwen3.5:9b-q4_K_M"
+        ],
         "non_resident": [
           "openbmb/minicpm-v4.6:q8_0",
           "nemotron-3-nano:4b-q8_0",
@@ -231,7 +303,9 @@
           "keep_alive": -1,
           "upgrade_policy": "intermediate-16k-2k-medium;difficult-32k-4k-high"
         },
-        "warm_for_five_minutes": ["rnj-1:8b-instruct-q4_K_M"],
+        "warm_for_five_minutes": [
+          "rnj-1:8b-instruct-q4_K_M"
+        ],
         "unknown_installed_models": "non-resident",
         "resident_evicted_before_non_resident": false,
         "pipeline_release_after_each_stage": true,
@@ -296,7 +370,9 @@
         "read": "all-project-source-excluding-governance-rule",
         "propose_changes": "all-project-source-excluding-governance-rule",
         "execute_changes": "majority-vote-inspection-backup-and-rollback-gated",
-        "excluded_path_roots": ["governance_rule"],
+        "excluded_path_roots": [
+          "governance_rule"
+        ],
         "project_database_access": "opaque-central-index-read-only-plus-xingcheng-model-internal-unrestricted-excluding-permission-data",
         "investment_database_write": "governance-authorized-xingcheng-and-ai-assistant",
         "ollama_database_write": "none-direct-programmatic-executor-only",
@@ -309,25 +385,68 @@
       "command_understanding_authority": "qwen3.8:27b-q4_K_M",
       "star_task_participation": false,
       "role_assignment_source": "StarTransformerRuntime.MODEL_ROLE_ASSIGNMENTS",
-      "task_levels": ["輕量", "普通", "中級", "困難"],
-      "execution_speed_positions": ["極速", "快速", "均衡", "品質優先"],
-      "reasoning_intensity_positions": ["無", "低", "中", "高"],
+      "task_levels": [
+        "輕量",
+        "普通",
+        "中級",
+        "困難"
+      ],
+      "execution_speed_positions": [
+        "極速",
+        "快速",
+        "均衡",
+        "品質優先"
+      ],
+      "reasoning_intensity_positions": [
+        "無",
+        "低",
+        "中",
+        "高"
+      ],
       "automatic_workflow": {
         "enabled": true,
-        "sequence": ["receive-original-traditional-chinese", "qwen3.8-understand-command-and-normalize-taiwan-chinese", "rnj-1-analyze-code-stem-and-tool-calling-at-workflow-front", "extract-actions-objects-parameters-constraints", "classify-task-and-intensity", "apply-safety-and-permission-gates", "decompose-and-route-subtasks", "execute-and-collect-results", "cross-validate-repair-or-escalate", "integrate-localize-apply-verify-and-report"],
+        "sequence": [
+          "receive-original-traditional-chinese",
+          "qwen3.8-understand-command-and-normalize-taiwan-chinese",
+          "rnj-1-analyze-code-stem-and-tool-calling-at-workflow-front",
+          "extract-actions-objects-parameters-constraints",
+          "classify-task-and-intensity",
+          "apply-safety-and-permission-gates",
+          "decompose-and-route-subtasks",
+          "execute-and-collect-results",
+          "cross-validate-repair-or-escalate",
+          "integrate-localize-apply-verify-and-report"
+        ],
         "understanding_authority": "qwen3.8:27b-q4_K_M",
         "understanding_language": "zh-TW",
         "taiwan_chinese_priority": true,
         "translate_to_english_before_intent": true,
         "destructive_ambiguity_policy": "context-completion-then-safe-confirmation-no-operation-before-resolution",
-        "visual_file_recognition_authority": {"model": "openbmb/minicpm-v4.6:q8_0", "allowed_intents": ["visual"], "responsibilities": ["image-recognition", "video-frame-recognition", "document-image-recognition", "classification", "tagging", "summarization"], "other_tasks_denied": true},
+        "visual_file_recognition_authority": {
+          "model": "openbmb/minicpm-v4.6:q8_0",
+          "allowed_intents": [
+            "visual"
+          ],
+          "responsibilities": [
+            "image-recognition",
+            "video-frame-recognition",
+            "document-image-recognition",
+            "classification",
+            "tagging",
+            "summarization"
+          ],
+          "other_tasks_denied": true
+        },
         "allocation_authority": "qwen3.8:27b-q4_K_M",
         "integration_authority": "qwen3.8:27b-q4_K_M",
         "execution_authority": "qwen3.6:35b-a3b-coding",
         "inspection_authority": "qwen3.8:27b-q4_K_M",
         "result_authority": "qwen3.8:27b-q4_K_M",
         "model_failure_adjudicator": "qwen3.8:27b-q4_K_M",
-        "model_failure_decisions": ["retry-same-owner-once", "stop-and-report"],
+        "model_failure_decisions": [
+          "retry-same-owner-once",
+          "stop-and-report"
+        ],
         "model_failure_reassignment": "qwen3.8-dynamic-one-time-only",
         "backup_policy": "no-preconfigured-backup",
         "primary_language": "zh-TW"
@@ -360,13 +479,46 @@
         ]
       },
       "capability_categories": {
-        "understanding": ["language-understanding", "context-retrieval", "document-reading", "response-generation"],
-        "research": ["market-research", "investment-analysis", "mathematical-reasoning"],
-        "data": ["granite4.2-enterprise-investment-data", "glm4-chinese-data-worker", "gemma4-12b-document-understanding"],
-        "engineering": ["granite-code-3b-lightweight", "qwen3-coder-30b-second-engineer", "qwen3.6-35b-main-engineer", "deepcoder-14b-review"],
-        "general": ["qwen3.8-task-commander", "rnj-1-workflow-frontend", "nemotron3-nano-4b-high-speed-agent", "language-understanding", "response-generation"],
-        "learning": ["local-ollama-ensemble-training", "quality-governance", "self-training", "model-maintenance"],
-        "coordination": ["qwen3.8-command-understanding-integration-acceptance-and-failure-adjudication", "gpt-oss-20b-toolbox-controller", "governed-ai-channel"]
+        "understanding": [
+          "language-understanding",
+          "context-retrieval",
+          "document-reading",
+          "response-generation"
+        ],
+        "research": [
+          "market-research",
+          "investment-analysis",
+          "mathematical-reasoning"
+        ],
+        "data": [
+          "granite4.2-enterprise-investment-data",
+          "glm4-chinese-data-worker",
+          "gemma4-12b-document-understanding"
+        ],
+        "engineering": [
+          "granite-code-3b-lightweight",
+          "qwen3-coder-30b-second-engineer",
+          "qwen3.6-35b-main-engineer",
+          "deepcoder-14b-review"
+        ],
+        "general": [
+          "qwen3.8-task-commander",
+          "rnj-1-workflow-frontend",
+          "nemotron3-nano-4b-high-speed-agent",
+          "language-understanding",
+          "response-generation"
+        ],
+        "learning": [
+          "local-ollama-ensemble-training",
+          "quality-governance",
+          "self-training",
+          "model-maintenance"
+        ],
+        "coordination": [
+          "qwen3.8-command-understanding-integration-acceptance-and-failure-adjudication",
+          "gpt-oss-20b-toolbox-controller",
+          "governed-ai-channel"
+        ]
       },
       "modules": [
         "language-understanding",
@@ -405,12 +557,23 @@
       "document_reading": {
         "authority": "supplied-content-read-only",
         "owner": "gemma4:12b-it-qat",
-        "actions": ["summarize", "question_answer", "outline", "compare"],
+        "actions": [
+          "summarize",
+          "question_answer",
+          "outline",
+          "compare"
+        ],
         "maximum_documents": 32,
         "maximum_characters": 500000,
         "chunking": "bounded-overlapping-source-offset-preserving",
         "citations": "document-chunk-character-range-and-verbatim-quote",
-        "entity_extraction": ["date", "percentage", "money", "url", "email"],
+        "entity_extraction": [
+          "date",
+          "percentage",
+          "money",
+          "url",
+          "email"
+        ],
         "unsupported_answer_behavior": "explicit-insufficient-evidence",
         "self_training": "citation-and-evidence-gated",
         "network_access": false,
@@ -422,7 +585,12 @@
       "data_scope": "tool-database-only",
       "owner": "star-main-native-model",
       "owner_label": "星澄原生模型",
-      "realtime_information_scope": ["dividends", "prices", "net-asset-values", "other-current-market-information"],
+      "realtime_information_scope": [
+        "dividends",
+        "prices",
+        "net-asset-values",
+        "other-current-market-information"
+      ],
       "strategy": "bounded-multi-query-source-attributed",
       "identity_recognition": "symbol-suffix-market-fund-code-isin-normalized-name-share-class",
       "verification": "official-source-first-cross-check-with-confidence-grade",
@@ -440,7 +608,11 @@
       ],
       "maximum_workers": 6,
       "unknown_result_behavior": "preserve-manual-data",
-      "automatic_fields": ["dividend", "price", "nav"],
+      "automatic_fields": [
+        "dividend",
+        "price",
+        "nav"
+      ],
       "structured_sources": [
         "twse-openapi",
         "tpex-openapi",
@@ -457,7 +629,9 @@
         "sec-edgar",
         "nasdaq"
       ],
-      "discovery_sources": ["google-search"],
+      "discovery_sources": [
+        "google-search"
+      ],
       "google_search_owner": "mistral-small:24b",
       "google_result_policy": "discovery-before-official-verification"
     },
@@ -469,7 +643,13 @@
       "conversation_isolated_from": "star-chat",
       "context_sharing_with_star_chat": false,
       "primary_business_model": "ibm/granite4.2:30b-q4_K_M",
-      "primary_business_scope": ["intake", "classification", "data-organization", "routine-analysis", "first-stage-handoff"],
+      "primary_business_scope": [
+        "intake",
+        "classification",
+        "data-organization",
+        "routine-analysis",
+        "first-stage-handoff"
+      ],
       "calculation_weight_risk_and_final_coordinator": "deepseek-r1:14b-and-qwen3.8",
       "dynamic_model_dispatch": {
         "enabled": true,
@@ -525,10 +705,30 @@
       "evaluation": "live-database-routing-source-memory-runtime-and-training-health",
       "self_maintenance": "startup-and-idle-audit-compact-optimize-rebuild",
       "code_synthesis": "python-typescript-javascript-sql-json-governed-synthesis",
-      "programming_languages": ["python", "typescript", "javascript", "sql", "json"],
-      "programming_actions": ["generate", "analyze", "refactor", "self_upgrade"],
-      "python_artifacts": ["function", "class", "dataclass", "test"],
-      "script_artifacts": ["function", "class", "test"],
+      "programming_languages": [
+        "python",
+        "typescript",
+        "javascript",
+        "sql",
+        "json"
+      ],
+      "programming_actions": [
+        "generate",
+        "analyze",
+        "refactor",
+        "self_upgrade"
+      ],
+      "python_artifacts": [
+        "function",
+        "class",
+        "dataclass",
+        "test"
+      ],
+      "script_artifacts": [
+        "function",
+        "class",
+        "test"
+      ],
       "natural_language_code_spec": "bounded-common-intent-inference",
       "static_code_security": "multi-language-prohibited-capability-scan",
       "sql_generation_policy": "parameterized-query-generation-with-separate-governed-database-executor",
@@ -559,7 +759,9 @@
     },
     "star-project-programming": {
       "authority": "non-governance-project-source-read-write",
-      "excluded_path_roots": ["governance_rule"],
+      "excluded_path_roots": [
+        "governance_rule"
+      ],
       "database_access": "opaque-central-index-read-only-through-local-governed-executor",
       "external_gpt_direct_database_access": false
     },
@@ -585,7 +787,16 @@
     }
   },
   "environment": {
-    "allow": ["GPTBRIDGE_LOCAL_DB", "GPTBRIDGE_LOCAL_DATABASE", "GPTBRIDGE_POSTGRES_DSN", "GPTBRIDGE_POSTGRES_ADMIN_DSN", "GPTBRIDGE_MODULE_DSNS", "GPTBRIDGE_XINGCHENG_IDENTITY_DSN", "GPTBRIDGE_XINGCHENG_COGNITION_DSN", "GPTBRIDGE_POSTGRES_READER_ROLE"]
+    "allow": [
+      "GPTBRIDGE_LOCAL_DB",
+      "GPTBRIDGE_LOCAL_DATABASE",
+      "GPTBRIDGE_POSTGRES_DSN",
+      "GPTBRIDGE_POSTGRES_ADMIN_DSN",
+      "GPTBRIDGE_MODULE_DSNS",
+      "GPTBRIDGE_XINGCHENG_IDENTITY_DSN",
+      "GPTBRIDGE_XINGCHENG_COGNITION_DSN",
+      "GPTBRIDGE_POSTGRES_READER_ROLE"
+    ]
   },
   "test_targets": [
     "tests/test_xingcheng.py"

@@ -3,7 +3,7 @@
   "name_key": "tool.name",
   "description_key": "tool.description",
   "version": "1.00000",
-  "display_version": "1.0",
+  "display_version": "1.00000",
   "status": "stopped",
   "enabled": true,
   "independent_tool": true,
@@ -31,8 +31,16 @@
     "code_scope": "tool-root-only",
     "database_scope": "tool-database-only",
     "canonical_database_scope": "xingcheng-shared-repository",
-    "allow_modify": ["mobile-interface-via-ai-assistant-owner"],
-    "deny": ["main-program", "other-tools", "direct-database-write", "separate-business-database", "separate-settings-layer"]
+    "allow_modify": [
+      "mobile-interface-via-ai-assistant-owner"
+    ],
+    "deny": [
+      "main-program",
+      "other-tools",
+      "direct-database-write",
+      "separate-business-database",
+      "separate-settings-layer"
+    ]
   },
   "entry": "investment-mobile/src/channel_runtime",
   "runtime": {

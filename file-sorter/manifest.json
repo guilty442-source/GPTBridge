@@ -3,15 +3,20 @@
   "name_key": "tool.name",
   "description_key": "tool.description",
   "version": "1.00000",
-  "display_version": "1.0",
+  "display_version": "1.00000",
   "status": "stopped",
   "enabled": true,
   "has_custom_ui": true,
   "permissions": {
     "code_scope": "tool-root-only",
     "database_scope": "tool-database-only",
-    "allow_modify": ["own-data"],
-    "deny": ["main-program", "other-tools"]
+    "allow_modify": [
+      "own-data"
+    ],
+    "deny": [
+      "main-program",
+      "other-tools"
+    ]
   },
   "timeout_seconds": 1800,
   "entry": "file-sorter/src/main",
