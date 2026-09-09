@@ -17,10 +17,13 @@ Entry responsibility boundary (per architecture decision):
     (A67 — a live socket alone is not ready).  Only then is the backend
     considered healthy and supervised for its whole lifetime.
   * Crash recovery — when the backend crashes with a non-zero exit code
-    during startup (uptime < 30s), the startup core runs automatic source
-    self-repair (``CentralRepairService.self_repair_main_system_sources``)
-    before restarting.  This fixes corrupted source files (e.g. SyntaxError,
-    IndentationError) that would otherwise cause repeated crash loops.
+    during startup (uptime < 30s), the startup core diagnoses the crash
+    traceback and writes a repair signal to the information layer
+    (``repair-requests.json``) via ``RepairCoordinator`` (A72:
+    signal-and-request-only).  The maintenance sovereign's repair
+    decision chain (A67/A72) picks up the signal, makes the repair
+    decision, and dispatches the governed executor.  The boot core
+    never executes repair mutations itself.
   * Independent tool isolation — independent tools (非常駐服務) are spawned
     in their own process group (CREATE_NEW_PROCESS_GROUP) so they survive a
     main-system crash or restart.  The startup core only terminates the
@@ -43,7 +46,6 @@ from __future__ import annotations
 import base64
 import json
 import os
-import re
 import secrets
 import signal
 import socket
@@ -55,9 +57,10 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, ClassVar, Final
+from typing import Any, Final
 from startup_core.phases import PhaseMixin
 from startup_core.governance import GovernanceMixin
+from tasks.central_repair import CrashDiagnoser, CrashRepair
 
 MAX_RESTARTS = 10
 BACKOFF_SCHEDULE_SECONDS = (2, 5, 10, 20, 30, 45, 60)
@@ -93,168 +96,6 @@ OLLAMA_PROBE_TIMEOUT: Final[float] = 0.75
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-class CrashDiagnoser:
-    """Dynamic crash diagnosis: turn recent child stdout into an action.
-
-    This component never writes files.  It only decides whether the crash
-    is a targetable source issue, a non-source error, or an unparseable
-    traceback.  The repair decision is forwarded to ``CrashRepair``; the
-    actual write is deferred to the central repair dynamic program.
-    """
-
-    TAIL_LINES: ClassVar[int] = 50
-    _RE_ERROR: ClassVar[re.Pattern[str]] = re.compile(
-        r"^([A-Z]\w*(?:Error|Warning|Exception))\s*[:({]"
-    )
-    _RE_FRAME: ClassVar[re.Pattern[str]] = re.compile(
-        r'^File\s+"([^"]+)",\s+line\s+(\d+),\s+in\s'
-    )
-    _INDENTATION_ERRORS: ClassVar[frozenset[str]] = frozenset(
-        {"IndentationError", "TabError"}
-    )
-    # SyntaxError is only targetable when the message indicates an
-    # indentation-family problem; a bare "invalid syntax" (e.g. missing
-    # colon) is not fixable by the IndentationRepairer.
-    _SYNTAX_INDENTATION_SIGNATURES: ClassVar[frozenset[str]] = frozenset(
-        {
-            "unexpected indent",
-            "unindent does not match any outer indentation level",
-            "expected an indented block",
-            "inconsistent use of tabs and spaces",
-        }
-    )
-
-    def diagnose(
-        self,
-        child_output: list[str],
-        project_root: Path,
-    ) -> dict[str, object]:
-        """Parse the child output and return a diagnosis dict."""
-        diagnosis: dict[str, object] = {
-            "action": "fallback",
-            "error_type": "",
-            "file": "",
-            "line": None,
-        }
-        if not child_output:
-            return diagnosis
-
-        error_type = ""
-        error_file = ""
-        error_line: int | None = None
-        for raw in reversed(child_output[-self.TAIL_LINES :]):
-            stripped = raw.strip()
-            if not error_type:
-                match = self._RE_ERROR.match(stripped)
-                if match:
-                    error_type = match.group(1)
-            if not error_file:
-                match = self._RE_FRAME.match(stripped)
-                if match:
-                    raw_file = match.group(1)
-                    try:
-                        error_line = int(match.group(2))
-                        resolved = Path(raw_file).resolve()
-                        error_file = resolved.relative_to(
-                            project_root.resolve()
-                        ).as_posix()
-                    except (OSError, ValueError):
-                        error_file = raw_file
-
-        diagnosis["error_type"] = error_type
-        diagnosis["file"] = error_file
-        diagnosis["line"] = error_line
-
-        if not error_file or not error_type:
-            diagnosis["action"] = "fallback"
-        elif error_type in self._INDENTATION_ERRORS:
-            diagnosis["action"] = "targeted"
-        elif error_type == "SyntaxError":
-            # Only targetable if the message indicates an indentation
-            # family issue; bare "invalid syntax" is not fixable by
-            # the IndentationRepairer.
-            tail = " ".join(
-                line.strip()
-                for line in child_output[-self.TAIL_LINES :]
-            ).casefold()
-            if any(sig in tail for sig in self._SYNTAX_INDENTATION_SIGNATURES):
-                diagnosis["action"] = "targeted"
-            else:
-                diagnosis["action"] = "skip"
-        else:
-            diagnosis["action"] = "skip"
-        return diagnosis
-
-
-class CrashRepair:
-    """Crash repair planner for the boot core.
-
-    The boot core must not reset/overwrite source code on every startup
-    failure.  This component only records the intended repair plan and
-    consults the central repair knowledge base.  Actual execution is
-    deferred to the central repair dynamic program.
-    """
-
-    def __init__(self, project_root: Path) -> None:
-        self.project_root = Path(project_root).resolve()
-        self._repair_root = (
-            self.project_root / "main-system" / "data" / "automatic-repair"
-        )
-        self._repair_root_created = False
-
-    def _ensure_repair_root(self) -> None:
-        """Lazily create the repair root only when a repair is attempted."""
-        if not self._repair_root_created:
-            self._repair_root.mkdir(parents=True, exist_ok=True)
-            self._repair_root_created = True
-
-    def repair(self, diagnosis: dict[str, object]) -> dict[str, Any]:
-        """Execute the minimal repair dictated by ``diagnosis``."""
-        from tasks.central_repair import CentralRepairService
-
-        report: dict[str, Any] = {
-            "operation": "dynamic-crash-repair",
-            "authority": "boot-core",
-            "ok": False,
-            "reason": "",
-        }
-
-        action = str(diagnosis.get("action", "fallback"))
-        if action == "skip":
-            report["reason"] = f"non-source: {diagnosis.get('error_type', 'unknown')}"
-            return report
-        if action != "targeted":
-            report["reason"] = "unparseable-traceback; no targeted repair"
-            return report
-
-        # Only create the repair root when we actually attempt a repair.
-        self._ensure_repair_root()
-        service = CentralRepairService(self.project_root, self._repair_root)
-        try:
-            suggestion = service.suggest_remedy_for_error(
-                "BackendCrash",
-                f"action={diagnosis.get('action')} "
-                f"error_type={diagnosis.get('error_type')}",
-                file_path=str(diagnosis.get("file") or ""),
-            )
-            if suggestion.get("suggested"):
-                report["learned_suggestion"] = suggestion
-        except Exception:
-            pass
-
-        # The boot core must not reset/overwrite source code on every
-        # startup failure.  Only record the repair plan; execution is
-        # deferred to the central repair dynamic program.
-        target_file = str(diagnosis.get("file", ""))
-        report["targeted_file"] = target_file
-        report["repair_plan"] = {
-            "action": "targeted",
-            "target_file": target_file,
-        }
-        report["reason"] = "targeted-repair-deferred-to-central-repair"
-        return report
 
 
 class BootCore(PhaseMixin, GovernanceMixin):
