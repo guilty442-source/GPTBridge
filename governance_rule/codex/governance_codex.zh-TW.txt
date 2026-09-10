@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "2.00230",
+  "codex_version": "2.10230",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1705,6 +1705,15 @@
         "rule": "DEFAULT-LIMITS:each-handwritten-source-module<=500-effective-lines+each-function/method<=50-effective-lines+each-class<=300-effective-lines+public-entrypoints<=3+authored-functions-or-classes<=12; WARNING:80-percent-of-any-limit; BLOCK:exceed-limit-before-merge+release+startup-activation-of-changed-module; EFFECTIVE-LINE:nonblank+noncomment physical-line including-decorator+signature+control-flow+embedded-template/JSX/SQL; FILE-TYPES:py+pyi+ts+tsx+js+jsx+c+h+cpp+hpp+inl+cs+sql and-other-declared-source; RESPONSIBILITY:one-primary-domain-per-module+split-by-cohesive-duty+no-size-evasion-through-minified-lines+generated-wrappers+partial-classes+include-chains; SIZE-CHECK:changed-files+dependency-affected-files at-precommit+integrated-main+release; DIRECTORY-OWNER:permission-sovereign exclusively-manages operational source-structure-directories; MANAGED-DIRECTORIES:module-registry+source-owner-registry+canonical-folder/layer-registry+top-level-root-allowlist+tool-source-root-registry+test-source-registry+generated-artifact-registry+source-size-exception-registry; ENTRY:permission-directory://source-structure through-information-layer-only; WRITE:permission-sovereign-decision>governed-executor>transactional-directory-update>independent-verification>audit; READ:typed-request+least-scope+permission-review; CODEX-RELATION:directory implements-this-codex+cannot-create-governance-rule+cannot-relax-default-limit except-explicit-codex-allowed-exception-category; EXCEPTION-CATEGORIES:auto-generated+pure-data-table+registry+language-required-generated-interface+single-atomic-migration/schema; EACH-EXCEPTION:file-identity+canonical-path+owner+category+reason+generated-or-data-proof+permitted-limit-or-unbounded-generated-marker+reviewer+decision-proof+issued-at+expiry-or-permanent-reason+content-hash; EXCEPTION-CONSTRAINT:no-domain-orchestration+no-mixed-business-duties+no-hidden-executable-logic+generated-files-not-hand-edited+registry-entries-declarative-only+atomic-migration-not-reusable-runtime-module; CHANGE:path/owner/category/content-role change requires-new-permission-review; REMOVAL:automatic-when-file-split/retired/no-longer-qualifies; REPORT:file+measured-lines+limit+largest-callables+owner+directory-entry+recommended-split; PRIORITY:split-over-exception",
         "prohibition": "FORBID:module>500+function/method>50+class>300 without-valid-directory-exception+hardcoded-limit-outside-codex+local-exception-list+manifest-self-exemption+module-owner-self-approval+permission-sovereign-direct-file-write+other-sovereign-directory-management+directory-governance-authority+directory-overriding-codex+blank/comment-padding+multiple-statements-per-line-to-evade+minification-evasion+generated-label-on-handwritten-code+registry-containing-business-workflow+pure-data-file-containing-execution+permanent-exception-without-reason+path-glob-exception+folder-wide-exemption+stale-exception+cross-owner-directory-write+information-layer-bypass",
         "exception": "Only individually registered files in the declared exception categories may exceed the applicable size limit; responsibility and ownership boundaries never receive an exception"
+      },
+      {
+        "position": 186,
+        "provision_id": "A186",
+        "section_index": "4",
+        "subject": "layered-information-system-and-tiered-view-access",
+        "rule": "INFORMATION-LAYER-PHYSICAL-SUBLAYERS:L1-entry-and-session+L2-identity-and-attestation+L3-permission-proof-enforcement+L4-contract-type-schema-validation+L5-scope-field-policy-and-redaction+L6-routing-and-mediation+L7-transport-adapter-and-connection-lifecycle+L8-state-snapshot-event-sequence-and-reconciliation+L9-observability-audit-and-health-publication; FLOW:request>L1>L2>L3>L4>L5>L6>L7>destination>L7>L6>L5>L8>L9>authorized-response; EACH-SUBLAYER:one-primary-duty+max-3-capabilities+own-interface+no-skip+no-upstream-trust-by-default; AUTHORITY:permission-sovereign decides-and-issues-view-grant; INFORMATION-LAYER validates-and-enforces-proof but-does-not-grant/expand/interpret-permission; CONTENT-OWNER classifies-fields+declares-minimum-view-level; VIEW-LEVELS:V0-denied|V1-own-identity-and-liveness|V2-own-operational-summary|V3-owner-scoped-detail-and-nonsecret-diagnostics|V4-authorized-cross-domain-diagnostic-and-redacted-audit-evidence|V5-restricted-security/integrity/incident-evidence|VC-authoritative-codex-view-governed-exclusively-by-A174; GRANT:subject-identity+actor-class+level+owner-scope+resource-scope+field-allowlist+purpose+legal-basis+issued-at+expiry+session-generation+single-or-bounded-use+decision-proof; EFFECTIVE-LEVEL:min(requested-level,grant-level,resource-minimum/maximum-policy,actor-ceiling); FIELD-POLICY:allowlist-only+redact-denied-fields+omit-secret-material+typed-redaction-marker+no-inference-through-count/error/timing; ACTOR-CEILINGS:UI-default-V2+explicit-V3-for-user-requested-own-detail; MODULE/TOOL-V3-own-scope-only; SUB-SOVEREIGN-V3-parent-delegated-scope-only; SOVEREIGN-V4-duty-scope-with-permission-review; MAINTENANCE-V4-health-diagnostic-scope; PERMISSION-SOVEREIGN-V5-only-for-permission/integrity-investigation+no-content-ownership; XINGCHENG-V4-global-read-only-review-exception+permission-review-exempt+official-information-entry+identity+purpose+scope+redaction+session+audit mandatory; XINGCHENG-VC follows-A174-authoritative-and-Chinese-rules; V5-SECRETS:private-keys+raw-credentials+tokens+passwords+unencrypted-personal-secret-content remain-non-viewable+usable-only-by-dedicated-owner-operation-through-opaque-handle; CROSS-OWNER:requires-explicit-grant+purpose+expiry+owner-scope; DOWNGRADE:automatic-on-expiry+session-change+role-change+incident+connection-generation-change; REVOKE:permission-sovereign immediate+information-layer invalidates-session/cache/subscription; SUBSCRIPTION:each-event revalidated-against-current-grant+field-policy; CACHE:keyed-by-grant-id+scope+field-policy+generation+expiry+invalidated-on-revoke/classification-change; DENIAL:typed-generic-response+redacted-server-diagnostic+audit; AUDIT:requester+actor+level+scope+purpose+fields-category+decision+grant-id+time+correlation-id without-protected-content; REVIEW:periodic+on-role/scope/classification-change; DEFAULT:no-grant=>V0",
+        "prohibition": "FORBID:flat-information-layer+sub-layer-skip+information-layer-business-decision+information-layer-self-grant+implicit-view+role-name-only-authorization+level-inheritance+scope-expansion+field-wildcard-for-sensitive-data+frontend-filter-as-security+post-response-redaction+raw-secret-return+credential/token/log-secret-view+cross-owner-read-without-grant+expired/revoked-grant-use+subscription-without-per-event-check+cache-after-revoke+error/count/timing-side-channel+bulk-export-by-default+permission-sovereign-content-ownership+Xingcheng-V5-or-secret-view+VC-through-general-view-level+direct-destination-response+information-layer-bypass",
+        "exception": "Xingcheng bypasses permission review only for V4 global read-only review and its separately governed VC access; it never bypasses entry identity purpose scope redaction session or audit controls"
       }
     ],
     "certification_evidence": [
@@ -1920,6 +1929,13 @@
       },
       {
         "version": "2.00230",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "2.10230",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3054,6 +3070,13 @@
         "provision_id": "E160",
         "area": "source-size-directory-authority",
         "edict": "LIMITS:module<=500+function/method<=50+class<=300+public-entry<=3+callables<=12; COUNT:nonblank-noncomment-physical; EXCEED:split-before-merge; DIRECTORY:permission-sovereign-only at permission-directory://source-structure; COVER:module+owner+folder/layer+root+tool+test+generated+exception registries; WRITE:decision>executor>verify>audit via-information-layer; EXCEPTION:file-specific+typed+proved+least-scope+reviewed+expiring-or-justified-permanent; FOLDER/GLOB/SELF-EXEMPTION:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 161,
+        "provision_id": "E161",
+        "area": "information-layer-view-access",
+        "edict": "LAYERS:entry/session>identity>permission-proof>contract/type>scope/field/redaction>routing>transport>state/event>audit/health; VIEW:V0-deny|V1-self-liveness|V2-own-summary|V3-own-detail|V4-cross-domain-redacted-diagnostic|V5-restricted-incident|VC-codex-A174; OWNER:permission-sovereign-issues/revokes; INFORMATION-LAYER:enforces-only; GRANT:identity+level+scope+fields+purpose+expiry+generation+proof; SECRET:return-none+opaque-owner-operation-only; XINGCHENG:V4-review-exempt-but-filtered+audited; DEFAULT:V0",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4917,11 +4940,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v2.00230"
+        "value": "gptbridge-governance-codex-v2.10230"
       },
       {
         "key": "codex_version",
-        "value": "2.00230"
+        "value": "2.10230"
       },
       {
         "key": "citation_entry",
@@ -4961,7 +4984,7 @@
       },
       {
         "key": "version_increment",
-        "value": "0.01000"
+        "value": "0.10000"
       },
       {
         "key": "codex_access_owner",
@@ -5002,6 +5025,22 @@
       {
         "key": "source_structure_directory_entry",
         "value": "permission-directory://source-structure"
+      },
+      {
+        "key": "information_layer_sublayers",
+        "value": "9"
+      },
+      {
+        "key": "view_access_owner",
+        "value": "permission-sovereign"
+      },
+      {
+        "key": "view_access_default",
+        "value": "V0-denied"
+      },
+      {
+        "key": "view_access_levels",
+        "value": "V0|V1|V2|V3|V4|V5|VC"
       }
     ],
     "preamble": [
@@ -5612,6 +5651,12 @@
         "position": 100,
         "provision_id": "P100",
         "statement": "SOURCE-SIZE:handwritten-module<=500-effective-lines+function-or-method<=50+class<=300; RESPONSIBILITY:one-primary+public-entry<=3; DIRECTORY-AUTHORITY:permission-sovereign-centralized; EXCEPTION:explicit+typed+least-scope+audited+no-business-monolith",
+        "binding": 1
+      },
+      {
+        "position": 101,
+        "provision_id": "P101",
+        "statement": "INFORMATION-LAYER:layered-pipeline+single-route+no-business-decision; VIEW-ACCESS:deny-by-default+permission-sovereign-issued-level+least-scope+field-filter+purpose+expiry+audit; SENSITIVE/SECRET:no-implicit-view; XINGCHENG:bounded-global-review-exception",
         "binding": 1
       }
     ],
@@ -8833,6 +8878,27 @@
         "identity_code": "codex/provision/edict/E160",
         "provision_type": "edict",
         "provision_id": "E160",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P101",
+        "provision_type": "principle",
+        "provision_id": "P101",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A186",
+        "provision_type": "article",
+        "provision_id": "A186",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E161",
+        "provision_type": "edict",
+        "provision_id": "E161",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -12517,6 +12583,30 @@
         "supersedes_id": "E53",
         "status": "active",
         "content_hash": "548b99c67d90327ce2757efe8ec6dbb6ad6ceb5f1b54a179d93defa4138d991a"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P101",
+        "introduced_by": "H035",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "fe8ed946dc1301f3509cbe9f11d3f7c99c5f606cda67c42a91092ea2e3f7ff73"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A186",
+        "introduced_by": "H035",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "8fc78462d890a6202659f926f2fb2f0544a89f66b720b2f8ed54b61af9ee825c"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E161",
+        "introduced_by": "H035",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "1361ab0de0dca1ecaf8015568319be2273945f9b4a3f36dd1e28073eb25ea7b5"
       }
     ],
     "provision_revisions": [
@@ -28687,6 +28777,30 @@
         "version": "2.00230",
         "content_hash": "548b99c67d90327ce2757efe8ec6dbb6ad6ceb5f1b54a179d93defa4138d991a",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P101",
+        "revision_id": "H035",
+        "version": "2.10230",
+        "content_hash": "fe8ed946dc1301f3509cbe9f11d3f7c99c5f606cda67c42a91092ea2e3f7ff73",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A186",
+        "revision_id": "H035",
+        "version": "2.10230",
+        "content_hash": "8fc78462d890a6202659f926f2fb2f0544a89f66b720b2f8ed54b61af9ee825c",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E161",
+        "revision_id": "H035",
+        "version": "2.10230",
+        "content_hash": "1361ab0de0dca1ecaf8015568319be2273945f9b4a3f36dd1e28073eb25ea7b5",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -29029,6 +29143,16 @@
         "summary": "source module and callable limits tightened and all source structure directories centralized under permission sovereign",
         "previous_hash": "e9c4a9cd349339a9b6a4d5148ed087b28b65893d382cc389915aa835fbedd82a",
         "entry_hash": "b6c50d5b96b235a68b1d380a1993e635dfa23d7b7d638cf2dbb1f7997941f3a5"
+      },
+      {
+        "sequence": 35,
+        "change_id": "H035",
+        "version": "2.10230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "architecture-authority",
+        "summary": "information layer subdivided into nine enforced stages and permission-managed tiered field-level view access established",
+        "previous_hash": "b6c50d5b96b235a68b1d380a1993e635dfa23d7b7d638cf2dbb1f7997941f3a5",
+        "entry_hash": "f07b8c7c9cfe2b70bdd49d596f2b4b396cbd96d2e1b72246520f3678c4febdfe"
       }
     ],
     "savings": [
@@ -29425,6 +29549,17 @@
         "content_root": "6430f2de4d1f139f67d71dce41df8f24298535c9388bd0c066eca2b483b65b8a",
         "identity_root": "aa82dcc8694307f14d58e864284947245a29dd0848897a45ec64fb61429ebbef",
         "full_root": "f11fefd8b93d9497010918964ae797a8018634e1386098045ac57c19c13b98ba"
+      },
+      {
+        "version": "2.10230",
+        "history_head": "f07b8c7c9cfe2b70bdd49d596f2b4b396cbd96d2e1b72246520f3678c4febdfe",
+        "provision_count": 448,
+        "identity_count": 463,
+        "lineage_count": 463,
+        "certification_state": "sealed-read-only",
+        "content_root": "f84a80fe91d9a9dbd306639a6521d9c36efa32c057c2b80a6e6525d13e9acd46",
+        "identity_root": "6f98db5017ed9d0761d533d2ff866a06508fe0600f5f8321b0b3388de3a157f3",
+        "full_root": "28fd355701ab4d21650772024ed927d60058636bc04ae9b8c442945ebd503c82"
       }
     ],
     "sealed_components": [
@@ -31106,6 +31241,11 @@
         "sovereign_id": "permission-sovereign",
         "position": 7,
         "value": "source-structure-directory-management"
+      },
+      {
+        "sovereign_id": "permission-sovereign",
+        "position": 8,
+        "value": "information-view-level-management"
       }
     ],
     "sovereign_powers": [
