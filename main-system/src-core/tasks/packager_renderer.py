@@ -76,8 +76,14 @@ def build_platform_renderer(
 
 
 def copy_app_templates(app_dir: Path) -> None:
+    # A215/E180: template source is .ts, compiled to .cjs via vite.
+    # Copy from the build output (dist-ui/templates/).
+    build_dir = MAIN_SYSTEM_ROOT / "dist-ui" / "templates"
     for filename in ("main.cjs", "preload.cjs"):
-        source = TEMPLATE_DIR / filename
-        if not source.exists():
-            raise FileNotFoundError(f"Wrapper template not found: {source}")
-        shutil.copy2(source, app_dir / filename)
+        compiled = build_dir / filename
+        if not compiled.exists():
+            raise FileNotFoundError(
+                f"Compiled template not found: {compiled}. "
+                "Run 'npm run build:templates' before packaging."
+            )
+        shutil.copy2(compiled, app_dir / filename)
