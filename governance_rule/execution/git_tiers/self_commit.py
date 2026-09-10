@@ -239,8 +239,10 @@ def _discover_worktrees(bare_or_main: str | Path) -> list[str]:
     """List every registered worktree path, including the top-level checkout."""
     manager = WorktreeManager(GitRepository(bare_or_main))
     worktrees = [wt["path"] for wt in manager.list_worktrees()]
-    if str(bare_or_main) not in worktrees:
-        worktrees.insert(0, str(bare_or_main))
+    requested = str(Path(bare_or_main).resolve())
+    normalized = {os.path.normcase(str(Path(item).resolve())) for item in worktrees}
+    if os.path.normcase(requested) not in normalized:
+        worktrees.insert(0, requested)
     return worktrees
 
 
