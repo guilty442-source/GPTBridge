@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.88530",
+  "codex_version": "1.88630",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1615,6 +1615,15 @@
         "rule": "SCOPE:backend-code+frontend-code/assets+independent-tools+contracts+schemas+manifests+runtime-entry+configuration-affecting-behavior; ONE-RELEASE-UNIT:release-id+application-version+artifact-digests+dependency-lock+contract-versions+change-classification+test-evidence+health-evidence+rollback-target; CHANGED-ARTIFACT:new-candidate+new-version-identity+system-programming-review+language-review+maintenance-health-verification+system-decision-acceptance+permission-sovereign-certificate-decision+governed-signing-executor+certificate-verification; UNCHANGED-IN-PROCESS-HOT-RELOAD:current-release-identity-unchanged+all-artifact-digests-match+current-certificate-valid+authorization-current; CERTIFICATE:release-id+version+full-artifact-root+contract-root+evidence-root+issued-at+expiry-or-nonexpiring-marker+signer-identity+signature+rollback-target; SYNCHRONIZE-BEFORE-PUBLISH:backend+frontend+manifest+contract+runtime-entry+certificate-record+status-event prepared-and-matched; ATOMIC-ACTIVATION:certificate-valid>publish-release-identity>activate-matched-artifacts>independent-runtime-verification>stability-window>information-layer-broadcast-to-all-active-UI; FAILURE:no-activation+retain-current-certified-release+quarantine-candidate+audit+user-notification; ROLLBACK:only-to-prior-valid-certified-release+new-audited-activation-event; CODEX-INCLUDED:separate-human-governor-codex-seal-required-before-application-release-certificate; HOT-UPDATE-PRESERVATION:automatic-repair-must-not-replace-or-reset-active-certified-release",
         "prohibition": "FORBID:hot-update/hot-reload/release-without-certificate-gate+frontend-backend-version-skew+partial-publish+certificate-after-activation+reuse-certificate-for-changed-digest+silent-manifest-or-contract-change+uncertified-fallback+repair-reset-to-uncertified-content+stale-certificate-status+direct-publish-bypass+self-signing+permission-review-bypass+activation-before-independent-verification+rollback-to-invalid-or-unsigned-release",
         "exception": "Already-loaded unchanged governed backend module may reexecute under A102 only after current release certificate and artifact digest are reverified; no new version identity is created"
+      },
+      {
+        "position": 176,
+        "provision_id": "A176",
+        "section_index": "6",
+        "subject": "frontend-backend-connection-fault-tolerance",
+        "rule": "SCOPE:main-system+every-independent-tool frontend/backend; OWNER:information-layer-connection-controller-only; STATE-MACHINE:idle>connecting>authenticating>synchronizing>connected>degraded>reconnecting>repairing>failed; TRANSITION:typed+monotonic+generation-id+reason+timestamp+attempt-count; SESSION:authenticated+authorized+contract-versioned+generation-fenced+single-active-per-client-route; LIVENESS:bidirectional-heartbeat+deadline+miss-threshold+transport-close+protocol-error+backend-generation-change; DETECTION:any-liveness-failure-immediately-invalidates-ready-and-blocks-state-changing-commands; RECONNECT:automatic-single-flight+cancel-prior-attempt+bounded-exponential-backoff+jitter+rate-limit+maximum-attempt-window+fresh-session-token+fresh-generation; RESYNC:resubscribe+send-last-acknowledged-event-cursor+backend-gap-check+authoritative-full-snapshot-on-gap-or-generation-change+monotonic-event-replay-with-idempotency-key+client-ack; READY-GATE:transport+authentication+authorization+contract-compatible+subscription+snapshot-current+cursor-contiguous+required-runtime-health; COMMANDS:connected-ready-generation-only+request-id+idempotency-key+acknowledged-result; OFFLINE/DEGRADED/REPAIRING:fail-closed+no-implicit-queue+no-stale-replay; REPAIR-ESCALATION:reconnect-budget-exhausted>information-layer-signal>maintenance-health-classification>system-decision>permission>system-runtime-or-programming>governed-executor>independent-verification>fresh-reconnect; UI:all-connection-state+reason+attempt+last-success+repair-state published-in-real-time-through-information-layer; RECOVERY-SUCCESS:new-generation-ready+stable-heartbeat-window+snapshot-and-cursor-verified; COVERAGE:same-contract-for-development+production+hot-reload+post-repair",
+        "prohibition": "FORBID:frontend-owned-WebSocket+direct-backend-connection+multiple-reconnect-loops+concurrent-session-generations+socket-open-as-ready+fixed-delay-retry+unbounded-retry+retry-storm+reuse-expired-session+command-while-not-ready+silent-command-buffer+out-of-order-event-apply+cursor-gap-ignore+stale-snapshot-as-current+UI-manual-refresh-dependency+repair-success-before-stability-window+hidden-failed-state+information-layer-bypass",
+        "exception": ""
       }
     ],
     "certification_evidence": [
@@ -1767,6 +1776,13 @@
       },
       {
         "version": "1.88530",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.88630",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2831,6 +2847,13 @@
         "provision_id": "E150",
         "area": "hot-update-release-certification",
         "edict": "PIPELINE:release-candidate>artifact+contract+evidence-roots>programming-review>language-review>maintenance-health-proof>system-decision-acceptance>permission-certificate-decision>governed-signing>certificate-verify>synchronized-backend+frontend+manifest+contract-stage>atomic-activate>runtime-verify>stability-window>information-layer-publish; HOT-RELOAD-UNCHANGED:current-certificate+digest-reverify; FAILURE:current-certified-release-remains+candidate-quarantine+notify; AUTO-REPAIR:active-certified-release-reset-none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 151,
+        "provision_id": "E151",
+        "area": "frontend-backend-connection-resilience",
+        "edict": "CONTROLLER:information-layer-only; STATES:idle>connecting>authenticating>synchronizing>connected>degraded>reconnecting>repairing>failed; LIVENESS:two-way-heartbeat+deadline+generation; RECONNECT:single-flight+bounded-backoff+jitter+fresh-session; RESYNC:cursor+gap-check+snapshot+ordered-idempotent-events+ack; READY:all-transport+auth+contract+subscription+snapshot+cursor+health-gates; COMMAND:not-ready=>fail-closed; EXHAUSTED:sovereign-repair-chain; STATUS:real-time-to-all-UI",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4694,11 +4717,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.88530"
+        "value": "gptbridge-governance-codex-v1.88630"
       },
       {
         "key": "codex_version",
-        "value": "1.88530"
+        "value": "1.88630"
       },
       {
         "key": "citation_entry",
@@ -5315,6 +5338,12 @@
         "position": 91,
         "provision_id": "P91",
         "statement": "HOT-UPDATE+HOT-RELOAD+RELEASE:one-synchronized-certification-gate; CHANGED-ARTIFACT:new-version+new-release-certificate; UNCHANGED-RUNTIME-REEXECUTION:current-certificate-reverification; PUBLISH:atomic+information-layer-status; UNCERTIFIED:none",
+        "binding": 1
+      },
+      {
+        "position": 92,
+        "provision_id": "P92",
+        "statement": "FRONTEND-BACKEND-CONNECTION:information-layer-single-owner+explicit-state-machine+generation-fenced-session+heartbeat+liveness+cursor-reconciliation; RECONNECT:automatic+single-flight+bounded; RECOVERY:authoritative-snapshot-before-ready; FAILURE:fail-closed+visible",
         "binding": 1
       }
     ],
@@ -8333,6 +8362,27 @@
         "identity_code": "codex/provision/edict/E150",
         "provision_type": "edict",
         "provision_id": "E150",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P92",
+        "provision_type": "principle",
+        "provision_id": "P92",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A176",
+        "provision_type": "article",
+        "provision_id": "A176",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E151",
+        "provision_type": "edict",
+        "provision_id": "E151",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -11639,7 +11689,7 @@
         "provision_id": "A169",
         "introduced_by": "H021",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "89ee8f096b4bf22cffab942ba6cc0af0ed81d54fb9bf1a5706354005fab73c53"
       },
       {
@@ -11647,7 +11697,7 @@
         "provision_id": "E144",
         "introduced_by": "H021",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "3930eeaac0f79ac6576ffea22cdf82bf3ebdb386b8f617885c5d1497310ed402"
       },
       {
@@ -11785,6 +11835,30 @@
         "supersedes_id": "E29",
         "status": "active",
         "content_hash": "55a28e08ef4e92533608922c1b45eb06687e2037118e6e5daecab08707a37f74"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P92",
+        "introduced_by": "H026",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "7f208a9400c322a9ac47cb660f1eb7a9dfcac10b94643a9a4ccc1059e6bda72a"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A176",
+        "introduced_by": "H026",
+        "supersedes_id": "A169",
+        "status": "active",
+        "content_hash": "3d6ec5069b35a28e4d25c27403cbb5d0b6a3326e86104003d15b2620a966a619"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E151",
+        "introduced_by": "H026",
+        "supersedes_id": "E144",
+        "status": "active",
+        "content_hash": "eecac69ddcb401489e155932e957d6bc6fcc6b0184ca95f479706e9656905940"
       }
     ],
     "provision_revisions": [
@@ -27723,6 +27797,30 @@
         "version": "1.88530",
         "content_hash": "55a28e08ef4e92533608922c1b45eb06687e2037118e6e5daecab08707a37f74",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P92",
+        "revision_id": "H026",
+        "version": "1.88630",
+        "content_hash": "7f208a9400c322a9ac47cb660f1eb7a9dfcac10b94643a9a4ccc1059e6bda72a",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A176",
+        "revision_id": "H026",
+        "version": "1.88630",
+        "content_hash": "3d6ec5069b35a28e4d25c27403cbb5d0b6a3326e86104003d15b2620a966a619",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E151",
+        "revision_id": "H026",
+        "version": "1.88630",
+        "content_hash": "eecac69ddcb401489e155932e957d6bc6fcc6b0184ca95f479706e9656905940",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -27975,6 +28073,16 @@
         "summary": "hot update hot reload and release synchronized certification and atomic publication established",
         "previous_hash": "c8b71a58c4a1ca533b78f136b37e0918531efaacf77af5b97f180bd1a12c5b51",
         "entry_hash": "e908495fa148dd45b680b4af0af1621835580548c825a002d065ce258860ea8e"
+      },
+      {
+        "sequence": 26,
+        "change_id": "H026",
+        "version": "1.88630",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "frontend backend connection state machine liveness generation fencing and deterministic recovery completed",
+        "previous_hash": "e908495fa148dd45b680b4af0af1621835580548c825a002d065ce258860ea8e",
+        "entry_hash": "8799097591ac90cda29bad277b0521b6086160676093ed3c21545f08b48f3618"
       }
     ],
     "savings": [
@@ -28272,6 +28380,17 @@
         "content_root": "764ae265c723fc1e5e5b8267f9644a350a3f177cf4af2314d9b729dab15b8b0a",
         "identity_root": "266536ebe70f46a44181e4f9aa5fa09eadbaa9a53b58d401f7772d8f9b901555",
         "full_root": "41c006e94baf9a0f1e411a9c9c49a22e87b76b0ad3db4866cf3f51eeb9788f40"
+      },
+      {
+        "version": "1.88630",
+        "history_head": "8799097591ac90cda29bad277b0521b6086160676093ed3c21545f08b48f3618",
+        "provision_count": 419,
+        "identity_count": 434,
+        "lineage_count": 434,
+        "certification_state": "sealed-read-only",
+        "content_root": "0e9cda33b0d7699c3402332b97e716544836552d6f8604bd2a5acf61c1942d0c",
+        "identity_root": "4925c8ad14e27d1769772d10ab5c8865b97e8b47d5b88b5f113c5f5bc976d974",
+        "full_root": "2f425fad823226fd2e406790d736dcb6af3008379580a6203f61338a9ff53ba0"
       }
     ],
     "sealed_components": [
@@ -31049,6 +31168,18 @@
         "predecessor_identity": "codex/provision/edict/E29",
         "successor_identity": "codex/provision/edict/E150",
         "effective_version": "1.88530",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A169",
+        "successor_identity": "codex/provision/article/A176",
+        "effective_version": "1.88630",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E144",
+        "successor_identity": "codex/provision/edict/E151",
+        "effective_version": "1.88630",
         "status": "effective"
       }
     ],
