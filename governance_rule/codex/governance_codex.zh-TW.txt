@@ -1,8 +1,8 @@
 {
-  "document_identity": "non-authoritative-complete-Chinese-reference",
-  "sync_requirement": "mandatory-complete-same-release",
-  "authority_source": "data/governance_codex.sqlite3",
-  "codex_version": "1.74220",
+  "document_identity": "governance-codex-chinese-reference",
+  "sync_requirement": "mandatory-complete-mirror",
+  "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
+  "codex_version": "1.74230",
   "tables": {
     "access_actor_classes": [
       {
@@ -1496,6 +1496,15 @@
         "rule": "WORKER:own-worktree+own-branch+own-index+automatic-local-commit+no-direct-push; COORDINATOR:single-process-lock+governance-audit+merge-workers-into-main+fast-forward-clean-worktrees+fetch-origin-main+verify-origin-main-ancestor+push-origin-main; PUSH:automatic-only-after-all-gates; CONFLICT:abort-current-merge+preserve-source+no-push; FAILURE:retain-local-commits+retry-later+report; REMOTE-BRANCH:main-only",
         "prohibition": "FORBID:worker-push+concurrent-coordinator+force-push+ref-delete+history-rewrite+automatic-conflict-choice+dirty-sync+audit-bypass+diverged-remote-push",
         "exception": ""
+      },
+      {
+        "position": 163,
+        "provision_id": "A163",
+        "section_index": "6",
+        "subject": "multi-worker-automatic-git-delivery",
+        "rule": "WORKER:own-worktree+own-branch+own-index+automatic-local-commit+no-direct-push; COORDINATOR:single-process-lock+all-worktrees-clean+worker-diff-check+merge-workers-into-main+integrated-main-governance-audit+fast-forward-clean-worktrees+fetch-origin-main+verify-origin-main-ancestor+push-origin-main; PUSH:automatic-only-after-all-gates; CONFLICT:abort-current-merge+preserve-source+no-push; FAILURE:retain-local-commits+retry-later+report; REMOTE-BRANCH:main-only",
+        "prohibition": "FORBID:worker-push+concurrent-coordinator+force-push+ref-delete+history-rewrite+automatic-conflict-choice+dirty-sync+audit-bypass+diverged-remote-push+partial-worktree-as-full-audit-root",
+        "exception": ""
       }
     ],
     "certification_evidence": [
@@ -1606,6 +1615,13 @@
       },
       {
         "version": "1.74220",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.74230",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2579,6 +2595,13 @@
         "provision_id": "E137",
         "area": "git-delivery",
         "edict": "PIPELINE:worker-auto-commit>coordinator-lock>all-clean>unique-head-audit>merge-to-main>fast-forward-worktrees>final-audit>fetch-origin-main>fast-forward-proof>push-main; PUSH-OWNER:workspace-sync-coordinator-only; ON-ERROR:stop+preserve+notify",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 138,
+        "provision_id": "E138",
+        "area": "git-delivery",
+        "edict": "PIPELINE:worker-auto-commit>coordinator-lock>all-clean>worker-diff-check>merge-to-main>integrated-main-governance-audit>fast-forward-worktrees>fetch-origin-main>fast-forward-proof>push-main; AUDIT-ROOT:integrated-complete-main-worktree-only; PUSH-OWNER:workspace-sync-coordinator-only; ON-ERROR:stop+preserve+notify",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4382,11 +4405,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.74220"
+        "value": "gptbridge-governance-codex-v1.74230"
       },
       {
         "key": "codex_version",
-        "value": "1.74220"
+        "value": "1.74230"
       },
       {
         "key": "citation_entry",
@@ -4426,7 +4449,7 @@
       },
       {
         "key": "version_increment",
-        "value": "0.01000"
+        "value": "0.00010"
       }
     ],
     "preamble": [
@@ -7756,6 +7779,20 @@
         "provision_id": "E137",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A163",
+        "provision_type": "article",
+        "provision_id": "A163",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E138",
+        "provision_type": "edict",
+        "provision_id": "E138",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -10948,7 +10985,7 @@
         "provision_id": "A162",
         "introduced_by": "H016",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "be956a3296badfba01d29f5897a53714e1326fd5575bd9f10cee5418f1010d08"
       },
       {
@@ -10956,8 +10993,24 @@
         "provision_id": "E137",
         "introduced_by": "H016",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "b870bf8343c35ee76397a9a67651a8d48819db7e334158ba4d31d583e559114e"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A163",
+        "introduced_by": "H017",
+        "supersedes_id": "A162",
+        "status": "active",
+        "content_hash": "535ffca8f116c5e5510777734afc97615f961e757c84b29e0eb4755fbe35ca29"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E138",
+        "introduced_by": "H017",
+        "supersedes_id": "E137",
+        "status": "active",
+        "content_hash": "8d78f5965e96fcfc1f3063768a8ace14d287272ddb21b30d19978978ff8b5a60"
       }
     ],
     "provision_revisions": [
@@ -26728,6 +26781,22 @@
         "version": "1.74220",
         "content_hash": "b870bf8343c35ee76397a9a67651a8d48819db7e334158ba4d31d583e559114e",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A163",
+        "revision_id": "H017",
+        "version": "1.74230",
+        "content_hash": "535ffca8f116c5e5510777734afc97615f961e757c84b29e0eb4755fbe35ca29",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E138",
+        "revision_id": "H017",
+        "version": "1.74230",
+        "content_hash": "8d78f5965e96fcfc1f3063768a8ace14d287272ddb21b30d19978978ff8b5a60",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -26890,6 +26959,16 @@
         "summary": "multi-worker automatic commit integration synchronization and guarded main push authority established",
         "previous_hash": "09f7a8d0fa8c353d80488d6f201e246ce5e34c86213348f3a7bb112a3d491c9d",
         "entry_hash": "77f5193e1b98b717d7cf372e69c782c0bcd37560087da62d9eab087bfd07f5a7"
+      },
+      {
+        "sequence": 17,
+        "change_id": "H017",
+        "version": "1.74230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "clarification",
+        "summary": "multi-worker audit root and safe automatic delivery gates clarified",
+        "previous_hash": "77f5193e1b98b717d7cf372e69c782c0bcd37560087da62d9eab087bfd07f5a7",
+        "entry_hash": "546679b2628aeb95675e7342c570c5d03cc2e19e50980529961026acf6fe67da"
       }
     ],
     "savings": [
@@ -27088,6 +27167,17 @@
         "content_root": "f42555b7cf805740fe3586188b920298e1931a4c8fe988ac7a6585dd7b1678b3",
         "identity_root": "92c7213c839308d16380208cbc2328bd8e558579a2c95b683947f935de41da98",
         "full_root": "925d0f51712d3f301509efd42e8e495397b2c2eb8058000a986134dd85bc625e"
+      },
+      {
+        "version": "1.74230",
+        "history_head": "546679b2628aeb95675e7342c570c5d03cc2e19e50980529961026acf6fe67da",
+        "provision_count": 387,
+        "identity_count": 402,
+        "lineage_count": 402,
+        "certification_state": "sealed-read-only",
+        "content_root": "c347faccd6a94453e8d31910dfc9ebfa4476216141f71ee7b06bcf5d447fe612",
+        "identity_root": "4c931334bbbc6880c828d22af2cf1cc4a36c9e7407d2e05c2e69820dae108675",
+        "full_root": "9113800911f5f7d813fbf2eb0195ade60ce0647edb8a6893e77540008eb72d6b"
       }
     ],
     "sealed_components": [
@@ -28278,6 +28368,91 @@
       },
       {
         "version": "1.74220",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "articles",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "edicts",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "effective-provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "entity-declarations",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "preamble",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "principles",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "revisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "savings",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "sections",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "source-exceptions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74230",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -29697,6 +29872,18 @@
         "predecessor_identity": "codex/provision/edict/E51",
         "successor_identity": "codex/provision/edict/E137",
         "effective_version": "1.74220",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A162",
+        "successor_identity": "codex/provision/article/A163",
+        "effective_version": "1.74230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E137",
+        "successor_identity": "codex/provision/edict/E138",
+        "effective_version": "1.74230",
         "status": "effective"
       }
     ],

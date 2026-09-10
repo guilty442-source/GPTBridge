@@ -45,16 +45,18 @@ class GitRepository:
             check=False,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
+        returncode = int(getattr(result, "returncode", -1) or -1)
+        detail = str(getattr(result, "stderr", "") or "")[:500].strip()
         audit_log(
             classify(command),
             command,
             actor,
             True,
-            result.stderr.strip()[:500],
+            detail,
             repo_snapshot=snapshot,
             phase="result",
-            result="succeeded" if result.returncode == 0 else "failed",
-            returncode=result.returncode,
+            result="succeeded" if returncode == 0 else "failed",
+            returncode=returncode,
         )
         if check and result.returncode != 0:
             raise subprocess.CalledProcessError(

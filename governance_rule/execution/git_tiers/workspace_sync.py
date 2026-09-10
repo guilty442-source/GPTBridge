@@ -1,8 +1,9 @@
 """Conflict-safe automatic synchronization for GPTBridge worktrees.
 
 Each checkout commits only its own files. The coordinator then merges worker
-branches into ``main`` and fast-forwards every clean worker checkout. It never
-pushes, force-updates, resets, or resolves conflicts automatically.
+branches into ``main``, audits the integrated result, fast-forwards every clean
+worker checkout, and can push ``main``. It never force-updates, resets, deletes
+refs, or resolves conflicts automatically.
 """
 from __future__ import annotations
 
@@ -73,17 +74,16 @@ def synchronize(
         if dirty:
             return "error:dirty-worktree:" + "|".join(dirty)
 
-        audit_by_head: dict[str, bool] = {}
-        failed_audits: list[str] = []
+        invalid_diffs: list[str] = []
         for item in worktrees:
-            head = GitRepository(item["path"]).head()
-            if head not in audit_by_head:
-                audit_by_head[head] = _audit_passes(item["path"])
-            passed = audit_by_head[head]
-            if not passed:
-                failed_audits.append(item["path"])
-        if failed_audits:
-            return "error:governance-audit:" + "|".join(failed_audits)
+            branch = _branch_name(item.get("branch", ""))
+            if not branch or branch in {"HEAD", "main"}:
+                continue
+            checked = coordinator.run(["diff", "--check", f"main...{branch}"])
+            if checked.returncode != 0:
+                invalid_diffs.append(branch)
+        if invalid_diffs:
+            return "error:worker-diff-check:" + "|".join(invalid_diffs)
 
         main_repo = GitRepository(main["path"])
         for item in worktrees:
@@ -102,6 +102,9 @@ def synchronize(
                 main_repo.run(["merge", "--abort"], confirmed=True, actor=SYNC_ACTOR)
                 return f"conflict:{branch}"
 
+        if not _audit_passes(main["path"]):
+            return "error:integrated-main-governance-audit"
+
         for item in worktrees:
             branch = _branch_name(item.get("branch", ""))
             if not branch or branch in {"HEAD", "main"}:
@@ -115,8 +118,6 @@ def synchronize(
             if advanced.returncode != 0:
                 return f"error:fast-forward:{branch}:{advanced.stderr.strip()[:160]}"
         if push:
-            if not _audit_passes(main["path"]):
-                return "error:final-governance-audit"
             fetched = main_repo.run(
                 ["fetch", "origin", "main"], confirmed=True, actor=SYNC_ACTOR
             )

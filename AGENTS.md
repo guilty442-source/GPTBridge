@@ -91,9 +91,10 @@ operation `auto-commit`. Implementation:
 
 ## Automatic Worktree Synchronization
 
-Commit each checkout, merge worker branches into `main`, then fast-forward all
-clean worktrees. Conflicts stop the cycle; the service never pushes, forces,
-resets, or chooses a conflict resolution.
+Commit each checkout, merge worker branches into `main`, audit the integrated
+result, then fast-forward all clean worktrees. Conflicts stop the cycle. Only
+the coordinator may push `main`; it never force-pushes, deletes refs, resets,
+or chooses a conflict resolution.
 
 ```powershell
 & main-system\.venv\Scripts\python.exe scripts\git-worktree-sync.py --root E:\GPTBridge
