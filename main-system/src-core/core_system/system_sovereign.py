@@ -37,6 +37,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from governance_rule.codex import GOVERNANCE_CODEX
+
 from .data_sub_sovereign import DataSubSovereign
 from .governance_rule_coordination import GovernanceRuleCoordination
 from .integration_sub_sovereign import IntegrationSubSovereign
@@ -50,6 +52,16 @@ from .sovereign_utils import _iso_now
 from .third_party_sub_sovereign import ThirdPartySubSovereign
 from .system_programming_sovereign import SystemProgrammingSovereign
 
+
+
+_SYSTEM_SOVEREIGN = next(
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "system-decision"),
+    None,
+)
+if _SYSTEM_SOVEREIGN is None:
+    raise RuntimeError("system-decision sovereign not found in Governance Codex")
+
+SYSTEM_SOVEREIGN_RESPONSIBILITIES = _SYSTEM_SOVEREIGN.duties
 
 
 class SystemSovereignService:
@@ -67,6 +79,8 @@ class SystemSovereignService:
         after this service has materialized them
       - Delegate all execution to governed executors (never in this process)
     """
+
+    ROLE = _SYSTEM_SOVEREIGN.id
 
     def __init__(self, app: Any) -> None:
         self.app = app
@@ -528,3 +542,6 @@ class SystemSovereignService:
             encoding="utf-8",
         )
         os.replace(temporary, self.runtime_state_path)
+
+
+__all__ = ["SYSTEM_SOVEREIGN_RESPONSIBILITIES", "SystemSovereignService"]
