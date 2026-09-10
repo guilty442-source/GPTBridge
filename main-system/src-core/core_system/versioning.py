@@ -4,8 +4,7 @@ import json
 import re
 from pathlib import Path
 
-SEMVER_PATTERN = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
-LOCKED_APPLICATION_VERSION = "1.00000"
+APPLICATION_VERSION_PATTERN = re.compile(r"^\d+\.\d+$")
 
 
 def application_version(project_root: Path) -> str:
@@ -14,13 +13,10 @@ def application_version(project_root: Path) -> str:
         version = str(
             json.loads(package_path.read_text(encoding="utf-8")).get("version") or ""
         ).strip()
-    except OSError:
-        return LOCKED_APPLICATION_VERSION
+    except OSError as error:
+        raise RuntimeError("GPTBridge product version source is unavailable") from error
     except json.JSONDecodeError:
         version = ""
-    if version != LOCKED_APPLICATION_VERSION:
-        raise RuntimeError(
-            f"GPTBridge product version is locked to {LOCKED_APPLICATION_VERSION}; "
-            f"found {version or 'missing'}"
-        )
-    return LOCKED_APPLICATION_VERSION
+    if APPLICATION_VERSION_PATTERN.fullmatch(version) is None:
+        raise RuntimeError(f"GPTBridge product version is invalid: {version or 'missing'}")
+    return version

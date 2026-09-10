@@ -27,11 +27,10 @@ from packager_base import (  # noqa: E402,F401
     PLATFORM_RENDERER_ROOT,
     PLATFORM_TOOLS_DIR,
     PROJECT_ROOT,
-    REQUIRED_TOOL_DISPLAY_VERSION,
-    REQUIRED_TOOL_VERSION,
     SOURCE_IGNORED_DIRECTORY_NAMES,
     STANDALONE_BACKEND_PORT_COUNT,
     STANDALONE_BACKEND_PORT_MIN,
+    TOOL_VERSION_PATTERN,
     TEMPLATE_DIR,
     TOOL_RUNTIME_CONTRACT_PATH,
     PackageOperationBusy,
@@ -43,6 +42,7 @@ from packager_base import (  # noqa: E402,F401
     load_tool_runtime_contract,
     run_upgrade_auto_repair,
     snapshot_digest,
+    tool_display_version,
     verify_packaged_app,
 )
 

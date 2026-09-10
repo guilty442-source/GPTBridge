@@ -8,10 +8,10 @@ from typing import Any
 from packager_base import (
     PLATFORM_TOOLS_DIR,
     PROJECT_ROOT,
-    REQUIRED_TOOL_DISPLAY_VERSION,
-    REQUIRED_TOOL_VERSION,
+    TOOL_VERSION_PATTERN,
     STANDALONE_BACKEND_PORT_COUNT,
     STANDALONE_BACKEND_PORT_MIN,
+    tool_display_version,
 )
 
 
@@ -40,14 +40,12 @@ def validate_tool_version_baseline(
     version = str(manifest.get("version") or "").strip()
     display_version = str(manifest.get("display_version") or "").strip()
     errors: list[str] = []
-    if version != REQUIRED_TOOL_VERSION:
+    if TOOL_VERSION_PATTERN.fullmatch(version) is None:
+        errors.append(f"tool version is invalid: {version or 'missing'}")
+    expected_display = tool_display_version(version)
+    if display_version and display_version != expected_display:
         errors.append(
-            f"tool version must be {REQUIRED_TOOL_VERSION}; found {version or 'missing'}"
-        )
-    if display_version and display_version != REQUIRED_TOOL_DISPLAY_VERSION:
-        errors.append(
-            "tool display version must be "
-            f"{REQUIRED_TOOL_DISPLAY_VERSION}; found {display_version}"
+            f"tool display version must match {expected_display}; found {display_version}"
         )
     return {
         "ok": not errors,

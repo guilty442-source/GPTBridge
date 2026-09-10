@@ -2586,7 +2586,7 @@ def test_dual_runtime_ai_assistant_is_available_to_package_scope() -> None:
     normal_all_scope = {tool_id for tool_id, _, _ in iter_tools(None)}
     assert "ai-assistant" in explicitly_selected
     assert "ai-assistant" in normal_all_scope
-    invalid_manifest = {"version": "2.0.0", "display_version": "2.0"}
+    invalid_manifest = {"version": "release-two", "display_version": "2.0"}
     version_check = validate_tool_version_baseline("ai-assistant", invalid_manifest)
     assert version_check["ok"] is False
     assert version_check["error_code"] == "TOOL_VERSION_MISMATCH"
@@ -2596,7 +2596,7 @@ def test_main_system_blocks_tool_version_mismatch_before_launch() -> None:
     failure = ToolboxService._tool_version_failure(
         "ai-assistant",
         "version-check",
-        {"version": "2.0.0", "display_version": "2.0"},
+        {"version": "2.0.0", "display_version": "1.0"},
     )
     assert failure is not None
     assert failure["error_code"] == "TOOL_VERSION_MISMATCH"
@@ -2604,6 +2604,11 @@ def test_main_system_blocks_tool_version_mismatch_before_launch() -> None:
         "ai-assistant",
         "version-check",
         {"version": "1.0.0", "display_version": "1.0"},
+    ) is None
+    assert ToolboxService._tool_version_failure(
+        "ai-assistant",
+        "version-check",
+        {"version": "2.7.3", "display_version": "2.7"},
     ) is None
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -34,8 +35,12 @@ DEFAULT_BACKEND_PORT = 8765
 STANDALONE_BACKEND_PORT_MIN = 20000
 STANDALONE_BACKEND_PORT_COUNT = 20000
 MAX_COMPLETED_RECOVERY_GENERATIONS = 1
-REQUIRED_TOOL_VERSION = "1.00000"
-REQUIRED_TOOL_DISPLAY_VERSION = "1.00000"
+TOOL_VERSION_PATTERN = re.compile(r"^\d+\.\d+(?:\.\d+)?$")
+
+
+def tool_display_version(version: str) -> str:
+    parts = version.split(".")
+    return ".".join(parts[:2]) if len(parts) >= 2 else ""
 
 
 def _background_subprocess_kwargs() -> dict[str, int]:

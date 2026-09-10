@@ -17,8 +17,7 @@ from .toolbox_constants import (
     _MANAGED_BACKEND_TOOL_ID_ENV,
     _MANAGED_BACKEND_WORKSPACE_ID_ENV,
     _MANAGED_BACKEND_VERSION_ENV,
-    _REQUIRED_TOOL_DISPLAY_VERSION,
-    _REQUIRED_TOOL_VERSION,
+    _TOOL_VERSION_PATTERN,
     _TOOL_ENVIRONMENT_ALLOWLIST,
     _TOOL_GOVERNANCE_BOOTSTRAP_ENV,
     _is_declarable_tool_environment_key,
@@ -125,15 +124,12 @@ class EnvironmentMixin:
         version = str(manifest.get("version") or "").strip()
         display_version = str(manifest.get("display_version") or "").strip()
         errors: list[str] = []
-        if version != _REQUIRED_TOOL_VERSION:
+        if _TOOL_VERSION_PATTERN.fullmatch(version) is None:
+            errors.append(f"tool version is invalid: {version or 'missing'}")
+        expected_display = ".".join(version.split(".")[:2])
+        if display_version and display_version != expected_display:
             errors.append(
-                f"tool version must be {_REQUIRED_TOOL_VERSION}; "
-                f"found {version or 'missing'}"
-            )
-        if display_version and display_version != _REQUIRED_TOOL_DISPLAY_VERSION:
-            errors.append(
-                "tool display version must be "
-                f"{_REQUIRED_TOOL_DISPLAY_VERSION}; found {display_version}"
+                f"tool display version must match {expected_display}; found {display_version}"
             )
         if not errors:
             return None
