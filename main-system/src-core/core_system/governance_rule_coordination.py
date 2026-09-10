@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 from governance_rule.code_rule_directory import code_rule_directory_snapshot
-from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.execution.codex_repository import load_governance_codex
 from governance_rule.governance_policy import (
     DEFAULT_ACTIVE_GOVERNANCE_RULES,
     GOVERNANCE_POLICY,
@@ -41,7 +41,7 @@ class GovernanceRuleCoordination:
     def coordination_status(self) -> dict[str, Any]:
         """Snapshot of the supreme Governance Codex plus legacy detail."""
 
-        codex = GOVERNANCE_CODEX
+        codex = load_governance_codex()
         active_rules = self._active_rules()
 
         return {
@@ -114,10 +114,10 @@ class GovernanceRuleCoordination:
             "chinese_reference": {
                 "status": "synchronized-non-authoritative-reference",
                 "scope": "human-reference-only",
-                "principles_count": len(GOVERNANCE_CODEX.principles),
-                "articles_count": len(GOVERNANCE_CODEX.articles),
-                "edicts_count": len(GOVERNANCE_CODEX.edicts),
-                "sovereigns_count": len(GOVERNANCE_CODEX.sovereigns),
+                "principles_count": len(codex.principles),
+                "articles_count": len(codex.articles),
+                "edicts_count": len(codex.edicts),
+                "sovereigns_count": len(codex.sovereigns),
             },
             "decision": "read-only",
         }
@@ -129,7 +129,7 @@ class GovernanceRuleCoordination:
             "name": "governance-rules",
             "authority": "governance-codex-supreme",
             "rule_layer": "codex",
-            "codex_version": GOVERNANCE_CODEX.codex_version,
+            "codex_version": load_governance_codex().codex_version,
             "active_rule": self._active_rules(),
             "state": "sealed",
             "function": "none",
