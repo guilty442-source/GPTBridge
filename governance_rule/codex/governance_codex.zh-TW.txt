@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.31600",
+  "codex_version": "1.41600",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1525,6 +1525,15 @@
         "rule": "C-ROLE:interface-only through .h declarations+.c ABI-thunk when required; C-OWNS:versioned extern-C surface+fixed-width types+opaque handles+status codes+buffer/lifetime/calling-convention contract; C-NOT:algorithm+performance-kernel+business/workflow/state/database/network/UI implementation; CPP-ROLE:implementation-only behind registered C interface or Python-specific pybind11 binding; CPP-OWNS:profile-proven compute+native algorithms+internal types+resource-safe implementation; CPP-NOT:public cross-language ABI+system orchestration+business/data/UI authority; BOUNDARY:C header=.h+C++ header=.hpp; DEPENDENCY:C-interface may-declare opaque C++ implementation handle but cannot expose C++ type; C++ implements C contract+translation thunk remains mechanically thin; PYBIND11:binding interface only and calls same C++ implementation; ONE-CAPABILITY:one C++ implementation+one registered interface per consumer class; TEST:C ABI compatibility+symbol allowlist+interface/implementation parity+error/lifetime/threading; CHANGE:interface and implementation released as one compatible versioned unit",
         "prohibition": "C domain implementation; C++ public language ABI; C/C++ duplicate capability; C++ types in C header",
         "exception": "OS-required C implementation remains a thin native interface adapter and cannot own application algorithms"
+      },
+      {
+        "position": 221,
+        "provision_id": "A221",
+        "section_index": "4",
+        "subject": "canonical-native-physical-tree",
+        "rule": "ROOT:native/; ALLOW-DIRECTORIES:include|bridge|core only; INCLUDE:native/include/gptbridge_native.h is sole public C header+sole application-facing native contract; BRIDGE:native/bridge/gptbridge_native.c is sole C ABI thunk+validates arguments+translates status/handles+delegates immediately+contains no algorithm/business/workflow/state authority; CORE:native/core/vector.cpp owns vector compute|native/core/parser.cpp owns parsing compute|native/core/transformer.cpp owns transformation compute; CORE-HEADERS:private .hpp only when required+remain inside native/core+never application-facing; DEPENDENCY:Python API>pybind11 or gptbridge_native.h contract>gptbridge_native.c when C ABI required>exact C++ core owner; PYBIND11:binding-only and may call same C++ core without duplicating gptbridge_native.c logic; FILE-OWNERSHIP:one listed file=one primary responsibility; MEMORY/TOKEN/BINDING:cross-cutting helpers remain private within owning core or thin bridge and do not form independent top-level native domains; PUBLIC-SYMBOLS:gptbridge_native.h allowlist only; BUILD:one native compatibility unit+explicit sources+hidden C++ symbols; MOVE/ADD:requires architecture successor+consumer/build migration+removal of displaced path in same release; TOP-LEVEL:native tree contains no data/runtime/build-output/vendor/business/UI/network/database files",
+        "prohibition": "additional native top-level directory; second public native header; C algorithm; public C++ ABI; duplicate parser/vector/transformer implementation",
+        "exception": "private core .hpp files are allowed only when required by the three declared C++ implementations and remain non-public"
       }
     ],
     "certification_evidence": [
@@ -1600,6 +1609,13 @@
       },
       {
         "version": "1.31600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.41600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -1692,6 +1708,13 @@
         "recorded_at_local": "2026-09-10T21:58:17+08:00",
         "timezone": "Asia/Taipei",
         "event": "provision-scope-c-interface-cpp-implementation"
+      },
+      {
+        "version": "1.41600",
+        "recorded_at_utc": "2026-09-10T14:00:24Z",
+        "recorded_at_local": "2026-09-10T22:00:24+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "architecture-authority-native-physical-tree"
       }
     ],
     "edicts": [
@@ -2694,6 +2717,13 @@
         "provision_id": "E185",
         "area": "c-cpp-role-separation",
         "edict": "C=INTERFACE-ONLY; CPP=IMPLEMENTATION-ONLY; ABI:C-.h+extern-C+versioned; CPP:.hpp/.cpp internal implementation; PYBIND11:binding-only-to-same-CPP-core; C-ALGORITHM/CPP-PUBLIC-CROSS-LANGUAGE-ABI/DUPLICATE-IMPLEMENTATION:none",
+        "immutability": "versioned-codex-only"
+      },
+      {
+        "position": 186,
+        "provision_id": "E186",
+        "area": "native-physical-layout",
+        "edict": "NATIVE-LAYOUT:include/gptbridge_native.h|bridge/gptbridge_native.c|core/vector.cpp+parser.cpp+transformer.cpp; C=PUBLIC-INTERFACE/THUNK; CPP=PRIVATE-IMPLEMENTATION; OTHER-TOP-DIRECTORY/SECOND-PUBLIC-HEADER/DUPLICATE-CORE:none; OLD-SIX-DOMAIN-LAYOUT:superseded",
         "immutability": "versioned-codex-only"
       }
     ],
@@ -5027,12 +5057,6 @@
         "status": "active"
       },
       {
-        "provision_type": "article",
-        "provision_id": "A214",
-        "effective_version": "1.31000",
-        "status": "active"
-      },
-      {
         "provision_type": "edict",
         "provision_id": "E179",
         "effective_version": "1.31000",
@@ -5138,6 +5162,24 @@
         "provision_type": "edict",
         "provision_id": "E185",
         "effective_version": "1.31600",
+        "status": "active"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P123",
+        "effective_version": "1.41600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A221",
+        "effective_version": "1.41600",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E186",
+        "effective_version": "1.41600",
         "status": "active"
       }
     ],
@@ -5476,14 +5518,6 @@
         "value": "C-ABI-language-neutral|pybind11-Python-specific"
       },
       {
-        "key": "cpp_performance_domains",
-        "value": "parser|vector|memory|token|transform|binding"
-      },
-      {
-        "key": "cpp_domain_count",
-        "value": "6"
-      },
-      {
         "key": "cpp_binding_role",
         "value": "C-ABI-and-pybind11-glue-only"
       },
@@ -5536,28 +5570,52 @@
         "value": "python-api>python-implementation"
       },
       {
+        "key": "c_cpp_role_boundary",
+        "value": "c=interface-only|cpp=implementation-only"
+      },
+      {
         "key": "codex_version",
-        "value": "1.31600"
+        "value": "1.41600"
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.31600"
+        "value": "gptbridge-governance-codex-v1.41600"
       },
       {
         "key": "version_increment",
-        "value": "0.00100"
+        "value": "0.10000"
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-10T13:58:17Z"
+        "value": "2026-09-10T14:00:24Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-10T21:58:17+08:00"
+        "value": "2026-09-10T22:00:24+08:00"
       },
       {
-        "key": "c_cpp_role_boundary",
-        "value": "c=interface-only|cpp=implementation-only"
+        "key": "native_tree",
+        "value": "native/include|native/bridge|native/core"
+      },
+      {
+        "key": "native_public_header",
+        "value": "native/include/gptbridge_native.h"
+      },
+      {
+        "key": "native_c_bridge",
+        "value": "native/bridge/gptbridge_native.c"
+      },
+      {
+        "key": "native_cpp_core",
+        "value": "native/core/vector.cpp|parser.cpp|transformer.cpp"
+      },
+      {
+        "key": "cpp_domain_count",
+        "value": "3"
+      },
+      {
+        "key": "cpp_performance_domains",
+        "value": "vector|parser|transformer"
       }
     ],
     "preamble": [
@@ -6252,6 +6310,12 @@
         "position": 114,
         "provision_id": "P122",
         "statement": "NATIVE-ROLE:C=interface-only; C++=implementation-only; CROSSING:versioned-C-ABI; OWNERSHIP:no-overlap",
+        "binding": 1
+      },
+      {
+        "position": 115,
+        "provision_id": "P123",
+        "statement": "NATIVE-TREE:native/include/gptbridge_native.h+native/bridge/gptbridge_native.c+native/core/{vector.cpp,parser.cpp,transformer.cpp}; ROLE:include=C-interface+bridge=C-thunk+core=C++-implementation",
         "binding": 1
       }
     ],
@@ -9305,6 +9369,27 @@
         "identity_code": "codex/provision/edict/E185",
         "provision_type": "edict",
         "provision_id": "E185",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P123",
+        "provision_type": "principle",
+        "provision_id": "P123",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A221",
+        "provision_type": "article",
+        "provision_id": "A221",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E186",
+        "provision_type": "edict",
+        "provision_id": "E186",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -12643,7 +12728,7 @@
         "provision_id": "A214",
         "introduced_by": "H005",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "ebf10f14b5a1bb9a0aabafc8d5581a1a3556fbf0edd1c96fabe477b086f67955"
       },
       {
@@ -12797,6 +12882,30 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "017f562d3630d0bdb26b2dd74920b572a402bbd1b4cc21f184bebdef2f9853bc"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P123",
+        "introduced_by": "H012",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "c77c14ab89e3e86e300d7261851b007cd305bdd0530dcad9b87e851a96a3ef1d"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A221",
+        "introduced_by": "H012",
+        "supersedes_id": "A214",
+        "status": "active",
+        "content_hash": "7fb4e2d1b445905a1ec37e867a7fde5e360331d20ab4062dd2d2876f4199c61e"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E186",
+        "introduced_by": "H012",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "ae50977cb6c970a3100b988def75f37fde79d0c1ea5105c2b18c9bbb6dc0b9e2"
       }
     ],
     "provision_revisions": [
@@ -16287,6 +16396,30 @@
         "version": "1.31600",
         "content_hash": "017f562d3630d0bdb26b2dd74920b572a402bbd1b4cc21f184bebdef2f9853bc",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P123",
+        "revision_id": "H012",
+        "version": "1.41600",
+        "content_hash": "c77c14ab89e3e86e300d7261851b007cd305bdd0530dcad9b87e851a96a3ef1d",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A221",
+        "revision_id": "H012",
+        "version": "1.41600",
+        "content_hash": "7fb4e2d1b445905a1ec37e867a7fde5e360331d20ab4062dd2d2876f4199c61e",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E186",
+        "revision_id": "H012",
+        "version": "1.41600",
+        "content_hash": "ae50977cb6c970a3100b988def75f37fde79d0c1ea5105c2b18c9bbb6dc0b9e2",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -16399,6 +16532,16 @@
         "summary": "C fixed as interface only and C++ fixed as implementation only",
         "previous_hash": "db0174fe4cbfb48ff2c2eccbf0010f99579c638ba410e5249abcb7cd3215d28b",
         "entry_hash": "023eba9f3452a3929580f4ebe5b3d57f4ca556447366832477c70763afc0ce96"
+      },
+      {
+        "sequence": 12,
+        "change_id": "H012",
+        "version": "1.41600",
+        "recorded_date": "2026-09-10",
+        "change_scope": "architecture-authority",
+        "summary": "native physical architecture reconstituted as include bridge and three C++ core implementations",
+        "previous_hash": "023eba9f3452a3929580f4ebe5b3d57f4ca556447366832477c70763afc0ce96",
+        "entry_hash": "a24d33ab302f3c3d3afb77091998b0bc96a0eb5d7d6fd7baacc8b6beb8288389"
       }
     ],
     "savings": [
@@ -16542,6 +16685,17 @@
         "content_root": "ad7d2a5c5bbe018a4d12796b5e719f12ac3ec313ca2a17bf0635b74e20d4925f",
         "identity_root": "6251f411da9a940e4fcadfc763b8613e853a59ae4ffa8fa6301a2c2e4541069e",
         "full_root": "174b1b22d64baabecb2421535406fc9d2a2c48362073ebddd82044f303bc8561"
+      },
+      {
+        "version": "1.41600",
+        "history_head": "a24d33ab302f3c3d3afb77091998b0bc96a0eb5d7d6fd7baacc8b6beb8288389",
+        "provision_count": 409,
+        "identity_count": 439,
+        "lineage_count": 439,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "72a214c6d49ba7fb19f1933f075a1d044ab15a065b9f94d1ed8853bb8c92426a",
+        "identity_root": "f5d49ea87a90a4fb246ba037e6a5ba4adaa7596a34e1f72cd9740524c9523d61",
+        "full_root": "1bcb85961917a5d91da74347cb91b5d071290fe7eab1e614ef368390b690123a"
       }
     ],
     "sealed_components": [
@@ -17092,6 +17246,56 @@
       },
       {
         "version": "1.31600",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.41600",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.41600",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.41600",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.41600",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.41600",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.41600",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.41600",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.41600",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.41600",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.41600",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -18238,6 +18442,12 @@
         "successor_identity": "codex/provision/article/A220",
         "effective_version": "1.31600",
         "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A214",
+        "successor_identity": "codex/provision/article/A221",
+        "effective_version": "1.41600",
+        "status": "effective"
       }
     ],
     "trust_anchor_requirements": [
@@ -18323,6 +18533,14 @@
       },
       {
         "version": "1.31600",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "1.41600",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
