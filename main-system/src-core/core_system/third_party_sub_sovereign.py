@@ -25,7 +25,6 @@ from .codex_decision import decision_basis
 from .sovereign_utils import _iso_now, _suppress
 from governance_rule.execution.tool_runtime.sub_sovereign import (
     SYSTEM_THIRD_PARTY_MANAGER_AUTHORITY,
-    SYSTEM_THIRD_PARTY_MANAGER_ROLE,
 )
 from .third_party_manager import (
     AUTO_UPDATABLE_TOOLS,
@@ -34,8 +33,17 @@ from .third_party_manager import (
     UpdateCheckResult,
     UpdateExecutionResult,
 )
+from governance_rule.codex import GOVERNANCE_CODEX
 
 
+_THIRD_PARTY_SOVEREIGN = next(
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "dependency-governance"),
+    None,
+)
+if _THIRD_PARTY_SOVEREIGN is None:
+    raise RuntimeError("third-party sovereign not found in Governance Codex")
+
+THIRD_PARTY_SUB_SOVEREIGN_RESPONSIBILITIES = _THIRD_PARTY_SOVEREIGN.duties
 
 FORMAL_TOOLS = ("postgresql", "qdrant", "git", "rag", "python", "typescript", "cpp", "c", "csharp", "sql")
 
@@ -52,7 +60,7 @@ class ThirdPartySubSovereign:
       - update detection and governed update execution
     """
 
-    ROLE = SYSTEM_THIRD_PARTY_MANAGER_ROLE
+    ROLE = _THIRD_PARTY_SOVEREIGN.id
 
     def __init__(self, app: Any) -> None:
         self.app = app
@@ -232,5 +240,6 @@ class ThirdPartySubSovereign:
 
 __all__ = [
     "FORMAL_TOOLS",
+    "THIRD_PARTY_SUB_SOVEREIGN_RESPONSIBILITIES",
     "ThirdPartySubSovereign",
 ]
