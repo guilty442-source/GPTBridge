@@ -42,6 +42,8 @@ _PERMISSION_SOVEREIGN = next(
 if _PERMISSION_SOVEREIGN is None:
     raise RuntimeError("permission sovereign not found in Governance Codex")
 
+PERMISSION_SOVEREIGN_RESPONSIBILITIES = _PERMISSION_SOVEREIGN.duties
+
 
 class PermissionSovereign:
     """In-process sovereign for ALL permission-related matters.
@@ -344,4 +346,4 @@ class PermissionSovereign:
         }
 
 
-__all__ = ["PermissionSovereign"]
+__all__ = ["PERMISSION_SOVEREIGN_RESPONSIBILITIES", "PermissionSovereign"]
