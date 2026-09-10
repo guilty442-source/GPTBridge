@@ -31,11 +31,12 @@ from pathlib import Path
 from typing import Any, Final
 
 from .sovereign_utils import _iso_now, _suppress
+from .versioning import component_version
 
 MAIN_SYSTEM_TOOL_ID: Final[str] = "main-system"
 DEFAULT_INTERVAL_SECONDS: Final[float] = 6 * 60 * 60
 MIN_INTERVAL_SECONDS: Final[float] = 60.0
-SELF_MAINTENANCE_VERSION: Final[str] = "1.00000"
+SELF_MAINTENANCE_VERSION: Final[str] = component_version("main-system-self-maintenance")
 
 
 class MainSystemSelfMaintenance:

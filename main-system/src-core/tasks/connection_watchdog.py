@@ -41,7 +41,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
-CONNECTION_WATCHDOG_VERSION: Final[str] = "1.00000"
+from core_system.versioning import component_version
+
+CONNECTION_WATCHDOG_VERSION: Final[str] = component_version("connection-watchdog")
 CONNECTION_PROBE_INTERVAL: Final[float] = 5.0
 CONNECTION_PROBE_TIMEOUT: Final[float] = 2.0
 CONNECTION_DEAD_THRESHOLD: Final[int] = 3  # consecutive dead probes → disconnected

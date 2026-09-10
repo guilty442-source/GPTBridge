@@ -19,6 +19,10 @@ from packager_metadata import (
     validate_tool_version_baseline,
 )
 
+from core_system.versioning import component_version
+
+_CENTRAL_VERSION = component_version("packager")
+
 
 def verify_tool_package(
     tool_id: str,
@@ -67,7 +71,7 @@ def verify_tool_package(
         else None
     )
     expected_port = standalone_backend_port(tool_id)
-    expected_version = str(manifest.get("version", "1.00000"))
+    expected_version = str(manifest.get("version") or _CENTRAL_VERSION)
     request_channel = manifest.get("request_channel")
     governed_channel = (
         isinstance(request_channel, dict)

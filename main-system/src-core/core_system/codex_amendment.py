@@ -19,6 +19,8 @@ from governance_rule.execution.codex_repository import (
 )
 from shared_layer.runtime_gateway import InformationChannelGateway
 
+from .permission_sovereign import re_certify_permission_sovereign
+
 
 def _restore_read_only(path: Path) -> None:
     """Make a path read-only after replacement (Windows / POSIX)."""
@@ -70,6 +72,7 @@ async def _amendment_consumer(command: str, payload: dict[str, Any]) -> tuple[st
         return "ignored", {"reason": "unhandled command"}
 
     load_governance_codex()
+    re_certify_permission_sovereign()
     return "reloaded", {"amendment_id": payload.get("amendment_id")}
 
 

@@ -24,7 +24,9 @@ from datetime import datetime, timezone
 
 from shared_layer.service_probe import probe_registered_local_service
 
-READINESS_GATE_VERSION: Final[str] = "1.00000"
+from core_system.versioning import component_version
+
+READINESS_GATE_VERSION: Final[str] = component_version("readiness-gate")
 
 # Required dependency services and their default local probe ports.
 REQUIRED_DEPENDENCIES: Final[tuple[tuple[str, int], ...]] = (

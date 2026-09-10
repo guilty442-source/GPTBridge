@@ -48,6 +48,10 @@ from packager_runtime import (
 )
 from packager_distribution import promote_staged_distribution
 
+from core_system.versioning import component_version
+
+_CENTRAL_VERSION = component_version("packager")
+
 
 def package_tool(
     tool_id: str,
@@ -173,10 +177,10 @@ def _package_tool_locked(
 
         app_manifest = dict(manifest)
         app_manifest["id"] = tool_id
-        app_manifest["version"] = str(manifest.get("version", "1.00000"))
+        app_manifest["version"] = str(manifest.get("version") or _CENTRAL_VERSION)
         app_manifest["standalone"] = {
             "backend_entry": backend_entry_relative,
-            "backend_service_version": str(manifest.get("version", "1.0.0")),
+            "backend_service_version": str(manifest.get("version") or _CENTRAL_VERSION),
             "backend_port": backend_port,
             "isolated_backend": True,
             "protocol_version": runtime_contract["protocol_version"],
@@ -192,7 +196,7 @@ def _package_tool_locked(
             json.dumps(
                 {
                     "name": f"gptbridge-tool-{tool_id}",
-                    "version": str(manifest.get("version", "1.0.0")),
+                    "version": str(manifest.get("version") or _CENTRAL_VERSION),
                     "main": "main.cjs",
                 },
                 ensure_ascii=False,
@@ -227,8 +231,8 @@ def _package_tool_locked(
         package_metadata = {
             "format_version": PACKAGE_FORMAT_VERSION,
             "tool_id": tool_id,
-            "tool_version": str(manifest.get("version", "1.0.0")),
-            "backend_service_version": str(manifest.get("version", "1.0.0")),
+            "tool_version": str(manifest.get("version") or _CENTRAL_VERSION),
+            "backend_service_version": str(manifest.get("version") or _CENTRAL_VERSION),
             "backend_port": backend_port,
             "isolated_backend": True,
             "protocol_version": runtime_contract["protocol_version"],

@@ -47,21 +47,33 @@ from __future__ import annotations
 from typing import Any
 
 from governance_rule.code_rule_directory import code_rule_directory_snapshot
-from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.execution.codex_repository import load_governance_codex
 from governance_rule.permission_directory.registries.permissions.identity_groups import (
     identity_group_snapshot,
 )
 
 from .codex_decision import decision_basis
 
-_PERMISSION_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "permission"),
-    None,
-)
+def _permission_sovereign():
+    codex = load_governance_codex()
+    return next((s for s in codex.sovereigns if s.area == "permission"), None)
+
+
+_PERMISSION_SOVEREIGN = _permission_sovereign()
 if _PERMISSION_SOVEREIGN is None:
     raise RuntimeError("permission sovereign not found in Governance Codex")
 
 PERMISSION_SOVEREIGN_RESPONSIBILITIES = _PERMISSION_SOVEREIGN.duties
+
+
+def re_certify_permission_sovereign() -> None:
+    """Reload the codex and update the permission sovereign authority."""
+    global _PERMISSION_SOVEREIGN, PERMISSION_SOVEREIGN_RESPONSIBILITIES
+    _PERMISSION_SOVEREIGN = _permission_sovereign()
+    if _PERMISSION_SOVEREIGN is None:
+        raise RuntimeError("permission sovereign not found in Governance Codex after re-certify")
+    PERMISSION_SOVEREIGN_RESPONSIBILITIES = _PERMISSION_SOVEREIGN.duties
+    PermissionSovereign.ROLE = _PERMISSION_SOVEREIGN.id
 
 
 class PermissionSovereign:
@@ -85,6 +97,13 @@ class PermissionSovereign:
     def __init__(self, app: Any, *, governance: Any = None) -> None:
         self.app = app
         self._governance_ref: Any = governance
+
+    def re_certify(self) -> None:
+        """Re-certify the permission sovereign after a codex amendment."""
+        re_certify_permission_sovereign()
+        governance = self._governance()
+        if governance is not None and hasattr(governance, "re_certify"):
+            governance.re_certify()
 
     # ------------------------------------------------------------------
     # Coordination surface

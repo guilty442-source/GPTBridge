@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Final
 
-CENTRAL_REPAIR_VERSION: Final[str] = "1.00000"
+from core_system.versioning import component_version
+
+CENTRAL_REPAIR_VERSION: Final[str] = component_version("central-repair")
 
 SOURCE_SELF_REPAIR_FAILURES: Final[frozenset[str]] = frozenset(
     {

@@ -43,7 +43,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-THIRD_PARTY_MANAGER_VERSION = "1.0.0"
+from .versioning import component_version
+
+THIRD_PARTY_MANAGER_VERSION = component_version("third-party-manager")
 
 # Tools that can be auto-updated by the manager (safe, self-contained).
 AUTO_UPDATABLE_TOOLS: frozenset[str] = frozenset({"uv", "npm", "ollama", "electron"})

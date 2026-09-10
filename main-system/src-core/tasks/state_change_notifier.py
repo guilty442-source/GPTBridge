@@ -33,7 +33,9 @@ from typing import Any, Final
 
 from tasks.readiness_gate import ReadinessGate, ReadinessSnapshot
 
-STATE_NOTIFIER_VERSION: Final[str] = "1.00000"
+from core_system.versioning import component_version
+
+STATE_NOTIFIER_VERSION: Final[str] = component_version("state-change-notifier")
 
 # Information-layer state file for cross-UI readiness propagation.
 READINESS_STATE_RELATIVE: Final[tuple[str, ...]] = (

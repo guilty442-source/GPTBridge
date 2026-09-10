@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
-from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.execution.codex_repository import load_governance_codex
 
 
 # ---------------------------------------------------------------------------
@@ -46,15 +46,15 @@ def provision_text(reference: str) -> str:
         raise ValueError(f"invalid provision token {reference!r}")
     kind, _number = reference[0], reference[1:]
     if kind == "A":
-        for article in GOVERNANCE_CODEX.articles:
+        for article in load_governance_codex().articles:
             if article.id == reference:
                 return article.rule
     if kind == "E":
-        for edict in GOVERNANCE_CODEX.edicts:
+        for edict in load_governance_codex().edicts:
             if edict.id == reference:
                 return edict.edict
     if kind == "P":
-        for principle in GOVERNANCE_CODEX.principles:
+        for principle in load_governance_codex().principles:
             if principle.id == reference:
                 return principle.statement
     raise KeyError(f"unknown provision {reference!r}")
@@ -152,7 +152,7 @@ def _by_area() -> dict[str, list[dict[str, str]]]:
     """Index Codex edicts by area (pure, read-only)."""
 
     indexed: dict[str, list[dict[str, str]]] = {}
-    for edict in GOVERNANCE_CODEX.edicts:
+    for edict in load_governance_codex().edicts:
         area = edict.area
         indexed.setdefault(area, []).append(
             {
@@ -173,7 +173,7 @@ def codex_edicts(area: str) -> list[dict[str, str]]:
 def _sovereign_for_area(area: str) -> dict[str, Any] | None:
     """Return the sovereign sub-law for the given area, if any."""
 
-    for sovereign in GOVERNANCE_CODEX.sovereigns:
+    for sovereign in load_governance_codex().sovereigns:
         if sovereign.area == area:
             return {
                 "id": sovereign.id,
@@ -198,9 +198,9 @@ def decision_basis(area: str) -> dict[str, Any]:
     edicts = codex_edicts(area)
     return {
         "decision_source": "governance-codex",
-        "codex_schema": GOVERNANCE_CODEX.schema,
-        "codex_version": GOVERNANCE_CODEX.codex_version,
-        "authority_rank": GOVERNANCE_CODEX.preamble.authority_rank,
+        "codex_schema": load_governance_codex().schema,
+        "codex_version": load_governance_codex().codex_version,
+        "authority_rank": load_governance_codex().preamble.authority_rank,
         "area": area,
         "edicts": edicts,
         "sovereign": _sovereign_for_area(area),

@@ -30,7 +30,9 @@ from pathlib import Path
 from typing import Any, Final
 from uuid import uuid4
 
-REPAIR_LEARNING_VERSION: Final[str] = "1.00000"
+from core_system.versioning import component_version
+
+REPAIR_LEARNING_VERSION: Final[str] = component_version("repair-learning")
 
 # Minimum occurrences of an error→remedy pair before promoting to a recipe.
 LEARN_PROMOTION_THRESHOLD: Final[int] = 2
