@@ -50,6 +50,12 @@ def application_version(project_root: Path | str | None = None) -> str:
 
     root = Path(project_root) if project_root is not None else _DEFAULT_PROJECT_ROOT
     package_path = root / "package.json"
+    if not package_path.is_file():
+        # ``package.json`` moved from the workspace root to ``main-system/``
+        # (commit 559c0a4).  When ``project_root`` is the workspace root
+        # (e.g. via ``GPTBRIDGE_PROJECT_ROOT``), fall back to the
+        # ``main-system/`` subdirectory where the manifest now lives.
+        package_path = root / "main-system" / "package.json"
     try:
         version = str(
             json.loads(package_path.read_text(encoding="utf-8")).get("version") or ""
