@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.88930",
+  "codex_version": "1.89030",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1660,6 +1660,15 @@
         "rule": "ACTIVATION-PLAN:generated-from-declared-acyclic-dependency-graph+effective-codex-identities; STARTUP-SOVEREIGN:orchestration-only+no-domain-decision; EACH-SOVEREIGN:identity+codex-view-entitlement+permission-state+dependency-state+entry-integrity+health-contract verified-before-active; PARALLELISM:allowed-only-between-independent-sovereigns+bounded-by-resource-sovereign-budget; ATOMICITY:each-sovereign activation atomic+generation-fenced; REQUIRED-FAILURE:startup-generation-failed+dependent-nodes-cancelled+activated-owned-nodes-orderly-deactivated-reverse-DAG; OPTIONAL-FAILURE:typed-degraded-capability+core-ready-allowed-only-if-no-critical-contract-depends-on-it; REENTRY:fresh-generation only; STATUS:information-layer sequenced-events+authoritative-snapshot",
         "prohibition": "FORBID:hardcoded-order-contradicting-dependency-DAG+circular-dependency+activate-before-verification+parallel-dependent-activation+cross-sovereign-direct-control+partial-node-active+stale-generation-active+implicit-optional-classification+failure-hidden-as-ready",
         "exception": ""
+      },
+      {
+        "position": 181,
+        "provision_id": "A181",
+        "section_index": "6",
+        "subject": "certified-hot-update-persistence-and-reset-prevention",
+        "rule": "ACTIVE-RELEASE-IDENTITY:single-atomic-content-addressed-pointer to release-id+application-version+artifact-root+contract-root+certificate-digest+activation-generation; AUTHORITY:latest-successfully-activated-valid-certified-release; PERSISTENCE:durable+transactional+restart-safe+crash-safe+read-before-startup/repair/reload/reconnect/synchronization; BASELINE-FOR:integrity-check+automatic-repair+source-repair+startup-reconciliation+watchdog+hot-reload+frontend-reload+backend-restart+tool-restart+workspace-sync+cache-rebuild+dependency-recovery; HOT-RELOAD:reexecute-or-refresh-active-release-artifacts-only+verify-active-release-digests-before-and-after+release-identity-unchanged; AUTOMATIC-REPAIR:restore-only-missing-or-corrupt-artifacts-from-byte-identical-active-certified-release-source+never-from-packaged-default+Git-HEAD+startup-snapshot+old-cache+installer+prior-release; DRIFT:quarantine-unmatched-artifact+retain-active-release-pointer+repair-to-active-certified-root; STARTUP:resolve-active-release-pointer before-artifact-validation+reject-any-older-default-overwrite; FRONTEND-BACKEND:must-load-same-active-release-id+certificate-digest+contract-generation before-ready; PUBLISH:A175-atomic-activation writes-artifacts+certificate+active-pointer as-one-commit then broadcasts-through-information-layer; FAILURE-BEFORE-COMMIT:old-active-release-remains; FAILURE-AFTER-COMMIT:recover-by-transaction-log-to-one-complete-certified-state; ROLLBACK:not-reset+requires-explicit-system-decision+permission-sovereign-new-activation-certificate+target-validity-proof+atomic-pointer-transition+audit+user-notification; HISTORY:append-only activation-ledger records-from/to/reason/decision-proof/certificate/time; VERIFICATION:post-repair/restart/reload release-id+all-roots+runtime-generation+frontend-backend-match+stability-window; USER-NOTICE:active-version+operation+preserved-or-rollback-status",
+        "prohibition": "FORBID:auto-repair-reset+watchdog-reset+startup-reset+hot-reload-reset+frontend-refresh-reset+backend-restart-reset+workspace-sync-reset+installer-default-restore+Git-checkout-as-runtime-baseline+cache-as-authority+copy-old-artifact-over-new+silent-version-downgrade+implicit-rollback+rollback-without-new-certificate+partial-pointer-update+pointer-derived-from-mtime+repair-changing-release-id+delete-active-certificate+declare-ready-on-frontend-backend-release-mismatch+erase-activation-history",
+        "exception": "When the active certified release is itself unverifiable, affected execution fails closed; recovery may activate a prior certified release only through the explicit certified rollback flow"
       }
     ],
     "certification_evidence": [
@@ -1840,6 +1849,13 @@
       },
       {
         "version": "1.88930",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.89030",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2939,6 +2955,13 @@
         "provision_id": "E155",
         "area": "sovereign-startup-DAG",
         "edict": "SOVEREIGNS:declared-DAG+cycle-reject+verified-node+bounded-independent-parallelism+atomic-generation-fenced-activation; REQUIRED-FAIL:abort+reverse-DAG-cleanup; OPTIONAL-FAIL:explicit-degraded-capability-only; STATUS:information-layer; PARTIAL-READY:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 156,
+        "provision_id": "E156",
+        "area": "hot-update-persistence",
+        "edict": "BASELINE:durable-active-certified-release-pointer-only; REPAIR+STARTUP+RELOAD+RESTART+SYNC:resolve-pointer>verify-certificate+roots>preserve-release>repair-byte-identical-active-artifacts>verify>stability-window; DEFAULT/GIT/CACHE/INSTALLER/PRIOR-RELEASE-RESET:none; FRONTEND+BACKEND:same-release-before-ready; ROLLBACK:explicit-decision+new-permission-certificate+atomic-activation+audit+notify only",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4802,11 +4825,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.88930"
+        "value": "gptbridge-governance-codex-v1.89030"
       },
       {
         "key": "codex_version",
-        "value": "1.88930"
+        "value": "1.89030"
       },
       {
         "key": "citation_entry",
@@ -5447,6 +5470,12 @@
         "position": 95,
         "provision_id": "P95",
         "statement": "STARTUP:single-orchestrator+dependency-DAG+critical-path-first+safe-parallelism+bounded-deadlines+progressive-readiness; SPEED:no-redundant-work+verified-cache-only; STABILITY:single-flight+generation-fenced+fail-closed+cleanup-on-failure",
+        "binding": 1
+      },
+      {
+        "position": 96,
+        "provision_id": "P96",
+        "statement": "ACTIVE-CERTIFIED-RELEASE:is-the-only-repair+restart+reload+sync-baseline; HOT-UPDATE/HOT-RELOAD:survives-repair+restart+reconnect; RESET/IMPLICIT-ROLLBACK:none; ROLLBACK:new-explicit-certified-activation-only",
         "binding": 1
       }
     ],
@@ -8563,6 +8592,27 @@
         "identity_code": "codex/provision/edict/E155",
         "provision_type": "edict",
         "provision_id": "E155",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P96",
+        "provision_type": "principle",
+        "provision_id": "P96",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A181",
+        "provision_type": "article",
+        "provision_id": "A181",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E156",
+        "provision_type": "edict",
+        "provision_id": "E156",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -12127,6 +12177,30 @@
         "supersedes_id": "E143",
         "status": "active",
         "content_hash": "7d336f57f70c42563788feff10bc0d54f9249970cb660e2499fc2bb700523e09"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P96",
+        "introduced_by": "H030",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "5d52c8d0619f867844c006857f8b423b35f520853f16bbe7d5c77ea32e8faedb"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A181",
+        "introduced_by": "H030",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "32134a7ca1340903e5f1e68bdd680f343022a4ac505cc24e83187a531302cbbc"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E156",
+        "introduced_by": "H030",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "36e851ce8df472e81376cf5c31dbdb8ee103dd669edb858192a4acaab315c91f"
       }
     ],
     "provision_revisions": [
@@ -28177,6 +28251,30 @@
         "version": "1.88930",
         "content_hash": "7d336f57f70c42563788feff10bc0d54f9249970cb660e2499fc2bb700523e09",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P96",
+        "revision_id": "H030",
+        "version": "1.89030",
+        "content_hash": "5d52c8d0619f867844c006857f8b423b35f520853f16bbe7d5c77ea32e8faedb",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A181",
+        "revision_id": "H030",
+        "version": "1.89030",
+        "content_hash": "32134a7ca1340903e5f1e68bdd680f343022a4ac505cc24e83187a531302cbbc",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E156",
+        "revision_id": "H030",
+        "version": "1.89030",
+        "content_hash": "36e851ce8df472e81376cf5c31dbdb8ee103dd669edb858192a4acaab315c91f",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -28469,6 +28567,16 @@
         "summary": "startup critical path dependency DAG safe parallelism progressive readiness and failure cleanup optimized",
         "previous_hash": "2c115ac2626e08fb9588471de0442a335e7ca8a732d04db561d49e19a227b659",
         "entry_hash": "0fa08090c228c5fecddbe8b3376036aeb7751d9c1e7286b5ff0e2c5773d2411f"
+      },
+      {
+        "sequence": 30,
+        "change_id": "H030",
+        "version": "1.89030",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "certified hot update persistence active release baseline and reset prevention established",
+        "previous_hash": "0fa08090c228c5fecddbe8b3376036aeb7751d9c1e7286b5ff0e2c5773d2411f",
+        "entry_hash": "2bc35bc0fea40a67b385b16de0c60cf335a5208d54487ac74dd8d40dbd1a4087"
       }
     ],
     "savings": [
@@ -28810,6 +28918,17 @@
         "content_root": "63aec431412d539b7e9c13bb51951377aa2f80d37ba75c0115d86534fbde8ec9",
         "identity_root": "99f8c54ace68608f78aa91cc5165a63e2f0438ad5d37c7793d092ef5021bc639",
         "full_root": "cd5fcdfe4bd315a80c68cca355b3afe84b5cd584950b2e24ebb77b15701d0ba0"
+      },
+      {
+        "version": "1.89030",
+        "history_head": "2bc35bc0fea40a67b385b16de0c60cf335a5208d54487ac74dd8d40dbd1a4087",
+        "provision_count": 433,
+        "identity_count": 448,
+        "lineage_count": 448,
+        "certification_state": "sealed-read-only",
+        "content_root": "9d34b305603eba96ce3779048877f49ea8a932770776a0c08c31e012c3704787",
+        "identity_root": "7e420edbbbd3f07b247979e70ba5ea38c4def9f51dab366a4dad42060418f8dc",
+        "full_root": "65501293ccfaafad09c7b1062240684d640eeaea88c661168fff8911552624e6"
       }
     ],
     "sealed_components": [
