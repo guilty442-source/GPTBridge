@@ -12,16 +12,18 @@ _DECLARATION = next(
     (item for item in GOVERNANCE_CODEX.sovereigns if item.area == "system-learning"),
     None,
 )
+if _DECLARATION is None:
+    raise RuntimeError("learning system sovereign not found in Governance Codex")
+
+LEARNING_SYSTEM_SOVEREIGN_RESPONSIBILITIES = _DECLARATION.duties
 
 
 class LearningSystemSovereign:
     """Learns verified error/remedy outcomes without gaining execution power."""
 
-    ROLE = "learning-system-sovereign"
+    ROLE = _DECLARATION.id
 
     def __init__(self, app: Any) -> None:
-        if _DECLARATION is None:
-            raise RuntimeError("learning system sovereign not found in Governance Codex")
         self.app = app
         self._store: Any | None = None
         self._learner: Any | None = None
@@ -61,4 +63,4 @@ class LearningSystemSovereign:
         return self._learner.suggest_remedy(signature)
 
 
-__all__ = ["LearningSystemSovereign"]
+__all__ = ["LEARNING_SYSTEM_SOVEREIGN_RESPONSIBILITIES", "LearningSystemSovereign"]
