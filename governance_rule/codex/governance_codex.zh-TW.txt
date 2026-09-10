@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.31000",
+  "codex_version": "1.31100",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1471,6 +1471,15 @@
         "rule": "SCOPE:all-C++ under-A212-performance-mainline; REQUIRED-DOMAINS:[parser,vector,memory,token,transform,binding]; PHYSICAL:each-domain in-own-canonical-folder beneath-registered-C++-source-root+folder-name=domain-id+no-C++-source-at-undivided-parent except-max-3-entry facade; PARSER-ONLY:profile-proven parsing of-bounded-native-input into-versioned-internal-IR+syntax/structure validation+no-tokenization/vector/memory-policy/format-transform/binding; VECTOR-ONLY:profile-proven vector/math/similarity/numeric kernels over-validated buffers+no-index-ownership/database/token/parser/binding; MEMORY-ONLY:allocator/arena/pool/buffer/lifetime/alignment/ownership/zeroization primitives+no-domain parsing/vector algorithm/token semantics/transform/binding; TOKEN-ONLY:profile-proven token encode/decode/count/boundary operations+versioned-vocabulary handle+no-parser grammar/vector/memory-policy/transform/binding; TRANSFORM-ONLY:profile-proven representation/layout/dtype/shape/serialization-neutral conversion+no-business mapping/parser/token semantics/vector-index ownership/binding; BINDING-ONLY:registered C-ABI and pybind11 declarations/conversions/validation/error/lifetime/GIL glue into-same-internal-C++-core+no-algorithm/policy/cache/state authority; PRIMARY-RESPONSIBILITY:one-domain-per-source-module+cross-domain helper moves-to-smallest-neutral-owner or remains-private-to-one-domain+no-common/util dumping-ground; PUBLIC-ENTRYPOINTS:each-domain<=3+A185 module/function/class limits; DEPENDENCY-DAG:binding may-call parser/vector/token/transform/memory; parser may-call token+memory; vector may-call memory; token may-call memory; transform may-call memory and explicitly-declared vector primitive; memory calls-none-of-other-five; no-other-edge unless-new-versioned-domain-contract; CROSS-DOMAIN:public-versioned-header/interface only+no-private-header/include/source import; SHARED-TYPES:minimal-POD/opaque-handles in-boundary-contract+not-business objects; STATE:owned-by-exact-domain+no-cross-domain mutable-global+caller supplies context/handle; ERROR:typed-domain-status>binding translation; TEST:unit-per-domain+dependency-contract+golden-equivalence against-Python test-oracle+fuzz parser/token/binding+sanitizer memory/all+numeric tolerance vector/transform; BUILD:one-target-per-domain+explicit-link graph+symbol visibility+binding-only exported application symbols; PERFORMANCE-ADMISSION:parser/vector/memory/token/transform C++ implementation requires-profile evidence+otherwise Python remains-owner; CHANGE:domain move requires consumer graph+parity+single-release removal-of-old-location; GOVERNANCE:A208 automatic-check verifies-folder/owner/includes/link/symbol/entrypoint/size/duplicate-responsibility/DAG/test evidence",
         "prohibition": "FORBID:seventh-undesignated-C++-domain+multi-responsibility-module+monolithic-core+common/shared/util/catchall-business-module+duplicate-function-across-domains+dependency-cycle+memory-upward-dependency+private-cross-domain-include+include-.cpp+binding-algorithm/policy/cache+parser-token duplication+vector-owning-index/repository+token-owning-model-orchestration+transform-owning-business-schema+domain-state-global+unbounded-allocation+exported-C++-ABI+performance-code-without-profile+folder/registry mismatch+generated-code-evading-domain ownership",
         "exception": "A generated binding file may exceed ordinary generated-file size only through an A185 file-specific exception; binding responsibility and generated parity checks remain mandatory"
+      },
+      {
+        "position": 215,
+        "provision_id": "A215",
+        "section_index": "4",
+        "subject": "exclusive-six-language-source-extension-map",
+        "rule": "CANONICAL-MAP:Python={.py,.pyi}; TypeScript={.ts,.tsx,.d.ts}; C={.c,.h}; C++={.cpp,.hpp,.inl}; CSharp={.cs}; SQL={.sql}; MATCH:full-filename-suffix+lowercase canonical+longest-suffix-first so-.d.ts=TypeScript-declaration-not-.ts-generic; EXCLUSIVITY:one-file=one-language classification+extension belongs-to-one-language only; PYTHON:.py implementation/test/package-entry+.pyi declaration-only; TYPESCRIPT:.ts non-JSX logic/test+.tsx JSX presentation/test+.d.ts declaration-only; C:.c implementation/test+.h C-public/interface header only; CPP:.cpp implementation/test+.hpp C++ header+.inl C++ template/inline implementation included-by-.hpp only; CSHARP:.cs implementation/test only; SQL:.sql schema/query/migration/test-data-operation only; TESTS:use-own-language-extension+name/path metadata identifies-test+no-special-additional-source-extension; PROJECT-METADATA:.csproj/.sln/package.json/tsconfig/CMake/project/build manifests are-not-six-language-source+may-configure-build only+cannot-contain-embedded-application-source to-evade-map; GENERATED:must-use-target-language canonical-extension+generated identity/hash/owner; HEADERS:.h cannot contain-C++ constructs+.hpp cannot-be-public-C-ABI; INL:not-independent-translation-unit+no-global-state/business/workflow+single-owning-.hpp contract; DECLARATIONS:.pyi/.d.ts contain-types/signatures-only+must-match implementation/contract; SQL-EMBEDDED:SQL strings inside-other-language remain-host-language-source but A207 parameterization/pushdown checks apply; CLASSIFIER:normalize-path+reject-trailing-space/dot+alternate-data-stream+double-extension masquerade+case variant; CHECK:A208 at-save/precommit/integrated-main/release verifies extension/language syntax/build registration/owner/generated parity; MIGRATION:noncanonical source renamed+all imports/includes/build references atomically updated in-one-certified-release",
+        "prohibition": "FORBID:.js/.jsx/.mjs/.cjs/.cc/.cxx/.hxx/.hh/.csx or-any-unlisted-extension-as-six-language-source+uppercase/mixed-case extension+custom-extension+language-content/extension mismatch+C++ in-.h+C in-.hpp+implementation-in-.pyi/.d.ts+standalone-.inl+source-code-hidden-in-project/config/data/template/archive+double-extension disguise+alternate-data-stream+extensionless-project-source+classifier-by-content-overriding-canonical-map",
+        "exception": "External third-party source retained solely for license compliance may preserve upstream names inside an immutable quarantined dependency artifact; it cannot be compiled, imported, loaded, modified, or treated as GPTBridge project source until converted through an approved dependency/build adapter without violating the canonical project-source map"
       }
     ],
     "certification_evidence": [
@@ -1504,6 +1513,13 @@
       },
       {
         "version": "1.31000",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.31100",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -1554,6 +1570,13 @@
         "recorded_at_local": "2026-09-10T20:13:45+08:00",
         "timezone": "Asia/Taipei",
         "event": "architecture-authority-cpp-six-domain-core"
+      },
+      {
+        "version": "1.31100",
+        "recorded_at_utc": "2026-09-10T13:42:19Z",
+        "recorded_at_local": "2026-09-10T21:42:19+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "provision-scope-source-extension-map"
       }
     ],
     "edicts": [
@@ -2514,6 +2537,13 @@
         "provision_id": "E179",
         "area": "cpp-six-domain-core",
         "edict": "CPP-DOMAINS:parser|vector|memory|token|transform|binding; EACH:one-folder+one-owner+one-interface+one-responsibility+public-entry<=3; DAG:binding>parser/vector/token/transform/memory,parser>token/memory,vector>memory,token>memory,transform>memory/declared-vector,memory>none; BINDING:C-ABI+pybind11-glue-only; COMMON-UTIL/MONOLITH/CYCLE/DUPLICATE/PRIVATE-INCLUDE/UNPROFILED-CPP:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 180,
+        "provision_id": "E180",
+        "area": "six-language-source-extensions",
+        "edict": "PYTHON:.py|.pyi; TYPESCRIPT:.ts|.tsx|.d.ts; C:.c|.h; CPP:.cpp|.hpp|.inl; CSHARP:.cs; SQL:.sql; MATCH:exact+exclusive+lowercase+longest-suffix-first; TEST/GENERATED:same-language-extension; PROJECT-METADATA:not-source; UNLISTED/CUSTOM/CASE-VARIANT/MISMATCH/HIDDEN-SOURCE:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4152,12 +4182,6 @@
       },
       {
         "provision_type": "edict",
-        "provision_id": "E41",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "edict",
         "provision_id": "E42",
         "effective_version": "1.00000",
         "status": "active"
@@ -4830,12 +4854,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A209",
-        "effective_version": "1.11000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A210",
         "effective_version": "1.11000",
         "status": "active"
@@ -4886,6 +4904,24 @@
         "provision_type": "edict",
         "provision_id": "E179",
         "effective_version": "1.31000",
+        "status": "active"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P117",
+        "effective_version": "1.31100",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A215",
+        "effective_version": "1.31100",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E180",
+        "effective_version": "1.31100",
         "status": "active"
       }
     ],
@@ -5232,18 +5268,6 @@
         "value": "C-ABI-language-neutral|pybind11-Python-specific"
       },
       {
-        "key": "schema",
-        "value": "gptbridge-governance-codex-v1.31000"
-      },
-      {
-        "key": "codex_version",
-        "value": "1.31000"
-      },
-      {
-        "key": "version_increment",
-        "value": "0.10000"
-      },
-      {
         "key": "cpp_performance_domains",
         "value": "parser|vector|memory|token|transform|binding"
       },
@@ -5258,6 +5282,42 @@
       {
         "key": "cpp_dependency_graph",
         "value": "binding>parser,vector,token,transform,memory;parser>token,memory;vector>memory;token>memory;transform>memory,declared-vector;memory>none"
+      },
+      {
+        "key": "schema",
+        "value": "gptbridge-governance-codex-v1.31100"
+      },
+      {
+        "key": "codex_version",
+        "value": "1.31100"
+      },
+      {
+        "key": "version_increment",
+        "value": "0.00100"
+      },
+      {
+        "key": "source_extension_python",
+        "value": ".py|.pyi"
+      },
+      {
+        "key": "source_extension_typescript",
+        "value": ".ts|.tsx|.d.ts"
+      },
+      {
+        "key": "source_extension_c",
+        "value": ".c|.h"
+      },
+      {
+        "key": "source_extension_cpp",
+        "value": ".cpp|.hpp|.inl"
+      },
+      {
+        "key": "source_extension_csharp",
+        "value": ".cs"
+      },
+      {
+        "key": "source_extension_sql",
+        "value": ".sql"
       }
     ],
     "preamble": [
@@ -5916,6 +5976,12 @@
         "position": 108,
         "provision_id": "P116",
         "statement": "CPP-PERFORMANCE-CORE:exact-domains=parser|vector|memory|token|transform|binding; EACH:one-responsibility+one-owner+one-folder+one-interface+no-duplicate; DEPENDENCY:acyclic+declared; BINDING:C-ABI/pybind11-glue-only",
+        "binding": 1
+      },
+      {
+        "position": 109,
+        "provision_id": "P117",
+        "statement": "SOURCE-EXTENSIONS:Python=.py|.pyi; TypeScript=.ts|.tsx|.d.ts; C=.c|.h; C++=.cpp|.hpp|.inl; CSharp=.cs; SQL=.sql; SOURCE-CLASSIFICATION:exact+exclusive+lowercase; OTHER-EXTENSION:not-six-language-source",
         "binding": 1
       }
     ],
@@ -8845,6 +8911,27 @@
         "provision_id": "E179",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P117",
+        "provision_type": "principle",
+        "provision_id": "P117",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A215",
+        "provision_type": "article",
+        "provision_id": "A215",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E180",
+        "provision_type": "edict",
+        "provision_id": "E180",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -11069,7 +11156,7 @@
         "provision_id": "E41",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "e42547ebd7166da08cd8ba78c99f78e19379946747323707cb15f1e7bf0da42c"
       },
       {
@@ -12109,7 +12196,7 @@
         "provision_id": "A209",
         "introduced_by": "H003",
         "supersedes_id": "A55",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "7048f3a9e41450c66eda2d800fb9343c85282959858a7c4f7ebb95220ae2d7be"
       },
       {
@@ -12191,6 +12278,30 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "138daf794de49f2ac26f2820527d8ef0b5b37998f57941798ff226d16790888b"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P117",
+        "introduced_by": "H006",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "ad10fa13b9e81f24ab59bf0312be0497fa94e18a2cbc981d169663b00ffeeb96"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A215",
+        "introduced_by": "H006",
+        "supersedes_id": "A209",
+        "status": "active",
+        "content_hash": "9f0d2f0553ddbf0e833dd94533a5ba8a3e6f019976945a84f24837218828b1ec"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E180",
+        "introduced_by": "H006",
+        "supersedes_id": "E41",
+        "status": "active",
+        "content_hash": "88a5fc62ef54cbdb3796709a05e8a2a2b5a0d782c809d1b43ec4a7920a69a7f5"
       }
     ],
     "provision_revisions": [
@@ -15537,6 +15648,30 @@
         "version": "1.31000",
         "content_hash": "138daf794de49f2ac26f2820527d8ef0b5b37998f57941798ff226d16790888b",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P117",
+        "revision_id": "H006",
+        "version": "1.31100",
+        "content_hash": "ad10fa13b9e81f24ab59bf0312be0497fa94e18a2cbc981d169663b00ffeeb96",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A215",
+        "revision_id": "H006",
+        "version": "1.31100",
+        "content_hash": "9f0d2f0553ddbf0e833dd94533a5ba8a3e6f019976945a84f24837218828b1ec",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E180",
+        "revision_id": "H006",
+        "version": "1.31100",
+        "content_hash": "88a5fc62ef54cbdb3796709a05e8a2a2b5a0d782c809d1b43ec4a7920a69a7f5",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -15589,6 +15724,16 @@
         "summary": "C++ performance core decomposed into six single-responsibility domains with fixed acyclic dependencies",
         "previous_hash": "f3e0a14a41419d1a48c4a98b05c95526d01615cb6d8c4ca8e289ae93705d5276",
         "entry_hash": "34d6739b46a7864722c4137ebfd9722dcbb010a40ff35f2433738a05a2fa1ca6"
+      },
+      {
+        "sequence": 6,
+        "change_id": "H006",
+        "version": "1.31100",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "six-language source extension map made exact exclusive and canonical",
+        "previous_hash": "34d6739b46a7864722c4137ebfd9722dcbb010a40ff35f2433738a05a2fa1ca6",
+        "entry_hash": "d12990356d8acf5a86389b74a2512a02006810609620192dd3aa094a7e9b2b23"
       }
     ],
     "savings": [
@@ -15666,6 +15811,17 @@
         "content_root": "4f97c2f14741ce9943f5457b892d1ac60486605c042fed3188a8bb116701a864",
         "identity_root": "20b83f9f6a952ebbbdbbabd267d079b7ccc93c504b6b83d4a9be016a80c5f359",
         "full_root": "a6a8993f6de85fd59b0d7aa5e915720a57d7b30c4d4029597b651490abe87e9b"
+      },
+      {
+        "version": "1.31100",
+        "history_head": "d12990356d8acf5a86389b74a2512a02006810609620192dd3aa094a7e9b2b23",
+        "provision_count": 407,
+        "identity_count": 421,
+        "lineage_count": 421,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "3bd8612c7f880772277268788cf8d44120d1b17f0eb33ce04864c458884cca7b",
+        "identity_root": "3ba90292f0f58b85d24d6706317e2b7f6d5c64e1e14e37767ea36c7730cdc079",
+        "full_root": "991bebf32b9cad538339002a223ff5fc2f34c51b5b8dd128b6f0ea8215a27371"
       }
     ],
     "sealed_components": [
@@ -15916,6 +16072,56 @@
       },
       {
         "version": "1.31000",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31100",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31100",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31100",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31100",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31100",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31100",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31100",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31100",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31100",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31100",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -17026,6 +17232,18 @@
         "successor_identity": "codex/provision/edict/E178",
         "effective_version": "1.21000",
         "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A209",
+        "successor_identity": "codex/provision/article/A215",
+        "effective_version": "1.31100",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E41",
+        "successor_identity": "codex/provision/edict/E180",
+        "effective_version": "1.31100",
+        "status": "effective"
       }
     ],
     "trust_anchor_requirements": [
@@ -17063,6 +17281,14 @@
       },
       {
         "version": "1.31000",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "1.31100",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
