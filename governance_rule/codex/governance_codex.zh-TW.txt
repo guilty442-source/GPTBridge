@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.99230",
+  "codex_version": "2.00230",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1696,6 +1696,15 @@
         "rule": "ISOLATION-SET:{main-system}+{each-independent-tool-as-separate-individual}; RECIPROCITY:rules-apply-equally-in-every-direction; EACH-INDIVIDUAL-OWNS:process-tree+OS-lifecycle-boundary+runtime-generation+supervisor+watchdog+frontend+backend+threads+tasks+queues+connections+resource-budget+state+data+logs+cache+temporary-files+release+certificate+health+repair+update+shutdown; PROCESS-LIFETIME:no-individual-is-child-lifetime-dependent-on-another+no-shared-kill-job+no-parent-death-signal+no-global-process-name-control; RUNTIME-INDEPENDENCE:after-authorized-launch each-tool-operates-without-main-system-presence+main-system-operates-without-any-tool-presence; RUNNING-STATE:one-individual-running/stopped/starting/stopping/degraded/failed/recovering does-not-change-another-individual-state; FAILURE-ISOLATION:crash+hang+deadlock+exception+memory-leak+CPU/GPU/disk exhaustion+port-conflict+connection-loss+data-corruption+invalid-update+repair-failure contained-to-owner; CONTROL:main-system-may-submit-targeted-request-through-information-layer but-cannot-be-tool-supervisor/runtime-owner; TOOL-cannot-control-main-system-or-other-tool; INFORMATION-LAYER-LOSS:only-cross-individual-communication/status/control becomes-unavailable+each-current-runtime-continues-under-own-local-safe-policy+state-changing-cross-individual-requests-fail-closed; SHARED-INFRASTRUCTURE:tenant/route/session/pool/quota/circuit-breaker/failure-budget isolated-per-individual+shared-adapter-failure-must-not-terminate-consumers; RESOURCE:per-individual quotas+no-unbounded-borrow+resource-pressure-load-shed-owner-first+critical-main-reservation-does-not-seize-tool-owned-state; START/STOP:target-exact-entity-id+process-generation+owned-process-proof; MAIN-SYSTEM-CLOSE:detach-UI/control-session only; TOOL-WINDOW-CLOSE:follow-tool-own-declared-policy only; RESTART:owner-process-tree-only+other-individual-processes-and-sessions untouched; REPAIR:owner-certified-release-baseline only+no-cross-individual-code/data/process mutation; UPDATE:independent-certification+activation+rollback+no-coordinated-stop unless-explicit-versioned-interface-migration requires-temporary-communication-pause-with-runtimes-continuing; DATA:no-cross-owner-direct-read/write/lock/migration/cleanup/backup/restore; HEALTH:separate verdict+one-failure cannot-lower-another-health except shared-dependency exposure reported-as-external-dependency-degraded; OBSERVABILITY:events retain-origin-entity-id+generation+scope and-never-merge-fault-ownership; RECOVERY:failed-owner-only+bounded+verified+stability-window; AVAILABILITY:unaffected-individuals remain-available",
         "prohibition": "FORBID:main-system-crash/close/restart/repair/update stopping-or-resetting-tools+tool-crash/close/restart/repair/update stopping-or-degrading-main-system-or-other-tools+shared-process-tree+shared-supervisor+shared-watchdog+shared-writable-runtime-state+global-kill+kill-by-name+workspace-wide-restart+parent-lifetime-coupling+in-process-tool+cross-owner-PID-assumption+cross-owner-resource-reclamation+cross-owner-cleanup+cross-owner-repair+cross-owner-rollback+cross-owner-health-verdict+communication-loss-as-runtime-stop+status-unknown-as-process-dead+automatic-cascade-restart+information-layer-bypass",
         "exception": "Only an explicit user-requested whole-platform shutdown may target multiple exact registered identities; each individual still receives and verifies its own bounded shutdown request independently"
+      },
+      {
+        "position": 185,
+        "provision_id": "A185",
+        "section_index": "4",
+        "subject": "source-size-and-permission-managed-directory-control",
+        "rule": "DEFAULT-LIMITS:each-handwritten-source-module<=500-effective-lines+each-function/method<=50-effective-lines+each-class<=300-effective-lines+public-entrypoints<=3+authored-functions-or-classes<=12; WARNING:80-percent-of-any-limit; BLOCK:exceed-limit-before-merge+release+startup-activation-of-changed-module; EFFECTIVE-LINE:nonblank+noncomment physical-line including-decorator+signature+control-flow+embedded-template/JSX/SQL; FILE-TYPES:py+pyi+ts+tsx+js+jsx+c+h+cpp+hpp+inl+cs+sql and-other-declared-source; RESPONSIBILITY:one-primary-domain-per-module+split-by-cohesive-duty+no-size-evasion-through-minified-lines+generated-wrappers+partial-classes+include-chains; SIZE-CHECK:changed-files+dependency-affected-files at-precommit+integrated-main+release; DIRECTORY-OWNER:permission-sovereign exclusively-manages operational source-structure-directories; MANAGED-DIRECTORIES:module-registry+source-owner-registry+canonical-folder/layer-registry+top-level-root-allowlist+tool-source-root-registry+test-source-registry+generated-artifact-registry+source-size-exception-registry; ENTRY:permission-directory://source-structure through-information-layer-only; WRITE:permission-sovereign-decision>governed-executor>transactional-directory-update>independent-verification>audit; READ:typed-request+least-scope+permission-review; CODEX-RELATION:directory implements-this-codex+cannot-create-governance-rule+cannot-relax-default-limit except-explicit-codex-allowed-exception-category; EXCEPTION-CATEGORIES:auto-generated+pure-data-table+registry+language-required-generated-interface+single-atomic-migration/schema; EACH-EXCEPTION:file-identity+canonical-path+owner+category+reason+generated-or-data-proof+permitted-limit-or-unbounded-generated-marker+reviewer+decision-proof+issued-at+expiry-or-permanent-reason+content-hash; EXCEPTION-CONSTRAINT:no-domain-orchestration+no-mixed-business-duties+no-hidden-executable-logic+generated-files-not-hand-edited+registry-entries-declarative-only+atomic-migration-not-reusable-runtime-module; CHANGE:path/owner/category/content-role change requires-new-permission-review; REMOVAL:automatic-when-file-split/retired/no-longer-qualifies; REPORT:file+measured-lines+limit+largest-callables+owner+directory-entry+recommended-split; PRIORITY:split-over-exception",
+        "prohibition": "FORBID:module>500+function/method>50+class>300 without-valid-directory-exception+hardcoded-limit-outside-codex+local-exception-list+manifest-self-exemption+module-owner-self-approval+permission-sovereign-direct-file-write+other-sovereign-directory-management+directory-governance-authority+directory-overriding-codex+blank/comment-padding+multiple-statements-per-line-to-evade+minification-evasion+generated-label-on-handwritten-code+registry-containing-business-workflow+pure-data-file-containing-execution+permanent-exception-without-reason+path-glob-exception+folder-wide-exemption+stale-exception+cross-owner-directory-write+information-layer-bypass",
+        "exception": "Only individually registered files in the declared exception categories may exceed the applicable size limit; responsibility and ownership boundaries never receive an exception"
       }
     ],
     "certification_evidence": [
@@ -1904,6 +1913,13 @@
       },
       {
         "version": "1.99230",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "2.00230",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3031,6 +3047,13 @@
         "provision_id": "E159",
         "area": "reciprocal-runtime-isolation",
         "edict": "ISOLATE:main-system|tool-A|tool-B|each-other-tool; EACH:own-process+lifecycle+supervisor+resources+state+data+release+health+repair; ANY-RUN/STOP/CRASH/HANG/RESTART/REPAIR/UPDATE:owner-only+no-cascade; MAIN-ABSENT:tools-continue; TOOL-ABSENT:main+others-continue; INFORMATION-LOSS:communication-fails-closed+runtimes-continue; CONTROL:exact-identity-request-only; GLOBAL-KILL/SHARED-LIFETIME/CROSS-RESET:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 160,
+        "provision_id": "E160",
+        "area": "source-size-directory-authority",
+        "edict": "LIMITS:module<=500+function/method<=50+class<=300+public-entry<=3+callables<=12; COUNT:nonblank-noncomment-physical; EXCEED:split-before-merge; DIRECTORY:permission-sovereign-only at permission-directory://source-structure; COVER:module+owner+folder/layer+root+tool+test+generated+exception registries; WRITE:decision>executor>verify>audit via-information-layer; EXCEPTION:file-specific+typed+proved+least-scope+reviewed+expiring-or-justified-permanent; FOLDER/GLOB/SELF-EXEMPTION:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4894,11 +4917,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.99230"
+        "value": "gptbridge-governance-codex-v2.00230"
       },
       {
         "key": "codex_version",
-        "value": "1.99230"
+        "value": "2.00230"
       },
       {
         "key": "citation_entry",
@@ -4938,7 +4961,7 @@
       },
       {
         "key": "version_increment",
-        "value": "0.00100"
+        "value": "0.01000"
       },
       {
         "key": "codex_access_owner",
@@ -4959,6 +4982,26 @@
       {
         "key": "chinese_codex_access",
         "value": "official-entry+read-only+review-exempt+audited"
+      },
+      {
+        "key": "source_size_module_limit",
+        "value": "500"
+      },
+      {
+        "key": "source_size_function_limit",
+        "value": "50"
+      },
+      {
+        "key": "source_size_class_limit",
+        "value": "300"
+      },
+      {
+        "key": "source_structure_directory_owner",
+        "value": "permission-sovereign"
+      },
+      {
+        "key": "source_structure_directory_entry",
+        "value": "permission-directory://source-structure"
       }
     ],
     "preamble": [
@@ -5563,6 +5606,12 @@
         "position": 99,
         "provision_id": "P99",
         "statement": "BIDIRECTIONAL-RUNTIME-ISOLATION:main-system<->each-independent-tool<->every-other-tool; RUN/STOP/CRASH/HANG/RESTART/REPAIR/UPDATE/RESOURCE-EXHAUSTION:no-cascade; COMMUNICATION-LOSS:runtime-continues-locally; RECOVERY:owner-only",
+        "binding": 1
+      },
+      {
+        "position": 100,
+        "provision_id": "P100",
+        "statement": "SOURCE-SIZE:handwritten-module<=500-effective-lines+function-or-method<=50+class<=300; RESPONSIBILITY:one-primary+public-entry<=3; DIRECTORY-AUTHORITY:permission-sovereign-centralized; EXCEPTION:explicit+typed+least-scope+audited+no-business-monolith",
         "binding": 1
       }
     ],
@@ -8765,6 +8814,27 @@
         "provision_id": "E159",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P100",
+        "provision_type": "principle",
+        "provision_id": "P100",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A185",
+        "provision_type": "article",
+        "provision_id": "A185",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E160",
+        "provision_type": "edict",
+        "provision_id": "E160",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -9621,7 +9691,7 @@
         "provision_id": "A73",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "b57e8ba5ed8d62749378aa7d3f0b9f5d8f8a8ed1bbc6d59dc0b132386cf72659"
       },
       {
@@ -10101,7 +10171,7 @@
         "provision_id": "E53",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "70fda8fc8c92bb522e913bb9dee858da7c1c97101a56e26158fc17d9918e50f1"
       },
       {
@@ -12423,6 +12493,30 @@
         "supersedes_id": "E158",
         "status": "active",
         "content_hash": "226ce57b7fbf5fed732cc15628edd44685d5d2821acd98ee20962f71e54e97aa"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P100",
+        "introduced_by": "H034",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "639773334f881acb48fa6b57e501f23a0a4258cfd880df442134ce176bfae853"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A185",
+        "introduced_by": "H034",
+        "supersedes_id": "A73",
+        "status": "active",
+        "content_hash": "db8a9cf49cd8f8ec5e2f8ff7721f6b1b30fbe42d96b0b9549a8f3e4dc50d141d"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E160",
+        "introduced_by": "H034",
+        "supersedes_id": "E53",
+        "status": "active",
+        "content_hash": "548b99c67d90327ce2757efe8ec6dbb6ad6ceb5f1b54a179d93defa4138d991a"
       }
     ],
     "provision_revisions": [
@@ -28569,6 +28663,30 @@
         "version": "1.99230",
         "content_hash": "226ce57b7fbf5fed732cc15628edd44685d5d2821acd98ee20962f71e54e97aa",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P100",
+        "revision_id": "H034",
+        "version": "2.00230",
+        "content_hash": "639773334f881acb48fa6b57e501f23a0a4258cfd880df442134ce176bfae853",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A185",
+        "revision_id": "H034",
+        "version": "2.00230",
+        "content_hash": "db8a9cf49cd8f8ec5e2f8ff7721f6b1b30fbe42d96b0b9549a8f3e4dc50d141d",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E160",
+        "revision_id": "H034",
+        "version": "2.00230",
+        "content_hash": "548b99c67d90327ce2757efe8ec6dbb6ad6ceb5f1b54a179d93defa4138d991a",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -28901,6 +29019,16 @@
         "summary": "reciprocal runtime fault lifecycle resource repair and update isolation between main system and every independent tool established",
         "previous_hash": "6bd0b04fb1f0695cb9803c30367cf77700de9e4cf09065569bb8b210c47cb44f",
         "entry_hash": "e9c4a9cd349339a9b6a4d5148ed087b28b65893d382cc389915aa835fbedd82a"
+      },
+      {
+        "sequence": 34,
+        "change_id": "H034",
+        "version": "2.00230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "authority-duty",
+        "summary": "source module and callable limits tightened and all source structure directories centralized under permission sovereign",
+        "previous_hash": "e9c4a9cd349339a9b6a4d5148ed087b28b65893d382cc389915aa835fbedd82a",
+        "entry_hash": "b6c50d5b96b235a68b1d380a1993e635dfa23d7b7d638cf2dbb1f7997941f3a5"
       }
     ],
     "savings": [
@@ -29286,6 +29414,17 @@
         "content_root": "886276133e680a22db30d1c97997277511b8ee5a85256924f84c25477563e5cf",
         "identity_root": "84784de0b5081a325cf7be03aac8e32e7118be75ee86764b227ad4f0b491bb67",
         "full_root": "65d7c21969ff533463cb456689e9552f3d7621605d9889c62612999823debd12"
+      },
+      {
+        "version": "2.00230",
+        "history_head": "b6c50d5b96b235a68b1d380a1993e635dfa23d7b7d638cf2dbb1f7997941f3a5",
+        "provision_count": 445,
+        "identity_count": 460,
+        "lineage_count": 460,
+        "certification_state": "sealed-read-only",
+        "content_root": "6430f2de4d1f139f67d71dce41df8f24298535c9388bd0c066eca2b483b65b8a",
+        "identity_root": "aa82dcc8694307f14d58e864284947245a29dd0848897a45ec64fb61429ebbef",
+        "full_root": "f11fefd8b93d9497010918964ae797a8018634e1386098045ac57c19c13b98ba"
       }
     ],
     "sealed_components": [
@@ -30962,6 +31101,11 @@
         "sovereign_id": "xingcheng",
         "position": 10,
         "value": "notify-user-of-anomalies"
+      },
+      {
+        "sovereign_id": "permission-sovereign",
+        "position": 7,
+        "value": "source-structure-directory-management"
       }
     ],
     "sovereign_powers": [
@@ -32135,6 +32279,18 @@
         "predecessor_identity": "codex/provision/edict/E158",
         "successor_identity": "codex/provision/edict/E159",
         "effective_version": "1.99230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A73",
+        "successor_identity": "codex/provision/article/A185",
+        "effective_version": "2.00230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E53",
+        "successor_identity": "codex/provision/edict/E160",
+        "effective_version": "2.00230",
         "status": "effective"
       }
     ],
