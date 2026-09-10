@@ -29,8 +29,18 @@ from .codex_decision import decision_basis
 from .sovereign_utils import _iso_now, _suppress
 from governance_rule.execution.tool_runtime.sub_sovereign import (
     SYSTEM_INTEGRATION_AUTHORITY,
-    SYSTEM_INTEGRATION_ROLE,
 )
+from governance_rule.codex import GOVERNANCE_CODEX
+
+
+_INTEGRATION_SOVEREIGN = next(
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "information-channel"),
+    None,
+)
+if _INTEGRATION_SOVEREIGN is None:
+    raise RuntimeError("integration sovereign not found in Governance Codex")
+
+INTEGRATION_SUB_SOVEREIGN_RESPONSIBILITIES = _INTEGRATION_SOVEREIGN.duties
 
 # Fallback resident service IDs used when manifest scanning is unavailable.
 _FALLBACK_RESIDENT_TOOL_IDS = ("shared-layer",)
@@ -54,7 +64,7 @@ class IntegrationSubSovereign:
       - bus coordination
     """
 
-    ROLE = SYSTEM_INTEGRATION_ROLE
+    ROLE = _INTEGRATION_SOVEREIGN.id
 
     def __init__(self, app: Any) -> None:
         self.app = app
@@ -563,5 +573,6 @@ class IntegrationSubSovereign:
     # ------------------------------------------------------------------
 
 __all__ = [
+    "INTEGRATION_SUB_SOVEREIGN_RESPONSIBILITIES",
     "IntegrationSubSovereign",
 ]
