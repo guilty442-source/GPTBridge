@@ -172,8 +172,8 @@ python native_transformer\tests\test_model.py -v
 1. **Triton kernel 完整化**：RoPE / KV Cache / Sampling 的逐元素 Triton kernel。
 2. **Gluon**：當 Triton 無法提供足夠硬體控制（Tensor Layout / Shared Memory /
    Warp / Data Movement）時下沉。
-3. **CUDA C++**：極端效能瓶頸或硬體特化需求時下沉，透過 `build_native.py` 風格
-   的 pybind11 延伸編譯。
+3. **CUDA C++**：極端效能瓶頸或硬體特化需求時下沉，透過專案根目錄
+   `native/` 標準樹（A221/E186）的 pybind11 延伸編譯。
 4. **PTX / SASS**：僅用於極端底層最佳化、效能分析或硬體指令研究，不手寫。
 5. **進階量化**：per-channel / group-wise / AWQ / GPTQ / FP8。
 6. **Apple MPS / Metal**：未來支線。
