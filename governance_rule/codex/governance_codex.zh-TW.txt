@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.31300",
+  "codex_version": "1.31400",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1498,6 +1498,15 @@
         "rule": "FLOW:Python-control-and-orchestration>versioned-native-interface>CSharp-Windows-adapter>Windows/.NET-API; NATIVE-INTERFACE:in-process=C-ABI-or-generated-Python/.NET-interop-contract+out-of-process=information-layer-typed-contract; CSHARP-OWNER:unique-Windows/.NET/CLR/WinRT/COM invocation+platform-lifetime+typed-error-translation only; PYTHON-OWNER:request-composition+semantic/business-policy+workflow+result-decision; RETURN:Windows/.NET-result>CSharp-normalization>same-versioned-interface>Python; CONTRACT:versioned+generated-when-possible+typed+bounded+tested+observable; PROCESS:information-layer required for cross-process boundary; DIRECT-PYTHON-TO-WINDOWS-DOTNET:no when registered-CSharp-adapter owns capability; DUPLICATION:none",
         "prohibition": "CSharp orchestration/business authority; direct or untyped bypass; duplicate Windows capability",
         "exception": "Windows 11 native command-line tools remain governed platform adapters under the same Python ownership and information-layer process boundary"
+      },
+      {
+        "position": 218,
+        "provision_id": "A218",
+        "section_index": "4",
+        "subject": "python-api-load-classification-and-native-dispatch",
+        "rule": "ENTRY:consumer>versioned-Python-API; CLASSIFY:Python-owned dispatcher uses registered deterministic workload threshold+capability profile; ORDINARY:Python-implementation is sole production owner; HIGH-LOAD:Python-API>thin-pybind11-binding>C++-performance-core; DEFAULT-AND-FAIL-SAFE:Python path unless high-load eligibility+compatible native artifact+resource budget are all valid; HIGH-LOAD-EVIDENCE:repeatable profile proves declared latency/throughput/CPU/memory benefit and correctness parity; THRESHOLD:versioned+capability-specific+observable+no caller-selected implementation; API-PARITY:identical Python signature/schema/semantics/error/cancellation/deadline/result contract for both branches; PYBIND11:validation+conversion+lifetime+GIL+typed-error only; CPP:compute only+no business/workflow/network/database/UI; STATE:one Python-owned logical state+no divergent cache/source-of-truth; FALLBACK:C++ unavailable or rejected returns typed status to Python which may execute ordinary implementation only when deadline+resource+semantic contract permit; RELEASE:Python API+implementation+dispatcher+pybind11+C++ artifact form one versioned compatibility unit",
+        "prohibition": "caller-selected-native route; native-by-default; unprofiled offload; divergent API or business semantics",
+        "exception": "nonproduction Python reference oracle remains test-only and is not the ordinary production implementation"
       }
     ],
     "certification_evidence": [
@@ -1552,6 +1561,13 @@
       },
       {
         "version": "1.31300",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.31400",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -1623,6 +1639,13 @@
         "recorded_at_local": "2026-09-10T21:51:45+08:00",
         "timezone": "Asia/Taipei",
         "event": "provision-scope-csharp-windows-dotnet-boundary"
+      },
+      {
+        "version": "1.31400",
+        "recorded_at_utc": "2026-09-10T13:53:58Z",
+        "recorded_at_local": "2026-09-10T21:53:58+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "provision-scope-python-api-load-split"
       }
     ],
     "edicts": [
@@ -2604,6 +2627,13 @@
         "provision_id": "E182",
         "area": "csharp-windows-dotnet-boundary",
         "edict": "WINDOWS-DOTNET-PATH:Python/native-interface>CSharp>Windows/.NET; RETURN:same-boundary-reverse-result; CSHARP:thin-platform-adapter-only; PYTHON:control+semantics+business; CROSS-PROCESS:information-layer; DIRECT/DUPLICATE/UNTYPED/BYPASS:none",
+        "immutability": "versioned-codex-only"
+      },
+      {
+        "position": 183,
+        "provision_id": "E183",
+        "area": "python-native-load-routing",
+        "edict": "PYTHON-API-BRANCH:ordinary>Python-implementation|profile-proven-high-load>pybind11>C++; DEFAULT:Python; DISPATCH:Python-owned+deterministic+versioned+observable; CALLER-CHOICE/DUPLICATE-AUTHORITY/PYBIND11-LOGIC/CPP-BUSINESS:none; CONTRACT:one-API+semantic-parity+typed-failure",
         "immutability": "versioned-codex-only"
       }
     ],
@@ -4926,12 +4956,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A212",
-        "effective_version": "1.21000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A213",
         "effective_version": "1.21000",
         "status": "active"
@@ -5012,6 +5036,24 @@
         "provision_type": "edict",
         "provision_id": "E182",
         "effective_version": "1.31300",
+        "status": "active"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P120",
+        "effective_version": "1.31400",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A218",
+        "effective_version": "1.31400",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E183",
+        "effective_version": "1.31400",
         "status": "active"
       }
     ],
@@ -5398,12 +5440,16 @@
         "value": "bounded+minimal-rows+minimal-columns"
       },
       {
+        "key": "csharp_windows_boundary",
+        "value": "python-or-native-interface>csharp>windows-or-dotnet"
+      },
+      {
         "key": "codex_version",
-        "value": "1.31300"
+        "value": "1.31400"
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.31300"
+        "value": "gptbridge-governance-codex-v1.31400"
       },
       {
         "key": "version_increment",
@@ -5411,15 +5457,15 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-10T13:51:45Z"
+        "value": "2026-09-10T13:53:58Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-10T21:51:45+08:00"
+        "value": "2026-09-10T21:53:58+08:00"
       },
       {
-        "key": "csharp_windows_boundary",
-        "value": "python-or-native-interface>csharp>windows-or-dotnet"
+        "key": "python_api_execution_split",
+        "value": "ordinary=python|high-load=pybind11>cpp"
       }
     ],
     "preamble": [
@@ -6096,6 +6142,12 @@
         "position": 111,
         "provision_id": "P119",
         "statement": "WINDOWS-BRIDGE:Python-orchestration>native-interface>CSharp-adapter>Windows/.NET; DIRECTION:request-down+typed-result-up; CSharp:no-independent-orchestration-or-business-authority",
+        "binding": 1
+      },
+      {
+        "position": 112,
+        "provision_id": "P120",
+        "statement": "PYTHON-API:single-public-contract; ROUTING:ordinary-work>Python-implementation|profile-proven-high-load-work>pybind11>C++-performance-core; DEFAULT:Python; NATIVE-ADMISSION:measured-load-and-benefit-required",
         "binding": 1
       }
     ],
@@ -9086,6 +9138,27 @@
         "identity_code": "codex/provision/edict/E182",
         "provision_type": "edict",
         "provision_id": "E182",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P120",
+        "provision_type": "principle",
+        "provision_id": "P120",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A218",
+        "provision_type": "article",
+        "provision_id": "A218",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E183",
+        "provision_type": "edict",
+        "provision_id": "E183",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -12392,7 +12465,7 @@
         "provision_id": "A212",
         "introduced_by": "H004",
         "supersedes_id": "A203",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "f28cac5289424fc14cd91dcd559f3e72b91c82187f9d0cbd39edb052d46aa867"
       },
       {
@@ -12506,6 +12579,30 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "8d1c69f9c376e94b1d070fce72e9e2ede723c8a493afa925fd6c7a74fa84dfab"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P120",
+        "introduced_by": "H009",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "2d202158fb1e8d3e318a982db5d66e62a0b3358b48de850ffc307744be703d6f"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A218",
+        "introduced_by": "H009",
+        "supersedes_id": "A212",
+        "status": "active",
+        "content_hash": "55571ed5530992b94f23e8ab80fd380d5a83596c45526fa4c62781c1375c905b"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E183",
+        "introduced_by": "H009",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "8507b2feed69bc73c109d4d04c09ef417c983c36e05552a742be2d10708222d7"
       }
     ],
     "provision_revisions": [
@@ -15924,6 +16021,30 @@
         "version": "1.31300",
         "content_hash": "8d1c69f9c376e94b1d070fce72e9e2ede723c8a493afa925fd6c7a74fa84dfab",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P120",
+        "revision_id": "H009",
+        "version": "1.31400",
+        "content_hash": "2d202158fb1e8d3e318a982db5d66e62a0b3358b48de850ffc307744be703d6f",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A218",
+        "revision_id": "H009",
+        "version": "1.31400",
+        "content_hash": "55571ed5530992b94f23e8ab80fd380d5a83596c45526fa4c62781c1375c905b",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E183",
+        "revision_id": "H009",
+        "version": "1.31400",
+        "content_hash": "8507b2feed69bc73c109d4d04c09ef417c983c36e05552a742be2d10708222d7",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -16006,6 +16127,16 @@
         "summary": "Python native interface to CSharp to Windows and .NET boundary fixed",
         "previous_hash": "c0081baf6090fa7c407051eb116d25ecc197603063416d80ac8247ed7a943d37",
         "entry_hash": "f5ae919ad4b03970c5a8e96496b02a2d8a831778669433617660434f570b5783"
+      },
+      {
+        "sequence": 9,
+        "change_id": "H009",
+        "version": "1.31400",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "Python API branches ordinary work to Python and proven high-load work through pybind11 to C++",
+        "previous_hash": "f5ae919ad4b03970c5a8e96496b02a2d8a831778669433617660434f570b5783",
+        "entry_hash": "d30fc36f86040bfa831f4d7473753f09e49d31bda32306a7316bb1c535426c9e"
       }
     ],
     "savings": [
@@ -16116,6 +16247,17 @@
         "content_root": "7b239f5e1954819f0440931de75cce6622be3ed11244bb83c824f7c173449b64",
         "identity_root": "bbc45ef2e0a61a3be20c608efa67c68683f18cfba58a2c2528ef60a85074546f",
         "full_root": "dea54680c7726613e04c914eeb7945df54cf4caf316406b3b9baef879100664e"
+      },
+      {
+        "version": "1.31400",
+        "history_head": "d30fc36f86040bfa831f4d7473753f09e49d31bda32306a7316bb1c535426c9e",
+        "provision_count": 403,
+        "identity_count": 430,
+        "lineage_count": 430,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "6430d56b954bbf433107d49c173e3a5cb058f1eb98af23a85d4c7d5fca1ec334",
+        "identity_root": "9e65d66a6991ac3da80ce87e22c674851862cfc23b69fdf1ef54107946b7d772",
+        "full_root": "edcaee96809cb53dd8dae5bae62f0167f6f32b11a4dac2d927deddb85b6f0c58"
       }
     ],
     "sealed_components": [
@@ -16516,6 +16658,56 @@
       },
       {
         "version": "1.31300",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31400",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31400",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31400",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31400",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31400",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31400",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31400",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31400",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31400",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31400",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -17644,6 +17836,12 @@
         "successor_identity": "codex/provision/article/A217",
         "effective_version": "1.31300",
         "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A212",
+        "successor_identity": "codex/provision/article/A218",
+        "effective_version": "1.31400",
+        "status": "effective"
       }
     ],
     "trust_anchor_requirements": [
@@ -17705,6 +17903,14 @@
       },
       {
         "version": "1.31300",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "1.31400",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
