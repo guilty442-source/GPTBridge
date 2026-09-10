@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.88630",
+  "codex_version": "1.88730",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1624,6 +1624,15 @@
         "rule": "SCOPE:main-system+every-independent-tool frontend/backend; OWNER:information-layer-connection-controller-only; STATE-MACHINE:idle>connecting>authenticating>synchronizing>connected>degraded>reconnecting>repairing>failed; TRANSITION:typed+monotonic+generation-id+reason+timestamp+attempt-count; SESSION:authenticated+authorized+contract-versioned+generation-fenced+single-active-per-client-route; LIVENESS:bidirectional-heartbeat+deadline+miss-threshold+transport-close+protocol-error+backend-generation-change; DETECTION:any-liveness-failure-immediately-invalidates-ready-and-blocks-state-changing-commands; RECONNECT:automatic-single-flight+cancel-prior-attempt+bounded-exponential-backoff+jitter+rate-limit+maximum-attempt-window+fresh-session-token+fresh-generation; RESYNC:resubscribe+send-last-acknowledged-event-cursor+backend-gap-check+authoritative-full-snapshot-on-gap-or-generation-change+monotonic-event-replay-with-idempotency-key+client-ack; READY-GATE:transport+authentication+authorization+contract-compatible+subscription+snapshot-current+cursor-contiguous+required-runtime-health; COMMANDS:connected-ready-generation-only+request-id+idempotency-key+acknowledged-result; OFFLINE/DEGRADED/REPAIRING:fail-closed+no-implicit-queue+no-stale-replay; REPAIR-ESCALATION:reconnect-budget-exhausted>information-layer-signal>maintenance-health-classification>system-decision>permission>system-runtime-or-programming>governed-executor>independent-verification>fresh-reconnect; UI:all-connection-state+reason+attempt+last-success+repair-state published-in-real-time-through-information-layer; RECOVERY-SUCCESS:new-generation-ready+stable-heartbeat-window+snapshot-and-cursor-verified; COVERAGE:same-contract-for-development+production+hot-reload+post-repair",
         "prohibition": "FORBID:frontend-owned-WebSocket+direct-backend-connection+multiple-reconnect-loops+concurrent-session-generations+socket-open-as-ready+fixed-delay-retry+unbounded-retry+retry-storm+reuse-expired-session+command-while-not-ready+silent-command-buffer+out-of-order-event-apply+cursor-gap-ignore+stale-snapshot-as-current+UI-manual-refresh-dependency+repair-success-before-stability-window+hidden-failed-state+information-layer-bypass",
         "exception": ""
+      },
+      {
+        "position": 177,
+        "provision_id": "A177",
+        "section_index": "4",
+        "subject": "universal-information-layer-connection-exclusivity",
+        "rule": "CONNECTION-DEFINITION:any-cross-process+cross-thread-message-channel+cross-layer+cross-module+cross-owner+frontend-backend+sovereign-sub-sovereign+module-executor+network+loopback+LAN+internet+WebSocket+HTTP/HTTPS+TCP/UDP+IPC+pipe+queue+event-bus+callback-bus+database+PostgreSQL+SQLite-cross-owner+Qdrant+RAG+Ollama+model-runtime+filesystem-cross-owner+repository+broker+tool+service+child-process-control+health-probe+administration+provisioning+startup+repair+test-or-script communication/session/request/read/write/control/status/event/data-transfer; SOLE-OWNER:information-layer; REQUIRED-ROUTE:authenticated-requester>registered-information-layer-entry>authorization+type+contract+scope+rate+observability+audit-gates>information-layer-owned-transport-adapter>authorized-destination>typed-result-via-information-layer; PHYSICAL-CONNECTION:may-be-opened-only-by-information-layer-owned-adapter-on-behalf-of-approved-request+adapter-has-no-domain-decision; CREDENTIALS+TOKENS+PORTS+CONNECTION-POOLS+SESSIONS+RETRY+TIMEOUT+HEARTBEAT+BACKPRESSURE+RECONNECT:information-layer-custody; CALLER:request-only+no-transport-handle; DESTINATION:reply-only-through-originating-information-route; FAILURE:fail-closed+typed-error+audit+health-signal; COVERAGE:runtime+development+maintenance+migration+packaging+diagnostics+tests+one-off-scripts; INTERNAL-NON-CONNECTION:pure-in-process-function-call-inside-one-owner-and-one-layer-without-I/O/message/session/transport-handle remains-owner-internal",
+        "prohibition": "FORBID:direct-socket+direct-HTTP+direct-WebSocket+direct-database-driver+direct-model-endpoint+direct-cross-owner-file-read/write+direct-subprocess-control-channel+private-IPC+private-event-bus+implicit-callback-channel+unregistered-queue+transport-library-in-domain-or-presentation-code+caller-owned-connection-pool+credential-forwarding+destination-direct-reply+startup/provisioning/admin/health/test/script-bypass+temporary-debug-connection+fallback-direct-link+information-layer-domain-business-logic+information-layer-authorization-self-grant",
+        "exception": "No cross-boundary connection exception; only owner-internal pure calls that create no I/O message session or transport handle are outside the connection definition"
       }
     ],
     "certification_evidence": [
@@ -1783,6 +1792,13 @@
       },
       {
         "version": "1.88630",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.88730",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2854,6 +2870,13 @@
         "provision_id": "E151",
         "area": "frontend-backend-connection-resilience",
         "edict": "CONTROLLER:information-layer-only; STATES:idle>connecting>authenticating>synchronizing>connected>degraded>reconnecting>repairing>failed; LIVENESS:two-way-heartbeat+deadline+generation; RECONNECT:single-flight+bounded-backoff+jitter+fresh-session; RESYNC:cursor+gap-check+snapshot+ordered-idempotent-events+ack; READY:all-transport+auth+contract+subscription+snapshot+cursor+health-gates; COMMAND:not-ready=>fail-closed; EXHAUSTED:sovereign-repair-chain; STATUS:real-time-to-all-UI",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 152,
+        "provision_id": "E152",
+        "area": "universal-information-layer-connections",
+        "edict": "ALL-CONNECTIONS:requester>information-layer-entry>gates>information-layer-adapter>destination>information-layer-result; COVER:network+IPC+database+vector+RAG+model+filesystem-cross-owner+broker+event+tool+process-control+health+startup+repair+provisioning+test+script; TRANSPORT-STATE+SECRETS+SESSIONS+RETRY:information-layer-only; CALLER-TRANSPORT-HANDLE:none; DIRECT/FALLBACK/DEBUG-BYPASS:none; INFORMATION-LAYER-BUSINESS-DECISION:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4717,11 +4740,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.88630"
+        "value": "gptbridge-governance-codex-v1.88730"
       },
       {
         "key": "codex_version",
-        "value": "1.88630"
+        "value": "1.88730"
       },
       {
         "key": "citation_entry",
@@ -5344,6 +5367,12 @@
         "position": 92,
         "provision_id": "P92",
         "statement": "FRONTEND-BACKEND-CONNECTION:information-layer-single-owner+explicit-state-machine+generation-fenced-session+heartbeat+liveness+cursor-reconciliation; RECONNECT:automatic+single-flight+bounded; RECOVERY:authoritative-snapshot-before-ready; FAILURE:fail-closed+visible",
+        "binding": 1
+      },
+      {
+        "position": 93,
+        "provision_id": "P93",
+        "statement": "EVERY-CONNECTION:information-layer-only-without-cross-boundary-exception; ROUTE:requester>information-layer-owned-gateway-or-adapter>authorized-destination; DIRECT-CONNECTION:none; INFORMATION-LAYER:transport-only+no-business-decision",
         "binding": 1
       }
     ],
@@ -8385,6 +8414,27 @@
         "provision_id": "E151",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P93",
+        "provision_type": "principle",
+        "provision_id": "P93",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A177",
+        "provision_type": "article",
+        "provision_id": "A177",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E152",
+        "provision_type": "edict",
+        "provision_id": "E152",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -9697,7 +9747,7 @@
         "provision_id": "E50",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "99033a0cfab9b6b1024ab343263e8af832dc40456b6be3f234860b8d00d3dd3a"
       },
       {
@@ -11401,7 +11451,7 @@
         "provision_id": "A153",
         "introduced_by": "H014",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "549097ecddf9e9c7e85764b48d1940d83a0155da8fcfe3817d73175f9b0083e3"
       },
       {
@@ -11859,6 +11909,30 @@
         "supersedes_id": "E144",
         "status": "active",
         "content_hash": "eecac69ddcb401489e155932e957d6bc6fcc6b0184ca95f479706e9656905940"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P93",
+        "introduced_by": "H027",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "95290136640c9bb31833f5f86c0d393f0642b449c343af9aec6601ff91cd8f99"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A177",
+        "introduced_by": "H027",
+        "supersedes_id": "A153",
+        "status": "active",
+        "content_hash": "3dc91087610396a2ca55a50fc0a3955e8a27d3416b3493295aef25ce4c65136b"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E152",
+        "introduced_by": "H027",
+        "supersedes_id": "E50",
+        "status": "active",
+        "content_hash": "a0ac7ea99d92045db8691fcfc9c88d2de0abe4a01c9db8f5e175a70f7614a542"
       }
     ],
     "provision_revisions": [
@@ -27821,6 +27895,30 @@
         "version": "1.88630",
         "content_hash": "eecac69ddcb401489e155932e957d6bc6fcc6b0184ca95f479706e9656905940",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P93",
+        "revision_id": "H027",
+        "version": "1.88730",
+        "content_hash": "95290136640c9bb31833f5f86c0d393f0642b449c343af9aec6601ff91cd8f99",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A177",
+        "revision_id": "H027",
+        "version": "1.88730",
+        "content_hash": "3dc91087610396a2ca55a50fc0a3955e8a27d3416b3493295aef25ce4c65136b",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E152",
+        "revision_id": "H027",
+        "version": "1.88730",
+        "content_hash": "a0ac7ea99d92045db8691fcfc9c88d2de0abe4a01c9db8f5e175a70f7614a542",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -28083,6 +28181,16 @@
         "summary": "frontend backend connection state machine liveness generation fencing and deterministic recovery completed",
         "previous_hash": "e908495fa148dd45b680b4af0af1621835580548c825a002d065ce258860ea8e",
         "entry_hash": "8799097591ac90cda29bad277b0521b6086160676093ed3c21545f08b48f3618"
+      },
+      {
+        "sequence": 27,
+        "change_id": "H027",
+        "version": "1.88730",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "all cross-boundary connection types assigned exclusively to information layer entries and adapters",
+        "previous_hash": "8799097591ac90cda29bad277b0521b6086160676093ed3c21545f08b48f3618",
+        "entry_hash": "f351324a9fa59ce004a48cfd7b8d3100b7294587b340b78b8c2a2f4478e245b7"
       }
     ],
     "savings": [
@@ -28391,6 +28499,17 @@
         "content_root": "0e9cda33b0d7699c3402332b97e716544836552d6f8604bd2a5acf61c1942d0c",
         "identity_root": "4925c8ad14e27d1769772d10ab5c8865b97e8b47d5b88b5f113c5f5bc976d974",
         "full_root": "2f425fad823226fd2e406790d736dcb6af3008379580a6203f61338a9ff53ba0"
+      },
+      {
+        "version": "1.88730",
+        "history_head": "f351324a9fa59ce004a48cfd7b8d3100b7294587b340b78b8c2a2f4478e245b7",
+        "provision_count": 422,
+        "identity_count": 437,
+        "lineage_count": 437,
+        "certification_state": "sealed-read-only",
+        "content_root": "ba1a4f52a4ae5fc9cba79c48ead7e94a05ad1fc5734de64ddaaa52629c050aa7",
+        "identity_root": "a73728d8b5974a4029875260e3cb571f90fa004b2c19a50e97fb575eec8dabb5",
+        "full_root": "6971019cc67d996f1422bb6c364a317cc84010e2cb24929d476a6c28e205966a"
       }
     ],
     "sealed_components": [
@@ -31180,6 +31299,18 @@
         "predecessor_identity": "codex/provision/edict/E144",
         "successor_identity": "codex/provision/edict/E151",
         "effective_version": "1.88630",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A153",
+        "successor_identity": "codex/provision/article/A177",
+        "effective_version": "1.88730",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E50",
+        "successor_identity": "codex/provision/edict/E152",
+        "effective_version": "1.88730",
         "status": "effective"
       }
     ],
