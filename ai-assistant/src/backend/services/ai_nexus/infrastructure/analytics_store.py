@@ -578,7 +578,7 @@ class InvestmentAnalyticsStore(InvestmentAnalyticsStoreSchema, InvestmentAnalyti
                     "observed_at": quote.get("as_of") or utc_text(observed),
                     "close": price,
                     "currency": quote.get("currency") or report.get("currency"),
-                    "provider": quote.get("provider") or "AI投資管家",
+                    "provider": quote.get("provider") or "投資管家",
                     "verified": bool(report.get("trusted_quote")),
                 }
             )

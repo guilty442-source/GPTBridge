@@ -476,7 +476,7 @@ class InvestmentImportServiceMixin(ImportSnapshotMixin):
         }
         report = (
             {
-                "tool": "AI投資管家",
+                "tool": "投資管家",
                 "version": self.VERSION,
                 "local_only": True,
                 "generated_at": diagnostics["generated_at"],
@@ -487,7 +487,7 @@ class InvestmentImportServiceMixin(ImportSnapshotMixin):
             }
             if include_sensitive
             else {
-                "tool": "AI投資管家",
+                "tool": "投資管家",
                 "version": self.VERSION,
                 "local_only": True,
                 "generated_at": diagnostics["generated_at"],

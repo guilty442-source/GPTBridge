@@ -99,7 +99,7 @@ class InvestmentMobileService:
         status = self.gateway.status(expose_pairing_code=True)
         return {
             "ok": True,
-            "tool": "AI 投資管家手機版",
+            "tool": "投資管家手機版",
             "tool_id": "investment-mobile",
             "platform": mobile_platform_contract(),
             "connection_coordinator": "xingcheng",

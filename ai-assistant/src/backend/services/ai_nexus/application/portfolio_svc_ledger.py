@@ -14,7 +14,7 @@ class PortfolioSvcLedgerMixin:
         response = self._state_response(self.repository.load_state())
         response.update(
             {
-                "message": "交易已寫入本機帳本，AI投資管家帳務已接續排程。",
+                "message": "交易已寫入本機帳本，投資管家帳務已接續排程。",
                 "transaction": transaction,
                 "star_accounting": accounting,
             }

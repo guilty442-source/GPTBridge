@@ -33,7 +33,7 @@ def main() -> None:
     workspace = Path(__file__).resolve().parent.parent
     print("AI Investment Manager is registered as a standalone GPTBridge application.")
     print(f"Project folder: {workspace}")
-    print("Open AI投資管家 from the Applications screen.")
+    print("Open 投資管家 from the Applications screen.")
     uninstall_investment_manager_network_policy()
 
 

@@ -90,8 +90,8 @@ class WatchRepoAIRunsMixin:
             return dict(run)
         return self._add_ai_run_locked(
             role="investment_risk_monitor",
-            provider="AI投資管家",
-            prompt="AI投資管家：經 AI 通道執行背景報價與風險監測",
+            provider="投資管家",
+            prompt="投資管家：經 AI 通道執行背景報價與風險監測",
             status=status,
             content=content,
             error=error,

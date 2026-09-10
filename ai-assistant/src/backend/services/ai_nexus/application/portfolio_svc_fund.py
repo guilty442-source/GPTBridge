@@ -9,7 +9,7 @@ class PortfolioSvcFundMixin:
         state = self.repository.load_state()
         holdings = [dict(item) for item in state.get("holdings", []) if isinstance(item, dict)]
         if self.ai_connections is None:
-            raise ValueError("AI投資管家 AI 通道尚未連線，基金辨識未執行且不排隊。")
+            raise ValueError("投資管家 AI 通道尚未連線，基金辨識未執行且不排隊。")
         star_result = await asyncio.to_thread(
             self.ai_connections.search_investments_sync,
             holdings[: self._int_value(payload.get("limit")) or 50],

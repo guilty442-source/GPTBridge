@@ -9,7 +9,7 @@ from ..integration.star_channel import InvestmentAiConnections
 
 
 class AiNexusService:
-    """AI投資管家 service.
+    """投資管家 service.
 
     The historical package name stays as ``ai_nexus`` so existing loaders can
     still discover the service, but this application now owns only local

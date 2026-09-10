@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Final
 
 
-MOBILE_PLATFORM_NAME: Final[str] = "AI投資管家原生手機共用平台"
+MOBILE_PLATFORM_NAME: Final[str] = "投資管家原生手機共用平台"
 MOBILE_PLATFORM_CONTRACT_VERSION: Final[int] = 1
 MOBILE_PLATFORM_CAPABILITIES: Final[tuple[str, ...]] = (
     "portfolio_overview",

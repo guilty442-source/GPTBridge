@@ -76,7 +76,7 @@ class CollabSvcCoordinationMixin:
             "你是星澄投資研究管線中的搜尋與資料整理者。請使用 Gemini 支援的 Google "
             "搜尋能力，逐項整理配息、股價、淨值線索、來源 URL、資料日期與可信度。搜尋摘要不是"
             "最終證據；無官方或結構化來源佐證時標示『待驗證』，不得猜測，也不得直接"
-            "要求修改 AI 投資管家。\n\n"
+            "要求修改 投資管家。\n\n"
             f"原始查詢：{query}"
         )
         await self._run_agent_message(

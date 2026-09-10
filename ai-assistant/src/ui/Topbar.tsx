@@ -23,7 +23,7 @@ export function Topbar(props: TopbarProps) {
     <header className="nexus-topbar">
       <div className="nexus-title-block">
         <p className="nexus-eyebrow">投資管理</p>
-        <h1>AI投資管家</h1>
+        <h1>投資管家</h1>
         <div className="nexus-top-meta">
           <span>{liveUpdateLabel}</span>
           <span>獨立投資對話 · 本機主模型＋備援模型</span>

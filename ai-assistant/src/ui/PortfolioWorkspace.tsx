@@ -83,7 +83,7 @@ export function PortfolioWorkspace(props: PortfolioWorkspaceProps) {
                 void runCommand(
                   'investment_watch_sync_dividends',
                   {},
-                  'AI投資管家配息搜尋',
+                  '投資管家配息搜尋',
                   240000
                 )
               }
@@ -91,7 +91,7 @@ export function PortfolioWorkspace(props: PortfolioWorkspaceProps) {
             >
               {busyAction === 'investment:investment_watch_sync_dividends'
                 ? '同步中...'
-                : 'AI投資管家搜尋配息'}
+                : '投資管家搜尋配息'}
             </button>
             <button
               type="button"

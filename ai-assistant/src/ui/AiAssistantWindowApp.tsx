@@ -30,7 +30,7 @@ export function AiAssistantWindowApp() {
     status: socketStatus,
     waitUntilConnected,
   } = useLocalBackendSocket();
-  const [message, setMessage] = useState("AI投資管家已就緒");
+  const [message, setMessage] = useState("投資管家已就緒");
   const [busyAction, setBusyAction] = useState("");
   const [workspaceView, setWorkspaceView] =
     useState<WorkspaceView>("portfolio");
@@ -113,7 +113,7 @@ export function AiAssistantWindowApp() {
   const localAiStatusLabel =
     localAiStatus?.state_label ||
     (investmentWatch.investmentHoldings.length > 0
-      ? "等待AI投資管家分析"
+      ? "等待投資管家分析"
       : "等待持股資料");
   const localAiScore =
     typeof localAiStatus?.score === "number"
@@ -419,7 +419,7 @@ export function AiAssistantWindowApp() {
         loadInvestmentState={loadInvestmentState}
       />
 
-      <nav className="nexus-workspace-nav" aria-label="AI 投資管家工作區">
+      <nav className="nexus-workspace-nav" aria-label="投資管家工作區">
         {WORKSPACE_VIEWS.map((view) => (
           <button
             key={view.key}

@@ -7,7 +7,7 @@ def _mobile_html() -> bytes:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AI投資管家手機同步</title>
+  <title>投資管家手機同步</title>
   <style>
     :root {
       color-scheme: light;
@@ -97,7 +97,7 @@ def _mobile_html() -> bytes:
 <body>
   <main>
     <header>
-      <h1>AI投資管家</h1>
+      <h1>投資管家</h1>
       <div class="meta">
         <div class="pill"><span>同步狀態</span><strong id="syncState">連線中</strong></div>
         <div class="pill"><span>更新時間</span><strong id="updatedAt">-</strong></div>

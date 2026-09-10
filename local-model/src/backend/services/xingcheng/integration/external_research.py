@@ -371,7 +371,7 @@ class ExternalAiResearch:
         prompt = (
             "請以 ChatGPT 最終統籌身分檢視星澄提供的投資分析。"
             "不得新增未附證據的價格、報酬或交易指令；請標示風險、資料缺口、"
-            "不確定性與需要人工決定的事項。結果只能回傳星澄，不得直接修改 AI 投資管家。\n\n"
+            "不確定性與需要人工決定的事項。結果只能回傳星澄，不得直接修改 投資管家。\n\n"
             f"星澄分析快照：{json.dumps(analysis_snapshot, ensure_ascii=False)}"
         )
         snapshot_digest = hashlib.sha256(

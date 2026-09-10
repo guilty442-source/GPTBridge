@@ -14,15 +14,15 @@ class PortfolioSvcSyncMixin:
             raise ValueError("請先讀取持股檔，再同步市場情報")
         del payload
         if self.ai_connections is None:
-            raise ValueError("AI投資管家 AI 通道尚未連線，市場情報未執行且不排隊。")
+            raise ValueError("投資管家 AI 通道尚未連線，市場情報未執行且不排隊。")
         star_result = await asyncio.to_thread(
             self.ai_connections.search_investments_sync, holdings
         )
         if star_result.get("ok") is not True:
-            raise ValueError(str(star_result.get("message") or "AI投資管家市場情報服務失敗。"))
+            raise ValueError(str(star_result.get("message") or "投資管家市場情報服務失敗。"))
         result = {
             "provider": "ai-assistant",
-            "service_owner": "AI投資管家",
+            "service_owner": "投資管家",
             "transport": "governance-authenticated-ai-channel",
             "requested_count": star_result.get("requested_count", len(holdings)),
             "updated_count": star_result.get("updated_count", 0),
@@ -80,7 +80,7 @@ class PortfolioSvcSyncMixin:
             )
             if not star_result.get("results"):
                 raise ValueError(
-                    str(star_result.get("message") or "AI投資管家尚未連線，報價未送出且不排隊。")
+                    str(star_result.get("message") or "投資管家尚未連線，報價未送出且不排隊。")
                 )
             quotes: list[dict[str, Any]] = []
             bars: list[dict[str, Any]] = []
@@ -137,7 +137,7 @@ class PortfolioSvcSyncMixin:
                 "limitations": ["共同基金淨值不是盤中成交價。", "無法驗證的結果不寫入。"],
             }
         else:
-            raise ValueError("AI投資管家 AI 通道尚未連線，報價未執行且不排隊。")
+            raise ValueError("投資管家 AI 通道尚未連線，報價未執行且不排隊。")
         quote_map = {
             (
                 str(item.get("market") or "").upper(),

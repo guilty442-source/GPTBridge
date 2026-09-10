@@ -11,8 +11,13 @@ from typing import Any
 
 MAIN_SYSTEM_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = MAIN_SYSTEM_ROOT.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+for _packager_path in (
+    str(PROJECT_ROOT),
+    str(PROJECT_ROOT / "main-system" / "src-core"),
+    str(PROJECT_ROOT / "shared-layer" / "src"),
+):
+    if _packager_path not in sys.path:
+        sys.path.insert(0, _packager_path)
 
 from governance_rule.execution.integrity.package_integrity import (  # noqa: E402
     PACKAGE_FORMAT_VERSION,

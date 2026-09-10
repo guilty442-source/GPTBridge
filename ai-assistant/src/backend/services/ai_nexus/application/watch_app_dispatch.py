@@ -84,7 +84,7 @@ class WatchAppDispatchMixin:
         if command not in handlers:
             return f"{command}_result", {
                 "ok": False,
-                "message": "AI投資管家不直接執行外部協作；投資分析一律由AI投資管家經 AI 通道處理。",
+                "message": "投資管家不直接執行外部協作；投資分析一律由投資管家經 AI 通道處理。",
             }
         try:
             result = await handlers[command](payload)

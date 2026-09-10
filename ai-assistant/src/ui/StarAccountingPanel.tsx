@@ -48,7 +48,7 @@ export function StarAccountingPanel(props: StarAccountingPanelProps) {
         <div>
           <p className="nexus-eyebrow">自主帳務</p>
           <h2>AI帳務</h2>
-          <span>AI核對帳本與持股；AI投資管家驗證後才寫入專屬資料庫。</span>
+          <span>AI核對帳本與持股；投資管家驗證後才寫入專屬資料庫。</span>
         </div>
         <button
           type="button"

@@ -29,7 +29,7 @@ class PortfolioSvcDividendsMixin:
         ]
         fx_result = {
             "fx_provider": "ai-assistant",
-            "fx_service_owner": "AI投資管家",
+            "fx_service_owner": "投資管家",
             "fx_requested_currencies": sorted(set(currencies)),
         }
         if self.ai_connections is not None:
@@ -39,7 +39,7 @@ class PortfolioSvcDividendsMixin:
             )
             if not star_result.get("results"):
                 raise ValueError(
-                    str(star_result.get("message") or "AI投資管家尚未連線，配息搜尋未送出且不排隊。")
+                    str(star_result.get("message") or "投資管家尚未連線，配息搜尋未送出且不排隊。")
                 )
             star_updates: list[dict[str, Any]] = []
             for item in star_result.get("results", []):
@@ -104,7 +104,7 @@ class PortfolioSvcDividendsMixin:
                 "limitations": ["基金公告未揭露可驗證金額時只保存公告與頻率，不推造配息金額。"],
             }
         else:
-            raise ValueError("AI投資管家 AI 通道尚未連線，配息搜尋未執行且不排隊。")
+            raise ValueError("投資管家 AI 通道尚未連線，配息搜尋未執行且不排隊。")
         updates = {
             (str(item.get("market") or ""), str(item.get("symbol") or "")): item
             for item in dividend_result.get("updates", [])

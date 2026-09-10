@@ -60,7 +60,7 @@ export function SystemWorkspace(props: SystemWorkspaceProps) {
             <strong>{workbookDiagnosticLabel}</strong>
           </div>
           <div>
-            <span>AI投資管家風險</span>
+            <span>投資管家風險</span>
             <strong>
               {diagnostics?.xingcheng?.warning_count ?? 0} /{' '}
               {diagnostics?.xingcheng?.critical_count ?? 0}
@@ -91,11 +91,11 @@ export function SystemWorkspace(props: SystemWorkspaceProps) {
             <span>服務架構</span>
             <strong>{socketLabel}</strong>
           </div>
-          <p>AI 投資管家只管理本機持股與設定；分析及帳務決策由AI投資管家提供。</p>
+          <p>投資管家只管理本機持股與設定；分析及帳務決策由投資管家提供。</p>
           <div className="nexus-system-flow">
-            <span>AI 投資管家</span>
+            <span>投資管家</span>
             <strong>→ AI 通道 →</strong>
-            <span>AI投資管家</span>
+            <span>投資管家</span>
           </div>
         </article>
         <article className="nexus-surface">
@@ -103,7 +103,7 @@ export function SystemWorkspace(props: SystemWorkspaceProps) {
             <span>自動資料</span>
             <strong>{localAiNetworkCoverage}</strong>
           </div>
-          <p>配息、股價與淨值由AI投資管家搜尋；未知值不覆寫手動資料。</p>
+          <p>配息、股價與淨值由投資管家搜尋；未知值不覆寫手動資料。</p>
           <span>{localAiVerificationLabel}</span>
         </article>
         <article className="nexus-surface">
@@ -111,21 +111,21 @@ export function SystemWorkspace(props: SystemWorkspaceProps) {
             <span>手機工具</span>
             <strong>已分離</strong>
           </div>
-          <p>investment-mobile 經AI投資管家連線；桌面管家不開啟 LAN 服務。</p>
+          <p>investment-mobile 經投資管家連線；桌面管家不開啟 LAN 服務。</p>
         </article>
         <article className="nexus-surface">
           <div className="nexus-section-head">
             <span>治理</span>
             <strong>最高權限</strong>
           </div>
-          <p>AI投資管家負責分析與自主帳務；外部 AI 不能直接寫入投資管家。</p>
+          <p>投資管家負責分析與自主帳務；外部 AI 不能直接寫入投資管家。</p>
         </article>
         <article className="nexus-surface nexus-system-tools">
           <div className="nexus-section-head">
             <span>維護工具</span>
             <strong>必要時使用</strong>
           </div>
-          <p>低頻率維護操作集中在這裡，不占用日常持股與AI投資管家工作區。</p>
+          <p>低頻率維護操作集中在這裡，不占用日常持股與投資管家工作區。</p>
           <div>
             <button
               type="button"

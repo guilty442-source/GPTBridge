@@ -14,7 +14,7 @@ def local_device_now() -> datetime:
 class InvestmentMobileBridgeMixin:
     async def _get_mobile_sync(self, _payload: dict[str, Any]) -> dict[str, Any]:
         response = self._state_response(self.repository.load_state())
-        response["message"] = "手機版介面經治理通道共用 AI 投資管家的設定與投資資料。"
+        response["message"] = "手機版介面經治理通道共用 投資管家的設定與投資資料。"
         response["network_policy"] = "served-by-independent-mobile-interface"
         return response
 
@@ -39,7 +39,7 @@ class InvestmentMobileBridgeMixin:
             {
                 "ok": True,
                 "sync": self._mobile_sync_status(),
-                "message": "手機版設定已存入 AI 投資管家的共用設定層。",
+                "message": "手機版設定已存入 投資管家的共用設定層。",
             }
         )
         return response
@@ -50,7 +50,7 @@ class InvestmentMobileBridgeMixin:
         return {
             "ok": False,
             "error_code": "NETWORK_ACCESS_DISABLED",
-            "message": "AI 投資管家禁止設定遠端橋接；服務由AI投資管家經 AI 通道提供。",
+            "message": "投資管家禁止設定遠端橋接；服務由投資管家經 AI 通道提供。",
             "state": state,
             "diagnostics": self._diagnostics(state),
             "mobile_sync": self._mobile_sync_status(),
@@ -61,7 +61,7 @@ class InvestmentMobileBridgeMixin:
         return {
             "ok": False,
             "error_code": "NETWORK_ACCESS_DISABLED",
-            "message": "AI 投資管家禁止手機同步。",
+            "message": "投資管家禁止手機同步。",
             "state": state,
             "diagnostics": self._diagnostics(state),
             "mobile_sync": self._mobile_sync_status(),
@@ -94,9 +94,9 @@ class InvestmentMobileBridgeMixin:
             "separate_business_layer": False,
             "separate_settings_layer": False,
             "network_policy": "served-by-independent-mobile-interface",
-            "shared_scope_message": "僅在主系統視為獨立工具；業務與設定由 AI 投資管家共用。",
+            "shared_scope_message": "僅在主系統視為獨立工具；業務與設定由 投資管家共用。",
             "start_error": self._mobile_sync_start_error,
-            "message": "僅在主系統視為獨立工具；設定與投資業務由 AI 投資管家共用。",
+            "message": "僅在主系統視為獨立工具；設定與投資業務由 投資管家共用。",
         }
 
     def _mobile_sync_snapshot(self) -> dict[str, Any]:
@@ -105,7 +105,7 @@ class InvestmentMobileBridgeMixin:
         diagnostics = self._diagnostics(state)
         return {
             "ok": True,
-            "tool": "AI投資管家",
+            "tool": "投資管家",
             "version": self.VERSION,
             "generated_at": local_device_now().isoformat(),
             "platform": {
@@ -148,9 +148,9 @@ class InvestmentMobileBridgeMixin:
 
     def _schedule_mobile_xingcheng_command(self, instruction: str) -> dict[str, Any]:
         if not instruction.strip():
-            return {"ok": False, "message": "請輸入AI投資管家命令"}
+            return {"ok": False, "message": "請輸入投資管家命令"}
         if self._event_loop is None or self._event_loop.is_closed():
-            return {"ok": False, "message": "手機工具尚未連到AI投資管家 AI 通道"}
+            return {"ok": False, "message": "手機工具尚未連到投資管家 AI 通道"}
         future = asyncio.run_coroutine_threadsafe(
             self._queue_mobile_xingcheng_command(instruction),
             self._event_loop,
@@ -176,7 +176,7 @@ class InvestmentMobileBridgeMixin:
         return {
             "ok": bool(result.get("ok")),
             "queued": bool(result.get("queued")),
-            "message": result.get("message") or "AI投資管家命令已排入背景執行",
+            "message": result.get("message") or "投資管家命令已排入背景執行",
             "run": result.get("run"),
             "sync": self._mobile_sync_status(expose_pairing_code=False),
         }

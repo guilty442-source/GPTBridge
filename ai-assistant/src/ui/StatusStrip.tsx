@@ -29,7 +29,7 @@ export function StatusStrip(props: StatusStripProps) {
         </strong>
       </div>
       <div>
-        <span>AI投資管家</span>
+        <span>投資管家</span>
         <strong>
           {localAiStatusLabel} · {localAiScore}
         </strong>

@@ -38,6 +38,10 @@ from ..infrastructure.sorter_engine import (
     _utc_now,
     _validated_state_document_path,
 )
+from ..infrastructure.cleanup import (
+    DEFAULT_ANALYSIS_SPEED,
+    DEFAULT_SIMILAR_VIDEO_THRESHOLD,
+)
 from .cli_constants import (
     FOLDERS_JSON_PREFIX,
     SOURCE_FILES_JSON_PREFIX,
