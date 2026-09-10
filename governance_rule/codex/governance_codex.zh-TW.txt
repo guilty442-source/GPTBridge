@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.99130",
+  "codex_version": "1.99230",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1687,6 +1687,15 @@
         "rule": "ENTITY-MODEL:main-system-is-one-platform-control-individual; EACH-INDEPENDENT-TOOL-is-one-separate-application-individual; SEPARATION-DIMENSIONS:stable-entity-id+manifest+source-root+runtime-entry+process-tree+frontend-window+backend-runtime+session+release-id+version+certificate+health-contract+resource-budget+data-root+database-scope+logs+cache+temporary-files+backup+repair-history+shutdown-token; MAIN-SYSTEM-DUTY:discover-registered-tools+present-catalog+submit-start/stop/status/update-requests+display-information-layer-status; MAIN-SYSTEM-DOES-NOT-OWN:tool-business-logic+tool-runtime-state+tool-data+tool-database+tool-version+tool-release+tool-health-verdict+tool-repair-content; TOOL-DUTY:own-business-capability+own-state+own-data+own-health-signals+own-graceful-lifecycle-endpoints; LIFECYCLE:main-system-request>information-layer>permission-validation>system-runtime-dispatch>tool-owned-runtime-entry; REQUEST:is-not-process-embedding-or-identity-merger; PROCESS:tool-never-loaded-into-main-system-process+main-system-never-loaded-into-tool-process; UI:main-system-shell-and-tool-window separate-renderers+separate-state-stores+separate-failure-boundaries; CONNECTION:A177-information-layer-only+typed-tool-identity+session; DATA:tool-exclusive-owner-root+no-main-system-direct-read/write+no-cross-tool-read/write; RELEASE:main-system-and-each-tool independently-versioned+independently-certified+A175; HEALTH:separate-contract+separate-state; FAILURE:main-system-crash/restart/update/repair/close does-not-stop/reset/rollback/corrupt-active-tool; TOOL-crash/restart/update/repair/close does-not-degrade-main-system-or-other-tools beyond-its-own-status; SHUTDOWN:closing-main-system-UI detaches-control-session only+does-not-terminate-tools; EXPLICIT-TOOL-STOP:targets-one-tool-identity+owned-process-tree-only; STARTUP:main-system-does-not-block-core-ready-on-noncritical-tool; RECOVERY:each-individual uses-own-active-certified-release-baseline; SHARING:information-layer-contracts+neutral-shared-infrastructure only+no-business-state-or-process-sharing; OBSERVABILITY:status includes-entity-id+process-generation+release-id+health+connection-state without-merging-identities",
         "prohibition": "FORBID:tool-as-main-system-subprocess-identity+in-process-tool-runtime+shared-process-tree+shared-backend-state+shared-UI-state+shared-writeable-data-root+shared-database-ownership+shared-version+shared-release-certificate+shared-health-verdict+main-system-direct-tool-data-access+tool-direct-main-system-data-access+main-system-repair-overwriting-tool-code+main-system-shutdown-killing-tool+tool-failure-cascading-main-system+one-tool-failure-cascading-other-tools+global-kill-by-name+PID-ownership-without-entity-proof+implicit-tool-stop-on-window-close+identity-alias+merged-lifecycle+information-layer-bypass",
         "exception": "A child process may be spawned by the governed launcher mechanism, but ownership, identity, process tree, lifecycle and failure boundary remain exclusively the independent tool's"
+      },
+      {
+        "position": 184,
+        "provision_id": "A184",
+        "section_index": "4",
+        "subject": "reciprocal-main-system-independent-tool-runtime-isolation",
+        "rule": "ISOLATION-SET:{main-system}+{each-independent-tool-as-separate-individual}; RECIPROCITY:rules-apply-equally-in-every-direction; EACH-INDIVIDUAL-OWNS:process-tree+OS-lifecycle-boundary+runtime-generation+supervisor+watchdog+frontend+backend+threads+tasks+queues+connections+resource-budget+state+data+logs+cache+temporary-files+release+certificate+health+repair+update+shutdown; PROCESS-LIFETIME:no-individual-is-child-lifetime-dependent-on-another+no-shared-kill-job+no-parent-death-signal+no-global-process-name-control; RUNTIME-INDEPENDENCE:after-authorized-launch each-tool-operates-without-main-system-presence+main-system-operates-without-any-tool-presence; RUNNING-STATE:one-individual-running/stopped/starting/stopping/degraded/failed/recovering does-not-change-another-individual-state; FAILURE-ISOLATION:crash+hang+deadlock+exception+memory-leak+CPU/GPU/disk exhaustion+port-conflict+connection-loss+data-corruption+invalid-update+repair-failure contained-to-owner; CONTROL:main-system-may-submit-targeted-request-through-information-layer but-cannot-be-tool-supervisor/runtime-owner; TOOL-cannot-control-main-system-or-other-tool; INFORMATION-LAYER-LOSS:only-cross-individual-communication/status/control becomes-unavailable+each-current-runtime-continues-under-own-local-safe-policy+state-changing-cross-individual-requests-fail-closed; SHARED-INFRASTRUCTURE:tenant/route/session/pool/quota/circuit-breaker/failure-budget isolated-per-individual+shared-adapter-failure-must-not-terminate-consumers; RESOURCE:per-individual quotas+no-unbounded-borrow+resource-pressure-load-shed-owner-first+critical-main-reservation-does-not-seize-tool-owned-state; START/STOP:target-exact-entity-id+process-generation+owned-process-proof; MAIN-SYSTEM-CLOSE:detach-UI/control-session only; TOOL-WINDOW-CLOSE:follow-tool-own-declared-policy only; RESTART:owner-process-tree-only+other-individual-processes-and-sessions untouched; REPAIR:owner-certified-release-baseline only+no-cross-individual-code/data/process mutation; UPDATE:independent-certification+activation+rollback+no-coordinated-stop unless-explicit-versioned-interface-migration requires-temporary-communication-pause-with-runtimes-continuing; DATA:no-cross-owner-direct-read/write/lock/migration/cleanup/backup/restore; HEALTH:separate verdict+one-failure cannot-lower-another-health except shared-dependency exposure reported-as-external-dependency-degraded; OBSERVABILITY:events retain-origin-entity-id+generation+scope and-never-merge-fault-ownership; RECOVERY:failed-owner-only+bounded+verified+stability-window; AVAILABILITY:unaffected-individuals remain-available",
+        "prohibition": "FORBID:main-system-crash/close/restart/repair/update stopping-or-resetting-tools+tool-crash/close/restart/repair/update stopping-or-degrading-main-system-or-other-tools+shared-process-tree+shared-supervisor+shared-watchdog+shared-writable-runtime-state+global-kill+kill-by-name+workspace-wide-restart+parent-lifetime-coupling+in-process-tool+cross-owner-PID-assumption+cross-owner-resource-reclamation+cross-owner-cleanup+cross-owner-repair+cross-owner-rollback+cross-owner-health-verdict+communication-loss-as-runtime-stop+status-unknown-as-process-dead+automatic-cascade-restart+information-layer-bypass",
+        "exception": "Only an explicit user-requested whole-platform shutdown may target multiple exact registered identities; each individual still receives and verifies its own bounded shutdown request independently"
       }
     ],
     "certification_evidence": [
@@ -1888,6 +1897,13 @@
       },
       {
         "version": "1.99130",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.99230",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3008,6 +3024,13 @@
         "provision_id": "E158",
         "area": "main-system-independent-tool-separation",
         "edict": "MAIN-SYSTEM:platform-control-individual; EACH-TOOL:separate-application-individual; OWN-SEPARATELY:identity+process+UI+backend+state+data+version+certificate+health+resources+repair+lifecycle; MAIN-SYSTEM:request-and-display-only; TOOL:business-and-runtime-owner; CHANNEL:information-layer-only; MAIN-CLOSE/CRASH/UPDATE/REPAIR=>tools-continue; TOOL-FAILURE=>main+other-tools-continue; CROSS-RESET/KILL/DATA/PROCESS/IDENTITY-MERGE:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 159,
+        "provision_id": "E159",
+        "area": "reciprocal-runtime-isolation",
+        "edict": "ISOLATE:main-system|tool-A|tool-B|each-other-tool; EACH:own-process+lifecycle+supervisor+resources+state+data+release+health+repair; ANY-RUN/STOP/CRASH/HANG/RESTART/REPAIR/UPDATE:owner-only+no-cascade; MAIN-ABSENT:tools-continue; TOOL-ABSENT:main+others-continue; INFORMATION-LOSS:communication-fails-closed+runtimes-continue; CONTROL:exact-identity-request-only; GLOBAL-KILL/SHARED-LIFETIME/CROSS-RESET:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4871,11 +4894,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.99130"
+        "value": "gptbridge-governance-codex-v1.99230"
       },
       {
         "key": "codex_version",
-        "value": "1.99130"
+        "value": "1.99230"
       },
       {
         "key": "citation_entry",
@@ -4915,7 +4938,7 @@
       },
       {
         "key": "version_increment",
-        "value": "0.10000"
+        "value": "0.00100"
       },
       {
         "key": "codex_access_owner",
@@ -5534,6 +5557,12 @@
         "position": 98,
         "provision_id": "P98",
         "statement": "MAIN-SYSTEM+INDEPENDENT-TOOL:separate-runtime-individuals; EACH:own-identity+process+lifecycle+UI+backend+data+version+health+failure-boundary; RELATION:managed-launch-request-not-ownership; FAILURE/STOP/UPDATE:no-cascade",
+        "binding": 1
+      },
+      {
+        "position": 99,
+        "provision_id": "P99",
+        "statement": "BIDIRECTIONAL-RUNTIME-ISOLATION:main-system<->each-independent-tool<->every-other-tool; RUN/STOP/CRASH/HANG/RESTART/REPAIR/UPDATE/RESOURCE-EXHAUSTION:no-cascade; COMMUNICATION-LOSS:runtime-continues-locally; RECOVERY:owner-only",
         "binding": 1
       }
     ],
@@ -8713,6 +8742,27 @@
         "identity_code": "codex/provision/edict/E158",
         "provision_type": "edict",
         "provision_id": "E158",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P99",
+        "provision_type": "principle",
+        "provision_id": "P99",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A184",
+        "provision_type": "article",
+        "provision_id": "A184",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E159",
+        "provision_type": "edict",
+        "provision_id": "E159",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -12339,7 +12389,7 @@
         "provision_id": "A183",
         "introduced_by": "H032",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "eeecd9767ed24cd9686b7b253f1e72a2ec62130ba60505aacd314143f198dd15"
       },
       {
@@ -12347,8 +12397,32 @@
         "provision_id": "E158",
         "introduced_by": "H032",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "0cd39fd163284761f57275ab5302d595b57876b975138f2b5e5be9e33c57b17f"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P99",
+        "introduced_by": "H033",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "daee1f7679c4f09d9113be085f069e25737d990863b5ab3014a0988013957de1"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A184",
+        "introduced_by": "H033",
+        "supersedes_id": "A183",
+        "status": "active",
+        "content_hash": "58c8f301ed6e66b97cdb6c8f5655ce413e91ec58510594e2d63d8d5e213daad6"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E159",
+        "introduced_by": "H033",
+        "supersedes_id": "E158",
+        "status": "active",
+        "content_hash": "226ce57b7fbf5fed732cc15628edd44685d5d2821acd98ee20962f71e54e97aa"
       }
     ],
     "provision_revisions": [
@@ -28471,6 +28545,30 @@
         "version": "1.99130",
         "content_hash": "0cd39fd163284761f57275ab5302d595b57876b975138f2b5e5be9e33c57b17f",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P99",
+        "revision_id": "H033",
+        "version": "1.99230",
+        "content_hash": "daee1f7679c4f09d9113be085f069e25737d990863b5ab3014a0988013957de1",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A184",
+        "revision_id": "H033",
+        "version": "1.99230",
+        "content_hash": "58c8f301ed6e66b97cdb6c8f5655ce413e91ec58510594e2d63d8d5e213daad6",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E159",
+        "revision_id": "H033",
+        "version": "1.99230",
+        "content_hash": "226ce57b7fbf5fed732cc15628edd44685d5d2821acd98ee20962f71e54e97aa",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -28793,6 +28891,16 @@
         "summary": "main system and each independent tool established as separate runtime application individuals",
         "previous_hash": "8f95bc2dc743e98d51668f8fd7610c58e2da78a7602d267f1d7906679a7cc3c2",
         "entry_hash": "6bd0b04fb1f0695cb9803c30367cf77700de9e4cf09065569bb8b210c47cb44f"
+      },
+      {
+        "sequence": 33,
+        "change_id": "H033",
+        "version": "1.99230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "reciprocal runtime fault lifecycle resource repair and update isolation between main system and every independent tool established",
+        "previous_hash": "6bd0b04fb1f0695cb9803c30367cf77700de9e4cf09065569bb8b210c47cb44f",
+        "entry_hash": "e9c4a9cd349339a9b6a4d5148ed087b28b65893d382cc389915aa835fbedd82a"
       }
     ],
     "savings": [
@@ -29167,6 +29275,17 @@
         "content_root": "ccb9f803f7f39a51ca3aa95815a656482c9c35c1121b098e7c9ecaf68129bf56",
         "identity_root": "61ff4b37436af7f6b61bb19dbea1c23ee1cfe1579610df7fe22a3205eda31343",
         "full_root": "d11d8372e599f075b4dab7112c2df90bf9ee65ceabbafbb25ddf56865427d95f"
+      },
+      {
+        "version": "1.99230",
+        "history_head": "e9c4a9cd349339a9b6a4d5148ed087b28b65893d382cc389915aa835fbedd82a",
+        "provision_count": 442,
+        "identity_count": 457,
+        "lineage_count": 457,
+        "certification_state": "sealed-read-only",
+        "content_root": "886276133e680a22db30d1c97997277511b8ee5a85256924f84c25477563e5cf",
+        "identity_root": "84784de0b5081a325cf7be03aac8e32e7118be75ee86764b227ad4f0b491bb67",
+        "full_root": "65d7c21969ff533463cb456689e9552f3d7621605d9889c62612999823debd12"
       }
     ],
     "sealed_components": [
@@ -32004,6 +32123,18 @@
         "predecessor_identity": "codex/provision/edict/E139",
         "successor_identity": "codex/provision/edict/E157",
         "effective_version": "1.89130",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A183",
+        "successor_identity": "codex/provision/article/A184",
+        "effective_version": "1.99230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E158",
+        "successor_identity": "codex/provision/edict/E159",
+        "effective_version": "1.99230",
         "status": "effective"
       }
     ],
