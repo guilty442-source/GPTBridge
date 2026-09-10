@@ -19,8 +19,18 @@ from .codex_decision import decision_basis
 from .sovereign_utils import _iso_now
 from governance_rule.execution.tool_runtime.sub_sovereign import (
     SYSTEM_LANGUAGE_REVIEWER_AUTHORITY,
-    SYSTEM_LANGUAGE_REVIEWER_ROLE,
 )
+from governance_rule.codex import GOVERNANCE_CODEX
+
+
+_LANGUAGE_REVIEW_SOVEREIGN = next(
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "code-language-review"),
+    None,
+)
+if _LANGUAGE_REVIEW_SOVEREIGN is None:
+    raise RuntimeError("language review sovereign not found in Governance Codex")
+
+LANGUAGE_REVIEW_SUB_SOVEREIGN_RESPONSIBILITIES = _LANGUAGE_REVIEW_SOVEREIGN.duties
 
 ALLOWED_LANGUAGES = ("python", "typescript", "cpp", "c", "csharp", "sql")
 
@@ -36,7 +46,7 @@ class LanguageReviewSubSovereign:
       - coordination of Python audit checks
     """
 
-    ROLE = SYSTEM_LANGUAGE_REVIEWER_ROLE
+    ROLE = _LANGUAGE_REVIEW_SOVEREIGN.id
 
     def __init__(self, app: Any) -> None:
         self.app = app
@@ -115,5 +125,6 @@ class LanguageReviewSubSovereign:
 
 __all__ = [
     "ALLOWED_LANGUAGES",
+    "LANGUAGE_REVIEW_SUB_SOVEREIGN_RESPONSIBILITIES",
     "LanguageReviewSubSovereign",
 ]
