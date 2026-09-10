@@ -2,7 +2,9 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.77430",
+  "codex_version": "1.88430",
+  "viewer": "xingcheng-only-via-official-entry",
+  "authority": "none",
   "tables": {
     "access_actor_classes": [
       {
@@ -1568,6 +1570,42 @@
         "rule": "HEALTH-STATES:healthy|degraded|recovering|critical|unknown; DIMENSIONS:governance-integrity+process-survival+runtime-readiness+dependency-readiness+information-channel-continuity+data-integrity+resource-headroom+security-signals+clock-validity+backup-recoverability; EACH-COMPONENT-HEALTH-CONTRACT:owner+typed-signals+sampling-or-event-source+thresholds+staleness-limit+dependency-map+severity+recovery-objective; MONITOR:continuous-events+bounded-active-probes+debounce+hysteresis+trend-detection; HEALTH-OWNER:maintenance-sovereign-classifies+preserves+coordinates-maintenance; PREVENTION:capacity-headroom+dependency-renewal+stale-state-reconciliation+bounded-housekeeping+verified-update-readiness; AUTOMATIC-PRESERVATION:signal>information-layer>maintenance-classification>system-decision>permission-validation>system-runtime-or-system-programming-dispatch>governed-executor>independent-verification>stability-window>information-layer-status+audit>Xingcheng-card-and-active-ui; RECOVERY-POLICY:idempotent+bounded-attempts+backoff+circuit-breaker+rollback-or-quarantine+preserve-user-work; SUCCESS:all-required-signals-current+thresholds-satisfied+independent-verification+declared-stability-window; FAILURE:critical-or-unknown+fail-closed-for-affected-capability+retain-evidence+user-notification+learning-outcome",
         "prohibition": "FORBID:component-self-authorized-repair+maintenance-owning-non-health-decision+direct-mutation+information-layer-bypass+single-signal-healthy-claim+stale-signal-as-current+infinite-retry+retry-storm+repair-without-decision-proof+success-before-verification+hidden-degradation+health-score-without-dimension-evidence+automatic-codex-or-permission-change",
         "exception": ""
+      },
+      {
+        "position": 171,
+        "provision_id": "A171",
+        "section_index": "7",
+        "subject": "permission-sovereign-managed-codex-view-entry",
+        "rule": "SOLE-READ-ENTRY:governance-codex://official; ENTRY-OWNER:permission-sovereign; MODE:read-only+requested-provisions-only; SOVEREIGN-REQUEST:registered-identity+process-attestation+adjudication-purpose+provision-scope+nonce+expiry; REVIEW:permission-sovereign-deterministic-policy-gate+allow-or-deny+least-scope+single-use-session; PERMISSION-SOVEREIGN-OWN-REQUEST:same-policy-gate+no-self-grant-bypass+audited; BOUNDED-CODEX-PROXY:permission-review-required+candidate-preparation-only; XINGCHENG-EXCEPTION:no-permission-review+registered-Xingcheng-identity+official-entry+global-review-purpose+read-only+requested-scope+single-use-session+full-access-audit; RESPONSE:typed+version-identified+current-effective-law-only; AUDIT:requester+purpose+scope+decision-or-exemption+time+session-id without provision-content; ALL-OTHER-ACCESS:deny",
+        "prohibition": "FORBID:direct-SQLite-or-filesystem-read+alternate-entry+sub-sovereign-access+executor/module/ui/database/tool/anonymous-access+sovereign-review-bypass+permission-self-grant-bypass+credential-sharing+proxy+delegation+bulk-export+session-reuse+replay+Xingcheng-alternate-entry+Xingcheng-write/adjudicate/authorize/command/execute/repair",
+        "exception": "Xingcheng:permission-review-exempt-only; all-entry+identity+purpose+scope+read-only+session+audit-controls-remain-mandatory"
+      },
+      {
+        "position": 172,
+        "provision_id": "A172",
+        "section_index": "1",
+        "subject": "single-codex-and-no-external-governance-rules",
+        "rule": "SOLE-GOVERNANCE-AUTHORITY:single-local-read-only-SQLite-codex-at-official-entry; GOVERNANCE-PROVISIONS:principles+articles+edicts-inside-authoritative-database-only; EVERY-OTHER-FILE/DATABASE/SERVICE/POLICY/CONTRACT/DOCUMENT:implementation+configuration+evidence+reference-only+non-governance; CHINESE-TEXT:single-human-reference-summary+no-provision-set+no-identity-set+no-history-or-seal-replica+no-machine-import+no-citation+no-decision/adjudication-basis; CONFLICT:official-effective-codex-only",
+        "prohibition": "FORBID:mirror-codex+backup-codex+replica-codex+parallel-codex+translated-codex+generated-codex+remote-codex+database-codex-copy+governance-rule-outside-official-codex+policy-or-contract-claiming-governance-authority+runtime-generated-governance-rule+PostgreSQL/Qdrant/Git/document-as-codex-source",
+        "exception": "NON-NORMATIVE-CHINESE-SUMMARY:may-explain-architecture-in-plain-language-but-must-not-reproduce-provisions-identities-history-seals-or-claim-completeness"
+      },
+      {
+        "position": 173,
+        "provision_id": "A173",
+        "section_index": "1",
+        "subject": "single-codex-with-Xingcheng-only-Chinese-exception",
+        "rule": "SOLE-AUTHORITATIVE-CODEX:single-local-read-only-SQLite-at-governance-codex://official; GOVERNANCE-PROVISIONS:official-database-only; MIRROR/PARALLEL/OTHER-GOVERNANCE-RULES:none; CHINESE-CODEX-EXCEPTION:one-read-only-complete-language-mirror+authority-none+adjudication-none+execution-none+machine-governance-import-none; CHINESE-VIEWER:Xingcheng-only; CHINESE-PURPOSE:global-review+language-understanding+user-anomaly-explanation; CHINESE-ACCESS:official-entry-mediated+registered-Xingcheng-identity+requested-scope+single-use-session+full-audit+permission-review-exempt; ALL-OTHER-ACTORS:deny-Chinese-content-and-metadata; CONFLICT:authoritative-SQLite-effective-law-always-prevails",
+        "prohibition": "FORBID:second-Chinese-copy+non-Chinese-mirror+backup/replica/parallel/remote/generated-codex+governance-rule-outside-official-database+Chinese-codex-authority/citation/adjudication/authorization/execution+Chinese-access-by-sovereign/permission-sovereign/sub-sovereign/proxy/executor/module/ui/database/tool/human-governor/anonymous+direct-Chinese-filesystem-read+credential-delegation+bulk-export",
+        "exception": "Xingcheng-only Chinese read exception; no authority or permission-review requirement; official-entry identity scope session and audit remain mandatory"
+      },
+      {
+        "position": 174,
+        "provision_id": "A174",
+        "section_index": "7",
+        "subject": "permission-managed-official-and-Xingcheng-Chinese-view",
+        "rule": "ENTRY:governance-codex://official-only; ENTRY-OWNER:permission-sovereign; AUTHORITATIVE-VIEW:SOVEREIGNS+bounded-codex-proxy require-per-request-permission-review+identity-attestation+purpose+least-provision-scope+nonce+expiry+single-use-read-session+audit; XINGCHENG-AUTHORITATIVE-VIEW:permission-review-exempt+official-entry+identity+global-review-purpose+scope+single-use-read-session+audit; CHINESE-VIEW:Xingcheng-only+permission-review-exempt+same-official-entry-controls+read-only; PERMISSION-SOVEREIGN:may-manage-entry-but-has-no-Chinese-view-right; RESPONSE:typed+version-identified+requested-scope-only; ALL-OTHER:deny",
+        "prohibition": "FORBID:direct-database/filesystem-read+alternate-entry+sovereign-review-bypass+permission-self-grant-bypass+Chinese-view-by-any-non-Xingcheng-identity+proxy/delegation/replay/session-reuse+credential-sharing+bulk-export+content-in-audit",
+        "exception": "Xingcheng bypasses permission review only; it does not bypass the official entry authentication scope session read-only or audit controls"
       }
     ],
     "certification_evidence": [
@@ -1699,6 +1737,20 @@
       },
       {
         "version": "1.77430",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.87430",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.88430",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2728,6 +2780,34 @@
         "provision_id": "E145",
         "area": "automatic-health-preservation",
         "edict": "HEALTH:contract-per-component+continuous-typed-signals+staleness+threshold+hysteresis+trend; STATES:healthy|degraded|recovering|critical|unknown; LOOP:observe>classify>prevent-or-decide>authorize>dispatch>execute>independent-verify>stability-window>publish+audit+learn; CHANNEL:information-layer-only; RETRY:bounded+backoff+circuit-breaker; FAILURE:fail-closed-affected-scope+preserve-work+notify; SELF-REPAIR:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 146,
+        "provision_id": "E146",
+        "area": "codex-view-access",
+        "edict": "ENTRY:governance-codex://official-only; OWNER:permission-sovereign; SOVEREIGN+BOUNDED-PROXY:request>identity-attestation>purpose+scope>permission-review>single-use-read-session>audit; XINGCHENG:official-entry>identity+global-review-purpose+scope>review-exempt-single-use-read-session>audit; SUB-SOVEREIGN+ALL-OTHER:deny; DIRECT-READ:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 147,
+        "provision_id": "E147",
+        "area": "single-governance-authority",
+        "edict": "CODEX:one-official-read-only-SQLite-only; MIRROR+BACKUP+REPLICA+PARALLEL+TRANSLATED-CODEX:none; GOVERNANCE-RULES-OUTSIDE-CODEX:none; CHINESE:plain-reference-summary-only+non-normative+non-complete+non-importable+no-provision-replication",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 148,
+        "provision_id": "E148",
+        "area": "single-codex-Chinese-exception",
+        "edict": "AUTHORITY:one-official-read-only-SQLite-only; OTHER-GOVERNANCE-RULES:none; CHINESE-CODEX:one-non-authoritative-mirror-exception+Xingcheng-only+official-entry+read-only+audited+no-permission-review; ALL-OTHER-CHINESE-VIEW:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 149,
+        "provision_id": "E149",
+        "area": "codex-view-access",
+        "edict": "OFFICIAL-ENTRY-OWNER:permission-sovereign; SOVEREIGN+BOUNDED-PROXY:permission-review-required; XINGCHENG:official-authoritative-and-Chinese-view-review-exempt+identity+scope+single-use+read-only+audit; CHINESE-VIEWER:Xingcheng-only; DIRECT-READ:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4591,11 +4671,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.77430"
+        "value": "gptbridge-governance-codex-v1.88430"
       },
       {
         "key": "codex_version",
-        "value": "1.77430"
+        "value": "1.88430"
       },
       {
         "key": "citation_entry",
@@ -4635,7 +4715,27 @@
       },
       {
         "key": "version_increment",
-        "value": "0.00100"
+        "value": "0.01000"
+      },
+      {
+        "key": "codex_access_owner",
+        "value": "permission-sovereign"
+      },
+      {
+        "key": "xingcheng_codex_view_exception",
+        "value": "permission-review-exempt+official-entry-required+read-only+audited"
+      },
+      {
+        "key": "chinese_codex_status",
+        "value": "sole-non-authoritative-mirror-exception"
+      },
+      {
+        "key": "chinese_codex_allowed_viewer",
+        "value": "xingcheng"
+      },
+      {
+        "key": "chinese_codex_access",
+        "value": "official-entry+read-only+review-exempt+audited"
       }
     ],
     "preamble": [
@@ -5168,6 +5268,24 @@
         "position": 87,
         "provision_id": "P87",
         "statement": "SYSTEM-HEALTH:continuously-observed+contract-defined+trend-aware; PRESERVATION:preventive+automatic+bounded+verified; ROUTE:information-layer-only; AUTHORITY:maintenance-classification>system-decision>permission>runtime-or-programming-execution; FAILURE:fail-closed+user-visible",
+        "binding": 1
+      },
+      {
+        "position": 88,
+        "provision_id": "P88",
+        "statement": "CODEX-VIEW:single-official-entry+read-only; ACCESS-OWNER:permission-sovereign; SOVEREIGN-AND-BOUNDED-PROXY:permission-review-required-per-request; XINGCHENG:review-exempt-but-official-entry+identity+scope+audit-required; ALL-OTHER:deny",
+        "binding": 1
+      },
+      {
+        "position": 89,
+        "provision_id": "P89",
+        "statement": "GOVERNANCE:one-authoritative-codex-only; MIRROR/PARALLEL-CODEX:none; OTHER-GOVERNANCE-RULES:none; CHINESE-TEXT:non-normative-summary-only+no-provision-replication+no-citation+basis+authority",
+        "binding": 1
+      },
+      {
+        "position": 90,
+        "provision_id": "P90",
+        "statement": "CODEX:single-authoritative-SQLite-only; CHINESE-CODEX:sole-non-authoritative-mirror-exception; VIEWER:Xingcheng-only; ACCESS:official-entry+registered-identity+read-only+audit+permission-review-exempt; EVERY-OTHER-ACTOR:deny",
         "binding": 1
       }
     ],
@@ -8090,6 +8208,83 @@
         "provision_id": "E145",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P88",
+        "provision_type": "principle",
+        "provision_id": "P88",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A171",
+        "provision_type": "article",
+        "provision_id": "A171",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E146",
+        "provision_type": "edict",
+        "provision_id": "E146",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P89",
+        "provision_type": "principle",
+        "provision_id": "P89",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A172",
+        "provision_type": "article",
+        "provision_id": "A172",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E147",
+        "provision_type": "edict",
+        "provision_id": "E147",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P90",
+        "provision_type": "principle",
+        "provision_id": "P90",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A173",
+        "provision_type": "article",
+        "provision_id": "A173",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A174",
+        "provision_type": "article",
+        "provision_id": "A174",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E148",
+        "provision_type": "edict",
+        "provision_id": "E148",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E149",
+        "provision_type": "edict",
+        "provision_id": "E149",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -9578,7 +9773,7 @@
         "provision_id": "E64",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "f747023a9cf20753a49c233e1a6710054641e2497561bba47490af44866f6d39"
       },
       {
@@ -10170,7 +10365,7 @@
         "provision_id": "P60",
         "introduced_by": "H005",
         "supersedes_id": "P17",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "25896e7e74de91f66bb4da7d2b9265558e2cdc5700ae6a517241686a01cf37ff"
       },
       {
@@ -10178,7 +10373,7 @@
         "provision_id": "A110",
         "introduced_by": "H005",
         "supersedes_id": "A36",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "91238fe3cc9edcc552d5d6eac78d7f31b66e58c0a657174f4b28e31994adcb02"
       },
       {
@@ -10186,7 +10381,7 @@
         "provision_id": "E87",
         "introduced_by": "H005",
         "supersedes_id": "E22",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "d81317b1a2bfd96082ce527517d829a28202a94351c9f0460fd4528a69681f93"
       },
       {
@@ -11428,6 +11623,94 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "dfad1b0c23fef6bd7019765d230b4f0e194815065276ac9d8d694fdf9ab44628"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P88",
+        "introduced_by": "H023",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "d406a60e721c261ed2bac9a935345876a29582dcaa25950cdd59f79677642894"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A171",
+        "introduced_by": "H023",
+        "supersedes_id": null,
+        "status": "superseded",
+        "content_hash": "a444a1337fdb630d5d9698f07608bc32eff4fe4dbbbcf9b93bfb82d6c34f6ba9"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E146",
+        "introduced_by": "H023",
+        "supersedes_id": "E64",
+        "status": "superseded",
+        "content_hash": "b883b6dbeab12fe8d756ffb6a250d99afb3c6c5b13e3c630402bc36425a94c63"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P89",
+        "introduced_by": "H023",
+        "supersedes_id": "P60",
+        "status": "superseded",
+        "content_hash": "000e0a906a002b19613550bee0adfa5c6bd8f435b3a5a74f244ad4a38ed33b53"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A172",
+        "introduced_by": "H023",
+        "supersedes_id": "A110",
+        "status": "superseded",
+        "content_hash": "2bcb1c405e74cff841eb10b92086b3b25bf0eb71ebcf5ee8967d3756545ea70f"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E147",
+        "introduced_by": "H023",
+        "supersedes_id": "E87",
+        "status": "superseded",
+        "content_hash": "519466e57df8a345d42b59b76880692d3949252e3349a376dbdb762ec0a8c08d"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P90",
+        "introduced_by": "H024",
+        "supersedes_id": "P89",
+        "status": "active",
+        "content_hash": "de5c2e93c6d3eee8fb7ec1bb120290744f39da012787cb884cfa9ee6e98b70b0"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A173",
+        "introduced_by": "H024",
+        "supersedes_id": "A172",
+        "status": "active",
+        "content_hash": "18bb58080afe107ea0939b8741611a9ac45716a988bb170d062fa5dc4750b928"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A174",
+        "introduced_by": "H024",
+        "supersedes_id": "A171",
+        "status": "active",
+        "content_hash": "6b5d51b055c1cf4fab8355bda8292bd0f9d97b329bb4c5314276a716c320a31f"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E148",
+        "introduced_by": "H024",
+        "supersedes_id": "E147",
+        "status": "active",
+        "content_hash": "79116438211c94436ead5dc9a2683645c25939961ec16918fdb865701d9c2b4b"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E149",
+        "introduced_by": "H024",
+        "supersedes_id": "E146",
+        "status": "active",
+        "content_hash": "5aac7eb2ea33598e6e68c250c970e77eb57d57d5e6327358afacd94ac35ade3a"
       }
     ],
     "provision_revisions": [
@@ -27254,6 +27537,94 @@
         "version": "1.77430",
         "content_hash": "dfad1b0c23fef6bd7019765d230b4f0e194815065276ac9d8d694fdf9ab44628",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P88",
+        "revision_id": "H023",
+        "version": "1.87430",
+        "content_hash": "d406a60e721c261ed2bac9a935345876a29582dcaa25950cdd59f79677642894",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A171",
+        "revision_id": "H023",
+        "version": "1.87430",
+        "content_hash": "a444a1337fdb630d5d9698f07608bc32eff4fe4dbbbcf9b93bfb82d6c34f6ba9",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E146",
+        "revision_id": "H023",
+        "version": "1.87430",
+        "content_hash": "b883b6dbeab12fe8d756ffb6a250d99afb3c6c5b13e3c630402bc36425a94c63",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P89",
+        "revision_id": "H023",
+        "version": "1.87430",
+        "content_hash": "000e0a906a002b19613550bee0adfa5c6bd8f435b3a5a74f244ad4a38ed33b53",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A172",
+        "revision_id": "H023",
+        "version": "1.87430",
+        "content_hash": "2bcb1c405e74cff841eb10b92086b3b25bf0eb71ebcf5ee8967d3756545ea70f",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E147",
+        "revision_id": "H023",
+        "version": "1.87430",
+        "content_hash": "519466e57df8a345d42b59b76880692d3949252e3349a376dbdb762ec0a8c08d",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P90",
+        "revision_id": "H024",
+        "version": "1.88430",
+        "content_hash": "de5c2e93c6d3eee8fb7ec1bb120290744f39da012787cb884cfa9ee6e98b70b0",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A173",
+        "revision_id": "H024",
+        "version": "1.88430",
+        "content_hash": "18bb58080afe107ea0939b8741611a9ac45716a988bb170d062fa5dc4750b928",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A174",
+        "revision_id": "H024",
+        "version": "1.88430",
+        "content_hash": "6b5d51b055c1cf4fab8355bda8292bd0f9d97b329bb4c5314276a716c320a31f",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E148",
+        "revision_id": "H024",
+        "version": "1.88430",
+        "content_hash": "79116438211c94436ead5dc9a2683645c25939961ec16918fdb865701d9c2b4b",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E149",
+        "revision_id": "H024",
+        "version": "1.88430",
+        "content_hash": "5aac7eb2ea33598e6e68c250c970e77eb57d57d5e6327358afacd94ac35ade3a",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -27476,6 +27847,26 @@
         "summary": "system health model preventive maintenance and bounded automatic preservation loop established",
         "previous_hash": "210613d58f8f72826a99dd990b916a5308dd08db35e679f37fb7790d6eff6c3a",
         "entry_hash": "35a43d1f58b2a51c9b56528bfe03dedd9f5410477bb9b7c7b56354be8d1c1518"
+      },
+      {
+        "sequence": 23,
+        "change_id": "H023",
+        "version": "1.87430",
+        "recorded_date": "2026-09-10",
+        "change_scope": "architecture-authority",
+        "summary": "permission-managed codex view and single non-mirrored governance authority established",
+        "previous_hash": "35a43d1f58b2a51c9b56528bfe03dedd9f5410477bb9b7c7b56354be8d1c1518",
+        "entry_hash": "31d5e798076b6e244db62179851101d5bf1175410ff63792f4b898c3ca359fc1"
+      },
+      {
+        "sequence": 24,
+        "change_id": "H024",
+        "version": "1.88430",
+        "recorded_date": "2026-09-10",
+        "change_scope": "authority-duty",
+        "summary": "Chinese codex established as sole non-authoritative mirror exception viewable only by Xingcheng through official entry",
+        "previous_hash": "31d5e798076b6e244db62179851101d5bf1175410ff63792f4b898c3ca359fc1",
+        "entry_hash": "c8b71a58c4a1ca533b78f136b37e0918531efaacf77af5b97f180bd1a12c5b51"
       }
     ],
     "savings": [
@@ -27740,6 +28131,28 @@
         "content_root": "823e33692c5d1a112d57409dd3658141913558e89cb8ea2c9a434ce33f180d7b",
         "identity_root": "9d077cdb7958916b7b5052d0f500c1552d35f5bb8ee2e09906d7371aa03dea8d",
         "full_root": "c06b33ceb1033ff7a80d9733a4b7a3aa9c7a2153fc3033e1633baae4aa3c85d8"
+      },
+      {
+        "version": "1.87430",
+        "history_head": "31d5e798076b6e244db62179851101d5bf1175410ff63792f4b898c3ca359fc1",
+        "provision_count": 408,
+        "identity_count": 423,
+        "lineage_count": 423,
+        "certification_state": "sealed-read-only",
+        "content_root": "0a1e29084711586f4cb4100b4aae1dbf2d275b585b0ef966a71166b6b426a8c6",
+        "identity_root": "e1a71ba94664c9d878163ba9d96cba5c4ed6c1b73e08909a204c5f0eb40b1698",
+        "full_root": "a7c0e2df194346caf782713fce21a86da778e2a2609efe5666e1b0f6a693a9e3"
+      },
+      {
+        "version": "1.88430",
+        "history_head": "c8b71a58c4a1ca533b78f136b37e0918531efaacf77af5b97f180bd1a12c5b51",
+        "provision_count": 413,
+        "identity_count": 428,
+        "lineage_count": 428,
+        "certification_state": "sealed-read-only",
+        "content_root": "fc7f864a346f90a4fef0e4bffd7a6fdfcd4271a32acdde171f629238ae0cd2ef",
+        "identity_root": "4b5962ec5fa454e2057a624f1d79dc0a418354895e571e4ed309b1520c212dad",
+        "full_root": "bc12b9cde51206783e66409e9d7c26f2d73111973dcb7fa5b145e1c30e333ad1"
       }
     ],
     "sealed_components": [
@@ -30451,6 +30864,60 @@
         "predecessor_identity": "codex/provision/edict/E137",
         "successor_identity": "codex/provision/edict/E138",
         "effective_version": "1.74230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/principle/P60",
+        "successor_identity": "codex/provision/principle/P89",
+        "effective_version": "1.87430",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A110",
+        "successor_identity": "codex/provision/article/A172",
+        "effective_version": "1.87430",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E87",
+        "successor_identity": "codex/provision/edict/E147",
+        "effective_version": "1.87430",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E64",
+        "successor_identity": "codex/provision/edict/E146",
+        "effective_version": "1.87430",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/principle/P89",
+        "successor_identity": "codex/provision/principle/P90",
+        "effective_version": "1.88430",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A172",
+        "successor_identity": "codex/provision/article/A173",
+        "effective_version": "1.88430",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A171",
+        "successor_identity": "codex/provision/article/A174",
+        "effective_version": "1.88430",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E147",
+        "successor_identity": "codex/provision/edict/E148",
+        "effective_version": "1.88430",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E146",
+        "successor_identity": "codex/provision/edict/E149",
+        "effective_version": "1.88430",
         "status": "effective"
       }
     ],
