@@ -97,8 +97,11 @@ resets, or chooses a conflict resolution.
 
 ```powershell
 & main-system\.venv\Scripts\python.exe scripts\git-worktree-sync.py --root E:\GPTBridge
-& main-system\.venv\Scripts\python.exe scripts\git-worktree-sync.py --root E:\GPTBridge --watch --interval 60
+& main-system\.venv\Scripts\python.exe scripts\git-worktree-sync.py --root E:\GPTBridge --watch --interval 60 --no-commit
 ```
+
+Use `--no-commit` when the per-worktree auto-commit watchers are active, so the
+sync coordinator never competes with them for the Git index.
 
 ## Governance
 

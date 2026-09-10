@@ -40,7 +40,19 @@ class _CoordinatorLock:
         try:
             self.fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError as exc:
-            raise RuntimeError("workspace-sync-already-running") from exc
+            try:
+                owner = int(self.path.read_text(encoding="ascii").strip())
+                os.kill(owner, 0)
+            except (OSError, ValueError):
+                self.path.unlink(missing_ok=True)
+                try:
+                    self.fd = os.open(
+                        self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY
+                    )
+                except FileExistsError as retry_exc:
+                    raise RuntimeError("workspace-sync-already-running") from retry_exc
+            else:
+                raise RuntimeError("workspace-sync-already-running") from exc
         os.write(self.fd, str(os.getpid()).encode("ascii"))
         return self
 
