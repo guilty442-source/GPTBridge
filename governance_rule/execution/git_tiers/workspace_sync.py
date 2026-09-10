@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 from .git_repository import GitRepository
+from .process_lock import LockBusyError, ProcessFileLock
 from .self_commit import run_once
 from .worktree_manager import WorktreeManager
 
@@ -31,37 +32,6 @@ def _common_git_dir(repo: GitRepository) -> Path:
     return (path if path.is_absolute() else repo.path / path).resolve()
 
 
-class _CoordinatorLock:
-    def __init__(self, repo: GitRepository) -> None:
-        self.path = _common_git_dir(repo) / "gptbridge-workspace-sync.lock"
-        self.fd: int | None = None
-
-    def __enter__(self) -> "_CoordinatorLock":
-        try:
-            self.fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError as exc:
-            try:
-                owner = int(self.path.read_text(encoding="ascii").strip())
-                os.kill(owner, 0)
-            except (OSError, ValueError):
-                self.path.unlink(missing_ok=True)
-                try:
-                    self.fd = os.open(
-                        self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY
-                    )
-                except FileExistsError as retry_exc:
-                    raise RuntimeError("workspace-sync-already-running") from retry_exc
-            else:
-                raise RuntimeError("workspace-sync-already-running") from exc
-        os.write(self.fd, str(os.getpid()).encode("ascii"))
-        return self
-
-    def __exit__(self, *_: object) -> None:
-        if self.fd is not None:
-            os.close(self.fd)
-        self.path.unlink(missing_ok=True)
-
-
 def synchronize(root: str | Path, *, commit_dirty: bool = True) -> str:
     """Commit, integrate, and fast-forward all registered worktrees."""
     coordinator = GitRepository(root)
@@ -74,7 +44,8 @@ def synchronize(root: str | Path, *, commit_dirty: bool = True) -> str:
     if main is None:
         return "error:main-worktree-not-found"
 
-    with _CoordinatorLock(coordinator):
+    lock_path = _common_git_dir(coordinator) / "gptbridge-workspace-sync.lock"
+    with ProcessFileLock(lock_path):
         if commit_dirty:
             for item in worktrees:
                 result = run_once(item["path"], actor=SYNC_ACTOR)
@@ -128,8 +99,10 @@ def cli_main(argv: list[str] | None = None) -> int:
     while True:
         try:
             result = synchronize(args.root, commit_dirty=not args.no_commit)
-        except RuntimeError as exc:
+        except LockBusyError as exc:
             result = f"error:{exc}"
+        except Exception as exc:  # keep watch mode alive without leaking details
+            result = f"error:unexpected:{type(exc).__name__}"
         print(f"[workspace-sync] {result}", file=sys.stderr)
         if not args.watch:
             return 0 if result == "synchronized" else 1

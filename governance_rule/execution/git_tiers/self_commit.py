@@ -37,6 +37,7 @@ from pathlib import Path
 
 from . import audit_log
 from .git_repository import GitRepository
+from .process_lock import LockBusyError, ProcessFileLock, lock_is_active
 from .worktree_manager import WorktreeManager
 
 SELF_COMMIT_ACTOR: str = "governance/self-commit"
@@ -113,7 +114,7 @@ def build_commit_message(branch: str, entries: dict[str, str]) -> str:
     return subject + "\n" + "\n".join(body) + "\n"
 
 
-def run_once(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
+def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
     """Perform one self-commit pass; returns a short status string.
 
     Statuses: ``clean``, ``in-progress``, ``committed``, ``nothing-staged``,
@@ -204,6 +205,26 @@ def run_once(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
     print(f"[self-commit] {repo.path}: {commit_hash} on {branch} "
           f"({len(entries)} file(s))", file=sys.stderr)
     return "committed"
+
+
+def run_once(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
+    """Serialize commits and yield while the workspace coordinator is active."""
+    repo = GitRepository(worktree)
+    common_result = repo.run(["rev-parse", "--git-common-dir"])
+    raw = (common_result.stdout or "").strip()
+    common = Path(raw)
+    if not common.is_absolute():
+        common = repo.path / common
+    common = common.resolve()
+    coordinator = common / "gptbridge-workspace-sync.lock"
+    if actor != "governance/workspace-sync" and lock_is_active(coordinator):
+        return "in-progress"
+    key = hashlib.sha256(str(repo.path).casefold().encode("utf-8")).hexdigest()[:16]
+    try:
+        with ProcessFileLock(common / f"gptbridge-self-commit-{key}.lock"):
+            return _run_once_unlocked(worktree, actor=actor)
+    except LockBusyError:
+        return "in-progress"
 
 
 def watch(
