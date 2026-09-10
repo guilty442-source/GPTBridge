@@ -201,7 +201,7 @@ class PermissionSovereign:
                 ],
             },
             "identity_permissions": {
-                "binding_count": len(permissions.bindings),
+                "binding_count": len(permissions),
             },
             "capability_boundaries": {
                 "capability_count": len(capabilities),
@@ -209,7 +209,7 @@ class PermissionSovereign:
             },
             "governance_policy": {
                 "authority_version": policy.authority_version,
-                "managing_authority": policy.managing_authority,
+                "managing_authority": policy.authority,
             },
             "version_registry": version,
         }
