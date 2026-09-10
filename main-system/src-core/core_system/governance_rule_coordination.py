@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from governance_rule.code_rule_directory import code_rule_directory_snapshot
+from governance_rule.permission_directory.code_rule_directory import code_rule_directory_snapshot
 from governance_rule.execution.codex_repository import load_governance_codex
-from governance_rule.governance_policy import (
+from governance_rule.permission_directory.governance_policy import (
     DEFAULT_ACTIVE_GOVERNANCE_RULES,
     GOVERNANCE_POLICY,
     GOVERNANCE_RULE_CATALOG,

@@ -46,13 +46,24 @@ from __future__ import annotations
 
 from typing import Any
 
-from governance_rule.code_rule_directory import code_rule_directory_snapshot
+from governance_rule.permission_directory.code_rule_directory import code_rule_directory_snapshot
 from governance_rule.execution.codex_repository import load_governance_codex
+from governance_rule.permission_directory.governance_policy import governance_policy_snapshot
+from governance_rule.permission_directory.directory_authority import (
+    directory_authority_snapshot,
+)
+from governance_rule.permission_directory.registries.permissions.capability_boundaries import (
+    capability_boundary_snapshot,
+)
 from governance_rule.permission_directory.registries.permissions.identity_groups import (
     identity_group_snapshot,
 )
+from governance_rule.permission_directory.registries.permissions.identity_permissions import (
+    identity_permission_snapshot,
+)
 
 from .codex_decision import decision_basis
+from .versioning import refresh_version_cache, version_registry_status
 
 def _permission_sovereign():
     codex = load_governance_codex()
@@ -67,13 +78,22 @@ PERMISSION_SOVEREIGN_RESPONSIBILITIES = _PERMISSION_SOVEREIGN.duties
 
 
 def re_certify_permission_sovereign() -> None:
-    """Reload the codex and update the permission sovereign authority."""
+    """Reload the codex and update the permission sovereign authority.
+
+    Also refreshes all directory caches under the permission sovereign's
+    management so the directory registry reflects the current authority
+    state after a codex amendment.  Sealed directory snapshots are frozen
+    at module load time and are re-read on the next process restart; the
+    version registry cache is cleared immediately.
+    """
+
     global _PERMISSION_SOVEREIGN, PERMISSION_SOVEREIGN_RESPONSIBILITIES
     _PERMISSION_SOVEREIGN = _permission_sovereign()
     if _PERMISSION_SOVEREIGN is None:
         raise RuntimeError("permission sovereign not found in Governance Codex after re-certify")
     PERMISSION_SOVEREIGN_RESPONSIBILITIES = _PERMISSION_SOVEREIGN.duties
     PermissionSovereign.ROLE = _PERMISSION_SOVEREIGN.id
+    refresh_version_cache()
 
 
 class PermissionSovereign:
@@ -109,6 +129,102 @@ class PermissionSovereign:
     # Coordination surface
     # ------------------------------------------------------------------
 
+    def directory_registry_status(self) -> dict[str, Any]:
+        """Unified directory registry snapshot governed by the permission sovereign.
+
+        ALL directory classes are converged under the permission sovereign's
+        management.  This surfaces every sealed directory and registry as a
+        single coordinated view:
+
+          * code_rule_directory  — approved tool ids, actors, capabilities,
+            actions, targets, data scopes, path roots
+          * directory_authority  — authority/code version policies, key
+            management, access policies, repair boundaries
+          * identity_groups      — registered capability identities per module
+          * identity_permissions — identity-to-permission bindings
+          * capability_boundaries — capability and repair boundaries
+          * governance_policy    — sealed governance policy collection
+          * version_registry     — code version policy + current version
+        """
+
+        code_rules = code_rule_directory_snapshot()
+        authority = directory_authority_snapshot()
+        identities = identity_group_snapshot()
+        permissions = identity_permission_snapshot()
+        capabilities, repair_boundaries = capability_boundary_snapshot()
+        policy = governance_policy_snapshot()
+        version = version_registry_status()
+
+        return {
+            "authority": "permission-sovereign",
+            "managed_directories": [
+                "code-rule-directory",
+                "directory-authority",
+                "identity-groups",
+                "identity-permissions",
+                "capability-boundaries",
+                "governance-policy",
+                "version-registry",
+            ],
+            "code_rule_directory": {
+                "managing_authority": code_rules.managing_authority,
+                "approved_tool_ids": list(code_rules.approved_tool_ids),
+                "approved_actor_names": list(code_rules.approved_actor_names),
+                "approved_capability_names": list(code_rules.approved_capability_names),
+                "approved_action_names": list(code_rules.approved_action_names),
+                "approved_target_names": list(code_rules.approved_target_names),
+                "approved_data_scope_names": list(code_rules.approved_data_scope_names),
+                "initial_code_version": code_rules.initial_code_version,
+            },
+            "directory_authority": {
+                "authority_version_policy": {
+                    "current_version": authority.authority_version_policy.current_version,
+                    "initial_version": authority.authority_version_policy.initial_version,
+                    "version_source": "governance-authority",
+                },
+                "code_version_policy": {
+                    "initial_version": authority.code_version_policy.initial_version,
+                    "version_source": authority.code_version_policy.version_source,
+                    "scope": authority.code_version_policy.scope,
+                },
+            },
+            "identity_groups": {
+                "registered_count": len(identities.identities),
+                "groups": [
+                    {
+                        "actor": ident.actor,
+                        "tool_id": ident.bound_tool_id,
+                        "group_id": ident.group_id,
+                        "identity_code": ident.identity_code,
+                    }
+                    for ident in identities.identities
+                ],
+            },
+            "identity_permissions": {
+                "binding_count": len(permissions.bindings),
+            },
+            "capability_boundaries": {
+                "capability_count": len(capabilities),
+                "repair_boundary_count": len(repair_boundaries),
+            },
+            "governance_policy": {
+                "authority_version": policy.authority_version,
+                "managing_authority": policy.managing_authority,
+            },
+            "version_registry": version,
+        }
+
+    def version_registry_status(self) -> dict[str, Any]:
+        """Version directory snapshot governed by the permission sovereign.
+
+        The version registry is converged under the permission sovereign's
+        management: the ``CodeVersionPolicy`` from the permission directory
+        is the authority basis, and the current version is resolved from
+        ``main-system/package.json`` under that policy.
+        """
+
+        return version_registry_status()
+
     def coordination_status(self) -> dict[str, Any]:
         """Snapshot of the permission sovereign (owner of permission matters)."""
 
@@ -123,6 +239,8 @@ class PermissionSovereign:
             "directory_source": "directory-authority-driven",
             "decision_source": decision["decision_source"],
             "codex_version": decision["codex_version"],
+            "directory_registry": self.directory_registry_status(),
+            "version_registry": self.version_registry_status(),
             "grant": True,
             "terminate": True,
             "permission_ids": "all-modules-managed-by-permission-sovereign",
@@ -182,6 +300,8 @@ class PermissionSovereign:
             "supervision": True,
             "decision_source": "governance-codex",
             "delegation": "governed-executor-only",
+            "directory_registry": self.directory_registry_status(),
+            "version_registry": self.version_registry_status(),
             "decision": decision_basis(_PERMISSION_SOVEREIGN.area),
         }
 
@@ -387,4 +507,8 @@ class PermissionSovereign:
         }
 
 
-__all__ = ["PERMISSION_SOVEREIGN_RESPONSIBILITIES", "PermissionSovereign"]
+__all__ = [
+    "PERMISSION_SOVEREIGN_RESPONSIBILITIES",
+    "PermissionSovereign",
+    "re_certify_permission_sovereign",
+]

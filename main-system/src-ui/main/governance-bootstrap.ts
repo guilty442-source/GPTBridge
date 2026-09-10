@@ -5,9 +5,9 @@ import path from 'node:path'
 const PROTECTED_GOVERNANCE_SOURCES = [
   'governance_rule/governance_policy.py',
   'governance_rule/codex/__init__.py',
-  'governance_rule/codex/sovereigns.py',
-  'governance_rule/codex/chinese.py',
-  'governance_rule/codex/sovereigns_chinese.py',
+  'governance_rule/codex/data/governance_codex.sqlite3',
+  'governance_rule/codex/governance_codex.zh-TW.txt',
+  'governance_rule/execution/codex_repository.py',
   'governance_rule/code_rule_directory.py',
   'governance_rule/permission_directory/directory_authority.py',
   'governance_rule/execution/authentication/__init__.py',
@@ -15,7 +15,6 @@ const PROTECTED_GOVERNANCE_SOURCES = [
   'governance_rule/execution/versioning/__init__.py',
   'governance_rule/permission_directory/execution/identity_registry/__init__.py',
   'governance_rule/permission_directory/execution/path_guard/__init__.py',
-  'main-system/src-ui/main/governance-bootstrap.ts',
   'main-system/src-core/core_system/governance_runtime.py',
   'governance_rule/execution/tool_runtime/__init__.py',
   'governance_rule/execution/tool_runtime/governed_runtime.py',
@@ -28,6 +27,7 @@ const PROTECTED_GOVERNANCE_SOURCES = [
   'governance_rule/permission_directory/registries/permissions/capability_boundaries.py',
   'governance_rule/permission_directory/registries/permissions/tool_routes.py',
   'governance_rule/permission_directory/registries/permissions/source_ownership.py',
+  'main-system/src-ui/main/governance-bootstrap.ts',
 ] as const
 
 function canonicalJson(value: unknown): string {

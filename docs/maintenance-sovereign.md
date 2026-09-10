@@ -294,7 +294,7 @@ system-rescue/src, file-sorter/src, vaultly/src, investment-mobile/src
 | 類別 | 檔案路徑 |
 |---|---|
 | **法典權威本** | `governance_rule/codex/__init__.py` |
-| **法典中文備用** | `governance_rule/codex/chinese.py` |
+| **法典中文備用** | `governance_rule/codex/governance_codex.zh-TW.txt` |
 | **主宰宣告** | 法典 SQLite `sovereigns` 資料表 |
 | **子主宰契約** | `governance_rule/execution/tool_runtime/sub_sovereign.py` |
 | **熱更新/熱重載服務** | `main-system/src-core/core_system/hot_update_service.py` |

@@ -13,15 +13,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Mapping
 
-_ARCH_ROOT: Final[Path] = Path(__file__).resolve().parents[3]
+_ARCH_ROOT: Final[Path] = Path(__file__).resolve().parents[4]
 GOVERNANCE_RULE_ROOT: Final[Path] = _ARCH_ROOT / "governance_rule"
 
 SEALED_CODEX_DIGESTS: Final[Mapping[str, str]] = {
-    "governance_rule/codex/__init__.py": (
-        "f05a24d36c433be9a9ef57af4c3fa7cd93ceba11e57a7aecebe1116ac2bbd152"
+    "codex/__init__.py": (
+        "5cca7c53f1da2278fb34bed03b6b1d623ef479076d8fd102c04ea74ea7b8b1f6"
     ),
-    "governance_rule/codex/chinese.py": (
-        "f885c4aeeace79ca308d8e786147e3d36f3f910cc9a9ce3ba79d132f9060ae9b"
+    "codex/data/governance_codex.sqlite3": (
+        "dd0c21a7789b2623522a33829a877c210c97b1835cf1703af08f6b9f6f1dfcf4"
+    ),
+    "execution/codex_repository.py": (
+        "b320edbad0c878e4775c156b88e670c8ec206867f890a9b32344e465a34625de"
     ),
 }
 
