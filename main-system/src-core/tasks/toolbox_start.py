@@ -29,7 +29,6 @@ class StartMixin(ToolWatcherMixin):
             return self._maintenance_not_ready_result("start_tool")
         tool_id = str(payload.get("tool_id", "")).strip()
         background = payload.get("background") is True
-        managed_restart = payload.get("_managed_restart") is True
         repair_attempted = payload.get("_auto_repair_attempted") is True
         fallback_attempted = payload.get("_source_fallback_attempted") is True
         executable_fallback_attempted = (
@@ -49,8 +48,7 @@ class StartMixin(ToolWatcherMixin):
                 "error_code": "PERMISSION_DENIED",
                 "message": "PERMISSION_DENIED",
             }
-        if not managed_restart:
-            self._force_closed_tool_ids.discard(tool_id)
+        self._force_closed_tool_ids.discard(tool_id)
 
         request_id, request_error = self._tool_request_id(payload)
         if request_error is not None or request_id is None:

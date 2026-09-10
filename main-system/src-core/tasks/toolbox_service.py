@@ -10,7 +10,7 @@ classes, each responsible for a distinct area of responsibility:
 * :class:`~tasks.toolbox_process.ProcessMixin` – process-state tracking and
   lifecycle authorization.
 * :class:`~tasks.toolbox_launch.LaunchMixin` – source-UI launch, companion
-  reconnect, activation, and background restart.
+  reconnect, and activation.
 * :class:`~tasks.toolbox_repair.RepairMixin` – central repair, backup
   extraction, and retry orchestration.
 * :class:`~tasks.toolbox_start.StartMixin` – tool start orchestration and
