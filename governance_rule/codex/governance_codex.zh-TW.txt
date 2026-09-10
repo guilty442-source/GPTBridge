@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.88730",
+  "codex_version": "1.88830",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1633,6 +1633,15 @@
         "rule": "CONNECTION-DEFINITION:any-cross-process+cross-thread-message-channel+cross-layer+cross-module+cross-owner+frontend-backend+sovereign-sub-sovereign+module-executor+network+loopback+LAN+internet+WebSocket+HTTP/HTTPS+TCP/UDP+IPC+pipe+queue+event-bus+callback-bus+database+PostgreSQL+SQLite-cross-owner+Qdrant+RAG+Ollama+model-runtime+filesystem-cross-owner+repository+broker+tool+service+child-process-control+health-probe+administration+provisioning+startup+repair+test-or-script communication/session/request/read/write/control/status/event/data-transfer; SOLE-OWNER:information-layer; REQUIRED-ROUTE:authenticated-requester>registered-information-layer-entry>authorization+type+contract+scope+rate+observability+audit-gates>information-layer-owned-transport-adapter>authorized-destination>typed-result-via-information-layer; PHYSICAL-CONNECTION:may-be-opened-only-by-information-layer-owned-adapter-on-behalf-of-approved-request+adapter-has-no-domain-decision; CREDENTIALS+TOKENS+PORTS+CONNECTION-POOLS+SESSIONS+RETRY+TIMEOUT+HEARTBEAT+BACKPRESSURE+RECONNECT:information-layer-custody; CALLER:request-only+no-transport-handle; DESTINATION:reply-only-through-originating-information-route; FAILURE:fail-closed+typed-error+audit+health-signal; COVERAGE:runtime+development+maintenance+migration+packaging+diagnostics+tests+one-off-scripts; INTERNAL-NON-CONNECTION:pure-in-process-function-call-inside-one-owner-and-one-layer-without-I/O/message/session/transport-handle remains-owner-internal",
         "prohibition": "FORBID:direct-socket+direct-HTTP+direct-WebSocket+direct-database-driver+direct-model-endpoint+direct-cross-owner-file-read/write+direct-subprocess-control-channel+private-IPC+private-event-bus+implicit-callback-channel+unregistered-queue+transport-library-in-domain-or-presentation-code+caller-owned-connection-pool+credential-forwarding+destination-direct-reply+startup/provisioning/admin/health/test/script-bypass+temporary-debug-connection+fallback-direct-link+information-layer-domain-business-logic+information-layer-authorization-self-grant",
         "exception": "No cross-boundary connection exception; only owner-internal pure calls that create no I/O message session or transport handle are outside the connection definition"
+      },
+      {
+        "position": 178,
+        "provision_id": "A178",
+        "section_index": "6",
+        "subject": "system-runtime-stability",
+        "rule": "OWNER:SYSTEM-RUNTIME-SOVEREIGN manages-runtime-continuity; HEALTH-CLASSIFICATION:maintenance-sovereign; POLICY-AND-PRIORITY:system-decision-sovereign; RESOURCES:resource-sovereign; PERMISSION:permission-sovereign; CHANNEL:information-layer-only; STABILITY-CONTRACT:EACH-RUNTIME declares-process-identity+dependencies+readiness+liveness+resource-budget+queue-limit+timeout+checkpoint-boundary+restart-policy+shutdown-policy+recovery-objective+isolation-boundary; ISOLATION:main-system-core+each-independent-tool+model-runtime+database-adapter+background-worker separate-failure-domains; SUPERVISION:single-owner-process-tree+generation-id+heartbeat+bounded-restart-budget+exponential-backoff+jitter+circuit-breaker; STATE:authoritative-state-externalized-by-owner+atomic-checkpoint+write-ahead-or-transactional-boundary+idempotent-resume+in-flight-operation-status; RESOURCE-STABILITY:memory+CPU+GPU+disk+handles+threads+connections+queues bounded+backpressure+load-shed-low-priority+preserve-completed-work; DEPENDENCY-FAILURE:timeout+bulkhead+circuit-breaker+typed-degraded-state+no-cascade; STARTUP:ordered-readiness-gates+no-traffic-before-ready; SHUTDOWN:stop-intake>drain-bounded-work>checkpoint>close-information-routes>terminate-process-tree>verify-stopped; CRASH:invalidate-generation+reject-stale-results+preserve-evidence+restart-only-through-system-runtime-sovereign; RECOVERY:restore-authoritative-state>reconcile-in-flight-work>dependency-recheck>independent-verification>declared-stability-window>information-layer-current-status; AVAILABILITY:critical-control-path-priority-over-background-work; UPDATE:certified-release-only+A175; USER-WORK:complete-input+completed-stage+checkpoint preserved where technically possible; OBSERVABILITY:uptime+restart-count+crash-reason+latency+error-rate+queue-depth+resource-headroom+dependency-state+checkpoint-age+generation+release-id; FAILURE-BUDGET-EXHAUSTED:affected-capability-fail-closed+quarantine+user-notification+learning-evidence; STABLE:all-required-signals-current+no-unbounded-growth+error/latency/restart thresholds satisfied throughout stability-window",
+        "prohibition": "FORBID:shared-failure-domain-for-independent-tools+main-system-crash-terminating-independent-tool+unbounded-process/thread/task/queue/memory/disk/connection-growth+restart-loop+fixed-immediate-restart+multiple-supervisors+stale-generation-result+partial-state-as-complete+silent-data-loss+dependency-failure-cascade+traffic-before-ready+force-stop-without-bounded-drain-or-checkpoint+health-or-stability-claim-from-process-existence-alone+hidden-degraded-state+repair-without-sovereign-chain+uncertified-runtime-content+automatic-reset-of-certified-hot-update+information-layer-bypass",
+        "exception": "Emergency termination may skip draining only when continued execution threatens integrity or security; evidence preservation and post-stop verification remain mandatory"
       }
     ],
     "certification_evidence": [
@@ -1799,6 +1808,13 @@
       },
       {
         "version": "1.88730",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.88830",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2877,6 +2893,13 @@
         "provision_id": "E152",
         "area": "universal-information-layer-connections",
         "edict": "ALL-CONNECTIONS:requester>information-layer-entry>gates>information-layer-adapter>destination>information-layer-result; COVER:network+IPC+database+vector+RAG+model+filesystem-cross-owner+broker+event+tool+process-control+health+startup+repair+provisioning+test+script; TRANSPORT-STATE+SECRETS+SESSIONS+RETRY:information-layer-only; CALLER-TRANSPORT-HANDLE:none; DIRECT/FALLBACK/DEBUG-BYPASS:none; INFORMATION-LAYER-BUSINESS-DECISION:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 153,
+        "provision_id": "E153",
+        "area": "runtime-stability",
+        "edict": "STABILITY:declared-runtime-contract+isolated-failure-domain+single-supervisor+bounded-resources+backpressure+transactional-checkpoint+generation-fencing+dependency-bulkhead+graceful-start-stop; CRASH:invalidate>preserve>bounded-backoff>restore>reconcile>verify>stability-window>publish; INDEPENDENT-TOOLS:survive-main-system-failure; BUDGET-EXHAUSTED:fail-closed-affected-scope+quarantine+notify+learn; STATUS:information-layer-only; STABLE-WITHOUT-EVIDENCE:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4740,11 +4763,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.88730"
+        "value": "gptbridge-governance-codex-v1.88830"
       },
       {
         "key": "codex_version",
-        "value": "1.88730"
+        "value": "1.88830"
       },
       {
         "key": "citation_entry",
@@ -5373,6 +5396,12 @@
         "position": 93,
         "provision_id": "P93",
         "statement": "EVERY-CONNECTION:information-layer-only-without-cross-boundary-exception; ROUTE:requester>information-layer-owned-gateway-or-adapter>authorized-destination; DIRECT-CONNECTION:none; INFORMATION-LAYER:transport-only+no-business-decision",
+        "binding": 1
+      },
+      {
+        "position": 94,
+        "provision_id": "P94",
+        "statement": "RUNTIME-STABILITY:continuous+fault-contained+resource-bounded+state-recoverable+observable; FAILURE:affected-scope-only+preserve-user-work; RECOVERY:supervised+bounded+verified; STABILITY-CLAIM:evidence+window-required",
         "binding": 1
       }
     ],
@@ -8433,6 +8462,27 @@
         "identity_code": "codex/provision/edict/E152",
         "provision_type": "edict",
         "provision_id": "E152",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P94",
+        "provision_type": "principle",
+        "provision_id": "P94",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A178",
+        "provision_type": "article",
+        "provision_id": "A178",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E153",
+        "provision_type": "edict",
+        "provision_id": "E153",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -11933,6 +11983,30 @@
         "supersedes_id": "E50",
         "status": "active",
         "content_hash": "a0ac7ea99d92045db8691fcfc9c88d2de0abe4a01c9db8f5e175a70f7614a542"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P94",
+        "introduced_by": "H028",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "0efde238ae659ec8d2acea9721a359bd05cf8c344df1be328991ae35b9312a1e"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A178",
+        "introduced_by": "H028",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "5fceb5f29690782a13e5e86da5ae3bb7fa0cd324dbf33e7c4166657eb41db48c"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E153",
+        "introduced_by": "H028",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "2c45aafd64144936fb098f20591458cec62d1feda5813d7984719d94c12e709b"
       }
     ],
     "provision_revisions": [
@@ -27919,6 +27993,30 @@
         "version": "1.88730",
         "content_hash": "a0ac7ea99d92045db8691fcfc9c88d2de0abe4a01c9db8f5e175a70f7614a542",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P94",
+        "revision_id": "H028",
+        "version": "1.88830",
+        "content_hash": "0efde238ae659ec8d2acea9721a359bd05cf8c344df1be328991ae35b9312a1e",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A178",
+        "revision_id": "H028",
+        "version": "1.88830",
+        "content_hash": "5fceb5f29690782a13e5e86da5ae3bb7fa0cd324dbf33e7c4166657eb41db48c",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E153",
+        "revision_id": "H028",
+        "version": "1.88830",
+        "content_hash": "2c45aafd64144936fb098f20591458cec62d1feda5813d7984719d94c12e709b",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -28191,6 +28289,16 @@
         "summary": "all cross-boundary connection types assigned exclusively to information layer entries and adapters",
         "previous_hash": "8799097591ac90cda29bad277b0521b6086160676093ed3c21545f08b48f3618",
         "entry_hash": "f351324a9fa59ce004a48cfd7b8d3100b7294587b340b78b8c2a2f4478e245b7"
+      },
+      {
+        "sequence": 28,
+        "change_id": "H028",
+        "version": "1.88830",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "runtime stability fault isolation bounded supervision state recovery and graceful continuity established",
+        "previous_hash": "f351324a9fa59ce004a48cfd7b8d3100b7294587b340b78b8c2a2f4478e245b7",
+        "entry_hash": "2c115ac2626e08fb9588471de0442a335e7ca8a732d04db561d49e19a227b659"
       }
     ],
     "savings": [
@@ -28510,6 +28618,17 @@
         "content_root": "ba1a4f52a4ae5fc9cba79c48ead7e94a05ad1fc5734de64ddaaa52629c050aa7",
         "identity_root": "a73728d8b5974a4029875260e3cb571f90fa004b2c19a50e97fb575eec8dabb5",
         "full_root": "6971019cc67d996f1422bb6c364a317cc84010e2cb24929d476a6c28e205966a"
+      },
+      {
+        "version": "1.88830",
+        "history_head": "2c115ac2626e08fb9588471de0442a335e7ca8a732d04db561d49e19a227b659",
+        "provision_count": 425,
+        "identity_count": 440,
+        "lineage_count": 440,
+        "certification_state": "sealed-read-only",
+        "content_root": "8b75fdf17db231bb8bc7827937d457e8f28d73d617196333e3fefd3be15601b2",
+        "identity_root": "063f1119544db6993647ddcf6e907ad21c20d64bd837c551a97f52d09563c8db",
+        "full_root": "2a6ac7433ec0c19269d73d77b95b5c130aee2fc90ecd5c8cad99b9ae2a9beed2"
       }
     ],
     "sealed_components": [
