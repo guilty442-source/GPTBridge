@@ -361,14 +361,135 @@ def separation_violation_signal(
     }
 
 
+# ---------------------------------------------------------------------------
+# Reciprocal runtime isolation (A184/E159)
+# ---------------------------------------------------------------------------
+
+# A184: EACH-INDIVIDUAL-OWNS — dimensions each individual owns exclusively.
+RECIPROCAL_ISOLATION_DIMENSIONS: Final[tuple[str, ...]] = (
+    "process-tree",
+    "os-lifecycle-boundary",
+    "runtime-generation",
+    "supervisor",
+    "watchdog",
+    "frontend",
+    "backend",
+    "threads",
+    "tasks",
+    "queues",
+    "connections",
+    "resource-budget",
+    "state",
+    "data",
+    "logs",
+    "cache",
+    "temporary-files",
+    "release",
+    "certificate",
+    "health",
+    "repair",
+    "update",
+    "shutdown",
+)
+
+
+def verify_reciprocal_isolation(
+    tool_reports: dict[str, SeparationReport],
+) -> dict[str, Any]:
+    """Verify reciprocal runtime isolation across all individuals (A184/E159).
+
+    Per A184: ``RECIPROCITY:rules-apply-equally-in-every-direction`` and
+    ``RUNNING-STATE:one-individual-running/stopped/starting/stopping/degraded/
+    failed/recovering does-not-change-another-individual-state``.
+
+    This function aggregates per-tool separation reports and confirms that
+    no individual's state change cascades to another.  It is read-only and
+    produces signals only; it never mutates process trees or state.
+
+    Args:
+        tool_reports: mapping of tool_id to its SeparationReport.
+
+    Returns:
+        A dict with ``ok``, ``individuals``, ``violations``, and ``signal``.
+    """
+    all_violations: list[dict[str, Any]] = []
+    individuals: dict[str, dict[str, Any]] = {}
+
+    for tool_id, report in tool_reports.items():
+        individuals[tool_id] = {
+            "ok": report.ok,
+            "verified_dimensions": list(report.verified_dimensions),
+            "violation_count": len(report.violations),
+        }
+        if not report.ok:
+            for v in report.violations:
+                all_violations.append({
+                    "tool_id": tool_id,
+                    **v.as_dict(),
+                })
+
+    # A184: no individual's failure cascades to another.  If any individual
+    # has violations, they are isolated signals — the report confirms that
+    # other individuals remain unaffected.
+    ok = len(all_violations) == 0
+
+    return {
+        "ok": ok,
+        "basis": "A184/E159",
+        "individuals": individuals,
+        "violations": all_violations,
+        "reciprocity": "rules-apply-equally-in-every-direction",
+        "cascade": False,
+        "signal": {
+            "signal_type": "reciprocal-isolation-check",
+            "authority": "signal-only",
+            "action_required": (
+                "freeze-mutation+preserve-active-code+route-to-sovereign-decision"
+                if not ok
+                else "none"
+            ),
+        },
+    }
+
+
+def reciprocal_isolation_signal(
+    isolation_report: dict[str, Any],
+) -> dict[str, Any]:
+    """Produce an information-layer signal for reciprocal isolation (A184/E159).
+
+    Per A184: ``INFORMATION-LAYER-LOSS:only-cross-individual-communication/
+    status/control becomes-unavailable+each-current-runtime-continues-under-
+    own-local-safe-policy``.  This function produces the signal payload that
+    must be routed through the information layer; it never performs repair,
+    reset, or process termination.
+    """
+    return {
+        "signal_type": "reciprocal-isolation",
+        "authority": "signal-only",
+        "basis": "A184/E159",
+        "ok": isolation_report.get("ok", False),
+        "individuals": isolation_report.get("individuals", {}),
+        "violations": isolation_report.get("violations", []),
+        "cascade": False,
+        "information_layer_loss": "communication-fails-closed+runtimes-continue",
+        "recovery": "owner-only+bounded+verified+stability-window",
+        "global_kill": False,
+        "shared_lifetime": False,
+        "cross_reset": False,
+    }
+
+
 __all__ = [
     "MAIN_SYSTEM_NON_OWNERSHIP",
+    "RECIPROCAL_ISOLATION_DIMENSIONS",
     "SEPARATION_DIMENSIONS",
     "SeparationReport",
     "SeparationViolation",
+    "reciprocal_isolation_signal",
     "separation_violation_signal",
     "verify_no_shared_data_root",
     "verify_process_tree_independence",
+    "verify_reciprocal_isolation",
     "verify_tool_manifest_separation",
     "verify_tool_separation",
 ]

@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "2.11230",
+  "codex_version": "2.21230",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1723,6 +1723,15 @@
         "rule": "TASK-ASSIGNMENT-VALIDATION:owner=system-decision-sovereign+verify-task-identity/purpose/source/one-duty-owner/duty-capability-match/scope/dependency/priority/input-output-contract/non-overlap+issue-immutable-assignment-proof; PERMISSION-VALIDATION:owner=permission-sovereign+verify-subject/assignment-proof/action/target/resource-and-data-scope/purpose/session/expiry/grant/revocation/least-privilege+issue-allow-or-deny-permission-proof; EXECUTION-VALIDATION:owner=system-runtime-sovereign+pre-verify-exact-assignment-and-permission-proofs/executor-identity/active-certified-release/runtime-generation/dependencies/resources/input-contract/idempotency/timeout/checkpoint/rollback/health/readiness+dispatch-only-after-pass-to-governed-executor+post-verify-result-contract/side-effect-scope/hash/state/health/stability-window+issue-execution-verification-proof; ROUTE:information-layer-only; ORDER:strict-and-non-skippable; FAILURE:any-gate=>stop+fail-closed+typed-result+audit; PROOF-BINDING:task-id+request-id+runtime-generation+release-id+issuer+issued-at+expiry+single-use+content-hash; SEPARATION:assignment-proof-does-not-grant-permission-or-authorize-execution+permission-proof-does-not-assign-duty-or-prove-runtime-readiness+execution-proof-does-not-create-permission-or-change-assignment",
         "prohibition": "FORBID:system-decision-sovereign-granting-permission-or-executing-task+permission-sovereign-reassigning-task-or-performing-execution-validation+system-runtime-sovereign-granting-permission/reassigning-task/direct-business-execution+self-authorizing+gate-skip+gate-reorder+combined-owner+proof-reuse+proof-scope-expansion+stale-proof+unbound-proof+information-layer-bypass",
         "exception": "Emergency containment may stop an exact unsafe runtime before the full chain completes; continuation, mutation, repair, or restart still requires a newly completed validation chain"
+      },
+      {
+        "position": 188,
+        "provision_id": "A188",
+        "section_index": "6",
+        "subject": "sovereign-collaboration-and-information-layer-handoff",
+        "rule": "COLLABORATION-UNIT:task-envelope{task-id,request-id,origin,objective,scope,priority,deadline,dependency-set,input-contract,expected-output,assigned-owner,participant-list,runtime-generation,release-id,state-sequence,correlation-id}; ENTRY:all-sovereign-requests/events/results/decisions/proofs through-information-layer-official-entry; ORCHESTRATION:system-decision-sovereign decomposes-task+selects-one-accountable-domain-owner+declares-participants/dependencies/acceptance-criteria+validates-assignment; DOMAIN-VERDICT:each-specialized-sovereign decides-only-its-declared-domain and returns typed approve/deny/defer-with-reason/evidence/constraints/expiry; PERMISSION:permission-sovereign independently validates-identity/action/target/scope/purpose and denial-is-not-overridable-by-other-sovereign; CHANNEL:integration-sovereign governs-topology/routing/contracts/delivery-health but cannot-read-beyond-grant/change-content/choose-business-outcome; EXECUTION:system-runtime-sovereign validates-complete-proof-set/runtime-readiness then dispatches-to-governed-executor and verifies-result; STARTUP:startup-sovereign coordinates-boot-only and hands-verified-readiness-to-system-runtime-sovereign; HEALTH:maintenance-sovereign observes-health+opens-bounded-maintenance-request; repair/code-change requires-system-decision-assignment+permission-proof+system-programming-review-and-dispatch+runtime-validation; LEARNING:learning-system-sovereign receives-redacted-outcomes+proposes-candidates-only and cannot-change-routing/policy/code/runtime; RESOURCE/DATA/THIRD-PARTY/LANGUAGE:each supplies-own-domain-verdict and never performs-another-domain-duty; XINGCHENG:may-observe/review/report under-codex-exception through-official-information-entry but remains-outside-command/assignment/execution-chain; GOVERNANCE-AUTHORITY:protects-codex-integrity only and is-not-operational-workflow-coordinator; STATE-MACHINE:received>assignment-validated>domain-checks-pending>permission-validated>execution-validated>dispatched>result-verified>completed|denied|failed|expired; CONCURRENCY:independent-domain-checks parallel-after-assignment+dependent-gates serial+result-join requires-all-mandatory-current proofs; DELIVERY:at-least-once-transport+idempotency-key+deduplication+monotonic-per-task-sequence+acknowledgement; FAILURE:timeout/disconnect/stale-generation/schema-failure/missing-proof=>typed-fail-closed-state+bounded-retry-with-jitter+resume-from-last-verified-checkpoint+audit; RECOVERY:reconnect reauthenticates+renews-subscription+replays-from-last-acknowledged-sequence+reconciles-snapshot-before-new-command; OBSERVABILITY:one-correlation-chain+owner/participant/timestamps/decision/proof/state-transition/latency/retry visible-at-authorized-level; FINALITY:accountable-owner accepts-domain-result+system-decision-sovereign accepts-cross-domain-task-completion without-overriding-domain-or-permission-denial",
+        "prohibition": "FORBID:direct-sovereign-link+private-bus+direct-socket/database/file-drop-as-communication+shared-mutable-command-state+implicit-participant+multiple-accountable-owners+authority-combination+permission-bypass+domain-verdict-override+integration-layer-business-decision+runtime-self-authorization+startup-retaining-runtime-control+learning-candidate-auto-enactment+Xingcheng-commanding-system+busy-polling-when-event-subscription-exists+unbounded-retry+out-of-order-state-regression+duplicate-side-effect+stale-proof/release/generation+success-before-result-verification",
+        "exception": "Immediate safety containment may publish a stop-only event before normal collaboration completes; it must target one exact runtime identity, remain auditable, and cannot authorize restart repair mutation or broader action"
       }
     ],
     "certification_evidence": [
@@ -1952,6 +1961,13 @@
       },
       {
         "version": "2.11230",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "2.21230",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3100,6 +3116,13 @@
         "provision_id": "E162",
         "area": "sovereign-validation-separation",
         "edict": "VALIDATE:system-decision-sovereign=task-assignment|permission-sovereign=permission|system-runtime-sovereign=execution-preconditions-and-results; FLOW:information-layer>assignment-proof>permission-proof>execution-proof>governed-executor>post-verification; EACH:independent+bounded+task-bound+expiring+audited; SUBSTITUTE/SKIP/SELF-AUTHORIZE/DIRECT-EXECUTION:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 163,
+        "provision_id": "E163",
+        "area": "sovereign-collaboration-flow",
+        "edict": "FLOW:information-entry>system-decision-assignment>parallel-domain-verdicts>permission-validation>system-runtime-validation>governed-executor>result-verification>authorized-publication; CHANNEL:integration-sovereign-routes+information-layer-authenticates/authorizes/types/orders/observes/audits; HANDOFF:typed+immutable+task-bound+version-bound+acknowledged; FAILURE:fail-closed+bounded-retry+checkpoint-resume+sequence-replay; DIRECT-LINK/AUTHORITY-MERGE/DOMAIN-OVERRIDE/UNVERIFIED-SUCCESS:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4962,10 +4985,6 @@
     ],
     "metadata": [
       {
-        "key": "schema",
-        "value": "gptbridge-governance-codex-v2.11230"
-      },
-      {
         "key": "citation_entry",
         "value": "governance-codex://official"
       },
@@ -5058,20 +5077,36 @@
         "value": "V0|V1|V2|V3|V4|V5|VC"
       },
       {
-        "key": "codex_version",
-        "value": "2.11230"
-      },
-      {
-        "key": "version_increment",
-        "value": "0.01000"
-      },
-      {
         "key": "sovereign_validation_chain",
         "value": "task-assignment:system-decision-sovereign|permission:permission-sovereign|execution:system-runtime-sovereign"
       },
       {
         "key": "sovereign_validation_order",
         "value": "assignment>permission>execution>governed-executor>post-execution-verification"
+      },
+      {
+        "key": "schema",
+        "value": "gptbridge-governance-codex-v2.21230"
+      },
+      {
+        "key": "codex_version",
+        "value": "2.21230"
+      },
+      {
+        "key": "version_increment",
+        "value": "0.10000"
+      },
+      {
+        "key": "sovereign_collaboration_entry",
+        "value": "information-layer://official"
+      },
+      {
+        "key": "sovereign_collaboration_flow",
+        "value": "assignment>domain-verdicts>permission>execution-validation>executor>result-verification"
+      },
+      {
+        "key": "sovereign_collaboration_delivery",
+        "value": "typed-envelope+idempotency+ordered-sequence+ack+bounded-replay"
       }
     ],
     "preamble": [
@@ -5694,6 +5729,12 @@
         "position": 102,
         "provision_id": "P102",
         "statement": "VALIDATION-CHAIN:TASK-ASSIGNMENT=system-decision-sovereign; PERMISSION=permission-sovereign; EXECUTION=system-runtime-sovereign; ORDER:assignment>permission>execution>governed-executor>post-execution-verification; MUTUAL-SUBSTITUTION:none",
+        "binding": 1
+      },
+      {
+        "position": 103,
+        "provision_id": "P103",
+        "statement": "SOVEREIGN-COLLABORATION:one-task-one-orchestration-owner+domain-owner-verdicts+proof-bound-handoffs; COMMUNICATION:information-layer-only+typed-envelope+ordered-events+observable-state; OPTIMIZATION:parallel-independent-checks+serial-authority-gates+bounded-timeouts+idempotent-retry; AUTHORITY-MERGE:none",
         "binding": 1
       }
     ],
@@ -8957,6 +8998,27 @@
         "identity_code": "codex/provision/edict/E162",
         "provision_type": "edict",
         "provision_id": "E162",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P103",
+        "provision_type": "principle",
+        "provision_id": "P103",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A188",
+        "provision_type": "article",
+        "provision_id": "A188",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E163",
+        "provision_type": "edict",
+        "provision_id": "E163",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -12689,6 +12751,30 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "d52b207a13b83c6c0a9d8d3446c37bd1c1d45b636d2782efe40010f6e683e9e4"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P103",
+        "introduced_by": "H037",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "956829814cea9bacc67dfc019017102a2af8a8c861731599f10cd2ccab961e07"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A188",
+        "introduced_by": "H037",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "649969c606c05d48bce008cd57a3006065f3f1d142a9551a8ef2cb3c944b7b17"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E163",
+        "introduced_by": "H037",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "df6971f9313192cd68b8a7fc6ee58fc2dc1361c85cff69dbfe5a137720bc52ae"
       }
     ],
     "provision_revisions": [
@@ -28907,6 +28993,30 @@
         "version": "2.11230",
         "content_hash": "d52b207a13b83c6c0a9d8d3446c37bd1c1d45b636d2782efe40010f6e683e9e4",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P103",
+        "revision_id": "H037",
+        "version": "2.21230",
+        "content_hash": "956829814cea9bacc67dfc019017102a2af8a8c861731599f10cd2ccab961e07",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A188",
+        "revision_id": "H037",
+        "version": "2.21230",
+        "content_hash": "649969c606c05d48bce008cd57a3006065f3f1d142a9551a8ef2cb3c944b7b17",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E163",
+        "revision_id": "H037",
+        "version": "2.21230",
+        "content_hash": "df6971f9313192cd68b8a7fc6ee58fc2dc1361c85cff69dbfe5a137720bc52ae",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -29269,6 +29379,16 @@
         "summary": "task assignment permission and execution validation duties separated among system decision permission and system runtime sovereigns",
         "previous_hash": "f07b8c7c9cfe2b70bdd49d596f2b4b396cbd96d2e1b72246520f3678c4febdfe",
         "entry_hash": "69065713dc32b0356eac658c446510c32a3b2a10a1b446ec2e6341658157d47b"
+      },
+      {
+        "sequence": 37,
+        "change_id": "H037",
+        "version": "2.21230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "architecture-authority",
+        "summary": "all sovereign collaboration standardized as typed proof-bound handoffs through the layered information system",
+        "previous_hash": "69065713dc32b0356eac658c446510c32a3b2a10a1b446ec2e6341658157d47b",
+        "entry_hash": "4407671fe3d0a0fd5823e0d1e3fc16b8ff33b98d3ef666b0b026860eb25b9535"
       }
     ],
     "savings": [
@@ -29687,6 +29807,17 @@
         "content_root": "a698f35e57cbc65f4e5fe604f78ddd359de6ab04cb000dacd90c59e3e6ad7af3",
         "identity_root": "b0238115cef7bbbd4d10c2a567dd8420f8320f27068459899a2b1221cccc7715",
         "full_root": "b8d6fd7b4a48139ed0b360f8a758481c89f76d118d8f8e7bfb70f3f5f064ae4f"
+      },
+      {
+        "version": "2.21230",
+        "history_head": "4407671fe3d0a0fd5823e0d1e3fc16b8ff33b98d3ef666b0b026860eb25b9535",
+        "provision_count": 454,
+        "identity_count": 469,
+        "lineage_count": 469,
+        "certification_state": "sealed-read-only",
+        "content_root": "9ed5baab9117aaf6476e73eac90df757741982477ac5294c20dfa6dcbc36feb4",
+        "identity_root": "6729b1d983c054f65a3c2c491824171cd88ac806c4cb212d48d7f401fc125b2e",
+        "full_root": "943aa5d23969654f9131750696e624c954c1f4ea25afdfc4b5717c683510f4fb"
       }
     ],
     "sealed_components": [
