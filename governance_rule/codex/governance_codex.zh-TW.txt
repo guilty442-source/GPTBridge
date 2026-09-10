@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.31100",
+  "codex_version": "1.31200",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1480,6 +1480,15 @@
         "rule": "CANONICAL-MAP:Python={.py,.pyi}; TypeScript={.ts,.tsx,.d.ts}; C={.c,.h}; C++={.cpp,.hpp,.inl}; CSharp={.cs}; SQL={.sql}; MATCH:full-filename-suffix+lowercase canonical+longest-suffix-first so-.d.ts=TypeScript-declaration-not-.ts-generic; EXCLUSIVITY:one-file=one-language classification+extension belongs-to-one-language only; PYTHON:.py implementation/test/package-entry+.pyi declaration-only; TYPESCRIPT:.ts non-JSX logic/test+.tsx JSX presentation/test+.d.ts declaration-only; C:.c implementation/test+.h C-public/interface header only; CPP:.cpp implementation/test+.hpp C++ header+.inl C++ template/inline implementation included-by-.hpp only; CSHARP:.cs implementation/test only; SQL:.sql schema/query/migration/test-data-operation only; TESTS:use-own-language-extension+name/path metadata identifies-test+no-special-additional-source-extension; PROJECT-METADATA:.csproj/.sln/package.json/tsconfig/CMake/project/build manifests are-not-six-language-source+may-configure-build only+cannot-contain-embedded-application-source to-evade-map; GENERATED:must-use-target-language canonical-extension+generated identity/hash/owner; HEADERS:.h cannot contain-C++ constructs+.hpp cannot-be-public-C-ABI; INL:not-independent-translation-unit+no-global-state/business/workflow+single-owning-.hpp contract; DECLARATIONS:.pyi/.d.ts contain-types/signatures-only+must-match implementation/contract; SQL-EMBEDDED:SQL strings inside-other-language remain-host-language-source but A207 parameterization/pushdown checks apply; CLASSIFIER:normalize-path+reject-trailing-space/dot+alternate-data-stream+double-extension masquerade+case variant; CHECK:A208 at-save/precommit/integrated-main/release verifies extension/language syntax/build registration/owner/generated parity; MIGRATION:noncanonical source renamed+all imports/includes/build references atomically updated in-one-certified-release",
         "prohibition": "FORBID:.js/.jsx/.mjs/.cjs/.cc/.cxx/.hxx/.hh/.csx or-any-unlisted-extension-as-six-language-source+uppercase/mixed-case extension+custom-extension+language-content/extension mismatch+C++ in-.h+C in-.hpp+implementation-in-.pyi/.d.ts+standalone-.inl+source-code-hidden-in-project/config/data/template/archive+double-extension disguise+alternate-data-stream+extensionless-project-source+classifier-by-content-overriding-canonical-map",
         "exception": "External third-party source retained solely for license compliance may preserve upstream names inside an immutable quarantined dependency artifact; it cannot be compiled, imported, loaded, modified, or treated as GPTBridge project source until converted through an approved dependency/build adapter without violating the canonical project-source map"
+      },
+      {
+        "position": 216,
+        "provision_id": "A216",
+        "section_index": "11",
+        "subject": "sql-first-data-reduction-python-semantic-business-boundary",
+        "rule": "PIPELINE:request>parameterized-SQL-predicate/projection/join/aggregation/window/order/limit>bounded-result>Python-domain-model>semantic-and-business-processing>typed-result; SQL-OWNER:data-selection+relational-integrity+set-computation-only; PYTHON-OWNER:semantic-meaning+business-policy+workflow+domain-decision; QUERY-PLAN:bounded+indexed+observable+timeout+row/byte-limit; TRANSFER:only-required-columns+only-qualified-rows+pagination-or-streaming-when-bounded-result-cannot-fit; FALLBACK:no-fetch-all-then-filter/sort/join/aggregate-in-Python when-SQL-can-express-equivalent-operation; EXCEPTION:Python-post-filter-only-for-non-relational-semantic-operation-not-safely-expressible-in-SQL+must-still-apply-maximum-safe-SQL-reduction-first; CORRECTNESS:SQL-reduction-must-not-change-domain-semantics+Python-remains-business-authority",
+        "prohibition": "fetch-all-before-relational-reduction; SQL-business-authority; unbounded-transfer",
+        "exception": "non-relational-semantic-post-processing-after-maximum-safe-SQL-reduction"
       }
     ],
     "certification_evidence": [
@@ -1520,6 +1529,13 @@
       },
       {
         "version": "1.31100",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.31200",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -1577,6 +1593,13 @@
         "recorded_at_local": "2026-09-10T21:42:19+08:00",
         "timezone": "Asia/Taipei",
         "event": "provision-scope-source-extension-map"
+      },
+      {
+        "version": "1.31200",
+        "recorded_at_utc": "2026-09-10T13:47:06Z",
+        "recorded_at_local": "2026-09-10T21:47:06+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "provision-scope-sql-first-python-semantics"
       }
     ],
     "edicts": [
@@ -2545,6 +2568,13 @@
         "area": "six-language-source-extensions",
         "edict": "PYTHON:.py|.pyi; TYPESCRIPT:.ts|.tsx|.d.ts; C:.c|.h; CPP:.cpp|.hpp|.inl; CSHARP:.cs; SQL:.sql; MATCH:exact+exclusive+lowercase+longest-suffix-first; TEST/GENERATED:same-language-extension; PROJECT-METADATA:not-source; UNLISTED/CUSTOM/CASE-VARIANT/MISMATCH/HIDDEN-SOURCE:none",
         "immutability": "immutable-sealed"
+      },
+      {
+        "position": 181,
+        "provision_id": "E181",
+        "area": "data-language-boundary",
+        "edict": "ORDER:SQL-reduce-first>Python-semantic-and-business-logic; SQL:parameterized+set-based+indexed+bounded-result+minimal-columns; PYTHON:no-relational-fetch-all-processing+owns-domain-meaning/policy/workflow; OBSERVE:query-time+rows+bytes+plan+post-processing-time; FAIL:unbounded-query-or-semantic-drift=deny+typed-error+audit",
+        "immutability": "versioned-codex-only"
       }
     ],
     "effective_provisions": [
@@ -4923,6 +4953,24 @@
         "provision_id": "E180",
         "effective_version": "1.31100",
         "status": "active"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P118",
+        "effective_version": "1.31200",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A216",
+        "effective_version": "1.31200",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E181",
+        "effective_version": "1.31200",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -5177,11 +5225,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-10T09:01:37.668882Z"
+        "value": "2026-09-10T13:47:06Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-10T17:01:37.668882+08:00"
+        "value": "2026-09-10T21:47:06+08:00"
       },
       {
         "key": "codex_timezone",
@@ -5285,11 +5333,11 @@
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.31100"
+        "value": "gptbridge-governance-codex-v1.31200"
       },
       {
         "key": "codex_version",
-        "value": "1.31100"
+        "value": "1.31200"
       },
       {
         "key": "version_increment",
@@ -5318,6 +5366,14 @@
       {
         "key": "source_extension_sql",
         "value": ".sql"
+      },
+      {
+        "key": "sql_python_processing_order",
+        "value": "sql-reduce-first>python-semantic-business"
+      },
+      {
+        "key": "sql_result_contract",
+        "value": "bounded+minimal-rows+minimal-columns"
       }
     ],
     "preamble": [
@@ -5982,6 +6038,12 @@
         "position": 109,
         "provision_id": "P117",
         "statement": "SOURCE-EXTENSIONS:Python=.py|.pyi; TypeScript=.ts|.tsx|.d.ts; C=.c|.h; C++=.cpp|.hpp|.inl; CSharp=.cs; SQL=.sql; SOURCE-CLASSIFICATION:exact+exclusive+lowercase; OTHER-EXTENSION:not-six-language-source",
+        "binding": 1
+      },
+      {
+        "position": 110,
+        "provision_id": "P118",
+        "statement": "DATA-REDUCTION:SQL-first-set-based-filter/project/join/aggregate/order/limit; PYTHON-after-reduction-for-semantic-interpretation+business-rules+orchestration; TRANSFER:minimal-required-rows-and-columns",
         "binding": 1
       }
     ],
@@ -8930,6 +8992,27 @@
         "identity_code": "codex/provision/edict/E180",
         "provision_type": "edict",
         "provision_id": "E180",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P118",
+        "provision_type": "principle",
+        "provision_id": "P118",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A216",
+        "provision_type": "article",
+        "provision_id": "A216",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E181",
+        "provision_type": "edict",
+        "provision_id": "E181",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -12302,6 +12385,30 @@
         "supersedes_id": "E41",
         "status": "active",
         "content_hash": "88a5fc62ef54cbdb3796709a05e8a2a2b5a0d782c809d1b43ec4a7920a69a7f5"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P118",
+        "introduced_by": "H007",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "76830babb6024e994e18ae998f1b5985dde7c4a557e7a9e784945e49bed2a8fe"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A216",
+        "introduced_by": "H007",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "1ea5a768e5559c48a94dd14742d3bf59034a69d78c2b737abc6dd3cf7dbe319b"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E181",
+        "introduced_by": "H007",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "52717d6fb00871f2e7859d6a15d8cd80b05c02011279f60e3364df9e32af9b9a"
       }
     ],
     "provision_revisions": [
@@ -15672,6 +15779,30 @@
         "version": "1.31100",
         "content_hash": "88a5fc62ef54cbdb3796709a05e8a2a2b5a0d782c809d1b43ec4a7920a69a7f5",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P118",
+        "revision_id": "H007",
+        "version": "1.31200",
+        "content_hash": "76830babb6024e994e18ae998f1b5985dde7c4a557e7a9e784945e49bed2a8fe",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A216",
+        "revision_id": "H007",
+        "version": "1.31200",
+        "content_hash": "1ea5a768e5559c48a94dd14742d3bf59034a69d78c2b737abc6dd3cf7dbe319b",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E181",
+        "revision_id": "H007",
+        "version": "1.31200",
+        "content_hash": "52717d6fb00871f2e7859d6a15d8cd80b05c02011279f60e3364df9e32af9b9a",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -15734,6 +15865,16 @@
         "summary": "six-language source extension map made exact exclusive and canonical",
         "previous_hash": "34d6739b46a7864722c4137ebfd9722dcbb010a40ff35f2433738a05a2fa1ca6",
         "entry_hash": "d12990356d8acf5a86389b74a2512a02006810609620192dd3aa094a7e9b2b23"
+      },
+      {
+        "sequence": 7,
+        "change_id": "H007",
+        "version": "1.31200",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "SQL-first bounded data reduction and Python semantic business processing boundary declared",
+        "previous_hash": "d12990356d8acf5a86389b74a2512a02006810609620192dd3aa094a7e9b2b23",
+        "entry_hash": "c0081baf6090fa7c407051eb116d25ecc197603063416d80ac8247ed7a943d37"
       }
     ],
     "savings": [
@@ -15822,6 +15963,17 @@
         "content_root": "3bd8612c7f880772277268788cf8d44120d1b17f0eb33ce04864c458884cca7b",
         "identity_root": "3ba90292f0f58b85d24d6706317e2b7f6d5c64e1e14e37767ea36c7730cdc079",
         "full_root": "991bebf32b9cad538339002a223ff5fc2f34c51b5b8dd128b6f0ea8215a27371"
+      },
+      {
+        "version": "1.31200",
+        "history_head": "c0081baf6090fa7c407051eb116d25ecc197603063416d80ac8247ed7a943d37",
+        "provision_count": 399,
+        "identity_count": 424,
+        "lineage_count": 424,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "ecbef40b562f617c4ac9783bbd3f08252fbd5eec0e8eb5a909da71286800254c",
+        "identity_root": "c764af570ae5b2c40092324a5f723975073b717d0df674ae8c3bdfcd265667e8",
+        "full_root": "5eb5a7b452237edc12b269af278ef5bfe0fb900d77c1b99106f8f631a7dfc79c"
       }
     ],
     "sealed_components": [
@@ -16122,6 +16274,56 @@
       },
       {
         "version": "1.31100",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31200",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31200",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31200",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31200",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31200",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31200",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31200",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31200",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31200",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31200",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -17289,6 +17491,14 @@
       },
       {
         "version": "1.31100",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "1.31200",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
