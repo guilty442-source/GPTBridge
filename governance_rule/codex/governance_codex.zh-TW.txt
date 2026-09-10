@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "2.81230",
+  "codex_version": "2.81330",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1822,6 +1822,15 @@
         "rule": "APPLICATION-CODE:local-owned governed source; THIRD-PARTY-CODE:not-application-authority+immutable-vendored-or-package-managed artifact; ALLOWED-STACK:python+typescript+cpp+c+csharp+sql; DEPENDENCY-ENTRY:requires-active-A197-decision+exact-content-identity+locked-version+declared-owner/purpose+license/security/provenance/compatibility evidence; VENDORED:preserve-upstream-identity/license/hash+local-patch as-separate-versioned-overlay reviewed-by-system-programming; RUNTIME:local-execution-by-default+external-service only-through-explicit-information-layer network capability; UPDATE:no-direct-third-party-manager execution+must-follow-A197-chain; REMOVAL:consumer-impact graph+data/contract migration+rollback evidence; TOOLING:Git/compilers/package-managers/interpreters are-third-party-dependencies and read-only discovery commands require registered command contracts",
         "prohibition": "FORBID:unmanaged-binary+implicit-download+floating-version+runtime-self-install+package-postinstall-unreviewed-execution+dependency-confused-name/source+local-code-misclassified-third-party+third-party-code-as-governance-source+license/notice removal+direct-external-service+legacy-sub-sovereign-owner",
         "exception": "Operating-system components may use OS-attested identity and servicing provenance when byte-level pinning is unavailable; exact platform version and capability scope remain required"
+      },
+      {
+        "position": 199,
+        "provision_id": "A199",
+        "section_index": "4",
+        "subject": "ten-second-complete-startup-deadline",
+        "rule": "SCOPE:main-system official startup generation; START-TIME:first-valid-gptbridge-start intent accepted; END-TIME:fully-ready proof acknowledged-by-system-runtime-sovereign and current-UI projection converged; CLOCK:monotonic-high-resolution; HARD-DEADLINE:10000ms inclusive; ALL-FLOWS:entry-single-instance-resolution+UI-host-visible+startup-runtime-attach/start+preflight+minimal-information-layer+official-codex-integrity+permission-directory+permission-sovereign+normal-information-mode+certified-dependency-DAG+all-manifest-declared-startup-dependencies+required-sovereigns+runtime-handoff+health-baseline+frontend-backend-snapshot/cursor convergence; BUDGETS:entry-and-UI<=1000ms,codex-information-permission<=2000ms,dependency-DAG-and-services<=4000ms,sovereign-activation-and-runtime-handoff<=2000ms,UI-convergence-and-final-proof<=1000ms; BUDGET-CARRY:unused-earlier-time may-transfer-forward+total-never-exceeds-10000ms; PARALLELISM:independent-nodes-concurrent within-resource-budget+critical-path-first; I/O:no-fixed-sleep+event-driven+bounded-connect-deadline; CACHE:only signed/content-addressed/release+environment+dependency-hash matched evidence and each-live-readiness signal revalidated; SERVICE-STRATEGY:resident-attach/prewarmed-pool/lazy-capability-adapter allowed only-when-current-process-generation+health+contract readiness truthfully verified; DECLARED-STARTUP-DEPENDENCY:must be-ready-before-fully-ready regardless-criticality label; NONSTARTUP-OPTIONAL:may-start-on-first-use only-if-certified-manifest explicitly-excludes-it-from-startup and UI labels-capability-not-started+must-not-be-counted-as-startup-complete work; NO-DEFER-EVASION:work required for normal initial UI/backend/governance/system operation cannot be relabeled optional/on-demand/deferred; DEADLINE-ENFORCEMENT:startup-sovereign propagates remaining-budget to-every-node+node-cannot-extend-parent-deadline; AT-10000MS:not-fully-ready=>atomically-mark-generation-failed+cancel-unfinished-owned-startup-work+reverse-DAG-cleanup+preserve-running-independent-tools+keep-UI-visible+publish phase/node/elapsed/remaining/timeout/evidence/remediation; RETRY:automatic-new-generation after-bounded-backoff only-when-deadline-budget-can-reset safely+never-overlap-old-generation; METRICS:entry-to-UI+each-phase+critical-path+handoff+projection+total measured-and-audited; ACCEPTANCE:p50/p95/p99 and-every-observed-startup individually<=10000ms+no-average-masking; RELEASE-GATE:changed-startup-path requires-cold/warm/reconnect/failure-injection evidence all-within-deadline on-declared-minimum-supported-environment; USER-ACTION:none",
+        "prohibition": "FORBID:startup>10000ms+soft-deadline+deadline-reset-within-generation+wall-clock-only+hidden-wait+infinite-retry+fixed-sleep+serial-independent-work+process-existence-as-ready+stale-cache-as-live-proof+fully-ready-before-all-declared-startup-flows+background-completion-after-ready+optional/deferred/lazy renaming-to-hide-required-work+UI-blocked-or-closed-on-timeout+independent-tool-stop+manual-click/approval/refresh-to-complete+average-only-compliance+timeout-without-exact-node",
+        "exception": "Hardware or external local-service conditions below the declared minimum supported environment may fail at the same 10000ms boundary; they do not permit a longer or falsely successful startup"
       }
     ],
     "certification_evidence": [
@@ -2100,6 +2109,13 @@
       },
       {
         "version": "2.81230",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "2.81330",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3318,6 +3334,13 @@
         "provision_id": "E172",
         "area": "third-party-code-boundary",
         "edict": "LOCAL-CODE:owned-source; DEPENDENCY:exact-identity+lock+provenance+SBOM+license+security+compatibility+owner+purpose; TRANSITIVE:included; TOOLCHAIN:governed-third-party; FLOATING/AUTO-INSTALL/UNMANAGED-BINARY/POSTINSTALL-UNREVIEWED/LEGACY-SUB-SOVEREIGN:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 173,
+        "provision_id": "E173",
+        "area": "ten-second-startup",
+        "edict": "DEADLINE:entry-accepted>fully-ready<=10000ms-monotonic; BUDGET:1000-entry-ui+2000-authority-information-permission+4000-dependencies+2000-sovereigns-handoff+1000-ui-convergence; ALL-DECLARED-FLOWS:complete; REQUIRED-WORK-DEFER/RENAME:none; TIMEOUT:fail-generation+owned-cleanup+UI-visible+exact-bottleneck+bounded-fresh-retry; FALSE-READY/DEADLINE-EXTENSION/MANUAL-ACTION:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -5348,18 +5371,6 @@
         "value": "forbidden"
       },
       {
-        "key": "schema",
-        "value": "gptbridge-governance-codex-v2.81230"
-      },
-      {
-        "key": "codex_version",
-        "value": "2.81230"
-      },
-      {
-        "key": "version_increment",
-        "value": "0.10000"
-      },
-      {
         "key": "third_party_sovereign_capabilities",
         "value": "identity-provenance|risk-compatibility|admission-lifecycle"
       },
@@ -5370,6 +5381,30 @@
       {
         "key": "third_party_probe_default",
         "value": "deny-unless-registered-read-only-contract"
+      },
+      {
+        "key": "schema",
+        "value": "gptbridge-governance-codex-v2.81330"
+      },
+      {
+        "key": "codex_version",
+        "value": "2.81330"
+      },
+      {
+        "key": "version_increment",
+        "value": "0.00100"
+      },
+      {
+        "key": "startup_complete_deadline_ms",
+        "value": "10000"
+      },
+      {
+        "key": "startup_deadline_clock",
+        "value": "monotonic-high-resolution"
+      },
+      {
+        "key": "startup_deadline_evasion",
+        "value": "forbidden"
       }
     ],
     "preamble": [
@@ -6034,6 +6069,12 @@
         "position": 109,
         "provision_id": "P109",
         "statement": "THIRD-PARTY-SOVEREIGN:dependency-identity/provenance+license/security/compatibility-risk+admission/version/lifecycle-decision; EXECUTION:none; UPDATE:admissibility-decision-only; INSTALL/MUTATION/ACTIVATION:programming+permission+runtime-governed-chain; SUPPLY-CHAIN:deny-unverified",
+        "binding": 1
+      },
+      {
+        "position": 110,
+        "provision_id": "P110",
+        "statement": "STARTUP-DEADLINE:official-entry-accepted-to-fully-ready<=10000ms-monotonic; ALL-DECLARED-STARTUP-PHASES:inside-one-budget; DEADLINE-EXCEEDED:fail-closed+exact-bottleneck+no-false-ready; EVASION-BY-DEFER/RENAME:none",
         "binding": 1
       }
     ],
@@ -9493,6 +9534,27 @@
         "identity_code": "codex/provision/edict/E172",
         "provision_type": "edict",
         "provision_id": "E172",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P110",
+        "provision_type": "principle",
+        "provision_id": "P110",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A199",
+        "provision_type": "article",
+        "provision_id": "A199",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E173",
+        "provision_type": "edict",
+        "provision_id": "E173",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -13449,6 +13511,30 @@
         "supersedes_id": "E23",
         "status": "active",
         "content_hash": "9b7b5dd0b716860a5cdd97bdcb07261169e0717b1e7fd573cc97025c52796628"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P110",
+        "introduced_by": "H044",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f6db4130fce62f547a305dbef37c2fb13db4849c64a29f7ef52745cc7f077e78"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A199",
+        "introduced_by": "H044",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "2df1b2f0307c96d4fd8ea95b4bb8403bd7ca0c6c1629a01d1e59065295afd674"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E173",
+        "introduced_by": "H044",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "4ad51ae930dc078d56b28be111f4a6a0ac646d7b3c95a3a147e0392c2a1c0932"
       }
     ],
     "provision_revisions": [
@@ -29891,6 +29977,30 @@
         "version": "2.81230",
         "content_hash": "9b7b5dd0b716860a5cdd97bdcb07261169e0717b1e7fd573cc97025c52796628",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P110",
+        "revision_id": "H044",
+        "version": "2.81330",
+        "content_hash": "f6db4130fce62f547a305dbef37c2fb13db4849c64a29f7ef52745cc7f077e78",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A199",
+        "revision_id": "H044",
+        "version": "2.81330",
+        "content_hash": "2df1b2f0307c96d4fd8ea95b4bb8403bd7ca0c6c1629a01d1e59065295afd674",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E173",
+        "revision_id": "H044",
+        "version": "2.81330",
+        "content_hash": "4ad51ae930dc078d56b28be111f4a6a0ac646d7b3c95a3a147e0392c2a1c0932",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -30323,6 +30433,16 @@
         "summary": "third party sovereign promoted legacy rules retired and dependency supply chain decision separated from update execution",
         "previous_hash": "f489feb11204c9b09816dc041570b4c690b02771f8059cdc8a48df8f588d251a",
         "entry_hash": "9e8f9af5214b386af4971cf466d6fcdb1dbb3dfad4c8be5d4597b9dcaafddaf2"
+      },
+      {
+        "sequence": 44,
+        "change_id": "H044",
+        "version": "2.81330",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "all declared startup flows constrained to a hard ten second monotonic deadline with phase budgets and no deferral evasion",
+        "previous_hash": "9e8f9af5214b386af4971cf466d6fcdb1dbb3dfad4c8be5d4597b9dcaafddaf2",
+        "entry_hash": "37a6e69f13682360d98681ec39f6a81b7b36ca744dcb095235d036f429bc9929"
       }
     ],
     "savings": [
@@ -30818,6 +30938,17 @@
         "content_root": "b99ebdce29c1cdb7043a735811608d082ab381fd4938201a894a23f1776ebec1",
         "identity_root": "48d0dcdfd795a3f73abd0411c68bf0177ebd9affea4469f31ce2366b7a06a02a",
         "full_root": "ee3ea4cb04a4f0339de003c2771461a6c65f49f9344055ad388cdc0be8ee853a"
+      },
+      {
+        "version": "2.81330",
+        "history_head": "37a6e69f13682360d98681ec39f6a81b7b36ca744dcb095235d036f429bc9929",
+        "provision_count": 482,
+        "identity_count": 497,
+        "lineage_count": 497,
+        "certification_state": "sealed-read-only",
+        "content_root": "2ef9948e142ac4f5116786011028f1386a0fccad73a3ec4c832ae608d42e9a79",
+        "identity_root": "d095ca3f9e0f43f8e048de0f9ee4bf48f20e26087ed1ea0c347952140b8dc6aa",
+        "full_root": "14a4a482f2ff1e62604e17b929b6081965dde26c4722f152397cdd1465984194"
       }
     ],
     "sealed_components": [
