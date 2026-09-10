@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "2.71230",
+  "codex_version": "2.81230",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1804,6 +1804,24 @@
         "rule": "SCOPE:main-system+each-independent-tool; IDENTITY:{application-entity-id,window-host-process-id,window-generation,session-id,release-id}; INVARIANT:during-one-live-application-session exactly-one-window-host-process owns-all-that-application-windows and identity remains-unchanged; APPLICATION-ISOLATION:main-system-window-host and-each-tool-window-host are-separate-process-owners+never-shared; ENTRY:first-launch starts-one-host+subsequent-launch/shortcut/protocol/deep-link focuses-or-routes-to-existing-host through-information-layer; WINDOW-CREATE:new-view/window/tab may-be-created-inside-existing-owner-host only+must-not-start-second-host; F5/RENDERER-RELOAD:navigation-or-renderer-context-refresh-inside-same-window-host+process-id/window-generation/session unchanged; BACKEND-STATE-CHANGE:A195-event-projection only+no-window-process-action; BACKEND-RESTART/RECONNECT/AUTO-REPAIR:window-host remains-running+shows-degraded/reconnecting+reauthenticates/resubscribes/reconciles-snapshot within-same-host; FRONTEND-HOT-RELOAD:load-certified-active-frontend-artifact into-existing-host+controlled-renderer-context-swap+restore-window/state/subscriptions+host-process-unchanged; UPDATE:stage-and-activate without-window-host-replacement when-runtime-compatible; LIFECYCLE-OWNER:system-runtime-sovereign for-main-system and each-tool-own-runtime-owner for-tool; SINGLE-INSTANCE-LOCK:scoped-by-application-entity-id+session+window-generation+atomic-acquire+stale-owner-proof-before-recovery; STATE:window-placement/size/route/focus/nonsecret-view-state checkpointed-by-owner+generation-fenced; STATUS:information-layer publishes host-id+generation+session+release+renderer-state without-transport-handle; EXCEPTION-GATE:host-process replacement only-after verified-host-crash/unrecoverable-host-corruption/runtime-incompatible-certified-release/explicit-user-full-application-restart or OS-session-termination; REPLACEMENT:old-host-proven-dead-or-gracefully-closed>single-instance-lock-transferred>new-generation/new-process>state-restore>backend-resync>verified-ready; NEVER-TWO-LIVE-HOSTS; UI-CLOSE:window-close policy does-not-imply-backend/tool/main-system cascade and hidden-host-continuation only-if-declared-by-application",
         "prohibition": "FORBID:spawn-new-window-host-on-F5+spawn-on-backend-event/reconnect/restart/repair/hot-reload+kill-and-relaunch-window-for-state-sync+duplicate-Electron/browser-host+process-id-churn-as-normal-refresh+main-system-and-tool-sharing-window-host+global-window-process+unscoped-single-instance-lock+PID-only-stale-owner-decision+new-host-before-old-owner-death-proof+two-live-generations+UI-process-replacement-to-fix-backend+window-process-owning-domain-state+direct-backend-window-control+information-layer-bypass",
         "exception": "A verified host-process failure or runtime-incompatible certified release may create exactly one successor generation; this is recovery or full restart, not refresh, reconnect, state synchronization, or ordinary hot reload"
+      },
+      {
+        "position": 197,
+        "provision_id": "A197",
+        "section_index": "6",
+        "subject": "third-party-sovereign-optimized-responsibility",
+        "rule": "OWNER:third-party-sovereign; RANK:specialized-decision-sovereign; CAPABILITIES:[1-dependency-identity-inventory-and-provenance,2-license-security-compatibility-and-supply-chain-risk,3-admission-version-and-lifecycle-decision]; MAX-CAPABILITIES:3; SCOPE:direct+transitive packages/libraries/frameworks/runtimes/CLI-tools/SDKs/drivers/build-tools/binaries/models-as-third-party-artifacts/container-images/external-service-client-dependencies; CAPABILITY-1:assign-stable-dependency-id+classify-development/build/runtime/optional+record-name/vendor/source/repository/artifact-kind/platform/architecture/version/version-range/content-hash/signature/provenance/SBOM/transitive-graph/consumer-owner/declared-purpose; CAPABILITY-2:evaluate-license/notice/redistribution+known-vulnerability/advisory/exploitability+malware/tampering+maintainer/source-trust+end-of-life+compatibility/API/ABI+data/network/privilege footprint+reproducibility+alternative/risk; CAPABILITY-3:issue typed admit|deny|quarantine|retain|upgrade-candidate|downgrade-candidate|replace-candidate|retire decision with exact-identity/version/constraints/evidence/expiry/review-trigger; DECISION-BOUNDARY:decides whether exact third-party artifact is admissible and which version constraint is acceptable+does-not-decide system-priority/release-acceptance/permission/runtime-activation/maintenance-health/code-change; READ-ONLY-DISCOVERY:version/help/metadata/hash/signature/license/SBOM probe must be registered as non-mutating command contract+information-layer request>permission-validation>governed-executor>sandboxed-output; UNKNOWN-COMMAND:no-auto-read-only-classification+deny-until-command-contract-registered; UPDATE-FLOW:advisory-or-request>information-layer>inventory/provenance refresh>risk+compatibility verdict>third-party candidate decision>system-decision assignment/priority>system-programming sovereign changes lock/manifest/source adapters via governed tools>language-review when-code>maintenance health/test evidence>permission validation>system-runtime staged activation+verification>A175 release; AUTOMATIC-UPDATE:monitor/propose/evaluate only+never install/modify/activate automatically; EMERGENCY:verified critical compromise=>quarantine decision+permission revocation request+runtime containment request+affected-capability fail-closed while unaffected domains continue; DATA:inventory/decision/evidence authoritative structured records owned-by-data-sovereign storage contract+third-party-sovereign content authority; COMMUNICATION:information-layer-only; REVIEW:on-new-version/advisory/license-owner/provenance/hash/consumer/privilege/network/EOL change+periodic bounded refresh; PERFORMANCE:deduplicate-by-content-hash+cache-signed-unchanged-evidence until-expiry+parallel-independent-evidence checks+rate-limited-provider access; OUTPUT:machine-readable decision-proof+human-readable redacted rationale",
+        "prohibition": "FORBID:third-party-sovereign-direct-download/install/uninstall/update/downgrade/replace/delete/execute/activate/rollback+manifest/lockfile/source/runtime/data mutation+permission-self-grant+release-signing+health-self-certification+system-priority decision+direct-network/subprocess/socket/database+unregistered-version-probe+unknown-command-treated-read-only+name-only-trust+floating/latest/unpinned production-version+hash/signature/provenance skip+transitive-dependency omission+license-unknown acceptance+silent-risk acceptance+automatic-update execution+dependency-owning-business-logic+legacy-third-party-sub-sovereign+information-layer-bypass",
+        "exception": "A dependency without an upstream signature may be considered only when its exact bytes are content-addressed, independently provenance-verified, reproducibly acquired from an approved source, sandbox-tested, explicitly risk-accepted, and bounded to a noncritical scope"
+      },
+      {
+        "position": 198,
+        "provision_id": "A198",
+        "section_index": "4",
+        "subject": "local-code-and-third-party-dependency-boundary",
+        "rule": "APPLICATION-CODE:local-owned governed source; THIRD-PARTY-CODE:not-application-authority+immutable-vendored-or-package-managed artifact; ALLOWED-STACK:python+typescript+cpp+c+csharp+sql; DEPENDENCY-ENTRY:requires-active-A197-decision+exact-content-identity+locked-version+declared-owner/purpose+license/security/provenance/compatibility evidence; VENDORED:preserve-upstream-identity/license/hash+local-patch as-separate-versioned-overlay reviewed-by-system-programming; RUNTIME:local-execution-by-default+external-service only-through-explicit-information-layer network capability; UPDATE:no-direct-third-party-manager execution+must-follow-A197-chain; REMOVAL:consumer-impact graph+data/contract migration+rollback evidence; TOOLING:Git/compilers/package-managers/interpreters are-third-party-dependencies and read-only discovery commands require registered command contracts",
+        "prohibition": "FORBID:unmanaged-binary+implicit-download+floating-version+runtime-self-install+package-postinstall-unreviewed-execution+dependency-confused-name/source+local-code-misclassified-third-party+third-party-code-as-governance-source+license/notice removal+direct-external-service+legacy-sub-sovereign-owner",
+        "exception": "Operating-system components may use OS-attested identity and servicing provenance when byte-level pinning is unavailable; exact platform version and capability scope remain required"
       }
     ],
     "certification_evidence": [
@@ -2075,6 +2093,13 @@
       },
       {
         "version": "2.71230",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "2.81230",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3279,6 +3304,20 @@
         "provision_id": "E170",
         "area": "window-process-continuity",
         "edict": "EACH-APPLICATION-SESSION:one-stable-window-host-process; REUSE-SAME-HOST:F5|renderer-reload|backend-change|reconnect|backend-restart|repair|runtime-compatible-hot-update; DUPLICATE-LAUNCH:focus-existing; MAIN/TOOLS:separate-hosts; REPLACE:verified-death|unrecoverable-corruption|runtime-incompatible-certified-release|explicit-full-restart|OS-session-end only+new-generation+never-overlap",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 171,
+        "provision_id": "E171",
+        "area": "third-party-sovereign",
+        "edict": "CAPABILITIES:identity-inventory-provenance|license-security-compatibility-risk|admission-version-lifecycle-decision; UPDATE:assess-and-decide-candidate-only; EXECUTE/MUTATE/ACTIVATE:none; CHAIN:third-party-decision>system-decision>programming>maintenance>permission>runtime>A175; PROBE:registered-read-only-contract-only; UNKNOWN:deny; CHANNEL:information-layer-only",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 172,
+        "provision_id": "E172",
+        "area": "third-party-code-boundary",
+        "edict": "LOCAL-CODE:owned-source; DEPENDENCY:exact-identity+lock+provenance+SBOM+license+security+compatibility+owner+purpose; TRANSITIVE:included; TOOLCHAIN:governed-third-party; FLOATING/AUTO-INSTALL/UNMANAGED-BINARY/POSTINSTALL-UNREVIEWED/LEGACY-SUB-SOVEREIGN:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -5297,18 +5336,6 @@
         "value": "snapshot+cursor+revision+state-hash-converged"
       },
       {
-        "key": "schema",
-        "value": "gptbridge-governance-codex-v2.71230"
-      },
-      {
-        "key": "codex_version",
-        "value": "2.71230"
-      },
-      {
-        "key": "version_increment",
-        "value": "0.10000"
-      },
-      {
         "key": "window_process_cardinality",
         "value": "one-per-application-session"
       },
@@ -5319,6 +5346,30 @@
       {
         "key": "window_process_cross_application_sharing",
         "value": "forbidden"
+      },
+      {
+        "key": "schema",
+        "value": "gptbridge-governance-codex-v2.81230"
+      },
+      {
+        "key": "codex_version",
+        "value": "2.81230"
+      },
+      {
+        "key": "version_increment",
+        "value": "0.10000"
+      },
+      {
+        "key": "third_party_sovereign_capabilities",
+        "value": "identity-provenance|risk-compatibility|admission-lifecycle"
+      },
+      {
+        "key": "third_party_update_execution",
+        "value": "none"
+      },
+      {
+        "key": "third_party_probe_default",
+        "value": "deny-unless-registered-read-only-contract"
       }
     ],
     "preamble": [
@@ -5977,6 +6028,12 @@
         "position": 108,
         "provision_id": "P108",
         "statement": "WINDOW-PROCESS-CONTINUITY:one-application-session=one-stable-window-host-process+one-window-generation; REFRESH/RECONNECT/BACKEND-UPDATE/HOT-RELOAD:reuse-same-host; DUPLICATE/REPLACEMENT:none; APPLICATION-ISOLATION:main-system-and-each-independent-tool-own-separate-host",
+        "binding": 1
+      },
+      {
+        "position": 109,
+        "provision_id": "P109",
+        "statement": "THIRD-PARTY-SOVEREIGN:dependency-identity/provenance+license/security/compatibility-risk+admission/version/lifecycle-decision; EXECUTION:none; UPDATE:admissibility-decision-only; INSTALL/MUTATION/ACTIVATION:programming+permission+runtime-governed-chain; SUPPLY-CHAIN:deny-unverified",
         "binding": 1
       }
     ],
@@ -9403,6 +9460,41 @@
         "provision_id": "E170",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P109",
+        "provision_type": "principle",
+        "provision_id": "P109",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A197",
+        "provision_type": "article",
+        "provision_id": "A197",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A198",
+        "provision_type": "article",
+        "provision_id": "A198",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E171",
+        "provision_type": "edict",
+        "provision_id": "E171",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E172",
+        "provision_type": "edict",
+        "provision_id": "E172",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -9603,7 +9695,7 @@
         "provision_id": "P25",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "270be70e7beaa958f9c73074bc3c4e6f1d81be0852da38f1ff15fad112d37d38"
       },
       {
@@ -9971,7 +10063,7 @@
         "provision_id": "A37",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "ef3212c2b741199ed341dbff842443787f85e7adb5811ab90346f6fee9ffa114"
       },
       {
@@ -10083,7 +10175,7 @@
         "provision_id": "A51",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "b6eb2b7f809fea588c9ad65fb2c411bf721c663cf93e07a1e1585246fd47f7e6"
       },
       {
@@ -10499,7 +10591,7 @@
         "provision_id": "E23",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "b958c5305ac11010e239c95568349010733a59663953678b82df238776dd1b15"
       },
       {
@@ -10611,7 +10703,7 @@
         "provision_id": "E37",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "7ee53cc6825deb4cae51411c045b4710239b40805ed22675492d50f5e2fa8458"
       },
       {
@@ -13317,6 +13409,46 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "e69b3f48e85d1b407fd694168b13b63e41a68a87f377e478ea1a7e17e4aaa771"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P109",
+        "introduced_by": "H043",
+        "supersedes_id": "P25",
+        "status": "active",
+        "content_hash": "12a21affb702f052f001ece53fbf84b8e61b92b899abaa909df1507359ab6d8a"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A197",
+        "introduced_by": "H043",
+        "supersedes_id": "A51",
+        "status": "active",
+        "content_hash": "b1c5901da96abfd1d86ff927de86087917b56a32620ce2850df91fc78e88990b"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A198",
+        "introduced_by": "H043",
+        "supersedes_id": "A37",
+        "status": "active",
+        "content_hash": "52669e453a29e771cb48a619d694fa10630b7c94363946b7117b951f6e8a7ca2"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E171",
+        "introduced_by": "H043",
+        "supersedes_id": "E37",
+        "status": "active",
+        "content_hash": "5ef2e1dc9dd65d23d86817cfb793ce18afa284fbedc5ab4140cbd76e5fa81779"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E172",
+        "introduced_by": "H043",
+        "supersedes_id": "E23",
+        "status": "active",
+        "content_hash": "9b7b5dd0b716860a5cdd97bdcb07261169e0717b1e7fd573cc97025c52796628"
       }
     ],
     "provision_revisions": [
@@ -29719,6 +29851,46 @@
         "version": "2.71230",
         "content_hash": "e69b3f48e85d1b407fd694168b13b63e41a68a87f377e478ea1a7e17e4aaa771",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P109",
+        "revision_id": "H043",
+        "version": "2.81230",
+        "content_hash": "12a21affb702f052f001ece53fbf84b8e61b92b899abaa909df1507359ab6d8a",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A197",
+        "revision_id": "H043",
+        "version": "2.81230",
+        "content_hash": "b1c5901da96abfd1d86ff927de86087917b56a32620ce2850df91fc78e88990b",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A198",
+        "revision_id": "H043",
+        "version": "2.81230",
+        "content_hash": "52669e453a29e771cb48a619d694fa10630b7c94363946b7117b951f6e8a7ca2",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E171",
+        "revision_id": "H043",
+        "version": "2.81230",
+        "content_hash": "5ef2e1dc9dd65d23d86817cfb793ce18afa284fbedc5ab4140cbd76e5fa81779",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E172",
+        "revision_id": "H043",
+        "version": "2.81230",
+        "content_hash": "9b7b5dd0b716860a5cdd97bdcb07261169e0717b1e7fd573cc97025c52796628",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -30141,6 +30313,16 @@
         "summary": "window host process identity made stable across refresh reconnect backend changes repair and compatible hot reload",
         "previous_hash": "a0b243ff22de76cd7663f5bde448c94df5b039197d498481799eba79c652d6ec",
         "entry_hash": "f489feb11204c9b09816dc041570b4c690b02771f8059cdc8a48df8f588d251a"
+      },
+      {
+        "sequence": 43,
+        "change_id": "H043",
+        "version": "2.81230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "architecture-authority",
+        "summary": "third party sovereign promoted legacy rules retired and dependency supply chain decision separated from update execution",
+        "previous_hash": "f489feb11204c9b09816dc041570b4c690b02771f8059cdc8a48df8f588d251a",
+        "entry_hash": "9e8f9af5214b386af4971cf466d6fcdb1dbb3dfad4c8be5d4597b9dcaafddaf2"
       }
     ],
     "savings": [
@@ -30625,6 +30807,17 @@
         "content_root": "ab7dc94aed97c8010dc4782f9629ed0e2d8cc5ad8961b8e3d0d4299b8c23eb79",
         "identity_root": "dc78c50f1991a57c8b2770798448195fcbfffb8e358d2e29ca2301e77fa8699f",
         "full_root": "40b3aded63aaca6646c72a22b123a45f26a79d9e5f5f1ad8fb5b862253127567"
+      },
+      {
+        "version": "2.81230",
+        "history_head": "9e8f9af5214b386af4971cf466d6fcdb1dbb3dfad4c8be5d4597b9dcaafddaf2",
+        "provision_count": 479,
+        "identity_count": 494,
+        "lineage_count": 494,
+        "certification_state": "sealed-read-only",
+        "content_root": "b99ebdce29c1cdb7043a735811608d082ab381fd4938201a894a23f1776ebec1",
+        "identity_root": "48d0dcdfd795a3f73abd0411c68bf0177ebd9affea4469f31ce2366b7a06a02a",
+        "full_root": "ee3ea4cb04a4f0339de003c2771461a6c65f49f9344055ad388cdc0be8ee853a"
       }
     ],
     "sealed_components": [
@@ -32233,21 +32426,6 @@
         "value": "govern-cross-module-contracts"
       },
       {
-        "sovereign_id": "third-party-sovereign",
-        "position": 1,
-        "value": "govern-inventory-and-version"
-      },
-      {
-        "sovereign_id": "third-party-sovereign",
-        "position": 2,
-        "value": "govern-license-and-security"
-      },
-      {
-        "sovereign_id": "third-party-sovereign",
-        "position": 3,
-        "value": "decide-third-party-updates"
-      },
-      {
         "sovereign_id": "language-review-sovereign",
         "position": 1,
         "value": "review-language-conformance"
@@ -32316,6 +32494,21 @@
         "sovereign_id": "startup-sovereign",
         "position": 3,
         "value": "verified-readiness-handoff-or-owned-failure-rollback"
+      },
+      {
+        "sovereign_id": "third-party-sovereign",
+        "position": 1,
+        "value": "dependency-identity-inventory-and-provenance"
+      },
+      {
+        "sovereign_id": "third-party-sovereign",
+        "position": 2,
+        "value": "license-security-compatibility-and-supply-chain-risk"
+      },
+      {
+        "sovereign_id": "third-party-sovereign",
+        "position": 3,
+        "value": "dependency-admission-version-and-lifecycle-decision"
       }
     ],
     "sovereign_powers": [
@@ -32515,21 +32708,6 @@
         "value": "accept-interface-contract"
       },
       {
-        "sovereign_id": "third-party-sovereign",
-        "position": 1,
-        "value": "approve-dependency-entry"
-      },
-      {
-        "sovereign_id": "third-party-sovereign",
-        "position": 2,
-        "value": "decide-dependency-version"
-      },
-      {
-        "sovereign_id": "third-party-sovereign",
-        "position": 3,
-        "value": "accept-dependency-update"
-      },
-      {
         "sovereign_id": "language-review-sovereign",
         "position": 1,
         "value": "decide-language-conformance"
@@ -32558,6 +32736,21 @@
         "sovereign_id": "xingcheng",
         "position": 13,
         "value": "notify-user-via-main-system-card"
+      },
+      {
+        "sovereign_id": "third-party-sovereign",
+        "position": 1,
+        "value": "admit-or-deny-exact-dependency-identity"
+      },
+      {
+        "sovereign_id": "third-party-sovereign",
+        "position": 2,
+        "value": "select-bounded-version-constraint"
+      },
+      {
+        "sovereign_id": "third-party-sovereign",
+        "position": 3,
+        "value": "quarantine-retain-or-retire-dependency-approval"
       }
     ],
     "sovereign_prohibitions": [
@@ -32812,21 +33005,6 @@
         "value": "permission-self-authorization"
       },
       {
-        "sovereign_id": "third-party-sovereign",
-        "position": 1,
-        "value": "direct-ungoverned-execution"
-      },
-      {
-        "sovereign_id": "third-party-sovereign",
-        "position": 2,
-        "value": "cross-sovereign-duty-takeover"
-      },
-      {
-        "sovereign_id": "third-party-sovereign",
-        "position": 3,
-        "value": "permission-self-authorization"
-      },
-      {
         "sovereign_id": "language-review-sovereign",
         "position": 1,
         "value": "direct-ungoverned-execution"
@@ -32840,6 +33018,21 @@
         "sovereign_id": "language-review-sovereign",
         "position": 3,
         "value": "permission-self-authorization"
+      },
+      {
+        "sovereign_id": "third-party-sovereign",
+        "position": 1,
+        "value": "direct-dependency-install-update-removal-or-execution"
+      },
+      {
+        "sovereign_id": "third-party-sovereign",
+        "position": 2,
+        "value": "permission-release-runtime-or-health-self-authorization"
+      },
+      {
+        "sovereign_id": "third-party-sovereign",
+        "position": 3,
+        "value": "direct-network-subprocess-database-or-information-layer-bypass"
       }
     ],
     "sovereigns": [
@@ -33555,6 +33748,36 @@
         "predecessor_identity": "codex/provision/edict/E110",
         "successor_identity": "codex/provision/edict/E168",
         "effective_version": "2.51230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/principle/P25",
+        "successor_identity": "codex/provision/principle/P109",
+        "effective_version": "2.81230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A51",
+        "successor_identity": "codex/provision/article/A197",
+        "effective_version": "2.81230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A37",
+        "successor_identity": "codex/provision/article/A198",
+        "effective_version": "2.81230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E37",
+        "successor_identity": "codex/provision/edict/E171",
+        "effective_version": "2.81230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E23",
+        "successor_identity": "codex/provision/edict/E172",
+        "effective_version": "2.81230",
         "status": "effective"
       }
     ],
