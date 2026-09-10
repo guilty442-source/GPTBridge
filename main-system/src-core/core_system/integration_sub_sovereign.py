@@ -1,14 +1,45 @@
-"""Integration Sub-Sovereign (system) — owns ALL cross-sovereign-module structural interface concerns.
+"""Integration Sovereign — owns ALL information-channel governance concerns.
 
-Per the Governance Codex (A32 / E19 / P15, absorbed under the System Sovereign),
-the Integration Sub-Sovereign is responsible for every cross-sovereign and
-cross-module structural interface, channel, synchronization and bus concerns.  It
-is the sole owner of structural-interface matters; no other sovereign or module
-may take them over (E20 boundary).
+Per the amended Governance Codex, the integration sovereign
+(``integration-sovereign`` / ``information-channel-sovereign``) is a
+``specialized-decision-sovereign`` (A127) with three duties (A128):
+
+  * govern-channel-topology     — govern the channel topology across the
+                                  system (A32/A153/E50)
+  * coordinate-message-routing  — coordinate message routing through the
+                                  information layer (A65/A153/E50)
+  * govern-cross-module-contracts — govern cross-module structural contracts
+                                    (A32/E19)
+
+Its powers (codex sovereign definition):
+  * approve-channel-registration
+  * decide-message-route
+  * accept-interface-contract
+
+Its prohibitions:
+  * direct-ungoverned-execution
+  * cross-sovereign-duty-takeover
+  * permission-self-authorization
+
+Authority boundaries:
+  * A153 (supersedes A70): ``ALL-CHANNELS:information-layer-only`` — channels
+    are exclusively owned and connected by the information layer.  The
+    integration sovereign GOVERNS channel topology and coordinates routing;
+    it does not own the channels themselves (A65/E50).
+  * E19: ``EXEC:none; NO:decision-layer-coordinate`` — the sovereign is
+    decision-only; it never executes interface work in-process.
+  * E125 (supersedes E20): ``LEGACY-SYSTEM-SOVEREIGN:none`` — the old single
+    system sovereign is gone; specialized sovereigns operate independently.
+  * E107/A130: ``RETIRE:...integration...sub-sovereigns-after-promotion`` —
+    the integration sub-sovereign has been promoted to a full
+    specialized-decision-sovereign.  This module retains its class name for
+    compatibility but operates under the codex sovereign identity
+    ``integration-sovereign`` (manifest:
+    ``sovereigns/information-channel-sovereign/manifest.json``).
 
 It is LOCAL CODE (same process as GPTBridgeApp) that coordinates existing
 interface executors and DELEGATES the actual interface operations to governed
-executors; it never holds an execution power itself.
+executors; it never holds an execution power itself (E19).
 
 At startup it auto-starts only RESIDENT services (常駐服務) — modules whose
 manifest declares ``lifecycle.stoppable: false``.  Non-resident services
@@ -54,14 +85,22 @@ IDLE_MONITOR_INTERVAL_SECONDS = 60.0
 
 
 class IntegrationSubSovereign:
-    """In-process sub-sovereign (under system) responsible for ALL cross-sovereign-module structural interface functions.
+    """In-process sovereign responsible for ALL information-channel governance.
 
-    Responsibilities (any structural-interface-related function):
-      - cross-sovereign structural interfaces
-      - cross-module structural interfaces
-      - channel management
-      - synchronization mechanisms
-      - bus coordination
+    Responsibilities (A128 — three codex duties):
+      - govern-channel-topology (A32/A153/E50)
+      - coordinate-message-routing (A65/A153/E50)
+      - govern-cross-module-contracts (A32/E19)
+
+    Powers (codex sovereign definition):
+      - approve-channel-registration
+      - decide-message-route
+      - accept-interface-contract
+
+    Per A153/E50, channels are information-layer-only; this sovereign
+    GOVERNS topology and routing decisions but does not own the channels.
+    Per E19, it is decision-only (EXEC:none) and never coordinates the
+    decision layer itself.
     """
 
     ROLE = _INTEGRATION_SOVEREIGN.id
@@ -417,17 +456,15 @@ class IntegrationSubSovereign:
     # ------------------------------------------------------------------
 
     def integration_status(self) -> dict[str, Any]:
-        """Snapshot the structural-interface state."""
+        """Snapshot the information-channel governance state (A128)."""
 
         decision = decision_basis(SYSTEM_INTEGRATION_AUTHORITY)
         return {
             "role": self.ROLE,
-            "scope": "cross-sovereign-module-structural-interface",
-            "cross_sovereign_interfaces": self._cross_sovereign_interfaces_status(),
-            "cross_module_interfaces": self._cross_module_interfaces_status(),
-            "channels": self._channels_status(),
-            "synchronization": self._synchronization_status(),
-            "bus": self._bus_status(),
+            "scope": "information-channel-governance",
+            "channel_topology": self._channel_topology_status(),
+            "message_routing": self._message_routing_status(),
+            "cross_module_contracts": self._cross_module_contracts_status(),
             "decision": decision,
             "started_at": self._started_at,
             "stopped_at": self._stopped_at,
@@ -436,13 +473,11 @@ class IntegrationSubSovereign:
     def live_status(self) -> dict[str, Any]:
         return {
             "role": self.ROLE,
-            "scope": "cross-sovereign-module-structural-interface",
+            "scope": "information-channel-governance",
             "started": self._started,
-            "cross_sovereign_interfaces": self._cross_sovereign_interfaces_status(),
-            "cross_module_interfaces": self._cross_module_interfaces_status(),
-            "channels": self._channels_status(),
-            "synchronization": self._synchronization_status(),
-            "bus": self._bus_status(),
+            "channel_topology": self._channel_topology_status(),
+            "message_routing": self._message_routing_status(),
+            "cross_module_contracts": self._cross_module_contracts_status(),
             "default_tools": dict(self._default_tool_startup),
             "resident_tools": sorted(self._resident_tool_ids),
             "non_resident_tools": sorted(self._non_resident_tool_ids),
@@ -462,7 +497,7 @@ class IntegrationSubSovereign:
         return {
             "name": "integration",
             "role": self.ROLE,
-            "scope": "cross-sovereign-module-structural-interface",
+            "scope": "information-channel-governance",
             "state": "running" if self._started else "stopped",
             "delegation": "governed-executor-only",
             "serving": self._serving(),
@@ -476,7 +511,7 @@ class IntegrationSubSovereign:
                 "idle_stopped_tools": list(self._idle_stopped_tools),
                 "resident_exempt": True,
             },
-            "synchronization": self._synchronization_status(),
+            "message_routing": self._message_routing_status(),
             "decision": decision_basis(SYSTEM_INTEGRATION_AUTHORITY),
         }
 
@@ -502,9 +537,53 @@ class IntegrationSubSovereign:
             return len(tasks)
         return 0
 
+    def _channel_topology_status(self) -> dict[str, Any]:
+        """govern-channel-topology (A32/A153/E50) — channel topology governance.
+
+        Per A153 (supersedes A70): ``ALL-CHANNELS:information-layer-only``.
+        The integration sovereign GOVERNS channel topology; the channels
+        themselves are owned by the information layer (A65/E50).
+        """
+        return {
+            "duty": "govern-channel-topology",
+            "cross_sovereign_interfaces": self._cross_sovereign_interfaces_status(),
+            "bus": self._bus_status(),
+            "channel_authority": "information-layer-only",
+            "delegation": "governed-executor-only",
+            "decision": decision_basis(SYSTEM_INTEGRATION_AUTHORITY)["edicts"],
+        }
+
+    def _message_routing_status(self) -> dict[str, Any]:
+        """coordinate-message-routing (A65/A153/E50) — message routing coordination.
+
+        Per A153/E50: ``ROUTE:sender>information-layer>authorized-destination``.
+        The integration sovereign COORDINATES routing; the information layer
+        owns the channels.
+        """
+        return {
+            "duty": "coordinate-message-routing",
+            "channels": self._channels_status(),
+            "synchronization": self._synchronization_status(),
+            "active_channel_tasks": self._active_channel_tasks(),
+            "delegation": "governed-executor-only",
+        }
+
+    def _cross_module_contracts_status(self) -> dict[str, Any]:
+        """govern-cross-module-contracts (A32/E19) — cross-module contract governance.
+
+        Per E19: ``EXEC:none; NO:decision-layer-coordinate`` — the sovereign
+        governs contracts but does not execute or coordinate the decision
+        layer.
+        """
+        return {
+            "duty": "govern-cross-module-contracts",
+            "cross_module_interfaces": self._cross_module_interfaces_status(),
+            "delegation": "governed-executor-only",
+        }
+
     def _cross_sovereign_interfaces_status(self) -> dict[str, Any]:
         return {
-            "duty": "cross-sovereign-interfaces",
+            "duty": "govern-channel-topology",
             "delegation": "governed-executor-only",
             "decision": decision_basis(SYSTEM_INTEGRATION_AUTHORITY)["edicts"],
         }
@@ -513,7 +592,7 @@ class IntegrationSubSovereign:
         toolbox_ok = self._toolbox is not None
         router_ok = self._command_router is not None
         return {
-            "duty": "cross-module-interfaces",
+            "duty": "govern-cross-module-contracts",
             "tool_bus": toolbox_ok,
             "command_router": router_ok,
             "delegation": "governed-executor-only",
@@ -533,10 +612,11 @@ class IntegrationSubSovereign:
             if shared.exists():
                 available_channels.append(name)
         return {
-            "duty": "channels",
+            "duty": "coordinate-message-routing",
             "channel_capable": channel_capable,
             "available_channels": available_channels,
             "static_artefact_channels": ["system", "ai"],
+            "channel_authority": "information-layer-only",
             "delegation": "governed-executor-only",
         }
 
@@ -549,7 +629,7 @@ class IntegrationSubSovereign:
             except Exception:
                 recovery = []
         return {
-            "duty": "synchronization",
+            "duty": "coordinate-message-routing",
             "active_channel_tasks": self._active_channel_tasks(),
             "pending_recovery": recovery,
             "delegation": "governed-executor-only",
@@ -563,7 +643,7 @@ class IntegrationSubSovereign:
             and hasattr(toolbox, "cancel_tool_execution")
         )
         return {
-            "duty": "bus",
+            "duty": "govern-channel-topology",
             "request_capable": bool(capability),
             "delegation": "governed-executor-only",
         }

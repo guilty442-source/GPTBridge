@@ -1,10 +1,26 @@
-"""Data Sub-Sovereign (system) — owns ALL data-body-related concerns, in-process.
+"""Data Sovereign — owns ALL data-integrity concerns, in-process.
 
-Per the Governance Codex (A31 / E18 / P14, absorbed under the System Sovereign),
-the Data Sub-Sovereign is responsible for every data-BODY concern: structured data,
-semantic index, and version history access specifications, consistency, integrity
-checks, and data directory.  It is the sole owner of data-body matters; no other
-sovereign or module may take them over (E20 boundary).
+Per the Governance Codex (A31 / E18 / P14), the Data Sovereign is a
+``specialized-decision-sovereign`` (A127/E125) responsible for every
+data-body concern: structured data, semantic index, and version history
+access specifications, consistency, integrity checks, and data directory.
+It is the sole owner of data-body matters; no other sovereign or module
+may take them over (E20 boundary).
+
+Duties (codex sovereign definition):
+  * govern-data-integrity
+  * decide-data-lifecycle
+  * decide-data-reconciliation
+
+Powers:
+  * declare-data-integrity-state
+  * decide-data-lifecycle
+  * accept-reconciliation-result
+
+Prohibitions:
+  * direct-ungoverned-execution
+  * cross-sovereign-duty-takeover
+  * permission-self-authorization
 
 It is LOCAL CODE (same process as GPTBridgeApp) that coordinates existing
 data executors and DELEGATES the actual data operations to governed
@@ -35,14 +51,12 @@ SYSTEM_DATA_AUTHORITY = "data"
 
 
 class DataSubSovereign:
-    """In-process sub-sovereign (under system) responsible for ALL data-body functions.
+    """In-process sovereign responsible for ALL data-integrity functions.
 
-    Responsibilities (any data-body-related function):
-      - structured data access specifications
-      - semantic index management
-      - version history management
-      - consistency and integrity checks
-      - data directory maintenance
+    Responsibilities (codex sovereign definition — A31/E18):
+      - govern-data-integrity (consistency and integrity checks)
+      - decide-data-lifecycle (structured data / semantic index / version history)
+      - decide-data-reconciliation (data directory recovery)
     """
 
     ROLE = DATA_SUB_SOVEREIGN_ROLE
@@ -115,7 +129,7 @@ class DataSubSovereign:
         decision = decision_basis(SYSTEM_DATA_AUTHORITY)
         return {
             "role": self.ROLE,
-            "scope": "all-data-body-functions",
+            "scope": "data-integrity",
             "structured_data": self._structured_data_status(),
             "semantic_index": self._semantic_index_status(),
             "version_history": self._version_history_status(),
@@ -129,7 +143,7 @@ class DataSubSovereign:
     def live_status(self) -> dict[str, Any]:
         return {
             "role": self.ROLE,
-            "scope": "all-data-body-functions",
+            "scope": "data-integrity",
             "started": self._started,
             "structured_data": self._structured_data_status(),
             "semantic_index": self._semantic_index_status(),
@@ -145,7 +159,7 @@ class DataSubSovereign:
         return {
             "name": "data",
             "role": self.ROLE,
-            "scope": "all-data-body-functions",
+            "scope": "data-integrity",
             "state": "running" if self._started else "stopped",
             "delegation": "governed-executor-only",
             "integrity_ready": self._integrity_ready(),
@@ -168,14 +182,14 @@ class DataSubSovereign:
 
     def _structured_data_status(self) -> dict[str, Any]:
         return {
-            "duty": "structured-data",
+            "duty": "decide-data-lifecycle",
             "enabled": bool(self._task_queue is not None),
             "delegation": "governed-executor-only",
         }
 
     def _semantic_index_status(self) -> dict[str, Any]:
         return {
-            "duty": "semantic-index",
+            "duty": "decide-data-lifecycle",
             "enabled": False,
             "coordinator": "qdrant (canonical); local-vector-store as bounded degraded fallback (governed executor)",
             "delegation": "governed-executor-only",
@@ -184,7 +198,7 @@ class DataSubSovereign:
     def _version_history_status(self) -> dict[str, Any]:
         version = getattr(self.app, "version", None)
         return {
-            "duty": "version-history",
+            "duty": "decide-data-lifecycle",
             "version": version,
             "delegation": "governed-executor-only",
         }
@@ -199,20 +213,20 @@ class DataSubSovereign:
                 recovery = []
         executors = self._maintenance_executor_status()
         return {
-            "duty": "consistency-integrity",
+            "duty": "govern-data-integrity",
             "integrity_ready": integrity_ready,
             "pending_recovery": recovery,
             "repair_delegated": bool(executors.get("central_repair")),
-            "executor_owner": executors.get("owner", "maintenance-sovereign"),
+            "executor_owner": executors.get("owner", "data-sovereign"),
             "decision": decision_basis(SYSTEM_DATA_AUTHORITY)["edicts"],
         }
 
     def _data_directory_status(self) -> dict[str, Any]:
         executors = self._maintenance_executor_status()
         return {
-            "duty": "data-directory",
+            "duty": "decide-data-reconciliation",
             "cleanup_delegated": bool(executors.get("daily_global_cleaner")),
-            "executor_owner": executors.get("owner", "maintenance-sovereign"),
+            "executor_owner": executors.get("owner", "data-sovereign"),
             "health_report": self._data_directory_report(),
             "delegation": "governed-executor-only",
         }

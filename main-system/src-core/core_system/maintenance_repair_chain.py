@@ -1,19 +1,28 @@
-"""Maintenance Sovereign — A67/A72 governed repair decision chain mixin.
+"""Maintenance Sovereign — A152/A154 health-classification chain mixin.
 
-Implements the full repair decision chain required by Governance Codex
-A67/A72:
+Implements the maintenance sovereign's **health-only** role in the repair
+flow per the amended Governance Codex (A152 supersedes A67, A154 supersedes
+A72, E127 supersedes E48, E128 supersedes E52):
 
-  signal > information-layer > maintenance-sovereign fault-determination
-  + repair-decision > permission-validation > governed-executor
-  > independent-verification > information-layer status-event-audit
-  > ui-sync
+  health-signal > maintenance-classification > system-decision
+  > permission > runtime-or-programming > executor > verification
+  > information-layer > ui
 
-The maintenance sovereign is the SOLE decision authority for system
-repair.  boot_core, watchdog, UI, and modules are signal-and-request-only
-(A72).  This mixin polls ``repair-requests.json`` for pending signals,
-makes the repair decision, validates permissions, dispatches the
-governed executor, independently verifies the result, audits the outcome,
-and syncs the UI.
+The maintenance sovereign (A125/E102) owns system HEALTH only
+(monitor-system-health / preserve-system-health / maintain-system).  It
+**classifies** incoming health signals from the information layer and
+delegates the repair **decision** to the system-decision-sovereign
+(A152: ``REPAIR-DECISION:system-decision-sovereign``;
+``FORBID:maintenance-owning-non-health-decisions``).  After the
+system-decision-sovereign routes the repair through permission validation
+and governed execution, the maintenance sovereign records the outcome in
+the learning store (E127: ``LEARNING:learning-system``) and syncs the UI.
+
+This mixin polls ``repair-requests.json`` for pending signals, classifies
+them, delegates the decision, acknowledges the result, audits the outcome,
+and syncs the UI.  The repair decision, permission validation, dispatch
+and independent verification live in ``repair_decision_chain.py`` under the
+system-decision-sovereign.
 
 Extracted from ``maintenance_update`` to keep each module focused and
 under 500 lines.
@@ -28,13 +37,17 @@ from .sovereign_utils import _iso_now
 
 
 class MaintenanceRepairChainMixin:
-    """A67/A72 governed repair decision chain for the Maintenance Sovereign.
+    """A152/A154 health-classification chain for the Maintenance Sovereign.
+
+    The maintenance sovereign classifies health signals and delegates the
+    repair decision to the system-decision-sovereign.  It never owns the
+    repair decision, permission validation, or code mutation (A154:
+    ``MAINTENANCE-SCOPE:health-only``; ``FORBID:maintenance-code-change``).
 
     Expects the following attributes to be set by the composing class's
     ``__init__``:
 
       * ``self.app`` — the GPTBridgeApp instance
-      * ``self._repair_service`` — CentralRepairService or None
       * ``self._repair_decision_task`` — asyncio.Task or None
       * ``self._started`` — bool
       * ``self.ROLE``
@@ -47,12 +60,14 @@ class MaintenanceRepairChainMixin:
     # ------------------------------------------------------------------
 
     def _repair_decision_chain_status(self) -> dict[str, Any]:
-        """Report the repair decision chain status for observability."""
+        """Report the health-classification chain status for observability."""
         task = getattr(self, "_repair_decision_task", None)
         return {
             "enabled": task is not None and not task.done(),
             "authority": self.ROLE,
-            "chain": "A67/A72",
+            "scope": "health-classification",
+            "decision_authority": "system-decision-sovereign",
+            "chain": "A152/A154",
             "poll_interval_seconds": self._REPAIR_POLL_INTERVAL_SECONDS,
         }
 
@@ -61,15 +76,15 @@ class MaintenanceRepairChainMixin:
     # ------------------------------------------------------------------
 
     def _start_repair_decision_loop(self) -> None:
-        """Start the repair decision loop.  Called from ``start()``."""
+        """Start the health-signal classification loop.  Called from ``start()``."""
         if getattr(self, "_repair_decision_task", None) is None:
             self._repair_decision_task = asyncio.create_task(
                 self._repair_decision_loop(),
-                name="maintenance-sovereign-repair-decision",
+                name="maintenance-sovereign-health-classification",
             )
 
     async def _stop_repair_decision_loop(self) -> None:
-        """Stop the repair decision loop.  Called from ``stop()``."""
+        """Stop the health-signal classification loop.  Called from ``stop()``."""
         task = getattr(self, "_repair_decision_task", None)
         if task is not None:
             task.cancel()
@@ -80,15 +95,16 @@ class MaintenanceRepairChainMixin:
             self._repair_decision_task = None
 
     # ------------------------------------------------------------------
-    # Repair decision loop
+    # Health-signal classification loop
     # ------------------------------------------------------------------
 
     async def _repair_decision_loop(self) -> None:
-        """Poll ``repair-requests.json`` and process pending signals.
+        """Poll ``repair-requests.json`` and classify pending health signals.
 
-        This is the maintenance sovereign's exclusive repair decision
-        entry point.  Per A67: ``ALL-SYSTEM-REPAIR:maintenance-sovereign-
-        exclusive-decision``.
+        This is the maintenance sovereign's health-classification entry
+        point.  Per A152: the maintenance sovereign classifies health
+        signals (health-only scope, A154) and delegates the repair
+        DECISION to the system-decision-sovereign.
         """
         while not self._stop_requested():
             try:
@@ -122,254 +138,105 @@ class MaintenanceRepairChainMixin:
         coordinator: Any,
         request: dict[str, Any],
     ) -> None:
-        """Handle a single repair request through the full A67 chain."""
+        """Classify a health signal and delegate the repair decision.
+
+        Per E128: ``health-signal>maintenance-classification>system-decision
+        >permission>runtime-or-programming>executor>verification>
+        information-layer>ui``.  The maintenance sovereign classifies the
+        health signal (health-only, A154) and delegates the repair DECISION
+        to the system-decision-sovereign (A152).  It then records the
+        outcome in the learning store (E127) and syncs the UI.
+        """
         request_id = str(request.get("request_id") or "")
-        failure_code = str(request.get("failure_code") or "")
         decision_proof = request.get("decision_proof") or {}
 
-        # ── Step 1: fault determination ──
-        fault = self._determine_fault(decision_proof)
-        if not fault.get("repairable"):
+        # ── Step 1: health classification (maintenance scope: health-only) ──
+        classified = self._classify_health_signal(decision_proof)
+
+        # ── Step 2: delegate repair decision to system-decision-sovereign ──
+        system_sovereign = getattr(self.app, "system_sovereign_service", None)
+        if system_sovereign is None:
             coordinator.acknowledge_request(
                 request_id,
-                maintenance_sovereign_decision="denied-not-repairable",
+                system_decision="denied-no-system-decision-sovereign",
                 ok=False,
             )
-            self._audit_repair_outcome(request, fault, None, ok=False)
+            self._audit_repair_outcome(request, classified, None, ok=False)
             return
 
-        # ── Step 2: permission validation ──
-        permission = self._validate_repair_permission(fault)
-        if not permission.get("authorized"):
-            coordinator.acknowledge_request(
-                request_id,
-                maintenance_sovereign_decision="denied-permission",
-                ok=False,
-            )
-            self._audit_repair_outcome(request, fault, permission, ok=False)
-            return
+        result = system_sovereign.decide_and_route_repair(classified)
+        ok = bool(result.get("ok"))
+        decision = str(result.get("decision") or "")
 
-        # ── Step 3: dispatch to governed executor ──
-        execution = self._dispatch_repair(fault)
-
-        # ── Step 4: independent verification ──
-        verification = self._verify_repair_independent(fault, execution)
-
-        ok = bool(verification.get("ok"))
-        decision = "approved-repair-completed" if ok else "approved-repair-failed"
-
-        # ── Step 5: acknowledge in information layer ──
+        # ── Step 3: acknowledge in information layer ──
         coordinator.acknowledge_request(
             request_id,
-            maintenance_sovereign_decision=decision,
+            system_decision=decision,
             ok=ok,
         )
 
-        # ── Step 6: status event audit ──
-        self._audit_repair_outcome(request, fault, execution, ok=ok)
+        # ── Step 4: record outcome in learning store (E127: learning-system) ──
+        self._audit_repair_outcome(request, classified, result, ok=ok)
 
-        # ── Step 7: UI sync ──
-        self._sync_ui_repair_result(fault, execution, verification, ok=ok)
+        # ── Step 5: UI sync ──
+        self._sync_ui_repair_result(classified, result, ok=ok)
 
     # ------------------------------------------------------------------
-    # Step 1: Fault determination
+    # Step 1: Health classification (read-only, maintenance scope)
     # ------------------------------------------------------------------
 
-    def _determine_fault(self, decision_proof: dict[str, Any]) -> dict[str, Any]:
-        """Determine whether the fault is a repairable source issue.
+    def _classify_health_signal(
+        self, decision_proof: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Classify a health signal from the information layer.
 
-        Per A67: ``maintenance-sovereign-fault-determination``.  The
-        sovereign analyzes the decision proof (crash diagnosis from
-        boot_core) and decides whether the fault is repairable.
+        Per A154: ``MAINTENANCE-SCOPE:health-only``.  The maintenance
+        sovereign classifies the incoming health signal (identifies the
+        error type, target file and diagnosis) without making the repair
+        decision.  The repair decision is owned by the
+        system-decision-sovereign (A152).
         """
         diagnosis = decision_proof.get("diagnosis") or {}
-        action = str(diagnosis.get("action") or "")
-        error_type = str(diagnosis.get("error_type") or "")
-        target_file = str(diagnosis.get("file") or "")
-
-        # Only indentation/syntax family errors are repairable.
-        if action != "targeted":
-            return {
-                "repairable": False,
-                "reason": f"action={action}; not targetable",
-                "error_type": error_type,
-                "target_file": target_file,
-            }
-
-        # Dev mode: never repair source automatically.
-        import os
-
-        if os.environ.get("GPTBRIDGE_RENDERER_DEV_URL"):
-            return {
-                "repairable": False,
-                "reason": "dev-mode; auto-repair disabled by policy",
-                "error_type": error_type,
-                "target_file": target_file,
-            }
-
         return {
-            "repairable": True,
-            "error_type": error_type,
-            "target_file": target_file,
+            "error_type": str(diagnosis.get("error_type") or ""),
+            "target_file": str(diagnosis.get("file") or ""),
+            "action": str(diagnosis.get("action") or ""),
             "diagnosis": diagnosis,
         }
 
     # ------------------------------------------------------------------
-    # Step 2: Permission validation
-    # ------------------------------------------------------------------
-
-    def _validate_repair_permission(self, fault: dict[str, Any]) -> dict[str, Any]:
-        """Validate that the repair is permitted by governance.
-
-        Per A67: ``permission-validation``.  The permission sovereign
-        must authorize the repair mutation before execution.
-        """
-        permission_sovereign = getattr(self.app, "permission_sovereign", None)
-        if permission_sovereign is None:
-            return {
-                "authorized": False,
-                "reason": "permission-sovereign-unavailable",
-            }
-
-        try:
-            permission_sovereign.authorize(
-                capability="system-repair",
-                action="source-repair",
-                target=str(fault.get("target_file") or ""),
-                data_scope="main-system",
-                target_tool_id="main-system",
-            )
-            return {"authorized": True}
-        except PermissionError:
-            return {
-                "authorized": False,
-                "reason": "PERMISSION_DENIED",
-            }
-        except Exception as error:
-            return {
-                "authorized": False,
-                "reason": f"{type(error).__name__}: {error}",
-            }
-
-    # ------------------------------------------------------------------
-    # Step 3: Dispatch to system-programming-sovereign (code change)
-    # ------------------------------------------------------------------
-
-    def _dispatch_repair(self, fault: dict[str, Any]) -> dict[str, Any]:
-        """Delegate the code change to the system-programming-sovereign.
-
-        Per A1154: ``OWNER:system-programming-sovereign;
-        DUTY:code-change-plan+scope+tool-selection+dispatch+independent-
-        verification; EXECUTION:approved-governed-programming-tool``.
-
-        The maintenance sovereign makes the repair DECISION only; the
-        actual source mutation is delegated to the programming sovereign
-        which dispatches an approved governed programming tool.
-        """
-        programming_sovereign = getattr(
-            self.app, "system_programming_sovereign", None
-        )
-        if programming_sovereign is None:
-            return {
-                "ok": False,
-                "reason": "system-programming-sovereign-unavailable",
-            }
-
-        target_file = str(fault.get("target_file") or "")
-        error_type = str(fault.get("error_type") or "")
-
-        try:
-            result = programming_sovereign.request_tool_execution(
-                requester_module="maintenance-sovereign",
-                tool_id="main-system-source-repair",
-                operation="targeted-indentation-repair",
-                payload={
-                    "target_file": target_file,
-                    "error_type": error_type,
-                    "diagnosis": fault.get("diagnosis") or {},
-                    "authority": self.ROLE,
-                },
-            )
-            return result
-        except Exception as error:
-            return {
-                "ok": False,
-                "reason": f"{type(error).__name__}: {error}",
-            }
-
-    # ------------------------------------------------------------------
-    # Step 4: Independent verification
-    # ------------------------------------------------------------------
-
-    def _verify_repair_independent(
-        self,
-        fault: dict[str, Any],
-        execution: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Independently verify the repair result.
-
-        Per A67: ``independent-verification``.  This step is independent
-        from the executor: it re-compiles the target file from disk
-        rather than trusting the executor's self-report.
-        """
-        target_file = str(fault.get("target_file") or "")
-
-        if not execution.get("ok"):
-            return {"ok": False, "reason": "execution-failed"}
-
-        if execution.get("skipped"):
-            return {"ok": False, "reason": f"skipped: {execution.get('reason')}"}
-
-        # Independent re-compile: read the file from disk and compile it.
-        from pathlib import Path
-
-        from tasks.source_repair import syntax_problems
-
-        project_root = Path(getattr(self.app, "project_root", ".") or ".")
-        target = (project_root / target_file).resolve()
-        if not target.is_file():
-            return {"ok": False, "reason": "file-not-found-after-repair"}
-
-        problem = syntax_problems(target)
-        if problem.get("ok"):
-            return {"ok": True, "verification": "independent-compile-ok"}
-
-        return {
-            "ok": False,
-            "reason": f"independent-verification-failed: {problem.get('error')}",
-        }
-
-    # ------------------------------------------------------------------
-    # Step 5: Status event audit
+    # Step 4: Learning-store audit (E127: LEARNING:learning-system)
     # ------------------------------------------------------------------
 
     def _audit_repair_outcome(
         self,
         request: dict[str, Any],
-        fault: dict[str, Any],
-        execution: dict[str, Any] | None,
+        classified: dict[str, Any],
+        result: dict[str, Any] | None,
         *,
         ok: bool,
     ) -> None:
-        """Record the repair outcome in the audit ledger.
+        """Record the repair outcome in the learning store.
 
-        Per A67: ``information-layer-status-event-audit``.  The outcome
-        is recorded in the persistent learning store and the audit
-        ledger.
+        Per E128: ``information-layer-status-event-audit``.  The outcome
+        is recorded in the persistent learning store (E127:
+        ``LEARNING:learning-system``) and the audit ledger.
         """
         # Record in the learning store.
         try:
             self.record_repair_outcome(
-                error_class=str(fault.get("error_type") or "Unknown"),
-                message=str(fault.get("reason") or ""),
+                error_class=str(classified.get("error_type") or "Unknown"),
+                message=str(classified.get("reason") or ""),
                 failure_code=str(request.get("failure_code") or ""),
                 remedy="targeted-source-repair",
                 ok=ok,
-                file_path=str(fault.get("target_file") or ""),
+                file_path=str(classified.get("target_file") or ""),
                 target_tool_id="main-system",
                 run_id=str(request.get("request_id") or ""),
                 detail={
-                    "execution": execution or {},
+                    "execution": (result or {}).get("execution", {}),
+                    "verification": (result or {}).get("verification", {}),
+                    "decision": (result or {}).get("decision", ""),
                     "request_id": str(request.get("request_id") or ""),
                 },
             )
@@ -377,21 +244,20 @@ class MaintenanceRepairChainMixin:
             pass  # Best-effort.
 
     # ------------------------------------------------------------------
-    # Step 6: UI sync
+    # Step 5: UI sync
     # ------------------------------------------------------------------
 
     def _sync_ui_repair_result(
         self,
-        fault: dict[str, Any],
-        execution: dict[str, Any],
-        verification: dict[str, Any],
+        classified: dict[str, Any],
+        result: dict[str, Any],
         *,
         ok: bool,
     ) -> None:
         """Notify the UI of the repair outcome.
 
-        Per A67: ``ui-sync``.  The frontend is notified so it can
-        refresh its status display.
+        Per E128: ``ui``.  The frontend is notified so it can refresh its
+        status display.
         """
         try:
             asyncio.create_task(
@@ -399,10 +265,12 @@ class MaintenanceRepairChainMixin:
                     "maintenance:repair-completed",
                     {
                         "ok": ok,
-                        "target_file": str(fault.get("target_file") or ""),
-                        "error_type": str(fault.get("error_type") or ""),
-                        "verification": verification,
-                        "authority": self.ROLE,
+                        "target_file": str(classified.get("target_file") or ""),
+                        "error_type": str(classified.get("error_type") or ""),
+                        "decision": str(result.get("decision") or ""),
+                        "verification": result.get("verification", {}),
+                        "health_authority": self.ROLE,
+                        "decision_authority": "system-decision-sovereign",
                     },
                 )
             )

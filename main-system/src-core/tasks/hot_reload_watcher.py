@@ -162,7 +162,15 @@ class HotReloadWatcher:
             app, "maintenance_ready", False
         ):
             return
-        if getattr(app, "maintenance_sovereign", None) is None:
+        # E127: hot-reload is a runtime action owned by the runtime
+        # sub-sovereign (under the system-decision-sovereign).
+        system_sovereign = getattr(app, "system_sovereign_service", None)
+        runtime_sovereign = (
+            getattr(system_sovereign, "runtime_sovereign", None)
+            if system_sovereign is not None
+            else None
+        )
+        if runtime_sovereign is None:
             return
         governance = getattr(app, "governance", None)
         if governance is None:
@@ -184,7 +192,7 @@ class HotReloadWatcher:
 
         self._in_flight = True
         try:
-            report = await app.maintenance_sovereign.execute_hot_reload(
+            report = await runtime_sovereign.execute_hot_reload(
                 approval_token=token,
                 modules=module_names,
             )

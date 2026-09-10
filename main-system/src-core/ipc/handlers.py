@@ -58,7 +58,7 @@ class CommandRouter:
         return getattr(system_sovereign, "third_party_sovereign", None)
 
     def _get_maintenance_sovereign(self) -> Any:
-        """Resolve the sole update-management owner."""
+        """Resolve the system-health owner (maintenance sovereign)."""
         return getattr(self.app, "maintenance_sovereign", None)
 
     async def handle(
@@ -190,11 +190,11 @@ class CommandRouter:
             }
 
         if command == "app:update-third-party-tool":
-            sovereign = self._get_maintenance_sovereign()
+            sovereign = self._get_third_party_sovereign()
             if sovereign is None:
                 return f"{command}_result", {
                     "ok": False,
-                    "error_code": "MAINTENANCE_SOVEREIGN_UNAVAILABLE",
+                    "error_code": "THIRD_PARTY_SOVEREIGN_UNAVAILABLE",
                     "message": "PERMISSION_DENIED",
                 }
             tool_id = str(payload.get("tool_id") or "").strip()
@@ -206,7 +206,7 @@ class CommandRouter:
                 }
             approval_token = str(payload.get("approval_token") or "").strip()
             try:
-                result = await sovereign.execute_third_party_update(
+                result = await sovereign.apply_approved_update(
                     tool_id, approval_token=approval_token or None
                 )
             except Exception as error:
@@ -218,11 +218,11 @@ class CommandRouter:
             return f"{command}_result", result.as_dict()
 
         if command == "app:auto-update-third-party-tools":
-            sovereign = self._get_maintenance_sovereign()
+            sovereign = self._get_third_party_sovereign()
             if sovereign is None:
                 return f"{command}_result", {
                     "ok": False,
-                    "error_code": "MAINTENANCE_SOVEREIGN_UNAVAILABLE",
+                    "error_code": "THIRD_PARTY_SOVEREIGN_UNAVAILABLE",
                     "message": "PERMISSION_DENIED",
                 }
             approval_token = str(payload.get("approval_token") or "").strip()
@@ -234,7 +234,7 @@ class CommandRouter:
                     "message": "governance approval token required for auto-update",
                 }
             try:
-                results = await sovereign.execute_auto_third_party_updates(
+                results = await sovereign.apply_approved_auto_updates(
                     approval_token=approval_token, only_available=only_available
                 )
             except Exception as error:
@@ -248,7 +248,7 @@ class CommandRouter:
                 "results": {tid: r.as_dict() for tid, r in results.items()},
             }
 
-        # A67: repair coordination status — lets the frontend check whether
+        # A152: repair coordination status — lets the frontend check whether
         # a repair is already in progress before triggering its own restart,
         # preventing duplicate repair owners.
         if command == "app:get-repair-status":
@@ -268,16 +268,23 @@ class CommandRouter:
             }
 
         # app:hot-reload-backend — governed system-wide hot-reload trigger.
-        # The maintenance sovereign re-executes already-loaded governed backend
-        # modules in place; an approval token (capability hot-update/hot-reload)
-        # minted through the same governance authorization path is required.
+        # Per E127 (RUNTIME-ACTION:system-runtime), hot-reload is a runtime
+        # action owned by the runtime sub-sovereign (under the
+        # system-decision-sovereign).  An approval token (capability
+        # hot-update/hot-reload) minted through the governance authorization
+        # path is required.
         if command == "app:hot-reload-backend":
-            sovereign = self._get_maintenance_sovereign()
-            if sovereign is None:
+            system_sovereign = getattr(self.app, "system_sovereign_service", None)
+            runtime_sovereign = (
+                getattr(system_sovereign, "runtime_sovereign", None)
+                if system_sovereign is not None
+                else None
+            )
+            if runtime_sovereign is None:
                 return f"{command}_result", {
                     "ok": False,
-                    "duty": "update-management",
-                    "error_code": "MAINTENANCE_SOVEREIGN_UNAVAILABLE",
+                    "duty": "runtime-action",
+                    "error_code": "RUNTIME_SOVEREIGN_UNAVAILABLE",
                     "message": "PERMISSION_DENIED",
                 }
             approval_token = str(payload.get("approval_token") or "").strip()
@@ -292,7 +299,7 @@ class CommandRouter:
                     "message": "modules must be a list of dotted module names",
                 }
             try:
-                result = await sovereign.execute_hot_reload(
+                result = await runtime_sovereign.execute_hot_reload(
                     approval_token=approval_token or None,
                     modules=modules,
                 )

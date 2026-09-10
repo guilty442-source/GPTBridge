@@ -57,6 +57,16 @@ def _git_dir_path(repo: GitRepository) -> Path:
     return resolved.resolve()
 
 
+def _is_main_worktree(repo: GitRepository) -> bool:
+    """Return True for the primary checkout, which Git does not allow locking."""
+    common = repo.run(["rev-parse", "--git-common-dir"])
+    raw = (common.stdout or "").strip()
+    common_dir = Path(raw)
+    if not common_dir.is_absolute():
+        common_dir = repo.path / common_dir
+    return _git_dir_path(repo) == common_dir.resolve()
+
+
 def operation_in_progress(repo: GitRepository) -> bool:
     """True when a merge/rebase/cherry-pick/revert is underway (or sequencer)."""
     git_dir = _git_dir_path(repo)
@@ -136,14 +146,15 @@ def run_once(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
 
     locked = False
     try:
-        lock_result = repo.run(
-            ["worktree", "lock", str(repo.path)],
-            confirmed=True,
-            actor=actor,
-        )
-        if lock_result.returncode != 0:
-            return f"error:lock:{lock_result.stderr.strip()[:200]}"
-        locked = True
+        if not _is_main_worktree(repo):
+            lock_result = repo.run(
+                ["worktree", "lock", str(repo.path)],
+                confirmed=True,
+                actor=actor,
+            )
+            if lock_result.returncode != 0:
+                return f"error:lock:{lock_result.stderr.strip()[:200]}"
+            locked = True
         add_result = repo.run(["add", "-A"], confirmed=True, actor=actor)
         if add_result.returncode != 0:
             return f"error:add:{add_result.stderr.strip()[:200]}"

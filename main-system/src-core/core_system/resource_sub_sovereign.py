@@ -1,10 +1,31 @@
-"""Resource Sub-Sovereign (system) — owns ALL resource-body-related concerns, in-process.
+"""Resource Sovereign — owns ALL resource-allocation concerns, in-process.
 
-Per the Governance Codex (A30 / E17 / P13, absorbed under the System Sovereign),
-the Resource Sub-Sovereign is responsible for every resource-BODY concern: memory,
-disk, model and compute resource state monitoring, provisioning and delegated
-release.  It is the sole owner of resource-body matters; no other sovereign or
-module may take them over (E20 boundary).
+Per the Governance Codex (A30 / E17 / P13), the Resource Sovereign is a
+``specialized-decision-sovereign`` (A127/E125) responsible for every
+resource-body concern: memory, disk, model and compute resource state
+monitoring, provisioning and delegated release.  It is the sole owner of
+resource-body matters; no other sovereign or module may take them over
+(E20 boundary).
+
+Duties (codex sovereign definition):
+  * monitor-resource-state
+  * decide-resource-allocation
+  * coordinate-resource-release
+
+Powers:
+  * decide-resource-allocation
+  * dispatch-resource-control
+  * accept-resource-release
+
+Prohibitions:
+  * direct-ungoverned-execution
+  * cross-sovereign-duty-takeover
+  * permission-self-authorization
+
+The codex registration (resource-allocation-sovereign) is the authoritative
+source for this module's role, decision area and responsibilities; the legacy
+``system-resource-sub-sovereign`` id exists only as the execution-layer
+channel role.
 
 It is LOCAL CODE (same process as GPTBridgeApp) that coordinates existing
 resource executors and DELEGATES the actual resource release to governed
@@ -16,6 +37,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from governance_rule.codex import GOVERNANCE_CODEX
+
 from .codex_decision import decision_basis
 from .sovereign_utils import _iso_now
 from .native import (
@@ -24,18 +47,27 @@ from .native import (
     resource_status,
 )
 
-RESOURCE_SUB_SOVEREIGN_ROLE = "system-resource-sub-sovereign"
+_RESOURCE_SOVEREIGN = next(
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "resource-allocation"),
+    None,
+)
+if _RESOURCE_SOVEREIGN is None:
+    raise RuntimeError("resource sovereign not found in Governance Codex")
 
-RESOURCE_DECISION_AREA = "resource"
+RESOURCE_SUB_SOVEREIGN_ROLE = _RESOURCE_SOVEREIGN.id
+
+RESOURCE_SUB_SOVEREIGN_RESPONSIBILITIES = _RESOURCE_SOVEREIGN.duties
+
+RESOURCE_DECISION_AREA = _RESOURCE_SOVEREIGN.area
 
 
 class ResourceSubSovereign:
-    """In-process sub-sovereign (under system) responsible for ALL resource-body functions.
+    """In-process sovereign responsible for ALL resource-allocation functions.
 
-    Responsibilities (any resource-body-related function):
-      - memory / disk / model / compute resource state monitoring
-      - resource provisioning / configuration coordination
-      - delegated resource release (native kernel + resource-maintenance)
+    Responsibilities (codex sovereign definition — A30/E17):
+      - monitor-resource-state (memory / disk / model / compute)
+      - decide-resource-allocation (provisioning / configuration coordination)
+      - coordinate-resource-release (delegated to native kernel + executor)
     """
 
     ROLE = RESOURCE_SUB_SOVEREIGN_ROLE
@@ -114,7 +146,7 @@ class ResourceSubSovereign:
         decision = decision_basis(RESOURCE_DECISION_AREA)
         return {
             "role": self.ROLE,
-            "scope": "all-resource-body-functions",
+            "scope": "resource-allocation",
             "native": resource_status(),
             "native_available": native_available(),
             "memory_maintenance": self._memory_maintainer_status(),
@@ -126,7 +158,7 @@ class ResourceSubSovereign:
     def live_status(self) -> dict[str, Any]:
         return {
             "role": self.ROLE,
-            "scope": "all-resource-body-functions",
+            "scope": "resource-allocation",
             "started": self._started,
             "native": resource_status(),
             "native_available": native_available(),
@@ -140,7 +172,7 @@ class ResourceSubSovereign:
         return {
             "name": "resource",
             "role": self.ROLE,
-            "scope": "all-resource-body-functions",
+            "scope": "resource-allocation",
             "state": "running" if self._started else "stopped",
             "delegation": "governed-executor-only",
             "native_available": native_available(),
@@ -161,6 +193,7 @@ class ResourceSubSovereign:
 
 __all__ = [
     "RESOURCE_DECISION_AREA",
-    "RESOURCE_SOVEREIGN_ROLE",
+    "RESOURCE_SUB_SOVEREIGN_RESPONSIBILITIES",
+    "RESOURCE_SUB_SOVEREIGN_ROLE",
     "ResourceSubSovereign",
 ]

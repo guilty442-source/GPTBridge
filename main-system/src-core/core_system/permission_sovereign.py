@@ -1,11 +1,30 @@
-"""Permission Sovereign ??permission management and granting authority surface
-under the System Sovereign.
+"""Permission Sovereign — permission management and granting authority surface.
 
-The permission sovereign is RESPONSIBLE for ALL permission-related matters per
-the Governance Codex only: permission management, granting, termination, the
-management of every module's permission IDENTIFIERS, and supervision of
-execution against those permissions.  It has NO execution power of its own;
-the directory remains directory-driven.
+Per the amended Governance Codex (A127), the permission sovereign is an
+``independent-special-authority-sovereign`` — it is NOT under the system
+sovereign.  It is RESPONSIBLE for ALL permission-related matters per the
+Governance Codex only.
+
+Duties (codex sovereign definition):
+  * permission-management
+  * permission-issue
+  * permission-termination
+  * permission-supervision
+  * permission-id-management
+  * identity-group-supervision
+
+Powers: ``none`` (the sovereign has no powers; it is a decision surface
+that delegates to the governed directory executor).
+
+Prohibitions:
+  * overstep-execution
+  * exceed-codex
+  * self-grant
+  * delegate
+  * inherit
+  * privilege-expansion
+  * proxy-permission-matters
+  * module-self-issue-permission-id
 
   * role                    = permission-sovereign
   * authority               = permission-management-and-granting
@@ -50,12 +69,15 @@ class PermissionSovereign:
 
     Owns every permission concern per the Governance Codex ONLY (codex-bound):
     permission management, granting, termination, each module's permission
-    IDENTIFIERS, and supervision of execution compliance ??while holding no
+    IDENTIFIERS, and supervision of execution compliance — while holding no
     execution power itself.  Every decision references the Governance Codex
     (area ``permission``); it does not own its decision source.  It exposes
     approved identifiers, actors, capabilities, actions, targets and
     data-scopes from the sealed directory plus the Codex's permission decision
     basis.
+
+    Per A127, this is an ``independent-special-authority-sovereign`` — it is
+    NOT under the system sovereign.
     """
 
     ROLE = _PERMISSION_SOVEREIGN.id

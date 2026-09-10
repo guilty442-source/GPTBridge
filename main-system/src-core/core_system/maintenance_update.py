@@ -1,21 +1,41 @@
-"""Maintenance Sovereign — update / hot-reload / repair / fault / backup mixin.
+"""Maintenance Sovereign — update / repair / fault / backup health-monitoring
+mixin.
+
+Per the amended Governance Codex (A125/E102), the maintenance sovereign's
+duties are ``monitor-system-health``, ``preserve-system-health`` and
+``maintain-system`` (health-only scope, A154).  The specific maintenance
+actions (update, repair, backup) are **subordinate to these three duties**
+and **delegated to governed executors** (E102).  This mixin surfaces the
+read-only health status of those delegated maintenance actions so the
+maintenance sovereign can monitor system health.
+
+Authority boundaries (A152/A154/E127/E128):
+  * update / hot-reload  → runtime action, owned by system-runtime (E127)
+  * repair decision       → system-decision-sovereign (A152)
+  * code change           → system-programming-sovereign (E127)
+  * backup coordination   → delegated governed executor (E102)
+
+The maintenance sovereign supervises the **health** of these boundaries
+(read-only); it never owns the decision or execution.
 
 Extracted from ``maintenance_sovereign`` to keep each module focused and
-under 500 lines.  Preserves ``execute_hot_reload`` and third-party update
-coordination.
+under 500 lines.
 """
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from .codex_decision import decision_basis
 
 
 class MaintenanceUpdateMixin:
-    """Update-management, automatic-repair, fault-determination and backup
-    duty surfaces for the Maintenance Sovereign.
+    """Health-monitoring surfaces for delegated maintenance actions.
+
+    These methods report the read-only health status of update, repair,
+    fault and backup boundaries.  The maintenance sovereign monitors
+    system health (A125/E102); the decisions and execution are owned by
+    other sovereigns (A152/A154/E127/E128).
 
     Expects the following attributes to be set by the composing class's
     ``__init__``:
@@ -26,23 +46,8 @@ class MaintenanceUpdateMixin:
     """
 
     # ------------------------------------------------------------------
-    # Update / automatic-repair / fault-determination / backup surfaces
+    # UI notification helper (shared with MaintenanceRepairChainMixin)
     # ------------------------------------------------------------------
-
-    def _update_status(self) -> dict[str, Any]:
-        """Update duty — supervises the version-gated hot-update boundary and
-        the system-wide hot-reload capability."""
-
-        hot_update = self._hot_update or getattr(self.app, "hot_update_service", None)
-        if hot_update is None:
-            return {"duty": "update-management", "owner": self.ROLE, "enabled": False}
-        get_status = getattr(hot_update, "status", None)
-        if callable(get_status):
-            try:
-                return {"duty": "update-management", "owner": self.ROLE, **get_status()}
-            except Exception:
-                return {"duty": "update-management", "owner": self.ROLE, "available": True}
-        return {"duty": "update-management", "owner": self.ROLE, "available": True}
 
     async def _notify_ui(self, event: str, payload: dict[str, Any]) -> int:
         shells = getattr(self.app, "_active_ui_shells", None) or set()
@@ -60,140 +65,98 @@ class MaintenanceUpdateMixin:
                 pass
         return count
 
-    async def execute_hot_reload(
-        self,
-        *,
-        approval_token: str | None = None,
-        modules: Any = None,
-    ) -> dict[str, Any]:
-        """Coordinate a system-wide hot-reload of governed backend modules.
+    # ------------------------------------------------------------------
+    # Health-monitoring surfaces (read-only, delegated actions)
+    # ------------------------------------------------------------------
 
-        Hot-reload is a maintenance operation under the update-management
-        duty (A24/E8).  It reloads already-loaded Python modules in-place so
-        source edits to governed backend code take effect without a full
-        process restart.  Governance authorization is required; the scope is
-        system-wide (all backend src roots, not just main-system/src-core).
+    def _update_status(self) -> dict[str, Any]:
+        """Update-boundary health — read-only supervision of the version-gated
+        hot-update boundary and the system-wide hot-reload capability.
 
-        After a successful reload the self-maintenance stability check is
-        re-run and the frontend is notified so it can refresh in sync.
+        Per E127 (``RUNTIME-ACTION:system-runtime``), hot-reload execution is
+        owned by the runtime sub-sovereign; the maintenance sovereign
+        monitors the health/readiness of the update boundary only.
         """
+
         hot_update = self._hot_update or getattr(self.app, "hot_update_service", None)
         if hot_update is None:
-            return {
-                "ok": False,
-                "duty": "update-management",
-                "error": "hot-update-service-unavailable",
-            }
-        reload_modules = getattr(hot_update, "reload_modules", None)
-        if not callable(reload_modules):
-            return {
-                "ok": False,
-                "duty": "update-management",
-                "error": "hot-reload-not-supported",
-            }
-        governance = getattr(self.app, "governance", None)
-        report = await asyncio.to_thread(
-            reload_modules,
-            governance=governance,
-            approval_token=approval_token,
-            modules=modules,
-        )
-
-        # Sync the frontend so it can refresh against the newly loaded backend.
-        notified = await self._notify_ui(
-            "maintenance:hot-reload-completed",
-            {
-                "ok": report.ok,
-                "reloaded_count": len(report.reloaded),
-                "skipped_count": len(report.skipped),
-                "errors": list(report.errors)[:8],
-            },
-        )
-
-        # A successful reload is an accepted runtime revision.  Automatic
-        # repair must not run from this path or replace that accepted source.
-        auto_repair: dict[str, Any] = {
-            "ok": True,
-            "skipped": True,
-            "reason": "hot-reload-revision-protected",
-        }
-
-        return {
-            "ok": report.ok,
-            "duty": "update-management",
-            "operation": "hot-reload",
-            "authority": self.ROLE,
-            "scope": "system-wide",
-            "reloaded": list(report.reloaded),
-            "skipped": list(report.skipped),
-            "errors": list(report.errors),
-            "ui_notified": notified,
-            "auto_repair": auto_repair,
-        }
-
-    def _third_party_update_executor(self) -> Any:
-        system_sovereign = getattr(self.app, "system_sovereign_service", None)
-        if system_sovereign is None:
-            return None
-        return getattr(system_sovereign, "third_party_sovereign", None)
-
-    async def execute_third_party_update(
-        self, tool_id: str, *, approval_token: str | None = None
-    ) -> Any:
-        """Manage one update and delegate only its execution."""
-        executor = self._third_party_update_executor()
-        if executor is None:
-            raise RuntimeError("third-party update executor unavailable")
-        return await executor.apply_approved_update(
-            tool_id, approval_token=approval_token
-        )
-
-    async def execute_auto_third_party_updates(
-        self, *, approval_token: str, only_available: bool = True
-    ) -> dict[str, Any]:
-        """Manage approved automatic updates and delegate their execution."""
-        executor = self._third_party_update_executor()
-        if executor is None:
-            raise RuntimeError("third-party update executor unavailable")
-        return await executor.apply_approved_auto_updates(
-            approval_token=approval_token, only_available=only_available
-        )
+            return {"duty": "update-health", "owner": self.ROLE, "enabled": False}
+        get_status = getattr(hot_update, "status", None)
+        if callable(get_status):
+            try:
+                return {"duty": "update-health", "owner": self.ROLE, **get_status()}
+            except Exception:
+                return {"duty": "update-health", "owner": self.ROLE, "available": True}
+        return {"duty": "update-health", "owner": self.ROLE, "available": True}
 
     def _automatic_repair_status(self) -> dict[str, Any]:
-        """Automatic-repair duty — coordinates the governed repair service."""
+        """Repair-service health — read-only monitoring of the governed
+        repair service readiness.
+
+        Per A152 (``REPAIR-DECISION:system-decision-sovereign``), the repair
+        decision is owned by the system-decision-sovereign; the maintenance
+        sovereign monitors the health/readiness of the repair service only.
+        """
 
         repair = self._repair_service
         if repair is None:
             return {
-                "duty": "automatic-repair",
+                "duty": "repair-health",
                 "enabled": False,
+                "decision_authority": "system-decision-sovereign",
                 "delegation": "governed-executor-only",
             }
         get_status = getattr(repair, "status", None)
         if callable(get_status):
             try:
-                return {"duty": "automatic-repair", **get_status()}
+                return {
+                    "duty": "repair-health",
+                    "decision_authority": "system-decision-sovereign",
+                    **get_status(),
+                }
             except Exception:
-                return {"duty": "automatic-repair", "enabled": True}
-        return {"duty": "automatic-repair", "enabled": True}
+                return {
+                    "duty": "repair-health",
+                    "enabled": True,
+                    "decision_authority": "system-decision-sovereign",
+                }
+        return {
+            "duty": "repair-health",
+            "enabled": True,
+            "decision_authority": "system-decision-sovereign",
+        }
 
     def _fault_determination_status(self) -> dict[str, Any]:
-        """Fault-determination duty — surfaces the repair planner readiness."""
+        """Health-classification readiness — surfaces the repair decision
+        chain readiness.
+
+        Per A152/A154, fault determination for repair is owned by the
+        system-decision-sovereign; the maintenance sovereign performs health
+        classification only.  This surface reports the readiness of that
+        chain.
+        """
 
         repair = self._repair_service
         return {
-            "duty": "fault-determination",
+            "duty": "health-classification",
             "enabled": repair is not None,
+            "decision_authority": "system-decision-sovereign",
             "decision": decision_basis(self._maintenance_area())["edicts"],
         }
 
     def _backup_status(self) -> dict[str, Any]:
-        """Backup duty — coordinates governed backup/backup-extraction executor."""
+        """Backup health — read-only monitoring of governed backup readiness.
+
+        Per E102, backup as a specific maintenance action is subordinate to
+        the three health duties and delegated to governed executors.  The
+        maintenance sovereign monitors backup readiness as part of
+        ``preserve-system-health``.
+        """
 
         repair = self._repair_service
         backup_enabled = repair is not None and hasattr(repair, "plan_repair")
         return {
-            "duty": "backup",
+            "duty": "backup-health",
             "enabled": bool(backup_enabled),
             "delegation": "governed-executor-only",
         }

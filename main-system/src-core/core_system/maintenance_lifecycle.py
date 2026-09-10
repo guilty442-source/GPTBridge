@@ -3,6 +3,11 @@
 Extracted from ``maintenance_sovereign`` to keep each module focused and
 under 500 lines.  Preserves the start() ordering that reloads learning state
 and the stop() behavior that preserves learning state.
+
+Per A152/A154 (amended codex), the maintenance sovereign owns system health
+only; the health-classification loop (was the A67/A72 repair decision loop)
+is started here but the repair decision is delegated to the
+system-decision-sovereign.
 """
 
 from __future__ import annotations
@@ -84,8 +89,9 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
                 name="maintenance-sovereign-capability",
             )
 
-        # A67/A72: start the repair decision loop so the sovereign
-        # processes pending repair signals from the information layer.
+        # A152/A154: start the health-classification loop so the maintenance
+        # sovereign classifies pending health signals and delegates the
+        # repair decision to the system-decision-sovereign.
         self._start_repair_decision_loop()
 
         return {
@@ -102,7 +108,7 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
             with _suppress(asyncio.CancelledError):
                 await self._capability_task
             self._capability_task = None
-        # A67/A72: stop the repair decision loop.
+        # A152/A154: stop the health-classification loop.
         await self._stop_repair_decision_loop()
         self._capability_report = None
         self._daily_cleaner = None

@@ -1,15 +1,31 @@
-"""Third-Party Management Sub-Sovereign (system) — owns third-party software governance.
+"""Third-Party Sovereign — owns third-party software governance.
 
-Per the Governance Codex (A51 / P25 / E37, absorbed under the System Sovereign),
-the Third-Party Management Sub-Sovereign owns third-party software introduction,
-version, license, and security management.  It ensures no non-formal third-party
-software, packages, or external services are introduced (P7 / A37 / A49).
+Per the Governance Codex (A51 / P25 / E37), the Third-Party Sovereign is a
+``specialized-decision-sovereign`` (A127/E125) that owns third-party software
+introduction, version, license, and security management.  It ensures no
+non-formal third-party software, packages, or external services are
+introduced (P7 / A37 / A49).
+
+Duties (codex sovereign definition — A128):
+  * govern-inventory-and-version
+  * govern-license-and-security
+  * decide-third-party-updates
+
+Powers:
+  * approve-dependency-entry
+  * decide-dependency-version
+  * accept-dependency-update
+
+Prohibitions:
+  * direct-ungoverned-execution
+  * cross-sovereign-duty-takeover
+  * permission-self-authorization
 
 It is LOCAL CODE (same process as GPTBridgeApp) that coordinates the tool
 inventory and DELEGATES the actual enforcement to governed executors; it never
 holds an execution power itself.
 
-The sub-sovereign delegates version probing, update checking, and update
+The sovereign delegates version probing, update checking, and update
 execution to the ThirdPartyManager service.  Update execution requires an
 explicit governance approval token.
 """
@@ -49,15 +65,12 @@ FORMAL_TOOLS = ("postgresql", "qdrant", "git", "rag", "python", "typescript", "c
 
 
 class ThirdPartySubSovereign:
-    """In-process sub-sovereign (under system) responsible for third-party software management.
+    """In-process sovereign responsible for third-party software management.
 
-    Responsibilities:
-      - third-party introduction review (none allowed per P7/A37)
-      - tool inventory management
-      - version/license/security tracking for formal tools
-      - non-formal third-party detection and blocking
-      - centralized version probing via ThirdPartyManager
-      - update detection and governed update execution
+    Responsibilities (codex sovereign definition — A128):
+      - govern-inventory-and-version (tool inventory, version probing)
+      - govern-license-and-security (non-formal detection and blocking)
+      - decide-third-party-updates (update detection and governed execution)
     """
 
     ROLE = _THIRD_PARTY_SOVEREIGN.id
@@ -146,7 +159,7 @@ class ThirdPartySubSovereign:
     async def apply_approved_update(
         self, tool_id: str, *, approval_token: str | None = None
     ) -> UpdateExecutionResult:
-        """Apply an update already managed and delegated by maintenance."""
+        """Apply an approved third-party update (A128: decide-third-party-updates)."""
         if self._manager is None:
             return UpdateExecutionResult(
                 tool_id=tool_id, error="manager not initialized"
@@ -156,7 +169,7 @@ class ThirdPartySubSovereign:
     async def apply_approved_auto_updates(
         self, *, approval_token: str, only_available: bool = True
     ) -> dict[str, UpdateExecutionResult]:
-        """Apply updates already managed and delegated by maintenance."""
+        """Apply approved auto-updates (A128: decide-third-party-updates)."""
         if self._manager is None:
             return {}
         return await self._manager.execute_auto_updates(
@@ -174,13 +187,13 @@ class ThirdPartySubSovereign:
     def live_status(self) -> dict[str, Any]:
         return {
             "role": self.ROLE,
-            "scope": "third-party-introduction-version-license-security",
+            "scope": "dependency-governance",
             "started": self._started,
             "formal_tools": list(FORMAL_TOOLS),
             "auto_updatable_tools": sorted(AUTO_UPDATABLE_TOOLS),
             "inventory": self._inventory_status(),
             "manager": self.get_manager_status() if self._manager else None,
-            "update_boundary": "maintenance-sovereign-managed; execution-only",
+            "update_boundary": "third-party-sovereign-managed; execution-only",
             "supervision_loop": {
                 "running": self._supervision_task is not None and not self._supervision_task.done(),
                 "interval_seconds": self._supervision_interval_seconds,
@@ -194,7 +207,7 @@ class ThirdPartySubSovereign:
         return {
             "name": "third-party-management",
             "role": self.ROLE,
-            "scope": "third-party-introduction-version-license-security",
+            "scope": "dependency-governance",
             "state": "running" if self._started else "stopped",
             "delegation": "governed-executor-only",
             "formal_tools": list(FORMAL_TOOLS),
@@ -204,7 +217,7 @@ class ThirdPartySubSovereign:
 
     def _inventory_status(self) -> dict[str, Any]:
         return {
-            "duty": "tool-inventory",
+            "duty": "govern-inventory-and-version",
             "loaded": self._tool_inventory is not None,
             "path": str(self._inventory_path) if self._inventory_path else None,
             "delegation": "governed-executor-only",

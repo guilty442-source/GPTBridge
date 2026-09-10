@@ -1,9 +1,10 @@
 """Language Review Sub-Sovereign (system) — owns programming-language conformance.
 
-Per the Governance Codex (A50 / P24, absorbed under the System Sovereign),
-the Language Review Sub-Sovereign owns programming-language conformance,
-acceptance, and migration review.  It ensures all system code adheres to the
-four-language hybrid stack (Python + TypeScript + C++ + C) declared in A35/E21.
+Per the Governance Codex (A50 / P24), the Language Review Sovereign is a
+``specialized-decision-sovereign`` (A127/E125) that owns programming-language
+conformance, acceptance, and migration review.  It ensures all system code
+adheres to the four-language hybrid stack (Python + TypeScript + C++ + C)
+declared in A35/E21.
 
 It is LOCAL CODE (same process as GPTBridgeApp) that coordinates existing
 governance checkers (TypeScript checkers in governance_rule/execution/typescript/
@@ -36,14 +37,12 @@ ALLOWED_LANGUAGES = ("python", "typescript", "cpp", "c", "csharp", "sql")
 
 
 class LanguageReviewSubSovereign:
-    """In-process sub-sovereign (under system) responsible for programming-language review.
+    """In-process sovereign responsible for programming-language review.
 
-    Responsibilities:
-      - programming-language conformance (only python/typescript/cpp/c/csharp/sql)
-      - language acceptance review for new modules
-      - language migration review for legacy code
-      - coordination of TypeScript governance checkers
-      - coordination of Python audit checks
+    Responsibilities (codex sovereign definition — A50/P24):
+      - review-language-conformance (python/typescript/cpp/c/csharp/sql)
+      - accept-language-migration (for new modules and legacy code)
+      - review-generated-code-language (generated code conformance)
     """
 
     ROLE = _LANGUAGE_REVIEW_SOVEREIGN.id
@@ -109,7 +108,7 @@ class LanguageReviewSubSovereign:
 
     def _typescript_checker_status(self) -> dict[str, Any]:
         return {
-            "duty": "typescript-governance-checkers",
+            "duty": "review-language-conformance",
             "enabled": self._typescript_checkers is not None,
             "delegation": "governed-executor-only",
         }
@@ -117,9 +116,8 @@ class LanguageReviewSubSovereign:
     def _python_audit_status(self) -> dict[str, Any]:
         audit = self._python_audit
         return {
-            "duty": "python-audit",
+            "duty": "review-language-conformance",
             "enabled": audit is not None,
-            "health_owner": "maintenance-sovereign",
             "delegation": "governed-executor-only",
         }
 

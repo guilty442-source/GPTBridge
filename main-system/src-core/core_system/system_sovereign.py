@@ -8,14 +8,23 @@ the backend through two channels:
   * GPTBRIDGE_STARTUP_STATE            -- the READY/DEGRADED/RECOVERY string
   * <main-system>/launcher/state/orchestrator-report.json -- full service report
 
-Per A63/A64, the mother process (GPTBridgeApp) must not directly materialize
-or start sovereigns.  Instead, it delegates the sovereign stack startup to this
-service via ``SystemSovereignService.start_sovereign_stack``.  This service
-materializes the three top-level sovereigns in order:
+Per A128/A130 (supersedes A63/A64), the mother process (GPTBridgeApp) must
+not directly materialize or start sovereigns.  Instead, it delegates the
+sovereign stack startup to this service via
+``SystemSovereignService.start_sovereign_stack``.  This service starts its
+own in-process sub-sovereigns and coordinates with the maintenance and
+permission sovereigns already started by the app:
 
-  1. 維護主宰 (Maintenance Sovereign)  — periodic maintenance, health, repair
+  1. 維護主宰 (Maintenance Sovereign)  — system-health monitoring/preservation
   2. 權限主宰 (Permission Sovereign)   — permission management (read-only surface)
   3. 系統主宰 (System Sovereign)       — this service; starts its own sub-sovereigns
+
+The system-decision-sovereign (this service) also owns the repair DECISION
+chain per A152/A154/E127/E128: the maintenance sovereign classifies health
+signals (health-only scope) and hands them to this sovereign, which makes
+the repair decision, validates permissions, and routes to the
+system-programming (code change) or system-runtime (runtime action)
+sub-sovereign for governed execution.
 
 The System Sovereign starts its own in-process sub-sovereigns:
   * runtime-sub-sovereign       -- keeps the platform running and serving
@@ -47,6 +56,7 @@ from .learning_system_sovereign import LearningSystemSovereign
 from .main_system_self_maintenance import MainSystemSelfMaintenance
 from .permission_sovereign import PermissionSovereign
 from .resource_sub_sovereign import ResourceSubSovereign
+from .repair_decision_chain import RepairDecisionChain
 from .runtime_sub_sovereign import RuntimeSubSovereign
 from .sovereign_utils import _iso_now
 from .third_party_sub_sovereign import ThirdPartySubSovereign
@@ -112,6 +122,10 @@ class SystemSovereignService:
         self.learning_system_sovereign = LearningSystemSovereign(app)
         self.system_programming_sovereign = SystemProgrammingSovereign(app)
         self.governance_rule_coordination = GovernanceRuleCoordination(app)
+        # A152/A154/E127/E128: the system-decision-sovereign owns the repair
+        # decision chain.  The maintenance sovereign classifies health
+        # signals (health-only) and delegates the decision here.
+        self._repair_decision_chain = RepairDecisionChain(app)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -396,6 +410,24 @@ class SystemSovereignService:
         await self.system_programming_sovereign.stop()
         await self.learning_system_sovereign.stop()
         self._save_state({"stopped_at": _iso_now()})
+
+    # ------------------------------------------------------------------
+    # Repair decision (A152/A154/E127/E128)
+    # ------------------------------------------------------------------
+
+    def decide_and_route_repair(self, classified_signal: dict[str, Any]) -> dict[str, Any]:
+        """A152 repair-decision entry point for the system-decision-sovereign.
+
+        Per A152 (supersedes A67): ``REPAIR-DECISION:system-decision-sovereign``
+        and ``FORBID:maintenance-owning-non-health-decisions``.  The
+        maintenance sovereign classifies the health signal (health-only
+        scope, A154) and delegates the repair DECISION here.  This method
+        routes the classified signal through permission validation and
+        governed execution (E128):
+        ``system-decision > permission > runtime-or-programming > executor
+        > verification``.
+        """
+        return self._repair_decision_chain.decide_and_route(classified_signal)
 
     # ------------------------------------------------------------------
     # Status
