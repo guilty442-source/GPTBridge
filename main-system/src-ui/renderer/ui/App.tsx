@@ -47,42 +47,6 @@ function capacityDetail(bytes: number | undefined, fileCount: number | undefined
   return `${formatBytes(bytes, { exactBytes: true, fallback: t.pendingCheck })} · ${formatFileCount(fileCount)}`
 }
 
-function connectionCopy(
-  status: string,
-  maintenanceReady: boolean
-): {
-  label: string
-  detail: string
-  tone: 'online' | 'pending' | 'offline'
-} {
-  if (status === 'Connected' && maintenanceReady) {
-    return {
-      label: t.backendConnected,
-      detail: t.backendConnectedDetail,
-      tone: 'online',
-    }
-  }
-  if (status === 'Connected') {
-    return {
-      label: t.maintenanceInProgress,
-      detail: t.maintenanceInProgressDetail,
-      tone: 'pending',
-    }
-  }
-  if (status === 'Connecting' || status === 'Repairing') {
-    return {
-      label: status === 'Repairing' ? t.autoRepairing : t.connecting,
-      detail: t.connectingDetail,
-      tone: 'pending',
-    }
-  }
-  return {
-    label: t.backendDisconnected,
-    detail: t.backendDisconnectedDetail,
-    tone: 'offline',
-  }
-}
-
 export default function App() {
   const [appVersion, setAppVersion] = useState('1.0.0')
   const [maintenanceReady, setMaintenanceReady] = useState(false)
@@ -249,7 +213,6 @@ export default function App() {
     }
   }, [connected, sendCommand])
 
-  const connection = connectionCopy(backendSocket.status, maintenanceReady)
   const summary = useMemo(() => {
     const running = toolboxTools.filter((tool) => tool.status === 'running').length
     const issues = toolboxTools.filter(
@@ -259,6 +222,33 @@ export default function App() {
     ).length
     return { running, issues, total: toolboxTools.length }
   }, [toolboxTools])
+  const xingchengReview = useMemo(() => {
+    if (backendSocket.status === 'Connecting' || backendSocket.status === 'Repairing') {
+      return { tone: 'warning' as const, state: '審查中', detail: '即時通道連接或修復中' }
+    }
+    if (!connected) {
+      return { tone: 'warning' as const, state: '連線異常', detail: '後端即時通道中斷，正在自動重連' }
+    }
+    if (!maintenanceReady) {
+      return { tone: 'warning' as const, state: '健康異常', detail: '系統健康維護尚未就緒' }
+    }
+    const affected = toolboxTools
+      .filter((tool) => tool.status === 'error' || (tool.launchable !== false && tool.runtimeAvailable === false))
+      .map((tool) => tool.name)
+    if (affected.length > 0) {
+      return {
+        tone: 'warning' as const,
+        state: `${affected.length} 處異常`,
+        detail: affected.slice(0, 3).join('、'),
+      }
+    }
+    return { tone: 'ok' as const, state: '正常', detail: '已依據法典完成全域唯讀審查' }
+  }, [backendSocket.status, connected, maintenanceReady, toolboxTools])
+  const connection = xingchengReview.tone === 'ok'
+    ? { label: '系統正常', detail: xingchengReview.detail, tone: 'online' as const }
+    : xingchengReview.state === '審查中'
+      ? { label: '系統審查中', detail: xingchengReview.detail, tone: 'pending' as const }
+      : { label: '系統異常', detail: xingchengReview.detail, tone: 'offline' as const }
   const diskUsedBytes =
     typeof systemMetrics.diskTotalBytes === 'number' &&
     typeof systemMetrics.diskFreeBytes === 'number'
@@ -327,6 +317,11 @@ export default function App() {
             <span className="hero-card__label">{t.commandStrategy}</span>
             <strong className="hero-card__value hero-card__value--text">{t.requestToolExecution}</strong>
             <small className="hero-card__hint">{t.commandStrategyHint}</small>
+          </article>
+          <article className="hero-card" data-tone={xingchengReview.tone} data-testid="xingcheng-global-review">
+            <span className="hero-card__label">{mainSystemLocale.sovereign.xingchengTitle}</span>
+            <strong className="hero-card__value hero-card__value--text">{xingchengReview.state}</strong>
+            <small className="hero-card__hint">{xingchengReview.detail}</small>
           </article>
         </section>
 

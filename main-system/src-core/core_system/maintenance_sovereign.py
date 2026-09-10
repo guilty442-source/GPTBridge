@@ -37,6 +37,7 @@ from .maintenance_lifecycle import MaintenanceLifecycleMixin
 from .maintenance_status import MaintenanceStatusMixin
 from .maintenance_update import MaintenanceUpdateMixin
 from .maintenance_capability import MaintenanceCapabilityMixin
+from .maintenance_repair_chain import MaintenanceRepairChainMixin
 from core.health import check_core_health
 
 
@@ -55,6 +56,7 @@ class MaintenanceSovereign(
     MaintenanceStatusMixin,
     MaintenanceUpdateMixin,
     MaintenanceCapabilityMixin,
+    MaintenanceRepairChainMixin,
 ):
     """In-process sovereign responsible for ALL system-maintenance functions.
 
@@ -88,6 +90,8 @@ class MaintenanceSovereign(
         self._learning_store: Any | None = None
         self._learner: Any | None = None
         self._learning_analysis: dict[str, Any] | None = None
+        # A67/A72 repair decision chain task.
+        self._repair_decision_task: asyncio.Task[Any] | None = None
 
 
 __all__ = ["MAINTENANCE_RESPONSIBILITIES", "MaintenanceSovereign"]

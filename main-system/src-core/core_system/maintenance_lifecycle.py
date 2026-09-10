@@ -84,6 +84,10 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
                 name="maintenance-sovereign-capability",
             )
 
+        # A67/A72: start the repair decision loop so the sovereign
+        # processes pending repair signals from the information layer.
+        self._start_repair_decision_loop()
+
         return {
             "ok": True,
             "role": self.ROLE,
@@ -98,6 +102,8 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
             with _suppress(asyncio.CancelledError):
                 await self._capability_task
             self._capability_task = None
+        # A67/A72: stop the repair decision loop.
+        await self._stop_repair_decision_loop()
         self._capability_report = None
         self._daily_cleaner = None
         self._hot_update = None

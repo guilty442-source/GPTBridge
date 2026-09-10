@@ -1,0 +1,1 @@
+{"identity":"integration-sovereign","name":"information-channel-sovereign","owner_folder":"information-channel-sovereign","codex_entry":"governance-codex://official","duties_source":"sovereign_duties:integration-sovereign","implementation_entries":["../../integration_sub_sovereign.py"],"legacy_role":"compatibility-entry-only","state":"active"}

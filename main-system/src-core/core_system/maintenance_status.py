@@ -46,6 +46,7 @@ class MaintenanceStatusMixin:
             "module_cleanup": self._module_cleanup_status(),
             "main_system_self_maintenance": self._main_system_self_maintenance_status(),
             "learning": self.learning_status(),
+            "repair_decision_chain": self._repair_decision_chain_status(),
             "capability_loop": {
                 "running": self._capability_task is not None and not self._capability_task.done(),
                 "interval_seconds": self._capability_interval_seconds,
@@ -69,6 +70,7 @@ class MaintenanceStatusMixin:
             "module_cleanup": self._module_cleanup_status(),
             "main_system_self_maintenance": self._main_system_self_maintenance_status(),
             "learning": self.learning_status(),
+            "repair_decision_chain": self._repair_decision_chain_status(),
             "delegation": "governed-executor-only",
             "native_kernel": native_available(),
             "decision": decision_basis(self._maintenance_area()),

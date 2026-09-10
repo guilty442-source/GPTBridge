@@ -1,0 +1,1 @@
+{"identity":"maintenance-sovereign","name":"system-health-sovereign","owner_folder":"system-health-sovereign","codex_entry":"governance-codex://official","duties_source":"sovereign_duties:maintenance-sovereign","implementation_entries":["../../maintenance_sovereign.py","../../maintenance_lifecycle.py","../../maintenance_status.py"],"state":"active"}

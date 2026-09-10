@@ -1,0 +1,14 @@
+{
+  "identity": "xingcheng-governance-codex-reference",
+  "actor": "xingcheng",
+  "role": "auxiliary-system-global-reviewer",
+  "authority": "governance_rule/codex/data/governance_codex.sqlite3",
+  "entry": "governance-codex://official",
+  "access": "read-only",
+  "purpose": "global-system-review-and-user-anomaly-notification",
+  "channel": "information-layer-only",
+  "local_copy": false,
+  "adjudication": false,
+  "authorization": false,
+  "execution": false
+}

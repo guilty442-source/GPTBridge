@@ -60,7 +60,7 @@ from pathlib import Path
 from typing import Any, Final
 from startup_core.phases import PhaseMixin
 from startup_core.governance import GovernanceMixin
-from tasks.central_repair import CrashDiagnoser, CrashRepair
+from tasks.crash_diagnosis import CrashDiagnoser, CrashRepair
 
 MAX_RESTARTS = 10
 BACKOFF_SCHEDULE_SECONDS = (2, 5, 10, 20, 30, 45, 60)
