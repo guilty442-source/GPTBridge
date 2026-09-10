@@ -1,12 +1,14 @@
 """Manifest loading, tool records, path resolution, listing, and status."""
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Any, Dict
 
 from .tool_path_resolver import ToolPathResolver
 from .tool_process_registry import (
+    batch_running_status,
     running_executable_process_ids,
     running_packaged_backend_process_ids,
     running_source_runtime_process_ids,
@@ -316,59 +318,56 @@ class ManifestMixin:
     # Listing and status
     # ------------------------------------------------------------------
 
+    _HIDDEN_INFRASTRUCTURE_IDS = frozenset(
+        {"global-cleaner", "governance_rule", "shared-layer"}
+    )
+    _RESIDENT_SERVICE_IDS = frozenset({"shared-layer", "xingcheng"})
+
+    def _classify_tool(self, tool: dict[str, Any]) -> bool:
+        """Classify a tool record in-place. Return True if it needs process checks."""
+        tool_id = str(tool.get("id", "")).strip()
+        if tool_id in self._HIDDEN_INFRASTRUCTURE_IDS:
+            tool["hidden_from_toolbox"] = True
+        if tool_id in self._RESIDENT_SERVICE_IDS:
+            tool["permission_denied"] = False
+            tool["lifecycle_locked"] = True
+            tool["resident_service"] = True
+            tool["status"] = "running"
+            return False
+        lifecycle = tool.get("lifecycle") or {}
+        tool["resident_service"] = lifecycle.get("stoppable") is False
+        try:
+            authority_tool_id = self._runtime_owner_tool_id(tool_id, tool)
+            authorized = bool(
+                tool_id and self.permission_sovereign.can_start_tool(authority_tool_id)
+            )
+        except PermissionError:
+            authorized = False
+        tool["permission_denied"] = not authorized
+        tool["status"] = "stopped"
+        return authorized
+
     async def list_tools(self) -> Dict[str, Any]:
         tools = self._load_manifest_records()
-        # Infrastructure / authority modules are not user-facing tools and
-        # must not appear as toolbox cards on the main screen. They remain
-        # governed and supervised but are hidden from the toolbox UI:
-        #   - global-cleaner  : governed backup/cleanup infrastructure
-        #   - shared-layer     : now a sovereign, not a user-facing tool
-        hidden_infrastructure_ids = {
-            "global-cleaner",
-            "governance_rule",
-            "shared-layer",
-        }
+        # First pass: classify tools and determine which need process checks.
+        # Tools that are not authorized skip process detection entirely.
+        tools_needing_checks: list[dict[str, Any]] = []
         for tool in tools:
-            tool_id = str(tool.get("id", "")).strip()
-            if tool_id in hidden_infrastructure_ids:
-                tool["hidden_from_toolbox"] = True
-            if tool_id in {"shared-layer", "xingcheng"}:
-                tool["permission_denied"] = False
-                tool["lifecycle_locked"] = True
-                tool["resident_service"] = True
-                tool["status"] = "running"
-                continue
-            # Classify resident vs non-resident from manifest lifecycle.
-            lifecycle = tool.get("lifecycle") or {}
-            tool["resident_service"] = lifecycle.get("stoppable") is False
-            try:
-                authority_tool_id = self._runtime_owner_tool_id(tool_id, tool)
-                authorized = bool(
-                    tool_id
-                    and self.permission_sovereign.can_start_tool(authority_tool_id)
+            if self._classify_tool(tool):
+                tools_needing_checks.append(tool)
+        # Batch process check: single PowerShell call for all authorized tools,
+        # run in a thread to avoid blocking the async event loop.
+        if tools_needing_checks:
+            batch = await asyncio.to_thread(batch_running_status, tools_needing_checks)
+            for tool in tools_needing_checks:
+                tool_id = str(tool.get("id", "")).strip()
+                entry = batch.get(tool_id, {})
+                running = bool(
+                    entry.get("source_runtime")
+                    or entry.get("executable")
+                    or entry.get("source_ui")
                 )
-            except PermissionError:
-                authorized = False
-            tool["permission_denied"] = not authorized
-            executable_path = str(tool.get("executable_path", "")).strip()
-            source_runtime_entry = str(tool.get("source_runtime_entry", "")).strip()
-            running = bool(
-                authorized
-                and (
-                    (
-                        source_runtime_entry
-                        and self._running_source_runtime_process_ids(
-                            Path(source_runtime_entry)
-                        )
-                    )
-                    or (
-                        executable_path
-                        and self._running_executable_process_ids(Path(executable_path))
-                    )
-                    or bool(self._running_source_ui_process_ids(tool_id))
-                )
-            )
-            tool["status"] = "running" if running else "stopped"
+                tool["status"] = "running" if running else "stopped"
         return {"ok": True, "tools": tools}
 
     async def update_status(self, tool_id: str, status: str) -> Dict[str, Any]:
