@@ -1,6 +1,6 @@
-"""Tool separation verification — A183/E158.
+"""Tool separation verification — A184/E159.
 
-Per A183 (main-system-and-independent-tool-separate-individuals) and E158
+Per A184 (main-system-and-independent-tool-separate-individuals) and E159
 (main-system-independent-tool-separation), the main-system and each
 independent tool are separate runtime individuals with their own identity,
 process tree, lifecycle, UI, backend, state, data, version, certificate,
@@ -15,19 +15,19 @@ Key invariants verified:
   * **Entity separation** — each tool has a stable entity-id, manifest,
     source-root, runtime-entry, and process-tree distinct from the main-system.
   * **No process embedding** — tools run in their own process tree, never
-    loaded into the main-system process (A183: ``PROCESS:tool-never-loaded-
+    loaded into the main-system process (A184: ``PROCESS:tool-never-loaded-
     into-main-system-process``).
   * **No shared writable data** — tools own their data-root exclusively;
-    no main-system direct read/write, no cross-tool read/write (A183: ``DATA:
+    no main-system direct read/write, no cross-tool read/write (A184: ``DATA:
     tool-exclusive-owner-root+no-main-system-direct-read/write+no-cross-tool-
     read/write``).
   * **Independent failure boundary** — main-system crash/restart/update/
     repair/close does not stop/reset/rollback/corrupt active tools, and
-    tool failure does not degrade main-system or other tools (A183:
+    tool failure does not degrade main-system or other tools (A184:
     ``FAILURE:main-system-crash/restart/update/repair/close does-not-stop/
     reset/rollback/corrupt-active-tool``).
   * **Independent release** — main-system and each tool are independently
-    versioned and independently certified (A183: ``RELEASE:main-system-and-
+    versioned and independently certified (A184: ``RELEASE:main-system-and-
     each-tool independently-versioned+independently-certified``).
 """
 
@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any, Final
 
 # ---------------------------------------------------------------------------
-# Separation dimensions (A183: SEPARATION-DIMENSIONS)
+# Separation dimensions (A184: SEPARATION-DIMENSIONS)
 # ---------------------------------------------------------------------------
 
 SEPARATION_DIMENSIONS: Final[tuple[str, ...]] = (
@@ -66,7 +66,7 @@ SEPARATION_DIMENSIONS: Final[tuple[str, ...]] = (
     "shutdown-token",
 )
 
-# A183: MAIN-SYSTEM-DOES-NOT-OWN — dimensions the main-system must NOT own
+# A184: MAIN-SYSTEM-DOES-NOT-OWN — dimensions the main-system must NOT own
 # for any tool.
 MAIN_SYSTEM_NON_OWNERSHIP: Final[tuple[str, ...]] = (
     "tool-business-logic",
@@ -86,7 +86,7 @@ MAIN_SYSTEM_NON_OWNERSHIP: Final[tuple[str, ...]] = (
 
 @dataclass(frozen=True)
 class SeparationViolation:
-    """A typed separation violation signal (A183/E158).
+    """A typed separation violation signal (A184/E159).
 
     This is a **signal only**; it carries no mutation authority.  The caller
     must route it through the information layer to the sovereign decision
@@ -130,7 +130,7 @@ def verify_tool_manifest_separation(
     tool_dir: Path,
     project_root: Path,
 ) -> SeparationReport:
-    """Verify that a tool manifest declares independent separation (A183).
+    """Verify that a tool manifest declares independent separation (A184).
 
     Checks:
       * The manifest has a stable entity-id distinct from ``main-system``.
@@ -187,7 +187,7 @@ def verify_tool_manifest_separation(
     else:
         verified.append("runtime-entry")
 
-    # version: tool must have its own version (A183: independently-versioned)
+    # version: tool must have its own version (A184: independently-versioned)
     version = str(manifest.get("version") or "")
     if not version:
         violations.append(SeparationViolation(
@@ -211,7 +211,7 @@ def verify_no_shared_data_root(
     tool_dir: Path,
     project_root: Path,
 ) -> SeparationReport:
-    """Verify that a tool's data-root is exclusive (A183: DATA).
+    """Verify that a tool's data-root is exclusive (A184: DATA).
 
     Checks:
       * The tool has its own data-root under its tool directory.
@@ -265,7 +265,7 @@ def verify_process_tree_independence(
 ) -> SeparationReport:
     """Verify that a tool process is not embedded in the main-system process.
 
-    Per A183: ``PROCESS:tool-never-loaded-into-main-system-process+main-system-
+    Per A184: ``PROCESS:tool-never-loaded-into-main-system-process+main-system-
     never-loaded-into-tool-process``.  This check confirms the tool PID is not
     the same as the main-system PID (a basic identity check; full process-tree
     verification requires platform-specific APIs).
@@ -304,7 +304,7 @@ def verify_tool_separation(
     tool_pid: int | None = None,
     main_pid: int | None = None,
 ) -> SeparationReport:
-    """Run all A183/E158 separation checks for a single tool.
+    """Run all A184/E159 separation checks for a single tool.
 
     Combines manifest separation, data-root exclusivity, and process-tree
     independence into a single report.
@@ -339,9 +339,9 @@ def verify_tool_separation(
 def separation_violation_signal(
     report: SeparationReport,
 ) -> dict[str, Any]:
-    """Produce an information-layer signal for separation violations (A183/E158).
+    """Produce an information-layer signal for separation violations (A184/E159).
 
-    Per A183: ``FAILURE:main-system-crash/restart/update/repair/close does-not-
+    Per A184: ``FAILURE:main-system-crash/restart/update/repair/close does-not-
     stop/reset/rollback/corrupt-active-tool; TOOL-crash/restart/update/repair/
     close does-not-degrade-main-system-or-other-tools``.  This function
     produces the signal payload that must be routed through the information
@@ -350,7 +350,7 @@ def separation_violation_signal(
     return {
         "signal_type": "tool-separation-violation",
         "authority": "signal-only",
-        "basis": "A183/E158",
+        "basis": "A184/E159",
         "tool_id": report.tool_id,
         "ok": report.ok,
         "violations": [v.as_dict() for v in report.violations],

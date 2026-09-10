@@ -1,12 +1,12 @@
-"""Deadlock-free governed startup — A190/E165 and A191/E166.
+"""Deadlock-free governed startup — A192/E167 and A191/E166.
 
-Per A190 (deadlock-free-governed-startup), A191 (startup-dependency-
-classification-and-legacy-order-retirement), E165 (startup-liveness), and
+Per A192 (deadlock-free-governed-startup), A191 (startup-dependency-
+classification-and-legacy-order-retirement), E167 (startup-liveness), and
 E166 (startup-dependency-criticality), the startup sequence is a
 deadlock-free, phase-ordered, dependency-DAG-driven process owned by the
 startup sovereign.
 
-Key invariants (A190):
+Key invariants (A192):
 
   * **Single-flight** — one startup generation at a time.
   * **Phase 0** — local process preflight without cross-owner communication.
@@ -58,7 +58,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Final
 
 # ---------------------------------------------------------------------------
-# Startup phases (A190: PHASE-0 through PHASE-6)
+# Startup phases (A192: PHASE-0 through PHASE-6)
 # ---------------------------------------------------------------------------
 
 STARTUP_PHASES: Final[tuple[str, ...]] = (
@@ -71,7 +71,7 @@ STARTUP_PHASES: Final[tuple[str, ...]] = (
     "phase-6-activate-core-sovereigns",
 )
 
-# A190: CORE-READY — all conditions that must hold for core-ready
+# A192: CORE-READY — all conditions that must hold for core-ready
 CORE_READY_CONDITIONS: Final[tuple[str, ...]] = (
     "official-codex-valid",
     "permission-sovereign-active",
@@ -82,7 +82,7 @@ CORE_READY_CONDITIONS: Final[tuple[str, ...]] = (
     "all-core-critical-dependencies-ready",
 )
 
-# A190: BOOTSTRAP-CAPABILITY properties
+# A192: BOOTSTRAP-CAPABILITY properties
 BOOTSTRAP_CAPABILITY_PROPERTIES: Final[tuple[str, ...]] = (
     "pre-issued",
     "read-only",
@@ -153,12 +153,12 @@ class DependencyDeclaration:
 
 
 # ---------------------------------------------------------------------------
-# Dependency DAG (A190: PHASE-5 acyclic critical path)
+# Dependency DAG (A192: PHASE-5 acyclic critical path)
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class DependencyDAG:
-    """A dependency DAG for startup ordering (A190: PHASE-5).
+    """A dependency DAG for startup ordering (A192: PHASE-5).
 
     The startup sovereign executes the acyclic critical path.  This data
     structure records the declared dependencies and provides cycle
@@ -190,7 +190,7 @@ class DependencyDAG:
 
     @property
     def is_acyclic(self) -> bool:
-        """Check for cycles in the required_by graph (A190: acyclic)."""
+        """Check for cycles in the required_by graph (A192: acyclic)."""
         graph: dict[str, list[str]] = {}
         for dep in self.dependencies:
             graph.setdefault(dep.identity, [])
@@ -219,14 +219,14 @@ class DependencyDAG:
 
 
 # ---------------------------------------------------------------------------
-# Startup generation (A190: SINGLE-FLIGHT)
+# Startup generation (A192: SINGLE-FLIGHT)
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class StartupGeneration:
-    """A single-flight startup generation (A190: SINGLE-FLIGHT).
+    """A single-flight startup generation (A192: SINGLE-FLIGHT).
 
-    Per A190: ``SINGLE-FLIGHT:one-startup-generation``.
+    Per A192: ``SINGLE-FLIGHT:one-startup-generation``.
     """
 
     generation_id: str
@@ -241,15 +241,15 @@ class StartupGeneration:
 
 
 # ---------------------------------------------------------------------------
-# Phase verification (A190: no circular gate)
+# Phase verification (A192: no circular gate)
 # ---------------------------------------------------------------------------
 
 def verify_phase_order(
     completed_phases: tuple[str, ...],
 ) -> dict[str, Any]:
-    """Verify that startup phases were executed in order without skips (A190).
+    """Verify that startup phases were executed in order without skips (A192).
 
-    Per A190: ``FORBID:circular-startup-gate`` and the strict phase ordering.
+    Per A192: ``FORBID:circular-startup-gate`` and the strict phase ordering.
     """
     violations: list[str] = []
     required = STARTUP_PHASES
@@ -266,7 +266,7 @@ def verify_phase_order(
 
     return {
         "ok": len(violations) == 0,
-        "basis": "A190/E165",
+        "basis": "A192/E167",
         "completed_phases": list(completed_phases),
         "required_phases": list(required),
         "violations": violations,
@@ -276,15 +276,15 @@ def verify_phase_order(
 
 
 # ---------------------------------------------------------------------------
-# Core-ready verification (A190: CORE-READY)
+# Core-ready verification (A192: CORE-READY)
 # ---------------------------------------------------------------------------
 
 def verify_core_ready(
     conditions: dict[str, bool],
 ) -> dict[str, Any]:
-    """Verify all core-ready conditions are met (A190: CORE-READY).
+    """Verify all core-ready conditions are met (A192: CORE-READY).
 
-    Per A190: ``CORE-READY:official-codex-valid+permission-sovereign-active+
+    Per A192: ``CORE-READY:official-codex-valid+permission-sovereign-active+
     normal-information-layer-active+system-decision-active+system-runtime-
     active+maintenance-active+all-core-critical-dependencies-ready``.
     """
@@ -295,7 +295,7 @@ def verify_core_ready(
 
     return {
         "ok": len(missing) == 0,
-        "basis": "A190/E165",
+        "basis": "A192/E167",
         "conditions": {c: conditions.get(c, False) for c in CORE_READY_CONDITIONS},
         "missing": missing,
         "core_ready": len(missing) == 0,
@@ -349,7 +349,7 @@ def verify_dependency_classification(
 
 
 # ---------------------------------------------------------------------------
-# Failure handling (A190: FAILURE)
+# Failure handling (A192: FAILURE)
 # ---------------------------------------------------------------------------
 
 def startup_failure_signal(
@@ -358,9 +358,9 @@ def startup_failure_signal(
     failed_dependency: str = "",
     generation_id: str = "",
 ) -> dict[str, Any]:
-    """Produce a failure signal for startup failure (A190: FAILURE).
+    """Produce a failure signal for startup failure (A192: FAILURE).
 
-    Per A190: ``FAILURE:core-critical failure=>failed-generation+owned-reverse-
+    Per A192: ``FAILURE:core-critical failure=>failed-generation+owned-reverse-
     DAG-cleanup+typed-user-visible-cause; non-core failure=>affected-capability-
     degraded-only+retry-budget``.
     """
@@ -368,7 +368,7 @@ def startup_failure_signal(
     return {
         "signal_type": "startup-failure",
         "authority": "signal-only",
-        "basis": "A190/E165",
+        "basis": "A192/E167",
         "failure_scope": failure_scope,
         "failed_dependency": failed_dependency,
         "generation_id": generation_id,
@@ -384,7 +384,7 @@ def startup_failure_signal(
 
 
 # ---------------------------------------------------------------------------
-# Startup status (A190: STATUS)
+# Startup status (A192: STATUS)
 # ---------------------------------------------------------------------------
 
 def startup_status(
@@ -393,9 +393,9 @@ def startup_status(
     dag: DependencyDAG | None = None,
     core_ready_conditions: dict[str, bool] | None = None,
 ) -> dict[str, Any]:
-    """Return the startup status for observability (A190: STATUS).
+    """Return the startup status for observability (A192: STATUS).
 
-    Per A190: ``STATUS:sequenced-information-layer-events+authoritative-
+    Per A192: ``STATUS:sequenced-information-layer-events+authoritative-
     snapshot`` and ``READY:evidence-bound-to-generation+release+dependency-
     state``.
     """
@@ -408,7 +408,7 @@ def startup_status(
         "deferred_active": generation.deferred_active,
         "dag": dag.as_dict() if dag else None,
         "core_ready_conditions": core_ready_conditions or {},
-        "basis": "A190/E165",
+        "basis": "A192/E167",
         "single_flight": True,
         "user_action_required": False,
     }
