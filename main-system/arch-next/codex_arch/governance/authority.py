@@ -21,7 +21,7 @@ SEALED_CODEX_DIGESTS: Final[Mapping[str, str]] = {
         "5cca7c53f1da2278fb34bed03b6b1d623ef479076d8fd102c04ea74ea7b8b1f6"
     ),
     "codex/data/governance_codex.sqlite3": (
-        "724dafbc2c83416ed6964bb1fd0ae435f88859c57ecdef2c670ae64cf40e7ab0"
+        "1cc0aa55b90078c3858b707a4d6f666b6a37d9f093bb36e9aa7230c5d42ca187"
     ),
     "execution/codex_repository.py": (
         "b320edbad0c878e4775c156b88e670c8ec206867f890a9b32344e465a34625de"

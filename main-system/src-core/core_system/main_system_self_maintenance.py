@@ -139,6 +139,12 @@ class MainSystemSelfMaintenance:
 
     async def _run_all_duties(self, startup: bool = False) -> dict[str, Any]:
         started_at = _iso_now()
+        # A181/E156: resolve active release pointer before any repair or
+        # integrity check.  The active certified release is the only
+        # baseline; startup must reject any older default overwrite.
+        from .active_release import resolve_active_pointer
+
+        active_pointer = resolve_active_pointer()
         version_report = await self._duty_version_compatibility()
         # Stability fix runs only during the startup pass; the periodic loop
         # reports it as skipped to avoid mutating sources after every interval.
@@ -155,6 +161,8 @@ class MainSystemSelfMaintenance:
             "version": self.VERSION,
             "started_at": started_at,
             "completed_at": _iso_now(),
+            "active_release_id": active_pointer.release_id if active_pointer else "",
+            "active_release_baseline": "A181/E156",
             "duties": {
                 "version_compatibility": version_report,
                 "stability_fix": stability_report,

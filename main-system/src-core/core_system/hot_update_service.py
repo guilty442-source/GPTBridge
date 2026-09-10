@@ -134,6 +134,12 @@ class HotUpdateService:
         every loaded module that lives in the configured backend src roots.
         Returns a SimpleNamespace with ``ok``, ``reloaded``, ``skipped``,
         ``errors`` and ``error`` attributes.
+
+        Per A181: ``HOT-RELOAD:reexecute-or-refresh-active-release-artifacts-only+
+        verify-active-release-digests-before-and-after+release-identity-unchanged``.
+        The active release pointer is resolved before reload to establish the
+        baseline, and verified after reload to confirm the release identity is
+        preserved.
         """
         authorized, auth_message = self._authenticate(governance, approval_token)
         if not authorized:
@@ -144,6 +150,10 @@ class HotUpdateService:
                 errors=[auth_message],
                 error=auth_message,
             )
+
+        # A181: resolve active release pointer before reload.
+        from .active_release import resolve_active_pointer
+        pre_reload_pointer = resolve_active_pointer()
 
         roots = self._resolve_src_roots()
         if not roots:
@@ -195,12 +205,25 @@ class HotUpdateService:
         if reloaded:
             self._persist_reload_protection(reloaded)
 
+        # A181: verify active release pointer after reload — release identity
+        # must be unchanged.  If the pointer was present before reload, it
+        # must still be present and identical after reload.
+        post_reload_pointer = resolve_active_pointer()
+        release_preserved = True
+        if pre_reload_pointer is not None:
+            release_preserved = (
+                post_reload_pointer is not None
+                and post_reload_pointer.release_id == pre_reload_pointer.release_id
+                and post_reload_pointer.certificate_digest
+                == pre_reload_pointer.certificate_digest
+            )
+
         return types.SimpleNamespace(
-            ok=len(errors) == 0,
+            ok=len(errors) == 0 and release_preserved,
             reloaded=reloaded,
             skipped=skipped,
-            errors=errors,
-            error=errors[0] if errors else "",
+            errors=errors if release_preserved else errors + ["active-release-identity-changed"],
+            error=errors[0] if errors else ("" if release_preserved else "active-release-identity-changed"),
         )
 
     def start(self) -> None:

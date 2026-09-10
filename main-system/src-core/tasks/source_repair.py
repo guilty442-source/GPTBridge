@@ -324,6 +324,13 @@ class SourceRepairService:
         shutil.copy2(backups[-1], source_path)
 
     def self_repair(self) -> dict[str, Any]:
+        # A181/E156: resolve active release pointer before repair.  The
+        # active certified release is the only repair baseline; never reset
+        # to packaged defaults, Git HEAD, startup snapshots, old caches,
+        # installers, or prior releases.
+        from core_system.active_release import resolve_active_pointer
+
+        active_pointer = resolve_active_pointer()
         report: dict[str, Any] = {
             "operation": "automatic-source-repair",
             "authority": "main-system",
@@ -337,6 +344,8 @@ class SourceRepairService:
             "skipped_dirty_files": [],
             "skipped_hot_reload_files": [],
             "errors": [],
+            "active_release_id": active_pointer.release_id if active_pointer else "",
+            "active_release_baseline": "A181/E156",
         }
         for source_path in self.python_sources():
             relative = source_path.relative_to(self.project_root).as_posix()
