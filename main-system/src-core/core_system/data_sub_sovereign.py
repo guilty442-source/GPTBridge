@@ -18,8 +18,18 @@ from typing import Any
 from .codex_decision import decision_basis
 from .sovereign_utils import _iso_now
 from core.health import check_core_health
+from governance_rule.codex import GOVERNANCE_CODEX
 
-DATA_SUB_SOVEREIGN_ROLE = "system-data-sub-sovereign"
+
+_DATA_SOVEREIGN = next(
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "data-integrity"),
+    None,
+)
+if _DATA_SOVEREIGN is None:
+    raise RuntimeError("data sovereign not found in Governance Codex")
+
+DATA_SUB_SOVEREIGN_ROLE = _DATA_SOVEREIGN.id
+DATA_SUB_SOVEREIGN_RESPONSIBILITIES = _DATA_SOVEREIGN.duties
 
 SYSTEM_DATA_AUTHORITY = "data"
 
@@ -234,6 +244,7 @@ class DataSubSovereign:
 
 __all__ = [
     "SYSTEM_DATA_AUTHORITY",
-    "DATA_SOVEREIGN_ROLE",
+    "DATA_SUB_SOVEREIGN_ROLE",
+    "DATA_SUB_SOVEREIGN_RESPONSIBILITIES",
     "DataSubSovereign",
 ]
