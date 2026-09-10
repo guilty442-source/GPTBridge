@@ -381,16 +381,142 @@ def active_release_status(
     }
 
 
+# ---------------------------------------------------------------------------
+# Version namespace separation and mismatch classification (A182/E157)
+# ---------------------------------------------------------------------------
+
+# A182: VERSION-NAMESPACES: codex-version + application-version + tool-version +
+# release-id + contract-version + runtime-generation are-distinct + typed +
+# non-interchangeable.
+VERSION_NAMESPACES: Final[tuple[str, ...]] = (
+    "codex-version",
+    "application-version",
+    "tool-version",
+    "release-id",
+    "contract-version",
+    "runtime-generation",
+)
+
+# A182: MISMATCH-CLASSIFICATION: unknown | metadata-drift | artifact-drift |
+# contract-incompatible | certificate-invalid | release-pointer-invalid.
+MISMATCH_CLASSIFICATIONS: Final[tuple[str, ...]] = (
+    "unknown",
+    "metadata-drift",
+    "artifact-drift",
+    "contract-incompatible",
+    "certificate-invalid",
+    "release-pointer-invalid",
+)
+
+
+@dataclass(frozen=True)
+class VersionMismatch:
+    """A typed version mismatch signal (A182: signal-not-mutation-authority).
+
+    Per A182: ``AUTOMATIC-REPAIR+LEARNING+MODEL+AI-REASONING:may-read-typed-
+    version-evidence+may-report-mismatch+may-propose-candidate but-may-not-
+    infer/normalize/convert/increment/decrement/select/rewrite/publish/repair/
+    version-or-release-identity``.  This data structure is a **signal** only;
+    it never carries mutation authority.
+    """
+
+    namespace: str
+    classification: str
+    expected: str
+    actual: str
+    evidence: dict[str, Any] = field(default_factory=dict)
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    def is_signal_only(self) -> bool:
+        """Confirm this mismatch is a signal, not a mutation authority."""
+        return True
+
+
+def classify_version_mismatch(
+    namespace: str,
+    expected: str,
+    actual: str,
+    *,
+    evidence: dict[str, Any] | None = None,
+) -> VersionMismatch:
+    """Classify a version mismatch per A182/E157.
+
+    Per A182: ``MISMATCH-CLASSIFICATION:unknown|metadata-drift|artifact-drift|
+    contract-incompatible|certificate-invalid|release-pointer-invalid`` and
+    ``ON-MISMATCH:freeze-affected-mutation+preserve-active-code+collect-evidence+
+    information-layer>maintenance-health-classification>system-decision``.
+
+    This function **classifies** the mismatch; it never repairs, resets, or
+    mutates anything.  The caller must route the signal through the
+    information layer to the sovereign decision chain.
+    """
+    if namespace not in VERSION_NAMESPACES:
+        classification = "unknown"
+    elif namespace == "release-id" or namespace == "runtime-generation":
+        classification = "release-pointer-invalid"
+    elif namespace == "contract-version":
+        classification = "contract-incompatible"
+    elif namespace in ("codex-version", "application-version", "tool-version"):
+        if expected and actual and expected != actual:
+            classification = "metadata-drift"
+        else:
+            classification = "unknown"
+    else:
+        classification = "unknown"
+    return VersionMismatch(
+        namespace=namespace,
+        classification=classification,
+        expected=expected,
+        actual=actual,
+        evidence=evidence or {},
+    )
+
+
+def version_mismatch_signal(
+    mismatch: VersionMismatch,
+) -> dict[str, Any]:
+    """Produce an information-layer signal for a version mismatch (A182/E157).
+
+    Per A182: ``ON-MISMATCH:freeze-affected-mutation+preserve-active-code+
+    collect-evidence+information-layer>maintenance-health-classification>
+    system-decision``.  This function produces the signal payload that must
+    be routed through the information layer; it never performs repair, reset,
+    or code mutation.
+
+    Per E157: ``VERSION-MISMATCH-RESET:none``.
+    """
+    return {
+        "signal_type": "version-mismatch",
+        "authority": "signal-only",
+        "basis": "A182/E157",
+        "namespace": mismatch.namespace,
+        "classification": mismatch.classification,
+        "expected": mismatch.expected,
+        "actual": mismatch.actual,
+        "evidence": mismatch.evidence,
+        "action_required": "freeze-mutation+preserve-active-code+route-to-sovereign-decision",
+        "repair_reset": False,
+        "code_reset": False,
+    }
+
+
 __all__ = [
     "ACTIVE_POINTER_PATH",
     "ACTIVATION_LEDGER_PATH",
     "ActivationLedgerEntry",
     "ActiveReleasePointer",
+    "MISMATCH_CLASSIFICATIONS",
+    "VERSION_NAMESPACES",
+    "VersionMismatch",
     "active_release_status",
+    "classify_version_mismatch",
     "frontend_backend_release_match",
     "publish_active_pointer",
     "read_activation_ledger",
     "record_activation",
     "resolve_active_pointer",
     "verify_active_release",
+    "version_mismatch_signal",
 ]
