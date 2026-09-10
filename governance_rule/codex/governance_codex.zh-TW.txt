@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.00000",
+  "codex_version": "1.01000",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1345,6 +1345,24 @@
         "rule": "SCOPE:all-main-system+independent-tools+sovereigns+sub-sovereigns+information-layer+executors+frontend/backend+PostgreSQL+SQLite+Qdrant-metadata+RAG+model-operations+files-cross-owner+Git-operations+commands+requests+responses+events+state+data-mutations+decisions+permission-proofs+execution-proofs+health+repair+learning+audit+errors+retries+checkpoints+backups+releases+versions+UI-projections; REQUIRED-FIELDS:event-or-record-id+occurred-at-utc-RFC3339+recorded-at-utc-RFC3339+timezone-IANA+local-display-time-RFC3339-with-offset+monotonic-sequence+clock-source+clock-status+origin-generation+correlation-id; AUTHORITY:occurred-at assigned-once-by-origin-owner+recorded-at assigned-once-by-authoritative-store/ledger; PROPAGATION:information-layer validates-format/drift/generation+preserves-original-times+adds-hop-received/sent timestamps without-overwrite; STORAGE:PostgreSQL=timestamptz-UTC+sequence,SQLite=RFC3339-UTC+integer-sequence,Qdrant=UTC-string+source-record-id/revision,JSON/API=RFC3339-UTC+explicit-timezone,UI=localized-display-derived-from-UTC+shows-staleness; PRECISION:minimum-millisecond+preserve-higher-source-precision; ORDER:origin-monotonic-sequence+causal-parent+authoritative-revision determine-order+wall-clock-never-sole-order; CLOCK:A115 authenticated-source+max-drift-5-seconds; DRIFT/UNKNOWN-CLOCK:mark-untrusted+block-expiry/security/release/order-sensitive mutation+permit-redacted-diagnostic-only; REPLAY:retain-original-occurred-at/sequence+new-delivery-time-separated; MIGRATION:legacy-record-without-time remains-legacy-unknown+must-not-fabricate; RETENTION/TZ-CHANGE/DST:never-change-stored-UTC+render-current-or-recorded-zone-explicitly; UI-SYNC:A195 includes-commit-time/event-time/render-time/ack-time and calculates-lag; AUDIT:append-only timestamp evidence+clock corrections as-new-events",
         "prohibition": "FORBID:missing-timestamp-on-new-record+naive-local-time+timezone-abbreviation-only+server-receipt-time-replacing-origin-time+timestamp-overwrite/backdate/future-date beyond-tolerance+fabricated-legacy-time+wall-clock-only-order+cross-generation-sequence reuse+UI-generated-authoritative-time+database-default-time-as-origin-when-origin-known+silent-clock-drift+timestamp-stripping at-channel/serialization/indexing/export+different-module-private-time-format",
         "exception": "Pure ephemeral arithmetic within one synchronous function requires no timestamp until it becomes state, output, event, decision, evidence, log, metric, cache entry, or cross-boundary value"
+      },
+      {
+        "position": 201,
+        "provision_id": "A201",
+        "section_index": "4",
+        "subject": "absolute-gptbridge-code-root-containment",
+        "rule": "CANONICAL-CODE-ROOT:E:\\GPTBridge; SCOPE:all-GPTBridge-owned/authored/copied/generated/transformed/downloaded/vendored/patched/extracted/staged/executable project source+scripts+modules+packages+plugins+extensions+hooks+launchers+workers+migrations+code-templates+embedded-code+build-inputs+runtime-loaded-code+hot-update/hot-reload artifacts+test-code+repair-code+AI/programming-tool output+Git-worktrees/object-database/index/hooks; LOCATION-RULE:every-in-scope path after absolute-normalization+case-folding+drive-resolution+environment-expansion+short-name-resolution+symlink/junction/mount/reparse-target-resolution must-equal-root or be-strict-descendant-of-root; ROOT-BOUNDARY:path-component boundary not-string-prefix; DIRECTORY-AUTHORITY:permission-sovereign registers-all-approved-code-directories under-root only; PROGRAMMING:system-programming-sovereign may-plan/dispatch changes only-to-registered-descendants; EXECUTION:system-runtime-sovereign validates executable/module/script/working-directory/import/search/plugin/temp-generated-code paths before-dispatch; INFORMATION-LAYER:rejects cross-root code transfer/write/extract/load/execute requests+publishes typed-denial; GIT:main-repository+.git+all-worktrees+shared-object-database+hooks must-reside-within-root+external-worktree-path forbidden; GENERATION:temporary/generated/build/package/cache/coverage/test/recovery/repair code stored only-in-approved-root descendants+atomic-promote-within-same-boundary; IMPORT/PATH:PYTHONPATH/NODE_PATH/PATH/plugin/module-resolution cannot introduce GPTBridge project code from outside-root; ARCHIVE:pre-scan+canonicalize-each-entry+reject-absolute/parent-traversal/reparse/hardlink escape before-extract; HOT-UPDATE/REPAIR:source+staging+rollback+active-release all-inside-root and A175/A181 identity rules still-apply; AUDIT:operation+actor+requested-path+resolved-path+root+decision+content-hash+timestamp+correlation-id without-secret; CHECKPOINTS:startup+code-change+tool-call+Git-operation+dependency-install+generation+build+test+package+hot-update+repair+runtime-load; FAILURE:any-unresolved/ambiguous/nonexistent-parent/reparse-loop/case-alias/device-path/network-path/outside-root=>fail-closed+no-create/write/copy/move/load/import/execute+report-to-user; EXISTING-OUTSIDE-CODE:quarantine-reference+do-not-load+move requires-explicit-governed migration that first validates-destination-inside-root and never-deletes-source-until-hash-verified; THIRD-PARTY-BOUNDARY:operating-system executables and externally-installed immutable third-party runtimes are-not-GPTBridge-project-code and may-be-invoked only-by-exact-approved-identity through-A197 governed-executor+cannot receive/store/generate/modify GPTBridge code outside-root; DATA:non-code user data governed-separately+must-never-contain executable-project-code to-evade-boundary",
+        "prohibition": "FORBID:any-project-code-outside-E:\\GPTBridge+E:\\GPTBridge-worktrees or-other-sibling-worktree+user-profile/Desktop/Documents/Downloads/AppData+ProgramData+Windows/System/other-drive/UNC/network/share/cloud-sync/temp as-project-code-root+symlink/junction/reparse/mount/hardlink escape+path-prefix-confusion+relative-traversal+8.3-alias/device-path escape+environment-variable redirection+external-Git-worktree/object-store/hook+outside-root-clone/stage/build/test/package/cache/generated-code+load/import/execute-from-memory-backed-or-unregistered-extracted-code+tool/AI writing-code-outside-root+copy-then-execute bypass+data-file-containing-hidden-executable-code+fallback-to-external-source+automatic-root-expansion+exception-by-module/administrator/debug/recovery",
+        "exception": "Read-only invocation of an OS component or specifically approved immutable third-party runtime outside the root does not authorize GPTBridge code to be stored, generated, modified, imported, staged, or executed there; all GPTBridge inputs, wrappers, configuration with executable behavior, outputs containing code, and working state remain inside E:\\GPTBridge"
+      },
+      {
+        "position": 202,
+        "provision_id": "A202",
+        "section_index": "4",
+        "subject": "absolute-environment-dependency-root",
+        "rule": "CANONICAL-ENVIRONMENT-ROOT:E:\\AI; SCOPE:all-GPTBridge-managed Python/Node/.NET/native runtimes+virtual-environments+interpreters+SDKs+compilers+linkers+package-managers+dependency-packages+native-libraries+drivers-not-OS-managed+CLI-tools+all-non-Ollama-model-runtimes/models+PostgreSQL/Qdrant managed-binaries+build-toolchains+dependency-download-cache+wheel/npm/nuget/compiler cache+environment-locks; LOCATION:each-installation/content/store/cache after-full-canonical/reparse resolution must-be-E:\\AI or-descendant unless-one-declared-exception; REQUIRED-LAYOUT:E:\\AI\\runtimes|environments|packages|toolchains|models|services|caches with-owner/version/platform/architecture subidentity; GPTBRIDGE-PROJECT-CODE:remains-only-under-E:\\GPTBridge per-A201+must-not-be-installed/copied/generated into-E:\\AI-or-C-drive-exception; ENVIRONMENT-MANIFEST:dependency-id+exact-version+content-hash+source+provenance+license+platform+architecture+install-root+entrypoints+consumers+installed-at+verified-at+status+exception-class; INSTALL-FLOW:third-party-sovereign-admission>system-decision-assignment>permission-validation>governed-installer-executor>approved-staging-path>hash/signature/provenance/compatibility verification>atomic-activation>runtime-validation>audit; RESOLUTION:startup/runtime/build/test/hot-update/repair resolves-only-current-certified-environment-manifest+no-global-search/fallback; ISOLATION:per-runtime/version/consumer compatible sharing only-when-content-identical+read-only+declared; MUTATION:new-version-side-by-side+atomic-pointer+no-in-place overwrite while-in-use; CLEANUP:reference-count+lease+rollback-retention+exact-owned-path+no-project-code deletion; DATA:business/user/authoritative data excluded+stored-under-own-governed-data roots; WINDOWS11-NATIVE-EXCEPTION:Windows-11 kernel/system-DLL/device-driver/PowerShell/cmd/system-command and OS-serviced native tools may-reside-at-Windows-owned-paths+exact-identity+OS-signature/version+read-only-invocation+no-use-as-managed-package-root; OLLAMA-C-DRIVE-EXCEPTION:Ollama-executable/runtime+Ollama-download-staging/cache+Ollama-managed-model-weights/blobs/manifests may-reside-and-operate only-at-exact-C-drive paths registered-in-certified-environment-manifest+content-addressed+third-party-reviewed+permission-scoped+owner-isolated+no-GPTBridge-source/business-data+no-arbitrary-C-root; NON-OLLAMA-MODEL:any-other-model-runtime/download/cache/weights remains-under-E:\\AI; VALIDATION:installation+startup+dependency-resolution+process-spawn+module-load+build+test+package+repair check A201-code-root+A202-environment-root+exception-proof; FAILURE:outside/missing/ambiguous/unverified dependency-or-exception=>deny-load/execute+affected-capability-unavailable+typed-report",
+        "prohibition": "FORBID:non-exempt-managed-environment-dependency outside-E:\\AI+project-local-.venv/node_modules/toolchain+Program-Files/ProgramData/AppData/user-profile/temp/other-drive/UNC/cloud-sync install+system-global-package-install+PATH/PYTHONPATH/NODE_PATH fallback+registry-based-unbounded-resolution+download-and-execute+in-place-update+unmanifested-shared-environment+dependency-containing-GPTBridge-owned-source+E:\\AI-or-Ollama-C-path containing-business/user-data-to-evade-data-policy+symlink/junction/reparse escape+administrator/debug/development/test/repair exception+automatic-root-expansion+non-Ollama-dependency-using-C-drive-exception+Ollama-path-outside-exact-registry+Windows-native-label-on-third-party-tool",
+        "exception": "Only Windows 11 native tools serviced by Windows and registered Ollama execution/download/model-storage paths on C drive are exempt; neither exception permits GPTBridge project code or unrelated dependencies outside their canonical roots"
       }
     ],
     "certification_evidence": [
@@ -1354,6 +1372,13 @@
         "evidence_location": "current-human-governor-complete-reconstitution-adoption",
         "validation_rule": "explicit-human-governor-genesis-adoption",
         "status": "genesis-adopted"
+      },
+      {
+        "version": "1.01000",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
       }
     ],
     "certification_policy": [
@@ -1372,6 +1397,13 @@
         "recorded_at_local": "2026-09-10T15:38:25+08:00",
         "timezone": "Asia/Taipei",
         "event": "complete-reconstitution-genesis-adoption"
+      },
+      {
+        "version": "1.01000",
+        "recorded_at_utc": "2026-09-10T07:57:12Z",
+        "recorded_at_local": "2026-09-10T15:57:12+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "authority-duty-code-and-environment-root-containment"
       }
     ],
     "edicts": [
@@ -2297,6 +2329,20 @@
         "provision_id": "E174",
         "area": "global-timestamp",
         "edict": "EVERY-RECORD/EVENT/COMMAND/DECISION/PROOF/STATE/UI-UPDATE:occurred-UTC+recorded-UTC+IANA-zone+localized-offset+monotonic-sequence+clock-status+generation+correlation; INFORMATION-LAYER:validate+preserve+propagate+hop-times; ORDER:sequence+causality+revision; DRIFT>5s/UNKNOWN:untrusted+fail-closed-sensitive-use; MISSING/NAIVE/OVERWRITE/FABRICATION/STRIP:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 175,
+        "provision_id": "E175",
+        "area": "absolute-code-root",
+        "edict": "ROOT:E:\\GPTBridge; ALL-GPTBRIDGE-PROJECT-CODE:owned|generated|vendored|staged|temporary|build|test|tool-output|worktree|Git-object|hot-update|repair|runtime-loaded => canonical-resolved-descendant-only; CHECK:normalize+resolve-reparse+component-boundary before-create/write/load/execute; OUTSIDE/AMBIGUOUS:deny+quarantine+audit; EXTERNAL-WORKTREE/SYMLINK-ESCAPE/PROFILE-TEMP/OTHER-DRIVE/UNC/ROOT-EXPANSION:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 176,
+        "provision_id": "E176",
+        "area": "absolute-environment-root",
+        "edict": "ROOT:E:\\AI; INSTALL-ONLY:runtime|venv|interpreter|SDK|toolchain|package|library|non-Ollama-model|managed-service-binary|dependency-cache; EXCEPTION-1:Windows-11-native-tools-at-OS-owned-paths; EXCEPTION-2:Ollama-runtime+download+Ollama-managed-model-store-at-exact-registered-C-drive-paths; PROJECT-CODE:E:\\GPTBridge-only; OTHER-PROJECT-LOCAL/GLOBAL/PROFILE/TEMP/DRIVE/UNC/FALLBACK/IN-PLACE-UPDATE:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4580,6 +4626,42 @@
         "provision_id": "E174",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P112",
+        "effective_version": "1.01000",
+        "status": "active"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P113",
+        "effective_version": "1.01000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A201",
+        "effective_version": "1.01000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A202",
+        "effective_version": "1.01000",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E175",
+        "effective_version": "1.01000",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E176",
+        "effective_version": "1.01000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -4809,18 +4891,6 @@
         "value": "forbidden"
       },
       {
-        "key": "schema",
-        "value": "gptbridge-governance-codex-v1.00000"
-      },
-      {
-        "key": "codex_version",
-        "value": "1.00000"
-      },
-      {
-        "key": "version_increment",
-        "value": "1.00000"
-      },
-      {
         "key": "codex_generation",
         "value": "new-genesis"
       },
@@ -4867,6 +4937,50 @@
       {
         "key": "global_timestamp_max_drift_seconds",
         "value": "5"
+      },
+      {
+        "key": "schema",
+        "value": "gptbridge-governance-codex-v1.01000"
+      },
+      {
+        "key": "codex_version",
+        "value": "1.01000"
+      },
+      {
+        "key": "version_increment",
+        "value": "0.01000"
+      },
+      {
+        "key": "canonical_code_root",
+        "value": "E:\\GPTBridge"
+      },
+      {
+        "key": "code_outside_canonical_root",
+        "value": "forbidden"
+      },
+      {
+        "key": "external_git_worktrees",
+        "value": "forbidden"
+      },
+      {
+        "key": "canonical_environment_root",
+        "value": "E:\\AI"
+      },
+      {
+        "key": "environment_dependency_outside_canonical_root",
+        "value": "forbidden-except-windows11-native-and-registered-Ollama-C-drive"
+      },
+      {
+        "key": "ollama_runtime_download_storage_root",
+        "value": "registered-C-drive-paths"
+      },
+      {
+        "key": "non_ollama_model_root",
+        "value": "E:\\AI"
+      },
+      {
+        "key": "project_local_environment_dependency",
+        "value": "forbidden"
       }
     ],
     "preamble": [
@@ -5495,6 +5609,18 @@
         "position": 103,
         "provision_id": "P111",
         "statement": "GLOBAL-TIMESTAMP:every-stateful-or-observable-system-record carries source-time-UTC+local-display-time+timezone+monotonic-sequence+clock-status; INFORMATION-LAYER:preserve+validate+propagate; ORDER:causal-sequence-over-wall-clock; MISSING/INVALID/DRIFTED:untrusted",
+        "binding": 1
+      },
+      {
+        "position": 104,
+        "provision_id": "P112",
+        "statement": "CODE-LOCATION:canonical-root=E:\\GPTBridge; GPTBridge-owned/generated/modified/executable-project-code must-resolve-inside-root; WORKTREE/TEMP/CACHE/BUILD/HOT-UPDATE/TOOL-OUTPUT:same-boundary; REPARSE/SYMLINK/UNC/OTHER-DRIVE/PROFILE escape=deny",
+        "binding": 1
+      },
+      {
+        "position": 105,
+        "provision_id": "P113",
+        "statement": "ENVIRONMENT-DEPENDENCY-LOCATION:canonical-root=E:\\AI; INTERPRETER/RUNTIME/SDK/TOOLCHAIN/PACKAGE/MODEL/MANAGED-SERVICE-BINARY:install-inside-root-only; GPTBRIDGE-CODE:E:\\GPTBridge-only; EXCEPTIONS:Windows-11-native-tools-at-OS-owned-paths+Ollama-execution/download/Ollama-managed-model-storage-at-exact-registered-C-drive-paths; OTHER-INSTALL-ROOT:none",
         "binding": 1
       }
     ],
@@ -8254,6 +8380,48 @@
         "identity_code": "codex/sovereign/language-review-sovereign",
         "provision_type": "sovereign",
         "provision_id": "language-review-sovereign",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P112",
+        "provision_type": "principle",
+        "provision_id": "P112",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P113",
+        "provision_type": "principle",
+        "provision_id": "P113",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A201",
+        "provision_type": "article",
+        "provision_id": "A201",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A202",
+        "provision_type": "article",
+        "provision_id": "A202",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E175",
+        "provision_type": "edict",
+        "provision_id": "E175",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E176",
+        "provision_type": "edict",
+        "provision_id": "E176",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -11410,6 +11578,54 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "080c42d6f6168112adb3d0dcb1282cd1b1197c099608ebe1871a9160b4dca336"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P112",
+        "introduced_by": "H002",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "2fa25f72666ed6fe99d2b15cafc51bdc95fa04b03a4bc63539c7b26591601f75"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P113",
+        "introduced_by": "H002",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "60a2936f8d201cc7bc05c49ed659707e9d53a78e72eb2378af44e2bb08404b06"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A201",
+        "introduced_by": "H002",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "37fcb7417baaee85fa8594c9d2b57814a3ca7828a4b6200a3c70a8e725e00928"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A202",
+        "introduced_by": "H002",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "147b63ff6880c6286ff49b2dd52e201f9a0bcf8a4031def56b2d5ea21ec4cad9"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E175",
+        "introduced_by": "H002",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "ef347aab5fd6469b6a704a5f6c45382ad4d1f4e56990d67b3c91bd43bd8635ea"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E176",
+        "introduced_by": "H002",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "90046d7ad4661acaf02aecace6887635600eab420435ce91333ab9c61ac65a46"
       }
     ],
     "provision_revisions": [
@@ -14564,6 +14780,54 @@
         "version": "1.00000",
         "content_hash": "080c42d6f6168112adb3d0dcb1282cd1b1197c099608ebe1871a9160b4dca336",
         "certification_status": "genesis-adopted"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P112",
+        "revision_id": "H002",
+        "version": "1.01000",
+        "content_hash": "2fa25f72666ed6fe99d2b15cafc51bdc95fa04b03a4bc63539c7b26591601f75",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P113",
+        "revision_id": "H002",
+        "version": "1.01000",
+        "content_hash": "60a2936f8d201cc7bc05c49ed659707e9d53a78e72eb2378af44e2bb08404b06",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A201",
+        "revision_id": "H002",
+        "version": "1.01000",
+        "content_hash": "37fcb7417baaee85fa8594c9d2b57814a3ca7828a4b6200a3c70a8e725e00928",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A202",
+        "revision_id": "H002",
+        "version": "1.01000",
+        "content_hash": "147b63ff6880c6286ff49b2dd52e201f9a0bcf8a4031def56b2d5ea21ec4cad9",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E175",
+        "revision_id": "H002",
+        "version": "1.01000",
+        "content_hash": "ef347aab5fd6469b6a704a5f6c45382ad4d1f4e56990d67b3c91bd43bd8635ea",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E176",
+        "revision_id": "H002",
+        "version": "1.01000",
+        "content_hash": "90046d7ad4661acaf02aecace6887635600eab420435ce91333ab9c61ac65a46",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -14576,6 +14840,16 @@
         "summary": "complete one-time reconstitution: prior version history removed and current effective codex overwritten as new 1.00000 genesis",
         "previous_hash": "GENESIS",
         "entry_hash": "f292f44ac85d961bc739e749ca14635fbeb1ae289bcca7939ae39bda543467d6"
+      },
+      {
+        "sequence": 2,
+        "change_id": "H002",
+        "version": "1.01000",
+        "recorded_date": "2026-09-10",
+        "change_scope": "authority-duty",
+        "summary": "project code constrained to E:\\GPTBridge and all managed environment dependencies constrained to E:\\AI",
+        "previous_hash": "f292f44ac85d961bc739e749ca14635fbeb1ae289bcca7939ae39bda543467d6",
+        "entry_hash": "06ff7129192b6045ffb1d622af3f3b6d462b53de31e8f384424b5dd50655899e"
       }
     ],
     "savings": [
@@ -14609,6 +14883,17 @@
         "content_root": "06780b77551f52710fa35b892a8a848789a69044e7911954e2baa8f055df9046",
         "identity_root": "6a17fbc8338e2d507cb16eeb327f5134fd7ddb45cec7a47ad471a129846dc5a3",
         "full_root": "e72b0f5b929b25631e21ea85c242bae43e1ed20031ba9d59dd66ad9238af5d2a"
+      },
+      {
+        "version": "1.01000",
+        "history_head": "06ff7129192b6045ffb1d622af3f3b6d462b53de31e8f384424b5dd50655899e",
+        "provision_count": 386,
+        "identity_count": 400,
+        "lineage_count": 400,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "d5f023e642c112d09c283b60200b3011091211a50816b6ccb20afef27b9e0f4f",
+        "identity_root": "bff07aa4318aae86f62ab5452c5e0b57bb94c8feec813e136df10b21595052e8",
+        "full_root": "afac57c49f53ff22412519549976519854af06da2b4603024dfacb978da15963"
       }
     ],
     "sealed_components": [
@@ -14660,6 +14945,56 @@
       {
         "version": "1.00000",
         "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.01000",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.01000",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.01000",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.01000",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.01000",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.01000",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.01000",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.01000",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.01000",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.01000",
+        "component": "version-rules",
         "included_in_full_root": 1
       }
     ],
@@ -15719,6 +16054,14 @@
     "trust_anchor_requirements": [
       {
         "version": "1.00000",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "1.01000",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
