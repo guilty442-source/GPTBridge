@@ -11,16 +11,18 @@ _DECLARATION = next(
     (item for item in GOVERNANCE_CODEX.sovereigns if item.area == "system-programming"),
     None,
 )
+if _DECLARATION is None:
+    raise RuntimeError("system programming sovereign not found in Governance Codex")
+
+SYSTEM_PROGRAMMING_SOVEREIGN_RESPONSIBILITIES = _DECLARATION.duties
 
 
 class SystemProgrammingSovereign:
     """Allows subordinate modules to invoke approved programming tools."""
 
-    ROLE = "system-programming-sovereign"
+    ROLE = _DECLARATION.id
 
     def __init__(self, app: Any) -> None:
-        if _DECLARATION is None:
-            raise RuntimeError("system programming sovereign not found in Governance Codex")
         self.app = app
         self._started = False
 
@@ -65,4 +67,4 @@ class SystemProgrammingSovereign:
         }
 
 
-__all__ = ["SystemProgrammingSovereign"]
+__all__ = ["SYSTEM_PROGRAMMING_SOVEREIGN_RESPONSIBILITIES", "SystemProgrammingSovereign"]
