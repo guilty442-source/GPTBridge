@@ -1,4 +1,9 @@
-"""Source-UI launch, companion reconnect, activation, and background restart."""
+"""Source-UI launch, companion reconnect, and activation.
+
+A184/E159: The main system may launch tools and follow their declared
+window-close policy, but it must NOT act as tool supervisor or watchdog.
+Auto-restart of crashed tools is the tool owner's own responsibility.
+"""
 # Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 from __future__ import annotations
 
@@ -21,73 +26,7 @@ _CENTRAL_VERSION = component_version("toolbox")
 
 
 class LaunchMixin:
-    """Source-UI launch, companion reconnect, activation, and background restart."""
-
-    # ------------------------------------------------------------------
-    # Background restart policy / scheduling
-    # ------------------------------------------------------------------
-
-    def _background_restart_policy(self, tool_id: str) -> tuple[int, float] | None:
-        try:
-            manifest, _tool_dir = self._load_manifest_cached(tool_id)
-            policy = manifest.get("background_service")
-            if not isinstance(policy, dict) or policy.get("auto_restart") is not True:
-                return None
-            attempts = max(1, min(int(policy.get("max_restart_attempts") or 3), 5))
-            backoff = max(1.0, min(float(policy.get("restart_backoff_seconds") or 2), 30.0))
-            return attempts, backoff
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
-            return None
-
-    def _schedule_background_restart(self, tool_id: str) -> None:
-        if tool_id in self._force_closed_tool_ids:
-            return
-        if self._background_restart_policy(tool_id) is None:
-            return
-        active = self._background_restart_tasks.get(tool_id)
-        if active is not None and not active.done():
-            return
-        task = asyncio.create_task(self._restart_background_tool(tool_id))
-        self._background_restart_tasks[tool_id] = task
-
-    async def _restart_background_tool(self, tool_id: str) -> None:
-        current_task = asyncio.current_task()
-        try:
-            policy = self._background_restart_policy(tool_id)
-            if policy is None:
-                return
-            maximum_attempts, base_backoff = policy
-            while tool_id not in self._force_closed_tool_ids:
-                attempt = self._background_restart_attempts.get(tool_id, 0) + 1
-                if attempt > maximum_attempts:
-                    return
-                self._background_restart_attempts[tool_id] = attempt
-                await asyncio.sleep(base_backoff * attempt)
-                if tool_id in self._force_closed_tool_ids:
-                    return
-                result = await self.start_tool(
-                    {
-                        "tool_id": tool_id,
-                        "request_id": f"managed-restart-{tool_id}-{uuid.uuid4().hex}",
-                        "background": True,
-                        "_managed_restart": True,
-                    }
-                )
-                if result.get("ok") is True:
-                    await self._reconnect_companion_source_uis(tool_id)
-                    return
-        finally:
-            if self._background_restart_tasks.get(tool_id) is current_task:
-                self._background_restart_tasks.pop(tool_id, None)
-
-    async def _reset_restart_attempts_after_stability(
-        self,
-        tool_id: str,
-        process: asyncio.subprocess.Process,
-    ) -> None:
-        await asyncio.sleep(60)
-        if process.returncode is None:
-            self._background_restart_attempts.pop(tool_id, None)
+    """Source-UI launch, companion reconnect, and activation."""
 
     # ------------------------------------------------------------------
     # Source-UI launch

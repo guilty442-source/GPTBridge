@@ -51,7 +51,6 @@ class StartMixin(ToolWatcherMixin):
             }
         if not managed_restart:
             self._force_closed_tool_ids.discard(tool_id)
-            self._background_restart_attempts.pop(tool_id, None)
 
         request_id, request_error = self._tool_request_id(payload)
         if request_error is not None or request_id is None:
@@ -641,10 +640,6 @@ class StartMixin(ToolWatcherMixin):
                 ),
             )
         )
-        if self._background_restart_policy(tool_id) is not None:
-            asyncio.create_task(
-                self._reset_restart_attempts_after_stability(tool_id, process)
-            )
         await self._release_started_tool_command_slot(request_id)
         if cancel_pending and process.returncode is None:
             await terminate_process_tree(process)

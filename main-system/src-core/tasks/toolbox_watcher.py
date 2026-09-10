@@ -1,4 +1,9 @@
-"""Tool process post-start watching."""
+"""Tool process post-start watching.
+
+A184/E159: The main system may observe tool process exit for status
+update and resource cleanup, but must NOT auto-restart crashed tools.
+Restart is the tool owner's own responsibility (owner-process-tree-only).
+"""
 from __future__ import annotations
 
 import asyncio
@@ -48,5 +53,3 @@ class ToolWatcherMixin:
                 tool_id,
                 "running" if still_running and not cancelled else "stopped",
             )
-            if not cancelled and not still_running:
-                self._schedule_background_restart(tool_id)

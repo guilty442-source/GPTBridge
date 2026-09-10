@@ -92,8 +92,6 @@ class ToolboxService(
         self._started_request_by_tool: dict[str, str] = {}
         self._cancelled_request_ids: set[str] = set()
         self._force_closed_tool_ids: set[str] = set()
-        self._background_restart_attempts: dict[str, int] = {}
-        self._background_restart_tasks: dict[str, asyncio.Task[Any]] = {}
         self._source_runtime_environments: dict[str, dict[str, str]] = {}
         self._source_ui_processes: dict[str, asyncio.subprocess.Process] = {}
         self._source_ui_runtime_sessions: dict[str, str] = {}

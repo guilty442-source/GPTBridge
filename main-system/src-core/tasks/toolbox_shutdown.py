@@ -50,9 +50,6 @@ class ShutdownMixin:
             }
 
         self._force_closed_tool_ids.add(tool_id)
-        restart_task = self._background_restart_tasks.pop(tool_id, None)
-        if restart_task is not None and not restart_task.done():
-            restart_task.cancel()
 
         tracked_request_id, process, _kind = await self._active_tool_process(tool_id)
         if tracked_request_id is not None:
