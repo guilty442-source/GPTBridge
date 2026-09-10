@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "2.51230",
+  "codex_version": "2.61230",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1786,6 +1786,15 @@
         "rule": "HANDOFF:startup-sovereign>information-layer>system-runtime-sovereign; PROOF:startup-generation+release-id+codex-identity+permission-directory-version+information-layer-generation+activated-node-set+dependency-evidence+resource-allocation+health-baseline+timestamp+expiry+content-hash; ACCEPT:system-runtime-sovereign execution-validation+atomic-ack; BEFORE-ACK:startup-sovereign owns-startup-generation only; AFTER-ACK:system-runtime-sovereign owns-running-lifecycle and startup-sovereign cannot issue runtime commands; MAINTENANCE receives-health-baseline-only-after-handoff; SYSTEM-DECISION receives-completion-result-only; RESTART:system-runtime submits-new-startup-intent after-owned-shutdown-or-generation-failure; STATUS-SOURCE:one-authoritative-snapshot+monotonic-sequence; LOST-ACK:query/reconcile-idempotently+never-repeat-side-effects; FAILURE-DURING-HANDOFF:no-dual-owner+runtime-remains-not-ready until-one-valid-ack",
         "prohibition": "FORBID:implicit-handoff+two-runtime-owners+startup-control-after-ack+runtime-control-before-ack+readiness-without-proof+ack-by-UI/launcher+duplicate-activation-on-ack-loss+state-sequence-regression+independent-tool-lifecycle-in-main-handoff",
         "exception": "none"
+      },
+      {
+        "position": 195,
+        "provision_id": "A195",
+        "section_index": "4",
+        "subject": "backend-state-to-frontend-projection-synchronization",
+        "rule": "SCOPE:main-system+every-independent-tool+all-backend-owned-state-visible-in-UI; OWNERSHIP:backend owns-domain-state+frontend owns-presentation+information-layer owns-delivery/session/replay; BACKEND-CANNOT-MODIFY-UI-DIRECTLY; CHANGE-CLASSES:STATE-CHANGE|UI-ARTIFACT-CHANGE|CONTRACT-CHANGE; STATE-CHANGE:commit-authoritative-state and append-transactional-outbox-event in-one-atomic-boundary; EVENT:{entity-id,entity-type,operation,authoritative-revision,previous-revision,changed-field-allowlist,invalidation-keys,state-hash,backend-generation,release-id,contract-version,sequence,correlation-id,committed-at}; PUBLISH:outbox>information-layer authentication/authorization/type/field/redaction/order gates>all-authorized-active-frontend-sessions; DELIVERY:at-least-once+idempotency-key+per-entity-monotonic-revision+per-stream-monotonic-sequence+client-acknowledged-cursor; FRONTEND:validate-session/generation/release/contract/sequence/revision>apply-once-to-normalized-projection>derive-view>render>ack; READY:projection-revision/state-hash/cursor match-authoritative-snapshot and subscription-current; GAP:sequence-gap/revision-gap/hash-mismatch/unknown-event/contract-mismatch/backend-generation-change/release-change=>invalidate-affected-projection+block-stale-state-changing-actions+request-authoritative-scoped-snapshot+replay-after-snapshot-cursor; RECONNECT:reauthenticate+resubscribe+send-last-acknowledged-cursor+gap-check+snapshot-or-replay+ready-only-after-convergence; MULTI-WINDOW:each-session independent-cursor/ack+same-authoritative-revision; OFFLINE-EDIT:none unless-feature-has-explicit-versioned-conflict-contract; COMMAND-RESULT:backend-result-event and resulting-state-event correlated+UI-completion only-after-result-and-projection-convergence; AUTO-REPAIR/RESTART/HOT-RELOAD:publish-new-generation/release+invalidate-old-session+force-snapshot-convergence; UI-ARTIFACT-CHANGE:system-programming-governed-change>A175-certified-release>atomic-backend/frontend/contract-activation>information-layer-release-event>renderer-controlled-reload>snapshot-convergence; CONTRACT-CHANGE:versioned+compatibility-declared+old-client typed-upgrade-required rather-than-silent-drop; LATENCY:publish/immediately-process within-declared-bounded-deadline+measure commit-to-render/ack lag; BACKPRESSURE:bounded-buffer+coalesce-only-replaceable-state-events+never-drop-command/result/security/permission/health-transition+snapshot-fallback; OBSERVABILITY:outbox-lag+delivery-lag+render-lag+ack-lag+gap-count+snapshot-count+session-generation visible-at-authorized-level; FAILURE:typed-degraded-state+retain-last-confirmed-data-marked-stale+automatic-bounded-resync+sovereign-repair-escalation-after-budget",
+        "prohibition": "FORBID:backend-DOM/component/store-direct-mutation+state-commit-without-outbox-event+event-before-commit+unversioned-payload+frontend-polling-as-primary-sync+manual-refresh-dependency+transport-open-as-synchronized+optimistic-success-before-authoritative-result+silent-event-drop+out-of-order-apply+revision-regression+cross-generation-event+stale-cache-presented-current+global-snapshot-when-scoped-snapshot-suffices+unbounded-buffer/retry+frontend-only-source-patch+backend-change-triggering-uncertified-UI-code-reload+direct-WebSocket/private-bus/database-read+information-layer-bypass",
+        "exception": "Purely visual local state with no backend meaning may remain frontend-local; it cannot represent authoritative status, permission, health, task result, financial value, or persisted domain data"
       }
     ],
     "certification_evidence": [
@@ -2043,6 +2052,13 @@
       },
       {
         "version": "2.51230",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "2.61230",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3233,6 +3249,13 @@
         "provision_id": "E168",
         "area": "startup-entry",
         "edict": "ENTRY:gptbridge-start mechanically-wakes-or-attaches hidden-startup-source-runtime+formal-UI; LAUNCHER:UI-only+immediate+single-instance+status-subscription; RELOAD:UI-only; UI-CLOSE:detach-only; BACKGROUND-CONSOLE:none; DIRECT-BACKEND/EXE-FALLBACK/DUPLICATE-RUNTIME:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 169,
+        "provision_id": "E169",
+        "area": "backend-frontend-state-convergence",
+        "edict": "STATE:backend-commit+outbox atomic>information-layer ordered-event>frontend revision-checked projection>render>ack; READY:snapshot+cursor+revision+hash converged; GAP/RECONNECT/REPAIR/GENERATION:invalidate>scoped-snapshot>replay>verify; ARTIFACT:certified-atomic-release>controlled-renderer-reload>resync; DIRECT-UI-MUTATION/POLLING-PRIMARY/MANUAL-REFRESH/STALE-SUCCESS:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -5231,18 +5254,6 @@
         "value": "core-critical|capability-critical|optional"
       },
       {
-        "key": "schema",
-        "value": "gptbridge-governance-codex-v2.51230"
-      },
-      {
-        "key": "codex_version",
-        "value": "2.51230"
-      },
-      {
-        "key": "version_increment",
-        "value": "0.10000"
-      },
-      {
         "key": "official_platform_start_entry",
         "value": "gptbridge-start"
       },
@@ -5253,6 +5264,26 @@
       {
         "key": "startup_runtime_handoff_owner",
         "value": "system-runtime-sovereign"
+      },
+      {
+        "key": "schema",
+        "value": "gptbridge-governance-codex-v2.61230"
+      },
+      {
+        "key": "codex_version",
+        "value": "2.61230"
+      },
+      {
+        "key": "version_increment",
+        "value": "0.10000"
+      },
+      {
+        "key": "backend_ui_sync_contract",
+        "value": "transactional-outbox>information-layer-event>frontend-projection-ack"
+      },
+      {
+        "key": "backend_ui_ready_gate",
+        "value": "snapshot+cursor+revision+state-hash-converged"
       }
     ],
     "preamble": [
@@ -5899,6 +5930,12 @@
         "position": 106,
         "provision_id": "P106",
         "statement": "STARTUP-BOUNDARY:official-platform-entry=mechanical-dual-wake(ui-launcher+startup-sovereign-source-runtime); LAUNCHER=UI-only; STARTUP-SOVEREIGN=bootstrap-orchestration+dependency-activation+verified-handoff-only; AFTER-HANDOFF:system-runtime-owner; ENTRY:fast-visible+single-instance+nonblocking+hidden-background-processes",
+        "binding": 1
+      },
+      {
+        "position": 107,
+        "provision_id": "P107",
+        "statement": "BACKEND-TO-UI-SYNCHRONIZATION:authoritative-state-commit+transactional-outbox+information-layer-ordered-event+frontend-projection-ack; GAP/RECONNECT/GENERATION-CHANGE:authoritative-snapshot-before-ready; UI-ARTIFACT-CHANGE:certified-atomic-release+renderer-reload; STALE-SUCCESS:none",
         "binding": 1
       }
     ],
@@ -9281,6 +9318,27 @@
         "identity_code": "codex/provision/edict/E168",
         "provision_type": "edict",
         "provision_id": "E168",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P107",
+        "provision_type": "principle",
+        "provision_id": "P107",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A195",
+        "provision_type": "article",
+        "provision_id": "A195",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E169",
+        "provision_type": "edict",
+        "provision_id": "E169",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -13149,6 +13207,30 @@
         "supersedes_id": "E110",
         "status": "active",
         "content_hash": "f2b293b3d534f964a7b3986e6cd591b23ebb76130e2471e502a6c6e69b494812"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P107",
+        "introduced_by": "H041",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "da2cd2bc5e745c74c1c0b64a3d7195767aaaf410592600eb6331256b8d4b6889"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A195",
+        "introduced_by": "H041",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "397712b8b30727162b8704f9a442f6032ef696c42ea3b18b790055c2cb3437ae"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E169",
+        "introduced_by": "H041",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "aa7a69d0e6afbf1b5eac3709fce59227ab2b637160875fa4c0283ed983f906e6"
       }
     ],
     "provision_revisions": [
@@ -29503,6 +29585,30 @@
         "version": "2.51230",
         "content_hash": "f2b293b3d534f964a7b3986e6cd591b23ebb76130e2471e502a6c6e69b494812",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P107",
+        "revision_id": "H041",
+        "version": "2.61230",
+        "content_hash": "da2cd2bc5e745c74c1c0b64a3d7195767aaaf410592600eb6331256b8d4b6889",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A195",
+        "revision_id": "H041",
+        "version": "2.61230",
+        "content_hash": "397712b8b30727162b8704f9a442f6032ef696c42ea3b18b790055c2cb3437ae",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E169",
+        "revision_id": "H041",
+        "version": "2.61230",
+        "content_hash": "aa7a69d0e6afbf1b5eac3709fce59227ab2b637160875fa4c0283ed983f906e6",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -29905,6 +30011,16 @@
         "summary": "startup sovereign reduced to three capabilities and official entry optimized for immediate isolated UI and runtime activation",
         "previous_hash": "48949582534033c1ac697026b2baddaf7e7520c4eca7cb2e9d05cce10813550b",
         "entry_hash": "1f55bf18e0155fc284689938088bdd2a58c621760b05c4a82f6aa33ace4202d9"
+      },
+      {
+        "sequence": 41,
+        "change_id": "H041",
+        "version": "2.61230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "architecture-authority",
+        "summary": "backend state commits now require atomic UI events ordered delivery projection acknowledgement and automatic convergence",
+        "previous_hash": "1f55bf18e0155fc284689938088bdd2a58c621760b05c4a82f6aa33ace4202d9",
+        "entry_hash": "a0b243ff22de76cd7663f5bde448c94df5b039197d498481799eba79c652d6ec"
       }
     ],
     "savings": [
@@ -30367,6 +30483,17 @@
         "content_root": "089b563e153e194f36fed30de0134ee93404da281c82cad794a913df6135cfc2",
         "identity_root": "f40ef0c6409df31c5b8bfc3d255627a40f7b0adc2ff29a494e7b55948c2dcb33",
         "full_root": "57d58500b33b64933b7bb240620ce162a992b33d1d1141299770b6f221a688e3"
+      },
+      {
+        "version": "2.61230",
+        "history_head": "a0b243ff22de76cd7663f5bde448c94df5b039197d498481799eba79c652d6ec",
+        "provision_count": 471,
+        "identity_count": 486,
+        "lineage_count": 486,
+        "certification_state": "sealed-read-only",
+        "content_root": "4780bb18b915fd031853f42ad9e318996bf5c3f1a50b86f4640805dc6c32378e",
+        "identity_root": "5b3e65e48a21946346abb743e3e021f4b11bddc93853c45198fff0d897f99cc2",
+        "full_root": "92c399c78f5f5ee5d539f4895fae98113cb2eddfddfe7f56d1006bb132474329"
       }
     ],
     "sealed_components": [
