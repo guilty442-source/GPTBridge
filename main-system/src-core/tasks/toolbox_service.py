@@ -23,6 +23,7 @@ classes, each responsible for a distinct area of responsibility:
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from typing import Any, Callable, Dict
 
@@ -117,3 +118,55 @@ class ToolboxService(
             "message": "啟動維護尚未完成：正在檢查版本相容性並執行主系統穩定性修正，完成前不開放狀態變更。",
             "operation": operation,
         }
+
+    async def _retry_start_after_central_repair(
+        self,
+        payload: Dict[str, Any],
+        tool_id: str,
+        tool_dir: Path,
+        manifest: Dict[str, Any],
+        failure: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Retry start after central repair, then reconnect orphaned companion source UIs."""
+        retry_result = await super()._retry_start_after_central_repair(
+            payload, tool_id, tool_dir, manifest, failure
+        )
+        if retry_result.get("ok") is True:
+            orphaned_ui_ids = self._collect_orphaned_source_ui_ids(tool_id)
+            if orphaned_ui_ids:
+                await self._reconnect_companion_source_uis(tool_id)
+        return retry_result
+
+    async def _request_central_repair(
+        self,
+        tool_id: str,
+        tool_dir: Path,
+        manifest: Dict[str, Any],
+        failure: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Centralized auto-repair entry point retained in the main-system toolbox."""
+        return await super()._request_central_repair(tool_id, tool_dir, manifest, failure)
+
+    def _collect_orphaned_source_ui_ids(self, runtime_owner_tool_id: str) -> list[str]:
+        """Return companion source UI tool ids whose owner runtime session changed."""
+        orphaned_ui_ids: list[str] = []
+        for tool_dir in self._declared_companion_tool_directories():
+            try:
+                manifest = json.loads(
+                    (tool_dir / "manifest.json").read_text(encoding="utf-8")
+                )
+                tool_id = str(manifest.get("id") or "").strip()
+                owner = self._runtime_owner_tool_id(tool_id, manifest)
+            except (OSError, ValueError, PermissionError, json.JSONDecodeError):
+                continue
+            if (
+                not tool_id
+                or owner != runtime_owner_tool_id
+                or manifest.get("has_custom_ui") is not True
+            ):
+                continue
+            current_ui = self._source_ui_processes.get(tool_id)
+            if current_ui is None or current_ui.returncode is not None:
+                continue
+            orphaned_ui_ids.append(tool_id)
+        return orphaned_ui_ids

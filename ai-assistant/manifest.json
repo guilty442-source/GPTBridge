@@ -2,8 +2,8 @@
   "id": "ai-assistant",
   "name_key": "tool.name",
   "description_key": "tool.description",
-  "version": "1.00000",
-  "display_version": "1.00000",
+  "version": "1.0.0",
+  "display_version": "1.0",
   "shared_permission_profile": "ai-investment-manager-v1",
   "shared_code_root": "ai-assistant",
   "managed_backup_storage": "global-cleaner/data/business/backups/ai-assistant",
@@ -44,6 +44,7 @@
     "runtimes": [
       "governed-source-ui"
     ],
+    "primary": "governed-source-channel",
     "background": "governed-source-channel",
     "close_program_on_window_exit": true
   },

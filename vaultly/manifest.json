@@ -2,8 +2,8 @@
   "id": "vaultly",
   "name_key": "tool.name",
   "description_key": "tool.description",
-  "version": "1.00000",
-  "display_version": "1.00000",
+  "version": "1.0.0",
+  "display_version": "1.0",
   "status": "stopped",
   "enabled": true,
   "has_custom_ui": true,
@@ -39,6 +39,7 @@
     "runtimes": [
       "governed-source-channel"
     ],
+    "primary": "governed-source-channel",
     "background": "governed-source-channel",
     "close_program_on_window_exit": true
   },
