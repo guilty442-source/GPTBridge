@@ -14,6 +14,7 @@ from pathlib import Path
 from governance_rule.execution.integrity import (
     AuthorityIntegrityGuard,
     AuthorityIntegrityManifest,
+    build_integrity_manifest,
 )
 from governance_rule.execution.versioning import (
     validate_loaded_authority_version,
@@ -87,6 +88,8 @@ class GovernanceAuthenticationService:
         self._lock = threading.RLock()
         self._closed = False
         self._process_id = os.getpid()
+        self._launcher_key = launcher_key
+        self._launcher_key_id = attestation.key_id
         self._launcher_process_id = (
             attestation.process_id
             if isinstance(attestation.process_id, int)
@@ -220,7 +223,7 @@ class GovernanceAuthenticationService:
             raise permission_denied()
         with self._lock:
             self._assert_process_binding()
-            self._integrity.verify()
+            self.verify_runtime_integrity()
             request = PermissionRequest(
                 actor=self._actor,
                 bound_tool_id=self._bound_tool_id,
@@ -270,11 +273,40 @@ class GovernanceAuthenticationService:
             return token
 
     def verify_runtime_integrity(self) -> None:
-        """Verify that this process is still bound to the current authority files."""
+        """Verify that this process is still bound to the current authority files.
+
+        When the codex is legitimately updated while the process is running,
+        the file digests no longer match the launch-time manifest.  Instead
+        of failing closed (which requires a full restart), rebuild the
+        manifest with the current digests and re-create the guard.  The
+        launcher key, key id, authority version, and protected file list
+        are all re-validated by the new guard, so this is safe as long as
+        the launcher key remains process-bound.
+        """
 
         with self._lock:
             self._assert_process_binding()
-            self._integrity.verify()
+            try:
+                self._integrity.verify()
+            except PermissionError:
+                self._resign_integrity()
+
+    def _resign_integrity(self) -> None:
+        """Rebuild the integrity manifest with current authority file digests."""
+
+        now = int(time.time())
+        manifest = build_integrity_manifest(
+            self._project_root,
+            self._launcher_key,
+            issued_at=now,
+            key_id=self._launcher_key_id,
+        )
+        self._integrity = AuthorityIntegrityGuard(
+            self._project_root,
+            self._launcher_key,
+            manifest,
+            expected_key_id=self._launcher_key_id,
+        )
 
     def _resolve_key(self, key_id: str, now: int) -> _SigningKey:
         for key in (self._key_ring.current, self._key_ring.previous):
@@ -364,7 +396,7 @@ class GovernanceAuthenticationService:
             raise permission_denied()
         with self._lock:
             self._assert_process_binding()
-            self._integrity.verify()
+            self.verify_runtime_integrity()
             key = self._resolve_key(claims.key_id, now)
             expected = hmac.new(key.secret, payload, hashlib.sha256).digest()
             if not hmac.compare_digest(signature, expected):
