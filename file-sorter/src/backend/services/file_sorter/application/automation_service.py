@@ -95,6 +95,8 @@ class FileSorterAutomationService:
         self._pass_lock = asyncio.Lock()
         self._pending_observation_count = 0
         self._unchanged_scan_count = 0
+        self._last_error_type = ""
+        self._last_pass_ok: bool | None = None
 
     @property
     def running(self) -> bool:
@@ -157,6 +159,8 @@ class FileSorterAutomationService:
 
         async with self._pass_lock:
             summary = await asyncio.to_thread(self._run_once_sync)
+            self._last_pass_ok = summary.get("failed_profile_count", 0) == 0
+            self._last_error_type = ""
             self._pending_observation_count = int(
                 summary.get("waiting_for_second_observation_count", 0)
             )
@@ -218,33 +222,45 @@ class FileSorterAutomationService:
 
     async def _run_loop(self, stop_event: asyncio.Event) -> None:
         while not stop_event.is_set():
-            before_pass = await asyncio.to_thread(
-                self._snapshot_enabled_targets
-            )
             try:
+                before_pass = await asyncio.to_thread(
+                    self._snapshot_enabled_targets
+                )
                 await self.run_once()
+                if stop_event.is_set():
+                    break
+                after_pass = await asyncio.to_thread(
+                    self._snapshot_enabled_targets
+                )
+                if after_pass != before_pass:
+                    # A file appeared or changed during the pass. Rescan now.
+                    continue
+                await self._wait_for_file_change(stop_event, after_pass)
             except asyncio.CancelledError:
                 raise
             except Exception as error:
-                # Do not include exception messages: paths, filenames, or
-                # provider credentials can appear in third-party exceptions.
+                # Keep the owner loop alive. Exception messages may contain
+                # paths or credentials, so expose only the stable type.
+                self._last_pass_ok = False
+                self._last_error_type = type(error).__name__
                 self._safe_log(
                     "error",
-                    "File Sorter automation pass failed; it will retry.",
-                    {"error_type": type(error).__name__},
+                    "File Sorter automation cycle failed; it will retry.",
+                    {"error_type": self._last_error_type},
                 )
+                try:
+                    await asyncio.wait_for(stop_event.wait(), timeout=10.0)
+                except asyncio.TimeoutError:
+                    pass
 
-            if stop_event.is_set():
-                break
-            after_pass = await asyncio.to_thread(
-                self._snapshot_enabled_targets
-            )
-            if after_pass != before_pass:
-                # A file appeared or changed while the sorter pass was running.
-                # Run again immediately so the event cannot fall into the
-                # small gap between a pass and watcher baseline creation.
-                continue
-            await self._wait_for_file_change(stop_event, after_pass)
+    def health_snapshot(self) -> dict[str, Any]:
+        return {
+            "automation_enabled": self.enabled,
+            "automation_running": self.running,
+            "automation_last_pass_ok": self._last_pass_ok,
+            "automation_last_error_type": self._last_error_type,
+            "automation_pending_observations": self._pending_observation_count,
+        }
 
     async def _wait_for_file_change(
         self,
@@ -356,17 +372,17 @@ class FileSorterAutomationService:
     def _resolve_runner(self) -> Any:
         if self._runner is not None:
             return self._runner
-        from . import cli
+        from . import cli_organize
 
         for required_name in (
             "prune_state",
             "recover_transactions",
             "run_enabled_profiles_once",
         ):
-            if not callable(getattr(cli, required_name, None)):
+            if not callable(getattr(cli_organize, required_name, None)):
                 raise ImportError(f"File Sorter runtime is missing {required_name}().")
-        self._runner = cli
-        return cli
+        self._runner = cli_organize
+        return cli_organize
 
     def _safe_log(
         self,

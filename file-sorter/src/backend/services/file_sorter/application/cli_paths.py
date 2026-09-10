@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import stat as stat_module
 import unicodedata
 from pathlib import Path
 from typing import Any
 
 from .cli_models import FileSorterError
+from .cli_constants import LEGACY_RULES_FILE_NAME
 
 
 def normalize_text(value: str) -> str:

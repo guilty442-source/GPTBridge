@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
+import sys
 import threading
+import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from ..infrastructure.cleanup import (
+    CleanupError,
     DEFAULT_ANALYSIS_SPEED,
     DEFAULT_SIMILAR_VIDEO_THRESHOLD,
     find_exact_duplicate_candidates,
@@ -42,11 +46,14 @@ from ..infrastructure.sorter_engine import (
 )
 from ..infrastructure.sorter_engine import (
     _TargetDirectoryLock,
+    _atomic_write_json,
+    _validated_state_document_path,
     _utc_now,
     _state_category_root,
 )
 from .cli_constants import (
     FOLDERS_JSON_PREFIX,
+    LEGACY_RULES_FILE_NAME,
     SOURCE_FILES_JSON_PREFIX,
     TOOL_ROOT,
     _BACKGROUND_DUPLICATE_OBSERVATIONS,
@@ -54,15 +61,30 @@ from .cli_constants import (
     _BACKGROUND_OBSERVATIONS_LOCK,
 )
 from .cli_models import FileSorterError, KeywordRule, OrganizeResult
+from .cli_keywords import build_keyword_rules, keyword_matches
 from .cli_paths import (
+    _is_lexically_canonical_absolute,
     is_local_folder_name,
     list_destination_folders,
     list_source_files,
     normalize_match_text,
+    normalize_text,
     resolve_destination_dir,
     resolve_target_dir,
 )
-from .cli_rules import read_custom_rules
+from .cli_rules import (
+    _load_profile_snapshot,
+    _uses_explicit_legacy_rules_path,
+    get_rules_path,
+    read_custom_rules,
+)
+
+
+def _facade_override(name: str, default: Any) -> Any:
+    """Honor public-facade injection without duplicating runtime ownership."""
+
+    facade = sys.modules.get(f"{__package__}.cli")
+    return getattr(facade, name, default) if facade is not None else default
 
 
 def _effective_state_root(
@@ -656,7 +678,11 @@ def _run_profile_duplicate_recycle_once(
     }
     if ready:
         with _TargetDirectoryLock(snapshot.target_dir):
-            result = recycle_exact_duplicate_candidates(snapshot.target_dir, ready)
+            recycler = _facade_override(
+                "recycle_exact_duplicate_candidates",
+                recycle_exact_duplicate_candidates,
+            )
+            result = recycler(snapshot.target_dir, ready)
     transaction_id = _record_duplicate_recycle_result(
         result,
         profile_id=snapshot.profile_id,
@@ -823,7 +849,11 @@ def scan_after_keyword_addition(
     """Immediately observe a target after at least one new rule is saved."""
 
     target = str(Path(target_dir).resolve())
-    for report in run_enabled_profiles_once(state_root=state_root):
+    runner = _facade_override(
+        "run_enabled_profiles_once",
+        run_enabled_profiles_once,
+    )
+    for report in runner(state_root=state_root):
         if str(report.get("target_dir", "")) == target:
             return report
     return None

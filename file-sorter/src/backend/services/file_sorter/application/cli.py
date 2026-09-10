@@ -44,6 +44,7 @@ from .cli_organize import (
     run_enabled_profiles_once,
     scan_after_keyword_addition,
 )
+from ..infrastructure.cleanup import recycle_exact_duplicate_candidates
 from .cli_entry import create_argument_parser, main, print_rules
 
 
@@ -75,6 +76,7 @@ __all__ = [
     "preview_organize_files",
     "print_rules",
     "read_custom_rules",
+    "recycle_exact_duplicate_candidates",
     "resolve_destination_dir",
     "resolve_target_dir",
     "run_enabled_profiles_once",

@@ -45,10 +45,7 @@ async def main() -> None:
         startup=service.start,
         shutdown=service.shutdown,
         cancellation=executor.cancel,
-        health=lambda: {
-            "service_ready": True,
-            "automation_running": service.automation.running,
-        },
+        health=service.health_snapshot,
     )
     await runtime.run()
 

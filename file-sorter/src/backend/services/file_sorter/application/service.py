@@ -25,6 +25,12 @@ class FileSorterService:
     async def shutdown(self) -> None:
         await self.automation.stop()
 
+    def health_snapshot(self) -> dict[str, Any]:
+        return {
+            "service_ready": True,
+            **self.automation.health_snapshot(),
+        }
+
     async def handle(
         self, command: str, _payload: dict[str, Any], _latest: Any = None
     ) -> tuple[str, dict[str, Any]]:

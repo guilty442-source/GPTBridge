@@ -6,6 +6,7 @@ import ast
 import json
 import os
 import re
+import stat as stat_module
 import unicodedata
 from pathlib import Path
 from typing import Any

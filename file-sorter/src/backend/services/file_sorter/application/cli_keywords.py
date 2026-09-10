@@ -4,12 +4,25 @@ from __future__ import annotations
 
 import unicodedata
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from .cli_constants import RULES_VARIABLE_NAME
-from .cli_models import FileSorterError, KeywordRule
-from .cli_paths import is_local_folder_name, normalize_match_text, normalize_text
-from .cli_rules import read_custom_rules, write_custom_rules
+from .cli_models import FileSorterError, KeywordRule, KeywordUpsertResult
+from .cli_paths import (
+    destination_exists_for_rule,
+    destination_rule_value,
+    is_local_folder_name,
+    list_destination_folders,
+    normalize_match_text,
+    normalize_text,
+    resolve_destination_dir,
+    resolve_target_dir,
+)
+from .cli_rules import (
+    _read_rules_and_revision,
+    read_custom_rules,
+    write_custom_rules,
+)
 
 
 def add_keywords(
