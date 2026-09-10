@@ -65,8 +65,11 @@ def _git_has_uncommitted_change(project_root: Path, source_path: Path) -> bool:
     The repair surface must never overwrite a file the developer is actively
     editing.  We ask git directly: if the path is unknown to the index, or
     the working-tree content differs from HEAD, the file is considered
-    "dirty" and is skipped.  Any git failure (not a repo, git missing) is
-    treated as "clean" so repair can still proceed in non-git environments.
+    "dirty" and is skipped.  When git is installed but the check itself
+    fails (error, timeout, non-zero exit) the file is treated as dirty so a
+    repair never clobbers unverifiable in-progress edits.  Only when git is
+    not installed at all is the file treated as "clean", so repair can still
+    proceed in non-git environments.
     """
     try:
         relative = source_path.resolve(strict=False).relative_to(
@@ -86,10 +89,10 @@ def _git_has_uncommitted_change(project_root: Path, source_path: Path) -> bool:
             text=True,
             timeout=5,
         )
-    except (OSError, subprocess.SubprocessError):
-        return False
+    except (OSError, subprocess.SubprocessError, RuntimeError):
+        return True
     if result.returncode != 0:
-        return False
+        return True
     return bool(result.stdout.strip())
 
 
@@ -287,10 +290,15 @@ class SourceRepairService:
     def _backup(self, source_path: Path) -> None:
         if not _inside(source_path, self.project_root):
             raise PermissionError("PERMISSION_DENIED")
-        recovery_root = self._recovery_root()
-        recovery_root.mkdir(parents=True, exist_ok=True)
+        relative = source_path.resolve(strict=False).relative_to(
+            self.project_root.resolve()
+        )
+        backup_dir = self._recovery_root() / relative.parent
+        backup_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-        shutil.copy2(source_path, recovery_root / f"{source_path.name}.{stamp}.bak")
+        shutil.copy2(
+            source_path, backup_dir / f"{source_path.name}.{stamp}.bak"
+        )
 
     def _atomic_write(self, source_path: Path, content: str) -> None:
         temporary = source_path.with_name(f".{source_path.name}.repair.tmp")
@@ -298,8 +306,16 @@ class SourceRepairService:
         os.replace(temporary, source_path)
 
     def _restore_latest(self, source_path: Path) -> None:
-        recovery_root = self._recovery_root()
-        backups = sorted(recovery_root.glob(f"{source_path.name}.*.bak"))
+        if not _inside(source_path, self.project_root):
+            return
+        try:
+            relative = source_path.resolve(strict=False).relative_to(
+                self.project_root.resolve()
+            )
+        except (OSError, ValueError):
+            return
+        backup_dir = self._recovery_root() / relative.parent
+        backups = sorted(backup_dir.glob(f"{source_path.name}.*.bak"))
         if not backups:
             return
         shutil.copy2(backups[-1], source_path)
@@ -348,6 +364,11 @@ class SourceRepairService:
                 report["ambiguous_files"].append(
                     {"file": relative, "reason": str(error)}
                 )
+                continue
+            # Re-check for uncommitted changes right before the write so an
+            # edit saved between repair computation and write is preserved.
+            if _git_has_uncommitted_change(self.project_root, source_path):
+                report["skipped_dirty_files"].append(relative)
                 continue
             try:
                 self._backup(source_path)

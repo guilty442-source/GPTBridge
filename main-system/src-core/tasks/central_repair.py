@@ -230,6 +230,12 @@ class CentralRepairService:
                 {"file": relative_path, **problem}, report
             )
             return report
+        # Re-check for uncommitted changes before the write in case an edit
+        # was saved while the repair was being computed.
+        if _git_has_uncommitted_change(self.project_root, target):
+            report["reason"] = "uncommitted git changes detected during repair"
+            report["skipped"] = True
+            return report
         try:
             service._backup(target)
             service._atomic_write(target, repaired_source)
