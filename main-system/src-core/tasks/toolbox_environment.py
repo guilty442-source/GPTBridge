@@ -79,7 +79,15 @@ class EnvironmentMixin:
     ) -> bool:
         # Independent tools always launch from governed native source code;
         # packaged EXEs are no longer used for startup.
-        return ToolPathResolver.has_governed_source_runtime(manifest)
+        if not ToolPathResolver.has_governed_source_runtime(manifest):
+            return False
+        if not ToolPathResolver.is_dual_runtime(manifest):
+            return True
+        # Dual-runtime: background or explicit source request uses source launch;
+        # foreground with no preference uses the executable when it exists.
+        if background or str(requested_mode).strip().casefold() == "source":
+            return True
+        return not executable_exists
 
     @staticmethod
     def _source_fallback_allowed(

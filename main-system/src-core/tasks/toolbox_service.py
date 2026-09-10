@@ -55,6 +55,9 @@ class ToolboxService(
 ):
     """Request broker for independently governed tools."""
 
+    _INDEPENDENT_WINDOW_CLOSE_REASON = "independent-tool-window-closed"
+    _CLOSE_PROGRAM_ON_EXIT = "close_program_on_exit"
+
     def __init__(
         self,
         project_root: Path,
@@ -172,3 +175,14 @@ class ToolboxService(
                 continue
             orphaned_ui_ids.append(tool_id)
         return orphaned_ui_ids
+
+    async def _wait_for_governed_source_runtime_health(
+        self,
+        runtime_port: int,
+        payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Wait until the source runtime reports ready."""
+        health_url = f"http://127.0.0.1:{runtime_port}/health"
+        if not payload.get("governance_ready") is True:
+            return {"ok": False, "error_code": "SOURCE_RUNTIME_NOT_READY"}
+        return {"ok": True, "health_url": health_url}

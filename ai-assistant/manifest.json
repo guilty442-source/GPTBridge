@@ -34,15 +34,19 @@
     "runtime_entry": "src/channel_runtime.py",
     "direct_instruction": "PERMISSION_DENIED"
   },
+  "executable": {
+    "path": "build/ai-assistant.exe"
+  },
   "distribution": {
-    "mode": "special-unpackaged",
-    "package": false
+    "mode": "dual-runtime",
+    "package": true
   },
   "launch": {
-    "mode": "governed-source",
-    "selection": "source-only",
+    "mode": "dual-runtime",
+    "selection": "automatic",
     "runtimes": [
-      "governed-source-ui"
+      "governed-source-ui",
+      "executable"
     ],
     "primary": "governed-source-channel",
     "background": "governed-source-channel",
