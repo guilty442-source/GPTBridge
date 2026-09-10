@@ -20,6 +20,7 @@ const UI_ZOOM_STORAGE_KEY = 'gptbridge_ui_zoom_factor'
 const MIN_UI_ZOOM = 0.85
 const MAX_UI_ZOOM = 1.3
 const t = mainSystemLocale.product
+const xr = mainSystemLocale.xingchengReport
 
 type SystemMetrics = {
   diskUsagePercent?: number | null
@@ -53,6 +54,7 @@ export default function App() {
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatusPayload>({})
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics>({})
   const [drawerSovereign, setDrawerSovereign] = useState(false)
+  const [drawerXingcheng, setDrawerXingcheng] = useState(false)
   const [drawerCapacity, setDrawerCapacity] = useState(false)
   const [drawerThirdParty, setDrawerThirdParty] = useState(false)
   const backendSocket = useBackendSocket()
@@ -224,31 +226,38 @@ export default function App() {
   }, [toolboxTools])
   const xingchengReview = useMemo(() => {
     if (backendSocket.status === 'Connecting' || backendSocket.status === 'Repairing') {
-      return { tone: 'warning' as const, state: '審查中', detail: '即時通道連接或修復中' }
+      return { tone: 'warning' as const, state: xr.reviewing, detail: xr.reviewingDetail, issues: [{ id: 'backend-reconnecting', source: xr.informationLayer, title: xr.backendInterrupted, detail: `${xr.reviewingDetail}：${backendSocket.status}`, status: xr.autoRepairing }] }
     }
     if (!connected) {
-      return { tone: 'warning' as const, state: '連線異常', detail: '後端即時通道中斷，正在自動重連' }
+      return { tone: 'warning' as const, state: xr.connectionAnomaly, detail: xr.connectionDetail, issues: [{ id: 'backend-offline', source: xr.informationLayer, title: xr.backendDisconnected, detail: xr.backendDisconnectedDetail, status: xr.waitingRecovery }] }
     }
     if (!maintenanceReady) {
-      return { tone: 'warning' as const, state: '健康異常', detail: '系統健康維護尚未就緒' }
+      return { tone: 'warning' as const, state: xr.healthAnomaly, detail: xr.healthDetail, issues: [{ id: 'maintenance-not-ready', source: xr.maintenanceSovereign, title: xr.maintenanceNotReady, detail: xr.maintenanceNotReadyDetail, status: xr.monitoring }] }
     }
     const affected = toolboxTools
       .filter((tool) => tool.status === 'error' || (tool.launchable !== false && tool.runtimeAvailable === false))
-      .map((tool) => tool.name)
+    const issues = affected.map((tool) => ({
+      id: `tool-${tool.id}`,
+      source: tool.name,
+      title: tool.status === 'error' ? xr.toolError : xr.runtimeUnavailable,
+      detail: tool.note || tool.description || tool.summary || xr.noFurtherDetail,
+      status: tool.status === 'error' ? xr.needsAction : xr.waitingRuntime,
+    }))
     if (affected.length > 0) {
       return {
         tone: 'warning' as const,
-        state: `${affected.length} 處異常`,
-        detail: affected.slice(0, 3).join('、'),
+        state: `${affected.length} ${xr.affectedSuffix}`,
+        detail: affected.slice(0, 3).map((tool) => tool.name).join('、'),
+        issues,
       }
     }
-    return { tone: 'ok' as const, state: '正常', detail: '已依據法典完成全域唯讀審查' }
+    return { tone: 'ok' as const, state: xr.normal, detail: xr.normalDetail, issues: [] }
   }, [backendSocket.status, connected, maintenanceReady, toolboxTools])
   const connection = xingchengReview.tone === 'ok'
-    ? { label: '系統正常', detail: xingchengReview.detail, tone: 'online' as const }
-    : xingchengReview.state === '審查中'
-      ? { label: '系統審查中', detail: xingchengReview.detail, tone: 'pending' as const }
-      : { label: '系統異常', detail: xingchengReview.detail, tone: 'offline' as const }
+    ? { label: xr.systemNormal, detail: xingchengReview.detail, tone: 'online' as const }
+    : xingchengReview.state === xr.reviewing
+      ? { label: xr.systemReviewing, detail: xingchengReview.detail, tone: 'pending' as const }
+      : { label: xr.systemAnomaly, detail: xingchengReview.detail, tone: 'offline' as const }
   const diskUsedBytes =
     typeof systemMetrics.diskTotalBytes === 'number' &&
     typeof systemMetrics.diskFreeBytes === 'number'
@@ -318,11 +327,19 @@ export default function App() {
             <strong className="hero-card__value hero-card__value--text">{t.requestToolExecution}</strong>
             <small className="hero-card__hint">{t.commandStrategyHint}</small>
           </article>
-          <article className="hero-card" data-tone={xingchengReview.tone} data-testid="xingcheng-global-review">
+          <button
+            type="button"
+            className="hero-card hero-card--interactive"
+            data-tone={xingchengReview.tone}
+            data-testid="xingcheng-global-review"
+            aria-haspopup="dialog"
+            onClick={() => setDrawerXingcheng(true)}
+          >
             <span className="hero-card__label">{mainSystemLocale.sovereign.xingchengTitle}</span>
             <strong className="hero-card__value hero-card__value--text">{xingchengReview.state}</strong>
             <small className="hero-card__hint">{xingchengReview.detail}</small>
-          </article>
+            <span className="hero-card__action">{xr.viewDetails}</span>
+          </button>
         </section>
 
         <div className="section-heading">
@@ -393,6 +410,40 @@ export default function App() {
         <span>GPTBridge v{displayVersion(appVersion)}</span>
         <span>{t.footerPlatform}</span>
       </footer>
+
+      <Drawer
+        open={drawerXingcheng}
+        onClose={() => setDrawerXingcheng(false)}
+        title={xr.title}
+        eyebrow={xr.eyebrow}
+        icon="星"
+      >
+        <div className="xingcheng-report" data-testid="xingcheng-report-detail">
+          <section className="xingcheng-report__summary" data-tone={xingchengReview.tone}>
+            <span>{xr.currentDecision}</span>
+            <strong>{xingchengReview.state}</strong>
+            <p>{xingchengReview.detail}</p>
+          </section>
+          {xingchengReview.issues.length > 0 ? (
+            <div className="xingcheng-report__issues">
+              {xingchengReview.issues.map((issue) => (
+                <article className="xingcheng-issue" key={issue.id}>
+                  <div className="xingcheng-issue__head">
+                    <strong>{issue.title}</strong>
+                    <span>{issue.status}</span>
+                  </div>
+                  <dl>
+                    <div><dt>{xr.source}</dt><dd>{issue.source}</dd></div>
+                    <div><dt>{xr.details}</dt><dd>{issue.detail}</dd></div>
+                  </dl>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="xingcheng-report__empty">{xr.empty}</p>
+          )}
+        </div>
+      </Drawer>
 
       {/* Sovereign drawer */}
       <Drawer
