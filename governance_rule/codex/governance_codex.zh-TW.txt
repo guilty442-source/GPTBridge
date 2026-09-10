@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.03000",
+  "codex_version": "1.11000",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1363,6 +1363,78 @@
         "rule": "CANONICAL-ENVIRONMENT-ROOT:E:\\AI; SCOPE:all-GPTBridge-managed Python/Node/.NET/native runtimes+virtual-environments+interpreters+SDKs+compilers+linkers+package-managers+dependency-packages+native-libraries+drivers-not-OS-managed+CLI-tools+all-non-Ollama-model-runtimes/models+PostgreSQL/Qdrant managed-binaries+build-toolchains+dependency-download-cache+wheel/npm/nuget/compiler cache+environment-locks; LOCATION:each-installation/content/store/cache after-full-canonical/reparse resolution must-be-E:\\AI or-descendant unless-one-declared-exception; REQUIRED-LAYOUT:E:\\AI\\runtimes|environments|packages|toolchains|models|services|caches with-owner/version/platform/architecture subidentity; GPTBRIDGE-PROJECT-CODE:remains-only-under-E:\\GPTBridge per-A201+must-not-be-installed/copied/generated into-E:\\AI-or-C-drive-exception; ENVIRONMENT-MANIFEST:dependency-id+exact-version+content-hash+source+provenance+license+platform+architecture+install-root+entrypoints+consumers+installed-at+verified-at+status+exception-class; INSTALL-FLOW:third-party-sovereign-admission>system-decision-assignment>permission-validation>governed-installer-executor>approved-staging-path>hash/signature/provenance/compatibility verification>atomic-activation>runtime-validation>audit; RESOLUTION:startup/runtime/build/test/hot-update/repair resolves-only-current-certified-environment-manifest+no-global-search/fallback; ISOLATION:per-runtime/version/consumer compatible sharing only-when-content-identical+read-only+declared; MUTATION:new-version-side-by-side+atomic-pointer+no-in-place overwrite while-in-use; CLEANUP:reference-count+lease+rollback-retention+exact-owned-path+no-project-code deletion; DATA:business/user/authoritative data excluded+stored-under-own-governed-data roots; WINDOWS11-NATIVE-EXCEPTION:Windows-11 kernel/system-DLL/device-driver/PowerShell/cmd/system-command and OS-serviced native tools may-reside-at-Windows-owned-paths+exact-identity+OS-signature/version+read-only-invocation+no-use-as-managed-package-root; OLLAMA-C-DRIVE-EXCEPTION:Ollama-executable/runtime+Ollama-download-staging/cache+Ollama-managed-model-weights/blobs/manifests may-reside-and-operate only-at-exact-C-drive paths registered-in-certified-environment-manifest+content-addressed+third-party-reviewed+permission-scoped+owner-isolated+no-GPTBridge-source/business-data+no-arbitrary-C-root; NON-OLLAMA-MODEL:any-other-model-runtime/download/cache/weights remains-under-E:\\AI; VALIDATION:installation+startup+dependency-resolution+process-spawn+module-load+build+test+package+repair check A201-code-root+A202-environment-root+exception-proof; FAILURE:outside/missing/ambiguous/unverified dependency-or-exception=>deny-load/execute+affected-capability-unavailable+typed-report",
         "prohibition": "FORBID:non-exempt-managed-environment-dependency outside-E:\\AI+project-local-.venv/node_modules/toolchain+Program-Files/ProgramData/AppData/user-profile/temp/other-drive/UNC/cloud-sync install+system-global-package-install+PATH/PYTHONPATH/NODE_PATH fallback+registry-based-unbounded-resolution+download-and-execute+in-place-update+unmanifested-shared-environment+dependency-containing-GPTBridge-owned-source+E:\\AI-or-Ollama-C-path containing-business/user-data-to-evade-data-policy+symlink/junction/reparse escape+administrator/debug/development/test/repair exception+automatic-root-expansion+non-Ollama-dependency-using-C-drive-exception+Ollama-path-outside-exact-registry+Windows-native-label-on-third-party-tool",
         "exception": "Only Windows 11 native tools serviced by Windows and registered Ollama execution/download/model-storage paths on C drive are exempt; neither exception permits GPTBridge project code or unrelated dependencies outside their canonical roots"
+      },
+      {
+        "position": 203,
+        "provision_id": "A203",
+        "section_index": "4",
+        "subject": "python-cpp-responsibility-boundary",
+        "rule": "PYTHON-OWNS:orchestration+application-use-cases+domain-policy-composition+governed-workflow+adapter-coordination; CPP-OWNS:measured-performance-critical deterministic-native-compute+algorithms+memory-intensive transformation; ENTRY:Python>C-ABI-adapter>C-ABI>C++ implementation; DATA:bounded-plain-typed-buffers/opaque-handles+explicit-ownership; CPP-NO:system-orchestration+permission+network/database/UI+business-policy+Python-runtime-dependency; PYTHON-NO:duplicate-native-kernel+direct-C++-symbol/class/template/exception access; PROMOTION-TO-CPP:profile-evidence+system-programming-decision+equivalence-tests+fallback/rollback; ERROR:C-status+structured-error converted-once-at-Python-adapter; CONCURRENCY:C++ worker contract+Python cancellation/deadline propagated; LOCATION:A201+A202",
+        "prohibition": "FORBID:pybind/direct-CPP-binding+Python/C++ duplicated-algorithm-authority+STL/object/exception across-boundary+native-global-state+unbounded-buffer+callback-into-arbitrary-Python+CPP-owning-workflow",
+        "exception": "Header-only templates internal to C++ are allowed and never form the cross-language boundary"
+      },
+      {
+        "position": 204,
+        "provision_id": "A204",
+        "section_index": "4",
+        "subject": "single-versioned-c-abi",
+        "rule": "C-ABI:sole-native-cross-language-interface; SURFACE:extern-C+one-export-header-per-library+explicit-symbol-visibility+stable-call-convention+fixed-width-stdint-types+size/version fields+opaque-handles+enum-backed-status-codes+caller-length/callee-required-length buffer protocol+UTF-8 bytes+no-implicit-allocation; ABI-VERSION:major/minor+capability-query+minimum/maximum-supported negotiation; STRUCT:append-only-with-size-gate within-major+reserved-zero fields+alignment/packing asserted; MEMORY:allocator-and-deallocator same-owner+explicit create/destroy+no-free-across-runtime; ERROR:no-C++-exception/RTTI/STL/template/reference/bool/long/wchar/platform-handle leakage; THREADING:document thread-safety/reentrancy/callback-thread; LIFETIME:handle-generation+double-free/use-after-free guards; BUILD:export-symbol allowlist+ABI-dump/baseline+architecture/runtime matrix; CHANGE:breaking=>new-major+side-by-side symbols+consumer migration+certified-release",
+        "prohibition": "FORBID:multiple-native-ABIs+unversioned-export+name-mangled-export+struct-layout-ambiguity+compiler-dependent-type+ownership-unspecified+cross-CRT-allocation+exception-crossing+C++-header-as-Python/CSharp-boundary+silent-breaking-change",
+        "exception": "OS-required native signatures remain behind one internal adapter and are not application-facing ABI"
+      },
+      {
+        "position": 205,
+        "provision_id": "A205",
+        "section_index": "4",
+        "subject": "fixed-typescript-python-api-boundary",
+        "rule": "BOUNDARY:TypeScript-client>information-layer>Python-application-API only; CONTRACT:single-versioned-language-neutral schema registry with request/response/event/error definitions+operation-id+field-type/requiredness/nullability/limits+permission-scope+idempotency+timeout+stream/order semantics; GENERATION:TypeScript types/client validators and Python models/server validators generated-or-verified-from-same-contract-hash; ENVELOPE:contract-version+operation+request-id+correlation-id+session-generation+release-id+timestamp+A200 sequence; COMPATIBILITY:additive-optional-within-minor+breaking/removal/semantic-change=>new-major+dual-support migration-window; NEGOTIATION:exact-compatible range before-ready; VALIDATION:both-boundaries+unknown-field policy explicit+generic-client-error/redacted-server-diagnostic; STATE:A195 snapshot/event revision contract; TRANSPORT:information-layer-owned only+no-client transport handle; COMPLETION:typed-result+authoritative-state convergence",
+        "prohibition": "FORBID:TypeScript-importing-Python+Python-writing-DOM/frontend-store+direct-WebSocket/HTTP/socket/database/file IPC+ad-hoc-dict/any/untyped-JSON+duplicate-manual-contract+frontend-only-backend-assumption+silent-field-drop+breaking-change-without-major+client-trusting-server-unvalidated+server-trusting-client-unvalidated",
+        "exception": "Pure build-time TypeScript utilities with no Python interaction remain outside this API boundary"
+      },
+      {
+        "position": 206,
+        "provision_id": "A206",
+        "section_index": "4",
+        "subject": "csharp-windows-function-deduplication",
+        "rule": "CSHARP-ONLY:Windows-specific .NET/CLR/WinRT/COM integration that cannot-be-provided-by-existing-Python/TypeScript/C/C++ owner without-loss; ONE-OWNER:each-capability registry declares canonical-language-owner+adapter-only consumers; CSHARP-ADAPTER:thin+stateless-or-bounded-state+versioned-interface+information-layer for-process-boundary or C-ABI for-in-process-native-boundary; BEFORE-ADD:capability-search+duplicate-signature analysis+reuse/extend decision+measured-necessity; MIGRATION:when-duplicate exists select-one-canonical-owner+parity-test+consumer-cutover+delete-retired-implementation in-same-certified-release; NO-BUSINESS:domain-calculation/orchestration/permission/data-authority/UI-state absent; TEST:contract parity+Windows-version matrix+resource/lifetime/leak checks",
+        "prohibition": "FORBID:CSharp-duplicate-Python/TypeScript/CPP/C/SQL-function+parallel-business-logic+shadow-service+second-repository+second-state-machine+direct-database/network+embedded-governance-decision+copy-paste-port-without-retirement+COM/CLR-object-crossing-untyped-boundary",
+        "exception": "A Windows-only capability may remain C#-owned when its unique platform necessity and nonduplication evidence are current"
+      },
+      {
+        "position": 207,
+        "provision_id": "A207",
+        "section_index": "4",
+        "subject": "sql-query-pushdown",
+        "rule": "RULE:set-based-data-work executes-at-owning-SQL-engine; PUSH-DOWN:filter+projection+join+aggregation+grouping+window+sorting+distinct+pagination+existence+constraint+upsert+transactional-condition+authorized-row/column restriction; APPLICATION:submits-bounded-parameterized-query-contract+receives-only-required-columns/rows/aggregates; POSTGRESQL:central-structured-authoritative queries; SQLite:owner-private bounded-state queries only; QUERY-PLAN:EXPLAIN-based evidence for-new/changed/hot paths+index/selectivity/row-estimate/temp-sort/full-scan thresholds; PAGINATION:keyset-preferred+stable-order+bounded-limit; BULK:batch/set operation+no-N+1; SECURITY:parameter binding+server-side scope predicates+transaction/isolation/deadline/cancellation; OBSERVE:query-id+contract-version+duration+rows-scanned/returned+plan-hash+timeout without-sensitive-literals; FALLBACK:application-side operation only-for-non-SQL semantics after-bounded-pushdown and documented evidence",
+        "prohibition": "FORBID:fetch-all-then-filter/sort/group/join/page+SELECT-star production-contract+string-concatenated-SQL+N+1+unbounded-result+offset-only-large-pagination+application-enforced-row-security+SQL-business-policy/sovereign-decision+cross-owner-direct-database+query-without-timeout+silent-client-side-fallback",
+        "exception": "Small already-bounded result sets may receive final presentation-only formatting outside SQL"
+      },
+      {
+        "position": 208,
+        "provision_id": "A208",
+        "section_index": "4",
+        "subject": "automatic-six-language-governance-check",
+        "rule": "LANGUAGES:python+typescript+cpp+c+csharp+sql; OWNER:language-review-sovereign decides-conformance+system-programming-sovereign dispatches-read-only-check tools+permission-sovereign validates scope; TRIGGERS:file-save-debounced advisory+pre-commit changed-files+integrated-main affected-graph+release full-boundary+startup changed-release verification; CHECKS-COMMON:allowed-language/extensions+canonical-root/environment-root+module/function/class size+one-owner/responsibility+dependency/secret/network/direct-channel+generated-file identity+tests; PYTHON:imports/layers/types/async/blocking/FFI-adapter; TYPESCRIPT:strict-types/no-any-boundary+generated-contract parity+UI/backend separation; CPP:no-forbidden-ownership+sanitizer/static-analysis+only-C-ABI exports; C:ABI-header/version/layout/symbol/ownership/error/thread contract; CSHARP:Windows-necessity+duplicate-capability scan+interop-boundary; SQL:parameterization+ownership+pushdown+bounded-plan/migration/transaction; CROSS:Python-C++ call graph only-via-C-ABI+TS-Python schema hash parity+C# capability uniqueness+SQL pushdown evidence; RESULT:typed file/symbol/rule/severity/evidence/fix-owner+timestamp; GATE:error blocks commit/integration/release+warning requires-expiring-reviewed exception; BASELINE:no-grandfather-new-violations+legacy debt bounded owner/deadline; TOOLING:deterministic+pinned+offline-capable+incremental-cache-keyed-by-tool/config/content/contract hash+full-check cannot-use-stale-cache",
+        "prohibition": "FORBID:self-reported-pass+disabled-check+language-owner-self-exemption+warning-as-success+changed-file-only-release-check+generated-code-skip-without-generator-check+cache-without-hash+auto-fix-changing-behavior-without-review+check-tool-network-bypass+six-language-partial-coverage",
+        "exception": "Generated pure bindings may use a registered file exception, but generator source, generated hash, ABI/API parity and release output remain mandatory"
+      },
+      {
+        "position": 209,
+        "provision_id": "A209",
+        "section_index": "4",
+        "subject": "six-language-file-conventions",
+        "rule": "FILE-EXT:Python=.py/.pyi/test_*.py; TypeScript=.ts/.tsx/.d.ts/.test.ts/.test.tsx; C=.c/.h/*_test.c; C++=.cpp/.hpp/.inl/*_test.cpp; CSharp=.cs/.csproj/.sln/*Tests.cs; SQL=.sql; BOUNDARY:C-ABI-public=.h+C++-internal=.hpp+generated-TS/Python-contract-files marked-and-hashed; BASIS:A203-A208",
+        "prohibition": "FORBID:custom-extension+cross-language-extension-mismatch+C++-application-ABI-in-.hpp+unmarked-generated-binding",
+        "exception": "none"
+      },
+      {
+        "position": 210,
+        "provision_id": "A210",
+        "section_index": "4",
+        "subject": "six-language-test-boundary",
+        "rule": "UNIT:Python=pytest|TypeScript=vitest|C++=googletest|C=native-or-ctest|CSharp=xunit|SQL=database-owned-transactional-test; CONTRACT:ABI/API/schema compatibility tests at-each-boundary; INTEGRATION:Python-pytest may-coordinate only-through-public-information-layer/API/C-ABI contracts+cannot-import-private-cross-module implementation; RELEASE:A208-six-language checks+unit+contract+integration; BASIS:A203-A209",
+        "prohibition": "FORBID:private-cross-language-test-import+mock-only-boundary-acceptance+missing-ABI/API/schema-negative-test+test-bypass-information-layer",
+        "exception": "none"
       }
     ],
     "certification_evidence": [
@@ -1375,6 +1447,13 @@
       },
       {
         "version": "1.01000",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.11000",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -1404,6 +1483,13 @@
         "recorded_at_local": "2026-09-10T15:57:12+08:00",
         "timezone": "Asia/Taipei",
         "event": "authority-duty-code-and-environment-root-containment"
+      },
+      {
+        "version": "1.11000",
+        "recorded_at_utc": "2026-09-10T11:48:14Z",
+        "recorded_at_local": "2026-09-10T19:48:14+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "architecture-authority-six-language-boundaries"
       }
     ],
     "edicts": [
@@ -2344,6 +2430,13 @@
         "area": "absolute-environment-root",
         "edict": "ROOT:E:\\AI; INSTALL-ONLY:runtime|venv|interpreter|SDK|toolchain|package|library|non-Ollama-model|managed-service-binary|dependency-cache; EXCEPTION-1:Windows-11-native-tools-at-OS-owned-paths; EXCEPTION-2:Ollama-runtime+download+Ollama-managed-model-store-at-exact-registered-C-drive-paths; PROJECT-CODE:E:\\GPTBridge-only; OTHER-PROJECT-LOCAL/GLOBAL/PROFILE/TEMP/DRIVE/UNC/FALLBACK/IN-PLACE-UPDATE:none",
         "immutability": "immutable-sealed"
+      },
+      {
+        "position": 177,
+        "provision_id": "E177",
+        "area": "six-language-boundaries",
+        "edict": "PYTHON:orchestration/application; CPP:native-compute; C:sole-versioned-ABI; TYPESCRIPT:frontend-client-through-fixed-generated-contract-to-Python; CSHARP:unique-Windows-adapter-only+no-duplicate; SQL:set-query-pushdown; AUTO-CHECK:all-six at-save/precommit/integrated-main/release with-cross-boundary parity; DIRECT/UNTYPED/DUPLICATE/FETCH-ALL/PARTIAL-CHECK:none",
+        "immutability": "immutable-sealed"
       }
     ],
     "effective_provisions": [
@@ -2428,12 +2521,6 @@
       {
         "provision_type": "principle",
         "provision_id": "P15",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "principle",
-        "provision_id": "P16",
         "effective_version": "1.00000",
         "status": "active"
       },
@@ -3111,12 +3198,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A35",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A38",
         "effective_version": "1.00000",
         "status": "active"
@@ -3196,18 +3277,6 @@
       {
         "provision_type": "article",
         "provision_id": "A53",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A55",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A56",
         "effective_version": "1.00000",
         "status": "active"
       },
@@ -3916,12 +3985,6 @@
       {
         "provision_type": "edict",
         "provision_id": "E19",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "edict",
-        "provision_id": "E21",
         "effective_version": "1.00000",
         "status": "active"
       },
@@ -4662,6 +4725,66 @@
         "provision_id": "E176",
         "effective_version": "1.01000",
         "status": "active"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P114",
+        "effective_version": "1.11000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A203",
+        "effective_version": "1.11000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A204",
+        "effective_version": "1.11000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A205",
+        "effective_version": "1.11000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A206",
+        "effective_version": "1.11000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A207",
+        "effective_version": "1.11000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A208",
+        "effective_version": "1.11000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A209",
+        "effective_version": "1.11000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A210",
+        "effective_version": "1.11000",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E177",
+        "effective_version": "1.11000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -4916,11 +5039,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-10T09:02:03.646584Z"
+        "value": "2026-09-10T09:01:37.668882Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-10T17:02:03.646584+08:00"
+        "value": "2026-09-10T17:01:37.668882+08:00"
       },
       {
         "key": "codex_timezone",
@@ -4937,18 +5060,6 @@
       {
         "key": "global_timestamp_max_drift_seconds",
         "value": "5"
-      },
-      {
-        "key": "schema",
-        "value": "gptbridge-governance-codex-v1.03000"
-      },
-      {
-        "key": "codex_version",
-        "value": "1.03000"
-      },
-      {
-        "key": "version_increment",
-        "value": "0.01000"
       },
       {
         "key": "canonical_code_root",
@@ -4981,6 +5092,42 @@
       {
         "key": "project_local_environment_dependency",
         "value": "forbidden"
+      },
+      {
+        "key": "schema",
+        "value": "gptbridge-governance-codex-v1.11000"
+      },
+      {
+        "key": "codex_version",
+        "value": "1.11000"
+      },
+      {
+        "key": "version_increment",
+        "value": "0.10000"
+      },
+      {
+        "key": "language_boundary_standard",
+        "value": "A203-A210"
+      },
+      {
+        "key": "native_cross_language_abi",
+        "value": "C-ABI-only"
+      },
+      {
+        "key": "typescript_python_contract",
+        "value": "single-versioned-generated-schema"
+      },
+      {
+        "key": "csharp_role",
+        "value": "unique-Windows-adapter-only"
+      },
+      {
+        "key": "sql_execution_policy",
+        "value": "query-pushdown"
+      },
+      {
+        "key": "six_language_automatic_check",
+        "value": "required"
       }
     ],
     "preamble": [
@@ -5621,6 +5768,12 @@
         "position": 105,
         "provision_id": "P113",
         "statement": "ENVIRONMENT-DEPENDENCY-LOCATION:canonical-root=E:\\AI; INTERPRETER/RUNTIME/SDK/TOOLCHAIN/PACKAGE/MODEL/MANAGED-SERVICE-BINARY:install-inside-root-only; GPTBRIDGE-CODE:E:\\GPTBridge-only; EXCEPTIONS:Windows-11-native-tools-at-OS-owned-paths+Ollama-execution/download/Ollama-managed-model-storage-at-exact-registered-C-drive-paths; OTHER-INSTALL-ROOT:none",
+        "binding": 1
+      },
+      {
+        "position": 106,
+        "provision_id": "P114",
+        "statement": "SIX-LANGUAGE-ARCHITECTURE:Python=orchestration/application+TypeScript=presentation/client+C++=native-compute+C=sole-stable-ABI+CSharp=Windows-specific-adapter+SQL=set-based-data-operation; BOUNDARIES:versioned+generated+tested+information-layer-routed; DUPLICATION:none; GOVERNANCE-CHECK:automatic-before-commit/integration/release",
         "binding": 1
       }
     ],
@@ -8424,6 +8577,76 @@
         "provision_id": "E176",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P114",
+        "provision_type": "principle",
+        "provision_id": "P114",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A203",
+        "provision_type": "article",
+        "provision_id": "A203",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A204",
+        "provision_type": "article",
+        "provision_id": "A204",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A205",
+        "provision_type": "article",
+        "provision_id": "A205",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A206",
+        "provision_type": "article",
+        "provision_id": "A206",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A207",
+        "provision_type": "article",
+        "provision_id": "A207",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A208",
+        "provision_type": "article",
+        "provision_id": "A208",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A209",
+        "provision_type": "article",
+        "provision_id": "A209",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A210",
+        "provision_type": "article",
+        "provision_id": "A210",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E177",
+        "provision_type": "edict",
+        "provision_id": "E177",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -8544,7 +8767,7 @@
         "provision_id": "P16",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "7075ab5c5ad335a180ea82282529c8f5cc5a925d05a826d09c77c549e72f7a78"
       },
       {
@@ -9448,7 +9671,7 @@
         "provision_id": "A35",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "0cae72c7d3c658c52d357fbfb4db8f47cf1aa12105a9cf937b596f383b59ed3e"
       },
       {
@@ -9568,7 +9791,7 @@
         "provision_id": "A55",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "f30ba4ef2f4d423883257ff0fb8b3f0d4d36480ace95a013dc23f54c5af2cfe1"
       },
       {
@@ -9576,7 +9799,7 @@
         "provision_id": "A56",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "d08885c6c3f8c20696d49763f1b57a072c39a8813a95411991331d33a3534f2d"
       },
       {
@@ -10528,7 +10751,7 @@
         "provision_id": "E21",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "9762f98275650a05b082f35498442906b685445b6893270587a5cb62aec2ef19"
       },
       {
@@ -11626,6 +11849,86 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "90046d7ad4661acaf02aecace6887635600eab420435ce91333ab9c61ac65a46"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P114",
+        "introduced_by": "H003",
+        "supersedes_id": "P16",
+        "status": "active",
+        "content_hash": "4f57cfb68ffdc6267ff246121c5eca2ffbceaf47f7e885d4ee67522f039175aa"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A203",
+        "introduced_by": "H003",
+        "supersedes_id": "A35",
+        "status": "active",
+        "content_hash": "9ce0c9f2b789d29b856d8e1ceed6543f64c3db9b9d4aad577b6e88fc934bc323"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A204",
+        "introduced_by": "H003",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "a3884a57dee25edbfee24133dcff3facdde2ac0f4e068402972e7761c2417ddd"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A205",
+        "introduced_by": "H003",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "6d5f9ca463dd4cfeafeeadc52f2eac0be510804875a2fcaf141ed72e5004bbf2"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A206",
+        "introduced_by": "H003",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "68db4f17e276f617e0a56f8de41c932a0c286e1f1d8cf505b5af266ccbb5e50d"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A207",
+        "introduced_by": "H003",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "7630749301cbd9f51c6f7aa4333d7a06af544bcb8accf722cad1b7e28d3dbfc4"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A208",
+        "introduced_by": "H003",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "1ffa5e28d86c18dafcdf41f70048a69a240060c8d8fb8c7c9e878170242eee71"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A209",
+        "introduced_by": "H003",
+        "supersedes_id": "A55",
+        "status": "active",
+        "content_hash": "7048f3a9e41450c66eda2d800fb9343c85282959858a7c4f7ebb95220ae2d7be"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A210",
+        "introduced_by": "H003",
+        "supersedes_id": "A56",
+        "status": "active",
+        "content_hash": "6b64bbcf8304193a90b497ab6fc52007b2355850a4d8b5af1bd9d9188f3c14ca"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E177",
+        "introduced_by": "H003",
+        "supersedes_id": "E21",
+        "status": "active",
+        "content_hash": "9d9b2c0b8133fc295116db30e499e7319c3cd5ebc74d7bcc63534475c87a2b31"
       }
     ],
     "provision_revisions": [
@@ -14828,6 +15131,86 @@
         "version": "1.01000",
         "content_hash": "90046d7ad4661acaf02aecace6887635600eab420435ce91333ab9c61ac65a46",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P114",
+        "revision_id": "H003",
+        "version": "1.11000",
+        "content_hash": "4f57cfb68ffdc6267ff246121c5eca2ffbceaf47f7e885d4ee67522f039175aa",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A203",
+        "revision_id": "H003",
+        "version": "1.11000",
+        "content_hash": "9ce0c9f2b789d29b856d8e1ceed6543f64c3db9b9d4aad577b6e88fc934bc323",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A204",
+        "revision_id": "H003",
+        "version": "1.11000",
+        "content_hash": "a3884a57dee25edbfee24133dcff3facdde2ac0f4e068402972e7761c2417ddd",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A205",
+        "revision_id": "H003",
+        "version": "1.11000",
+        "content_hash": "6d5f9ca463dd4cfeafeeadc52f2eac0be510804875a2fcaf141ed72e5004bbf2",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A206",
+        "revision_id": "H003",
+        "version": "1.11000",
+        "content_hash": "68db4f17e276f617e0a56f8de41c932a0c286e1f1d8cf505b5af266ccbb5e50d",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A207",
+        "revision_id": "H003",
+        "version": "1.11000",
+        "content_hash": "7630749301cbd9f51c6f7aa4333d7a06af544bcb8accf722cad1b7e28d3dbfc4",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A208",
+        "revision_id": "H003",
+        "version": "1.11000",
+        "content_hash": "1ffa5e28d86c18dafcdf41f70048a69a240060c8d8fb8c7c9e878170242eee71",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A209",
+        "revision_id": "H003",
+        "version": "1.11000",
+        "content_hash": "7048f3a9e41450c66eda2d800fb9343c85282959858a7c4f7ebb95220ae2d7be",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A210",
+        "revision_id": "H003",
+        "version": "1.11000",
+        "content_hash": "6b64bbcf8304193a90b497ab6fc52007b2355850a4d8b5af1bd9d9188f3c14ca",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E177",
+        "revision_id": "H003",
+        "version": "1.11000",
+        "content_hash": "9d9b2c0b8133fc295116db30e499e7319c3cd5ebc74d7bcc63534475c87a2b31",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -14850,6 +15233,16 @@
         "summary": "project code constrained to E:\\GPTBridge and all managed environment dependencies constrained to E:\\AI",
         "previous_hash": "f292f44ac85d961bc739e749ca14635fbeb1ae289bcca7939ae39bda543467d6",
         "entry_hash": "06ff7129192b6045ffb1d622af3f3b6d462b53de31e8f384424b5dd50655899e"
+      },
+      {
+        "sequence": 3,
+        "change_id": "H003",
+        "version": "1.11000",
+        "recorded_date": "2026-09-10",
+        "change_scope": "architecture-authority",
+        "summary": "six-language responsibilities standardized across Python C++ C ABI TypeScript Python API CSharp SQL and automatic governance checks",
+        "previous_hash": "06ff7129192b6045ffb1d622af3f3b6d462b53de31e8f384424b5dd50655899e",
+        "entry_hash": "69cdb02f3057fc344314ad248aac1e99b99de29a584cc433d093a38fcb0a4325"
       }
     ],
     "savings": [
@@ -14894,6 +15287,17 @@
         "content_root": "d5f023e642c112d09c283b60200b3011091211a50816b6ccb20afef27b9e0f4f",
         "identity_root": "bff07aa4318aae86f62ab5452c5e0b57bb94c8feec813e136df10b21595052e8",
         "full_root": "afac57c49f53ff22412519549976519854af06da2b4603024dfacb978da15963"
+      },
+      {
+        "version": "1.11000",
+        "history_head": "69cdb02f3057fc344314ad248aac1e99b99de29a584cc433d093a38fcb0a4325",
+        "provision_count": 396,
+        "identity_count": 410,
+        "lineage_count": 410,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "23fcb2bd64c9b94554f5698f03b15b44c8d093bd0c45910b619ceed41558bbda",
+        "identity_root": "2c796c4d1145f8aff5a054d73b1067df26c0b71add2e406b23e67871b346150f",
+        "full_root": "aafad65f3d9b83dede0aaa32203c33be80130903670ea355b86eefb9e9f894a1"
       }
     ],
     "sealed_components": [
@@ -14994,6 +15398,56 @@
       },
       {
         "version": "1.01000",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.11000",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.11000",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.11000",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.11000",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.11000",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.11000",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.11000",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.11000",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.11000",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.11000",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -16050,7 +16504,38 @@
         "basis": "codex"
       }
     ],
-    "supersession_registry": [],
+    "supersession_registry": [
+      {
+        "predecessor_identity": "codex/provision/principle/P16",
+        "successor_identity": "codex/provision/principle/P114",
+        "effective_version": "1.11000",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A35",
+        "successor_identity": "codex/provision/article/A203",
+        "effective_version": "1.11000",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A55",
+        "successor_identity": "codex/provision/article/A209",
+        "effective_version": "1.11000",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A56",
+        "successor_identity": "codex/provision/article/A210",
+        "effective_version": "1.11000",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E21",
+        "successor_identity": "codex/provision/edict/E177",
+        "effective_version": "1.11000",
+        "status": "effective"
+      }
+    ],
     "trust_anchor_requirements": [
       {
         "version": "1.00000",
@@ -16062,6 +16547,14 @@
       },
       {
         "version": "1.01000",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "1.11000",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
@@ -16111,379 +16604,6 @@
         "increment": "1.00000",
         "criterion": "complete-codex-reconstitution-or-incompatible-generation-change",
         "precedence": 6
-      }
-    ],
-    "module_registry": [
-      {
-        "path": "main-system/src-core/core_system/active_release.py",
-        "module_group": "active_release",
-        "role": "facade",
-        "codex_basis": "A181/E156+A182/E157",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/active_release_types.py",
-        "module_group": "active_release",
-        "role": "types",
-        "codex_basis": "A181/E156+A182/E157",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/active_release_persistence.py",
-        "module_group": "active_release",
-        "role": "persistence",
-        "codex_basis": "A181/E156",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/active_release_ledger.py",
-        "module_group": "active_release",
-        "role": "ledger",
-        "codex_basis": "A181/E156",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/active_release_verify.py",
-        "module_group": "active_release",
-        "role": "verify",
-        "codex_basis": "A181/E156",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/active_release_status.py",
-        "module_group": "active_release",
-        "role": "status",
-        "codex_basis": "A181/E156",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/active_release_mismatch.py",
-        "module_group": "active_release",
-        "role": "mismatch",
-        "codex_basis": "A182/E157",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/tool_separation.py",
-        "module_group": "tool_separation",
-        "role": "facade",
-        "codex_basis": "A184/E159",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/tool_separation_types.py",
-        "module_group": "tool_separation",
-        "role": "types",
-        "codex_basis": "A184/E159",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/tool_separation_verify.py",
-        "module_group": "tool_separation",
-        "role": "verify",
-        "codex_basis": "A184/E159",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/tool_separation_signal.py",
-        "module_group": "tool_separation",
-        "role": "signal",
-        "codex_basis": "A184/E159",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/tool_separation_aggregate.py",
-        "module_group": "tool_separation",
-        "role": "aggregate",
-        "codex_basis": "A184/E159",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/source_size.py",
-        "module_group": "source_size",
-        "role": "facade",
-        "codex_basis": "A185/E160",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/source_size_types.py",
-        "module_group": "source_size",
-        "role": "types",
-        "codex_basis": "A185/E160",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/source_size_report.py",
-        "module_group": "source_size",
-        "role": "report",
-        "codex_basis": "A185/E160",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/source_size_measure.py",
-        "module_group": "source_size",
-        "role": "measure",
-        "codex_basis": "A185/E160",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/source_size_verify.py",
-        "module_group": "source_size",
-        "role": "verify",
-        "codex_basis": "A185/E160",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/source_size_signal.py",
-        "module_group": "source_size",
-        "role": "signal",
-        "codex_basis": "A185/E160",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/view_access.py",
-        "module_group": "view_access",
-        "role": "facade",
-        "codex_basis": "A186/E161",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/view_access_types.py",
-        "module_group": "view_access",
-        "role": "types",
-        "codex_basis": "A186/E161",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/view_access_verify.py",
-        "module_group": "view_access",
-        "role": "verify",
-        "codex_basis": "A186/E161",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/view_access_signal.py",
-        "module_group": "view_access",
-        "role": "signal",
-        "codex_basis": "A186/E161",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/validation_chain.py",
-        "module_group": "validation_chain",
-        "role": "facade",
-        "codex_basis": "A187/E162",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/validation_chain_types.py",
-        "module_group": "validation_chain",
-        "role": "types",
-        "codex_basis": "A187/E162",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/validation_chain_verify.py",
-        "module_group": "validation_chain",
-        "role": "verify",
-        "codex_basis": "A187/E162",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/validation_chain_signal.py",
-        "module_group": "validation_chain",
-        "role": "signal",
-        "codex_basis": "A187/E162",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/sovereign_collaboration.py",
-        "module_group": "sovereign_collaboration",
-        "role": "facade",
-        "codex_basis": "A188/E163",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/sovereign_collaboration_types.py",
-        "module_group": "sovereign_collaboration",
-        "role": "types",
-        "codex_basis": "A188/E163",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/sovereign_collaboration_verify.py",
-        "module_group": "sovereign_collaboration",
-        "role": "verify",
-        "codex_basis": "A188/E163",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/sovereign_collaboration_signal.py",
-        "module_group": "sovereign_collaboration",
-        "role": "signal",
-        "codex_basis": "A188/E163",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/xingcheng_channel.py",
-        "module_group": "xingcheng_channel",
-        "role": "facade",
-        "codex_basis": "A189/E164",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/xingcheng_channel_types.py",
-        "module_group": "xingcheng_channel",
-        "role": "types",
-        "codex_basis": "A189/E164",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/xingcheng_channel_verify.py",
-        "module_group": "xingcheng_channel",
-        "role": "verify",
-        "codex_basis": "A189/E164",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/xingcheng_channel_signal.py",
-        "module_group": "xingcheng_channel",
-        "role": "signal",
-        "codex_basis": "A189/E164",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/governed_startup.py",
-        "module_group": "governed_startup",
-        "role": "facade",
-        "codex_basis": "A191/E166+A192/E167",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/governed_startup_types.py",
-        "module_group": "governed_startup",
-        "role": "types",
-        "codex_basis": "A191/E166+A192/E167",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/governed_startup_verify.py",
-        "module_group": "governed_startup",
-        "role": "verify",
-        "codex_basis": "A191/E166+A192/E167",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/governed_startup_signal.py",
-        "module_group": "governed_startup",
-        "role": "signal",
-        "codex_basis": "A191/E166+A192/E167",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/startup_lifecycle.py",
-        "module_group": "startup_lifecycle",
-        "role": "facade",
-        "codex_basis": "A193-A196/E168-E171",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/startup_lifecycle_types.py",
-        "module_group": "startup_lifecycle",
-        "role": "types",
-        "codex_basis": "A193-A196/E168-E171",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/startup_lifecycle_verify.py",
-        "module_group": "startup_lifecycle",
-        "role": "verify",
-        "codex_basis": "A193-A196/E168-E171",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/startup_lifecycle_signal.py",
-        "module_group": "startup_lifecycle",
-        "role": "signal",
-        "codex_basis": "A193-A196/E168-E171",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/startup_lifecycle_sync.py",
-        "module_group": "startup_lifecycle",
-        "role": "sync",
-        "codex_basis": "A195-A196/E170-E171",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/third_party_governance.py",
-        "module_group": "third_party_governance",
-        "role": "facade",
-        "codex_basis": "A197-A199/E171-E173",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/third_party_types.py",
-        "module_group": "third_party_governance",
-        "role": "types",
-        "codex_basis": "A197-A199/E171-E173",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/third_party_verify.py",
-        "module_group": "third_party_governance",
-        "role": "verify",
-        "codex_basis": "A197-A199/E171-E173",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/third_party_signal.py",
-        "module_group": "third_party_governance",
-        "role": "signal",
-        "codex_basis": "A199/E173",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/root_containment.py",
-        "module_group": "root_containment",
-        "role": "facade",
-        "codex_basis": "A201-A202/E175-E176",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/root_containment_types.py",
-        "module_group": "root_containment",
-        "role": "types",
-        "codex_basis": "A201-A202/E175-E176",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/root_containment_verify.py",
-        "module_group": "root_containment",
-        "role": "verify",
-        "codex_basis": "A201-A202/E175-E176",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/core_system/root_containment_signal.py",
-        "module_group": "root_containment",
-        "role": "signal",
-        "codex_basis": "A201-A202/E175-E176",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/tasks/tool_process_registry.py",
-        "module_group": "toolbox_process",
-        "role": "persistence",
-        "codex_basis": "A184/E159",
-        "owner": "permission-sovereign"
-      },
-      {
-        "path": "main-system/src-core/tasks/toolbox_manifest.py",
-        "module_group": "toolbox_process",
-        "role": "facade",
-        "codex_basis": "A184/E159",
-        "owner": "permission-sovereign"
       }
     ]
   }
