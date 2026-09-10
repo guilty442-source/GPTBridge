@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.31400",
+  "codex_version": "1.31500",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1507,6 +1507,15 @@
         "rule": "ENTRY:consumer>versioned-Python-API; CLASSIFY:Python-owned dispatcher uses registered deterministic workload threshold+capability profile; ORDINARY:Python-implementation is sole production owner; HIGH-LOAD:Python-API>thin-pybind11-binding>C++-performance-core; DEFAULT-AND-FAIL-SAFE:Python path unless high-load eligibility+compatible native artifact+resource budget are all valid; HIGH-LOAD-EVIDENCE:repeatable profile proves declared latency/throughput/CPU/memory benefit and correctness parity; THRESHOLD:versioned+capability-specific+observable+no caller-selected implementation; API-PARITY:identical Python signature/schema/semantics/error/cancellation/deadline/result contract for both branches; PYBIND11:validation+conversion+lifetime+GIL+typed-error only; CPP:compute only+no business/workflow/network/database/UI; STATE:one Python-owned logical state+no divergent cache/source-of-truth; FALLBACK:C++ unavailable or rejected returns typed status to Python which may execute ordinary implementation only when deadline+resource+semantic contract permit; RELEASE:Python API+implementation+dispatcher+pybind11+C++ artifact form one versioned compatibility unit",
         "prohibition": "caller-selected-native route; native-by-default; unprofiled offload; divergent API or business semantics",
         "exception": "nonproduction Python reference oracle remains test-only and is not the ordinary production implementation"
+      },
+      {
+        "position": 219,
+        "provision_id": "A219",
+        "section_index": "4",
+        "subject": "python-api-native-unavailability-fallback",
+        "rule": "ENTRY:consumer>versioned-Python-API; ROUTE:ordinary-work>Python-implementation|eligible-high-load>pybind11>C++; UNAVAILABLE-DEFINITION:artifact-missing|load/link/ABI/API/version/capability mismatch|initialization failure|health-open-circuit|resource denial|native timeout/crash/typed-failure; FALLBACK:C++-unavailable>Python-API dispatcher>same-contract Python implementation; AUTOMATIC:no-user-approval+no-caller-reroute; PRESERVE:complete input+request identity+deadline+cancellation+trace+idempotency+completed-stage state; PARITY:same signature/schema/domain semantics/error taxonomy/result validation; SAFETY:fallback only when Python path fits remaining deadline/resource/safety contract+operation is idempotent or no native side-effect committed; OTHERWISE:typed unavailable result+no duplicate execution; CIRCUIT:bounded failure threshold+cooldown+half-open probe+no per-request native retry storm; RECOVERY:compatible healthy C++ may re-enter only through dispatcher and current profile threshold; OBSERVE:route+reason+native failure+fallback outcome+latency+timestamp; AUTHORITY:Python retains orchestration/business/state authority+C++ remains optional performance accelerator",
+        "prohibition": "silent result drift; partial-input retry; caller-selected fallback; retry storm; duplicate side effect",
+        "exception": "no fallback when safety, idempotency, remaining deadline, or resource contract cannot be satisfied"
       }
     ],
     "certification_evidence": [
@@ -1568,6 +1577,13 @@
       },
       {
         "version": "1.31400",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.31500",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -1646,6 +1662,13 @@
         "recorded_at_local": "2026-09-10T21:53:58+08:00",
         "timezone": "Asia/Taipei",
         "event": "provision-scope-python-api-load-split"
+      },
+      {
+        "version": "1.31500",
+        "recorded_at_utc": "2026-09-10T13:56:11Z",
+        "recorded_at_local": "2026-09-10T21:56:11+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "provision-scope-cpp-unavailable-python-fallback"
       }
     ],
     "edicts": [
@@ -2634,6 +2657,13 @@
         "provision_id": "E183",
         "area": "python-native-load-routing",
         "edict": "PYTHON-API-BRANCH:ordinary>Python-implementation|profile-proven-high-load>pybind11>C++; DEFAULT:Python; DISPATCH:Python-owned+deterministic+versioned+observable; CALLER-CHOICE/DUPLICATE-AUTHORITY/PYBIND11-LOGIC/CPP-BUSINESS:none; CONTRACT:one-API+semantic-parity+typed-failure",
+        "immutability": "versioned-codex-only"
+      },
+      {
+        "position": 184,
+        "provision_id": "E184",
+        "area": "native-fallback",
+        "edict": "CPP-UNAVAILABLE>PYTHON-FALLBACK:automatic-through-same-Python-API; INPUT/STATE/CONTRACT:preserved; FALLBACK-GATE:deadline+resource+idempotency+no-committed-native-side-effect; CIRCUIT:bounded+cooldown+half-open; RETRY-STORM/DUPLICATE-EXECUTION/USER-PERMISSION:none",
         "immutability": "versioned-codex-only"
       }
     ],
@@ -5045,15 +5075,27 @@
         "status": "active"
       },
       {
-        "provision_type": "article",
-        "provision_id": "A218",
+        "provision_type": "edict",
+        "provision_id": "E183",
         "effective_version": "1.31400",
         "status": "active"
       },
       {
+        "provision_type": "principle",
+        "provision_id": "P121",
+        "effective_version": "1.31500",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A219",
+        "effective_version": "1.31500",
+        "status": "active"
+      },
+      {
         "provision_type": "edict",
-        "provision_id": "E183",
-        "effective_version": "1.31400",
+        "provision_id": "E184",
+        "effective_version": "1.31500",
         "status": "active"
       }
     ],
@@ -5444,12 +5486,16 @@
         "value": "python-or-native-interface>csharp>windows-or-dotnet"
       },
       {
+        "key": "python_api_execution_split",
+        "value": "ordinary=python|high-load=pybind11>cpp"
+      },
+      {
         "key": "codex_version",
-        "value": "1.31400"
+        "value": "1.31500"
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.31400"
+        "value": "gptbridge-governance-codex-v1.31500"
       },
       {
         "key": "version_increment",
@@ -5457,15 +5503,15 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-10T13:53:58Z"
+        "value": "2026-09-10T13:56:11Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-10T21:53:58+08:00"
+        "value": "2026-09-10T21:56:11+08:00"
       },
       {
-        "key": "python_api_execution_split",
-        "value": "ordinary=python|high-load=pybind11>cpp"
+        "key": "cpp_unavailable_fallback",
+        "value": "python-api>python-implementation"
       }
     ],
     "preamble": [
@@ -6148,6 +6194,12 @@
         "position": 112,
         "provision_id": "P120",
         "statement": "PYTHON-API:single-public-contract; ROUTING:ordinary-work>Python-implementation|profile-proven-high-load-work>pybind11>C++-performance-core; DEFAULT:Python; NATIVE-ADMISSION:measured-load-and-benefit-required",
+        "binding": 1
+      },
+      {
+        "position": 113,
+        "provision_id": "P121",
+        "statement": "NATIVE-RESILIENCE:C++-unavailable>Python-API-controlled-fallback>Python-implementation; SEMANTICS:same; STATE:preserved; USER-ACTION:none",
         "binding": 1
       }
     ],
@@ -9159,6 +9211,27 @@
         "identity_code": "codex/provision/edict/E183",
         "provision_type": "edict",
         "provision_id": "E183",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P121",
+        "provision_type": "principle",
+        "provision_id": "P121",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A219",
+        "provision_type": "article",
+        "provision_id": "A219",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E184",
+        "provision_type": "edict",
+        "provision_id": "E184",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -12593,7 +12666,7 @@
         "provision_id": "A218",
         "introduced_by": "H009",
         "supersedes_id": "A212",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "55571ed5530992b94f23e8ab80fd380d5a83596c45526fa4c62781c1375c905b"
       },
       {
@@ -12603,6 +12676,30 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "8507b2feed69bc73c109d4d04c09ef417c983c36e05552a742be2d10708222d7"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P121",
+        "introduced_by": "H010",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "ebacd802eb93557277785a20febdf9c690f883004f672cdcb9d953583b08841a"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A219",
+        "introduced_by": "H010",
+        "supersedes_id": "A218",
+        "status": "active",
+        "content_hash": "fadf393b0c498826672f64eb9961ee2cf71edef55f3a65c4626a4e6120904fcd"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E184",
+        "introduced_by": "H010",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "38eaee9109ce6466a11123201ead2802d35216ace5f40463875a47ea8046cd06"
       }
     ],
     "provision_revisions": [
@@ -16045,6 +16142,30 @@
         "version": "1.31400",
         "content_hash": "8507b2feed69bc73c109d4d04c09ef417c983c36e05552a742be2d10708222d7",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P121",
+        "revision_id": "H010",
+        "version": "1.31500",
+        "content_hash": "ebacd802eb93557277785a20febdf9c690f883004f672cdcb9d953583b08841a",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A219",
+        "revision_id": "H010",
+        "version": "1.31500",
+        "content_hash": "fadf393b0c498826672f64eb9961ee2cf71edef55f3a65c4626a4e6120904fcd",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E184",
+        "revision_id": "H010",
+        "version": "1.31500",
+        "content_hash": "38eaee9109ce6466a11123201ead2802d35216ace5f40463875a47ea8046cd06",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -16137,6 +16258,16 @@
         "summary": "Python API branches ordinary work to Python and proven high-load work through pybind11 to C++",
         "previous_hash": "f5ae919ad4b03970c5a8e96496b02a2d8a831778669433617660434f570b5783",
         "entry_hash": "d30fc36f86040bfa831f4d7473753f09e49d31bda32306a7316bb1c535426c9e"
+      },
+      {
+        "sequence": 10,
+        "change_id": "H010",
+        "version": "1.31500",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "C++ unavailability now deterministically falls back through the Python API to the Python implementation",
+        "previous_hash": "d30fc36f86040bfa831f4d7473753f09e49d31bda32306a7316bb1c535426c9e",
+        "entry_hash": "db0174fe4cbfb48ff2c2eccbf0010f99579c638ba410e5249abcb7cd3215d28b"
       }
     ],
     "savings": [
@@ -16258,6 +16389,17 @@
         "content_root": "6430d56b954bbf433107d49c173e3a5cb058f1eb98af23a85d4c7d5fca1ec334",
         "identity_root": "9e65d66a6991ac3da80ce87e22c674851862cfc23b69fdf1ef54107946b7d772",
         "full_root": "edcaee96809cb53dd8dae5bae62f0167f6f32b11a4dac2d927deddb85b6f0c58"
+      },
+      {
+        "version": "1.31500",
+        "history_head": "db0174fe4cbfb48ff2c2eccbf0010f99579c638ba410e5249abcb7cd3215d28b",
+        "provision_count": 405,
+        "identity_count": 433,
+        "lineage_count": 433,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "45a576fb558a6542c3113c38576dbbd68636f8dee340420f935a334674fbca86",
+        "identity_root": "50d78bc394881fec9e42b961089025fb546410efce13ca901ef5e5aed62a2d89",
+        "full_root": "0b00a1689cefeb92509cea967fc51334529af2bd6041b127f5bd3540450de8e7"
       }
     ],
     "sealed_components": [
@@ -16708,6 +16850,56 @@
       },
       {
         "version": "1.31400",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31500",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31500",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31500",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31500",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31500",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31500",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31500",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31500",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31500",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.31500",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -17842,6 +18034,12 @@
         "successor_identity": "codex/provision/article/A218",
         "effective_version": "1.31400",
         "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A218",
+        "successor_identity": "codex/provision/article/A219",
+        "effective_version": "1.31500",
+        "status": "effective"
       }
     ],
     "trust_anchor_requirements": [
@@ -17911,6 +18109,14 @@
       },
       {
         "version": "1.31400",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "1.31500",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
