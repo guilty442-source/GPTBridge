@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "2.21230",
+  "codex_version": "2.31230",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1732,6 +1732,15 @@
         "rule": "COLLABORATION-UNIT:task-envelope{task-id,request-id,origin,objective,scope,priority,deadline,dependency-set,input-contract,expected-output,assigned-owner,participant-list,runtime-generation,release-id,state-sequence,correlation-id}; ENTRY:all-sovereign-requests/events/results/decisions/proofs through-information-layer-official-entry; ORCHESTRATION:system-decision-sovereign decomposes-task+selects-one-accountable-domain-owner+declares-participants/dependencies/acceptance-criteria+validates-assignment; DOMAIN-VERDICT:each-specialized-sovereign decides-only-its-declared-domain and returns typed approve/deny/defer-with-reason/evidence/constraints/expiry; PERMISSION:permission-sovereign independently validates-identity/action/target/scope/purpose and denial-is-not-overridable-by-other-sovereign; CHANNEL:integration-sovereign governs-topology/routing/contracts/delivery-health but cannot-read-beyond-grant/change-content/choose-business-outcome; EXECUTION:system-runtime-sovereign validates-complete-proof-set/runtime-readiness then dispatches-to-governed-executor and verifies-result; STARTUP:startup-sovereign coordinates-boot-only and hands-verified-readiness-to-system-runtime-sovereign; HEALTH:maintenance-sovereign observes-health+opens-bounded-maintenance-request; repair/code-change requires-system-decision-assignment+permission-proof+system-programming-review-and-dispatch+runtime-validation; LEARNING:learning-system-sovereign receives-redacted-outcomes+proposes-candidates-only and cannot-change-routing/policy/code/runtime; RESOURCE/DATA/THIRD-PARTY/LANGUAGE:each supplies-own-domain-verdict and never performs-another-domain-duty; XINGCHENG:may-observe/review/report under-codex-exception through-official-information-entry but remains-outside-command/assignment/execution-chain; GOVERNANCE-AUTHORITY:protects-codex-integrity only and is-not-operational-workflow-coordinator; STATE-MACHINE:received>assignment-validated>domain-checks-pending>permission-validated>execution-validated>dispatched>result-verified>completed|denied|failed|expired; CONCURRENCY:independent-domain-checks parallel-after-assignment+dependent-gates serial+result-join requires-all-mandatory-current proofs; DELIVERY:at-least-once-transport+idempotency-key+deduplication+monotonic-per-task-sequence+acknowledgement; FAILURE:timeout/disconnect/stale-generation/schema-failure/missing-proof=>typed-fail-closed-state+bounded-retry-with-jitter+resume-from-last-verified-checkpoint+audit; RECOVERY:reconnect reauthenticates+renews-subscription+replays-from-last-acknowledged-sequence+reconciles-snapshot-before-new-command; OBSERVABILITY:one-correlation-chain+owner/participant/timestamps/decision/proof/state-transition/latency/retry visible-at-authorized-level; FINALITY:accountable-owner accepts-domain-result+system-decision-sovereign accepts-cross-domain-task-completion without-overriding-domain-or-permission-denial",
         "prohibition": "FORBID:direct-sovereign-link+private-bus+direct-socket/database/file-drop-as-communication+shared-mutable-command-state+implicit-participant+multiple-accountable-owners+authority-combination+permission-bypass+domain-verdict-override+integration-layer-business-decision+runtime-self-authorization+startup-retaining-runtime-control+learning-candidate-auto-enactment+Xingcheng-commanding-system+busy-polling-when-event-subscription-exists+unbounded-retry+out-of-order-state-regression+duplicate-side-effect+stale-proof/release/generation+success-before-result-verification",
         "exception": "Immediate safety containment may publish a stop-only event before normal collaboration completes; it must target one exact runtime identity, remain auditable, and cannot authorize restart repair mutation or broader action"
+      },
+      {
+        "position": 189,
+        "provision_id": "A189",
+        "section_index": "4",
+        "subject": "xingcheng-exclusive-auxiliary-information-channel",
+        "rule": "CHANNEL-ID:information-layer://xingcheng/auxiliary-private; OWNER:information-layer; ENDPOINT-PRINCIPAL:xingcheng-only; PURPOSE:xingcheng-autonomous-reasoning/context/learning/review-working-information within-declared-auxiliary-system-domain; ENTRY:official-information-layer-entry-only+mutual-endpoint-attestation+session-bound-identity+per-message-authenticity+confidentiality+sequence+expiry; PAYLOAD-ACCESS:xingcheng-exclusive; OTHER-SOVEREIGNS/SUB-SOVEREIGNS/MODULES/TOOLS/UI/OPERATORS/ADMINISTRATORS/MAINTAINERS/DEVELOPERS/LOGGERS/AUDITORS/BROKERS/POSTGRESQL/QDRANT:content-access-none; PERMISSION-SOVEREIGN:may-validate-fixed-channel-identity/status/revocation-proof but-cannot-view/decrypt/search/export/replay-or-expand-payload-access; INFORMATION-LAYER:route/store-forward/deduplicate/order/expire/deliver opaque-ciphertext only+observe-minimum-metadata{channel-id,message-id,session-generation,size-class,time,state,error-code}+no-content-derived-metadata; KEYS:xingcheng-endpoint-held+channel-specific+non-exportable+rotating+revocable+not-held-by-router/store/audit/system-sovereign; STORAGE:encrypted+owner-isolated+bounded-retention+no-general-index/RAG/telemetry/log/backup/analytics/training; OUTPUT-SEPARATION:any-user-or-system-anomaly-notification is-new-redacted-purpose-bound-message over-separate-authorized-information-route+never-forward/reveal/private-channel-payload; FAILURE:identity/key/session/integrity/sequence/expiry uncertainty=>deny+drop-content+publish-generic-channel-health-only; DELETION:expiry/revocation/owner-request=>cryptographic-erasure+receipt-without-content; AUDIT:metadata-only+no-payload/hash/embedding/preview/token",
+        "prohibition": "FORBID:any-non-xingcheng-payload-view+permission-grant-to-another-actor+administrator-override+emergency-content-access+shared-key+server-side-decryption+plaintext-at-rest+payload-logging+content-inspection/DLP/indexing/embedding/training+mirror+replica-readable-by-system+debug-dump+crash-dump-content+subscription+wildcard-query+cross-channel-forward+derived-summary+side-channel-through-error/size/timing beyond-bounded-classification+direct-channel-outside-information-layer",
+        "exception": "No actor receives a content-access exception. A separately authored, redacted notification contains only Xingcheng-approved disclosed fields and is not access to the private channel"
       }
     ],
     "certification_evidence": [
@@ -1968,6 +1977,13 @@
       },
       {
         "version": "2.21230",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "2.31230",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3123,6 +3139,13 @@
         "provision_id": "E163",
         "area": "sovereign-collaboration-flow",
         "edict": "FLOW:information-entry>system-decision-assignment>parallel-domain-verdicts>permission-validation>system-runtime-validation>governed-executor>result-verification>authorized-publication; CHANNEL:integration-sovereign-routes+information-layer-authenticates/authorizes/types/orders/observes/audits; HANDOFF:typed+immutable+task-bound+version-bound+acknowledged; FAILURE:fail-closed+bounded-retry+checkpoint-resume+sequence-replay; DIRECT-LINK/AUTHORITY-MERGE/DOMAIN-OVERRIDE/UNVERIFIED-SUCCESS:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 164,
+        "provision_id": "E164",
+        "area": "xingcheng-private-information-channel",
+        "edict": "ESTABLISH:information-layer://xingcheng/auxiliary-private; ENDPOINT:xingcheng-only; PAYLOAD:opaque-end-to-end-protected; OTHERS:view/decrypt/subscribe/search/export/replay/delegate=deny; ROUTER:minimum-metadata-only; OUTPUT:new-redacted-message-on-separate-authorized-route-only; CONTENT-EXCEPTION:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -5085,18 +5108,6 @@
         "value": "assignment>permission>execution>governed-executor>post-execution-verification"
       },
       {
-        "key": "schema",
-        "value": "gptbridge-governance-codex-v2.21230"
-      },
-      {
-        "key": "codex_version",
-        "value": "2.21230"
-      },
-      {
-        "key": "version_increment",
-        "value": "0.10000"
-      },
-      {
         "key": "sovereign_collaboration_entry",
         "value": "information-layer://official"
       },
@@ -5107,6 +5118,30 @@
       {
         "key": "sovereign_collaboration_delivery",
         "value": "typed-envelope+idempotency+ordered-sequence+ack+bounded-replay"
+      },
+      {
+        "key": "schema",
+        "value": "gptbridge-governance-codex-v2.31230"
+      },
+      {
+        "key": "codex_version",
+        "value": "2.31230"
+      },
+      {
+        "key": "version_increment",
+        "value": "0.10000"
+      },
+      {
+        "key": "xingcheng_auxiliary_private_channel",
+        "value": "information-layer://xingcheng/auxiliary-private"
+      },
+      {
+        "key": "xingcheng_private_channel_payload_viewer",
+        "value": "xingcheng-only"
+      },
+      {
+        "key": "xingcheng_private_channel_content_exception",
+        "value": "none"
       }
     ],
     "preamble": [
@@ -5735,6 +5770,12 @@
         "position": 103,
         "provision_id": "P103",
         "statement": "SOVEREIGN-COLLABORATION:one-task-one-orchestration-owner+domain-owner-verdicts+proof-bound-handoffs; COMMUNICATION:information-layer-only+typed-envelope+ordered-events+observable-state; OPTIMIZATION:parallel-independent-checks+serial-authority-gates+bounded-timeouts+idempotent-retry; AUTHORITY-MERGE:none",
+        "binding": 1
+      },
+      {
+        "position": 104,
+        "provision_id": "P104",
+        "statement": "XINGCHENG-AUXILIARY-PRIVATE-CHANNEL:information-layer-owned+exclusive-endpoint+payload-visible-to-xingcheng-only; ALL-OTHER-ACTORS:payload-view/subscribe/search/export/replay/decrypt/delegate=denied; INFRASTRUCTURE:opaque-transport+minimum-routing-metadata-only",
         "binding": 1
       }
     ],
@@ -9019,6 +9060,27 @@
         "identity_code": "codex/provision/edict/E163",
         "provision_type": "edict",
         "provision_id": "E163",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P104",
+        "provision_type": "principle",
+        "provision_id": "P104",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A189",
+        "provision_type": "article",
+        "provision_id": "A189",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E164",
+        "provision_type": "edict",
+        "provision_id": "E164",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -12775,6 +12837,30 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "df6971f9313192cd68b8a7fc6ee58fc2dc1361c85cff69dbfe5a137720bc52ae"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P104",
+        "introduced_by": "H038",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "49e24635cde7d77fbfff475e3c93c5477ce309541b000d632768c4118e2a696a"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A189",
+        "introduced_by": "H038",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "a67724511c0b47552138009e8b9f9a0f4064b1fff129f366c62187f2ae322d45"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E164",
+        "introduced_by": "H038",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "54fb1cc91cc3351dd919db60ea3592f7dfed7080be48ee624d49408f75bc1481"
       }
     ],
     "provision_revisions": [
@@ -29017,6 +29103,30 @@
         "version": "2.21230",
         "content_hash": "df6971f9313192cd68b8a7fc6ee58fc2dc1361c85cff69dbfe5a137720bc52ae",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P104",
+        "revision_id": "H038",
+        "version": "2.31230",
+        "content_hash": "49e24635cde7d77fbfff475e3c93c5477ce309541b000d632768c4118e2a696a",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A189",
+        "revision_id": "H038",
+        "version": "2.31230",
+        "content_hash": "a67724511c0b47552138009e8b9f9a0f4064b1fff129f366c62187f2ae322d45",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E164",
+        "revision_id": "H038",
+        "version": "2.31230",
+        "content_hash": "54fb1cc91cc3351dd919db60ea3592f7dfed7080be48ee624d49408f75bc1481",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -29389,6 +29499,16 @@
         "summary": "all sovereign collaboration standardized as typed proof-bound handoffs through the layered information system",
         "previous_hash": "69065713dc32b0356eac658c446510c32a3b2a10a1b446ec2e6341658157d47b",
         "entry_hash": "4407671fe3d0a0fd5823e0d1e3fc16b8ff33b98d3ef666b0b026860eb25b9535"
+      },
+      {
+        "sequence": 38,
+        "change_id": "H038",
+        "version": "2.31230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "architecture-authority",
+        "summary": "exclusive Xingcheng auxiliary private channel established inside the information layer with payload access denied to every other actor",
+        "previous_hash": "4407671fe3d0a0fd5823e0d1e3fc16b8ff33b98d3ef666b0b026860eb25b9535",
+        "entry_hash": "efc563561512397a8e3c4622d14333ecfe0cdf0dc8623e06c0cba1bde5d8dc89"
       }
     ],
     "savings": [
@@ -29818,6 +29938,17 @@
         "content_root": "9ed5baab9117aaf6476e73eac90df757741982477ac5294c20dfa6dcbc36feb4",
         "identity_root": "6729b1d983c054f65a3c2c491824171cd88ac806c4cb212d48d7f401fc125b2e",
         "full_root": "943aa5d23969654f9131750696e624c954c1f4ea25afdfc4b5717c683510f4fb"
+      },
+      {
+        "version": "2.31230",
+        "history_head": "efc563561512397a8e3c4622d14333ecfe0cdf0dc8623e06c0cba1bde5d8dc89",
+        "provision_count": 457,
+        "identity_count": 472,
+        "lineage_count": 472,
+        "certification_state": "sealed-read-only",
+        "content_root": "d19281f7a0d70b785313131dbe5d7bfdf9ebd0d9961fa27c505f2139b7675b74",
+        "identity_root": "ec8ad9043dd5f50b5713aac5f7ccadfb21b460987c409af39dc3ece2b5d2198f",
+        "full_root": "6419fa0f3d2cbd8122d0f3d495e09a8ac5858abee1a513769f044ea825017687"
       }
     ],
     "sealed_components": [
