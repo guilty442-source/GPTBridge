@@ -89,6 +89,17 @@ worktree is clean, and when git identity is missing. Honours `.gitignore`
 operation `auto-commit`. Implementation:
 `governance_rule/execution/git_tiers/self_commit.py`.
 
+## Automatic Worktree Synchronization
+
+Commit each checkout, merge worker branches into `main`, then fast-forward all
+clean worktrees. Conflicts stop the cycle; the service never pushes, forces,
+resets, or chooses a conflict resolution.
+
+```powershell
+& main-system\.venv\Scripts\python.exe scripts\git-worktree-sync.py --root E:\GPTBridge
+& main-system\.venv\Scripts\python.exe scripts\git-worktree-sync.py --root E:\GPTBridge --watch --interval 60
+```
+
 ## Governance
 
 - Codex files (`governance_rule/codex/*.py`) are **read-only** — do not modify without explicit user approval.
