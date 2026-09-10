@@ -107,7 +107,7 @@
     "directLoad": false,
     "encapsulated": true,
     "optional": true,
-    "stoppable": true,
+    "stoppable": false,
     "disableable": true,
     "unloadable": true
   },
@@ -181,7 +181,7 @@
   "background_service": {
     "managed_by": "local-model",
     "headless": true,
-    "auto_restart": false,
+    "auto_restart": true,
     "max_restart_attempts": 3,
     "restart_backoff_seconds": 2,
     "explicit_force_close_suppresses_restart": true

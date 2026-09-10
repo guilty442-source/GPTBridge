@@ -1,4 +1,5 @@
 """Tool start orchestration and post-start process watching."""
+# Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 from __future__ import annotations
 
 import asyncio

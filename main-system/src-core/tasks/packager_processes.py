@@ -122,7 +122,8 @@ def restart_packaged_executable(executable_file: Path) -> bool:
     creation_flags = 0
     if os.name == "nt":
         creation_flags = (
-            getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+            getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            | getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
             | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
         )
     try:

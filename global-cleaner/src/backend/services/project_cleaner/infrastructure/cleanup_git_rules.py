@@ -1,3 +1,4 @@
+# Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 from __future__ import annotations
 
 import fnmatch

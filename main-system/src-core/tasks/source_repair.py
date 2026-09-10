@@ -88,6 +88,7 @@ def _git_has_uncommitted_change(project_root: Path, source_path: Path) -> bool:
             capture_output=True,
             text=True,
             timeout=5,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except (OSError, subprocess.SubprocessError, RuntimeError):
         return True

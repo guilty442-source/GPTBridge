@@ -2,7 +2,7 @@
   "document_identity": "non-authoritative-complete-Chinese-reference",
   "sync_requirement": "mandatory-complete-same-release",
   "authority_source": "data/governance_codex.sqlite3",
-  "codex_version": "1.73220",
+  "codex_version": "1.74220",
   "tables": {
     "access_actor_classes": [
       {
@@ -1487,6 +1487,15 @@
         "rule": "ENTITY-CLASSIFICATION:entity_classification-is-authoritative-for-sovereign-membership; sovereigns-table:role-record-container-only; GOVERNANCE-AUTHORITY:is_sovereign=false+supreme-rule-layer; XINGCHENG:is_sovereign=false+auxiliary-system-exception; SYSTEM-SOVEREIGNS:is_sovereign=true",
         "prohibition": "FORBID:infer-sovereign-class-from-table-name+classify-governance-authority-or-Xingcheng-as-system-sovereign",
         "exception": ""
+      },
+      {
+        "position": 162,
+        "provision_id": "A162",
+        "section_index": "6",
+        "subject": "multi-worker-automatic-git-delivery",
+        "rule": "WORKER:own-worktree+own-branch+own-index+automatic-local-commit+no-direct-push; COORDINATOR:single-process-lock+governance-audit+merge-workers-into-main+fast-forward-clean-worktrees+fetch-origin-main+verify-origin-main-ancestor+push-origin-main; PUSH:automatic-only-after-all-gates; CONFLICT:abort-current-merge+preserve-source+no-push; FAILURE:retain-local-commits+retry-later+report; REMOTE-BRANCH:main-only",
+        "prohibition": "FORBID:worker-push+concurrent-coordinator+force-push+ref-delete+history-rewrite+automatic-conflict-choice+dirty-sync+audit-bypass+diverged-remote-push",
+        "exception": ""
       }
     ],
     "certification_evidence": [
@@ -1590,6 +1599,13 @@
       },
       {
         "version": "1.73220",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.74220",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2556,6 +2572,13 @@
         "provision_id": "E136",
         "area": "classification",
         "edict": "SOURCE:entity_classification; GOVERNANCE-AUTHORITY+XINGCHENG:not-system-sovereigns; registry-storage-does-not-grant-class",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 137,
+        "provision_id": "E137",
+        "area": "git-delivery",
+        "edict": "PIPELINE:worker-auto-commit>coordinator-lock>all-clean>unique-head-audit>merge-to-main>fast-forward-worktrees>final-audit>fetch-origin-main>fast-forward-proof>push-main; PUSH-OWNER:workspace-sync-coordinator-only; ON-ERROR:stop+preserve+notify",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4359,11 +4382,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.73220"
+        "value": "gptbridge-governance-codex-v1.74220"
       },
       {
         "key": "codex_version",
-        "value": "1.73220"
+        "value": "1.74220"
       },
       {
         "key": "citation_entry",
@@ -4403,7 +4426,7 @@
       },
       {
         "key": "version_increment",
-        "value": "0.00100"
+        "value": "0.01000"
       }
     ],
     "preamble": [
@@ -4924,6 +4947,12 @@
         "position": 85,
         "provision_id": "P85",
         "statement": "CODEX-VIEW:registered-sovereign-layer-only; SOLE-EXCEPTION:Xingcheng-auxiliary-system-read-only-review; ALL-OTHERS:deny",
+        "binding": 1
+      },
+      {
+        "position": 86,
+        "provision_id": "P86",
+        "statement": "MULTI-WORKER-GIT:one-worker+one-worktree+one-branch; AUTO-COMMIT:worker-local-only; INTEGRATE+SYNC+PUSH:single-designated-coordinator-only; REMOTE:main-only+fast-forward-only",
         "binding": 1
       }
     ],
@@ -7706,6 +7735,27 @@
         "provision_id": "E136",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P86",
+        "provision_type": "principle",
+        "provision_id": "P86",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A162",
+        "provision_type": "article",
+        "provision_id": "A162",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E137",
+        "provision_type": "edict",
+        "provision_id": "E137",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -8546,7 +8596,7 @@
         "provision_id": "A71",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "fcca412ffd184a0a56885a30f938444afbf2f2177d32a8ad1a2772a20992f4cd"
       },
       {
@@ -9026,7 +9076,7 @@
         "provision_id": "E51",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "dd3347f5597a0b6f39c79a3f91ff000f1663871bf15d8ae9e2436add67acd66b"
       },
       {
@@ -10884,6 +10934,30 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "6711515f77ebe3575e0cae58b24787d3107b8588badcf4d206b9334b291cba4b"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P86",
+        "introduced_by": "H016",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "e31471b324dfa37ee12eea7585e07c1596c6ce497ef2ed6c11cfdb0a618ebda4"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A162",
+        "introduced_by": "H016",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "be956a3296badfba01d29f5897a53714e1326fd5575bd9f10cee5418f1010d08"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E137",
+        "introduced_by": "H016",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "b870bf8343c35ee76397a9a67651a8d48819db7e334158ba4d31d583e559114e"
       }
     ],
     "provision_revisions": [
@@ -26630,6 +26704,30 @@
         "version": "1.73220",
         "content_hash": "6711515f77ebe3575e0cae58b24787d3107b8588badcf4d206b9334b291cba4b",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P86",
+        "revision_id": "H016",
+        "version": "1.74220",
+        "content_hash": "e31471b324dfa37ee12eea7585e07c1596c6ce497ef2ed6c11cfdb0a618ebda4",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A162",
+        "revision_id": "H016",
+        "version": "1.74220",
+        "content_hash": "be956a3296badfba01d29f5897a53714e1326fd5575bd9f10cee5418f1010d08",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E137",
+        "revision_id": "H016",
+        "version": "1.74220",
+        "content_hash": "b870bf8343c35ee76397a9a67651a8d48819db7e334158ba4d31d583e559114e",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -26782,6 +26880,16 @@
         "summary": "sovereign identity namespace standardized and entity classification authority clarified",
         "previous_hash": "8602ea016b1540751758322d07d3f0e0744a67788e567af7e20fbd3009336b29",
         "entry_hash": "09f7a8d0fa8c353d80488d6f201e246ce5e34c86213348f3a7bb112a3d491c9d"
+      },
+      {
+        "sequence": 16,
+        "change_id": "H016",
+        "version": "1.74220",
+        "recorded_date": "2026-09-10",
+        "change_scope": "authority-duty",
+        "summary": "multi-worker automatic commit integration synchronization and guarded main push authority established",
+        "previous_hash": "09f7a8d0fa8c353d80488d6f201e246ce5e34c86213348f3a7bb112a3d491c9d",
+        "entry_hash": "77f5193e1b98b717d7cf372e69c782c0bcd37560087da62d9eab087bfd07f5a7"
       }
     ],
     "savings": [
@@ -26969,6 +27077,17 @@
         "content_root": "91331dafd09071740bba06cf42cda07d017bc7c38c90f13ddb314e579d4817f3",
         "identity_root": "0c16d9af3f7432bd0eded5ac3f7398b35e2debfb3bdf88d150d1cd549b1dc840",
         "full_root": "9f36a807ecc7a6bed8d902fb733938e4ea3a82220320424e6b86bed79da2090c"
+      },
+      {
+        "version": "1.74220",
+        "history_head": "77f5193e1b98b717d7cf372e69c782c0bcd37560087da62d9eab087bfd07f5a7",
+        "provision_count": 385,
+        "identity_count": 400,
+        "lineage_count": 400,
+        "certification_state": "sealed-read-only",
+        "content_root": "f42555b7cf805740fe3586188b920298e1931a4c8fe988ac7a6585dd7b1678b3",
+        "identity_root": "92c7213c839308d16380208cbc2328bd8e558579a2c95b683947f935de41da98",
+        "full_root": "925d0f51712d3f301509efd42e8e495397b2c2eb8058000a986134dd85bc625e"
       }
     ],
     "sealed_components": [
@@ -28074,6 +28193,91 @@
       },
       {
         "version": "1.73220",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "articles",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "edicts",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "effective-provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "entity-declarations",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "preamble",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "principles",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "revisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "savings",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "sections",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "source-exceptions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.74220",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -29481,6 +29685,18 @@
         "predecessor_identity": "codex/provision/edict/E104",
         "successor_identity": "codex/provision/edict/E129",
         "effective_version": "1.73120",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A71",
+        "successor_identity": "codex/provision/article/A162",
+        "effective_version": "1.74220",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E51",
+        "successor_identity": "codex/provision/edict/E137",
+        "effective_version": "1.74220",
         "status": "effective"
       }
     ],

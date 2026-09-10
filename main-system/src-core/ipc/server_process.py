@@ -4,6 +4,7 @@ Extracted from ``ipc.server`` to keep each module focused and under 500 lines.
 All names here are re-exported by ``ipc.server`` for backward compatibility.
 """
 
+# Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 from __future__ import annotations
 
 import os

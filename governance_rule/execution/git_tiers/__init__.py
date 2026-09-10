@@ -151,7 +151,7 @@ def audit_log(
         "untracked_files": snapshot.get("untracked_files", []),
     }
     with _AUDIT_LOCK, AUDIT_LEDGER_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+        f.write(json.dumps(entry, ensure_ascii=False, sort_keys=True, default=str) + "\n")
     return entry
 
 

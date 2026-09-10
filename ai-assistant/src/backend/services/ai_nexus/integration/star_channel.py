@@ -45,6 +45,7 @@ class InvestmentAiConnections:
                 encoding="utf-8",
                 errors="replace",
                 timeout=5,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
             return result.returncode == 0
         except (OSError, subprocess.TimeoutExpired):
@@ -91,6 +92,7 @@ class InvestmentAiConnections:
                 encoding="utf-8",
                 errors="replace",
                 timeout=timeout_seconds,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             return {

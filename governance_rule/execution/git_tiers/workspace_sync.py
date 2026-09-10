@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -32,7 +33,22 @@ def _common_git_dir(repo: GitRepository) -> Path:
     return (path if path.is_absolute() else repo.path / path).resolve()
 
 
-def synchronize(root: str | Path, *, commit_dirty: bool = True) -> str:
+def _audit_passes(path: str | Path) -> bool:
+    result = subprocess.run(
+        [sys.executable, "-m", "governance_rule.execution.audit"],
+        cwd=Path(path),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    return result.returncode == 0
+
+
+def synchronize(
+    root: str | Path, *, commit_dirty: bool = True, push: bool = False
+) -> str:
     """Commit, integrate, and fast-forward all registered worktrees."""
     coordinator = GitRepository(root)
     manager = WorktreeManager(coordinator)
@@ -56,6 +72,18 @@ def synchronize(root: str | Path, *, commit_dirty: bool = True) -> str:
         dirty = [item["path"] for item in worktrees if GitRepository(item["path"]).status()]
         if dirty:
             return "error:dirty-worktree:" + "|".join(dirty)
+
+        audit_by_head: dict[str, bool] = {}
+        failed_audits: list[str] = []
+        for item in worktrees:
+            head = GitRepository(item["path"]).head()
+            if head not in audit_by_head:
+                audit_by_head[head] = _audit_passes(item["path"])
+            passed = audit_by_head[head]
+            if not passed:
+                failed_audits.append(item["path"])
+        if failed_audits:
+            return "error:governance-audit:" + "|".join(failed_audits)
 
         main_repo = GitRepository(main["path"])
         for item in worktrees:
@@ -86,7 +114,25 @@ def synchronize(root: str | Path, *, commit_dirty: bool = True) -> str:
             )
             if advanced.returncode != 0:
                 return f"error:fast-forward:{branch}:{advanced.stderr.strip()[:160]}"
-    return "synchronized"
+        if push:
+            if not _audit_passes(main["path"]):
+                return "error:final-governance-audit"
+            fetched = main_repo.run(
+                ["fetch", "origin", "main"], confirmed=True, actor=SYNC_ACTOR
+            )
+            if fetched.returncode != 0:
+                return "error:fetch-origin-main"
+            remote_is_ancestor = main_repo.run(
+                ["merge-base", "--is-ancestor", "origin/main", "main"]
+            )
+            if remote_is_ancestor.returncode != 0:
+                return "error:remote-main-diverged"
+            pushed = main_repo.run(
+                ["push", "origin", "main"], confirmed=True, actor=SYNC_ACTOR
+            )
+            if pushed.returncode != 0:
+                return f"error:push:{pushed.stderr.strip()[:160]}"
+    return "synchronized-and-pushed" if push else "synchronized"
 
 
 def cli_main(argv: list[str] | None = None) -> int:
@@ -95,17 +141,20 @@ def cli_main(argv: list[str] | None = None) -> int:
     parser.add_argument("--watch", action="store_true")
     parser.add_argument("--interval", type=float, default=60.0)
     parser.add_argument("--no-commit", action="store_true")
+    parser.add_argument("--push", action="store_true")
     args = parser.parse_args(argv)
     while True:
         try:
-            result = synchronize(args.root, commit_dirty=not args.no_commit)
+            result = synchronize(
+                args.root, commit_dirty=not args.no_commit, push=args.push
+            )
         except LockBusyError as exc:
             result = f"error:{exc}"
         except Exception as exc:  # keep watch mode alive without leaking details
             result = f"error:unexpected:{type(exc).__name__}"
         print(f"[workspace-sync] {result}", file=sys.stderr)
         if not args.watch:
-            return 0 if result == "synchronized" else 1
+            return 0 if result in {"synchronized", "synchronized-and-pushed"} else 1
         time.sleep(max(5.0, args.interval))
 
 

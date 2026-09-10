@@ -108,8 +108,10 @@ class ToolboxService(
     @property
     def _maintenance_ready(self) -> bool:
         # No full lock: a boolean flag on the governance boundary tells whether
-        # the startup maintenance pass has finished.
-        return bool(getattr(self.governance, "maintenance_ready", False))
+        # the startup maintenance pass has finished.  When the flag is absent,
+        # default to ready so callers without an explicit maintenance gate are
+        # not blocked.
+        return bool(getattr(self.governance, "maintenance_ready", True))
 
     def _maintenance_not_ready_result(self, operation: str) -> Dict[str, Any]:
         return {
