@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "2.31230",
+  "codex_version": "2.41230",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1741,6 +1741,24 @@
         "rule": "CHANNEL-ID:information-layer://xingcheng/auxiliary-private; OWNER:information-layer; ENDPOINT-PRINCIPAL:xingcheng-only; PURPOSE:xingcheng-autonomous-reasoning/context/learning/review-working-information within-declared-auxiliary-system-domain; ENTRY:official-information-layer-entry-only+mutual-endpoint-attestation+session-bound-identity+per-message-authenticity+confidentiality+sequence+expiry; PAYLOAD-ACCESS:xingcheng-exclusive; OTHER-SOVEREIGNS/SUB-SOVEREIGNS/MODULES/TOOLS/UI/OPERATORS/ADMINISTRATORS/MAINTAINERS/DEVELOPERS/LOGGERS/AUDITORS/BROKERS/POSTGRESQL/QDRANT:content-access-none; PERMISSION-SOVEREIGN:may-validate-fixed-channel-identity/status/revocation-proof but-cannot-view/decrypt/search/export/replay-or-expand-payload-access; INFORMATION-LAYER:route/store-forward/deduplicate/order/expire/deliver opaque-ciphertext only+observe-minimum-metadata{channel-id,message-id,session-generation,size-class,time,state,error-code}+no-content-derived-metadata; KEYS:xingcheng-endpoint-held+channel-specific+non-exportable+rotating+revocable+not-held-by-router/store/audit/system-sovereign; STORAGE:encrypted+owner-isolated+bounded-retention+no-general-index/RAG/telemetry/log/backup/analytics/training; OUTPUT-SEPARATION:any-user-or-system-anomaly-notification is-new-redacted-purpose-bound-message over-separate-authorized-information-route+never-forward/reveal/private-channel-payload; FAILURE:identity/key/session/integrity/sequence/expiry uncertainty=>deny+drop-content+publish-generic-channel-health-only; DELETION:expiry/revocation/owner-request=>cryptographic-erasure+receipt-without-content; AUDIT:metadata-only+no-payload/hash/embedding/preview/token",
         "prohibition": "FORBID:any-non-xingcheng-payload-view+permission-grant-to-another-actor+administrator-override+emergency-content-access+shared-key+server-side-decryption+plaintext-at-rest+payload-logging+content-inspection/DLP/indexing/embedding/training+mirror+replica-readable-by-system+debug-dump+crash-dump-content+subscription+wildcard-query+cross-channel-forward+derived-summary+side-channel-through-error/size/timing beyond-bounded-classification+direct-channel-outside-information-layer",
         "exception": "No actor receives a content-access exception. A separately authored, redacted notification contains only Xingcheng-approved disclosed fields and is not access to the private channel"
+      },
+      {
+        "position": 190,
+        "provision_id": "A190",
+        "section_index": "4",
+        "subject": "deadlock-free-governed-startup",
+        "rule": "STARTUP-OWNER:startup-sovereign; SINGLE-FLIGHT:one-startup-generation; PHASE-0:local-process-preflight-without-cross-owner-communication; PHASE-1:activate-minimal-information-layer-bootstrap-mode with-deny-by-default+no-business-route+no-database/vector/model dependency; BOOTSTRAP-CAPABILITY:pre-issued-read-only+startup-sovereign-bound+official-codex-entry-only+sealed-in-active-release+verified-mechanically-without-live-permission-decision; PHASE-2:through-minimal-information-layer read-governance-codex://official+verify-last-valid-human-sealed-version/content-root/history/lineage; PENDING-OR-INVALID-NEWER-CANDIDATE:ignore-for-runtime+use-last-valid-sealed-version+report-status; PHASE-3:through-information-layer load-authoritative-permission-directory+verify-bootstrap-capability+activate-permission-sovereign; PHASE-4:switch-information-layer-to-normal-authenticated-authorized-mode+invalidate-bootstrap-session/capability; PHASE-5:system-decision-sovereign classifies-certified-manifest-dependencies as core-critical|capability-critical|optional and startup-sovereign executes-acyclic-critical-path; PHASE-6:activate-system-runtime+maintenance+required-specialized-sovereigns by-dependency-DAG; CORE-READY:official-codex-valid+permission-sovereign-active+normal-information-layer-active+system-decision-active+system-runtime-active+maintenance-active+all-core-critical-dependencies-ready; DEFERRED:capability-critical/optional services start-after-core-ready with bounded-parallelism; FAILURE:core-critical failure=>failed-generation+owned-reverse-DAG-cleanup+typed-user-visible-cause; non-core failure=>affected-capability-degraded-only+retry-budget; RETRY:fresh-generation-or-owned-node-retry according-to-failure-scope+exponential-backoff+jitter+circuit-breaker; STATUS:sequenced-information-layer-events+authoritative-snapshot; READY:evidence-bound-to-generation+release+dependency-state; USER-INTERACTION:startup/retry/reconciliation requires-no-manual-approval when-current-preissued-permissions-remain-valid",
+        "prohibition": "FORBID:codex-read-before-minimal-information-entry+normal-route-before-permission-sovereign+live-permission-review-required-to-load-the-law-that-activates-permission-sovereign+circular-startup-gate+PostgreSQL/Qdrant/Ollama-unconditionally-core-critical+all-or-nothing-optional-service+process-existence-as-ready+fixed-sleep+infinite-wait+reuse-partial-generation+bootstrap-capability-generalization/persistence/replay+unsigned-candidate-as-law+direct-connection+silent-failure+manual-refresh-or-click-to-complete-routine-startup",
+        "exception": "If no valid sealed codex version exists, startup remains inspection-only. The inspection surface exposes generic integrity evidence and cannot perform governed operations."
+      },
+      {
+        "position": 191,
+        "provision_id": "A191",
+        "section_index": "4",
+        "subject": "startup-dependency-classification-and-legacy-order-retirement",
+        "rule": "AUTHORITATIVE-STARTUP-ORDER:A190; DEPENDENCY-DECLARATION:each-service states identity+owner+required-by+criticality+readiness-contract+deadline+retry-budget+shutdown-order; POSTGRESQL/QDRANT/OLLAMA:no-global-fixed-criticality+critical-only-when-required-by-a-core-ready-contract in-current-certified-manifest; MISSING-OPTIONAL:do-not-block-core+publish-capability-degraded; MISSING-CAPABILITY-CRITICAL:block-that-capability-only; MISSING-CORE-CRITICAL:block-core-ready; RECLASSIFICATION:new-certified-manifest+system-decision-acceptance+permission-validation; LEGACY-HARDCODED-SEQUENCE:no-effect",
+        "prohibition": "FORBID:implicit-criticality+dependency-name-based-criticality+optional-failure-aborting-unrelated-runtime+undeclared-dependency+runtime-self-reclassification+stale-manifest+legacy-boot-core-order-as-authority",
+        "exception": "none"
       }
     ],
     "certification_evidence": [
@@ -1984,6 +2002,13 @@
       },
       {
         "version": "2.31230",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "2.41230",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3146,6 +3171,20 @@
         "provision_id": "E164",
         "area": "xingcheng-private-information-channel",
         "edict": "ESTABLISH:information-layer://xingcheng/auxiliary-private; ENDPOINT:xingcheng-only; PAYLOAD:opaque-end-to-end-protected; OTHERS:view/decrypt/subscribe/search/export/replay/delegate=deny; ROUTER:minimum-metadata-only; OUTPUT:new-redacted-message-on-separate-authorized-route-only; CONTENT-EXCEPTION:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 165,
+        "provision_id": "E165",
+        "area": "startup-liveness",
+        "edict": "BOOT:minimal-information-locked-mode>official-codex-last-valid-seal>permission-directory>permission-sovereign>normal-information-mode>decision/runtime/maintenance-core-DAG>core-ready>deferred-capabilities; BOOTSTRAP-PROOF:pre-issued+read-only+codex-only+single-generation+invalidated-after-permission-activation; FAILURE:criticality-scoped+bounded-retry+typed-status; CIRCULAR-GATE/DIRECT-LINK/MANUAL-APPROVAL:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 166,
+        "provision_id": "E166",
+        "area": "startup-dependency-criticality",
+        "edict": "DEPENDENCIES:certified-manifest-declared; CORE-CRITICAL:block-core|CAPABILITY-CRITICAL:block-owner-capability|OPTIONAL:degrade-only; POSTGRESQL/QDRANT/OLLAMA:classification-by-current-required-contract-not-name; ORDER:A190-DAG-only; LEGACY-FIXED-SEQUENCE:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -5120,18 +5159,6 @@
         "value": "typed-envelope+idempotency+ordered-sequence+ack+bounded-replay"
       },
       {
-        "key": "schema",
-        "value": "gptbridge-governance-codex-v2.31230"
-      },
-      {
-        "key": "codex_version",
-        "value": "2.31230"
-      },
-      {
-        "key": "version_increment",
-        "value": "0.10000"
-      },
-      {
         "key": "xingcheng_auxiliary_private_channel",
         "value": "information-layer://xingcheng/auxiliary-private"
       },
@@ -5142,6 +5169,30 @@
       {
         "key": "xingcheng_private_channel_content_exception",
         "value": "none"
+      },
+      {
+        "key": "schema",
+        "value": "gptbridge-governance-codex-v2.41230"
+      },
+      {
+        "key": "codex_version",
+        "value": "2.41230"
+      },
+      {
+        "key": "version_increment",
+        "value": "0.10000"
+      },
+      {
+        "key": "startup_authoritative_article",
+        "value": "A190"
+      },
+      {
+        "key": "startup_bootstrap_mode",
+        "value": "minimal-information-layer-locked"
+      },
+      {
+        "key": "startup_dependency_classes",
+        "value": "core-critical|capability-critical|optional"
       }
     ],
     "preamble": [
@@ -5776,6 +5827,12 @@
         "position": 104,
         "provision_id": "P104",
         "statement": "XINGCHENG-AUXILIARY-PRIVATE-CHANNEL:information-layer-owned+exclusive-endpoint+payload-visible-to-xingcheng-only; ALL-OTHER-ACTORS:payload-view/subscribe/search/export/replay/decrypt/delegate=denied; INFRASTRUCTURE:opaque-transport+minimum-routing-metadata-only",
+        "binding": 1
+      },
+      {
+        "position": 105,
+        "provision_id": "P105",
+        "statement": "STARTUP-LIVENESS:no-circular-prerequisite+minimal-information-bootstrap-first+last-valid-sealed-authority; DEPENDENCY:declared-critical-blocks-only+optional-capability-degrades-only; RECOVERY:fresh-generation+bounded+observable+no-user-action-required",
         "binding": 1
       }
     ],
@@ -9083,6 +9140,41 @@
         "provision_id": "E164",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P105",
+        "provision_type": "principle",
+        "provision_id": "P105",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A190",
+        "provision_type": "article",
+        "provision_id": "A190",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A191",
+        "provision_type": "article",
+        "provision_id": "A191",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E165",
+        "provision_type": "edict",
+        "provision_id": "E165",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E166",
+        "provision_type": "edict",
+        "provision_id": "E166",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -11611,7 +11703,7 @@
         "provision_id": "A129",
         "introduced_by": "H009",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "0bd1b51fca5be59b6966a05219f4fc34365917c23248bfda21f42cd366d06f24"
       },
       {
@@ -11699,7 +11791,7 @@
         "provision_id": "E106",
         "introduced_by": "H009",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "f083452797e5ced069d6793b86ea26f3c6ad606a394f1cde5d1cd703b4227350"
       },
       {
@@ -12619,7 +12711,7 @@
         "provision_id": "A179",
         "introduced_by": "H029",
         "supersedes_id": "A167",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "249725c5912d94919df48d5c732e4ed4a247b5b4c8c46edc558afdfe2892ab2d"
       },
       {
@@ -12635,7 +12727,7 @@
         "provision_id": "E154",
         "introduced_by": "H029",
         "supersedes_id": "E142",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "188bfef5f4c8c1c21d8becded909ab28082c2f8c373b639957ae66878d547be3"
       },
       {
@@ -12861,6 +12953,46 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "54fb1cc91cc3351dd919db60ea3592f7dfed7080be48ee624d49408f75bc1481"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P105",
+        "introduced_by": "H039",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "36d588a6a7494a72e34f6a789ba52dae4563b6c08d059ea37bc27c6e53703c40"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A190",
+        "introduced_by": "H039",
+        "supersedes_id": "A179",
+        "status": "active",
+        "content_hash": "5394f1c7a3ce3952ce2b6e096c9bb972e6e5a2b3473916c6cf378dfe633d8498"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A191",
+        "introduced_by": "H039",
+        "supersedes_id": "A129",
+        "status": "active",
+        "content_hash": "d31c32ab2670436406f5ed48d8c105669b79e2fa6249107fef7d9f81e618477d"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E165",
+        "introduced_by": "H039",
+        "supersedes_id": "E154",
+        "status": "active",
+        "content_hash": "6ae3d50fcb2003d5b158c7eafbd17f1815ae367a5588ec47b1b4acfad78c4783"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E166",
+        "introduced_by": "H039",
+        "supersedes_id": "E106",
+        "status": "active",
+        "content_hash": "498960698a1cb3c9826a7c838bac01d5d99177f7fe7ce8f6e8657830d7af683c"
       }
     ],
     "provision_revisions": [
@@ -29127,6 +29259,46 @@
         "version": "2.31230",
         "content_hash": "54fb1cc91cc3351dd919db60ea3592f7dfed7080be48ee624d49408f75bc1481",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P105",
+        "revision_id": "H039",
+        "version": "2.41230",
+        "content_hash": "36d588a6a7494a72e34f6a789ba52dae4563b6c08d059ea37bc27c6e53703c40",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A190",
+        "revision_id": "H039",
+        "version": "2.41230",
+        "content_hash": "5394f1c7a3ce3952ce2b6e096c9bb972e6e5a2b3473916c6cf378dfe633d8498",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A191",
+        "revision_id": "H039",
+        "version": "2.41230",
+        "content_hash": "d31c32ab2670436406f5ed48d8c105669b79e2fa6249107fef7d9f81e618477d",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E165",
+        "revision_id": "H039",
+        "version": "2.41230",
+        "content_hash": "6ae3d50fcb2003d5b158c7eafbd17f1815ae367a5588ec47b1b4acfad78c4783",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E166",
+        "revision_id": "H039",
+        "version": "2.41230",
+        "content_hash": "498960698a1cb3c9826a7c838bac01d5d99177f7fe7ce8f6e8657830d7af683c",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -29509,6 +29681,16 @@
         "summary": "exclusive Xingcheng auxiliary private channel established inside the information layer with payload access denied to every other actor",
         "previous_hash": "4407671fe3d0a0fd5823e0d1e3fc16b8ff33b98d3ef666b0b026860eb25b9535",
         "entry_hash": "efc563561512397a8e3c4622d14333ecfe0cdf0dc8623e06c0cba1bde5d8dc89"
+      },
+      {
+        "sequence": 39,
+        "change_id": "H039",
+        "version": "2.41230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "architecture-authority",
+        "summary": "startup circular prerequisites removed and unconditional infrastructure blockers replaced by certified dependency criticality",
+        "previous_hash": "efc563561512397a8e3c4622d14333ecfe0cdf0dc8623e06c0cba1bde5d8dc89",
+        "entry_hash": "48949582534033c1ac697026b2baddaf7e7520c4eca7cb2e9d05cce10813550b"
       }
     ],
     "savings": [
@@ -29949,6 +30131,17 @@
         "content_root": "d19281f7a0d70b785313131dbe5d7bfdf9ebd0d9961fa27c505f2139b7675b74",
         "identity_root": "ec8ad9043dd5f50b5713aac5f7ccadfb21b460987c409af39dc3ece2b5d2198f",
         "full_root": "6419fa0f3d2cbd8122d0f3d495e09a8ac5858abee1a513769f044ea825017687"
+      },
+      {
+        "version": "2.41230",
+        "history_head": "48949582534033c1ac697026b2baddaf7e7520c4eca7cb2e9d05cce10813550b",
+        "provision_count": 462,
+        "identity_count": 477,
+        "lineage_count": 477,
+        "certification_state": "sealed-read-only",
+        "content_root": "b978c8aca70050ca1d6dc62b5e9b02f17e5ce21f07b7827a43c9d81b00d0366f",
+        "identity_root": "e527e621a9a608eaff7ed4cea883310442a7505662e60df4474f7e318201cc35",
+        "full_root": "4f0859400ccb0b142400f2994f21ddfa3502428e71b2c835646d2447fcfbc974"
       }
     ],
     "sealed_components": [
@@ -32835,6 +33028,30 @@
         "predecessor_identity": "codex/provision/edict/E53",
         "successor_identity": "codex/provision/edict/E160",
         "effective_version": "2.00230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A179",
+        "successor_identity": "codex/provision/article/A190",
+        "effective_version": "2.41230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A129",
+        "successor_identity": "codex/provision/article/A191",
+        "effective_version": "2.41230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E154",
+        "successor_identity": "codex/provision/edict/E165",
+        "effective_version": "2.41230",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E106",
+        "successor_identity": "codex/provision/edict/E166",
+        "effective_version": "2.41230",
         "status": "effective"
       }
     ],
