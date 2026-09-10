@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.89030",
+  "codex_version": "1.89130",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1669,6 +1669,15 @@
         "rule": "ACTIVE-RELEASE-IDENTITY:single-atomic-content-addressed-pointer to release-id+application-version+artifact-root+contract-root+certificate-digest+activation-generation; AUTHORITY:latest-successfully-activated-valid-certified-release; PERSISTENCE:durable+transactional+restart-safe+crash-safe+read-before-startup/repair/reload/reconnect/synchronization; BASELINE-FOR:integrity-check+automatic-repair+source-repair+startup-reconciliation+watchdog+hot-reload+frontend-reload+backend-restart+tool-restart+workspace-sync+cache-rebuild+dependency-recovery; HOT-RELOAD:reexecute-or-refresh-active-release-artifacts-only+verify-active-release-digests-before-and-after+release-identity-unchanged; AUTOMATIC-REPAIR:restore-only-missing-or-corrupt-artifacts-from-byte-identical-active-certified-release-source+never-from-packaged-default+Git-HEAD+startup-snapshot+old-cache+installer+prior-release; DRIFT:quarantine-unmatched-artifact+retain-active-release-pointer+repair-to-active-certified-root; STARTUP:resolve-active-release-pointer before-artifact-validation+reject-any-older-default-overwrite; FRONTEND-BACKEND:must-load-same-active-release-id+certificate-digest+contract-generation before-ready; PUBLISH:A175-atomic-activation writes-artifacts+certificate+active-pointer as-one-commit then broadcasts-through-information-layer; FAILURE-BEFORE-COMMIT:old-active-release-remains; FAILURE-AFTER-COMMIT:recover-by-transaction-log-to-one-complete-certified-state; ROLLBACK:not-reset+requires-explicit-system-decision+permission-sovereign-new-activation-certificate+target-validity-proof+atomic-pointer-transition+audit+user-notification; HISTORY:append-only activation-ledger records-from/to/reason/decision-proof/certificate/time; VERIFICATION:post-repair/restart/reload release-id+all-roots+runtime-generation+frontend-backend-match+stability-window; USER-NOTICE:active-version+operation+preserved-or-rollback-status",
         "prohibition": "FORBID:auto-repair-reset+watchdog-reset+startup-reset+hot-reload-reset+frontend-refresh-reset+backend-restart-reset+workspace-sync-reset+installer-default-restore+Git-checkout-as-runtime-baseline+cache-as-authority+copy-old-artifact-over-new+silent-version-downgrade+implicit-rollback+rollback-without-new-certificate+partial-pointer-update+pointer-derived-from-mtime+repair-changing-release-id+delete-active-certificate+declare-ready-on-frontend-backend-release-mismatch+erase-activation-history",
         "exception": "When the active certified release is itself unverifiable, affected execution fails closed; recovery may activate a prior certified release only through the explicit certified rollback flow"
+      },
+      {
+        "position": 182,
+        "provision_id": "A182",
+        "section_index": "6",
+        "subject": "version-authority-and-repair-reset-prohibition",
+        "rule": "VERSION-NAMESPACES:codex-version+application-version+tool-version+release-id+contract-version+runtime-generation are-distinct+typed+non-interchangeable; APPLICATION-VERSION-AUTHORITY:permission-sovereign-published-record-in-permission-directory; ACTIVE-RUNTIME-AUTHORITY:A181-active-certified-release-pointer; CODEX-VERSION-AUTHORITY:official-codex-only; TOOL-VERSION-AUTHORITY:each-tool-certified-manifest; CONTRACT-VERSION-AUTHORITY:registered-information-layer-contract; AUTOMATIC-REPAIR+LEARNING+MODEL+AI-REASONING:may-read-typed-version-evidence+may-report-mismatch+may-propose-candidate but-may-not-infer/normalize/convert/increment/decrement/select/rewrite/publish/repair/version-or-release-identity; COMPARISON:exact-namespace+canonical-format+issuer+certificate+content-root; STRING-ORDER+FLOAT+SEMVER-CONVERSION+DISPLAY-VERSION+mtime+Git-HEAD+package-default forbidden-as-runtime-authority; MISMATCH-CLASSIFICATION:unknown|metadata-drift|artifact-drift|contract-incompatible|certificate-invalid|release-pointer-invalid; ON-MISMATCH:freeze-affected-mutation+preserve-active-code+collect-evidence+information-layer>maintenance-health-classification>system-decision; METADATA-ONLY-DRIFT:permission-sovereign-decision+governed-metadata-correction+no-code-write; ARTIFACT-DRIFT:repair-byte-identical-to-active-certified-artifact-root-only; NEW-CODE-REQUIRED:system-programming-sovereign candidate>A175 certification+atomic-release; INVALID-OR-AMBIGUOUS-EVIDENCE:fail-closed+no-reset+user-notification; AUTOMATIC-REPAIR-INPUT:immutable active-release-id+certificate-digest+artifact-root+target-path+expected-hash+operation-scope; AUTOMATIC-REPAIR-OUTPUT:before-hash+after-hash+release-id-unchanged+verification; VERSION-CHANGE:explicit-candidate+permission-sovereign publication+release-recertification only; DISPLAY-VERSION:presentation-only+never-decision-source",
+        "prohibition": "FORBID:auto-repair-thinking-version+AI-generated-version+learning-promoted-version+version-guess+version-from-filename/folder/mtime/Git/package/cache+cross-namespace-comparison+float-version-arithmetic+automatic-version-downgrade+version-mismatch-code-reset+delete-newer-code+restore-default-code+rewrite-manifest-to-match-code+rewrite-code-to-match-manifest+repair-changing-release-pointer+silent-normalization+display-version-as-authority+mutation-before-classification+ambiguous-evidence-repair+self-certification",
+        "exception": "No automatic version-selection exception; byte-identical repair to the already active certified artifact root is not a version change"
       }
     ],
     "certification_evidence": [
@@ -1856,6 +1865,13 @@
       },
       {
         "version": "1.89030",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.89130",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2962,6 +2978,13 @@
         "provision_id": "E156",
         "area": "hot-update-persistence",
         "edict": "BASELINE:durable-active-certified-release-pointer-only; REPAIR+STARTUP+RELOAD+RESTART+SYNC:resolve-pointer>verify-certificate+roots>preserve-release>repair-byte-identical-active-artifacts>verify>stability-window; DEFAULT/GIT/CACHE/INSTALLER/PRIOR-RELEASE-RESET:none; FRONTEND+BACKEND:same-release-before-ready; ROLLBACK:explicit-decision+new-permission-certificate+atomic-activation+audit+notify only",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 157,
+        "provision_id": "E157",
+        "area": "version-safe-automatic-repair",
+        "edict": "VERSION-SOURCE:typed-authoritative-record-per-namespace; REPAIR:active-certified-release-id+certificate+artifact-root only; MISMATCH:classify>freeze-mutation>preserve-code>evidence>information-layer>sovereign-decision; METADATA-DRIFT:no-code-write; ARTIFACT-DRIFT:byte-identical-active-root-only; NEW-CODE:new-certified-release; AI/LEARNING/REPAIR-VERSION-INFERENCE:none; VERSION-MISMATCH-RESET:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4825,11 +4848,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.89030"
+        "value": "gptbridge-governance-codex-v1.89130"
       },
       {
         "key": "codex_version",
-        "value": "1.89030"
+        "value": "1.89130"
       },
       {
         "key": "citation_entry",
@@ -5476,6 +5499,12 @@
         "position": 96,
         "provision_id": "P96",
         "statement": "ACTIVE-CERTIFIED-RELEASE:is-the-only-repair+restart+reload+sync-baseline; HOT-UPDATE/HOT-RELOAD:survives-repair+restart+reconnect; RESET/IMPLICIT-ROLLBACK:none; ROLLBACK:new-explicit-certified-activation-only",
+        "binding": 1
+      },
+      {
+        "position": 97,
+        "provision_id": "P97",
+        "statement": "VERSION-IDENTITY:not-inferred-by-repair/AI/learning/model; REPAIR-BASIS:active-certified-release+artifact-digest+contract-identity only; VERSION-MISMATCH:signal-not-mutation-authority; CODE-RESET:none",
         "binding": 1
       }
     ],
@@ -8613,6 +8642,27 @@
         "identity_code": "codex/provision/edict/E156",
         "provision_type": "edict",
         "provision_id": "E156",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P97",
+        "provision_type": "principle",
+        "provision_id": "P97",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A182",
+        "provision_type": "article",
+        "provision_id": "A182",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E157",
+        "provision_type": "edict",
+        "provision_id": "E157",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -11839,7 +11889,7 @@
         "provision_id": "A164",
         "introduced_by": "1.75230",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "0fb110e578a4892c4c53bee1df6cb2cb4a25f84c65947be6c871986398af15ad"
       },
       {
@@ -11847,7 +11897,7 @@
         "provision_id": "E139",
         "introduced_by": "1.75230",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "194afa47352991cbd6ace43c0cc835f914622a0288789283d5129fc11bccdf5a"
       },
       {
@@ -12201,6 +12251,30 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "36e851ce8df472e81376cf5c31dbdb8ee103dd669edb858192a4acaab315c91f"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P97",
+        "introduced_by": "H031",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "3bfc9da8fbfde6dbec7d67eff177c5577fcc48bab4521d9b86fc1aa8a250570c"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A182",
+        "introduced_by": "H031",
+        "supersedes_id": "A164",
+        "status": "active",
+        "content_hash": "2ccea506f9fa3b2af2efeb5c7a361b9e8fa3707798fcedd9b2d887945b395b55"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E157",
+        "introduced_by": "H031",
+        "supersedes_id": "E139",
+        "status": "active",
+        "content_hash": "eb4790638e3a35ea521468ea097da2b0f055983d23766a75393ac655a4fc0920"
       }
     ],
     "provision_revisions": [
@@ -28275,6 +28349,30 @@
         "version": "1.89030",
         "content_hash": "36e851ce8df472e81376cf5c31dbdb8ee103dd669edb858192a4acaab315c91f",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P97",
+        "revision_id": "H031",
+        "version": "1.89130",
+        "content_hash": "3bfc9da8fbfde6dbec7d67eff177c5577fcc48bab4521d9b86fc1aa8a250570c",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A182",
+        "revision_id": "H031",
+        "version": "1.89130",
+        "content_hash": "2ccea506f9fa3b2af2efeb5c7a361b9e8fa3707798fcedd9b2d887945b395b55",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E157",
+        "revision_id": "H031",
+        "version": "1.89130",
+        "content_hash": "eb4790638e3a35ea521468ea097da2b0f055983d23766a75393ac655a4fc0920",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -28577,6 +28675,16 @@
         "summary": "certified hot update persistence active release baseline and reset prevention established",
         "previous_hash": "0fa08090c228c5fecddbe8b3376036aeb7751d9c1e7286b5ff0e2c5773d2411f",
         "entry_hash": "2bc35bc0fea40a67b385b16de0c60cf335a5208d54487ac74dd8d40dbd1a4087"
+      },
+      {
+        "sequence": 31,
+        "change_id": "H031",
+        "version": "1.89130",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "automatic repair version inference prohibited and certified artifact identity made exclusive repair basis",
+        "previous_hash": "2bc35bc0fea40a67b385b16de0c60cf335a5208d54487ac74dd8d40dbd1a4087",
+        "entry_hash": "8f95bc2dc743e98d51668f8fd7610c58e2da78a7602d267f1d7906679a7cc3c2"
       }
     ],
     "savings": [
@@ -28929,6 +29037,17 @@
         "content_root": "9d34b305603eba96ce3779048877f49ea8a932770776a0c08c31e012c3704787",
         "identity_root": "7e420edbbbd3f07b247979e70ba5ea38c4def9f51dab366a4dad42060418f8dc",
         "full_root": "65501293ccfaafad09c7b1062240684d640eeaea88c661168fff8911552624e6"
+      },
+      {
+        "version": "1.89130",
+        "history_head": "8f95bc2dc743e98d51668f8fd7610c58e2da78a7602d267f1d7906679a7cc3c2",
+        "provision_count": 436,
+        "identity_count": 451,
+        "lineage_count": 451,
+        "certification_state": "sealed-read-only",
+        "content_root": "7b7a08168cb6dc57d348867751c524730e2f169b5aa782ab6031240c3b0932e1",
+        "identity_root": "d3aa2197617f43857f37f5a4a8b809c279ae798d55054eaa50c572f0565eb96c",
+        "full_root": "2334b6358fc6859f2bd308b04acdf3b77d3bfd6f93356186b4d6ec6d55e6c06a"
       }
     ],
     "sealed_components": [
@@ -31754,6 +31873,18 @@
         "predecessor_identity": "codex/provision/edict/E143",
         "successor_identity": "codex/provision/edict/E155",
         "effective_version": "1.88930",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A164",
+        "successor_identity": "codex/provision/article/A182",
+        "effective_version": "1.89130",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E139",
+        "successor_identity": "codex/provision/edict/E157",
+        "effective_version": "1.89130",
         "status": "effective"
       }
     ],
