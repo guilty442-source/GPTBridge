@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.88830",
+  "codex_version": "1.88930",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -1642,6 +1642,24 @@
         "rule": "OWNER:SYSTEM-RUNTIME-SOVEREIGN manages-runtime-continuity; HEALTH-CLASSIFICATION:maintenance-sovereign; POLICY-AND-PRIORITY:system-decision-sovereign; RESOURCES:resource-sovereign; PERMISSION:permission-sovereign; CHANNEL:information-layer-only; STABILITY-CONTRACT:EACH-RUNTIME declares-process-identity+dependencies+readiness+liveness+resource-budget+queue-limit+timeout+checkpoint-boundary+restart-policy+shutdown-policy+recovery-objective+isolation-boundary; ISOLATION:main-system-core+each-independent-tool+model-runtime+database-adapter+background-worker separate-failure-domains; SUPERVISION:single-owner-process-tree+generation-id+heartbeat+bounded-restart-budget+exponential-backoff+jitter+circuit-breaker; STATE:authoritative-state-externalized-by-owner+atomic-checkpoint+write-ahead-or-transactional-boundary+idempotent-resume+in-flight-operation-status; RESOURCE-STABILITY:memory+CPU+GPU+disk+handles+threads+connections+queues bounded+backpressure+load-shed-low-priority+preserve-completed-work; DEPENDENCY-FAILURE:timeout+bulkhead+circuit-breaker+typed-degraded-state+no-cascade; STARTUP:ordered-readiness-gates+no-traffic-before-ready; SHUTDOWN:stop-intake>drain-bounded-work>checkpoint>close-information-routes>terminate-process-tree>verify-stopped; CRASH:invalidate-generation+reject-stale-results+preserve-evidence+restart-only-through-system-runtime-sovereign; RECOVERY:restore-authoritative-state>reconcile-in-flight-work>dependency-recheck>independent-verification>declared-stability-window>information-layer-current-status; AVAILABILITY:critical-control-path-priority-over-background-work; UPDATE:certified-release-only+A175; USER-WORK:complete-input+completed-stage+checkpoint preserved where technically possible; OBSERVABILITY:uptime+restart-count+crash-reason+latency+error-rate+queue-depth+resource-headroom+dependency-state+checkpoint-age+generation+release-id; FAILURE-BUDGET-EXHAUSTED:affected-capability-fail-closed+quarantine+user-notification+learning-evidence; STABLE:all-required-signals-current+no-unbounded-growth+error/latency/restart thresholds satisfied throughout stability-window",
         "prohibition": "FORBID:shared-failure-domain-for-independent-tools+main-system-crash-terminating-independent-tool+unbounded-process/thread/task/queue/memory/disk/connection-growth+restart-loop+fixed-immediate-restart+multiple-supervisors+stale-generation-result+partial-state-as-complete+silent-data-loss+dependency-failure-cascade+traffic-before-ready+force-stop-without-bounded-drain-or-checkpoint+health-or-stability-claim-from-process-existence-alone+hidden-degraded-state+repair-without-sovereign-chain+uncertified-runtime-content+automatic-reset-of-certified-hot-update+information-layer-bypass",
         "exception": "Emergency termination may skip draining only when continued execution threatens integrity or security; evidence preservation and post-stop verification remain mandatory"
+      },
+      {
+        "position": 179,
+        "provision_id": "A179",
+        "section_index": "6",
+        "subject": "optimized-stable-startup-pipeline",
+        "rule": "ENTRY:launcher-wakes-formal-UI-only+starts-or-attaches-one-startup-generation; ORCHESTRATOR:startup-sovereign-only; STARTUP-STATE-MACHINE:idle>preflight>authority-ready>information-ready>critical-dependencies>sovereigns>core-ready>deferred-services>fully-ready|failed; SINGLE-FLIGHT:one-generation+one-owner+duplicate-launch-attaches-to-current-progress; PHASE-0-PREFLIGHT:workspace-identity+certified-release-identity+environment+path+port+resource-headroom+orphan-process-reconciliation; PHASE-1-AUTHORITY:verify-official-codex-integrity+load-effective-law>load-and-verify-permission-directory>activate-permission-sovereign; PHASE-2-INFORMATION:activate-minimal-information-layer-entry+authentication+typed-event/status/audit routes; ALL-LATER-CONNECTIONS:A177-information-layer-only; PHASE-3-CRITICAL-DEPENDENCY-DAG:derive-declared-dependencies+reject-cycle+start-independent-nodes-in-bounded-parallel+sequence-dependent-nodes; CRITICAL:PostgreSQL+Qdrant+Ollama only when required-by-enabled-core-capability; EACH-NODE:start-once+deadline+readiness-contract+generation-id+owned-cleanup; PHASE-4-SOVEREIGN-ACTIVATION:startup-sovereign-already-active>permission>system-decision then bounded-parallel-ready-independent branches system-runtime+maintenance+resource+data+integration+learning+programming+third-party+language-review subject-to-explicit-DAG; PHASE-5-CORE-READY:governance-current+permission-current+information-channel-ready+required-critical-dependencies-ready+system-runtime-ready+maintenance-health-not-critical+frontend-snapshot-reconciled; PHASE-6-DEFERRED:noncritical-services+independent-tool-inventory+background-maintenance+model-warmup+capacity-scan after-core-ready with resource-budget+no-core-block; UI:visible-immediately+read-only-progress-until-core-ready+typed-phase/node/progress/failure events-via-information-layer; CACHE:content-addressed-evidence-only+keyed-by-release-root+environment-fingerprint+dependency-version+contract-version+expiry; CACHE-MAY-SKIP:unchanged-static-integrity-work only; CACHE-MAY-NOT-SKIP:authentication+authorization+process-liveness+dependency-readiness+health+connection-reconciliation; TIMEOUT:declared-per-node+declared-per-phase+global-budget+cancel-descendants-on-required-node-failure; FAILURE:invalidate-generation+stop-new-work+cancel-descendants+bounded-cleanup-owned-processes-only+preserve-independent-tools+retain-evidence+publish-user-visible-cause+fail-closed-affected-operations; RETRY:fresh-generation+cause-aware+bounded-backoff+no-partial-resume; PERFORMANCE-EVIDENCE:phase-duration+critical-path+parallelism+cache-hit+wait-reason+failure-node+time-to-UI+time-to-core-ready+time-to-full-ready",
+        "prohibition": "FORBID:multiple-startup-orchestrators+duplicate-process-start+fixed-sleep-readiness+serializing-independent-nodes+unbounded-parallelism+dependency-cycle+connection-before-information-layer+traffic-before-core-ready+noncritical-work-blocking-core-ready+stale-cache-as-readiness+cache-bypass-auth/health/liveness+continue-after-required-phase-failure+partial-sovereign-set-as-ready+resume-failed-generation+global-process-kill+main-system-failure-terminating-independent-tools+silent-failure+infinite-timeout+manual-refresh-dependency",
+        "exception": "A disabled or undeclared optional dependency is omitted from the critical path; its dependent capability remains unavailable until a later verified activation"
+      },
+      {
+        "position": 180,
+        "provision_id": "A180",
+        "section_index": "6",
+        "subject": "dependency-driven-sovereign-activation",
+        "rule": "ACTIVATION-PLAN:generated-from-declared-acyclic-dependency-graph+effective-codex-identities; STARTUP-SOVEREIGN:orchestration-only+no-domain-decision; EACH-SOVEREIGN:identity+codex-view-entitlement+permission-state+dependency-state+entry-integrity+health-contract verified-before-active; PARALLELISM:allowed-only-between-independent-sovereigns+bounded-by-resource-sovereign-budget; ATOMICITY:each-sovereign activation atomic+generation-fenced; REQUIRED-FAILURE:startup-generation-failed+dependent-nodes-cancelled+activated-owned-nodes-orderly-deactivated-reverse-DAG; OPTIONAL-FAILURE:typed-degraded-capability+core-ready-allowed-only-if-no-critical-contract-depends-on-it; REENTRY:fresh-generation only; STATUS:information-layer sequenced-events+authoritative-snapshot",
+        "prohibition": "FORBID:hardcoded-order-contradicting-dependency-DAG+circular-dependency+activate-before-verification+parallel-dependent-activation+cross-sovereign-direct-control+partial-node-active+stale-generation-active+implicit-optional-classification+failure-hidden-as-ready",
+        "exception": ""
       }
     ],
     "certification_evidence": [
@@ -1815,6 +1833,13 @@
       },
       {
         "version": "1.88830",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.88930",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2900,6 +2925,20 @@
         "provision_id": "E153",
         "area": "runtime-stability",
         "edict": "STABILITY:declared-runtime-contract+isolated-failure-domain+single-supervisor+bounded-resources+backpressure+transactional-checkpoint+generation-fencing+dependency-bulkhead+graceful-start-stop; CRASH:invalidate>preserve>bounded-backoff>restore>reconcile>verify>stability-window>publish; INDEPENDENT-TOOLS:survive-main-system-failure; BUDGET-EXHAUSTED:fail-closed-affected-scope+quarantine+notify+learn; STATUS:information-layer-only; STABLE-WITHOUT-EVIDENCE:none",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 154,
+        "provision_id": "E154",
+        "area": "optimized-startup",
+        "edict": "FLOW:UI-only-launcher>single-startup-generation>preflight>codex+permission>minimal-information-layer>critical-dependency-DAG>dependency-driven-sovereigns>core-ready>bounded-deferred-work>fully-ready; SPEED:critical-path+safe-parallel+static-evidence-cache+no-fixed-sleep; STABILITY:deadlines+single-flight+generation-fence+cancel-descendants+owned-cleanup+fresh-retry; READY:evidence-not-process-existence",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 155,
+        "provision_id": "E155",
+        "area": "sovereign-startup-DAG",
+        "edict": "SOVEREIGNS:declared-DAG+cycle-reject+verified-node+bounded-independent-parallelism+atomic-generation-fenced-activation; REQUIRED-FAIL:abort+reverse-DAG-cleanup; OPTIONAL-FAIL:explicit-degraded-capability-only; STATUS:information-layer; PARTIAL-READY:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4763,11 +4802,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.88830"
+        "value": "gptbridge-governance-codex-v1.88930"
       },
       {
         "key": "codex_version",
-        "value": "1.88830"
+        "value": "1.88930"
       },
       {
         "key": "citation_entry",
@@ -5402,6 +5441,12 @@
         "position": 94,
         "provision_id": "P94",
         "statement": "RUNTIME-STABILITY:continuous+fault-contained+resource-bounded+state-recoverable+observable; FAILURE:affected-scope-only+preserve-user-work; RECOVERY:supervised+bounded+verified; STABILITY-CLAIM:evidence+window-required",
+        "binding": 1
+      },
+      {
+        "position": 95,
+        "provision_id": "P95",
+        "statement": "STARTUP:single-orchestrator+dependency-DAG+critical-path-first+safe-parallelism+bounded-deadlines+progressive-readiness; SPEED:no-redundant-work+verified-cache-only; STABILITY:single-flight+generation-fenced+fail-closed+cleanup-on-failure",
         "binding": 1
       }
     ],
@@ -8483,6 +8528,41 @@
         "identity_code": "codex/provision/edict/E153",
         "provision_type": "edict",
         "provision_id": "E153",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/principle/P95",
+        "provision_type": "principle",
+        "provision_id": "P95",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A179",
+        "provision_type": "article",
+        "provision_id": "A179",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A180",
+        "provision_type": "article",
+        "provision_id": "A180",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E154",
+        "provision_type": "edict",
+        "provision_id": "E154",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E155",
+        "provision_type": "edict",
+        "provision_id": "E155",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -11757,7 +11837,7 @@
         "provision_id": "A167",
         "introduced_by": "1.77230",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "430aac1641d6ab03185d52f0c12c881003b579e524cbb7f262a9c70bada76f15"
       },
       {
@@ -11765,7 +11845,7 @@
         "provision_id": "A168",
         "introduced_by": "1.77230",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "2181b104712091556ad9e090d1b5199823d543ef79193769b209590697bf7742"
       },
       {
@@ -11773,7 +11853,7 @@
         "provision_id": "E142",
         "introduced_by": "1.77230",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "b9127543da64962a0230a2d6fae1eedc841448ea97b4eb95765c980d3da2abfa"
       },
       {
@@ -11781,7 +11861,7 @@
         "provision_id": "E143",
         "introduced_by": "1.77230",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "d4c433b6b4ce1079c446c7a81b16e8f055ddbb32c065e204237c7ebfade9889e"
       },
       {
@@ -12007,6 +12087,46 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "2c45aafd64144936fb098f20591458cec62d1feda5813d7984719d94c12e709b"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P95",
+        "introduced_by": "H029",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "4eaa218ba74ea8f1f4e3492df82865cedecd624805f9c6742a3da19be39e4321"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A179",
+        "introduced_by": "H029",
+        "supersedes_id": "A167",
+        "status": "active",
+        "content_hash": "249725c5912d94919df48d5c732e4ed4a247b5b4c8c46edc558afdfe2892ab2d"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A180",
+        "introduced_by": "H029",
+        "supersedes_id": "A168",
+        "status": "active",
+        "content_hash": "dedb37ad4381b0a874f59975ed78b35264bcf8578b8cbb9223719f863971e703"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E154",
+        "introduced_by": "H029",
+        "supersedes_id": "E142",
+        "status": "active",
+        "content_hash": "188bfef5f4c8c1c21d8becded909ab28082c2f8c373b639957ae66878d547be3"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E155",
+        "introduced_by": "H029",
+        "supersedes_id": "E143",
+        "status": "active",
+        "content_hash": "7d336f57f70c42563788feff10bc0d54f9249970cb660e2499fc2bb700523e09"
       }
     ],
     "provision_revisions": [
@@ -28017,6 +28137,46 @@
         "version": "1.88830",
         "content_hash": "2c45aafd64144936fb098f20591458cec62d1feda5813d7984719d94c12e709b",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P95",
+        "revision_id": "H029",
+        "version": "1.88930",
+        "content_hash": "4eaa218ba74ea8f1f4e3492df82865cedecd624805f9c6742a3da19be39e4321",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A179",
+        "revision_id": "H029",
+        "version": "1.88930",
+        "content_hash": "249725c5912d94919df48d5c732e4ed4a247b5b4c8c46edc558afdfe2892ab2d",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A180",
+        "revision_id": "H029",
+        "version": "1.88930",
+        "content_hash": "dedb37ad4381b0a874f59975ed78b35264bcf8578b8cbb9223719f863971e703",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E154",
+        "revision_id": "H029",
+        "version": "1.88930",
+        "content_hash": "188bfef5f4c8c1c21d8becded909ab28082c2f8c373b639957ae66878d547be3",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E155",
+        "revision_id": "H029",
+        "version": "1.88930",
+        "content_hash": "7d336f57f70c42563788feff10bc0d54f9249970cb660e2499fc2bb700523e09",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -28299,6 +28459,16 @@
         "summary": "runtime stability fault isolation bounded supervision state recovery and graceful continuity established",
         "previous_hash": "f351324a9fa59ce004a48cfd7b8d3100b7294587b340b78b8c2a2f4478e245b7",
         "entry_hash": "2c115ac2626e08fb9588471de0442a335e7ca8a732d04db561d49e19a227b659"
+      },
+      {
+        "sequence": 29,
+        "change_id": "H029",
+        "version": "1.88930",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "startup critical path dependency DAG safe parallelism progressive readiness and failure cleanup optimized",
+        "previous_hash": "2c115ac2626e08fb9588471de0442a335e7ca8a732d04db561d49e19a227b659",
+        "entry_hash": "0fa08090c228c5fecddbe8b3376036aeb7751d9c1e7286b5ff0e2c5773d2411f"
       }
     ],
     "savings": [
@@ -28629,6 +28799,17 @@
         "content_root": "8b75fdf17db231bb8bc7827937d457e8f28d73d617196333e3fefd3be15601b2",
         "identity_root": "063f1119544db6993647ddcf6e907ad21c20d64bd837c551a97f52d09563c8db",
         "full_root": "2a6ac7433ec0c19269d73d77b95b5c130aee2fc90ecd5c8cad99b9ae2a9beed2"
+      },
+      {
+        "version": "1.88930",
+        "history_head": "0fa08090c228c5fecddbe8b3376036aeb7751d9c1e7286b5ff0e2c5773d2411f",
+        "provision_count": 430,
+        "identity_count": 445,
+        "lineage_count": 445,
+        "certification_state": "sealed-read-only",
+        "content_root": "63aec431412d539b7e9c13bb51951377aa2f80d37ba75c0115d86534fbde8ec9",
+        "identity_root": "99f8c54ace68608f78aa91cc5165a63e2f0438ad5d37c7793d092ef5021bc639",
+        "full_root": "cd5fcdfe4bd315a80c68cca355b3afe84b5cd584950b2e24ebb77b15701d0ba0"
       }
     ],
     "sealed_components": [
@@ -31430,6 +31611,30 @@
         "predecessor_identity": "codex/provision/edict/E50",
         "successor_identity": "codex/provision/edict/E152",
         "effective_version": "1.88730",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A167",
+        "successor_identity": "codex/provision/article/A179",
+        "effective_version": "1.88930",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A168",
+        "successor_identity": "codex/provision/article/A180",
+        "effective_version": "1.88930",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E142",
+        "successor_identity": "codex/provision/edict/E154",
+        "effective_version": "1.88930",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/edict/E143",
+        "successor_identity": "codex/provision/edict/E155",
+        "effective_version": "1.88930",
         "status": "effective"
       }
     ],
