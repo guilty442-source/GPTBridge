@@ -124,79 +124,91 @@ class SeparationReport:
 # Verification functions
 # ---------------------------------------------------------------------------
 
-def verify_tool_manifest_separation(
-    tool_id: str,
-    manifest: dict[str, Any],
-    tool_dir: Path,
-    project_root: Path,
-) -> SeparationReport:
-    """Verify that a tool manifest declares independent separation (A184).
-
-    Checks:
-      * The manifest has a stable entity-id distinct from ``main-system``.
-      * The tool directory is not the main-system directory.
-      * The tool has its own source-root and runtime-entry.
-    """
+def _check_entity_id(
+    tool_id: str, manifest: dict[str, Any],
+) -> tuple[list[SeparationViolation], list[str]]:
+    """Check stable-entity-id dimension (A184)."""
     violations: list[SeparationViolation] = []
     verified: list[str] = []
-
-    # stable-entity-id
     entity_id = str(manifest.get("tool_id") or manifest.get("id") or "")
     if not entity_id:
         violations.append(SeparationViolation(
-            dimension="stable-entity-id",
-            tool_id=tool_id,
+            dimension="stable-entity-id", tool_id=tool_id,
             violation="manifest-missing-entity-id",
         ))
     elif entity_id == "main-system":
         violations.append(SeparationViolation(
-            dimension="stable-entity-id",
-            tool_id=tool_id,
+            dimension="stable-entity-id", tool_id=tool_id,
             violation="tool-entity-id-collides-with-main-system",
         ))
     else:
         verified.append("stable-entity-id")
+    return violations, verified
 
-    # source-root: tool directory must not be the main-system directory
+
+def _check_source_root(
+    tool_id: str, tool_dir: Path, project_root: Path,
+) -> tuple[list[SeparationViolation], list[str]]:
+    """Check source-root dimension (A184)."""
+    violations: list[SeparationViolation] = []
+    verified: list[str] = []
     try:
         resolved_tool = tool_dir.resolve(strict=False)
         resolved_main = (project_root / "main-system").resolve(strict=False)
         if resolved_tool == resolved_main:
             violations.append(SeparationViolation(
-                dimension="source-root",
-                tool_id=tool_id,
+                dimension="source-root", tool_id=tool_id,
                 violation="tool-directory-is-main-system-directory",
             ))
         else:
             verified.append("source-root")
     except (OSError, ValueError):
         violations.append(SeparationViolation(
-            dimension="source-root",
-            tool_id=tool_id,
+            dimension="source-root", tool_id=tool_id,
             violation="tool-directory-unresolvable",
         ))
+    return violations, verified
 
-    # runtime-entry: manifest must declare an entry point
-    entry = manifest.get("entry") or manifest.get("main") or ""
-    if not entry:
-        violations.append(SeparationViolation(
-            dimension="runtime-entry",
-            tool_id=tool_id,
-            violation="manifest-missing-runtime-entry",
-        ))
-    else:
-        verified.append("runtime-entry")
 
-    # version: tool must have its own version (A184: independently-versioned)
-    version = str(manifest.get("version") or "")
-    if not version:
-        violations.append(SeparationViolation(
-            dimension="version",
-            tool_id=tool_id,
-            violation="manifest-missing-tool-version",
-        ))
-    else:
-        verified.append("version")
+def _check_manifest_field(
+    tool_id: str, manifest: dict[str, Any],
+    dimension: str, keys: tuple[str, ...],
+) -> tuple[list[SeparationViolation], list[str]]:
+    """Check a manifest field is present (A184)."""
+    value = ""
+    for key in keys:
+        value = str(manifest.get(key) or "")
+        if value:
+            break
+    if not value:
+        return [SeparationViolation(
+            dimension=dimension, tool_id=tool_id,
+            violation=f"manifest-missing-{dimension}",
+        )], []
+    return [], [dimension]
+
+
+def verify_tool_manifest_separation(
+    tool_id: str,
+    manifest: dict[str, Any],
+    tool_dir: Path,
+    project_root: Path,
+) -> SeparationReport:
+    """Verify that a tool manifest declares independent separation (A184)."""
+    violations: list[SeparationViolation] = []
+    verified: list[str] = []
+
+    v, ok = _check_entity_id(tool_id, manifest)
+    violations.extend(v); verified.extend(ok)
+
+    v, ok = _check_source_root(tool_id, tool_dir, project_root)
+    violations.extend(v); verified.extend(ok)
+
+    v, ok = _check_manifest_field(tool_id, manifest, "runtime-entry", ("entry", "main"))
+    violations.extend(v); verified.extend(ok)
+
+    v, ok = _check_manifest_field(tool_id, manifest, "version", ("version",))
+    violations.extend(v); verified.extend(ok)
 
     return SeparationReport(
         ok=len(violations) == 0,

@@ -199,63 +199,98 @@ class ChainValidationResult:
         }
 
 
+def _check_assignment_stage(
+    proof: AssignmentProof | None,
+) -> tuple[list[str], list[str]]:
+    """Check task-assignment stage (A187: ORDER stage 1)."""
+    completed: list[str] = []
+    failures: list[str] = []
+    if proof is None:
+        failures.append("missing-assignment-proof")
+    elif proof.is_expired:
+        failures.append("expired-assignment-proof")
+    else:
+        completed.append("task-assignment")
+    return completed, failures
+
+
+def _check_permission_stage(
+    proof: PermissionProof | None,
+    assignment: AssignmentProof | None,
+    assignment_done: bool,
+) -> tuple[list[str], list[str]]:
+    """Check permission stage (A187: ORDER stage 2)."""
+    completed: list[str] = []
+    failures: list[str] = []
+    if not assignment_done:
+        if assignment is not None:
+            failures.append("permission-stage-skipped")
+        return completed, failures
+    if proof is None:
+        failures.append("missing-permission-proof")
+    elif proof.is_expired:
+        failures.append("expired-permission-proof")
+    elif not proof.is_allowed:
+        failures.append("permission-denied")
+    elif proof.task_id != (assignment.task_id if assignment else ""):
+        failures.append("permission-proof-task-id-mismatch")
+    else:
+        completed.append("permission")
+    return completed, failures
+
+
+def _check_execution_stage(
+    proof: ExecutionProof | None,
+    assignment: AssignmentProof | None,
+    permission_done: bool,
+    permission_allowed: bool,
+) -> tuple[list[str], list[str]]:
+    """Check execution stage (A187: ORDER stage 3)."""
+    completed: list[str] = []
+    failures: list[str] = []
+    if not permission_done:
+        if permission_allowed:
+            failures.append("execution-stage-skipped")
+        return completed, failures
+    if proof is None:
+        failures.append("missing-execution-proof")
+    elif not proof.pre_verified:
+        failures.append("execution-pre-verification-failed")
+    elif not proof.dispatched:
+        failures.append("execution-not-dispatched")
+    elif not proof.post_verified:
+        failures.append("execution-post-verification-failed")
+    elif proof.task_id != (assignment.task_id if assignment else ""):
+        failures.append("execution-proof-task-id-mismatch")
+    else:
+        completed.append("execution")
+    return completed, failures
+
+
 def verify_validation_chain(
     *,
     assignment_proof: AssignmentProof | None = None,
     permission_proof: PermissionProof | None = None,
     execution_proof: ExecutionProof | None = None,
 ) -> ChainValidationResult:
-    """Verify the complete validation chain (A187: ORDER + SEPARATION).
-
-    Per A187: ``ORDER:strict-and-non-skippable`` and ``SEPARATION:assignment-
-    proof-does-not-grant-permission-or-authorize-execution+permission-proof-
-    does-not-assign-duty-or-prove-runtime-readiness+execution-proof-does-not-
-    create-permission-or-change-assignment``.
-
-    Returns a ChainValidationResult with ok, completed stages, and failures.
-    """
+    """Verify the complete validation chain (A187: ORDER + SEPARATION)."""
     completed: list[str] = []
     failures: list[str] = []
 
-    # Stage 1: task-assignment
-    if assignment_proof is None:
-        failures.append("missing-assignment-proof")
-    elif assignment_proof.is_expired:
-        failures.append("expired-assignment-proof")
-    else:
-        completed.append("task-assignment")
+    c, f = _check_assignment_stage(assignment_proof)
+    completed.extend(c); failures.extend(f)
 
-    # Stage 2: permission (requires assignment first)
-    if "task-assignment" in completed:
-        if permission_proof is None:
-            failures.append("missing-permission-proof")
-        elif permission_proof.is_expired:
-            failures.append("expired-permission-proof")
-        elif not permission_proof.is_allowed:
-            failures.append("permission-denied")
-        elif permission_proof.task_id != (assignment_proof.task_id if assignment_proof else ""):
-            failures.append("permission-proof-task-id-mismatch")
-        else:
-            completed.append("permission")
-    elif assignment_proof is not None:
-        failures.append("permission-stage-skipped")
+    c, f = _check_permission_stage(
+        permission_proof, assignment_proof, "task-assignment" in completed,
+    )
+    completed.extend(c); failures.extend(f)
 
-    # Stage 3: execution (requires permission first)
-    if "permission" in completed:
-        if execution_proof is None:
-            failures.append("missing-execution-proof")
-        elif not execution_proof.pre_verified:
-            failures.append("execution-pre-verification-failed")
-        elif not execution_proof.dispatched:
-            failures.append("execution-not-dispatched")
-        elif not execution_proof.post_verified:
-            failures.append("execution-post-verification-failed")
-        elif execution_proof.task_id != (assignment_proof.task_id if assignment_proof else ""):
-            failures.append("execution-proof-task-id-mismatch")
-        else:
-            completed.append("execution")
-    elif permission_proof is not None and permission_proof.is_allowed:
-        failures.append("execution-stage-skipped")
+    c, f = _check_execution_stage(
+        execution_proof, assignment_proof,
+        "permission" in completed,
+        permission_proof is not None and permission_proof.is_allowed,
+    )
+    completed.extend(c); failures.extend(f)
 
     return ChainValidationResult(
         ok=len(failures) == 0 and len(completed) == 3,

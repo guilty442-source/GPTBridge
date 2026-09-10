@@ -44,14 +44,18 @@ from typing import Any, Final
 _DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 _ACTIVE_POINTER_PATH: Final[Path] = (
-    _DEFAULT_PROJECT_ROOT / "main-system" / "runtime" / "state"
+    _DEFAULT_PROJECT_ROOT / "runtime" / "state"
     / "active-release-pointer.json"
 )
 
 _ACTIVATION_LEDGER_PATH: Final[Path] = (
-    _DEFAULT_PROJECT_ROOT / "main-system" / "runtime" / "state"
+    _DEFAULT_PROJECT_ROOT / "runtime" / "state"
     / "activation-ledger.jsonl"
 )
+
+# Public aliases for __all__ export
+ACTIVE_POINTER_PATH: Final[Path] = _ACTIVE_POINTER_PATH
+ACTIVATION_LEDGER_PATH: Final[Path] = _ACTIVATION_LEDGER_PATH
 
 
 # ---------------------------------------------------------------------------

@@ -87,7 +87,7 @@ class SourceSizeMeasurement:
     largest_function_lines: int
     largest_function_name: str
     largest_class_lines: int
-    largest_class_name: int
+    largest_class_name: str
     public_entrypoints: int
     authored_callables: int
     module_limit: int
@@ -291,7 +291,7 @@ def measure_python_source(
         largest_function_lines=largest_func,
         largest_function_name=largest_func_name,
         largest_class_lines=largest_cls,
-        largest_class_name=largest_cls,
+        largest_class_name=largest_cls_name,
         public_entrypoints=public_entries,
         authored_callables=authored,
         module_limit=module_limit,
@@ -337,7 +337,7 @@ def measure_source(
         largest_function_lines=0,
         largest_function_name="(not-measured)",
         largest_class_lines=0,
-        largest_class_name=0,
+        largest_class_name="(not-measured)",
         public_entrypoints=0,
         authored_callables=0,
         module_limit=module_limit,
@@ -352,6 +352,44 @@ def measure_source(
 # Verification
 # ---------------------------------------------------------------------------
 
+def _build_size_violations(
+    path: Path, m: SourceSizeMeasurement,
+) -> list[SizeViolation]:
+    """Build violation list from a measurement (A185/E160)."""
+    violations: list[SizeViolation] = []
+    if m.module_exceeds:
+        violations.append(SizeViolation(
+            dimension="module", path=str(path),
+            measured=m.module_effective_lines, limit=m.module_limit,
+            detail=f"module exceeds {m.module_limit} effective lines",
+        ))
+    if m.function_exceeds:
+        violations.append(SizeViolation(
+            dimension="function", path=str(path),
+            measured=m.largest_function_lines, limit=m.function_limit,
+            detail=f"function {m.largest_function_name} exceeds {m.function_limit} lines",
+        ))
+    if m.class_exceeds:
+        violations.append(SizeViolation(
+            dimension="class", path=str(path),
+            measured=m.largest_class_lines, limit=m.class_limit,
+            detail=f"class exceeds {m.class_limit} lines",
+        ))
+    if m.entry_exceeds:
+        violations.append(SizeViolation(
+            dimension="public-entrypoints", path=str(path),
+            measured=m.public_entrypoints, limit=m.entry_limit,
+            detail=f"public entrypoints exceed {m.entry_limit}",
+        ))
+    if m.callables_exceed:
+        violations.append(SizeViolation(
+            dimension="callables", path=str(path),
+            measured=m.authored_callables, limit=m.callables_limit,
+            detail=f"authored callables exceed {m.callables_limit}",
+        ))
+    return violations
+
+
 def verify_source_size(
     path: Path,
     *,
@@ -361,10 +399,7 @@ def verify_source_size(
     entry_limit: int = PUBLIC_ENTRY_LIMIT,
     callables_limit: int = CALLABLES_LIMIT,
 ) -> SizeReport:
-    """Verify a source file against A185/E160 size limits.
-
-    Returns a SizeReport with ok, measurement, violations, and warnings.
-    """
+    """Verify a source file against A185/E160 size limits."""
     measurement = measure_source(
         path,
         module_limit=module_limit,
@@ -375,55 +410,10 @@ def verify_source_size(
     )
     if measurement is None:
         return SizeReport(
-            ok=True,
-            path=str(path),
-            measurement=None,
-            violations=(),
-            warnings=(),
+            ok=True, path=str(path),
+            measurement=None, violations=(), warnings=(),
         )
-
-    violations: list[SizeViolation] = []
-    if measurement.module_exceeds:
-        violations.append(SizeViolation(
-            dimension="module",
-            path=str(path),
-            measured=measurement.module_effective_lines,
-            limit=measurement.module_limit,
-            detail=f"module exceeds {measurement.module_limit} effective lines",
-        ))
-    if measurement.function_exceeds:
-        violations.append(SizeViolation(
-            dimension="function",
-            path=str(path),
-            measured=measurement.largest_function_lines,
-            limit=measurement.function_limit,
-            detail=f"function {measurement.largest_function_name} exceeds {measurement.function_limit} lines",
-        ))
-    if measurement.class_exceeds:
-        violations.append(SizeViolation(
-            dimension="class",
-            path=str(path),
-            measured=measurement.largest_class_lines,
-            limit=measurement.class_limit,
-            detail=f"class exceeds {measurement.class_limit} lines",
-        ))
-    if measurement.entry_exceeds:
-        violations.append(SizeViolation(
-            dimension="public-entrypoints",
-            path=str(path),
-            measured=measurement.public_entrypoints,
-            limit=measurement.entry_limit,
-            detail=f"public entrypoints exceed {measurement.entry_limit}",
-        ))
-    if measurement.callables_exceed:
-        violations.append(SizeViolation(
-            dimension="callables",
-            path=str(path),
-            measured=measurement.authored_callables,
-            limit=measurement.callables_limit,
-            detail=f"authored callables exceed {measurement.callables_limit}",
-        ))
-
+    violations = _build_size_violations(path, measurement)
     return SizeReport(
         ok=len(violations) == 0,
         path=str(path),
