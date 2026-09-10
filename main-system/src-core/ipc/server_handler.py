@@ -96,15 +96,17 @@ async def handler(websocket, app_instance):
         if pending:
             await ui.send_event("task_recovery_required", {"ok": True, "tasks": pending})
 
-    # Start heartbeat monitor — detects dead clients within 10 seconds.
+    # Start heartbeat monitor — detects dead clients.
     # The frontend responds to "heartbeat_ping" with a "heartbeat_pong" command;
     # if no pong arrives within HEARTBEAT_TIMEOUT_SECONDS, the connection is
     # considered dead and closed.
+    # Library-level ping/pong is disabled (ping_interval=None in serve());
+    # this application-level heartbeat is the sole connection health check.
     heartbeat_dead = asyncio.Event()
 
     async def _heartbeat_monitor() -> None:
-        HEARTBEAT_INTERVAL = 5.0
-        HEARTBEAT_TIMEOUT = 10.0
+        HEARTBEAT_INTERVAL = 10.0
+        HEARTBEAT_TIMEOUT = 30.0
         while not heartbeat_dead.is_set():
             await asyncio.sleep(HEARTBEAT_INTERVAL)
             if heartbeat_dead.is_set():
@@ -115,7 +117,7 @@ async def handler(websocket, app_instance):
                 heartbeat_dead.set()
                 break
             if time.monotonic() - last_pong_time > HEARTBEAT_TIMEOUT:
-                # Client has not responded in 10s — close dead connection
+                # Client has not responded in 30s — close dead connection
                 heartbeat_dead.set()
                 try:
                     await websocket.close(code=1001, reason="heartbeat_timeout")

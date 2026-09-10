@@ -35,7 +35,7 @@ const INITIAL_STATE: BackendSocketState = {
 }
 
 const WS_RECONNECT_BASE_DELAY_MS = 500
-const WS_RECONNECT_MAX_DELAY_MS = 8000
+const WS_RECONNECT_MAX_DELAY_MS = 16000
 const WS_CONNECT_TIMEOUT_MS = 8000
 const WS_READINESS_RETRY_MS = 1500
 const WS_COMMAND_QUEUE_MAX = 50
@@ -184,14 +184,11 @@ export const useBackendSocket = () => {
         attempt: nextAttempt,
         delay,
       })
-      if (nextAttempt === 3) {
-        void requestBackendRestart('websocket-reconnect-exhausted').then((result) => {
-          BootLogger.log('WebSocket', 'BACKEND_RECOVERY_SYNC', {
-            requested: result.requested,
-            reason: result.reason,
-          })
-        })
-      }
+      // Do NOT request a backend restart on reconnect exhaustion.
+      // The backend process is likely still running — only the WebSocket
+      // connection dropped. A backend restart is disruptive and should
+      // only be triggered by a verified startup_dead condition (checked
+      // in applyRuntimeReadiness), not by transient WebSocket failures.
     }
 
     const connect = async () => {
