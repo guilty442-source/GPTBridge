@@ -249,14 +249,16 @@ class RepairLearningStore:
         finally:
             connection.close()
 
-    def get_outcomes_for_signature(self, signature_hash: str) -> list[dict[str, Any]]:
+    def get_outcomes_for_signature(
+        self, signature_hash: str, *, limit: int = 200
+    ) -> list[dict[str, Any]]:
         connection = self._connect()
         try:
             rows = connection.execute(
                 "SELECT run_id, remedy, ok, detail_json, recorded_at "
                 "FROM repair_outcomes WHERE signature_hash = ? "
-                "ORDER BY recorded_at DESC",
-                (signature_hash,),
+                "ORDER BY recorded_at DESC LIMIT ?",
+                (signature_hash, limit),
             ).fetchall()
             return [
                 {
@@ -271,13 +273,16 @@ class RepairLearningStore:
         finally:
             connection.close()
 
-    def get_all_error_signatures(self) -> list[dict[str, Any]]:
+    def get_all_error_signatures(
+        self, *, limit: int = 500
+    ) -> list[dict[str, Any]]:
         connection = self._connect()
         try:
             rows = connection.execute(
                 "SELECT signature_hash, error_class, message_pattern, failure_code, "
                 "file_context, target_tool_id, first_seen, last_seen, occurrence_count "
-                "FROM error_signatures ORDER BY occurrence_count DESC"
+                "FROM error_signatures ORDER BY occurrence_count DESC LIMIT ?",
+                (limit,),
             ).fetchall()
             return [
                 {
@@ -323,14 +328,17 @@ class RepairLearningStore:
         finally:
             connection.close()
 
-    def get_learned_recipes(self) -> list[dict[str, Any]]:
+    def get_learned_recipes(
+        self, *, limit: int = MAX_LEARNED_RECIPES
+    ) -> list[dict[str, Any]]:
         connection = self._connect()
         try:
             rows = connection.execute(
                 "SELECT recipe_id, name, failure_signatures_json, remedy, owner, "
                 "automatic, runtime_only, learned_at, occurrence_count, "
                 "success_rate, source "
-                "FROM learned_recipes ORDER BY occurrence_count DESC"
+                "FROM learned_recipes ORDER BY occurrence_count DESC LIMIT ?",
+                (limit,),
             ).fetchall()
             return [
                 {

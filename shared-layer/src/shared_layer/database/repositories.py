@@ -11,7 +11,11 @@ class ResourceRepository:
 
     def get(self, resource_id: str) -> dict[str, Any] | None:
         return self.connection.execute(
-            "SELECT * FROM gptbridge_index.resource WHERE resource_id=%s", (resource_id,)
+            "SELECT resource_id, platform_id, module_id, owner_id, data_category, "
+            "resource_type, resource_label, classification, locator_id, content_hash, "
+            "version, index_status, metadata, created_at, updated_at "
+            "FROM gptbridge_index.resource WHERE resource_id=%s",
+            (resource_id,),
         ).fetchone()
 
     def set_status(self, resource_id: str, status: str) -> bool:

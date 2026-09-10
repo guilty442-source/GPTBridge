@@ -14,7 +14,6 @@ from pathlib import Path
 from governance_rule.execution.integrity import (
     AuthorityIntegrityGuard,
     AuthorityIntegrityManifest,
-    build_integrity_manifest,
 )
 from governance_rule.execution.versioning import (
     validate_loaded_authority_version,
@@ -275,38 +274,15 @@ class GovernanceAuthenticationService:
     def verify_runtime_integrity(self) -> None:
         """Verify that this process is still bound to the current authority files.
 
-        When the codex is legitimately updated while the process is running,
-        the file digests no longer match the launch-time manifest.  Instead
-        of failing closed (which requires a full restart), rebuild the
-        manifest with the current digests and re-create the guard.  The
-        launcher key, key id, authority version, and protected file list
-        are all re-validated by the new guard, so this is safe as long as
-        the launcher key remains process-bound.
+        Fail-closed (A11/A15): if any protected file digest no longer matches
+        the launch-time manifest, raise PermissionError.  The caller must
+        handle the failure (typically by restarting the process so a fresh
+        manifest is built from the updated files).
         """
 
         with self._lock:
             self._assert_process_binding()
-            try:
-                self._integrity.verify()
-            except PermissionError:
-                self._resign_integrity()
-
-    def _resign_integrity(self) -> None:
-        """Rebuild the integrity manifest with current authority file digests."""
-
-        now = int(time.time())
-        manifest = build_integrity_manifest(
-            self._project_root,
-            self._launcher_key,
-            issued_at=now,
-            key_id=self._launcher_key_id,
-        )
-        self._integrity = AuthorityIntegrityGuard(
-            self._project_root,
-            self._launcher_key,
-            manifest,
-            expected_key_id=self._launcher_key_id,
-        )
+            self._integrity.verify()
 
     def _resolve_key(self, key_id: str, now: int) -> _SigningKey:
         for key in (self._key_ring.current, self._key_ring.previous):
