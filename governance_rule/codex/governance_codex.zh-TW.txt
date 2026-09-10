@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.01000",
+  "codex_version": "1.02000",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -4916,11 +4916,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-10T07:38:25Z"
+        "value": "2026-09-10T09:02:03.646584Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-10T15:38:25+08:00"
+        "value": "2026-09-10T17:02:03.646584+08:00"
       },
       {
         "key": "codex_timezone",
@@ -4940,11 +4940,11 @@
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.01000"
+        "value": "gptbridge-governance-codex-v1.02000"
       },
       {
         "key": "codex_version",
-        "value": "1.01000"
+        "value": "1.02000"
       },
       {
         "key": "version_increment",
@@ -16111,6 +16111,365 @@
         "increment": "1.00000",
         "criterion": "complete-codex-reconstitution-or-incompatible-generation-change",
         "precedence": 6
+      }
+    ],
+    "module_registry": [
+      {
+        "path": "main-system/src-core/core_system/active_release.py",
+        "module_group": "active_release",
+        "role": "facade",
+        "codex_basis": "A181/E156+A182/E157",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/active_release_types.py",
+        "module_group": "active_release",
+        "role": "types",
+        "codex_basis": "A181/E156+A182/E157",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/active_release_persistence.py",
+        "module_group": "active_release",
+        "role": "persistence",
+        "codex_basis": "A181/E156",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/active_release_ledger.py",
+        "module_group": "active_release",
+        "role": "ledger",
+        "codex_basis": "A181/E156",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/active_release_verify.py",
+        "module_group": "active_release",
+        "role": "verify",
+        "codex_basis": "A181/E156",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/active_release_status.py",
+        "module_group": "active_release",
+        "role": "status",
+        "codex_basis": "A181/E156",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/active_release_mismatch.py",
+        "module_group": "active_release",
+        "role": "mismatch",
+        "codex_basis": "A182/E157",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/tool_separation.py",
+        "module_group": "tool_separation",
+        "role": "facade",
+        "codex_basis": "A184/E159",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/tool_separation_types.py",
+        "module_group": "tool_separation",
+        "role": "types",
+        "codex_basis": "A184/E159",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/tool_separation_verify.py",
+        "module_group": "tool_separation",
+        "role": "verify",
+        "codex_basis": "A184/E159",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/tool_separation_signal.py",
+        "module_group": "tool_separation",
+        "role": "signal",
+        "codex_basis": "A184/E159",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/tool_separation_aggregate.py",
+        "module_group": "tool_separation",
+        "role": "aggregate",
+        "codex_basis": "A184/E159",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/source_size.py",
+        "module_group": "source_size",
+        "role": "facade",
+        "codex_basis": "A185/E160",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/source_size_types.py",
+        "module_group": "source_size",
+        "role": "types",
+        "codex_basis": "A185/E160",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/source_size_report.py",
+        "module_group": "source_size",
+        "role": "report",
+        "codex_basis": "A185/E160",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/source_size_measure.py",
+        "module_group": "source_size",
+        "role": "measure",
+        "codex_basis": "A185/E160",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/source_size_verify.py",
+        "module_group": "source_size",
+        "role": "verify",
+        "codex_basis": "A185/E160",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/source_size_signal.py",
+        "module_group": "source_size",
+        "role": "signal",
+        "codex_basis": "A185/E160",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/view_access.py",
+        "module_group": "view_access",
+        "role": "facade",
+        "codex_basis": "A186/E161",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/view_access_types.py",
+        "module_group": "view_access",
+        "role": "types",
+        "codex_basis": "A186/E161",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/view_access_verify.py",
+        "module_group": "view_access",
+        "role": "verify",
+        "codex_basis": "A186/E161",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/view_access_signal.py",
+        "module_group": "view_access",
+        "role": "signal",
+        "codex_basis": "A186/E161",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/validation_chain.py",
+        "module_group": "validation_chain",
+        "role": "facade",
+        "codex_basis": "A187/E162",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/validation_chain_types.py",
+        "module_group": "validation_chain",
+        "role": "types",
+        "codex_basis": "A187/E162",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/validation_chain_verify.py",
+        "module_group": "validation_chain",
+        "role": "verify",
+        "codex_basis": "A187/E162",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/validation_chain_signal.py",
+        "module_group": "validation_chain",
+        "role": "signal",
+        "codex_basis": "A187/E162",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/sovereign_collaboration.py",
+        "module_group": "sovereign_collaboration",
+        "role": "facade",
+        "codex_basis": "A188/E163",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/sovereign_collaboration_types.py",
+        "module_group": "sovereign_collaboration",
+        "role": "types",
+        "codex_basis": "A188/E163",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/sovereign_collaboration_verify.py",
+        "module_group": "sovereign_collaboration",
+        "role": "verify",
+        "codex_basis": "A188/E163",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/sovereign_collaboration_signal.py",
+        "module_group": "sovereign_collaboration",
+        "role": "signal",
+        "codex_basis": "A188/E163",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/xingcheng_channel.py",
+        "module_group": "xingcheng_channel",
+        "role": "facade",
+        "codex_basis": "A189/E164",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/xingcheng_channel_types.py",
+        "module_group": "xingcheng_channel",
+        "role": "types",
+        "codex_basis": "A189/E164",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/xingcheng_channel_verify.py",
+        "module_group": "xingcheng_channel",
+        "role": "verify",
+        "codex_basis": "A189/E164",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/xingcheng_channel_signal.py",
+        "module_group": "xingcheng_channel",
+        "role": "signal",
+        "codex_basis": "A189/E164",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/governed_startup.py",
+        "module_group": "governed_startup",
+        "role": "facade",
+        "codex_basis": "A191/E166+A192/E167",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/governed_startup_types.py",
+        "module_group": "governed_startup",
+        "role": "types",
+        "codex_basis": "A191/E166+A192/E167",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/governed_startup_verify.py",
+        "module_group": "governed_startup",
+        "role": "verify",
+        "codex_basis": "A191/E166+A192/E167",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/governed_startup_signal.py",
+        "module_group": "governed_startup",
+        "role": "signal",
+        "codex_basis": "A191/E166+A192/E167",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/startup_lifecycle.py",
+        "module_group": "startup_lifecycle",
+        "role": "facade",
+        "codex_basis": "A193-A196/E168-E171",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/startup_lifecycle_types.py",
+        "module_group": "startup_lifecycle",
+        "role": "types",
+        "codex_basis": "A193-A196/E168-E171",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/startup_lifecycle_verify.py",
+        "module_group": "startup_lifecycle",
+        "role": "verify",
+        "codex_basis": "A193-A196/E168-E171",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/startup_lifecycle_signal.py",
+        "module_group": "startup_lifecycle",
+        "role": "signal",
+        "codex_basis": "A193-A196/E168-E171",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/startup_lifecycle_sync.py",
+        "module_group": "startup_lifecycle",
+        "role": "sync",
+        "codex_basis": "A195-A196/E170-E171",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/third_party_governance.py",
+        "module_group": "third_party_governance",
+        "role": "facade",
+        "codex_basis": "A197-A199/E171-E173",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/third_party_types.py",
+        "module_group": "third_party_governance",
+        "role": "types",
+        "codex_basis": "A197-A199/E171-E173",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/third_party_verify.py",
+        "module_group": "third_party_governance",
+        "role": "verify",
+        "codex_basis": "A197-A199/E171-E173",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/third_party_signal.py",
+        "module_group": "third_party_governance",
+        "role": "signal",
+        "codex_basis": "A199/E173",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/root_containment.py",
+        "module_group": "root_containment",
+        "role": "facade",
+        "codex_basis": "A201-A202/E175-E176",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/root_containment_types.py",
+        "module_group": "root_containment",
+        "role": "types",
+        "codex_basis": "A201-A202/E175-E176",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/root_containment_verify.py",
+        "module_group": "root_containment",
+        "role": "verify",
+        "codex_basis": "A201-A202/E175-E176",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/core_system/root_containment_signal.py",
+        "module_group": "root_containment",
+        "role": "signal",
+        "codex_basis": "A201-A202/E175-E176",
+        "owner": "permission-sovereign"
       }
     ]
   }

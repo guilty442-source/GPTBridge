@@ -97,3 +97,43 @@ the physical state artefact location, not a sovereign or module.
 | `.vs/` `.vscode/` | IDE configuration |
 | `docs/` | Documentation |
 | `scripts/` | Utility scripts |
+
+## Core System Governance Modules (A181–A202)
+
+The `main-system/src-core/core_system/` directory contains governance
+implementation modules registered in the codex `module_registry` table
+(v1.02000).  Each module group is split into submodules to comply with
+A185/E160 source-size limits (≤3 public entrypoints, ≤12 authored
+callables, ≤500 effective lines per module).
+
+| Module Group | Codex Basis | Submodules | Roles |
+|---|---|---|---|
+| `active_release` | A181/E156, A182/E157 | 7 | facade, types, persistence, ledger, verify, status, mismatch |
+| `tool_separation` | A184/E159 | 5 | facade, types, verify, signal, aggregate |
+| `source_size` | A185/E160 | 6 | facade, types, report, measure, verify, signal |
+| `view_access` | A186/E161 | 4 | facade, types, verify, signal |
+| `validation_chain` | A187/E162 | 4 | facade, types, verify, signal |
+| `sovereign_collaboration` | A188/E163 | 4 | facade, types, verify, signal |
+| `xingcheng_channel` | A189/E164 | 4 | facade, types, verify, signal |
+| `governed_startup` | A191/E166, A192/E167 | 4 | facade, types, verify, signal |
+| `startup_lifecycle` | A193–A196/E168–E171 | 5 | facade, types, verify, signal, sync |
+| `third_party_governance` | A197–A199/E171–E173 | 4 | facade, types, verify, signal |
+| `root_containment` | A201–A202/E175–E176 | 4 | facade, types, verify, signal |
+
+**Total**: 51 registered modules across 11 groups.
+
+Each facade module re-exports all public names from its submodules,
+preserving backward-compatible `__all__` exports.  Submodule roles:
+
+- **facade** — re-export shim, no logic
+- **types** — constants and dataclasses
+- **verify** — verification functions
+- **signal** — information-layer signal production
+- **persistence** — durable transactional operations
+- **ledger** — append-only history
+- **status** — observability and UI status
+- **mismatch** — version mismatch classification
+- **measure** — source size measurement
+- **report** — size violation report dataclasses
+- **aggregate** — composite verification
+- **sync** — projection and window host checks
