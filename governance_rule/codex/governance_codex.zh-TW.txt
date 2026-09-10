@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.74230",
+  "codex_version": "1.77330",
   "tables": {
     "access_actor_classes": [
       {
@@ -1505,6 +1505,60 @@
         "rule": "WORKER:own-worktree+own-branch+own-index+automatic-local-commit+no-direct-push; COORDINATOR:single-process-lock+all-worktrees-clean+worker-diff-check+merge-workers-into-main+integrated-main-governance-audit+fast-forward-clean-worktrees+fetch-origin-main+verify-origin-main-ancestor+push-origin-main; PUSH:automatic-only-after-all-gates; CONFLICT:abort-current-merge+preserve-source+no-push; FAILURE:retain-local-commits+retry-later+report; REMOTE-BRANCH:main-only",
         "prohibition": "FORBID:worker-push+concurrent-coordinator+force-push+ref-delete+history-rewrite+automatic-conflict-choice+dirty-sync+audit-bypass+diverged-remote-push+partial-worktree-as-full-audit-root",
         "exception": ""
+      },
+      {
+        "position": 164,
+        "provision_id": "A164",
+        "section_index": "6",
+        "subject": "application-version-publication",
+        "rule": "APPLICATION-VERSION-PUBLICATION:permission-sovereign; FORMAT:dynamic-via-code-version-policy; SOURCE:permission-directory; HARDCODING:forbidden; UPDATE:permission-sovereign-re-certify-flow; CODEX-VERSION:separate-and-unchanged",
+        "prohibition": "FORBID:hardcoded-version-string/system-auto-increment-without-permission-sovereign/direct-version-write/bypass-permission-directory",
+        "exception": ""
+      },
+      {
+        "position": 165,
+        "provision_id": "A165",
+        "section_index": "6",
+        "subject": "code-replication-prohibition",
+        "rule": "CODE-REPLICATION:forbidden-without-permission-sovereign-authorization+system-programming-sovereign-dispatch; BOUNDARY:module-owner-territory-only; COPY:source-to-target-requires-explicit-grant+version-increment+independent-verification; SHARED-LAYER:contracts-and-neutral-infrastructure-only-no-code-duplication; INFORMATION-LAYER:routing-only-no-code-reproduction",
+        "prohibition": "FORBID:unauthorized-code-copy/cross-module-code-duplication/code-fork-without-grant/code-reproduction-through-shared-layer/code-replication-through-information-channel/module-self-replicate",
+        "exception": ""
+      },
+      {
+        "position": 166,
+        "provision_id": "A166",
+        "section_index": "6",
+        "subject": "code-extraction-prohibition",
+        "rule": "CODE-EXTRACTION:forbidden-from-backup+snapshot+recovery-artifact+cache+replica; BACKUP:owner-scoped-restore-only-no-code-reproduction; RECOVERY:byte-identical-restore-only-no-code-extraction; HOT-UPDATE:version-gated-replacement-no-code-duplication; REPAIR:governed-executor-only-no-code-copy",
+        "prohibition": "FORBID:code-extraction-from-backup/code-reproduction-from-snapshot/code-fork-from-recovery/code-duplication-during-hot-update/code-copy-during-repair/unauthorized-code-recovery",
+        "exception": ""
+      },
+      {
+        "position": 167,
+        "provision_id": "A167",
+        "section_index": "6",
+        "subject": "startup-phase-failure-fail-closed",
+        "rule": "STARTUP-PHASE-FAILURE:fail-closed+abort-startup+deny-all-operations+record-audit+user-report; PHASES:environment-check>governance-audit>codex-load>permission-directory-load>postgresql-start>qdrant-start>ollama-start>registered-sovereign-activation>readiness-handoff; GATE:each-phase-must-pass-before-next; PARTIAL-STARTUP:forbidden; DEPENDENT-FAILURE:codex-remains-readable-but-operations-fail-closed; TIMEOUT:bounded+declared+abort-on-expire",
+        "prohibition": "FORBID:partial-startup+continue-after-phase-failure+silent-failure+infinite-hang+stale-state-acceptance+degraded-startup-without-audit+skip-failed-phase",
+        "exception": "codex-load-failure:fail-closed+inspection-only-per-A157+no-adjudication-basis"
+      },
+      {
+        "position": 168,
+        "provision_id": "A168",
+        "section_index": "6",
+        "subject": "sovereign-activation-integrity",
+        "rule": "SOVEREIGN-ACTIVATION:ordered+verified+atomic-per-sovereign; ORDER:startup-sovereign>permission-sovereign>system-decision>system-runtime>maintenance>learning>programming>resource>data>integration>third-party>language-review; DEPENDENCY:no-circular+explicit-declared+resolved-before-activation; FAILURE:affected-sovereign-inactive+startup-abort+audit-record+user-report; RE-ENTRY:full-restart-only-no-resume-from-partial-state",
+        "prohibition": "FORBID:circular-startup-dependency+unordered-activation+partial-sovereign-set-active+resume-from-partial-startup+silent-sovereign-failure+activation-without-verification",
+        "exception": ""
+      },
+      {
+        "position": 169,
+        "provision_id": "A169",
+        "section_index": "6",
+        "subject": "frontend-backend-information-layer-live-connection-recovery",
+        "rule": "SCOPE:main-system-ui+all-independent-tool-ui+their-backends; CHANNEL-OWNER:information-layer-exclusive; CONNECT:registered-information-gateway+authenticated-session+authorized-route+typed-versioned-contract; LIVE-SYNC:authoritative-initial-snapshot>monotonic-sequenced-events>heartbeat; DISCONNECT-DETECTION:socket-close+transport-error+heartbeat-timeout; RECONNECT:single-flight+bounded-exponential-backoff+jitter+rate-limit+session-reauthentication+subscription-restoration+authoritative-snapshot-refresh+sequence-reconciliation; COMMANDS-WHILE-OFFLINE:fail-closed+not-queued+not-replayed; REPAIR-SIGNAL:information-layer>maintenance-health-classification>system-decision>permission-validation>system-runtime-or-programming>governed-executor>verification>information-layer>all-active-ui; OBSERVE:connection-state+attempt+reason+last-event-sequence+last-success-time+repair-state+audit-correlation-id; READY:transport-connected+session-authenticated+subscription-active+snapshot-reconciled+required-runtime-ready",
+        "prohibition": "FORBID:frontend-direct-backend-socket+private-reconnect-loop+direct-runtime-restart+parallel-connection-owner+unbounded-retry+retry-storm+stale-state-as-current+command-buffer-without-explicit-successor-authorization+event-replay-without-idempotency-proof+connected-before-snapshot-reconciliation+information-layer-bypass",
+        "exception": ""
       }
     ],
     "certification_evidence": [
@@ -1622,6 +1676,13 @@
       },
       {
         "version": "1.74230",
+        "signed_payload_fields": "version|full-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.77330",
         "signed_payload_fields": "version|full-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2602,6 +2663,48 @@
         "provision_id": "E138",
         "area": "git-delivery",
         "edict": "PIPELINE:worker-auto-commit>coordinator-lock>all-clean>worker-diff-check>merge-to-main>integrated-main-governance-audit>fast-forward-worktrees>fetch-origin-main>fast-forward-proof>push-main; AUDIT-ROOT:integrated-complete-main-worktree-only; PUSH-OWNER:workspace-sync-coordinator-only; ON-ERROR:stop+preserve+notify",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 139,
+        "provision_id": "E139",
+        "area": "application-version",
+        "edict": "APPLICATION-VERSION:permission-sovereign-published; FORMAT:dynamic-via-code-version-policy-in-permission-directory; HARDCODING:none; CODEX-VERSION:separate-and-unchanged",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 140,
+        "provision_id": "E140",
+        "area": "code-replication",
+        "edict": "CODE-REPLICATION:permission-sovereign-authorization+system-programming-sovereign-dispatch-required; COPY:none-without-explicit-grant; SHARED-LAYER:contracts-only-no-code; INFORMATION-LAYER:routing-only-no-code",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 141,
+        "provision_id": "E141",
+        "area": "code-extraction",
+        "edict": "CODE-EXTRACTION:forbidden-from-backup+snapshot+recovery+cache+replica; RESTORE:byte-identical-only; HOT-UPDATE:replacement-no-duplication; REPAIR:governed-executor-no-copy",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 142,
+        "provision_id": "E142",
+        "area": "startup-fail-closed",
+        "edict": "STARTUP-FAILURE:fail-closed+abort+deny-all+audit+report; PARTIAL-STARTUP:none; PHASE-GATE:each-must-pass; TIMEOUT:bounded+abort",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 143,
+        "provision_id": "E143",
+        "area": "sovereign-activation-integrity",
+        "edict": "ACTIVATION:ordered+verified+atomic; ORDER:startup>permission>decision>runtime>maintenance>learning>programming>resource>data>integration>third-party>language-review; CIRCULAR:none; PARTIAL:none; RE-ENTRY:full-restart-only",
+        "immutability": "immutable-sealed"
+      },
+      {
+        "position": 144,
+        "provision_id": "E144",
+        "area": "frontend-backend-live-connection",
+        "edict": "ROUTE:frontend>information-layer-gateway>authorized-backend; SYNC:snapshot>sequenced-events>heartbeat; DISCONNECT:detect>single-flight-bounded-backoff+jitter>reauthenticate>resubscribe>refresh-snapshot>reconcile-sequence>publish-current-state; OFFLINE-COMMAND:fail-closed; REPAIR:existing-A154-sovereign-chain-only; COVER:main-system+independent-tools; DIRECT-CONNECTION:none",
         "immutability": "immutable-sealed"
       }
     ],
@@ -4363,6 +4466,66 @@
         "provision_id": "system-programming-sovereign",
         "effective_version": "1.42010",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A164",
+        "effective_version": "1.75230",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E139",
+        "effective_version": "1.75230",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A165",
+        "effective_version": "1.76230",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A166",
+        "effective_version": "1.76230",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E140",
+        "effective_version": "1.76230",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E141",
+        "effective_version": "1.76230",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A167",
+        "effective_version": "1.77230",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A168",
+        "effective_version": "1.77230",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E142",
+        "effective_version": "1.77230",
+        "status": "active"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E143",
+        "effective_version": "1.77230",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -4405,11 +4568,11 @@
     "metadata": [
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.74230"
+        "value": "gptbridge-governance-codex-v1.77330"
       },
       {
         "key": "codex_version",
-        "value": "1.74230"
+        "value": "1.77330"
       },
       {
         "key": "citation_entry",
@@ -4449,7 +4612,7 @@
       },
       {
         "key": "version_increment",
-        "value": "0.00010"
+        "value": "0.00100"
       }
     ],
     "preamble": [
@@ -7793,6 +7956,90 @@
         "provision_id": "E138",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A164",
+        "provision_type": "article",
+        "provision_id": "A164",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E139",
+        "provision_type": "edict",
+        "provision_id": "E139",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A165",
+        "provision_type": "article",
+        "provision_id": "A165",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A166",
+        "provision_type": "article",
+        "provision_id": "A166",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E140",
+        "provision_type": "edict",
+        "provision_id": "E140",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E141",
+        "provision_type": "edict",
+        "provision_id": "E141",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A167",
+        "provision_type": "article",
+        "provision_id": "A167",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A168",
+        "provision_type": "article",
+        "provision_id": "A168",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E142",
+        "provision_type": "edict",
+        "provision_id": "E142",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E143",
+        "provision_type": "edict",
+        "provision_id": "E143",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A169",
+        "provision_type": "article",
+        "provision_id": "A169",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/edict/E144",
+        "provision_type": "edict",
+        "provision_id": "E144",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -11011,6 +11258,102 @@
         "supersedes_id": "E137",
         "status": "active",
         "content_hash": "8d78f5965e96fcfc1f3063768a8ace14d287272ddb21b30d19978978ff8b5a60"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A164",
+        "introduced_by": "1.75230",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "0fb110e578a4892c4c53bee1df6cb2cb4a25f84c65947be6c871986398af15ad"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E139",
+        "introduced_by": "1.75230",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "194afa47352991cbd6ace43c0cc835f914622a0288789283d5129fc11bccdf5a"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A165",
+        "introduced_by": "1.76230",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "81ca79a8abb2905541cb3fef549ef1a3c8ae954dddcf1191ace42f148c833be9"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A166",
+        "introduced_by": "1.76230",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "791f0d5e9bf61a445f99ee155f5e546fcc1f46433d80e41281768124f008020d"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E140",
+        "introduced_by": "1.76230",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "afb3352e900899db576208bd4528b1738c6976438028287ed9634beec09c5929"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E141",
+        "introduced_by": "1.76230",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f132056495c420aed7cb240ef32a9e06f0ada9338e4930e9e373114747d26393"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A167",
+        "introduced_by": "1.77230",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "430aac1641d6ab03185d52f0c12c881003b579e524cbb7f262a9c70bada76f15"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A168",
+        "introduced_by": "1.77230",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "2181b104712091556ad9e090d1b5199823d543ef79193769b209590697bf7742"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E142",
+        "introduced_by": "1.77230",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "b9127543da64962a0230a2d6fae1eedc841448ea97b4eb95765c980d3da2abfa"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E143",
+        "introduced_by": "1.77230",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "d4c433b6b4ce1079c446c7a81b16e8f055ddbb32c065e204237c7ebfade9889e"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A169",
+        "introduced_by": "H021",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "89ee8f096b4bf22cffab942ba6cc0af0ed81d54fb9bf1a5706354005fab73c53"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E144",
+        "introduced_by": "H021",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "3930eeaac0f79ac6576ffea22cdf82bf3ebdb386b8f617885c5d1497310ed402"
       }
     ],
     "provision_revisions": [
@@ -26797,6 +27140,22 @@
         "version": "1.74230",
         "content_hash": "8d78f5965e96fcfc1f3063768a8ace14d287272ddb21b30d19978978ff8b5a60",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A169",
+        "revision_id": "H021",
+        "version": "1.77330",
+        "content_hash": "89ee8f096b4bf22cffab942ba6cc0af0ed81d54fb9bf1a5706354005fab73c53",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E144",
+        "revision_id": "H021",
+        "version": "1.77330",
+        "content_hash": "3930eeaac0f79ac6576ffea22cdf82bf3ebdb386b8f617885c5d1497310ed402",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -26969,6 +27328,46 @@
         "summary": "multi-worker audit root and safe automatic delivery gates clarified",
         "previous_hash": "77f5193e1b98b717d7cf372e69c782c0bcd37560087da62d9eab087bfd07f5a7",
         "entry_hash": "546679b2628aeb95675e7342c570c5d03cc2e19e50980529961026acf6fe67da"
+      },
+      {
+        "sequence": 18,
+        "change_id": "H018",
+        "version": "1.75230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "authority-duty",
+        "summary": "permission-sovereign-application-version-publication-and-dynamic-format",
+        "previous_hash": "546679b2628aeb95675e7342c570c5d03cc2e19e50980529961026acf6fe67da",
+        "entry_hash": "64ea57024d0d74144ac70a2ebaa6164f4fbc4b2141a792b48d334c97c98448bd"
+      },
+      {
+        "sequence": 19,
+        "change_id": "H019",
+        "version": "1.76230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "authority-duty",
+        "summary": "code-replication-and-extraction-prohibition",
+        "previous_hash": "64ea57024d0d74144ac70a2ebaa6164f4fbc4b2141a792b48d334c97c98448bd",
+        "entry_hash": "67b243f90be6cb823fc4fbcf89adbfe963e8d76490e36f0f8f8fc89387000025"
+      },
+      {
+        "sequence": 20,
+        "change_id": "H020",
+        "version": "1.77230",
+        "recorded_date": "2026-09-10",
+        "change_scope": "authority-duty",
+        "summary": "startup-failure-fail-closed-and-sovereign-activation-integrity",
+        "previous_hash": "67b243f90be6cb823fc4fbcf89adbfe963e8d76490e36f0f8f8fc89387000025",
+        "entry_hash": "ff2d5e95696676844e8ea83c130098e212432364fc2d6fe06d478b989aff6726"
+      },
+      {
+        "sequence": 21,
+        "change_id": "H021",
+        "version": "1.77330",
+        "recorded_date": "2026-09-10",
+        "change_scope": "provision-scope",
+        "summary": "frontend backend live connection recovery and information layer exclusivity completed",
+        "previous_hash": "ff2d5e95696676844e8ea83c130098e212432364fc2d6fe06d478b989aff6726",
+        "entry_hash": "210613d58f8f72826a99dd990b916a5308dd08db35e679f37fb7790d6eff6c3a"
       }
     ],
     "savings": [
@@ -27178,6 +27577,50 @@
         "content_root": "c347faccd6a94453e8d31910dfc9ebfa4476216141f71ee7b06bcf5d447fe612",
         "identity_root": "4c931334bbbc6880c828d22af2cf1cc4a36c9e7407d2e05c2e69820dae108675",
         "full_root": "9113800911f5f7d813fbf2eb0195ade60ce0647edb8a6893e77540008eb72d6b"
+      },
+      {
+        "version": "1.75230",
+        "history_head": "64ea57024d0d74144ac70a2ebaa6164f4fbc4b2141a792b48d334c97c98448bd",
+        "provision_count": 389,
+        "identity_count": 404,
+        "lineage_count": 404,
+        "certification_state": "pending-human-seal",
+        "content_root": "",
+        "identity_root": "",
+        "full_root": ""
+      },
+      {
+        "version": "1.76230",
+        "history_head": "67b243f90be6cb823fc4fbcf89adbfe963e8d76490e36f0f8f8fc89387000025",
+        "provision_count": 393,
+        "identity_count": 408,
+        "lineage_count": 408,
+        "certification_state": "pending-human-seal",
+        "content_root": "",
+        "identity_root": "",
+        "full_root": ""
+      },
+      {
+        "version": "1.77230",
+        "history_head": "ff2d5e95696676844e8ea83c130098e212432364fc2d6fe06d478b989aff6726",
+        "provision_count": 397,
+        "identity_count": 412,
+        "lineage_count": 412,
+        "certification_state": "pending-human-seal",
+        "content_root": "",
+        "identity_root": "",
+        "full_root": ""
+      },
+      {
+        "version": "1.77330",
+        "history_head": "210613d58f8f72826a99dd990b916a5308dd08db35e679f37fb7790d6eff6c3a",
+        "provision_count": 399,
+        "identity_count": 414,
+        "lineage_count": 414,
+        "certification_state": "sealed-read-only",
+        "content_root": "0c97fb5d62610643b4be3f19a948b1a3b4a7260b8a3ddfba2543e07ed9d1f9d3",
+        "identity_root": "82415da2dc3876aa26eff1b391a92a0a22ea647b12f26edab3278edc90f4d9da",
+        "full_root": "2d56c039aa4cece467ad27c70b6d12c7bf7bed799c259a595dded6eaa17a4958"
       }
     ],
     "sealed_components": [
@@ -28514,7 +28957,7 @@
         "reason": "immutable codex-derived runtime contract"
       },
       {
-        "path": "governance_rule/code_rule_directory.py",
+        "path": "governance_rule/permission_directory/code_rule_directory.py",
         "category": "registry",
         "reason": "code and capability registry"
       },
@@ -28547,6 +28990,11 @@
         "path": "governance_rule/permission_directory/registries/permissions/tool_routes.py",
         "category": "registry",
         "reason": "tool route registry"
+      },
+      {
+        "path": "governance_rule/permission_directory/governance_policy.py",
+        "category": "registry",
+        "reason": "governance policy registry"
       }
     ],
     "sovereign_duties": [
