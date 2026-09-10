@@ -1441,7 +1441,7 @@
         "provision_id": "A211",
         "section_index": "4",
         "subject": "canonical-six-language-role-map",
-        "rule": "SOLE-MAPPING:Python=system-control-and-orchestration; TypeScript=user-interface-presentation-and-client-interaction; C-and-pybind11=governed-native-boundary; C++=measured-performance-critical-compute; CSharp=Windows-specific-platform-integration; SQL=set-based-data-definition/query/mutation; PRIORITY:this-role-map+A212-A213 supersede-conflicting-native-boundary details+A205-A210 remain-interface/verification details; PYTHON-CONTROL:compose-workflows+coordinate-services+own-application-control-flow but-no-UI/native-kernel/SQL-engine work; TYPESCRIPT-PRESENTATION:render+interaction+typed-client projection but-no-backend/domain/data-authority; C-BOUNDARY:expose-versioned-language-neutral-C-ABI+native-system edge; PYBIND11-BOUNDARY:sole-approved-Python-to-C++ in-process binding option+binding-only-no-domain/algorithm authority; CPP-PERFORMANCE:implement-profile-proven native-compute behind-C-or-pybind11 boundary but-no-system-control/UI/data-authority; CSHARP-WINDOWS:implement-unique-Windows/.NET/CLR/COM adapter only; SQL-DATA:perform-schema/constraint/transaction/set-query/pushdown; CROSSING:TypeScript>information-layer>Python; PERFORMANCE-MAINLINE:Python-orchestration>C-ABI-or-pybind11-binding>C++-performance-core; CSharp>information-layer-or-C-ABI according-process-boundary; Python>information-layer>SQL-owner-adapter>database; OWNERSHIP:one-capability-one-canonical-language-owner+other-languages adapter-only; CHANGE:role-reassignment requires-architecture-successor+migration+old-owner deletion+six-language verification",
+        "rule": "SOLE-MAPPING:Python=system-control+semantic/business logic; TypeScript=UI presentation/client; C=public native interface only; pybind11=Python-specific binding only; C++=profile-proven implementation/performance core; CSharp=Windows/.NET adapter only; SQL=set-based data reduction; PYTHON-API:ordinary>Python implementation|high-load>pybind11>C++|C++ unavailable>Python fallback; NATIVE-TREE:native/include/gptbridge_native.h+native/bridge/gptbridge_native.c+native/core/vector.cpp/parser.cpp/transformer.cpp; WINDOWS-FLOW:Python/native-interface>CSharp>Windows/.NET; DATA-FLOW:parameterized bounded SQL reduction>Python semantics/business; TYPESCRIPT-FLOW:TypeScript>information-layer>Python; OWNERSHIP:one capability+one canonical language owner; INTERFACE:typed+versioned+tested+observable; PRIORITY:A215+A217+A219+A220+A221 govern detailed current boundaries; SUPERSEDED:A212+A213+A214+A218; CHANGE:architecture successor+migration+old-path removal+six-language verification",
         "prohibition": "FORBID:language-role-substitution+same-capability-canonical-in-two-languages+Python-rendering-UI/native-performance-kernel/client-side-SQL-processing+TypeScript-system-control/backend-business/data-access+C-owning-business-logic+C++orchestration/network/database/UI+CSharp-duplicating-Python/TypeScript/C++/SQL+SQL-owning-application-policy+direct-cross-language-bypass+temporary-implementation-becoming-second-authority",
         "exception": "Generated bindings and thin adapters may use the consumer language but contain no independent policy, algorithm, state authority, or duplicated feature"
       },
@@ -1711,10 +1711,10 @@
       },
       {
         "version": "1.41600",
-        "recorded_at_utc": "2026-09-10T14:00:24Z",
-        "recorded_at_local": "2026-09-10T22:00:24+08:00",
+        "recorded_at_utc": "2026-09-10T14:14:30Z",
+        "recorded_at_local": "2026-09-10T22:14:30+08:00",
         "timezone": "Asia/Taipei",
-        "event": "architecture-authority-native-physical-tree"
+        "event": "architecture-authority-integrated-language-native-contract"
       }
     ],
     "edicts": [
@@ -2667,14 +2667,14 @@
         "position": 178,
         "provision_id": "E178",
         "area": "canonical-language-roles",
-        "edict": "PYTHON=CONTROL; TYPESCRIPT=PRESENTATION; C/PYBIND11=BOUNDARY; CPP=PERFORMANCE; CSHARP=WINDOWS; SQL=DATA; PERFORMANCE:Python>C-or-pybind11>C++; C-ABI=language-neutral; pybind11=Python-C++-only; ONE-CAPABILITY=ONE-OWNER; SUBSTITUTE/DUPLICATE/BYPASS:none",
+        "edict": "PYTHON=CONTROL/SEMANTICS/BUSINESS; TYPESCRIPT=PRESENTATION; C=INTERFACE; PYBIND11=PYTHON-CPP-BINDING; CPP=IMPLEMENTATION/PERFORMANCE; CSHARP=WINDOWS/.NET; SQL=DATA-REDUCTION; FLOWS:ordinary>Python|high-load>pybind11>CPP|CPP-unavailable>Python-fallback|Python/native>CSharp>Windows/.NET|SQL-reduce>Python; DUPLICATION/BYPASS:none",
         "immutability": "immutable-sealed"
       },
       {
         "position": 179,
         "provision_id": "E179",
         "area": "cpp-six-domain-core",
-        "edict": "CPP-DOMAINS:parser|vector|memory|token|transform|binding; EACH:one-folder+one-owner+one-interface+one-responsibility+public-entry<=3; DAG:binding>parser/vector/token/transform/memory,parser>token/memory,vector>memory,token>memory,transform>memory/declared-vector,memory>none; BINDING:C-ABI+pybind11-glue-only; COMMON-UTIL/MONOLITH/CYCLE/DUPLICATE/PRIVATE-INCLUDE/UNPROFILED-CPP:none",
+        "edict": "NATIVE-TREE:native/include/gptbridge_native.h|native/bridge/gptbridge_native.c|native/core/vector.cpp+parser.cpp+transformer.cpp; INCLUDE=C-interface; BRIDGE=C-thunk; CORE=CPP-implementation; OLD-PARSER/VECTOR/MEMORY/TOKEN/TRANSFORM/BINDING-SIX-DOMAIN:none; OTHER-NATIVE-TOP-DIRECTORY:none",
         "immutability": "immutable-sealed"
       },
       {
@@ -5506,24 +5506,12 @@
         "value": "required"
       },
       {
-        "key": "canonical_language_roles",
-        "value": "python-control|typescript-presentation|c-pybind11-boundary|cpp-performance|csharp-windows|sql-data"
-      },
-      {
-        "key": "performance_mainline",
-        "value": "python-orchestration>c-or-pybind11-boundary>cpp-performance-core"
-      },
-      {
         "key": "native_boundary_forms",
         "value": "C-ABI-language-neutral|pybind11-Python-specific"
       },
       {
         "key": "cpp_binding_role",
         "value": "C-ABI-and-pybind11-glue-only"
-      },
-      {
-        "key": "cpp_dependency_graph",
-        "value": "binding>parser,vector,token,transform,memory;parser>token,memory;vector>memory;token>memory;transform>memory,declared-vector;memory>none"
       },
       {
         "key": "source_extension_python",
@@ -5586,14 +5574,6 @@
         "value": "0.10000"
       },
       {
-        "key": "codex_recorded_at_utc",
-        "value": "2026-09-10T14:00:24Z"
-      },
-      {
-        "key": "codex_recorded_at_local",
-        "value": "2026-09-10T22:00:24+08:00"
-      },
-      {
         "key": "native_tree",
         "value": "native/include|native/bridge|native/core"
       },
@@ -5616,6 +5596,26 @@
       {
         "key": "cpp_performance_domains",
         "value": "vector|parser|transformer"
+      },
+      {
+        "key": "canonical_language_roles",
+        "value": "python-control-semantics-business|typescript-presentation|c-interface|pybind11-python-cpp-binding|cpp-implementation-performance|csharp-windows-dotnet|sql-data-reduction"
+      },
+      {
+        "key": "performance_mainline",
+        "value": "python-api>pybind11>cpp-for-high-load|cpp-unavailable>python-fallback"
+      },
+      {
+        "key": "cpp_dependency_graph",
+        "value": "gptbridge-native-interface>vector-or-parser-or-transformer;core-cross-dependency=none-unless-explicit-private-contract"
+      },
+      {
+        "key": "codex_recorded_at_utc",
+        "value": "2026-09-10T14:14:30Z"
+      },
+      {
+        "key": "codex_recorded_at_local",
+        "value": "2026-09-10T22:14:30+08:00"
       }
     ],
     "preamble": [
@@ -6267,13 +6267,13 @@
       {
         "position": 107,
         "provision_id": "P115",
-        "statement": "LANGUAGE-ROLE-MAP:Python=control; TypeScript=presentation; C/pybind11=boundary; C++=performance; CSharp=Windows; SQL=data; PERFORMANCE-MAINLINE:Python-orchestration>C-or-pybind11-boundary>C++-performance-core; EACH:one-primary-role+no-substitution+no-duplicate-authority",
+        "statement": "LANGUAGE-ROLE-MAP:Python=control+semantics+business; TypeScript=presentation; C=interface-only; pybind11=Python-to-C++-binding-only; C++=implementation+performance; CSharp=Windows/.NET-adapter; SQL=data-reduction; FLOWS:ordinary=Python-API>Python-implementation|high-load=Python-API>pybind11>C++|C++-unavailable=Python-fallback|Windows/.NET=Python/native-interface>CSharp>Windows/.NET|data=SQL-reduce>Python-semantics; DUPLICATE-AUTHORITY:none",
         "binding": 1
       },
       {
         "position": 108,
         "provision_id": "P116",
-        "statement": "CPP-PERFORMANCE-CORE:exact-domains=parser|vector|memory|token|transform|binding; EACH:one-responsibility+one-owner+one-folder+one-interface+no-duplicate; DEPENDENCY:acyclic+declared; BINDING:C-ABI/pybind11-glue-only",
+        "statement": "NATIVE-PHYSICAL-MODEL:native/include/gptbridge_native.h=C-interface; native/bridge/gptbridge_native.c=C-thunk; native/core/vector.cpp|parser.cpp|transformer.cpp=C++-implementation; OLD-SIX-DOMAIN-MODEL:none; ONE-FILE:one-responsibility",
         "binding": 1
       },
       {
@@ -12681,7 +12681,7 @@
         "introduced_by": "H004",
         "supersedes_id": "P114",
         "status": "active",
-        "content_hash": "e4fbf6c9cd61914bdc91f266d8b35f453b240d8aba9db853a3fcb30610ab2fc7"
+        "content_hash": "5061968313beb87239736b1245dab76298a8d2188fffaeb7b03ea4bf1d696929"
       },
       {
         "provision_type": "article",
@@ -12689,7 +12689,7 @@
         "introduced_by": "H004",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "4a68e3eadae647c1d79ac2dde3b125a9541781f45fca4be2664f4e375e1770b0"
+        "content_hash": "40aaba776bcc487a6f7ee7a160ebf027554fa49bcd44939c11b4efd15f6a4f00"
       },
       {
         "provision_type": "article",
@@ -12713,7 +12713,7 @@
         "introduced_by": "H004",
         "supersedes_id": "E177",
         "status": "active",
-        "content_hash": "39b0cac63442e7096c0be843c5c20dbca28deed06ea8d1634844211930c38bf4"
+        "content_hash": "ee1ef68d25067e1d65a511128c2ef97bef9f478b7c432c752ed95c7317e11641"
       },
       {
         "provision_type": "principle",
@@ -12721,7 +12721,7 @@
         "introduced_by": "H005",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "7771afe2aedbd9c459c4303de53a1214e8f743bb7525d16763d9e234f33dc602"
+        "content_hash": "e458641897d877beee341aaa57b1eac1d744f59e3d0a8e21d5428a55dbd0dc6f"
       },
       {
         "provision_type": "article",
@@ -12737,7 +12737,7 @@
         "introduced_by": "H005",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "138daf794de49f2ac26f2820527d8ef0b5b37998f57941798ff226d16790888b"
+        "content_hash": "8d785e84fe448211154f513a0bd354c571dbeb26a593ba4680e7b408cac0af9c"
       },
       {
         "provision_type": "principle",
@@ -16420,6 +16420,46 @@
         "version": "1.41600",
         "content_hash": "ae50977cb6c970a3100b988def75f37fde79d0c1ea5105c2b18c9bbb6dc0b9e2",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P115",
+        "revision_id": "H012",
+        "version": "1.41600",
+        "content_hash": "5061968313beb87239736b1245dab76298a8d2188fffaeb7b03ea4bf1d696929",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P116",
+        "revision_id": "H012",
+        "version": "1.41600",
+        "content_hash": "e458641897d877beee341aaa57b1eac1d744f59e3d0a8e21d5428a55dbd0dc6f",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A211",
+        "revision_id": "H012",
+        "version": "1.41600",
+        "content_hash": "40aaba776bcc487a6f7ee7a160ebf027554fa49bcd44939c11b4efd15f6a4f00",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E178",
+        "revision_id": "H012",
+        "version": "1.41600",
+        "content_hash": "ee1ef68d25067e1d65a511128c2ef97bef9f478b7c432c752ed95c7317e11641",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E179",
+        "revision_id": "H012",
+        "version": "1.41600",
+        "content_hash": "8d785e84fe448211154f513a0bd354c571dbeb26a593ba4680e7b408cac0af9c",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -16539,9 +16579,9 @@
         "version": "1.41600",
         "recorded_date": "2026-09-10",
         "change_scope": "architecture-authority",
-        "summary": "native physical architecture reconstituted as include bridge and three C++ core implementations",
+        "summary": "current language roles runtime routes fallback rules and native physical tree consolidated without version change",
         "previous_hash": "023eba9f3452a3929580f4ebe5b3d57f4ca556447366832477c70763afc0ce96",
-        "entry_hash": "a24d33ab302f3c3d3afb77091998b0bc96a0eb5d7d6fd7baacc8b6beb8288389"
+        "entry_hash": "32589177ecd374fd5b3ca12d660cec3a4de7765d437c74118b1d5b97d2838546"
       }
     ],
     "savings": [
@@ -16688,14 +16728,14 @@
       },
       {
         "version": "1.41600",
-        "history_head": "a24d33ab302f3c3d3afb77091998b0bc96a0eb5d7d6fd7baacc8b6beb8288389",
+        "history_head": "32589177ecd374fd5b3ca12d660cec3a4de7765d437c74118b1d5b97d2838546",
         "provision_count": 409,
         "identity_count": 439,
         "lineage_count": 439,
         "certification_state": "sealed-read-only-pending-external-signatures",
-        "content_root": "72a214c6d49ba7fb19f1933f075a1d044ab15a065b9f94d1ed8853bb8c92426a",
+        "content_root": "b65698ac64253d380f13596ea28c38817b48db4bb374696bc45d9c1bf1d2ffc3",
         "identity_root": "f5d49ea87a90a4fb246ba037e6a5ba4adaa7596a34e1f72cd9740524c9523d61",
-        "full_root": "1bcb85961917a5d91da74347cb91b5d071290fe7eab1e614ef368390b690123a"
+        "full_root": "1bd6ee3c3e6f37d6666db0cca04c66c03bbdcb9bf89c5a8d631f17ce50cfc88b"
       }
     ],
     "sealed_components": [
