@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.02000",
+  "codex_version": "1.03000",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -4940,11 +4940,11 @@
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.02000"
+        "value": "gptbridge-governance-codex-v1.03000"
       },
       {
         "key": "codex_version",
-        "value": "1.02000"
+        "value": "1.03000"
       },
       {
         "key": "version_increment",
@@ -16469,6 +16469,20 @@
         "module_group": "root_containment",
         "role": "signal",
         "codex_basis": "A201-A202/E175-E176",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/tasks/tool_process_registry.py",
+        "module_group": "toolbox_process",
+        "role": "persistence",
+        "codex_basis": "A184/E159",
+        "owner": "permission-sovereign"
+      },
+      {
+        "path": "main-system/src-core/tasks/toolbox_manifest.py",
+        "module_group": "toolbox_process",
+        "role": "facade",
+        "codex_basis": "A184/E159",
         "owner": "permission-sovereign"
       }
     ]

@@ -119,8 +119,9 @@ callables, ≤500 effective lines per module).
 | `startup_lifecycle` | A193–A196/E168–E171 | 5 | facade, types, verify, signal, sync |
 | `third_party_governance` | A197–A199/E171–E173 | 4 | facade, types, verify, signal |
 | `root_containment` | A201–A202/E175–E176 | 4 | facade, types, verify, signal |
+| `toolbox_process` | A184/E159 | 2 | facade, persistence |
 
-**Total**: 51 registered modules across 11 groups.
+**Total**: 53 registered modules across 12 groups.
 
 Each facade module re-exports all public names from its submodules,
 preserving backward-compatible `__all__` exports.  Submodule roles:

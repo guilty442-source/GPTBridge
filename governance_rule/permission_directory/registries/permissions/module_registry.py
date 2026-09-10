@@ -94,6 +94,9 @@ MODULE_REGISTRY: Final[tuple[ModuleRegistryEntry, ...]] = (
     ModuleRegistryEntry("main-system/src-core/core_system/root_containment_types.py", "root_containment", "types", "A201-A202/E175-E176", "permission-sovereign"),
     ModuleRegistryEntry("main-system/src-core/core_system/root_containment_verify.py", "root_containment", "verify", "A201-A202/E175-E176", "permission-sovereign"),
     ModuleRegistryEntry("main-system/src-core/core_system/root_containment_signal.py", "root_containment", "signal", "A201-A202/E175-E176", "permission-sovereign"),
+    # toolbox_process (A184/E159 — tool process detection and manifest listing)
+    ModuleRegistryEntry("main-system/src-core/tasks/tool_process_registry.py", "toolbox_process", "persistence", "A184/E159", "permission-sovereign"),
+    ModuleRegistryEntry("main-system/src-core/tasks/toolbox_manifest.py", "toolbox_process", "facade", "A184/E159", "permission-sovereign"),
 )
 
 
