@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.61600",
+  "codex_version": "1.71600",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -112,10 +112,10 @@
         "codex_section": "9",
         "scope": "all authoritative directories registries catalogs and identity indexes",
         "general_provision_links": "A7|A42",
-        "special_provision_links": "A222|A223|A224|A225|A226|A227|A228",
+        "special_provision_links": "A222|A223|A224|A225|A226|A227|A228|A231|A232|A233",
         "precedence": "special-over-general-within-declared-scope",
         "authority_boundary": "remains inside the single governance codex and creates no separate authority",
-        "introduced_version": "1.61600",
+        "introduced_version": "1.71600",
         "retired_version": null
       }
     ],
@@ -1737,6 +1737,24 @@
         "rule": "CLOSURE-SCOPE:A222-A230+all-current-and-future governed directories; COMPLETE-INVENTORY:before activation each directory contains every in-scope production identity and no demonstration-only placeholder; LAW-CLASSIFICATION:every principle+article+edict+sovereign maps-to exactly-one of 本典|子法-條例|專法 with law-code+authority-basis; RELATIONSHIP-INTEGRITY:command+fault+manual+test+architecture+special-law references use normalized validated relationships and reject missing+duplicate+retired+cyclic targets; ARCHITECTURE-COVERAGE:every project root+manifest+main-system+independent-tool+sovereign+shared-layer+service+store+interface+runtime maps-to one active architecture owner; IMPLEMENTATION-HANDOFF:runtime readers+dispatch+authorization+repair+test+release consume authoritative directories read-only and fail-closed on invalid identity; AUDIT-GATE:governance audit verifies schemas+owners+uniqueness+format+classification+coverage+foreign relationships+acyclic topology+mirror parity+version+seal and blocks release on any gap; VERSION-UNITY:all rows introduced-or-changed by one amendment use its exact codex-version; SEAL:content-root+identity-root+history-head+counts regenerated atomically and external signature remains mandatory before verified status; EVIDENCE:implementation owner supplies coverage report+relationship report+runtime-consumption tests+audit verdict+external signature proof",
         "prohibition": "FORBID:partial-catalog-claimed-complete+placeholder-as-production-entry+text-only-unvalidated-reference+unclassified-provision+unregistered-architecture-entity+runtime-private-copy+audit-ignoring-directory+mixed-introduced-version+verified-status-without-external-signature+release-before-all-acceptance-evidence",
         "exception": "Implementation may be delivered separately from this declarative amendment, but activation and verified release remain denied until every acceptance item is proven"
+      },
+      {
+        "position": 232,
+        "provision_id": "A232",
+        "section_index": "9",
+        "subject": "complete-governed-directory-domain-set",
+        "rule": "MASTER-DIRECTORY:directory-master-catalog is the exhaustive registry of every governed directory class; REQUIRED-DOMAINS:law-structure+special-law+provision-classification+project-architecture+identity-module+permission-capability+tool-route+data-schema-authority+API-event-contract+service-process-port-environment+model-resource-dependency+configuration-credential-secret+version-release-artifact+audit-evidence-retention+backup-recovery-migration+UI-window-feature-entry+command-code+fault-code+maintenance-manual+test-flow; OWNER:permission-sovereign for directory definition+identity+registration+relationship+version+activation+retirement+access and write decisions; DOMAIN-AUTHORITY:referenced bodies remain with their codex-declared domain owners and directory ownership grants no body authority; MASTER-ENTRY:directory-code+canonical-name+scope+authority-kind+required-fields+relationships+coverage-rule+implementation-state+introduced-version+retired-version; COMPLETENESS:no governed identity may exist outside exactly-one applicable registered directory and every directory appears in master catalog; IMPLEMENTATION-STATE:mandated-pending-implementation cannot be represented as active and blocks dependent verified release; CONVERGENCE:legacy permission registries become projections or implementations of the matching master entry and cannot remain parallel authority; VALIDATION:permission-sovereign verifies master coverage+schema+ownership+links before activation",
+        "prohibition": "FORBID:unregistered-directory-class+parallel-master-catalog+directory-owned-by-other-sovereign+missing-required-domain+active-status-before-implementation-proof+legacy-registry-as-separate-authority+directory-ownership-changing-domain-body-authority+catch-all-entry-hiding-unclassified-identity",
+        "exception": "Third-party opaque internals require no internal directory entries, but their artifact adapter interface permission data and failure exposure require registered entries"
+      },
+      {
+        "position": 233,
+        "provision_id": "A233",
+        "section_index": "9",
+        "subject": "content-adaptive-unified-directory-and-requirement-format",
+        "rule": "REQUIREMENT-FORMAT:every normative requirement uses ordered fields SCOPE>OWNER>IDENTITY>AUTHORITY>INPUT>RULE>RELATIONSHIPS>LIFECYCLE>VALIDATION>FAILURE>EVIDENCE with PROHIBITION and EXCEPTION stored separately; OMITTED-FIELD:use explicit not-applicable with reason and never silent absence; DIRECTORY-COMMON-ENVELOPE:entry-code+canonical-name+directory-code+owner+scope+authority-kind+status+revision+content-hash+introduced-version+retired-version mandatory for every directory entry; CONTENT-ADAPTATION:each directory adds only typed domain fields declared in directory-format-contract and those fields reflect its actual semantic content; FIELD-NAMING:lowercase-snake-case storage+lowercase-kebab-case canonical identity+uppercase-snake-case immutable code; TYPES:scalar fields use explicit string+integer+boolean+timestamp+enum and relationships use normalized link rows rather than delimiter-packed text; ORDER:common-envelope first then domain-identity+authority+inputs+rules+relationships+lifecycle+validation+evidence fields; NULL:allowed only where format contract marks optional; VERSIONING:schema-version+entry-revision+content-hash change atomically and immutable identity codes never change; SERIALIZATION:SQLite+JSON+API projections preserve identical field names types nullability order semantics and code values; VALIDATION:permission-sovereign validates common envelope then directory-specific schema then cross-directory relations; MIGRATION:legacy rows transform atomically with lossless mapping+compatibility evidence+rollback",
+        "prohibition": "FORBID:directory-private-common-field-name+free-form-untyped-payload+delimiter-packed-relationship+implicit-null+missing-owner/scope/status/version/hash+display-label-as-identity+same-semantic-field-different-name+schema-drift-between-storage/API/mirror+content-in-unsuitable-generic-field+one-format-erasing-domain-semantics",
+        "exception": "Human-readable views may localize labels and reorder presentation only while preserving canonical machine fields and values"
       }
     ],
     "certification_evidence": [
@@ -1833,6 +1851,13 @@
       },
       {
         "version": "1.61600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.71600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3602,7 +3627,7 @@
       {
         "provision_type": "article",
         "provision_id": "A23",
-        "effective_version": "1.61600",
+        "effective_version": "1.71600",
         "status": "active"
       },
       {
@@ -5402,61 +5427,73 @@
       {
         "provision_type": "article",
         "provision_id": "A222",
-        "effective_version": "1.61600",
+        "effective_version": "1.71600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A223",
-        "effective_version": "1.61600",
+        "effective_version": "1.71600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A224",
-        "effective_version": "1.61600",
+        "effective_version": "1.71600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A225",
-        "effective_version": "1.61600",
+        "effective_version": "1.71600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A226",
-        "effective_version": "1.61600",
+        "effective_version": "1.71600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A227",
-        "effective_version": "1.61600",
+        "effective_version": "1.71600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A228",
-        "effective_version": "1.61600",
+        "effective_version": "1.71600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A229",
-        "effective_version": "1.61600",
+        "effective_version": "1.71600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A230",
-        "effective_version": "1.61600",
+        "effective_version": "1.71600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A231",
-        "effective_version": "1.61600",
+        "effective_version": "1.71600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A232",
+        "effective_version": "1.71600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A233",
+        "effective_version": "1.71600",
         "status": "active"
       }
     ],
@@ -5840,11 +5877,11 @@
       },
       {
         "key": "codex_version",
-        "value": "1.61600"
+        "value": "1.71600"
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.61600"
+        "value": "gptbridge-governance-codex-v1.71600"
       },
       {
         "key": "version_increment",
@@ -5888,11 +5925,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-11T05:26:12Z"
+        "value": "2026-09-11T05:31:52Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-11T13:26:12+08:00"
+        "value": "2026-09-11T13:31:52+08:00"
       }
     ],
     "preamble": [
@@ -9739,6 +9776,20 @@
         "provision_id": "A231",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A232",
+        "provision_type": "article",
+        "provision_id": "A232",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A233",
+        "provision_type": "article",
+        "provision_id": "A233",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -13257,7 +13308,7 @@
       {
         "provision_type": "article",
         "provision_id": "A222",
-        "introduced_by": "H014",
+        "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "b4c6c84d97a6e233de9cbac7f777c77a727a58bd14ec446fbc682613e8b293ad"
@@ -13265,7 +13316,7 @@
       {
         "provision_type": "article",
         "provision_id": "A223",
-        "introduced_by": "H014",
+        "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "1822a8a1354fca54182feedc0ee22303e4826cac024fafc55c9b5dcea42dac06"
@@ -13273,7 +13324,7 @@
       {
         "provision_type": "article",
         "provision_id": "A224",
-        "introduced_by": "H014",
+        "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "f0be833b184da5d9c27dea8d99d4429326943cd3d1f7e0f77c3bb2b0ce150ca4"
@@ -13281,7 +13332,7 @@
       {
         "provision_type": "article",
         "provision_id": "A225",
-        "introduced_by": "H014",
+        "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "ae2b6dcfe2083747890c237d68b0b88483ec5232ffbbd5fd967f4f22a95b218a"
@@ -13289,7 +13340,7 @@
       {
         "provision_type": "article",
         "provision_id": "A226",
-        "introduced_by": "H014",
+        "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "f7319fc1c21fbe6fb6ad49368379d9a35f88791662b99f18a5a6170c96d9682b"
@@ -13297,7 +13348,7 @@
       {
         "provision_type": "article",
         "provision_id": "A227",
-        "introduced_by": "H014",
+        "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "0a3ba8dd29398581416ebd349c0b9882f2a28c3911cb6591c7eddd0cb961b758"
@@ -13305,7 +13356,7 @@
       {
         "provision_type": "article",
         "provision_id": "A228",
-        "introduced_by": "H014",
+        "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "7adbd829a2be18141aad7ba88d253799c6dfb56cdf9df5f4aa567b92a1c9c66f"
@@ -13313,7 +13364,7 @@
       {
         "provision_type": "article",
         "provision_id": "A229",
-        "introduced_by": "H014",
+        "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "bdd22ea5613989e5e4041cf1ee28653cd62ec33df69ea1b5d06c668ddbf121a9"
@@ -13321,7 +13372,7 @@
       {
         "provision_type": "article",
         "provision_id": "A230",
-        "introduced_by": "H014",
+        "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "b1940d871042aa347a17e1aa95776576eee63bb857672c1a93561d49ee097a38"
@@ -13329,10 +13380,26 @@
       {
         "provision_type": "article",
         "provision_id": "A231",
-        "introduced_by": "H014",
+        "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "76c956a019059790a30ef634c2a8aa4d5f067efd43dffd21c009ebc6ad95ed55"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A232",
+        "introduced_by": "H015",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "3ff4e9ea7a7928d413acb35d5fee28f5ae2479d4e752616a98f4fcf7d1c4d235"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A233",
+        "introduced_by": "H015",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "d74aab52b1302c57e05c68d91ba0a3893e8d62ea20e4865f59070755d676784f"
       }
     ],
     "provision_revisions": [
@@ -16891,81 +16958,97 @@
       {
         "provision_type": "article",
         "provision_id": "A222",
-        "revision_id": "H014",
-        "version": "1.61600",
+        "revision_id": "H015",
+        "version": "1.71600",
         "content_hash": "b4c6c84d97a6e233de9cbac7f777c77a727a58bd14ec446fbc682613e8b293ad",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A223",
-        "revision_id": "H014",
-        "version": "1.61600",
+        "revision_id": "H015",
+        "version": "1.71600",
         "content_hash": "1822a8a1354fca54182feedc0ee22303e4826cac024fafc55c9b5dcea42dac06",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A224",
-        "revision_id": "H014",
-        "version": "1.61600",
+        "revision_id": "H015",
+        "version": "1.71600",
         "content_hash": "f0be833b184da5d9c27dea8d99d4429326943cd3d1f7e0f77c3bb2b0ce150ca4",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A225",
-        "revision_id": "H014",
-        "version": "1.61600",
+        "revision_id": "H015",
+        "version": "1.71600",
         "content_hash": "ae2b6dcfe2083747890c237d68b0b88483ec5232ffbbd5fd967f4f22a95b218a",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A226",
-        "revision_id": "H014",
-        "version": "1.61600",
+        "revision_id": "H015",
+        "version": "1.71600",
         "content_hash": "f7319fc1c21fbe6fb6ad49368379d9a35f88791662b99f18a5a6170c96d9682b",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A227",
-        "revision_id": "H014",
-        "version": "1.61600",
+        "revision_id": "H015",
+        "version": "1.71600",
         "content_hash": "0a3ba8dd29398581416ebd349c0b9882f2a28c3911cb6591c7eddd0cb961b758",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A228",
-        "revision_id": "H014",
-        "version": "1.61600",
+        "revision_id": "H015",
+        "version": "1.71600",
         "content_hash": "7adbd829a2be18141aad7ba88d253799c6dfb56cdf9df5f4aa567b92a1c9c66f",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A229",
-        "revision_id": "H014",
-        "version": "1.61600",
+        "revision_id": "H015",
+        "version": "1.71600",
         "content_hash": "bdd22ea5613989e5e4041cf1ee28653cd62ec33df69ea1b5d06c668ddbf121a9",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A230",
-        "revision_id": "H014",
-        "version": "1.61600",
+        "revision_id": "H015",
+        "version": "1.71600",
         "content_hash": "b1940d871042aa347a17e1aa95776576eee63bb857672c1a93561d49ee097a38",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A231",
-        "revision_id": "H014",
-        "version": "1.61600",
+        "revision_id": "H015",
+        "version": "1.71600",
         "content_hash": "76c956a019059790a30ef634c2a8aa4d5f067efd43dffd21c009ebc6ad95ed55",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A232",
+        "revision_id": "H015",
+        "version": "1.71600",
+        "content_hash": "3ff4e9ea7a7928d413acb35d5fee28f5ae2479d4e752616a98f4fcf7d1c4d235",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A233",
+        "revision_id": "H015",
+        "version": "1.71600",
+        "content_hash": "d74aab52b1302c57e05c68d91ba0a3893e8d62ea20e4865f59070755d676784f",
         "certification_status": "external-signatures-required"
       }
     ],
@@ -17109,6 +17192,16 @@
         "summary": "consolidated three-tier law model and closed directory-law completeness relationship architecture audit version and seal requirements",
         "previous_hash": "a384f73504a087fec33346b48db48509322dfade9e9930e5dd1a3632a723d2f7",
         "entry_hash": "1ee665c4ca0b5e99a36d4d2ea5ef50630445edd90eec5bd3514083ad06146ddf"
+      },
+      {
+        "sequence": 15,
+        "change_id": "H015",
+        "version": "1.71600",
+        "recorded_date": "2026-09-11",
+        "change_scope": "directory-domain-completeness",
+        "summary": "registered the complete governed directory domain set and implementation-state gates",
+        "previous_hash": "1ee665c4ca0b5e99a36d4d2ea5ef50630445edd90eec5bd3514083ad06146ddf",
+        "entry_hash": "cf067813db58948184f80794a2a86b45cf616c76e7c7044a7d8ae59575e19b4e"
       }
     ],
     "savings": [
@@ -17285,6 +17378,17 @@
         "content_root": "dc5ea57cd2da714670b21df6cf1cddaeedca8ee12163b1637830fd3b89015cc0",
         "identity_root": "00b69918358332c7b10811d92c09db9034a449e684e3fc1a295f18cedc23014e",
         "full_root": "86daee2a5c553b69ec6d0206824546611ea415ab8a5a92ac90a0e5072e0c8d30"
+      },
+      {
+        "version": "1.71600",
+        "history_head": "cf067813db58948184f80794a2a86b45cf616c76e7c7044a7d8ae59575e19b4e",
+        "provision_count": 451,
+        "identity_count": 451,
+        "lineage_count": 451,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "80e75707b1f8d1cdafaf1628264ad4782971d841cdc1514c0e7903c4b037ced5",
+        "identity_root": "1ef72bd71232cbbb645b1cb60127549d9cc2eddbfa6c2746ebd025da9c7b6a7b",
+        "full_root": "2bd5082249477ada531b311d39e304dd8b513dfbadd271557f455e10eec296da"
       }
     ],
     "sealed_components": [
@@ -19198,7 +19302,7 @@
         "authority_basis": "self",
         "precedence": "highest",
         "official_entry": "governance-codex://official",
-        "introduced_version": "1.61600",
+        "introduced_version": "1.71600",
         "retired_version": null
       },
       {
@@ -19211,7 +19315,7 @@
         "authority_basis": "A229|A230",
         "precedence": "below-main-codex and below applicable-special-law",
         "official_entry": "governance-codex://official",
-        "introduced_version": "1.61600",
+        "introduced_version": "1.71600",
         "retired_version": null
       },
       {
@@ -19224,7 +19328,7 @@
         "authority_basis": "A228|A229|A230",
         "precedence": "special-over-general-within-declared-scope",
         "official_entry": "governance-codex://official",
-        "introduced_version": "1.61600",
+        "introduced_version": "1.71600",
         "retired_version": null
       }
     ],
@@ -22371,6 +22475,20 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A232",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A228|A229|A230|A231"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A233",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A228|A229|A230|A231|A232"
       }
     ],
     "directory_relationship_requirements": [
@@ -22499,6 +22617,568 @@
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
         "introduced_version": "1.61600"
+      },
+      {
+        "directory_name": "directory_master_catalog",
+        "required_scope": "every current future active and retired governed directory class",
+        "completion_rule": "exact catalog equals codex-declared governed domains",
+        "acceptance_evidence": "machine-readable domain coverage diff plus zero-gap review",
+        "release_gate": "deny-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600"
+      },
+      {
+        "directory_name": "directory_format_contract",
+        "required_scope": "every directory in directory-master-catalog",
+        "completion_rule": "exact one content-adaptive format contract per directory",
+        "acceptance_evidence": "schema parity report plus zero missing or duplicate contracts",
+        "release_gate": "deny-directory-activation-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600"
+      }
+    ],
+    "directory_master_catalog": [
+      {
+        "directory_code": "DIR_LAW_STRUCTURE",
+        "canonical_name": "law-structure-directory",
+        "owner": "permission-sovereign",
+        "scope": "law tiers and registered laws",
+        "authority_kind": "normative-identity",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|tier|parent-law|precedence",
+        "relationships": "special-law|provision-classification",
+        "coverage_rule": "all law tiers",
+        "implementation_state": "active",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_SPECIAL_LAW",
+        "canonical_name": "special-law-directory",
+        "owner": "permission-sovereign",
+        "scope": "all special laws",
+        "authority_kind": "normative-identity",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|codex-section|basis|precedence",
+        "relationships": "law-structure|provision-classification",
+        "coverage_rule": "all active and retired special laws",
+        "implementation_state": "active",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_PROVISION_CLASSIFICATION",
+        "canonical_name": "provision-law-classification",
+        "owner": "permission-sovereign",
+        "scope": "all codex provisions",
+        "authority_kind": "normative-classification",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|provision-type|provision-id|tier|law-code|basis",
+        "relationships": "law-structure|special-law",
+        "coverage_rule": "every provision exactly once",
+        "implementation_state": "active",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_PROJECT_ARCHITECTURE",
+        "canonical_name": "project-architecture-directory",
+        "owner": "permission-sovereign",
+        "scope": "all project entities and boundaries",
+        "authority_kind": "architecture-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|parent|physical-root|responsibilities|dependencies|interfaces|failure-boundary",
+        "relationships": "all domain directories",
+        "coverage_rule": "every governed project entity",
+        "implementation_state": "active",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_IDENTITY_MODULE",
+        "canonical_name": "identity-module-directory",
+        "owner": "permission-sovereign",
+        "scope": "identities modules and ownership",
+        "authority_kind": "identity-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|identity-class|module-id|owner|parent|manifest",
+        "relationships": "architecture|permission-capability",
+        "coverage_rule": "every governed identity and module",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_PERMISSION_CAPABILITY",
+        "canonical_name": "permission-capability-directory",
+        "owner": "permission-sovereign",
+        "scope": "permissions roles capabilities actions and scopes",
+        "authority_kind": "authorization-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|actor|role|capability|action|target|data-scope",
+        "relationships": "identity-module|tool-route|command-code",
+        "coverage_rule": "every authorization decision identity",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_TOOL_ROUTE",
+        "canonical_name": "tool-route-directory",
+        "owner": "permission-sovereign",
+        "scope": "tools entrypoints routes and lifecycle",
+        "authority_kind": "routing-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|tool-id|route|entrypoint|runtime-owner|lifecycle",
+        "relationships": "identity-module|permission-capability|command-code",
+        "coverage_rule": "every governed tool and route",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_DATA_SCHEMA_AUTHORITY",
+        "canonical_name": "data-schema-authority-directory",
+        "owner": "permission-sovereign",
+        "scope": "data stores schemas datasets and authority",
+        "authority_kind": "data-location-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|store|schema|entity|authority-owner|retention|classification",
+        "relationships": "architecture|API-event-contract|backup-recovery-migration",
+        "coverage_rule": "every governed data identity",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_API_EVENT_CONTRACT",
+        "canonical_name": "api-event-contract-directory",
+        "owner": "permission-sovereign",
+        "scope": "APIs events messages and contracts",
+        "authority_kind": "interface-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|contract-id|producer|consumer|schema|version|compatibility",
+        "relationships": "command-code|fault-code|architecture",
+        "coverage_rule": "every governed boundary contract",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_SERVICE_PROCESS_PORT_ENV",
+        "canonical_name": "service-process-port-environment-directory",
+        "owner": "permission-sovereign",
+        "scope": "services processes ports and runtime environments",
+        "authority_kind": "runtime-location-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|service|process|port|protocol|environment|health",
+        "relationships": "architecture|tool-route|resource-dependency",
+        "coverage_rule": "every runtime service and binding",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_MODEL_RESOURCE_DEPENDENCY",
+        "canonical_name": "model-resource-dependency-directory",
+        "owner": "permission-sovereign",
+        "scope": "models resources and dependencies",
+        "authority_kind": "resource-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|resource-id|kind|version|location|owner|quota|fallback",
+        "relationships": "architecture|service-environment|release-artifact",
+        "coverage_rule": "every model resource and dependency",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_CONFIG_CREDENTIAL_SECRET",
+        "canonical_name": "configuration-credential-secret-directory",
+        "owner": "permission-sovereign",
+        "scope": "configuration credentials and secret references",
+        "authority_kind": "security-location-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|config-id|classification|storage|consumer|rotation|redaction",
+        "relationships": "permission-capability|service-environment|audit-evidence",
+        "coverage_rule": "every governed configuration and secret reference",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_VERSION_RELEASE_ARTIFACT",
+        "canonical_name": "version-release-artifact-directory",
+        "owner": "permission-sovereign",
+        "scope": "versions releases builds and artifacts",
+        "authority_kind": "release-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|release-id|version|artifact|hash|compatibility|rollback",
+        "relationships": "architecture|dependency|test-flow|audit-evidence",
+        "coverage_rule": "every activated or retained release artifact",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_AUDIT_EVIDENCE_RETENTION",
+        "canonical_name": "audit-evidence-retention-directory",
+        "owner": "permission-sovereign",
+        "scope": "audit events evidence classes and retention",
+        "authority_kind": "evidence-policy-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|event-class|evidence-type|storage|retention|redaction|verifier",
+        "relationships": "all directories",
+        "coverage_rule": "every required proof and audit class",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_BACKUP_RECOVERY_MIGRATION",
+        "canonical_name": "backup-recovery-migration-directory",
+        "owner": "permission-sovereign",
+        "scope": "backup restore recovery and migration plans",
+        "authority_kind": "continuity-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|plan-id|source|target|checkpoint|rollback|verification",
+        "relationships": "data-schema|maintenance-manual|test-flow",
+        "coverage_rule": "every stateful authority and migration",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_UI_WINDOW_FEATURE_ENTRY",
+        "canonical_name": "ui-window-feature-entry-directory",
+        "owner": "permission-sovereign",
+        "scope": "UI windows views features and official entries",
+        "authority_kind": "presentation-entry-authority",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|ui-id|window|feature|entrypoint|backend-contract|owner",
+        "relationships": "architecture|API-event-contract|command-code",
+        "coverage_rule": "every user-visible feature and entry",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_COMMAND_CODE",
+        "canonical_name": "command-code-directory",
+        "owner": "permission-sovereign",
+        "scope": "all governed commands",
+        "authority_kind": "command-identity",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|command-code|action|target|input|output|permission",
+        "relationships": "permission-capability|API-event-contract|test-flow",
+        "coverage_rule": "every accepted or emitted command",
+        "implementation_state": "active",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_FAULT_CODE",
+        "canonical_name": "fault-code-directory",
+        "owner": "permission-sovereign",
+        "scope": "all governed faults",
+        "authority_kind": "fault-identity",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|fault-code|severity|meaning|trigger|redaction|retryability",
+        "relationships": "maintenance-manual|test-flow|audit-evidence",
+        "coverage_rule": "every emitted production fault",
+        "implementation_state": "active",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_MAINTENANCE_MANUAL",
+        "canonical_name": "maintenance-manual-directory",
+        "owner": "permission-sovereign",
+        "scope": "all governed repair procedures",
+        "authority_kind": "repair-procedure",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|manual-code|fault-links|steps|verification|rollback|stop-conditions",
+        "relationships": "fault-code|test-flow|backup-recovery-migration",
+        "coverage_rule": "every repairable fault",
+        "implementation_state": "active",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_TEST_FLOW",
+        "canonical_name": "test-flow-directory",
+        "owner": "permission-sovereign",
+        "scope": "all governed validation flows",
+        "authority_kind": "test-procedure",
+        "required_fields": "immutable-code|canonical-name|owner|scope|version|status|test-code|requirements|steps|expected|evidence|cleanup",
+        "relationships": "all testable directories",
+        "coverage_rule": "every testable provision and identity",
+        "implementation_state": "active",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      }
+    ],
+    "directory_format_contract": [
+      {
+        "directory_code": "DIR_LAW_STRUCTURE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "tier|parent-law|precedence",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_SPECIAL_LAW",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "codex-section|basis|precedence",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_PROVISION_CLASSIFICATION",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "provision-type|provision-id|tier|law-code|basis",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_PROJECT_ARCHITECTURE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "parent|physical-root|responsibilities|dependencies|interfaces|failure-boundary",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_IDENTITY_MODULE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "identity-class|module-id|parent|manifest",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_PERMISSION_CAPABILITY",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "actor|role|capability|action|target|data-scope",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_TOOL_ROUTE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "tool-id|route|entrypoint|runtime-owner|lifecycle",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_DATA_SCHEMA_AUTHORITY",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "store|schema|entity|authority-owner|retention|classification",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_API_EVENT_CONTRACT",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "contract-id|producer|consumer|schema|compatibility",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_SERVICE_PROCESS_PORT_ENV",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "service|process|port|protocol|environment|health",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_MODEL_RESOURCE_DEPENDENCY",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "resource-id|kind|location|quota|fallback",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_CONFIG_CREDENTIAL_SECRET",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "config-id|classification|storage|consumer|rotation|redaction",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_VERSION_RELEASE_ARTIFACT",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "release-id|artifact|hash|compatibility|rollback",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_AUDIT_EVIDENCE_RETENTION",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "event-class|evidence-type|storage|retention|redaction|verifier",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_BACKUP_RECOVERY_MIGRATION",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "plan-id|source|target|checkpoint|rollback|verification",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_UI_WINDOW_FEATURE_ENTRY",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "ui-id|window|feature|entrypoint|backend-contract",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_COMMAND_CODE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "command-code|action|target|input|output|permission",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_FAULT_CODE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "fault-code|severity|meaning|trigger|redaction|retryability",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_MAINTENANCE_MANUAL",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "manual-code|fault-links|steps|verification|rollback|stop-conditions",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_TEST_FLOW",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "test-code|requirements|steps|expected|evidence|cleanup",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.71600",
+        "retired_version": null
       }
     ]
   }
