@@ -4,6 +4,7 @@ import os
 import socket
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Final
 
@@ -11,18 +12,56 @@ from typing import Any, Final
 # Startup phase constants
 # ------------------------------------------------------------------
 
-OLLAMA_PROBE_TIMEOUT: Final[float] = 2.0
-POSTGRES_CONNECT_TIMEOUT: Final[float] = 2.0
-POSTGRES_PROBE_ATTEMPTS: Final[int] = 5
-POSTGRES_PROBE_DELAY: Final[float] = 1.0
-QDRANT_PROBE_TIMEOUT: Final[float] = 2.0
+OLLAMA_PROBE_TIMEOUT: Final[float] = 0.5
+POSTGRES_CONNECT_TIMEOUT: Final[float] = 1.0
+POSTGRES_PROBE_ATTEMPTS: Final[int] = 3
+POSTGRES_PROBE_DELAY: Final[float] = 0.5
+QDRANT_PROBE_TIMEOUT: Final[float] = 0.5
+STARTUP_GATE_DEADLINE_SECONDS: Final[float] = 8.0
 
-BOOT_PHASES: Final[tuple[str, ...]] = (
+BOOTSTRAP_PHASES: Final[tuple[str, ...]] = (
     "environment-check",
     "governance-audit",
-    "postgresql-start",
-    "qdrant-start",
-    "ollama-start",
+)
+
+# Current certified dependency contracts. Criticality is declared by the
+# consuming contract, never inferred from a service name.
+#
+# Stored as plain data so this module stays importable by ``boot_core``
+# before ``_ensure_runtime_paths()`` installs the workspace paths; the
+# declarations are materialized into ``DependencyDeclaration`` objects at
+# runtime inside ``_run_startup_phases``.
+DEPENDENCY_MANIFEST: Final[tuple[dict[str, Any], ...]] = (
+    {
+        "identity": "postgresql",
+        "owner": "data-runtime-sovereign",
+        "required_by": "main-system-authoritative-state",
+        "criticality": "core-critical",
+        "readiness_contract": "tcp-or-dsn-select-1",
+        "deadline": "3s",
+        "retry_budget": 2,
+        "shutdown_order": 30,
+    },
+    {
+        "identity": "qdrant",
+        "owner": "rag-runtime-sovereign",
+        "required_by": "rag-semantic-retrieval",
+        "criticality": "capability-critical",
+        "readiness_contract": "loopback-tcp-6333",
+        "deadline": "3s",
+        "retry_budget": 1,
+        "shutdown_order": 20,
+    },
+    {
+        "identity": "ollama",
+        "owner": "model-runtime-sovereign",
+        "required_by": "local-model-inference",
+        "criticality": "capability-critical",
+        "readiness_contract": "loopback-tcp-11434",
+        "deadline": "3s",
+        "retry_budget": 1,
+        "shutdown_order": 10,
+    },
 )
 
 
@@ -60,7 +99,7 @@ class PhaseMixin:
                     )
             except Exception:
                 pass
-            if not self._stop.wait(timeout=3.0):
+            if not self._stop.wait(timeout=1.5):
                 ok = _check_api()
         return {
             "phase": "ollama-start",
@@ -153,7 +192,7 @@ class PhaseMixin:
                     )
                 except Exception:
                     pass
-                if not self._stop.wait(timeout=5.0):
+                if not self._stop.wait(timeout=1.5):
                     ok = _check()
         return {
             "phase": "qdrant-start",
@@ -210,7 +249,7 @@ class PhaseMixin:
             "duration_ms": int((time.monotonic() - start) * 1000),
         }
     def _run_startup_phases(self) -> dict[str, Any]:
-        """Execute the six-phase startup sequence per A61/E47/P26.
+        """Execute bootstrap gates and the certified dependency DAG.
 
         Returns a report dict containing phase results, startup state,
         and gate_ok (True = safe to spawn governance system).
@@ -220,7 +259,7 @@ class PhaseMixin:
         gate_ok = True
         handlers = self._PHASE_HANDLERS
 
-        for phase in BOOT_PHASES:
+        for phase in BOOTSTRAP_PHASES:
             if self._stop.is_set():
                 gate_ok = False
                 break
@@ -231,7 +270,72 @@ class PhaseMixin:
                 gate_ok = False
                 break
 
+        # The governed-startup contracts live in core_system, which is only
+        # importable after the bootstrap phases above install the runtime
+        # paths.  Materialize the certified manifest lazily here.
+        self._ensure_runtime_paths()
+        declarations: tuple[Any, ...] = ()
+        dag: Any = None
+        classification: dict[str, Any] = {"ok": False, "violations": ["import-unavailable"]}
+        try:
+            from core_system.governed_startup import (  # noqa: PLC0415
+                DependencyDAG,
+                DependencyDeclaration,
+                verify_dependency_classification,
+            )
+            declarations = tuple(
+                DependencyDeclaration(**entry) for entry in DEPENDENCY_MANIFEST
+            )
+            dag = DependencyDAG(declarations)
+            classification = verify_dependency_classification(dag)
+        except Exception as error:
+            classification = {
+                "ok": False,
+                "basis": "A191/E166",
+                "violations": [f"{type(error).__name__}: {error}"],
+            }
+        if gate_ok and (
+            dag is None or not dag.is_acyclic or not classification["ok"]
+        ):
+            gate_ok = False
+
+        if gate_ok:
+            phase_by_identity = {
+                "postgresql": "postgresql-start",
+                "qdrant": "qdrant-start",
+                "ollama": "ollama-start",
+            }
+            with ThreadPoolExecutor(
+                max_workers=len(declarations),
+                thread_name_prefix="startup-dag",
+            ) as executor:
+                futures = {
+                    executor.submit(handlers[phase_by_identity[dep.identity]], self): dep
+                    for dep in declarations
+                }
+                for future in as_completed(futures):
+                    dep = futures[future]
+                    try:
+                        result = future.result()
+                    except Exception as error:
+                        result = {
+                            "phase": phase_by_identity[dep.identity],
+                            "ready": False,
+                            "state": "fault",
+                            "fault_code": "STARTUP_DEPENDENCY_EXCEPTION",
+                            "message": f"{type(error).__name__}: {error}",
+                            "duration_ms": 0,
+                        }
+                    result["criticality"] = dep.criticality
+                    result["required_by"] = dep.required_by
+                    results.append(result)
+                    if dep.is_core_critical and not result.get("ready"):
+                        gate_ok = False
+
         total_ms = int((time.monotonic() - total_start) * 1000)
+        deadline_exceeded = total_ms > int(STARTUP_GATE_DEADLINE_SECONDS * 1000)
+        if deadline_exceeded:
+            gate_ok = False
 
         postgres_ok = next((r["ready"] for r in results if r["phase"] == "postgresql-start"), False)
         qdrant_ok = next((r["ready"] for r in results if r["phase"] == "qdrant-start"), False)
@@ -248,9 +352,17 @@ class PhaseMixin:
 
         report: dict[str, Any] = {
             "state": startup_state,
-            "startup_order": list(BOOT_PHASES),
-            "critical_services": ["postgresql"],
-            "degradable_services": ["qdrant", "ollama"],
+            "startup_order": list(BOOTSTRAP_PHASES) + [
+                "certified-dependency-dag"
+            ],
+            "dependency_dag": dag.as_dict() if dag is not None else {},
+            "dependency_classification": classification,
+            "critical_services": [
+                dep.identity for dep in declarations if dep.is_core_critical
+            ],
+            "degradable_services": [
+                dep.identity for dep in declarations if not dep.is_core_critical
+            ],
             "postgresql": next((r for r in results if r["phase"] == "postgresql-start"), {}),
             "qdrant": next((r for r in results if r["phase"] == "qdrant-start"), {}),
             "ollama": next((r for r in results if r["phase"] == "ollama-start"), {}),
@@ -258,6 +370,8 @@ class PhaseMixin:
             "governance_audit": next((r for r in results if r["phase"] == "governance-audit"), {}),
             "exit_code": exit_code,
             "total_duration_ms": total_ms,
+            "deadline_ms": int(STARTUP_GATE_DEADLINE_SECONDS * 1000),
+            "deadline_exceeded": deadline_exceeded,
             "gate_ok": gate_ok,
             "phases": results,
         }

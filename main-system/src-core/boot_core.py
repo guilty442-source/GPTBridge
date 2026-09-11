@@ -1,16 +1,12 @@
-"""boot_core — independent startup core (啟動核心) and sole startup orchestrator (A61/E47/P26).
+"""Startup-sovereign source runtime and main-backend supervisor.
 
 Entry responsibility boundary (per architecture decision):
 
   * 啟動入口 (Electron main) — only wakes the screen; it spawns this
     startup core and does not manage the backend directly.
-  * 啟動核心 (this process) — **sole startup orchestrator** (A61):
-    executes the five pre-spawn dependency gates in order:
-
-        environment-check  →  governance-audit  →  postgresql-start
-        →  qdrant-start  →  ollama-start
-
-    Each required gate must be verified before the next advances (GATE).
+  * This process hosts the startup sovereign. It validates bootstrap
+    readiness, activates the certified dependency DAG, and hands verified
+    readiness to the system-runtime sovereign.
     It then spawns the main backend (``main.py --serve``).  After spawning,
     boot_core waits for the backend's own ``governance-system-start`` to
     complete by probing ``/health`` until ``governance_ready`` is true
@@ -32,8 +28,8 @@ Entry responsibility boundary (per architecture decision):
     backoff; if THIS process dies, the launcher's own recovery respawns it
     while the backend (if still alive) keeps serving.
 
-The startup core:
-  1. Runs the six-phase startup gate sequence.
+The startup source runtime:
+  1. Runs bootstrap gates and the contract-declared dependency DAG.
   2. Generates the governance bootstrap token in-process.
   3. Writes the orchestrator report to ``launcher/state/orchestrator-report.json``
      for system_sovereign consumption (stale-safe: always overwritten on boot).
@@ -57,10 +53,10 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Final
+from typing import Any
 from startup_core.phases import PhaseMixin
 from startup_core.governance import GovernanceMixin
-from tasks.crash_diagnosis import CrashDiagnoser, CrashRepair
+from tasks.crash_diagnosis import CrashDiagnoser
 
 MAX_RESTARTS = 10
 BACKOFF_SCHEDULE_SECONDS = (2, 5, 10, 20, 30, 45, 60)
@@ -70,28 +66,8 @@ HEALTH_PROBE_TIMEOUT = 2.0
 HEALTH_PROBE_INTERVAL = 5.0
 STATE_RELATIVE = ("main-system", "runtime", "state", "boot-core.json")
 
-# Crash exit codes that trigger automatic source repair before restart.
+# Early crashes that trigger diagnosis and a governed repair request.
 CRASH_REPAIR_UPTIME_THRESHOLD = 30.0
-
-# Five pre-spawn dependency gates (A61/E47/P26).
-BOOT_PHASES: Final[tuple[str, ...]] = (
-    "environment-check",
-    "governance-audit",
-    "postgresql-start",
-    "qdrant-start",
-    "ollama-start",
-)
-# Required phases — failure gates the entire sequence (A61 GATE).
-REQUIRED_BOOT_PHASES: Final[tuple[str, ...]] = (
-    "environment-check",
-    "governance-audit",
-    "postgresql-start",
-)
-POSTGRES_PROBE_ATTEMPTS: Final[int] = 6
-POSTGRES_PROBE_DELAY: Final[float] = 5.0
-POSTGRES_CONNECT_TIMEOUT: Final[float] = 3.0
-QDRANT_PROBE_TIMEOUT: Final[float] = 0.75
-OLLAMA_PROBE_TIMEOUT: Final[float] = 0.75
 
 
 def _iso_now() -> str:
@@ -119,9 +95,9 @@ class BootCore(PhaseMixin, GovernanceMixin):
         # Rolling buffer of recent child stdout lines for crash diagnosis.
         self._child_output: list[str] = []
         self._child_output_lock = threading.Lock()
-        # Split diagnosis and repair into discrete dynamic components.
+        # Startup authority is diagnosis-and-signal only. Repair mutation is
+        # owned by the governed maintenance/decision/execution chain.
         self._crash_diagnoser = CrashDiagnoser()
-        self._crash_repair = CrashRepair(self.project_root)
 
     # --------------------------------------------------------------
     # runtime paths (shared by governance bootstrap + phase imports)
@@ -448,23 +424,13 @@ class BootCore(PhaseMixin, GovernanceMixin):
     # Automatic repair on crash
     # --------------------------------------------------------------
 
-    def _run_auto_repair(self, exit_code: int, uptime: float) -> dict[str, object]:
-        """Dynamically diagnose and, only when safe, repair the crash cause.
+    def _signal_startup_failure(
+        self, exit_code: int, uptime: float
+    ) -> dict[str, object]:
+        """Diagnose an early crash and submit a governed repair signal.
 
-        This is a minimal, targeted dynamic repair path, not a rescue-style
-        reset/overwrite.  It:
-        1. Captures the child's last output (traceback) to identify the
-           exact file and error type that caused the crash.
-        2. Only repairs that specific file if the error is an
-           indentation/syntax family issue.
-        3. Never falls back to a full-source scan — that would violate the
-           minimal-repair principle and risk clobbering unrelated files.
-        4. Skips repair entirely for non-source errors (import failures,
-           runtime exceptions, dependency issues) or unparseable output.
-
-        Learning integration: after each repair attempt, the outcome is
-        recorded in the learning store.  Recurring error→remedy patterns
-        are auto-promoted to learned recipes for future dispatch.
+        This startup-owned path performs no repair mutation and makes no
+        maintenance decision.
         """
 
         report: dict[str, object] = {
@@ -472,10 +438,8 @@ class BootCore(PhaseMixin, GovernanceMixin):
             "reason": "",
             "ok": False,
         }
-        # Skip auto-repair entirely in dev mode — the developer is actively
-        # editing source and automated indentation rewrites would clobber
-        # in-progress changes (even committed code can be mid-edit via the
-        # hot-reload watcher's transient save states).
+        # Development crashes are surfaced to the active developer and do not
+        # create background repair requests.
         if os.environ.get("GPTBRIDGE_RENDERER_DEV_URL"):
             report["reason"] = "dev-mode; auto-repair disabled"
             return report
@@ -501,13 +465,24 @@ class BootCore(PhaseMixin, GovernanceMixin):
             )
             report["diagnosis"] = diagnosis
 
-            repair_report = self._crash_repair.repair(diagnosis)
-            report["ok"] = bool(repair_report.get("ok"))
-            if repair_report.get("reason"):
-                report["reason"] = str(repair_report["reason"])
-            report["repair"] = repair_report
-            # Learning is integrated inside the repair methods; the learner
-            # records errors and outcomes automatically.
+            from tasks.repair_coordinator import RepairCoordinator
+
+            failure_code = str(diagnosis.get("failure_code") or "STARTUP_CRASH")
+            signal_report = RepairCoordinator(
+                self.project_root
+            ).request_governed_repair(
+                failure_code=failure_code,
+                owner="startup-sovereign",
+                decision_proof={
+                    "authority": "signal-only",
+                    "exit_code": exit_code,
+                    "uptime_seconds": round(uptime, 3),
+                    "diagnosis": diagnosis,
+                },
+                signal_only=True,
+            )
+            report["ok"] = bool(signal_report.get("ok"))
+            report["signal"] = signal_report
         except Exception as error:
             report["ok"] = False
             report["error"] = f"{type(error).__name__}: {error}"
@@ -536,7 +511,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 self._write_state()
                 # Run auto-repair (best-effort; source repair is unlikely to
                 # help dependency failures, but it records the event).
-                self._run_auto_repair(1, 0.0)
+                self._signal_startup_failure(1, 0.0)
                 if self._restarts >= MAX_RESTARTS:
                     return 2
                 self._restarts += 1
@@ -561,7 +536,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 self._status = "spawn-failed"
                 self._last_exit = {"error": f"{type(error).__name__}: {error}"}
                 self._write_state()
-                self._run_auto_repair(1, 0.0)
+                self._signal_startup_failure(1, 0.0)
                 if self._restarts >= MAX_RESTARTS:
                     return 2
                 self._restarts += 1
@@ -616,8 +591,8 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 self._status = "restart-budget-exhausted"
                 self._write_state()
                 return 3
-            # Run automatic source repair on early crashes before restarting.
-            repair_report = self._run_auto_repair(code, healthy_uptime)
+            # Diagnose and signal; startup authority never mutates source.
+            repair_report = self._signal_startup_failure(code, healthy_uptime)
             delay = BACKOFF_SCHEDULE_SECONDS[
                 min(self._restarts - 1, len(BACKOFF_SCHEDULE_SECONDS) - 1)
             ]

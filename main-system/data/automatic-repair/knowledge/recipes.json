@@ -86,8 +86,8 @@
     "owner": "main-system",
     "automatic": true,
     "runtime_only": true,
-    "learned_at": "2026-09-11T06:55:03.684159+00:00",
-    "occurrence_count": 185,
+    "learned_at": "2026-09-11T14:45:17.861262+00:00",
+    "occurrence_count": 200,
     "success_rate": 1.0,
     "source": "learned"
   },

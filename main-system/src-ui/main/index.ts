@@ -11,7 +11,6 @@ import {
   getBackendStatus,
   restartBackend,
   startBackend,
-  stopBackend,
 } from './python-backend'
 import { getRuntimeEnv } from './runtime-env'
 import { PRODUCT_VERSION } from './product-version'
@@ -29,7 +28,6 @@ import {
 } from './platform-tool-sizes'
 
 let mainWindow: BrowserWindow | null = null
-let quitting = false
 let lastCpuSnapshot: { idle: number; total: number } | null = null
 let currentUiZoom = 1
 let mainRendererReloadTimer: NodeJS.Timeout | null = null
@@ -618,18 +616,11 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('before-quit', (event) => {
+app.on('before-quit', () => {
   closeAllSessions()
   stopMainRendererWatch()
-  if (quitting || !shouldManageBackend) return
-
-  event.preventDefault()
-  quitting = true
-  stopBackend()
-    .catch((error: unknown) => {
-      console.error('[BOOT] Backend shutdown failed:', error)
-    })
-    .finally(() => {
-      app.quit()
-    })
+  // The formal UI is a detachable projection. Closing it must not terminate
+  // the hidden governed runtime or any independent tool runtime. Full-system
+  // shutdown remains an explicit typed runtime intent.
+  reportRuntimeEvent('main.ui-detached')
 })

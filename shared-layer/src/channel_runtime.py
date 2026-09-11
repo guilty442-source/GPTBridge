@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,21 @@ from typing import Any
 TOOL_ID = "shared-layer"
 ROOT = Path(__file__).resolve().parents[2]
 TOOL_ROOT = ROOT / "shared-layer"
+
+
+def _tool_version() -> str:
+    try:
+        manifest_path = TOOL_ROOT / "manifest.json"
+        version = str(
+            json.loads(manifest_path.read_text("utf-8")).get("version", "")
+        ).strip()
+        if version:
+            return version
+    except Exception:
+        pass
+    return "1.0.0"
+
+
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(TOOL_ROOT / "src"))
 
@@ -34,7 +50,7 @@ async def execute(
 async def main() -> None:
     runtime = GovernedToolRuntime(
         tool_id=TOOL_ID,
-        version="1.00000",
+        version=_tool_version(),
         executor=execute,
         health=lambda: {
             "service_ready": True,

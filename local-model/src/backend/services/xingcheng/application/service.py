@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 import time
 from pathlib import Path
@@ -40,6 +41,25 @@ from .local_ai_capability import LocalAiCapabilityMixin
 from .local_ai_teaching import LocalAiTeachingMixin
 
 
+def _service_version() -> str:
+    try:
+        from core_system.versioning import component_version
+
+        return component_version("local-model")
+    except Exception:
+        pass
+    manifest_path = Path(__file__).resolve().parents[5] / "manifest.json"
+    try:
+        version = str(
+            json.loads(manifest_path.read_text("utf-8")).get("version", "")
+        ).strip()
+        if version:
+            return version
+    except Exception:
+        pass
+    return "1.0.0"
+
+
 class LocalAiService(
     LocalAiLifecycleMixin,
     LocalAiEmbeddingMixin,
@@ -55,7 +75,7 @@ class LocalAiService(
     InvestmentChannelMixin,
     InferenceChannelMixin,
 ):
-    VERSION = "1.00000"
+    VERSION = _service_version()
     NATIVE_MODEL_ID = "star-main-native-model"
     PLATFORM_MODE = "context-aware-multitask-model-platform"
     ENTRY_GATEWAY = "all-ai-business-entries"

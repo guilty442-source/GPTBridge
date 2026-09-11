@@ -100,23 +100,33 @@ class CleanupExecutorMixin:
                 continue
             ordered.append(resolved)
 
+        legacy_root_names = {
+            "backups",
+            "release",
+            "tmp",
+            "test-results",
+            ".pytest_cache",
+            LEGACY_QUARANTINE_ROOT_NAME,
+            LEGACY_RECOVERY_ROOT_NAME,
+        }
+
         removed: list[str] = []
         skipped: list[dict[str, str]] = []
         removed_bytes = 0
         for target in ordered:
             try:
-                target.relative_to(self.project_root)
                 if (
                     target == self.project_root
                     or not target.exists()
                     or self._is_link_or_reparse_point(target)
                 ):
                     continue
+                relative = self._relative_path(target)
                 item_type = "directory" if target.is_dir() else "file"
                 protection = self._git_protection_reason(target, item_type)
                 if protection == "directory contains git-tracked files":
                     tracked, _status = self._git_snapshot()
-                    prefix = self._relative_path(target).rstrip("/") + "/"
+                    prefix = relative.rstrip("/") + "/"
                     if not any(
                         item.startswith(prefix)
                         and (self.project_root / Path(item)).exists()
@@ -124,26 +134,16 @@ class CleanupExecutorMixin:
                     ):
                         protection = ""
                 if protection:
-                    skipped.append(
-                        {"path": self._relative_path(target), "reason": protection}
-                    )
+                    skipped.append({"path": relative, "reason": protection})
                     continue
-                snapshot = self._candidate_snapshot(target, item_type)
-                removed_bytes += int(snapshot.get("size_bytes") or 0)
-                relative = self._relative_path(target)
-                if item_type == "directory":
-                    def clear_readonly_and_retry(
-                        operation: Callable[..., Any],
-                        path: str,
-                        _error: tuple[type[BaseException], BaseException, Any],
-                    ) -> None:
-                        os.chmod(path, stat_module.S_IWRITE)
-                        operation(path)
-
-                    shutil.rmtree(target, onerror=clear_readonly_and_retry)
-                else:
-                    target.unlink()
-                removed.append(relative)
+                honor_protection = Path(relative).name not in legacy_root_names
+                removed_bytes += self._remove_legacy_tree(
+                    target,
+                    relative,
+                    honor_protection=honor_protection,
+                    removed=removed,
+                    skipped=skipped,
+                )
             except (OSError, ValueError) as error:
                 skipped.append(
                     {"path": str(target), "reason": f"{type(error).__name__}: {error}"}
@@ -160,6 +160,72 @@ class CleanupExecutorMixin:
             "message": f"legacy artifacts purged (removed={len(removed)})",
         }
 
+    def _remove_legacy_tree(
+        self,
+        target: Path,
+        relative: str,
+        *,
+        honor_protection: bool,
+        removed: list[str],
+        skipped: list[dict[str, str]],
+    ) -> int:
+        """Recursively remove *target*, honoring protected descendants.
+
+        Legacy root directories declared in ``purge_legacy_artifacts`` bypass
+        the general protection list so that explicitly obsolete roots such as
+        ``release`` or ``backups`` can be purged. All other directories,
+        including ``platform_tools/<tool>/build``, keep their protected children
+        (e.g. ``package-*`` release folders) intact.
+        """
+
+        if self._is_link_or_reparse_point(target):
+            skipped.append({"path": relative, "reason": "link or reparse point"})
+            return 0
+        if honor_protection and self._is_protected(target):
+            skipped.append({"path": relative, "reason": "protected path"})
+            return 0
+        if target.is_dir():
+            removed_bytes = 0
+            try:
+                children = sorted(target.iterdir())
+            except OSError as exc:
+                skipped.append({"path": relative, "reason": f"{type(exc).__name__}: {exc}"})
+                return 0
+            for child in children:
+                child_relative = self._relative_path(child)
+                removed_bytes += self._remove_legacy_tree(
+                    child,
+                    child_relative,
+                    honor_protection=honor_protection,
+                    removed=removed,
+                    skipped=skipped,
+                )
+            try:
+                if not any(target.iterdir()):
+                    os.chmod(target, stat_module.S_IWRITE)
+                    target.rmdir()
+                    removed.append(relative)
+            except OSError:
+                # Directory still contains protected descendants or cannot be removed.
+                pass
+            return removed_bytes
+        try:
+            size = target.stat(follow_symlinks=False).st_size
+            target.unlink()
+            removed.append(relative)
+            return size
+        except PermissionError:
+            try:
+                os.chmod(target, stat_module.S_IWRITE)
+                target.unlink()
+                removed.append(relative)
+                return size
+            except OSError as exc:
+                skipped.append({"path": relative, "reason": f"PermissionError: {exc}"})
+                return 0
+        except OSError as exc:
+            skipped.append({"path": relative, "reason": f"{type(exc).__name__}: {exc}"})
+            return 0
 
     def __init__(
         self,
@@ -1413,7 +1479,10 @@ class CleanupExecutorMixin:
                 if quarantine:
                     quarantine_rel = str(moved_entries[index]["quarantine_path"])
                     quarantine_target = (batch_dir / quarantine_rel).resolve()
-                    quarantine_target.relative_to(batch_dir.resolve())
+                    if not quarantine_target.is_relative_to(batch_dir.resolve()):
+                        raise ValueError(
+                            f"quarantine target escaped batch directory: {quarantine_target}"
+                        )
                     moved_entries[index]["status"] = "moving"
                     self._write_batch_document(batch_dir, document)
                     if contents_only:
@@ -1462,7 +1531,7 @@ class CleanupExecutorMixin:
                     cleaned_dirs += int(item_type == "directory")
                     cleaned_files += int(item_type == "file")
                 cleaned_bytes += size
-            except OSError as exc:
+            except (OSError, ValueError) as exc:
                 processes = self._locking_processes(target)
                 error = {"path": rel_path, "type": item_type, "message": str(exc), "locked_by": processes}
                 apply_errors.append(error)

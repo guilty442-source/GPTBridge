@@ -1,7 +1,6 @@
 import packageMetadata from '../../package.json'
 
 const bundledVersion = String(packageMetadata.version || '').trim()
-const LOCKED_PRODUCT_VERSION = '1.00000'
 const LOCKED_PACKAGE_VERSION = '1.0.0'
 
 if (bundledVersion !== LOCKED_PACKAGE_VERSION) {
@@ -11,6 +10,6 @@ if (bundledVersion !== LOCKED_PACKAGE_VERSION) {
 }
 
 /** Product version is immutable and never taken from Electron or an update payload. */
-export const PRODUCT_VERSION = LOCKED_PRODUCT_VERSION
+export const PRODUCT_VERSION = bundledVersion
 
 export const PRODUCT_DISPLAY_VERSION = PRODUCT_VERSION.split('.').slice(0, 2).join('.')

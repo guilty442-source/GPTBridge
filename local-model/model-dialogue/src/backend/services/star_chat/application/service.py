@@ -1,14 +1,35 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
+from pathlib import Path
 from typing import Any, Callable
+
+
+def _service_version() -> str:
+    try:
+        from core_system.versioning import component_version
+
+        return component_version("star-chat")
+    except Exception:
+        pass
+    manifest_path = Path(__file__).resolve().parents[5] / "manifest.json"
+    try:
+        version = str(
+            json.loads(manifest_path.read_text("utf-8")).get("version", "")
+        ).strip()
+        if version:
+            return version
+    except Exception:
+        pass
+    return "1.0.0"
 
 
 class StarChatService:
     """A separated, governed client for local model conversation."""
 
-    VERSION = "1.00000"
+    VERSION = _service_version()
     PRIMARY_LANGUAGE = "zh-TW"
     AUTOMATIC_WORKFLOW_SEQUENCE = (
         "receive-original-traditional-chinese",

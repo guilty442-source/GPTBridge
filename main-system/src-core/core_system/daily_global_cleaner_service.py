@@ -177,13 +177,6 @@ class DailyGlobalCleanerService:
         async with self._run_lock:
             if not force and not self.is_due():
                 return {"ok": True, "skipped": True, "reason": "NOT_DUE"}
-            toolbox = self.app.toolbox_service
-            permission = self._permission_master_entry()
-            if toolbox is None or permission is None:
-                return {
-                    "ok": False,
-                    "error_code": "GOVERNED_RUNTIME_UNAVAILABLE",
-                }
             request_id = f"daily-global-cleaner-{time.time_ns()}"
             state = self._load_state()
             state.update(
@@ -196,6 +189,22 @@ class DailyGlobalCleanerService:
                 }
             )
             state.pop("last_error", None)
+            toolbox = self.app.toolbox_service
+            permission = self._permission_master_entry()
+            if toolbox is None or permission is None:
+                error = {
+                    "ok": False,
+                    "error_code": "GOVERNED_RUNTIME_UNAVAILABLE",
+                }
+                state.update(
+                    {
+                        "last_status": "governed_runtime_unavailable",
+                        "last_completed_at": self._iso_now(),
+                        "last_error": error,
+                    }
+                )
+                self._save_state(state)
+                return error
             self._save_state(state)
             try:
                 start_result = await toolbox.start_tool(

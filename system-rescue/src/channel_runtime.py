@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 from pathlib import Path
@@ -14,6 +15,21 @@ ROOT = Path(
 TOOL_ROOT = (ROOT / "system-rescue").resolve()
 if ROOT != Path("E:/GPTBridge").resolve() or not TOOL_ROOT.is_dir():
     raise PermissionError("PERMISSION_DENIED")
+
+
+def _tool_version() -> str:
+    try:
+        manifest_path = TOOL_ROOT / "manifest.json"
+        version = str(
+            json.loads(manifest_path.read_text("utf-8")).get("version", "")
+        ).strip()
+        if version:
+            return version
+    except Exception:
+        pass
+    return "1.0.0"
+
+
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
 sys.path.insert(0, str(TOOL_ROOT / "src" / "backend" / "services"))
@@ -54,7 +70,7 @@ async def execute(
 async def main() -> None:
     runtime = GovernedToolRuntime(
         tool_id=TOOL_ID,
-        version="1.00000",
+        version=_tool_version(),
         executor=execute,
         health=lambda: {
             "service_ready": True,
