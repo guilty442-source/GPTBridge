@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -32,7 +33,7 @@ class TaskManager:
         key = str(task_type).strip()
         if not key:
             raise ValueError("task_type is required")
-        now = time.time()
+        now = datetime.now(timezone.utc).isoformat()
         task = {
             "task_id": uuid.uuid4().hex[:16],
             "task_type": key,
@@ -52,7 +53,7 @@ class TaskManager:
         tasks = self._tasks.values()
         if wanted:
             tasks = [task for task in tasks if str(task.get("status", "")).lower() == wanted]
-        return [dict(task) for task in sorted(tasks, key=lambda item: float(item["created_at"]))]
+        return [dict(task) for task in sorted(tasks, key=lambda item: str(item["created_at"]))]
 
     def get_task(self, task_id: str) -> dict[str, Any] | None:
         task = self._tasks.get(str(task_id))
@@ -63,7 +64,7 @@ class TaskManager:
         if task is None:
             raise KeyError(f"task not found: {task_id}")
         task.update(updates)
-        task["updated_at"] = time.time()
+        task["updated_at"] = datetime.now(timezone.utc).isoformat()
         return dict(task)
 
     def run_task(self, task_id: str) -> dict[str, Any]:

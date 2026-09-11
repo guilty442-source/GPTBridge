@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -98,7 +99,7 @@ class GPTBridgeApp:
                 {
                     "phase": previous,
                     "duration_ms": duration_ms,
-                    "finished_at": time.time(),
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
         self.startup_phase = phase
@@ -109,7 +110,7 @@ class GPTBridgeApp:
                     "type": "startup_phase",
                     "phase": phase,
                     "duration_since_last_ms": duration_ms,
-                    "timestamp": time.time(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
         except Exception:
@@ -164,7 +165,7 @@ class GPTBridgeApp:
         failure = {
             "stage": stage,
             "error": f"{type(error).__name__}: {error}",
-            "at": time.time(),
+            "at": datetime.now(timezone.utc).isoformat(),
         }
         self.startup_failures.append(failure)
         self._log({"type": "startup_failure", **failure})

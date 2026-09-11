@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import dataclasses
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Awaitable
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 @dataclasses.dataclass
@@ -16,7 +21,7 @@ class TaskRecord:
     percent: int = 0
     status: str = "running"
     message: str = ""
-    created_at: float = dataclasses.field(default_factory=time.time)
+    created_at: str = dataclasses.field(default_factory=_utc_now_iso)
 
 
 class TaskQueue:

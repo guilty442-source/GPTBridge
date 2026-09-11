@@ -273,16 +273,17 @@ class ReconcileService:
         content_hash: str | None,
     ) -> None:
         """Push a local resource to the central PostgreSQL index."""
+        now_iso = datetime.now(timezone.utc).isoformat()
         self.pg.execute(
             """INSERT INTO gptbridge_index.resource
                 (module_id, resource_id, version, content_hash, updated_at, status)
-               VALUES (%s, %s, %s, %s, now(), 'active')
+               VALUES (%s, %s, %s, %s, %s, 'active')
                ON CONFLICT (module_id, resource_id) DO UPDATE SET
                  version = excluded.version,
                  content_hash = excluded.content_hash,
-                 updated_at = now(),
+                 updated_at = excluded.updated_at,
                  status = 'active'""",
-            (module_id, resource_id, version, content_hash),
+            (module_id, resource_id, version, content_hash, now_iso),
         )
         self.pg.commit()
 

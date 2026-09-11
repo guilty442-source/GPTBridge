@@ -13,13 +13,6 @@ from typing import Any, Final
 RELOADABLE_SRC_ROOTS: Final[tuple[str, ...]] = (
     "main-system/src-core",
     "shared-layer/src",
-    "ai-collaboration/src",
-    "ai-assistant/src",
-    "global-cleaner/src",
-    "system-rescue/src",
-    "file-sorter/src",
-    "vaultly/src",
-    "investment-mobile/src",
 )
 
 PROTECTED_MODULE_PREFIXES: Final[tuple[str, ...]] = (

@@ -6,6 +6,7 @@ import gc
 import os
 import time
 from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -29,7 +30,7 @@ def release_unused_memory() -> dict[str, Any]:
     return {
         "collected_objects": collected,
         "working_set_trimmed": working_set_trimmed,
-        "completed_at": time.time(),
+        "completed_at": datetime.now(timezone.utc).isoformat(),
     }
 
 

@@ -10,6 +10,7 @@ import asyncio
 import contextlib
 import json
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -112,7 +113,7 @@ async def handler(websocket, app_instance):
             if heartbeat_dead.is_set():
                 break
             try:
-                await ui.send_event("heartbeat_ping", {"t": time.time()})
+                await ui.send_event("heartbeat_ping", {"t": datetime.now(timezone.utc).isoformat()})
             except Exception:
                 heartbeat_dead.set()
                 break

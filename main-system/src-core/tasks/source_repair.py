@@ -28,16 +28,11 @@ FAILURE_CODE: Final[str] = "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED"
 # authoritative backend Python source.  Front-end (src-ui), build output
 # (dist, dist-ui), tests, scripts, and governance_rule/codex are intentionally
 # excluded — they are either not Python, not backend, or read-only by codex.
+# A184: independent tool source roots are excluded — main-system must not
+# rewrite independent tool source.
 SOURCE_ROOTS: Final[tuple[str, ...]] = (
     "main-system/src-core",
     "shared-layer/src",
-    "ai-collaboration/src",
-    "ai-assistant/src",
-    "global-cleaner/src",
-    "system-rescue/src",
-    "file-sorter/src",
-    "vaultly/src",
-    "investment-mobile/src",
 )
 MAX_ORPHANS_PER_FILE: Final[int] = 8
 
