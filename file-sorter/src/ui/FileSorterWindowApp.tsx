@@ -299,7 +299,7 @@ function loadLastTargetDir(): string {
 
 export function FileSorterWindowApp() {
   const { cancelToolRun, requestToolRun, socketStatus } = useToolRunner(TOOL_ID, 30 * 60 * 1000)
-  const [targetDir, setTargetDir] = useState('')
+  const [targetDir, setTargetDir] = useState(loadLastTargetDir)
   const [keywordInput, setKeywordInput] = useState('')
   const [keywordFolder, setKeywordFolder] = useState('')
   const [destinationFolders, setDestinationFolders] = useState<string[]>([])

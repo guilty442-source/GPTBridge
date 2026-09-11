@@ -424,6 +424,7 @@ def test_ui_exposes_explicit_safe_automation_controls() -> None:
     assert "MiniCPM-V 4.6" in source
     assert "gptbridge.file-sorter.last-target-dir.v1" in source
     assert "invoke?.('dialog:validate-folder', savedTarget)" in source
+    assert "useState(loadLastTargetDir)" in source
     assert "localStorage.removeItem(LAST_TARGET_DIR_STORAGE_KEY)" in source
     source_host = (
         WORKSPACE_ROOT
