@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "????????????????????????????????????????",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "3.31600",
+  "codex_version": "3.41600",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -5609,14 +5609,14 @@
         "requirement_ids": "A263",
         "test_level": "integration+failure-injection",
         "preconditions": "registered route+authenticated clients+known snapshot/cursor+bounded queues",
-        "fixtures": "peer-kill|half-open|heartbeat-delay|ack-delay|sequence-gap|outbox-stall|queue-saturation|event-loop-block|supervisor-loss",
+        "fixtures": "FAULTS:CHANNEL_HEARTBEAT_TIMEOUT|CHANNEL_SESSION_REJECTED|CHANNEL_SEQUENCE_GAP|CHANNEL_OUTBOX_STALLED|CHANNEL_BACKPRESSURE_OVERFLOW|CHANNEL_EVENT_LOOP_STARVED|CHANNEL_SUPERVISOR_UNAVAILABLE; MANUALS:CHANNEL_CONTINUITY_RECOVERY|CHANNEL_RECONNECT_NO_CODE_MUTATION; peer-kill|half-open|heartbeat-delay|ack-delay|sequence-gap|outbox-stall|queue-saturation|event-loop-block|supervisor-loss",
         "ordered_steps": "inject each fault>verify ready invalidation>observe single reconnect>reauthenticate>snapshot/replay>verify cursor revision hash>observe stability",
         "expected_results": "no event loss or duplicate side effect; unrelated individuals remain ready; source hashes unchanged",
         "evidence": "correlation trace+before/after cursor/revision/hash+latency histogram",
         "cleanup": "close test routes and retain acknowledged fixture state",
         "isolation_policy": "isolated processes+unique generation+no production mutation",
         "timeout": "120s",
-        "introduced_version": "3.31600",
+        "introduced_version": "3.41600",
         "retired_version": null
       },
       {
@@ -5627,14 +5627,14 @@
         "requirement_ids": "A261",
         "test_level": "contract+integration+failure-injection",
         "preconditions": "dirty tracked and untracked fixtures+known preimage hashes+authorized defect sandbox",
-        "fixtures": "overwrite|reset|checkout|restore-default|whole-file-rewrite|minimal-valid-patch",
+        "fixtures": "FAULTS:AUTO_REPAIR_CODE_MUTATION_BLOCKED|AUTO_REPAIR_DESTRUCTIVE_METHOD_BLOCKED; MANUALS:AUTOMATIC_REPAIR_DESTRUCTIVE_METHOD; overwrite|reset|checkout|restore-default|whole-file-rewrite|minimal-valid-patch",
         "ordered_steps": "submit each prohibited plan>verify denial and unchanged hashes>submit bounded patch>verify exact diff>force test failure>verify attempted-patch-only rollback",
         "expected_results": "all destructive methods denied; uncommitted work preserved; accepted repair changes only authorized defect",
         "evidence": "before/after Git index/worktree+hashes+diff+decision/permission/test/audit proofs",
         "cleanup": "discard sandbox only after evidence capture",
         "isolation_policy": "temporary isolated worktree+no branch/history mutation",
         "timeout": "120s",
-        "introduced_version": "3.31600",
+        "introduced_version": "3.41600",
         "retired_version": null
       },
       {
@@ -5645,14 +5645,14 @@
         "requirement_ids": "A262",
         "test_level": "integration+system+failure-injection",
         "preconditions": "active certified generation+isolated compatible and incompatible candidates+connected UI",
-        "fixtures": "compile-fail|import-fail|mid-reload-fail|incompatible-contract|renderer-reload",
+        "fixtures": "FAULTS:HOT_RELOAD_RUNTIME_DISRUPTION; MANUALS:HOT_RELOAD_CONTINUITY; compile-fail|import-fail|mid-reload-fail|incompatible-contract|renderer-reload",
         "ordered_steps": "stage candidates>inject each failure>verify active continuity>verify transactional rollback>start blue-green successor>converge state>atomic switch>observe stability",
         "expected_results": "active service never interrupted by rejected candidate; one release/generation active; same window host; state converged",
         "evidence": "release/artifact roots+generation+request/outbox/cursor+window host+health evidence",
         "cleanup": "retain old certified release or explicit certified activation rollback",
         "isolation_policy": "candidate namespace and stores isolated from active",
         "timeout": "180s",
-        "introduced_version": "3.31600",
+        "introduced_version": "3.41600",
         "retired_version": null
       },
       {
@@ -5663,14 +5663,14 @@
         "requirement_ids": "A265",
         "test_level": "system+performance+failure-injection",
         "preconditions": "declared minimum environment+monotonic clock+cold/warm/resident states",
-        "fixtures": "cold|warm|resident-attach|dependency-delay|stale-generation|UI-reconnect",
+        "fixtures": "FAULTS:STARTUP_TOTAL_DEADLINE_EXCEEDED; MANUALS:STARTUP_TEN_SECOND_DEADLINE; cold|warm|resident-attach|dependency-delay|stale-generation|UI-reconnect",
         "ordered_steps": "run every fixture>capture inherited budgets and critical path>verify ready proof and UI convergence>force deadline>verify fencing and preservation",
         "expected_results": "every successful full startup <=10000ms; deadline failure never overlaps generations or mutates code; independent tools survive",
         "evidence": "p50/p95/p99+each-run phase timeline+generation fence+state convergence proof",
         "cleanup": "terminate only test generation and preserve independent fixtures",
         "isolation_policy": "isolated generation+no fixed sleeps in measurement",
         "timeout": "180s",
-        "introduced_version": "3.31600",
+        "introduced_version": "3.41600",
         "retired_version": null
       },
       {
@@ -5681,14 +5681,14 @@
         "requirement_ids": "A268",
         "test_level": "contract+integration+security",
         "preconditions": "versioned alias directory+platform/environment/generation fixtures",
-        "fixtures": "valid|missing|wrong-kind|cycle|stale-generation|platform-mismatch|physical-env-value|secret-handle",
+        "fixtures": "FAULTS:DIRECTORY_ALIAS_UNKNOWN|DIRECTORY_ALIAS_TYPE_MISMATCH|DIRECTORY_ALIAS_CYCLE|ENVIRONMENT_PHYSICAL_VALUE_FORBIDDEN; MANUALS:DIRECTORY_ALIAS_RESOLUTION; valid|missing|wrong-kind|cycle|stale-generation|platform-mismatch|physical-env-value|secret-handle",
         "ordered_steps": "resolve each fixture through official entry>verify typed result or denial>relocate physical mapping>verify zero source change>scan environment and logs",
         "expected_results": "valid aliases resolve; invalid cases fail closed; relocation changes directory only; no physical or secret leakage",
         "evidence": "resolution trace+directory version+source hashes+environment/log scan",
         "cleanup": "restore prior test mappings transactionally",
         "isolation_policy": "test directory generation+no production mapping mutation",
         "timeout": "90s",
-        "introduced_version": "3.31600",
+        "introduced_version": "3.41600",
         "retired_version": null
       }
     ],
@@ -5958,7 +5958,7 @@
         "codex_section": "27",
         "scope": "unit+contract+integration+system+failure-injection+security+performance+release+model evaluation and evidence",
         "general_provision_links": "A56|A57|A175|A226",
-        "special_provision_links": "A251",
+        "special_provision_links": "A251|A271|A272",
         "precedence": "special-over-general-within-declared-scope",
         "authority_boundary": "inside one codex authority",
         "introduced_version": "2.01600",
@@ -7982,6 +7982,15 @@
         "rule": "????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????",
         "prohibition": "??????????????????????????????????????????????????????????????????????????????????",
         "exception": "??????????????????????????????????"
+      },
+      {
+        "position": 272,
+        "provision_id": "A272",
+        "section_index": "27",
+        "subject": "?????????????",
+        "rule": "???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????",
+        "prohibition": "???????????????????????????????????????????????????????????????????????????",
+        "exception": "????????????????????"
       }
     ],
     "certification_evidence": [
@@ -8190,6 +8199,13 @@
       },
       {
         "version": "3.31600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "3.41600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -12025,6 +12041,12 @@
         "provision_id": "A271",
         "effective_version": "3.31600",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A272",
+        "effective_version": "3.41600",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12407,11 +12429,11 @@
       },
       {
         "key": "codex_version",
-        "value": "3.31600"
+        "value": "3.41600"
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v3.31600"
+        "value": "gptbridge-governance-codex-v3.41600"
       },
       {
         "key": "version_increment",
@@ -12455,11 +12477,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-11T23:00:17.854159+00:00"
+        "value": "2026-09-11T23:05:07.915628+00:00"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-12T07:00:17.883539+08:00"
+        "value": "2026-09-12T07:05:07.945942+08:00"
       }
     ],
     "preamble": [
@@ -16586,6 +16608,13 @@
         "provision_id": "A271",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A272",
+        "provision_type": "article",
+        "provision_id": "A272",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -20500,6 +20529,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "96c575aec3274bd7940dfb953b4efb2f9fd7575933df84f2716621678ad8e537"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A272",
+        "introduced_by": "H032",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "7f4a00317a773159c250175b1f18d74881bfb41a8bcc3690b620ebfd9509c063"
       }
     ],
     "provision_revisions": [
@@ -24454,6 +24491,14 @@
         "version": "3.31600",
         "content_hash": "96c575aec3274bd7940dfb953b4efb2f9fd7575933df84f2716621678ad8e537",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A272",
+        "revision_id": "H032",
+        "version": "3.41600",
+        "content_hash": "7f4a00317a773159c250175b1f18d74881bfb41a8bcc3690b620ebfd9509c063",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -24766,6 +24811,16 @@
         "summary": "closed directory coverage fault/manual test traceability and special-law conflict precedence gaps",
         "previous_hash": "91c91fe343ddd2cac602c2bba1fa4b47c4b5295309d4e4ca6250e3f0aaa90250",
         "entry_hash": "eb67cf3fc111034cd733def398ec95a8c12823a0c1e75aff0abeb62eebfbbdbc"
+      },
+      {
+        "sequence": 32,
+        "change_id": "H032",
+        "version": "3.41600",
+        "recorded_date": "2026-09-12",
+        "change_scope": "exact-trace-activation-gates",
+        "summary": "closed exact fault manual test traceability and added mandatory activation evidence gates",
+        "previous_hash": "eb67cf3fc111034cd733def398ec95a8c12823a0c1e75aff0abeb62eebfbbdbc",
+        "entry_hash": "c6372c7b99d1d5d2e45275f135cd84c59459ee0b4e911606a46ace272412d1cc"
       }
     ],
     "savings": [
@@ -25129,6 +25184,17 @@
         "content_root": "32a29b424781058df4e4381418ba8cb2306f5c7cfb052d4d3d559014cb502165",
         "identity_root": "c8f36a10fb38b46fc4c3bb3f2f051212c6318f23da0beb098489dccf7dd2b332",
         "full_root": "e502586c0a4ed67fb7afc901e9751a0a10841c5ffe63a4d6ab5850e355680f24"
+      },
+      {
+        "version": "3.41600",
+        "history_head": "c6372c7b99d1d5d2e45275f135cd84c59459ee0b4e911606a46ace272412d1cc",
+        "provision_count": 490,
+        "identity_count": 490,
+        "lineage_count": 490,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "419d2eedf93a028e9895d9f30aaad1111b6eafd389f917315e1663b6115acebd",
+        "identity_root": "f904b6f62129172e395a34587e6aa2ac9d646b03263cfb5a3a047caf9f65ee66",
+        "full_root": "5912a397d16f79411d07a67cc4f0bd022043121745c5872b79f9a8b8ba382144"
       }
     ],
     "sealed_components": [
@@ -30924,6 +30990,13 @@
         "tier": "special-law",
         "law_code": "CODEX_TEST_VALIDATION_EVALUATION_SPECIAL_LAW",
         "authority_basis": "A225|A228|A230|A270"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A272",
+        "tier": "special-law",
+        "law_code": "CODEX_TEST_VALIDATION_EVALUATION_SPECIAL_LAW",
+        "authority_basis": "A225|A228|A230|A271"
       }
     ],
     "directory_relationship_requirements": [
@@ -37058,6 +37131,54 @@
         "on_failure": "remain pending",
         "owner": "permission-sovereign",
         "introduced_version": "2.11600"
+      },
+      {
+        "gate_code": "FAULT_MANUAL_TEST_TRACEABLE",
+        "required_proof": "complete exact-code fault manual test graph",
+        "pass_rule": "zero missing edge",
+        "on_failure": "remain pending",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.41600"
+      },
+      {
+        "gate_code": "CODE_REFERENCE_ZERO_HARDCODING",
+        "required_proof": "full source configuration environment and resolver scan",
+        "pass_rule": "zero physical hardcoding and plaintext secret",
+        "on_failure": "remain pending",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.41600"
+      },
+      {
+        "gate_code": "IDENTITY_GROUP_COMPLETE",
+        "required_proof": "complete group membership conflict nesting revocation evidence",
+        "pass_rule": "zero implicit orphan cyclic expired or conflicting membership",
+        "on_failure": "remain pending",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.41600"
+      },
+      {
+        "gate_code": "TOOL_ISOLATION_MATRIX_COMPLETE",
+        "required_proof": "every ordered main/tool pair with failure and quota evidence",
+        "pass_rule": "all pairs pass failure injection",
+        "on_failure": "remain pending",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.41600"
+      },
+      {
+        "gate_code": "STARTUP_EVERY_RUN_WITHIN_TEN_SECONDS",
+        "required_proof": "cold warm resident reconnect and fault startup timings",
+        "pass_rule": "every complete startup <=10000ms",
+        "on_failure": "deny release",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.41600"
+      },
+      {
+        "gate_code": "CHANNEL_STABILITY_WINDOW_COMPLETE",
+        "required_proof": "all channel fault injection and convergence evidence",
+        "pass_rule": "zero loss duplicate stale gap or source mutation",
+        "on_failure": "remain recovering",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.41600"
       }
     ],
     "domain_directory_decision_boundary": [
