@@ -24,7 +24,7 @@
     {
       "id": "star-chat",
       "path": "model-dialogue",
-      "independent_only_in": "main-system"
+      "companion_owner": "xingcheng"
     }
   ],
   "operation_mode": "context-aware-multitask-model-platform",

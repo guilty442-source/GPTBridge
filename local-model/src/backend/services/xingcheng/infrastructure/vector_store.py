@@ -114,7 +114,7 @@ class LocalVectorStore:
                     document_id TEXT NOT NULL PRIMARY KEY,
                     module_id TEXT NOT NULL,
                     vector_size INTEGER NOT NULL,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                 );
                 CREATE TABLE IF NOT EXISTS collection_point (
                     point_id TEXT NOT NULL PRIMARY KEY,
@@ -235,7 +235,13 @@ class LocalVectorStore:
         limit: int,
         module_ids: tuple[str, ...] = (),
     ) -> list[dict[str, Any]]:
+        # A207: push down WHERE filter and LIMIT into SQL; cosine scoring
+        # remains in Python because SQLite has no native vector operations,
+        # but we bound the candidate set with a SQL-level ceiling so the
+        # application-side sort operates on a bounded result, not the full
+        # table.
         query_vector = _normalize([float(value) for value in vector])
+        bounded_limit = max(int(limit) * 4, min(int(limit) * 4, 500))
         with self._connect() as connection:
             if module_ids:
                 placeholders = ", ".join("?" for _ in module_ids)
@@ -244,12 +250,18 @@ class LocalVectorStore:
                     SELECT point_id, document_id, module_id, vector, payload
                     FROM collection_point
                     WHERE module_id IN ({placeholders})
+                    LIMIT ?
                     """,
-                    tuple(module_ids),
+                    (*module_ids, bounded_limit),
                 ).fetchall()
             else:
                 rows = connection.execute(
-                    "SELECT point_id, document_id, module_id, vector, payload FROM collection_point"
+                    """
+                    SELECT point_id, document_id, module_id, vector, payload
+                    FROM collection_point
+                    LIMIT ?
+                    """,
+                    (bounded_limit,),
                 ).fetchall()
         scored: list[tuple[float, dict[str, Any]]] = []
         for row in rows:

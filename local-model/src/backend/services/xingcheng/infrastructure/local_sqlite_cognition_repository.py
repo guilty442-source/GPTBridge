@@ -40,8 +40,8 @@ class LocalSqliteCognitionRepository:
                     endpoint TEXT,
                     status TEXT NOT NULL DEFAULT 'ready',
                     metadata TEXT,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                 );
                 CREATE TABLE IF NOT EXISTS cognition_knowledge (
                     knowledge_id TEXT NOT NULL PRIMARY KEY,
@@ -53,8 +53,8 @@ class LocalSqliteCognitionRepository:
                     source_path TEXT,
                     status TEXT NOT NULL DEFAULT 'ready',
                     metadata TEXT,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                 );
                 CREATE TABLE IF NOT EXISTS cognition_model_capability (
                     capability_id TEXT NOT NULL PRIMARY KEY,
@@ -67,8 +67,8 @@ class LocalSqliteCognitionRepository:
                     model_data_id TEXT,
                     status TEXT NOT NULL DEFAULT 'enabled',
                     metadata TEXT,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                 );
                 CREATE TABLE IF NOT EXISTS cognition_rag_reference (
                     reference_id TEXT NOT NULL PRIMARY KEY,
@@ -84,7 +84,7 @@ class LocalSqliteCognitionRepository:
                     knowledge_id TEXT,
                     status TEXT NOT NULL DEFAULT 'referenced',
                     metadata TEXT,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                 );
                 """
             )

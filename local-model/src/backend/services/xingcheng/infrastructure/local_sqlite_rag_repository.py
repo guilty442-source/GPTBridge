@@ -43,7 +43,7 @@ class LocalSqliteRagRepository:
                     version INTEGER NOT NULL DEFAULT 1,
                     index_status TEXT NOT NULL DEFAULT 'indexed',
                     metadata TEXT,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                 );
                 CREATE TABLE IF NOT EXISTS gptbridge_rag_chunk (
                     chunk_id TEXT NOT NULL PRIMARY KEY,
@@ -65,8 +65,8 @@ class LocalSqliteRagRepository:
                     chunk_count INTEGER NOT NULL DEFAULT 0,
                     status TEXT NOT NULL DEFAULT 'indexed',
                     version INTEGER NOT NULL DEFAULT 1,
-                    indexed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    indexed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                 );
                 """
             )
@@ -249,7 +249,12 @@ class LocalSqliteRagRepository:
         if not module_ids:
             return []
         placeholders = ", ".join("?" for _ in module_ids)
-        arguments: list[Any] = [*module_ids, query.casefold(), max(1, int(limit))]
+        # A207: push WHERE filter into SQL and bound the candidate set
+        # with a SQL-level ceiling; the final keyword re-rank remains in
+        # Python because the scoring algorithm is custom, but operates
+        # on a bounded result rather than the full table.
+        bounded_limit = max(int(limit) * 4, min(int(limit) * 4, 500))
+        arguments: list[Any] = [*module_ids, query.casefold(), bounded_limit]
         with self._connect() as connection:
             rows = connection.execute(
                 f"""

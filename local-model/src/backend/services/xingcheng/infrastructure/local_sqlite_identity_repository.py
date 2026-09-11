@@ -45,8 +45,8 @@ class LocalSqliteIdentityRepository:
                     value TEXT NOT NULL,
                     version INTEGER NOT NULL DEFAULT 1,
                     content_hash TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                 );
                 CREATE TABLE IF NOT EXISTS role_history_personality_version (
                     resource_id TEXT NOT NULL,
@@ -60,7 +60,7 @@ class LocalSqliteIdentityRepository:
                     value TEXT NOT NULL,
                     version INTEGER NOT NULL,
                     content_hash TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
                     PRIMARY KEY (resource_id, version)
                 );
                 CREATE TABLE IF NOT EXISTS role_audit_event (
@@ -75,7 +75,7 @@ class LocalSqliteIdentityRepository:
                     value TEXT NOT NULL,
                     version INTEGER NOT NULL DEFAULT 1,
                     content_hash TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
                     event_id TEXT NOT NULL PRIMARY KEY
                 );
                 """

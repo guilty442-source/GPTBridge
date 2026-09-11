@@ -68,7 +68,7 @@ class LocalAiRepository(
                     model TEXT NOT NULL,
                     request_json TEXT NOT NULL,
                     response_json TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                 );
                 CREATE TABLE IF NOT EXISTS common_command (
                     command_id TEXT PRIMARY KEY,

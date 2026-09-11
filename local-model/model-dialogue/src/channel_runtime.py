@@ -70,7 +70,7 @@ async def main() -> None:
     global active_runtime
     runtime = GovernedToolRuntime(
         tool_id=TOOL_ID,
-        version="1.00000",
+        version="1.0.0",
         executor=execute,
         startup=service.start,
         shutdown=service.shutdown,
@@ -85,7 +85,9 @@ async def main() -> None:
             "cache_storage": "local-model/runtime/cache/companions/star-chat",
             "backup_owner": "xingcheng",
             "backup_storage": "global-cleaner/data/business/backups/xingcheng",
-            "main_system_independent_tool": True,
+            "main_system_independent_tool": False,
+            "companion_tool": True,
+            "companion_owner": "xingcheng",
             "database_shared": True,
             "separate_business_layer": False,
             "separate_settings_layer": False,
