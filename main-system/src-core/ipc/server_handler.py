@@ -275,14 +275,15 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
 
             shells = getattr(app_instance, "_active_ui_shells", None)
             if shells:
-                status_service = getattr(app_instance, "runtime_status_service", None)
-                if status_service is not None:
-                    # Status assembly traverses multiple runtime owners and
-                    # can perform blocking probes.  Never run it on the IPC
-                    # loop that owns heartbeats and reconnect handshakes.
-                    status_payload = await asyncio.to_thread(
-                        status_service.startup_status
-                    )
+                notifier = getattr(app_instance, "_state_change_notifier", None)
+                snapshot = (
+                    notifier.current_snapshot()
+                    if isinstance(notifier, StateChangeNotifier)
+                    else None
+                )
+                if snapshot is not None:
+                    status_payload = snapshot.as_dict()
+                    status_payload["systemReady"] = snapshot.overall_ready
                     status_payload["push"] = True
                     dead: list[UIShell] = []
                     for ui in list(shells):
