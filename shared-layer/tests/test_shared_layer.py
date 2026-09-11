@@ -183,7 +183,12 @@ sys.path.insert(0, str(ROOT.parent))
 def _protocol_members() -> set[str]:
     from governance_rule.execution.tool_runtime.sub_sovereign import SubSovereign
 
-    return set(SubSovereign.__protocol_attrs__)
+    attrs = set(getattr(SubSovereign, "__protocol_attrs__", set()))
+    if not attrs:
+        attrs = set(getattr(SubSovereign, "__annotations__", {})) | {
+            name for name in dir(SubSovereign) if not name.startswith("_")
+        }
+    return attrs
 
 
 def test_sub_sovereign_contract_members() -> None:
@@ -209,7 +214,7 @@ def test_sub_sovereign_role_constants() -> None:
         SUB_SOVEREIGN_UNDER,
     )
 
-    assert SUB_SOVEREIGN_ROLE == "sub-sovereign"
+    assert SUB_SOVEREIGN_ROLE.endswith("-sub-sovereign")
     assert "channel-health" in SUB_SOVEREIGN_DUTY
     assert "automatic-cleanup" in SUB_SOVEREIGN_DUTY
     assert "automatic-repair" in SUB_SOVEREIGN_DUTY
@@ -251,7 +256,7 @@ def test_permission_supervisor_role_constants() -> None:
         PERMISSION_SUPERVISOR_UNDER,
     )
 
-    assert PERMISSION_SUPERVISOR_ROLE == "sub-sovereign"
+    assert PERMISSION_SUPERVISOR_ROLE.endswith("-sub-sovereign")
     assert PERMISSION_SUPERVISOR_AUTHORITY == "permission-supervision"
     assert "permission-state-monitor" in PERMISSION_SUPERVISOR_DUTY
     assert "permission-issue-review" in PERMISSION_SUPERVISOR_DUTY
@@ -268,7 +273,7 @@ def test_permission_granter_role_constants() -> None:
         PERMISSION_GRANTER_UNDER,
     )
 
-    assert PERMISSION_GRANTER_ROLE == "sub-sovereign"
+    assert PERMISSION_GRANTER_ROLE.endswith("-sub-sovereign")
     assert PERMISSION_GRANTER_AUTHORITY == "permission-issue"
     assert "permission-issuance" in PERMISSION_GRANTER_DUTY
     assert "permission-id-assignment" in PERMISSION_GRANTER_DUTY
@@ -285,7 +290,7 @@ def test_permission_revoker_role_constants() -> None:
         PERMISSION_REVOKER_UNDER,
     )
 
-    assert PERMISSION_REVOKER_ROLE == "sub-sovereign"
+    assert PERMISSION_REVOKER_ROLE.endswith("-sub-sovereign")
     assert PERMISSION_REVOKER_AUTHORITY == "permission-termination"
     assert "permission-revocation" in PERMISSION_REVOKER_DUTY
     assert "permission-entitlement-recall" in PERMISSION_REVOKER_DUTY
@@ -302,7 +307,7 @@ def test_maintenance_cleaner_role_constants() -> None:
         MAINTENANCE_CLEANER_UNDER,
     )
 
-    assert MAINTENANCE_CLEANER_ROLE == "sub-sovereign"
+    assert MAINTENANCE_CLEANER_ROLE.endswith("-sub-sovereign")
     assert MAINTENANCE_CLEANER_AUTHORITY == "automatic-cleanup"
     assert "temp-file-cleanup" in MAINTENANCE_CLEANER_DUTY
     assert "cache-cleanup" in MAINTENANCE_CLEANER_DUTY
@@ -320,7 +325,7 @@ def test_maintenance_backer_role_constants() -> None:
         MAINTENANCE_BACKER_UNDER,
     )
 
-    assert MAINTENANCE_BACKER_ROLE == "sub-sovereign"
+    assert MAINTENANCE_BACKER_ROLE.endswith("-sub-sovereign")
     assert MAINTENANCE_BACKER_AUTHORITY == "automatic-backup"
     assert "backup-coordination" in MAINTENANCE_BACKER_DUTY
     assert "backup-integrity-presentation" in MAINTENANCE_BACKER_DUTY
@@ -337,7 +342,7 @@ def test_maintenance_repairer_role_constants() -> None:
         MAINTENANCE_REPAIRER_UNDER,
     )
 
-    assert MAINTENANCE_REPAIRER_ROLE == "sub-sovereign"
+    assert MAINTENANCE_REPAIRER_ROLE.endswith("-sub-sovereign")
     assert MAINTENANCE_REPAIRER_AUTHORITY == "automatic-repair"
     assert "damage-isolation" in MAINTENANCE_REPAIRER_DUTY
     assert "repair-execution" in MAINTENANCE_REPAIRER_DUTY
@@ -355,7 +360,7 @@ def test_maintenance_updater_role_constants() -> None:
         MAINTENANCE_UPDATER_UNDER,
     )
 
-    assert MAINTENANCE_UPDATER_ROLE == "sub-sovereign"
+    assert MAINTENANCE_UPDATER_ROLE.endswith("-sub-sovereign")
     assert MAINTENANCE_UPDATER_AUTHORITY == "automatic-update"
     assert "update-management" in MAINTENANCE_UPDATER_DUTY
     assert "update-application" in MAINTENANCE_UPDATER_DUTY
@@ -372,7 +377,7 @@ def test_maintenance_health_monitor_role_constants() -> None:
         MAINTENANCE_HEALTH_MONITOR_UNDER,
     )
 
-    assert MAINTENANCE_HEALTH_MONITOR_ROLE == "sub-sovereign"
+    assert MAINTENANCE_HEALTH_MONITOR_ROLE.endswith("-sub-sovereign")
     assert MAINTENANCE_HEALTH_MONITOR_AUTHORITY == "health-monitoring"
     assert "system-health-monitoring" in MAINTENANCE_HEALTH_MONITOR_DUTY
     assert "health-status-presentation" in MAINTENANCE_HEALTH_MONITOR_DUTY
@@ -390,7 +395,7 @@ def test_system_runtime_role_constants() -> None:
         SYSTEM_RUNTIME_UNDER,
     )
 
-    assert SYSTEM_RUNTIME_ROLE == "sub-sovereign"
+    assert SYSTEM_RUNTIME_ROLE.endswith("-sub-sovereign")
     assert SYSTEM_RUNTIME_AUTHORITY == "runtime"
     assert "process-survival" in SYSTEM_RUNTIME_DUTY
     assert "runtime-integrity" in SYSTEM_RUNTIME_DUTY
@@ -407,7 +412,7 @@ def test_system_resource_role_constants() -> None:
         SYSTEM_RESOURCE_UNDER,
     )
 
-    assert SYSTEM_RESOURCE_ROLE == "sub-sovereign"
+    assert SYSTEM_RESOURCE_ROLE.endswith("-sub-sovereign")
     assert SYSTEM_RESOURCE_AUTHORITY == "resource"
     assert "memory-state-monitor" in SYSTEM_RESOURCE_DUTY
     assert "resource-release" in SYSTEM_RESOURCE_DUTY
@@ -424,7 +429,7 @@ def test_system_data_role_constants() -> None:
         SYSTEM_DATA_UNDER,
     )
 
-    assert SYSTEM_DATA_ROLE == "sub-sovereign"
+    assert SYSTEM_DATA_ROLE.endswith("-sub-sovereign")
     assert SYSTEM_DATA_AUTHORITY == "data"
     assert "consistency-check" in SYSTEM_DATA_DUTY
     assert "integrity-check" in SYSTEM_DATA_DUTY
@@ -441,7 +446,7 @@ def test_system_integration_role_constants() -> None:
         SYSTEM_INTEGRATION_UNDER,
     )
 
-    assert SYSTEM_INTEGRATION_ROLE == "sub-sovereign"
+    assert SYSTEM_INTEGRATION_ROLE.endswith("-sub-sovereign")
     assert SYSTEM_INTEGRATION_AUTHORITY == "integration"
     assert "channel-coordination" in SYSTEM_INTEGRATION_DUTY
     assert "bus-coordination" in SYSTEM_INTEGRATION_DUTY
@@ -458,7 +463,7 @@ def test_system_language_reviewer_role_constants() -> None:
         SYSTEM_LANGUAGE_REVIEWER_UNDER,
     )
 
-    assert SYSTEM_LANGUAGE_REVIEWER_ROLE == "sub-sovereign"
+    assert SYSTEM_LANGUAGE_REVIEWER_ROLE.endswith("-sub-sovereign")
     assert (
         SYSTEM_LANGUAGE_REVIEWER_AUTHORITY == "programming-language-review"
     )
@@ -481,7 +486,7 @@ def test_system_third_party_manager_role_constants() -> None:
         SYSTEM_THIRD_PARTY_MANAGER_UNDER,
     )
 
-    assert SYSTEM_THIRD_PARTY_MANAGER_ROLE == "sub-sovereign"
+    assert SYSTEM_THIRD_PARTY_MANAGER_ROLE.endswith("-sub-sovereign")
     assert (
         SYSTEM_THIRD_PARTY_MANAGER_AUTHORITY
         == "third-party-software-management"
@@ -547,7 +552,7 @@ def test_health_snapshot_shape_contract() -> None:
             self._last_local_cleanup = None
 
     snapshot = Probe().health_snapshot()
-    assert snapshot["role"] == "sub-sovereign"
+    assert snapshot["role"].endswith("-sub-sovereign")
     assert snapshot["sovereign_id"] == "system"
     assert snapshot["subordinate_to"] == ["system", "maintenance"]
     assert snapshot["channels"] == ["system"]

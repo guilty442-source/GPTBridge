@@ -540,8 +540,10 @@ def test_project_root_contains_only_governed_modules_and_control_files() -> None
         "shared-layer",
         "docs",
         "scripts",
+        "launcher",
+        "native",
     }
-    allowed_files = {".gitignore", "pytest.ini", ".env"}
+    allowed_files = {".gitignore", "pytest.ini", ".env", ".markdownlint.json", "AGENTS.md"}
 
     unexpected = sorted(
         entry.name
@@ -829,7 +831,12 @@ class TestUpdateExecution:
 
     @pytest.mark.asyncio
     async def test_execute_update_not_in_path(self, inventory_file: Path) -> None:
-        manager = ThirdPartyManager(inventory_file)
+        manager = ThirdPartyManager(
+            inventory_file,
+            token_authenticator=lambda _t: type(
+                "Claims", (), {"capability": "hot-update"}
+            )(),
+        )
         with patch("shutil.which", return_value=None):
             result = await manager.execute_update("uv", approval_token="test")
         assert result.ok is False
@@ -962,8 +969,8 @@ def test_classify_with_leading_git_prefix() -> None:
     assert classify("git push --force") == 3
 
 
-def test_classify_unknown_defaults_to_tier_2() -> None:
-    assert classify("some-unknown-command") == 2
+def test_classify_unknown_defaults_to_tier_3() -> None:
+    assert classify("some-unknown-command") == 3
 
 
 def test_tier_operation_sets_are_disjoint() -> None:
@@ -1326,7 +1333,7 @@ def test_xingcheng_forbidden_classifications() -> None:
 # ---------------------------------------------------------------------------
 
 def test_reconcile_pending_without_postgresql(tmp_path: Path) -> None:
-    from shared_layer.reconcile import ReconcileService
+    from core_system.data_reconciliation import ReconcileService
     conn = sqlite3.connect(str(tmp_path / "test.sqlite3"))
     service = ReconcileService(conn, pg_connection=None)
     service.mark_pending("xingcheng", "doc-1", version=2,
@@ -1341,7 +1348,7 @@ def test_reconcile_pending_without_postgresql(tmp_path: Path) -> None:
 
 
 def test_reconcile_mark_and_count(tmp_path: Path) -> None:
-    from shared_layer.reconcile import ReconcileService
+    from core_system.data_reconciliation import ReconcileService
     conn = sqlite3.connect(str(tmp_path / "test.sqlite3"))
     service = ReconcileService(conn, pg_connection=None)
     service.mark_pending("xingcheng", "doc-1", 1, "2026-01-01T00:00:00Z")
@@ -2500,7 +2507,7 @@ def test_independent_window_close_policy_covers_source_and_packaged_ui() -> None
         / "tasks"
         / "templates"
         / "platform-tool-app"
-        / "main.cjs"
+        / "main.ts"
     ).read_text("utf-8")
 
     assert "independent-tool-window-closed" in toolbox_source

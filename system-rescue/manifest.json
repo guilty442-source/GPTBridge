@@ -2,8 +2,8 @@
   "id": "system-rescue",
   "name_key": "tool.name",
   "description_key": "tool.description",
-  "version": "1.00000",
-  "display_version": "1.00000",
+  "version": "1.0.0",
+  "display_version": "1.0",
   "status": "stopped",
   "enabled": true,
   "lifecycle": {

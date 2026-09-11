@@ -88,7 +88,7 @@ class DailyGlobalCleanerService:
         state = self._load_state()
         return {
             "enabled": True,
-            "owner": "main-system",
+            "owner": "maintenance-sovereign",
             "executor": "global-cleaner",
             "channel": "governance-authenticated-shared-layer",
             "interval_hours": 24,

@@ -446,10 +446,10 @@ class ThirdPartyManager:
         token, unauthenticated token, or capability mismatch denies the
         update before any command can run.
         """
+        if not approval_token:
+            return False, "approval token required"
         if self._token_authenticator is None:
             return False, "governance-authentication-unavailable"
-        if not approval_token:
-            return False, "missing-approval-token"
         try:
             claims = self._token_authenticator(approval_token)
         except (PermissionError, ValueError) as exc:

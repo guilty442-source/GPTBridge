@@ -162,6 +162,42 @@ class MaintenanceUpdateMixin:
         }
 
     # ------------------------------------------------------------------
+    # Delegated third-party update execution (A128: decide-third-party-updates)
+    # ------------------------------------------------------------------
+
+    async def execute_third_party_update(
+        self,
+        tool_id: str,
+        *,
+        approval_token: str | None = None,
+    ) -> Any:
+        """Delegate an approved third-party update to the third-party sovereign."""
+        system_sovereign = getattr(self.app, "system_sovereign_service", None)
+        third_party = getattr(system_sovereign, "third_party_sovereign", None)
+        if third_party is None:
+            raise RuntimeError("third-party sovereign is not available")
+        apply = getattr(third_party, "apply_approved_update")
+        if not callable(apply):
+            raise RuntimeError("third-party sovereign does not expose apply_approved_update")
+        return await apply(tool_id, approval_token=approval_token)
+
+    async def execute_auto_third_party_updates(
+        self,
+        *,
+        approval_token: str = "maintenance-auto",
+        only_available: bool = True,
+    ) -> Any:
+        """Delegate approved automatic third-party updates to the third-party sovereign."""
+        system_sovereign = getattr(self.app, "system_sovereign_service", None)
+        third_party = getattr(system_sovereign, "third_party_sovereign", None)
+        if third_party is None:
+            raise RuntimeError("third-party sovereign is not available")
+        apply = getattr(third_party, "apply_approved_auto_updates")
+        if not callable(apply):
+            raise RuntimeError("third-party sovereign does not expose apply_approved_auto_updates")
+        return await apply(approval_token=approval_token, only_available=only_available)
+
+    # ------------------------------------------------------------------
     # Helper for accessing module-level constant without circular import
     # ------------------------------------------------------------------
 

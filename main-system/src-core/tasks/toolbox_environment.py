@@ -84,23 +84,24 @@ class EnvironmentMixin:
         if requested == "source":
             return True
         launch = manifest.get("launch") or {}
+        if background and str(launch.get("background") or "").strip().casefold() in {
+            "governed-source",
+            "governed-source-ui",
+            "governed-source-channel",
+            "source",
+        }:
+            return True
         if ToolPathResolver.is_dual_runtime(manifest):
             return not executable_exists
-        if background:
-            return str(launch.get("background") or "").strip().casefold() in {
-                "governed-source",
-                "governed-source-ui",
-                "governed-source-channel",
-                "source",
-            }
-        if executable_exists:
-            return False
-        return str(launch.get("primary") or "").strip().casefold() in {
+        primary_is_source = str(launch.get("primary") or "").strip().casefold() in {
             "governed-source",
             "governed-source-ui",
             "governed-source-channel",
             "source",
         }
+        if primary_is_source:
+            return True
+        return not executable_exists
 
     @staticmethod
     def _source_fallback_allowed(

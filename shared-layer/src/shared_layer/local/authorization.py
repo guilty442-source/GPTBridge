@@ -27,6 +27,12 @@ class LocalAuthorization:
     def can_access_module(self, module_id: str, *, write: bool = False) -> bool:
         if not module_id:
             return False
+        if write:
+            row = self.connection.execute(
+                "SELECT can_write FROM principal_scope WHERE module_id=?",
+                (str(module_id),),
+            ).fetchone()
+            return bool(row and row[0])
         row = self.connection.execute(
             "SELECT COUNT(*) AS n FROM resource WHERE module_id=?",
             (str(module_id),),

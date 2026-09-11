@@ -21,7 +21,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-APPLICATION_VERSION_PATTERN = re.compile(r"^\d+\.\d+$")
+APPLICATION_VERSION_PATTERN = re.compile(r"^\d+\.\d+(?:\.\d+)?$")
 
 # Default project root: main-system/ (parent of src-core).
 _DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[2]
