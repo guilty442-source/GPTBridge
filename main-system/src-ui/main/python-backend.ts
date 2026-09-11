@@ -19,7 +19,9 @@
  * itself; this module only tracks whether boot_core is alive.
  */
 import { ChildProcess, spawn } from 'child_process'
+import crypto from 'node:crypto'
 import fs from 'node:fs'
+import http from 'node:http'
 import path from 'node:path'
 import { app } from 'electron'
 import {
@@ -47,6 +49,85 @@ const AUTO_RESTART_MAX_DELAY_MS = 30000
 let autoRestartAttempts = 0
 let autoRestartTimer: ReturnType<typeof setTimeout> | null = null
 let manualShutdown = false
+let shutdownToken = ''
+
+function probeExistingBackend(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const request = http.get(
+      { host: '127.0.0.1', port: 8765, path: '/health', timeout: 1_500 },
+      (response) => {
+        const chunks: Buffer[] = []
+        response.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
+        response.on('end', () => {
+          try {
+            const payload = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+              workspace_instance_id?: string
+              version?: string
+              backend_runtime_ready?: boolean
+            }
+            resolve(
+              payload.workspace_instance_id === getWorkspaceInstanceId() &&
+                payload.version === PRODUCT_VERSION &&
+                payload.backend_runtime_ready === true
+            )
+          } catch {
+            resolve(false)
+          }
+        })
+      }
+    )
+    request.on('timeout', () => request.destroy())
+    request.on('error', () => resolve(false))
+  })
+}
+
+function hasLiveSupervisor(paths: ReturnType<typeof getRuntimePathLibrary>): boolean {
+  const statePath = path.join(
+    paths.workspaceRoot,
+    'main-system',
+    'runtime',
+    'state',
+    'boot-core.json'
+  )
+  try {
+    const state = JSON.parse(fs.readFileSync(statePath, 'utf8')) as {
+      pid?: number
+      status?: string
+    }
+    const pid = Number(state.pid)
+    if (pid <= 0 || state.status === 'stopped') return false
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function requestGracefulBackendShutdown(): Promise<boolean> {
+  if (!shutdownToken) return Promise.resolve(false)
+  return new Promise((resolve) => {
+    const request = http.request(
+      {
+        method: 'GET',
+        host: '127.0.0.1',
+        port: 8765,
+        path: '/shutdown',
+        timeout: 1_500,
+        headers: {
+          'X-GPTBridge-Shutdown-Token': shutdownToken,
+          'X-GPTBridge-Shutdown-Reason': 'hot-update',
+        },
+      },
+      (response) => {
+        response.resume()
+        response.on('end', () => resolve(response.statusCode === 200))
+      }
+    )
+    request.on('timeout', () => request.destroy())
+    request.on('error', () => resolve(false))
+    request.end()
+  })
+}
 
 export function getBackendStatus(): BackendStatus {
   return backendStatus
@@ -82,6 +163,7 @@ function spawnBootCore(
     if (autoKillBackendPort) backendArgs.push('--auto-kill-backend-port')
 
     const runtimeEnvironment = getRuntimeEnvMap()
+    shutdownToken = crypto.randomBytes(32).toString('hex')
     // A60: the launcher must NOT generate governance bootstrap material
     // (FORBID:governance-system-start).  boot_core generates its own fresh
     // governance bootstrap token per spawn in ``_generate_governance_bootstrap``
@@ -97,22 +179,13 @@ function spawnBootCore(
           GPTBRIDGE_APP_VERSION: PRODUCT_VERSION,
           GPTBRIDGE_IPC_STATE_ROOT: getIpcStateRoot(),
           GPTBRIDGE_IPC_SESSION_TOKEN: getBackendSessionToken(),
+          GPTBRIDGE_SHUTDOWN_TOKEN: shutdownToken,
         },
-        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: true,
+        stdio: 'ignore',
         windowsHide: true,
       }
     )
-
-    pythonProcess.stdout?.on('data', (data) => {
-      const text = data.toString().trim()
-      console.log(`[boot_core STDOUT]: ${text}`)
-    })
-
-    pythonProcess.stderr?.on('data', (data) => {
-      const text = data.toString().trim()
-      backendLastError = `${backendLastError}\n${text}`.trim().slice(-4_000)
-      console.error(`[boot_core STDERR]: ${text}`)
-    })
 
     pythonProcess.on('exit', (code, signal) => {
       console.log(
@@ -181,11 +254,11 @@ function scheduleAutoRestart(): void {
     autoRestartTimer = null
     if (manualShutdown) return
     console.log('[Python Backend Manager] Auto-restarting boot_core...')
-    startBackend()
+    void startBackend()
   }, delay)
 }
 
-export function startBackend() {
+export async function startBackend(forceReplacement = false) {
   if (backendStatus === 'running') {
     console.warn('[Python Backend Manager] boot_core already running.')
     return
@@ -197,6 +270,17 @@ export function startBackend() {
   }
 
   const paths = getRuntimePathLibrary()
+
+  if (
+    !forceReplacement &&
+    (await probeExistingBackend()) &&
+    hasLiveSupervisor(paths)
+  ) {
+    backendStatus = 'running'
+    backendReadyAt = Date.now()
+    backendMessage = 'attached to existing governed backend'
+    return
+  }
 
   if (!fs.existsSync(paths.pythonExecutable)) {
     backendStatus = 'error'
@@ -232,12 +316,12 @@ export function startBackend() {
   spawnBootCore(paths, true)
 }
 
-export function ensureBackendStarted(): BackendStatus {
+export async function ensureBackendStarted(): Promise<BackendStatus> {
   if (backendStatus === 'error') {
     backendStatus = 'idle'
   }
   if (!pythonProcess && backendStatus !== 'running' && backendStatus !== 'starting') {
-    startBackend()
+    await startBackend()
   }
   return backendStatus
 }
@@ -261,6 +345,7 @@ export async function stopBackend() {
   console.log('[Python Backend Manager] Stopping boot_core...')
   const processToStop = pythonProcess
   const processId = processToStop.pid
+  await requestGracefulBackendShutdown()
   const exitedGracefully = await new Promise<boolean>((resolve) => {
     if (processToStop.exitCode !== null || processToStop.signalCode !== null) {
       resolve(true)
@@ -328,13 +413,14 @@ export async function stopBackend() {
   }
 
   if (pythonProcess === processToStop) pythonProcess = null
+  shutdownToken = ''
   backendStatus = 'idle'
   backendMessage = exitedGracefully
     ? 'backend stopped gracefully'
     : 'boot_core process tree stopped after graceful timeout'
 }
 
-export async function restartBackend() {
+export async function restartBackend(): Promise<BackendStatus> {
   manualShutdown = false
   if (autoRestartTimer) {
     clearTimeout(autoRestartTimer)
@@ -343,7 +429,8 @@ export async function restartBackend() {
   if (pythonProcess) {
     await stopBackend()
   }
+  backendStatus = 'idle'
   manualShutdown = false
-  startBackend()
-  return backendStatus
+  await startBackend(true)
+  return getBackendStatus()
 }

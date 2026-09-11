@@ -174,6 +174,9 @@ class HotUpdateService:
         reloaded: list[str] = []
         skipped: list[str] = []
         errors: list[str] = []
+        snapshots: dict[str, dict[str, Any]] = {}
+
+        candidates: list[tuple[str, types.ModuleType]] = []
 
         for module_name in list(sys.modules.keys()):
             if requested is not None and module_name not in requested:
@@ -188,12 +191,46 @@ class HotUpdateService:
                 if requested is not None and module_name in requested:
                     skipped.append(module_name)
                 continue
+            candidates.append((module_name, module))
+
+        # Fail before mutating any live module when one changed source cannot
+        # compile. This keeps the currently serving generation intact.
+        for module_name, module in candidates:
+            file_path = getattr(module, "__file__", None)
+            if not file_path:
+                continue
+            try:
+                source = Path(file_path).read_text(encoding="utf-8")
+                compile(source, str(file_path), "exec")
+            except Exception as error:
+                return types.SimpleNamespace(
+                    ok=False,
+                    reloaded=[],
+                    skipped=[name for name, _module in candidates],
+                    errors=[f"{module_name}: preflight: {error}"],
+                    error=f"{module_name}: preflight: {error}",
+                )
+
+        for module_name, module in candidates:
+            snapshots[module_name] = dict(module.__dict__)
             try:
                 importlib.reload(module)
                 reloaded.append(module_name)
             except Exception as error:
                 errors.append(f"{module_name}: {error}")
                 skipped.append(module_name)
+                break
+
+        if errors:
+            # Roll back the whole attempted generation, including modules that
+            # reloaded before the failing dependency.
+            for module_name, state in snapshots.items():
+                module = sys.modules.get(module_name)
+                if not isinstance(module, types.ModuleType):
+                    continue
+                module.__dict__.clear()
+                module.__dict__.update(state)
+            reloaded = []
 
         if reloaded:
             self._persist_reload_protection(reloaded)

@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 from core.ui_shell import UIShell
 from tasks.connection_watchdog import write_ipc_connection_state
 from tasks.state_change_notifier import StateChangeNotifier
+from tasks.state_outbox import OutboxPublisher
 from .server_commands import process_command_task
 
 
@@ -63,6 +64,12 @@ async def handler(websocket, app_instance):
     if not hasattr(app_instance, "_active_ui_shells"):
         app_instance._active_ui_shells: set[UIShell] = set()
     app_instance._active_ui_shells.add(ui)
+
+    # A195: register this authenticated session with the transactional
+    # outbox publisher; events begin flowing after the client's hello.
+    publisher = getattr(app_instance, "_outbox_publisher", None)
+    if isinstance(publisher, OutboxPublisher):
+        publisher.register_session(ui)
 
     # A67: authenticated IPC connection count changed — push immediately so
     # the UI reflects the new readiness state without waiting for the 2s timer.
@@ -158,6 +165,28 @@ async def handler(websocket, app_instance):
                     last_pong_time = time.monotonic()
                     continue
 
+                # A195 outbox control channel — handled in-band so cursor
+                # moves are ordered with respect to event delivery.
+                if command == "state_event_hello":
+                    pub = getattr(app_instance, "_outbox_publisher", None)
+                    if isinstance(pub, OutboxPublisher):
+                        hello = pub.handle_hello(ui, payload.get("cursor"))
+                        await ui.send_event("state_event_session", hello)
+                    continue
+
+                if command == "state_event_ack":
+                    pub = getattr(app_instance, "_outbox_publisher", None)
+                    if isinstance(pub, OutboxPublisher):
+                        pub.handle_ack(ui, payload.get("cursor"))
+                    continue
+
+                if command == "state_event_resync":
+                    pub = getattr(app_instance, "_outbox_publisher", None)
+                    if isinstance(pub, OutboxPublisher):
+                        result = pub.handle_resync(ui, payload.get("cursor"))
+                        await ui.send_event("state_event_resync_result", result)
+                    continue
+
                 if len(connection_tasks) >= MAX_CONNECTION_COMMAND_TASKS:
                     await ui.send_error("Too many commands are already running")
                     continue
@@ -208,6 +237,13 @@ async def handler(websocket, app_instance):
         # Remove this UIShell from the real-time push set.
         try:
             app_instance._active_ui_shells.discard(ui)
+        except Exception:
+            pass
+        # A195: unregister the outbox session for this connection.
+        try:
+            publisher = getattr(app_instance, "_outbox_publisher", None)
+            if isinstance(publisher, OutboxPublisher):
+                publisher.unregister_session(ui)
         except Exception:
             pass
         # A67: authenticated IPC connection count changed — push immediately.

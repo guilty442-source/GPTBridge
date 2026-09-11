@@ -39,7 +39,31 @@ const WS_RECONNECT_MAX_DELAY_MS = 16000
 const WS_CONNECT_TIMEOUT_MS = 8000
 const WS_READINESS_RETRY_MS = 1500
 const WS_COMMAND_QUEUE_MAX = 50
+const WS_COMMAND_QUEUE_TTL_MS = 60_000
+const WS_STALE_CONNECTION_MS = 15_000
+const OUTBOX_CURSOR_KEY = 'gptbridge.outbox.cursor'
+const OUTBOX_GENERATION_KEY = 'gptbridge.outbox.generation'
+const OUTBOX_BUFFER_MAX = 500
 const openBackendSockets = new Set<WebSocket>()
+
+type OutboxStateEvent = {
+  sequence: number
+  entity_id: string
+  entity_type: string
+  operation: string
+  authoritative_revision: number
+  previous_revision: number
+  changed_field_allowlist: string[]
+  invalidation_keys: string[]
+  state_hash: string
+  backend_generation: string
+  release_id: string
+  contract_version: string
+  correlation_id: string
+  committed_at: string
+  idempotency_key?: string
+  session_id?: string
+}
 
 let backendConnectionSnapshot: BackendConnectionSnapshot = {
   status: INITIAL_STATE.status,
@@ -80,7 +104,17 @@ export const useBackendSocket = () => {
   const connectTimeoutRef = useRef<number | null>(null)
   const readinessTimerRef = useRef<number | null>(null)
   const reconnectAttemptRef = useRef(0)
-  const commandQueueRef = useRef<Array<{ command: string; payload: unknown }>>([])
+  const commandQueueRef = useRef<
+    Array<{ command: string; payload: unknown; queuedAt: number }>
+  >([])
+  const lastMessageAtRef = useRef(0)
+  // A195 transactional outbox client state: applied cursor survives socket
+  // reconnects within the same window session (RECONNECT sends last-acked
+  // cursor; gap → scoped invalidation + replay).
+  const outboxAppliedRef = useRef<number>(
+    Number(window.sessionStorage.getItem(OUTBOX_CURSOR_KEY) || 0) || 0
+  )
+  const outboxBufferRef = useRef<Map<number, OutboxStateEvent>>(new Map())
 
   const flushCommandQueue = useCallback(() => {
     const queue = commandQueueRef.current
@@ -89,6 +123,15 @@ export const useBackendSocket = () => {
     if (!socket || socket.readyState !== WebSocket.OPEN) return
     while (queue.length > 0) {
       const item = queue.shift()!
+      if (Date.now() - item.queuedAt > WS_COMMAND_QUEUE_TTL_MS) {
+        BootLogger.log(
+          'WebSocket',
+          'QUEUE_ITEM_EXPIRED',
+          { command: item.command },
+          'warn'
+        )
+        continue
+      }
       try {
         socket.send(JSON.stringify({ command: item.command, payload: item.payload }))
         BootLogger.log('WebSocket', 'QUEUE_FLUSH', { command: item.command })
@@ -106,7 +149,7 @@ export const useBackendSocket = () => {
         if (command !== 'heartbeat_pong') {
           const queue = commandQueueRef.current
           if (queue.length < WS_COMMAND_QUEUE_MAX) {
-            queue.push({ command, payload })
+            queue.push({ command, payload, queuedAt: Date.now() })
             BootLogger.log('WebSocket', 'COMMAND_QUEUED', {
               command,
               queueSize: queue.length,
@@ -129,7 +172,13 @@ export const useBackendSocket = () => {
         const errorMsg = 'WebSocket closed before the command was sent; command was queued'
         // Queue for retry
         if (command !== 'heartbeat_pong') {
-          commandQueueRef.current.push({ command, payload })
+          if (commandQueueRef.current.length < WS_COMMAND_QUEUE_MAX) {
+            commandQueueRef.current.push({
+              command,
+              payload,
+              queuedAt: Date.now(),
+            })
+          }
         }
         return { ok: false, queued: true, message: errorMsg }
       }
@@ -139,6 +188,7 @@ export const useBackendSocket = () => {
 
   useEffect(() => {
     let disposed = false
+    let staleConnectionTimer: number | null = null
     const clearReconnectTimer = () => {
       const timer = reconnectTimerRef.current
       if (timer !== null) {
@@ -158,6 +208,13 @@ export const useBackendSocket = () => {
       if (readinessTimerRef.current !== null) {
         window.clearTimeout(readinessTimerRef.current)
         readinessTimerRef.current = null
+      }
+    }
+
+    const clearStaleConnectionTimer = () => {
+      if (staleConnectionTimer !== null) {
+        window.clearInterval(staleConnectionTimer)
+        staleConnectionTimer = null
       }
     }
 
@@ -279,6 +336,7 @@ export const useBackendSocket = () => {
         clearConnectTimeout()
         clearReconnectTimer()
         setLastError(null)
+        lastMessageAtRef.current = Date.now()
         updateBackendConnectionSnapshot('Synchronizing')
         setState((prev) => ({
           ...prev,
@@ -289,9 +347,22 @@ export const useBackendSocket = () => {
         }))
         BootLogger.log('WebSocket', 'OPEN', { endpoint: '127.0.0.1:8765' })
         requestRuntimeStatus()
+        // A195 RECONNECT: resubscribe to the transactional outbox with the
+        // last acknowledged cursor so the backend replays missed events.
+        try {
+          socket.send(
+            JSON.stringify({
+              command: 'state_event_hello',
+              payload: { cursor: outboxAppliedRef.current },
+            })
+          )
+        } catch {
+          // socket may have closed; hello is retried on next open
+        }
       }
 
       socket.onmessage = (event) => {
+        lastMessageAtRef.current = Date.now()
         try {
           const payload = JSON.parse(String(event.data)) as Record<string, unknown>
 
@@ -301,6 +372,86 @@ export const useBackendSocket = () => {
           ) {
             const runtime = (payload.payload ?? {}) as Record<string, unknown>
             applyRuntimeReadiness(runtime)
+          }
+
+          // A195: transactional outbox state event — validate sequence,
+          // apply once, acknowledge the contiguous cursor.
+          if (payload.event === 'state_event') {
+            const ev = payload.payload as OutboxStateEvent | undefined
+            if (ev && typeof ev.sequence === 'number') {
+              const storedGeneration = window.sessionStorage.getItem(
+                OUTBOX_GENERATION_KEY
+              )
+              if (
+                storedGeneration !== null &&
+                ev.backend_generation !== storedGeneration
+              ) {
+                // Backend-generation change → invalidate the projection and
+                // restart the stream from the authoritative cursor (A195 GAP).
+                outboxAppliedRef.current = 0
+                outboxBufferRef.current.clear()
+                eventBus.emit('state_event_invalidate', {
+                  reason: 'backend-generation-change',
+                })
+              }
+              window.sessionStorage.setItem(
+                OUTBOX_GENERATION_KEY,
+                ev.backend_generation
+              )
+
+              if (ev.sequence <= outboxAppliedRef.current) {
+                // Duplicate delivery (at-least-once) — dedupe via sequence.
+              } else if (ev.sequence === outboxAppliedRef.current + 1) {
+                outboxBufferRef.current.set(ev.sequence, ev)
+                while (outboxBufferRef.current.has(outboxAppliedRef.current + 1)) {
+                  const next = outboxBufferRef.current.get(
+                    outboxAppliedRef.current + 1
+                  )!
+                  outboxBufferRef.current.delete(next.sequence)
+                  outboxAppliedRef.current = next.sequence
+                  window.sessionStorage.setItem(
+                    OUTBOX_CURSOR_KEY,
+                    String(next.sequence)
+                  )
+                  eventBus.emit('state_event', next)
+                  eventBus.emit(`state_event:${next.entity_type}`, next)
+                  if (next.entity_type === 'runtime-status') {
+                    // Scoped snapshot convergence for the readiness entity.
+                    requestRuntimeStatus()
+                  }
+                }
+                try {
+                  socket.send(
+                    JSON.stringify({
+                      command: 'state_event_ack',
+                      payload: { cursor: outboxAppliedRef.current },
+                    })
+                  )
+                } catch {
+                  // ack is retried by the next delivered event
+                }
+              } else {
+                // Sequence gap → buffer bounded, invalidate, request resync.
+                if (outboxBufferRef.current.size < OUTBOX_BUFFER_MAX) {
+                  outboxBufferRef.current.set(ev.sequence, ev)
+                }
+                eventBus.emit('state_event_invalidate', {
+                  reason: 'sequence-gap',
+                  expected: outboxAppliedRef.current + 1,
+                  received: ev.sequence,
+                })
+                try {
+                  socket.send(
+                    JSON.stringify({
+                      command: 'state_event_resync',
+                      payload: { cursor: outboxAppliedRef.current },
+                    })
+                  )
+                } catch {
+                  // resync is retried on next event
+                }
+              }
+            }
           }
 
           // Respond to heartbeat ping immediately
@@ -378,6 +529,17 @@ export const useBackendSocket = () => {
     }
     window.addEventListener('online', reconnectNow)
     document.addEventListener('visibilitychange', reconnectNow)
+    staleConnectionTimer = window.setInterval(() => {
+      const socket = socketRef.current
+      if (
+        socket?.readyState === WebSocket.OPEN &&
+        lastMessageAtRef.current > 0 &&
+        Date.now() - lastMessageAtRef.current > WS_STALE_CONNECTION_MS
+      ) {
+        BootLogger.log('WebSocket', 'STALE_CONNECTION_CLOSED', {}, 'warn')
+        socket.close(4000, 'stale-connection')
+      }
+    }, 5_000)
     void connect()
 
     return () => {
@@ -385,6 +547,9 @@ export const useBackendSocket = () => {
       window.removeEventListener('online', reconnectNow)
       document.removeEventListener('visibilitychange', reconnectNow)
       clearReconnectTimer()
+      clearConnectTimeout()
+      clearReadinessTimer()
+      clearStaleConnectionTimer()
       reconnectAttemptRef.current = 0
       commandQueueRef.current = []
       const socket = socketRef.current

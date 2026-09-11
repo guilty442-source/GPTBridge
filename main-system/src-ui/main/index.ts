@@ -322,7 +322,7 @@ function registerIpcHandlers(): void {
       }
     }
 
-    const backendStatus = ensureBackendStarted()
+    const backendStatus = await ensureBackendStarted()
     return {
       ok: backendStatus !== 'error',
       managed: true,
@@ -569,7 +569,7 @@ if (!hasSingleInstanceLock) {
       // system-core start per A61 ordering.
       if (shouldManageBackend) {
         try {
-          startBackend()
+          void startBackend()
         } catch (error) {
           reportRuntimeEvent('backend.start.failed', {
             message: error instanceof Error ? error.message : String(error),

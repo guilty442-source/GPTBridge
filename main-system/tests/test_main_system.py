@@ -2547,6 +2547,46 @@ def test_main_startup_follows_declared_dag_and_detaches_ui() -> None:
     assert "main.ui-detached" in before_quit
 
 
+def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
+    root = ROOT / "main-system"
+    watcher = (root / "src-core" / "tasks" / "hot_reload_watcher.py").read_text(
+        "utf-8"
+    )
+    update = (
+        root / "src-core" / "core_system" / "hot_update_service.py"
+    ).read_text("utf-8")
+    backend = (root / "src-ui" / "main" / "python-backend.ts").read_text(
+        "utf-8"
+    )
+    socket = (
+        root
+        / "src-ui"
+        / "renderer"
+        / "shared"
+        / "hooks"
+        / "useBackendSocket.ts"
+    ).read_text("utf-8")
+    hmr = (
+        root
+        / "src-ui"
+        / "renderer"
+        / "shared"
+        / "services"
+        / "hmrService.ts"
+    ).read_text("utf-8")
+
+    assert "if await self._maybe_reload(changed):" in watcher
+    assert "self._pending = {}" in watcher
+    assert 'compile(source, str(file_path), "exec")' in update
+    assert "module.__dict__.update(state)" in update
+    assert "probeExistingBackend" in backend
+    assert "requestGracefulBackendShutdown" in backend
+    assert "GPTBRIDGE_SHUTDOWN_TOKEN" in backend
+    assert "WS_STALE_CONNECTION_MS" in socket
+    assert "QUEUE_ITEM_EXPIRED" in socket
+    assert "runtime:hot-reload-completed" in hmr
+
+
 def test_foreground_ui_exit_force_closes_the_complete_tool(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

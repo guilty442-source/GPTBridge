@@ -143,25 +143,26 @@ class HotReloadWatcher:
 
     # ─── reload request ───────────────────────────────────────────────
 
-    async def _maybe_reload(self, changed_paths: list[str]) -> None:
+    async def _maybe_reload(self, changed_paths: list[str]) -> bool:
+        """Attempt one reload; return whether the pending revision was consumed."""
         if self._in_flight or not self._enabled:
-            return
+            return False
         now = time.monotonic()
         if now < self._backoff_until:
-            return
+            return False
         if now - self._last_reload_at < MIN_RELOAD_INTERVAL_SECONDS:
-            return
+            return False
         self._reload_timestamps = [
             stamp for stamp in self._reload_timestamps if now - stamp < 60.0
         ]
         if len(self._reload_timestamps) >= MAX_RELOADS_PER_MINUTE:
-            return
+            return False
 
         app = self.app
         if getattr(app, "startup_dead", False) or not getattr(
             app, "maintenance_ready", False
         ):
-            return
+            return False
         # E127: hot-reload is a runtime action owned by the runtime
         # sub-sovereign (under the system-decision-sovereign).
         system_sovereign = getattr(app, "system_sovereign_service", None)
@@ -171,24 +172,24 @@ class HotReloadWatcher:
             else None
         )
         if runtime_sovereign is None:
-            return
+            return False
         governance = getattr(app, "governance", None)
         if governance is None:
-            return
+            return False
 
         module_names = self._loaded_module_names(changed_paths)
         if not module_names:
-            return
+            return True
         token_path = self._token_resource_path(changed_paths)
         if token_path is None:
-            return
+            return True
         token = self._mint_approval_token(governance, token_path)
         if not token:
             self._backoff_until = time.monotonic() + FAILURE_BACKOFF_SECONDS
             self._log({"type": "hot_reload_watcher", "ok": False,
                        "error": "governance-refused-token",
                        "modules": module_names})
-            return
+            return False
 
         self._in_flight = True
         try:
@@ -215,11 +216,13 @@ class HotReloadWatcher:
                 if isinstance(report, dict)
                 else [],
             })
+            return ok
         except Exception as error:
             self._backoff_until = time.monotonic() + FAILURE_BACKOFF_SECONDS
             self._log({"type": "hot_reload_watcher", "ok": False,
                        "error": f"{type(error).__name__}: {error}",
                        "modules": module_names})
+            return False
         finally:
             self._in_flight = False
 
@@ -298,10 +301,10 @@ class HotReloadWatcher:
                 if self._pending:
                     now = time.monotonic()
                     if now - max(self._pending.values()) >= QUIET_WINDOW_SECONDS:
-                        changed = list(self._pending.keys())
-                        self._pending = {}
                         if self._enabled:
-                            await self._maybe_reload(changed)
+                            changed = list(self._pending.keys())
+                            if await self._maybe_reload(changed):
+                                self._pending = {}
             except Exception as error:
                 self._log({"type": "hot_reload_watcher_error",
                            "error": f"{type(error).__name__}: {error}"})

@@ -34,6 +34,7 @@ from .server_process import (
 )
 from .server_handler import handler, _runtime_status_push_loop
 from tasks.state_change_notifier import StateChangeNotifier
+from tasks.state_outbox import OutboxPublisher
 
 
 # ------------------------------------------------------------------
@@ -191,6 +192,10 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                 # A67: initialize the state change notifier for immediate
                 # event propagation on readiness transitions.
                 app_instance._state_change_notifier = StateChangeNotifier(app_instance)
+                # A195: initialize the transactional outbox publisher so
+                # backend state changes reach the frontend through a durable,
+                # client-acknowledged event stream instead of best-effort push.
+                app_instance._outbox_publisher = OutboxPublisher(app_instance)
 
                 try:
                     if hasattr(app_instance, "_mark_startup_phase"):
@@ -228,9 +233,22 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                     _runtime_status_push_loop(app_instance, shutdown_event),
                     name="main-system-runtime-status-push",
                 )
+                outbox_publisher = getattr(app_instance, "_outbox_publisher", None)
+                outbox_task = (
+                    asyncio.create_task(
+                        outbox_publisher.run(shutdown_event),
+                        name="main-system-state-outbox",
+                    )
+                    if isinstance(outbox_publisher, OutboxPublisher)
+                    else None
+                )
 
                 await shutdown_event.wait()
                 status_push_task.cancel()
+                if outbox_task is not None:
+                    outbox_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await outbox_task
                 with contextlib.suppress(asyncio.CancelledError):
                     await status_push_task
         except OSError as exc:

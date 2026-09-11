@@ -305,7 +305,10 @@ function setupBackendHotReloadHook(): void {
       payload?: { ok?: boolean }
     }>).detail
     if (
-      detail?.event !== 'maintenance:hot-reload-completed' ||
+      ![
+        'runtime:hot-reload-completed',
+        'maintenance:hot-reload-completed',
+      ].includes(String(detail?.event || '')) ||
       detail.payload?.ok !== true
     ) {
       return

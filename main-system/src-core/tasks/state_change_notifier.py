@@ -26,6 +26,7 @@ independent tool UIs.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -147,6 +148,37 @@ class StateChangeNotifier:
         except OSError:
             pass  # Best-effort; never block the push path.
 
+    def _append_outbox_event(self, snapshot: ReadinessSnapshot) -> None:
+        """Record the readiness transition in the A195 transactional outbox.
+
+        Best-effort: an outbox write failure must never replace the already
+        committed readiness transition with a synthetic failure.
+        """
+        try:
+            from tasks.state_outbox import OutboxPublisher
+
+            publisher = getattr(self.app, "_outbox_publisher", None)
+            if not isinstance(publisher, OutboxPublisher):
+                return
+            state_json = json.dumps(snapshot.as_dict(), sort_keys=True, ensure_ascii=False)
+            publisher.append_state_event(
+                entity_id="main-system.runtime-status",
+                entity_type="runtime-status",
+                operation="upsert",
+                changed_field_allowlist=(
+                    "backend_runtime_ready",
+                    "governance_ready",
+                    "dependencies_ready",
+                    "authenticated_ipc_connected",
+                    "overall_ready",
+                    "runtime_state",
+                ),
+                invalidation_keys=("runtime-status", "readiness"),
+                state_hash=hashlib.sha256(state_json.encode("utf-8")).hexdigest(),
+            )
+        except Exception:
+            pass
+
     async def maybe_notify(self) -> ReadinessSnapshot | None:
         """Evaluate readiness and push immediately if the state changed.
 
@@ -162,6 +194,10 @@ class StateChangeNotifier:
             # independent tool UIs see the transition even if no UIShell
             # push reaches them.
             self._write_readiness_state(snapshot)
+            # A195: after the authoritative state commit (the readiness
+            # state file above), append the transactional outbox event —
+            # never before commit (FORBID:event-before-commit).
+            self._append_outbox_event(snapshot)
             shells = self._active_shells()
             if not shells:
                 return snapshot
