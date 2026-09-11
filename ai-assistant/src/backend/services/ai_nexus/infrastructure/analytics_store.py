@@ -908,10 +908,10 @@ class InvestmentAnalyticsStore(InvestmentAnalyticsStoreSchema, InvestmentAnalyti
             snapshots = [
                 dict(row)
                 for row in connection.execute(
-                    "SELECT * FROM portfolio_snapshots ORDER BY observed_at LIMIT 2000"
+                    "SELECT snapshot_id, observed_at, total_value, total_cost, base_currency, cash_value FROM portfolio_snapshots WHERE total_value > 0 ORDER BY observed_at LIMIT 2000"
                 ).fetchall()
             ]
-        values = [number(item.get("total_value")) for item in snapshots if number(item.get("total_value")) > 0]
+        values = [number(item.get("total_value")) for item in snapshots]
         daily_returns = _returns(values)
         twr = math.prod(1 + value for value in daily_returns) - 1 if daily_returns else None
         cashflows: list[tuple[datetime, float]] = []

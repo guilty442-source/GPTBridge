@@ -103,7 +103,7 @@ class NotificationManager:
     def outbox(self, limit: int = 100) -> list[dict[str, Any]]:
         with self.store.connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM notification_outbox ORDER BY created_at DESC LIMIT ?", (max(1, min(limit, 500)),)
+                "SELECT notification_id, created_at, channel_id, severity, title, body_encrypted, status, sent_at, error_encrypted FROM notification_outbox ORDER BY created_at DESC LIMIT ?", (max(1, min(limit, 500)),)
             ).fetchall()
         output = []
         for source in rows:
@@ -115,7 +115,7 @@ class NotificationManager:
 
     def _channel(self, channel_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
         with self.store.connect() as connection:
-            row = connection.execute("SELECT * FROM notification_channels WHERE channel_id=?", (channel_id,)).fetchone()
+            row = connection.execute("SELECT channel_id, channel_type, name, enabled, config_encrypted, created_at, updated_at FROM notification_channels WHERE channel_id=?", (channel_id,)).fetchone()
         if not row:
             raise ValueError("找不到通知管道")
         channel = dict(row)
@@ -158,7 +158,17 @@ class NotificationManager:
         raise ValueError("不支援的通知管道")
 
     def dispatch(self, *, limit: int = 20) -> dict[str, int]:
-        pending = [item for item in reversed(self.outbox(limit=limit * 4)) if item["status"] == "pending"][:limit]
+        with self.store.connect() as connection:
+            pending_rows = connection.execute(
+                "SELECT notification_id, created_at, channel_id, severity, title, body_encrypted, status, sent_at, error_encrypted FROM notification_outbox WHERE status = 'pending' ORDER BY created_at DESC LIMIT ?",
+                (max(1, min(limit, 500)),),
+            ).fetchall()
+        pending = []
+        for source in pending_rows:
+            item = dict(source)
+            item["body"] = unprotect_text(item.pop("body_encrypted"))
+            item["error"] = unprotect_text(item.pop("error_encrypted"))
+            pending.append(item)
         sent = failed = 0
         for item in pending:
             try:
@@ -328,7 +338,7 @@ class ModelGovernance:
 
     def dashboard(self) -> dict[str, Any]:
         with self.store.connect() as connection:
-            versions = connection.execute("SELECT * FROM model_versions ORDER BY registered_at DESC").fetchall()
+            versions = connection.execute("SELECT model_version_id, model_name, version, prompt_hash, registered_at, status, config_encrypted FROM model_versions ORDER BY registered_at DESC LIMIT 500").fetchall()
             runs = connection.execute(
                 """
                 SELECT r.*, v.model_name, v.version, v.status AS model_status

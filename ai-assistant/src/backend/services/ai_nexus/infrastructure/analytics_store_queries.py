@@ -951,7 +951,9 @@ class InvestmentAnalyticsStoreQueries:
 
     def list_alert_rules(self) -> list[dict[str, Any]]:
         with self.connect() as connection:
-            rows = connection.execute("SELECT * FROM alert_rules ORDER BY created_at").fetchall()
+            rows = connection.execute(
+                "SELECT rule_id, name, enabled, config_json, created_at, updated_at FROM alert_rules ORDER BY created_at LIMIT 500"
+            ).fetchall()
         return [{**dict(row), "enabled": bool(row["enabled"]), "config": _decoded_json(row["config_json"], {})} for row in rows]
 
 
@@ -1250,7 +1252,7 @@ class InvestmentAnalyticsStoreQueries:
         now = utc_now()
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM decisions WHERE outcome_encrypted = '' AND outcome_due_at <= ?",
+                "SELECT decision_id, dedupe_key, created_at, symbol, action, confidence, score, risk_level, reference_price, evidence_encrypted, snapshot_encrypted, user_status, outcome_due_at, outcome_encrypted FROM decisions WHERE outcome_encrypted = '' AND outcome_due_at <= ? LIMIT 500",
                 (utc_text(now),),
             ).fetchall()
         updated = 0
