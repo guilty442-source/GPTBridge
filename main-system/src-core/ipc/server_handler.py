@@ -277,7 +277,12 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
             if shells:
                 status_service = getattr(app_instance, "runtime_status_service", None)
                 if status_service is not None:
-                    status_payload = status_service.startup_status()
+                    # Status assembly traverses multiple runtime owners and
+                    # can perform blocking probes.  Never run it on the IPC
+                    # loop that owns heartbeats and reconnect handshakes.
+                    status_payload = await asyncio.to_thread(
+                        status_service.startup_status
+                    )
                     status_payload["push"] = True
                     dead: list[UIShell] = []
                     for ui in list(shells):

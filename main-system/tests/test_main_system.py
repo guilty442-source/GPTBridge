@@ -2565,6 +2565,9 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
     notifier = (
         root / "src-core" / "tasks" / "state_change_notifier.py"
     ).read_text("utf-8")
+    handler = (root / "src-core" / "ipc" / "server_handler.py").read_text(
+        "utf-8"
+    )
     socket = (
         root
         / "src-ui"
@@ -2594,6 +2597,7 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
     assert 'parsed_request.query != "brief=1"' in lifecycle
     assert "readiness = notifier.current_snapshot()" in lifecycle
     assert "await asyncio.to_thread(self._gate.evaluate)" in notifier
+    assert "status_payload = await asyncio.to_thread(" in handler
     assert "WS_STALE_CONNECTION_MS" in socket
     assert "QUEUE_ITEM_EXPIRED" in socket
     assert "runtime:hot-reload-completed" in hmr
