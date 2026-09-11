@@ -9,14 +9,14 @@ import os
 import sys
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parents[2]
+_ROOT = Path(__file__).resolve().parents[3]
 for _p in (
     str(_ROOT),
     str(_ROOT / "shared-layer" / "src"),
     str(_ROOT / "main-system" / "src-core"),
     str(_ROOT / "main-system"),
     str(_ROOT / "main-system" / "src" / "backend" / "services"),
-    str(_ROOT / "local-model" / "src" / "backend" / "services"),
+    str(_ROOT / "local-model" / "model-dialogue" / "src" / "backend" / "services"),
     str(_ROOT / "global-cleaner" / "src"),
     str(_ROOT / "ai-assistant" / "src"),
     str(_ROOT / "ai-assistant" / "src" / "backend" / "services"),
@@ -156,7 +156,7 @@ def service_with_client(response: dict[str, Any] | None = None) -> tuple[StarCha
 def test_manifest_declares_main_system_only_independent_interface() -> None:
     manifest = json.loads((ROOT / "manifest.json").read_text("utf-8"))
     assert manifest["id"] == "star-chat"
-    assert manifest["display_version"] == "1.0"
+    assert manifest["display_version"] == "1.00000"
     assert manifest["distribution"] == {
         "mode": "special-unpackaged",
         "package": False,
