@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "????????????????????????????????????????",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "3.11600",
+  "codex_version": "3.21600",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -5512,6 +5512,74 @@
         "required_permission": "automatic-channel-recovery-with-zero-source-mutation",
         "introduced_version": "2.51600",
         "retired_version": null
+      },
+      {
+        "manual_code": "AUTOMATIC_REPAIR_DESTRUCTIVE_METHOD",
+        "canonical_name": "automatic-repair-destructive-method",
+        "owner": "permission-sovereign",
+        "target_entity": "automatic-repair",
+        "applicable_fault_codes": "AUTO_REPAIR_DESTRUCTIVE_METHOD_BLOCKED",
+        "diagnosis": "Detect a prohibited overwrite reset replacement or destructive repair method",
+        "preconditions": "preserve Git/index/worktree and hashes; deny execution before mutation",
+        "ordered_steps": "classify prohibited method>freeze plan>retain evidence>replace with A261 smallest targeted patch plan>obtain fresh proofs>verify diff/tests/audit",
+        "verification": "no destructive method remains; user work and unaffected hashes unchanged",
+        "rollback": "discard repair plan without touching source",
+        "stop_conditions": "any mutation already occurred or preimage evidence is absent",
+        "risk_level": "high",
+        "required_permission": "governed-repair-proof-required",
+        "introduced_version": "3.21600",
+        "retired_version": null
+      },
+      {
+        "manual_code": "DIRECTORY_ALIAS_RESOLUTION",
+        "canonical_name": "directory-alias-resolution",
+        "owner": "permission-sovereign",
+        "target_entity": "directory",
+        "applicable_fault_codes": "DIRECTORY_ALIAS_UNKNOWN|DIRECTORY_ALIAS_TYPE_MISMATCH|DIRECTORY_ALIAS_CYCLE|ENVIRONMENT_PHYSICAL_VALUE_FORBIDDEN",
+        "diagnosis": "Diagnose missing wrong-kind cyclic or physically hardcoded directory references",
+        "preconditions": "preserve requested code environment scope platform and redacted resolution evidence",
+        "ordered_steps": "reject physical value>resolve typed code graph>identify owner>register or correct one versioned mapping>validate cycle/type/environment/generation>audit zero hardcoding",
+        "verification": "all references resolve by registered typed code with no cycle or physical environment value",
+        "rollback": "retain prior directory mapping and fail closed",
+        "stop_conditions": "owner ambiguous mapping cyclic or protected value would be exposed",
+        "risk_level": "high",
+        "required_permission": "governed-repair-proof-required",
+        "introduced_version": "3.21600",
+        "retired_version": null
+      },
+      {
+        "manual_code": "HOT_RELOAD_CONTINUITY",
+        "canonical_name": "hot-reload-continuity",
+        "owner": "permission-sovereign",
+        "target_entity": "update-reload",
+        "applicable_fault_codes": "HOT_RELOAD_RUNTIME_DISRUPTION",
+        "diagnosis": "Diagnose candidate update or reload impact on the active certified runtime",
+        "preconditions": "retain active release; quarantine candidate; preserve requests outbox cursor and before hashes",
+        "ordered_steps": "isolate candidate>verify active generation>classify compatibility>repair candidate only under A261>repeat preflight>activate only through A262 certified transaction>observe stability",
+        "verification": "active runtime remained available; candidate either quarantined or certified; no disconnect loss or mixed generation",
+        "rollback": "keep active release and remove candidate from activation path without source reset",
+        "stop_conditions": "active release changed before proof or user work overlaps",
+        "risk_level": "high",
+        "required_permission": "governed-repair-proof-required",
+        "introduced_version": "3.21600",
+        "retired_version": null
+      },
+      {
+        "manual_code": "STARTUP_TEN_SECOND_DEADLINE",
+        "canonical_name": "startup-ten-second-deadline",
+        "owner": "permission-sovereign",
+        "target_entity": "startup",
+        "applicable_fault_codes": "STARTUP_TOTAL_DEADLINE_EXCEEDED",
+        "diagnosis": "Identify the exact critical-path phase that exceeded the single ten-second startup deadline",
+        "preconditions": "fence expired generation; preserve UI user work independent tools and timing evidence",
+        "ordered_steps": "cancel owned unfinished work>attribute elapsed and remaining budget>remove duplicate probe fixed wait blocking control-loop work or oversized payload>start one fresh nonoverlapping generation>verify full convergence within ten seconds",
+        "verification": "every measured cold warm reconnect and injected-failure startup completes within 10000ms",
+        "rollback": "retain failed generation evidence and keep runtime not-ready",
+        "stop_conditions": "deadline cause ambiguous old generation not fenced or remediation requires destructive source repair",
+        "risk_level": "high",
+        "required_permission": "governed-repair-proof-required",
+        "introduced_version": "3.21600",
+        "retired_version": null
       }
     ],
     "test_flow_directory": [
@@ -5566,7 +5634,7 @@
         "codex_section": "9",
         "scope": "all authoritative directories registries catalogs and identity indexes",
         "general_provision_links": "A7|A42",
-        "special_provision_links": "A222|A223|A224|A225|A226|A227|A228|A231|A232|A233|A268|A269",
+        "special_provision_links": "A222|A223|A224|A225|A226|A227|A228|A231|A232|A233|A268|A269|A270",
         "precedence": "special-over-general-within-declared-scope",
         "authority_boundary": "remains inside the single governance codex and creates no separate authority",
         "introduced_version": "1.71600",
@@ -7806,6 +7874,15 @@
         "rule": "?????????????????????????????????API????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????",
         "prohibition": "??????????????????????????????????????????????????????????????????????????????????????????????",
         "exception": "???????????????????????????"
+      },
+      {
+        "position": 270,
+        "provision_id": "A270",
+        "section_index": "9",
+        "subject": "???????????",
+        "rule": "??????????????? DIR_* ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????",
+        "prohibition": "???????????????????????????????????????????????????????????????????????????????????????????????",
+        "exception": "??????????????????????????????????????"
       }
     ],
     "certification_evidence": [
@@ -8000,6 +8077,13 @@
       },
       {
         "version": "3.11600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "3.21600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -11760,30 +11844,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A254",
-        "effective_version": "2.31600",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A255",
-        "effective_version": "2.41600",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A256",
-        "effective_version": "2.41600",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A258",
-        "effective_version": "2.61600",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A259",
         "effective_version": "2.61600",
         "status": "active"
@@ -11846,6 +11906,12 @@
         "provision_type": "article",
         "provision_id": "A269",
         "effective_version": "3.11600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A270",
+        "effective_version": "3.21600",
         "status": "active"
       }
     ],
@@ -12229,11 +12295,11 @@
       },
       {
         "key": "codex_version",
-        "value": "3.11600"
+        "value": "3.21600"
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v3.11600"
+        "value": "gptbridge-governance-codex-v3.21600"
       },
       {
         "key": "version_increment",
@@ -12277,11 +12343,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-11T17:31:15.089982+00:00"
+        "value": "2026-09-11T22:55:55.380005+00:00"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-12T01:31:15.119962+08:00"
+        "value": "2026-09-12T06:55:55.410266+08:00"
       }
     ],
     "preamble": [
@@ -16394,6 +16460,13 @@
         "provision_id": "A269",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A270",
+        "provision_type": "article",
+        "provision_id": "A270",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -20170,7 +20243,7 @@
         "provision_id": "A254",
         "introduced_by": "H021",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "e0cfd61a3303c5aa818a6a9aa31c0e683682fe2dc62ad2935514c901220d4fbb"
       },
       {
@@ -20178,7 +20251,7 @@
         "provision_id": "A255",
         "introduced_by": "H022",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "af3096a46230694db8e8a61a9723ea6f3e9c10471ae877009d3a9e4b2a314631"
       },
       {
@@ -20186,7 +20259,7 @@
         "provision_id": "A256",
         "introduced_by": "H022",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "6d0e819470e5427210baa7a5f913d3cee9b2581d7fa7198726c1f2289d24e57a"
       },
       {
@@ -20202,7 +20275,7 @@
         "provision_id": "A258",
         "introduced_by": "H024",
         "supersedes_id": "A257",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "4032686d37fa32d6d2f49ef2b709a90a78a9f5ddd30aee541e7c8fa2033b0a3e"
       },
       {
@@ -20292,6 +20365,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "05233b590335252b9382038e351092d2df1eec419863705ba04264ac9e4fd7d0"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A270",
+        "introduced_by": "H030",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "a967673ad6ec8bdf2f33a98176a230a07bc76a71b52ce828ef7ecc9973f1c33a"
       }
     ],
     "provision_revisions": [
@@ -24230,6 +24311,14 @@
         "version": "3.11600",
         "content_hash": "05233b590335252b9382038e351092d2df1eec419863705ba04264ac9e4fd7d0",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A270",
+        "revision_id": "H030",
+        "version": "3.21600",
+        "content_hash": "a967673ad6ec8bdf2f33a98176a230a07bc76a71b52ce828ef7ecc9973f1c33a",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -24522,6 +24611,16 @@
         "summary": "made canonical fault-code references global across all individuals layers languages environment variables logs tests and repair paths",
         "previous_hash": "4263334eca56efa0a9cc1741ef5e512f48858f5ac1e3a4072dd90b4a41b6eb16",
         "entry_hash": "8a0a6a3c279159605d4e1e6c34823964121ff3aa2e5f85c9bc27078ff97e15b7"
+      },
+      {
+        "sequence": 30,
+        "change_id": "H030",
+        "version": "3.21600",
+        "recorded_date": "2026-09-12",
+        "change_scope": "directory-and-special-law-gap-closure",
+        "summary": "closed manual coverage duplicate special-law relationship identity-group and independent-tool isolation directory gaps while retaining external gates",
+        "previous_hash": "8a0a6a3c279159605d4e1e6c34823964121ff3aa2e5f85c9bc27078ff97e15b7",
+        "entry_hash": "91c91fe343ddd2cac602c2bba1fa4b47c4b5295309d4e4ca6250e3f0aaa90250"
       }
     ],
     "savings": [
@@ -24863,6 +24962,17 @@
         "content_root": "9fc474e890eec9ede642a29e3a0132ea0393d0e0ce1225e5a0bd609511cd70af",
         "identity_root": "9c3f0e34a3e5317fc98935755cd7e41711b10cc3edd198f0ec4128aa0ea9bb8a",
         "full_root": "cbeb539c34f03d4a34eb3a39fbdc711baffae383031d951986e8514745301f8f"
+      },
+      {
+        "version": "3.21600",
+        "history_head": "91c91fe343ddd2cac602c2bba1fa4b47c4b5295309d4e4ca6250e3f0aaa90250",
+        "provision_count": 488,
+        "identity_count": 488,
+        "lineage_count": 488,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "7477ab21521ac51a09c5eb63cc65804f9610c2fcafb4d4edb28f0bf83c8517da",
+        "identity_root": "a68b7207de33045bd70c4d2d909565115a326b09d6ad78f3624ea553e4190e91",
+        "full_root": "2aa26c47fc635409de848caafc4a19598d0e694fb85a4a7e475906dfa6a466b1"
       }
     ],
     "sealed_components": [
@@ -26752,6 +26862,30 @@
         "predecessor_identity": "codex/provision/article/A257",
         "successor_identity": "codex/provision/article/A258",
         "effective_version": "2.61600",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A254",
+        "successor_identity": "codex/provision/article/A263",
+        "effective_version": "3.21600",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A255",
+        "successor_identity": "codex/provision/article/A265",
+        "effective_version": "3.21600",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A256",
+        "successor_identity": "codex/provision/article/A262",
+        "effective_version": "3.21600",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/provision/article/A258",
+        "successor_identity": "codex/provision/article/A261",
+        "effective_version": "3.21600",
         "status": "effective"
       }
     ],
@@ -30620,60 +30754,106 @@
         "tier": "special-law",
         "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
         "authority_basis": "A223|A268|A259"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A270",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A228|A231|A232|A233|A259|A267|A269"
       }
     ],
     "directory_relationship_requirements": [
       {
         "relationship_code": "FAULT_TO_MANUAL",
-        "source_directory": "fault_code_directory",
+        "source_directory": "DIR_FAULT_CODE",
         "source_field": "fault_code",
-        "target_directory": "maintenance_manual_directory",
+        "target_directory": "DIR_MAINTENANCE_MANUAL",
         "target_field": "applicable_fault_codes",
         "cardinality": "one-to-many",
-        "on_missing": "deny-repairable-fault-activation",
-        "on_retired": "require-active-successor",
+        "on_missing": "deny-unregistered-fault-reference",
+        "on_retired": "retain-retired-code-read-only",
         "cycle_policy": "acyclic",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "3.21600"
       },
       {
         "relationship_code": "COMMAND_TO_TEST",
-        "source_directory": "command_code_directory",
+        "source_directory": "DIR_COMMAND_CODE",
         "source_field": "command_code",
-        "target_directory": "test_flow_directory",
+        "target_directory": "DIR_TEST_FLOW",
         "target_field": "requirement_ids",
         "cardinality": "one-to-many",
-        "on_missing": "deny-command-activation",
-        "on_retired": "require-active-successor",
+        "on_missing": "deny-command-without-test-reference",
+        "on_retired": "require-successor-test-mapping",
         "cycle_policy": "acyclic",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "3.21600"
       },
       {
         "relationship_code": "MANUAL_TO_TEST",
-        "source_directory": "maintenance_manual_directory",
+        "source_directory": "DIR_MAINTENANCE_MANUAL",
         "source_field": "manual_code",
-        "target_directory": "test_flow_directory",
+        "target_directory": "DIR_TEST_FLOW",
         "target_field": "requirement_ids",
         "cardinality": "one-to-many",
-        "on_missing": "deny-manual-activation",
-        "on_retired": "require-active-successor",
+        "on_missing": "deny-manual-without-test-flow",
+        "on_retired": "require-successor-test-mapping",
         "cycle_policy": "acyclic",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "3.21600"
       },
       {
-        "relationship_code": "ARCHITECTURE_TO_ALL_DIRECTORIES",
-        "source_directory": "project_architecture_directory",
-        "source_field": "architecture_code",
-        "target_directory": "command_code_directory|fault_code_directory|maintenance_manual_directory|test_flow_directory",
-        "target_field": "registered-code",
-        "cardinality": "one-to-many",
-        "on_missing": "deny-architecture-activation",
-        "on_retired": "require-active-successor",
+        "relationship_code": "ARCHITECTURE_TO_COMMAND",
+        "source_directory": "DIR_PROJECT_ARCHITECTURE",
+        "source_field": "command_codes",
+        "target_directory": "DIR_COMMAND_CODE",
+        "target_field": "command_code",
+        "cardinality": "many-to-many",
+        "on_missing": "deny-unknown-command-code",
+        "on_retired": "retain-retired-reference-until-migrated",
         "cycle_policy": "acyclic",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "3.21600"
+      },
+      {
+        "relationship_code": "ARCHITECTURE_TO_FAULT",
+        "source_directory": "DIR_PROJECT_ARCHITECTURE",
+        "source_field": "fault_codes",
+        "target_directory": "DIR_FAULT_CODE",
+        "target_field": "fault_code",
+        "cardinality": "many-to-many",
+        "on_missing": "deny-unknown-fault-code",
+        "on_retired": "retain-retired-reference-until-migrated",
+        "cycle_policy": "acyclic",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.21600"
+      },
+      {
+        "relationship_code": "ARCHITECTURE_TO_MANUAL",
+        "source_directory": "DIR_PROJECT_ARCHITECTURE",
+        "source_field": "manual_codes",
+        "target_directory": "DIR_MAINTENANCE_MANUAL",
+        "target_field": "manual_code",
+        "cardinality": "many-to-many",
+        "on_missing": "deny-unknown-manual-code",
+        "on_retired": "require-successor-manual",
+        "cycle_policy": "acyclic",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.21600"
+      },
+      {
+        "relationship_code": "ARCHITECTURE_TO_TEST",
+        "source_directory": "DIR_PROJECT_ARCHITECTURE",
+        "source_field": "test_flow_codes",
+        "target_directory": "DIR_TEST_FLOW",
+        "target_field": "test_flow_code",
+        "cardinality": "many-to-many",
+        "on_missing": "deny-unknown-test-flow-code",
+        "on_retired": "require-successor-test-flow",
+        "cycle_policy": "acyclic",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.21600"
       }
     ],
     "directory_coverage_requirements": [
@@ -31028,6 +31208,32 @@
         "implementation_state": "active",
         "introduced_version": "1.71600",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_IDENTITY_GROUP",
+        "canonical_name": "identity-group-directory",
+        "owner": "permission-sovereign",
+        "scope": "identity groups memberships nesting separation constraints and lifecycle",
+        "authority_kind": "identity-group-authority",
+        "required_fields": "immutable-code|canonical-name|owner|purpose|member-class|admission-rule|exclusion-rule|permission-ceiling|data-scope|separation-constraints|expiry|review-trigger|status|version",
+        "relationships": "permission-identity|audit-evidence",
+        "coverage_rule": "every identity group and membership decision",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "3.21600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_TOOL_FAILURE_ISOLATION",
+        "canonical_name": "tool-failure-isolation-matrix",
+        "owner": "permission-sovereign",
+        "scope": "main-system and every independent tool pairwise failure resource lifecycle and channel boundaries",
+        "authority_kind": "tool-isolation-authority",
+        "required_fields": "immutable-code|canonical-name|owner|left-entity|right-entity|failure-direction|process-boundary|window-boundary|data-boundary|channel-boundary|resource-quota|repair-boundary|update-boundary|shutdown-boundary|verification|status|version",
+        "relationships": "project-architecture|tool-route|resource-dependency|test-flow",
+        "coverage_rule": "every ordered pair of main-system and independent-tool individuals",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "3.21600",
+        "retired_version": null
       }
     ],
     "directory_format_contract": [
@@ -31309,6 +31515,34 @@
         "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
         "owner": "permission-sovereign",
         "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_IDENTITY_GROUP",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "purpose|member-class|admission-rule|exclusion-rule|permission-ceiling|data-scope|separation-constraints|expiry|review-trigger|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.21600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_TOOL_FAILURE_ISOLATION",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "left-entity|right-entity|failure-direction|process-boundary|window-boundary|data-boundary|channel-boundary|resource-quota|repair-boundary|update-boundary|shutdown-boundary|verification|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.21600",
         "retired_version": null
       }
     ],
@@ -36316,6 +36550,28 @@
         "activation_gate": "deny-until-zero-gap-proof",
         "owner": "permission-sovereign",
         "introduced_version": "2.01600"
+      },
+      {
+        "directory_code": "DIR_IDENTITY_GROUP",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-until-zero-gap-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.21600"
+      },
+      {
+        "directory_code": "DIR_TOOL_FAILURE_ISOLATION",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-until-zero-gap-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.21600"
       }
     ],
     "special_law_lifecycle_policy": [
