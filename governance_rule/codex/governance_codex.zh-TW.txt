@@ -2,10 +2,123 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.41600",
+  "codex_version": "1.51600",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
+    "fault_code_directory": [
+      {
+        "fault_code": "GOV_UNREGISTERED_FAULT_CODE",
+        "canonical_name": "unregistered-fault-code",
+        "owner": "permission-sovereign",
+        "domain": "governance",
+        "severity": "error",
+        "meaning": "An emitted fault code is absent from the authoritative directory",
+        "trigger": "unknown fault code reaches a governed boundary",
+        "user_message_key": "errors.unregistered_fault_code",
+        "redaction_policy": "redact-original-value",
+        "retryability": "never",
+        "remediation": "register the owning fault code and redeploy the complete contract",
+        "introduced_version": "1.41600",
+        "retired_version": null
+      }
+    ],
+    "command_code_directory": [
+      {
+        "command_code": "SYS_GPTBRIDGE_START",
+        "canonical_command_id": "system-start-gptbridge",
+        "canonical_name": "Start GPTBridge",
+        "owner": "permission-sovereign",
+        "domain": "system",
+        "action": "start",
+        "target": "main-system",
+        "input_contract": "official-start-intent-v1",
+        "output_contract": "startup-result-v1",
+        "permission_action": "start-main-system",
+        "idempotency_policy": "generation-idempotent",
+        "timeout_policy": "hard-10000ms",
+        "introduced_version": "1.41600",
+        "retired_version": null
+      }
+    ],
+    "maintenance_manual_directory": [
+      {
+        "manual_code": "GOV_REGISTER_UNKNOWN_FAULT",
+        "canonical_name": "register-unknown-fault-code",
+        "owner": "permission-sovereign",
+        "target_entity": "governance-codex",
+        "applicable_fault_codes": "GOV_UNREGISTERED_FAULT_CODE",
+        "diagnosis": "Confirm the emitted code is absent from the authoritative fault-code directory",
+        "preconditions": "preserve original evidence; redact sensitive values; identify exact owning domain",
+        "ordered_steps": "contain affected operation>identify owner and semantics>register canonical fault code>update all producer and consumer contracts>run governance audit>release atomically",
+        "verification": "unknown code no longer emitted; registered code resolves identically across all layers; governance audit passes",
+        "rollback": "restore prior codex snapshot and keep affected operation fail-closed",
+        "stop_conditions": "owner or meaning remains ambiguous; scope crosses another individual; verification fails",
+        "risk_level": "high",
+        "required_permission": "human-governor-seal",
+        "introduced_version": "1.41600",
+        "retired_version": null
+      }
+    ],
+    "test_flow_directory": [
+      {
+        "test_flow_code": "GOV_CODEX_DIRECTORY_AUDIT",
+        "canonical_name": "audit-codex-directories",
+        "owner": "permission-sovereign",
+        "target_entity": "governance-codex",
+        "requirement_ids": "A222|A223|A224|A225|A226",
+        "test_level": "integration",
+        "preconditions": "authoritative codex opens read-only after migration",
+        "fixtures": "isolated read-only SQLite connection",
+        "ordered_steps": "load codex>enumerate command fault manual and test-flow directories>validate identities owners links and uniqueness>run governance audit",
+        "expected_results": "all directory schemas and seed entries exist; all identities are unique; governance audit passes",
+        "evidence": "query output+governance audit verdict",
+        "cleanup": "close read-only connection; remove no authoritative state",
+        "isolation_policy": "read-only+owner-local",
+        "timeout": "30s",
+        "introduced_version": "1.41600",
+        "retired_version": null
+      }
+    ],
+    "project_architecture_directory": [
+      {
+        "architecture_code": "PROJECT_GPTBRIDGE",
+        "canonical_name": "gptbridge-project",
+        "entity_kind": "project-root",
+        "owner": "permission-sovereign",
+        "parent_code": null,
+        "physical_root": "E:\\GPTBridge",
+        "logical_boundary": "complete governed project",
+        "responsibilities": "own the canonical project architecture and all registered child entities",
+        "dependencies": "Windows11|E:\\AI|registered-Ollama-C-drive-paths",
+        "interfaces": "information-layer://official",
+        "data_authority": "Git=history|SQL=official-mutable-data|Qdrant-RAG=semantic-candidates|LLM=inference-only",
+        "runtime_boundary": "main-system and every independent tool are separate individuals",
+        "failure_boundary": "A184 reciprocal isolation",
+        "permission_scope": "project-governance",
+        "command_codes": "SYS_GPTBRIDGE_START",
+        "fault_codes": "GOV_UNREGISTERED_FAULT_CODE",
+        "manual_codes": "GOV_REGISTER_UNKNOWN_FAULT",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.41600",
+        "retired_version": null
+      }
+    ],
+    "special_law_directory": [
+      {
+        "special_law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "canonical_name": "directory-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "9",
+        "scope": "all authoritative directories registries catalogs and identity indexes",
+        "general_provision_links": "A7|A42",
+        "special_provision_links": "A222|A223|A224|A225|A226|A227|A228",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.41600",
+        "retired_version": null
+      }
+    ],
     "access_actor_classes": [
       {
         "actor_class": "registered-sovereign",
@@ -1534,6 +1647,87 @@
         "rule": "ROOT:native/; ALLOW-DIRECTORIES:include|bridge|core only; INCLUDE:native/include/gptbridge_native.h is sole public C header+sole application-facing native contract; BRIDGE:native/bridge/gptbridge_native.c is sole C ABI thunk+validates arguments+translates status/handles+delegates immediately+contains no algorithm/business/workflow/state authority; CORE:native/core/vector.cpp owns vector compute|native/core/parser.cpp owns parsing compute|native/core/transformer.cpp owns transformation compute; CORE-HEADERS:private .hpp only when required+remain inside native/core+never application-facing; DEPENDENCY:Python API>pybind11 or gptbridge_native.h contract>gptbridge_native.c when C ABI required>exact C++ core owner; PYBIND11:binding-only and may call same C++ core without duplicating gptbridge_native.c logic; FILE-OWNERSHIP:one listed file=one primary responsibility; MEMORY/TOKEN/BINDING:cross-cutting helpers remain private within owning core or thin bridge and do not form independent top-level native domains; PUBLIC-SYMBOLS:gptbridge_native.h allowlist only; BUILD:one native compatibility unit+explicit sources+hidden C++ symbols; MOVE/ADD:requires architecture successor+consumer/build migration+removal of displaced path in same release; TOP-LEVEL:native tree contains no data/runtime/build-output/vendor/business/UI/network/database files",
         "prohibition": "additional native top-level directory; second public native header; C algorithm; public C++ ABI; duplicate parser/vector/transformer implementation",
         "exception": "private core .hpp files are allowed only when required by the three declared C++ implementations and remain non-public"
+      },
+      {
+        "position": 222,
+        "provision_id": "A222",
+        "section_index": "9",
+        "subject": "canonical-command-naming",
+        "rule": "SCOPE:all-main-system+independent-tools+sovereigns+information-layer+frontend+backend+API+events+permissions+logs+audit+documentation; IDENTITY:each-command has exactly-one globally-unique canonical-command-id and one canonical-display-name; CONSISTENCY:all-producers+consumers+contracts+registries+stored-references use-the-identical canonical-command-id; FORMAT:lowercase-kebab-case+stable-domain-prefix+action-object semantics; RENAME:atomic-versioned-migration updates-all-references and retains an-expiring read-only compatibility mapping; VALIDATION:registration+build+startup+dispatch reject collisions+unknown-names+noncanonical aliases",
+        "prohibition": "FORBID:multiple-names-for-one-command+same-name-for-different-commands+layer-specific-renaming+silent-alias+case-only-variant+unversioned-rename+display-name-as-command-identity",
+        "exception": "A temporary compatibility mapping is allowed only during a declared versioned migration and cannot accept new writes under the retired name"
+      },
+      {
+        "position": 223,
+        "provision_id": "A223",
+        "section_index": "9",
+        "subject": "permission-sovereign-owned-canonical-fault-code-directory",
+        "rule": "DIRECTORY:one authoritative fault-code directory; SCOPE:main-system+each-independent-tool+sovereigns+information-layer+frontend+backend+API+events+logs+audit+repair; ENTRY:fault-code+canonical-name+owner+domain+severity+meaning+trigger+user-message-key+redaction-policy+retryability+remediation+introduced-version+retired-version; IDENTITY:each-fault has-one immutable globally-unique uppercase-snake-case code with stable-domain-prefix; OWNERSHIP:one declared owner; USE:all-layers emit+transport+store+display the identical registered code; UNKNOWN:fail-closed as UNREGISTERED_FAULT_CODE with original-value redacted-and-audited; CHANGE:additive-versioned registration only+meaning cannot-change; RETIRE:code remains reserved forever and maps read-only to successor when declared; VALIDATION:build+startup+dispatch+release reject duplicate+unknown+malformed+ownerless codes",
+        "prohibition": "FORBID:ad-hoc-error-code+duplicate-code+same-fault-multiple-codes+same-code-multiple-meanings+numeric-only-code+free-text-as-code+layer-specific-code-translation+silent-code-reuse+unregistered-production-emission+deleting-retired-code",
+        "exception": "External dependency codes may be preserved only as non-authoritative vendor-detail beneath one registered canonical fault code"
+      },
+      {
+        "position": 224,
+        "provision_id": "A224",
+        "section_index": "9",
+        "subject": "permission-sovereign-owned-canonical-command-code-directory",
+        "rule": "DIRECTORY:one authoritative command-code directory; SCOPE:main-system+each-independent-tool+sovereigns+information-layer+frontend+backend+API+events+permissions+logs+audit+documentation; ENTRY:command-code+canonical-name+owner+domain+action+target+input-contract+output-contract+permission-action+idempotency-policy+timeout-policy+introduced-version+retired-version; IDENTITY:each-command has-one immutable globally-unique uppercase-snake-case command-code and A222 canonical-command-id; OWNERSHIP:one declared owner; USE:all-layers dispatch+authorize+transport+store+display the identical registered command-code; UNKNOWN:reject as UNKNOWN_COMMAND_CODE and audit; CHANGE:additive-versioned registration only+meaning cannot-change; RETIRE:code remains reserved forever and maps read-only to successor when declared; VALIDATION:registration+build+startup+dispatch+release reject duplicate+unknown+malformed+ownerless codes",
+        "prohibition": "FORBID:ad-hoc-command-code+duplicate-code+same-command-multiple-codes+same-code-multiple-commands+numeric-only-code+display-name-as-code+layer-specific-code-translation+silent-code-reuse+unregistered-command-dispatch+deleting-retired-code",
+        "exception": "External protocol operation names may be preserved only as non-authoritative transport-detail beneath one registered canonical command code"
+      },
+      {
+        "position": 225,
+        "provision_id": "A225",
+        "section_index": "9",
+        "subject": "permission-sovereign-owned-canonical-maintenance-manual-directory",
+        "rule": "DIRECTORY:one authoritative maintenance-manual directory; SCOPE:main-system+each-independent-tool+governance+information-layer+runtime+data+resource+integration+release; ENTRY:manual-code+canonical-name+owner+target-entity+applicable-fault-codes+diagnosis+preconditions+ordered-steps+verification+rollback+stop-conditions+risk-level+required-permission+introduced-version+retired-version; IDENTITY:each-manual has-one immutable globally-unique uppercase-snake-case manual-code and one canonical-name; LINKAGE:every repairable A223 fault-code maps-to one-or-more active manual-codes; EXECUTION:diagnose>validate-owner/scope/permission>checkpoint>perform bounded owner-local steps>verify>rollback-on-failure>audit; ISOLATION:A184 mandatory and repair cannot mutate another individual; CHANGE:additive-versioned registration+review+test-evidence; RETIRE:manual remains reserved and maps read-only to successor; VALIDATION:build+startup+repair+release reject duplicate+unknown+ownerless+unverified manuals",
+        "prohibition": "FORBID:ad-hoc-repair+unregistered-manual+cross-owner-repair+missing-precondition+missing-verification+missing-rollback+unbounded-retry+destructive-step-without-exact-target+silent-manual-reuse+deleting-retired-manual+repair-success-without-proof",
+        "exception": "Immediate containment may stop only the failed owner's affected operation before manual selection; all subsequent repair must use a registered manual"
+      },
+      {
+        "position": 226,
+        "provision_id": "A226",
+        "section_index": "9",
+        "subject": "permission-sovereign-owned-canonical-test-flow-directory",
+        "rule": "DIRECTORY:one authoritative test-flow directory; SCOPE:main-system+each-independent-tool+governance+information-layer+frontend+backend+API+data+runtime+release; ENTRY:test-flow-code+canonical-name+owner+target-entity+requirement-ids+test-level+preconditions+fixtures+ordered-steps+expected-results+evidence+cleanup+isolation-policy+timeout+introduced-version+retired-version; IDENTITY:each-flow has-one immutable globally-unique uppercase-snake-case test-flow-code and one canonical-name; LINKAGE:every testable provision+command-code+fault-code+maintenance-manual maps-to active test-flows; EXECUTION:prepare isolated state>validate preconditions>run deterministic bounded steps>capture evidence>verify expected results>clean owner-local state>publish verdict; RESULT:pass|fail|blocked with exact-step+expected+actual+evidence; ISOLATION:A184 mandatory and test failure cannot affect another individual; CHANGE:additive-versioned registration+review; RETIRE:flow remains reserved and maps read-only to successor; VALIDATION:test+release reject duplicate+unknown+ownerless+nondeterministic+evidence-free flows",
+        "prohibition": "FORBID:ad-hoc-test-flow+unregistered-test+cross-owner-state-mutation+shared-unreset-fixture+order-dependent-test+unbounded-wait+silent-skip+pass-without-evidence+cleanup-of-foreign-state+production-data-mutation+deleting-retired-flow",
+        "exception": "Hardware and external local-service tests may report blocked only with exact unavailable dependency and preserved diagnostic evidence"
+      },
+      {
+        "position": 227,
+        "provision_id": "A227",
+        "section_index": "9",
+        "subject": "permission-sovereign-owned-canonical-project-architecture-directory",
+        "rule": "DIRECTORY:one authoritative full-project architecture directory; SCOPE:all-project-roots+main-system+each-independent-tool+governance+sovereigns+information-layer+shared-layer+frontend+backend+API+data-stores+models+runtime+build+test+release+external-adapters; ENTRY:architecture-code+canonical-name+entity-kind+owner+parent-code+physical-root+logical-boundary+responsibilities+dependencies+interfaces+data-authority+runtime-boundary+failure-boundary+permission-scope+command-codes+fault-codes+manual-codes+test-flow-codes+introduced-version+retired-version; IDENTITY:each architecture entity has-one immutable globally-unique uppercase-snake-case architecture-code and one canonical-name; TOPOLOGY:single rooted acyclic ownership tree plus explicit versioned dependency edges; COMPLETENESS:every governed project file+runtime+service+store+interface maps-to exactly-one active owning entity; CONSISTENCY:physical tree+manifests+contracts+runtime inventory+release artifacts match-directory; ISOLATION:A184 boundaries represented explicitly; CHANGE:architecture-first atomic versioned migration with impact graph+tests+rollback; VALIDATION:save+build+startup+audit+release reject orphan+duplicate+cycle+undeclared-edge+ownerless-path+directory-drift",
+        "prohibition": "FORBID:undocumented-component+multiple-primary-owners+implicit-dependency+cyclic-ownership+path-outside-canonical-roots+runtime-not-in-directory+architecture-change-after-code-change+stale-entry+deleting-retired-identity+diagram-or-document-as-authoritative-substitute",
+        "exception": "Third-party internals remain opaque only when the registered adapter boundary records exact artifact identity interfaces permissions data and failure exposure"
+      },
+      {
+        "position": 228,
+        "provision_id": "A228",
+        "section_index": "9",
+        "subject": "directory-special-law-exclusive-ownership",
+        "rule": "SPECIAL-LAW:this-section exclusively governs every current-and-future directory+registry+catalog+index-of-authoritative-identities; OWNER:permission-sovereign solely owns directory definition+schema+identity+registration+classification+relationship+version+activation+retirement+read-scope+write-decision+supervision; EXECUTION:governed-executor only after exact permission-sovereign decision; STORAGE:data-sovereign supplies integrity+storage without directory-content authority; DOMAIN-OWNERS:may submit candidates+read authorized projections+own referenced domain bodies but cannot create+rename+mutate+activate+retire directory entries; PRECEDENCE:this-special-law prevails over general provisions for directory matters; CONSOLIDATION:A7+A42+A222-A227 and every future directory provision inherit this ownership automatically; ENTRY:all directory access through permission-directory official entry or its explicitly registered typed subdirectory route; FAILURE:directory unavailable or inconsistent=>affected authorization fails-closed while unrelated runtime individuals remain available under A184",
+        "prohibition": "FORBID:any-other-sovereign/module/tool/system owning-or-controlling-a-directory+parallel-directory-authority+private-registry+shadow-catalog+directory-write-without-permission-sovereign-decision+storage-owner-content-authority+domain-owner-self-registration+implicit-directory-exception",
+        "exception": "The governance codex remains its own sole normative authority; permission-sovereign owns directory administration but cannot amend codex provisions"
+      },
+      {
+        "position": 229,
+        "provision_id": "A229",
+        "section_index": "7",
+        "subject": "codex-three-tier-consolidation-framework",
+        "rule": "STRUCTURE:本典=大綱+子法=條例+專法=特定領域完整規範; 本典:only highest-level principles+authority boundaries+rights+duties+prohibitions+law hierarchy+amendment basis and avoids operational detail; 子法:ordinances derive from exact main-codex authorization and define reusable procedures+schemas+validation+execution constraints without exceeding delegation; 專法:closed-domain comprehensive law created for a precisely declared scope and prevails over main-codex general outline and subordinate ordinances only within that scope; AUTHORITY:all three tiers remain inside one governance-codex authority+one version+one seal+one official entry; CLASSIFICATION:every provision has exactly-one tier+law-code+scope+owner+parent-basis; CONSOLIDATION:duplicates merge into one effective provision with permanent lineage and explicit supersession; OWNERSHIP:permission-sovereign owns law and directory registration while human-governor alone seals codex amendment; CHANGE:classify>impact-analyze>preserve-identities>update-links>validate-no-gap/no-conflict>atomically-reseal>publish synchronized mirror",
+        "prohibition": "FORBID:unclassified-provision+outline-containing-procedure-detail+ordinance-without-main-basis+special-law-without-closed-scope+parallel-authority+implicit-precedence+duplicate-effective-rule+cross-tier-conflict+scope-overreach+independent-version-or-seal",
+        "exception": "Non-authoritative views may render each tier separately but cannot split authority storage version or seal"
+      },
+      {
+        "position": 230,
+        "provision_id": "A230",
+        "section_index": "1",
+        "subject": "main-codex-outline-boundary",
+        "rule": "MAIN-CODEX:本典; FORM:大綱; CONTENT:constitutional-purpose+highest-principles+authority-separation+sovereign boundaries+permission basis+rights+duties+absolute prohibitions+law-tier hierarchy+amendment and conflict rules; DETAIL-ROUTING:repeatable operational procedure+field schema+implementation workflow+test sequence+maintenance steps route-to 子法-條例 or exact-scope 專法; INTERPRETATION:本典 controls all tiers and supplies validity basis; COMPLETENESS:本典 states every nondelegable boundary and delegates every permitted detailed domain explicitly",
+        "prohibition": "FORBID:implementation-specific duplication+temporary runtime detail+vendor-specific procedure+directory row body+test fixture+repair step inside main-codex outline",
+        "exception": "A concise invariant may remain in 本典 when removing it would permit a subordinate or special law to alter a nondelegable boundary"
       }
     ],
     "certification_evidence": [
@@ -1616,6 +1810,13 @@
       },
       {
         "version": "1.41600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.51600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -5181,6 +5382,60 @@
         "provision_id": "E186",
         "effective_version": "1.41600",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A222",
+        "effective_version": "1.51600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A223",
+        "effective_version": "1.51600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A224",
+        "effective_version": "1.51600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A225",
+        "effective_version": "1.51600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A226",
+        "effective_version": "1.51600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A227",
+        "effective_version": "1.51600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A228",
+        "effective_version": "1.51600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A229",
+        "effective_version": "1.51600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A230",
+        "effective_version": "1.51600",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -5563,11 +5818,11 @@
       },
       {
         "key": "codex_version",
-        "value": "1.41600"
+        "value": "1.51600"
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.41600"
+        "value": "gptbridge-governance-codex-v1.51600"
       },
       {
         "key": "version_increment",
@@ -5611,11 +5866,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-10T14:14:30Z"
+        "value": "2026-09-11T05:20:34Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-10T22:14:30+08:00"
+        "value": "2026-09-11T13:20:34+08:00"
       }
     ],
     "preamble": [
@@ -9392,6 +9647,69 @@
         "provision_id": "E186",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A222",
+        "provision_type": "article",
+        "provision_id": "A222",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A223",
+        "provision_type": "article",
+        "provision_id": "A223",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A224",
+        "provision_type": "article",
+        "provision_id": "A224",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A225",
+        "provision_type": "article",
+        "provision_id": "A225",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A226",
+        "provision_type": "article",
+        "provision_id": "A226",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A227",
+        "provision_type": "article",
+        "provision_id": "A227",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A228",
+        "provision_type": "article",
+        "provision_id": "A228",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A229",
+        "provision_type": "article",
+        "provision_id": "A229",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A230",
+        "provision_type": "article",
+        "provision_id": "A230",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -12906,6 +13224,78 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "ae50977cb6c970a3100b988def75f37fde79d0c1ea5105c2b18c9bbb6dc0b9e2"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A222",
+        "introduced_by": "H013",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "b4c6c84d97a6e233de9cbac7f777c77a727a58bd14ec446fbc682613e8b293ad"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A223",
+        "introduced_by": "H013",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "1822a8a1354fca54182feedc0ee22303e4826cac024fafc55c9b5dcea42dac06"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A224",
+        "introduced_by": "H013",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f0be833b184da5d9c27dea8d99d4429326943cd3d1f7e0f77c3bb2b0ce150ca4"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A225",
+        "introduced_by": "H013",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "ae2b6dcfe2083747890c237d68b0b88483ec5232ffbbd5fd967f4f22a95b218a"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A226",
+        "introduced_by": "H013",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f7319fc1c21fbe6fb6ad49368379d9a35f88791662b99f18a5a6170c96d9682b"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A227",
+        "introduced_by": "H013",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "0a3ba8dd29398581416ebd349c0b9882f2a28c3911cb6591c7eddd0cb961b758"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A228",
+        "introduced_by": "H013",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "7adbd829a2be18141aad7ba88d253799c6dfb56cdf9df5f4aa567b92a1c9c66f"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A229",
+        "introduced_by": "H013",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "bdd22ea5613989e5e4041cf1ee28653cd62ec33df69ea1b5d06c668ddbf121a9"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A230",
+        "introduced_by": "H013",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "b1940d871042aa347a17e1aa95776576eee63bb857672c1a93561d49ee097a38"
       }
     ],
     "provision_revisions": [
@@ -16460,6 +16850,78 @@
         "version": "1.41600",
         "content_hash": "8d785e84fe448211154f513a0bd354c571dbeb26a593ba4680e7b408cac0af9c",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A222",
+        "revision_id": "H013",
+        "version": "1.51600",
+        "content_hash": "b4c6c84d97a6e233de9cbac7f777c77a727a58bd14ec446fbc682613e8b293ad",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A223",
+        "revision_id": "H013",
+        "version": "1.51600",
+        "content_hash": "1822a8a1354fca54182feedc0ee22303e4826cac024fafc55c9b5dcea42dac06",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A224",
+        "revision_id": "H013",
+        "version": "1.51600",
+        "content_hash": "f0be833b184da5d9c27dea8d99d4429326943cd3d1f7e0f77c3bb2b0ce150ca4",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A225",
+        "revision_id": "H013",
+        "version": "1.51600",
+        "content_hash": "ae2b6dcfe2083747890c237d68b0b88483ec5232ffbbd5fd967f4f22a95b218a",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A226",
+        "revision_id": "H013",
+        "version": "1.51600",
+        "content_hash": "f7319fc1c21fbe6fb6ad49368379d9a35f88791662b99f18a5a6170c96d9682b",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A227",
+        "revision_id": "H013",
+        "version": "1.51600",
+        "content_hash": "0a3ba8dd29398581416ebd349c0b9882f2a28c3911cb6591c7eddd0cb961b758",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A228",
+        "revision_id": "H013",
+        "version": "1.51600",
+        "content_hash": "7adbd829a2be18141aad7ba88d253799c6dfb56cdf9df5f4aa567b92a1c9c66f",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A229",
+        "revision_id": "H013",
+        "version": "1.51600",
+        "content_hash": "bdd22ea5613989e5e4041cf1ee28653cd62ec33df69ea1b5d06c668ddbf121a9",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A230",
+        "revision_id": "H013",
+        "version": "1.51600",
+        "content_hash": "b1940d871042aa347a17e1aa95776576eee63bb857672c1a93561d49ee097a38",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -16582,6 +17044,16 @@
         "summary": "current language roles runtime routes fallback rules and native physical tree consolidated without version change",
         "previous_hash": "023eba9f3452a3929580f4ebe5b3d57f4ca556447366832477c70763afc0ce96",
         "entry_hash": "32589177ecd374fd5b3ca12d660cec3a4de7765d437c74118b1d5b97d2838546"
+      },
+      {
+        "sequence": 13,
+        "change_id": "H013",
+        "version": "1.51600",
+        "recorded_date": "2026-09-11",
+        "change_scope": "directory-special-law",
+        "summary": "consolidated canonical directories under permission-sovereign and established directory special law",
+        "previous_hash": "32589177ecd374fd5b3ca12d660cec3a4de7765d437c74118b1d5b97d2838546",
+        "entry_hash": "a384f73504a087fec33346b48db48509322dfade9e9930e5dd1a3632a723d2f7"
       }
     ],
     "savings": [
@@ -16736,6 +17208,17 @@
         "content_root": "b65698ac64253d380f13596ea28c38817b48db4bb374696bc45d9c1bf1d2ffc3",
         "identity_root": "f5d49ea87a90a4fb246ba037e6a5ba4adaa7596a34e1f72cd9740524c9523d61",
         "full_root": "1bd6ee3c3e6f37d6666db0cca04c66c03bbdcb9bf89c5a8d631f17ce50cfc88b"
+      },
+      {
+        "version": "1.51600",
+        "history_head": "a384f73504a087fec33346b48db48509322dfade9e9930e5dd1a3632a723d2f7",
+        "provision_count": 448,
+        "identity_count": 448,
+        "lineage_count": 448,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "78712d753cd3ce57959a3957b24bc2fe576c4b4940d0a1fd52fc754205cb53c3",
+        "identity_root": "593eb175ffe9e22f4c51317b6a9e8b202c3ee8fdf423e127c5865d4efebcd8e1",
+        "full_root": "e0dda4fb53946af385dcd902bf435d73c9d2c405a17d0eca2f1e73f1e17c5ec2"
       }
     ],
     "sealed_components": [
@@ -17388,6 +17871,12 @@
         "section_index": "8",
         "title": "interpretation-and-conflict",
         "summary": "sovereigns-decide-from-codex; governance-authority-resolves-conflicts"
+      },
+      {
+        "position": 9,
+        "section_index": "9",
+        "title": "directory-special-law",
+        "summary": "all directories converge to permission-sovereign ownership; one identity one owner one authoritative entry"
       }
     ],
     "source_exceptions": [
@@ -18630,6 +19119,47 @@
         "increment": "1.00000",
         "criterion": "complete-codex-reconstitution-or-incompatible-generation-change",
         "precedence": 6
+      }
+    ],
+    "law_structure_directory": [
+      {
+        "law_code": "CODEX_MAIN",
+        "canonical_name": "governance-main-codex",
+        "tier": "main-codex",
+        "owner": "permission-sovereign",
+        "parent_law_code": null,
+        "scope": "project-wide constitutional outline",
+        "authority_basis": "self",
+        "precedence": "highest",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.51600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "canonical_name": "governance-subordinate-ordinances",
+        "tier": "subordinate-ordinance",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "delegated reusable operational rules",
+        "authority_basis": "A229|A230",
+        "precedence": "below-main-codex and below applicable-special-law",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.51600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "canonical_name": "directory-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "all authoritative directories registries catalogs and identity indexes",
+        "authority_basis": "A228|A229|A230",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.51600",
+        "retired_version": null
       }
     ]
   }
