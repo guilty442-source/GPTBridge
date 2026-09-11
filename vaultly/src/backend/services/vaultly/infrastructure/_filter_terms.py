@@ -88,8 +88,7 @@ class FilterTermsMixin:
         with self._connect() as connection:
             rows = connection.execute(
                 f"""
-                SELECT *
-                FROM vaultly_filter_terms
+                SELECT term, created_at, is_active, deactivated_at FROM vaultly_filter_terms
                 WHERE term IN ({placeholders}) AND is_active = 1
                 """,
                 tuple(normalized),

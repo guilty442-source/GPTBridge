@@ -48,7 +48,7 @@ async def main() -> None:
     try:
         runtime = GovernedToolRuntime(
             tool_id=TOOL_ID,
-            version="1.00000",
+            version=service.VERSION,
             executor=execute,
             startup=service.start,
             shutdown=service.shutdown,

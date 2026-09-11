@@ -146,8 +146,7 @@ class PostMixin:
             if media_items is not None:
                 previous_media = connection.execute(
                     """
-                    SELECT *
-                    FROM vaultly_post_media
+                    SELECT media_id, post_id, media_index, media_type, source_url, thumbnail_url, fallback_urls_json, delivery, created_at, updated_at, is_active, deactivated_at FROM vaultly_post_media
                     WHERE post_id = ? AND is_active = 1
                     """,
                     (post_id,),

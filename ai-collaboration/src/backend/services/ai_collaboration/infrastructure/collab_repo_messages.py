@@ -85,7 +85,7 @@ class CollabRepoMessagesMixin:
     def get_message(self, message_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT * FROM ai_nexus_group_messages WHERE message_id = ?",
+                "SELECT message_id, role, content, selected_agents_json, business_scope, created_at FROM ai_nexus_group_messages WHERE message_id = ?",
                 (message_id,),
             ).fetchone()
         if row is None:
@@ -103,7 +103,7 @@ class CollabRepoMessagesMixin:
         with self._connect() as connection:
             rows = connection.execute(
                 f"""
-                SELECT * FROM ai_nexus_group_messages
+                SELECT message_id, role, content, selected_agents_json, business_scope, created_at FROM ai_nexus_group_messages
                 {where}
                 ORDER BY created_at DESC
                 LIMIT ?
@@ -116,7 +116,7 @@ class CollabRepoMessagesMixin:
                 placeholders = ",".join("?" for _ in message_ids)
                 response_rows = connection.execute(
                     f"""
-                    SELECT * FROM ai_nexus_agent_responses
+                    SELECT response_id, message_id, agent_id, status, content, error, error_code, execution_provider, transport, fallback_json, memory_candidates_json, created_at, updated_at FROM ai_nexus_agent_responses
                     WHERE message_id IN ({placeholders})
                     ORDER BY created_at ASC
                     """,

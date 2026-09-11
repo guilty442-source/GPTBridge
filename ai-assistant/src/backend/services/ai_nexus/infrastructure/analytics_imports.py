@@ -42,7 +42,7 @@ class ImportOperationsMixin:
             return None
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM import_operations WHERE operation_id = ?",
+                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE operation_id = ?",
                 (normalized,),
             ).fetchone()
         return self._public_import_operation(row) if row is not None else None
@@ -58,7 +58,7 @@ class ImportOperationsMixin:
         now = utc_text()
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM import_operations WHERE request_fingerprint = ?",
+                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE request_fingerprint = ?",
                 (fingerprint,),
             ).fetchone()
             if row is None:
@@ -118,7 +118,7 @@ class ImportOperationsMixin:
                     ),
                 )
             operation_row = connection.execute(
-                "SELECT * FROM import_operations WHERE request_fingerprint = ?",
+                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE request_fingerprint = ?",
                 (fingerprint,),
             ).fetchone()
         if operation_row is None:
@@ -150,7 +150,7 @@ class ImportOperationsMixin:
         now = utc_text()
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM import_operations WHERE operation_id = ?",
+                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE operation_id = ?",
                 (normalized,),
             ).fetchone()
             if row is None:
@@ -222,7 +222,7 @@ class ImportOperationsMixin:
                 ),
             )
             updated = connection.execute(
-                "SELECT * FROM import_operations WHERE operation_id = ?",
+                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE operation_id = ?",
                 (normalized,),
             ).fetchone()
         if updated is None:
@@ -233,7 +233,7 @@ class ImportOperationsMixin:
         with self.connect() as connection:
             rows = connection.execute(
                 """
-                SELECT * FROM import_operations
+                SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations
                 WHERE status IN ('queued', 'processing', 'resume_pending')
                 ORDER BY created_at ASC LIMIT ?
                 """,

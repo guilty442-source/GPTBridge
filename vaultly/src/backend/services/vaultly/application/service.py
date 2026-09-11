@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,25 @@ from .vaultly_post_scan import VaultlyPostScanMixin
 from .vaultly_scan import VaultlyScanMixin
 from .vaultly_state import VaultlyStateMixin
 from .vaultly_utils import VaultlyUtilsMixin
+
+
+def _service_version() -> str:
+    try:
+        from core_system.versioning import component_version
+
+        return component_version("vaultly")
+    except Exception:
+        pass
+    manifest_path = Path(__file__).resolve().parents[5] / "manifest.json"
+    try:
+        version = str(
+            json.loads(manifest_path.read_text("utf-8")).get("version", "")
+        ).strip()
+        if version:
+            return version
+    except Exception:
+        pass
+    return "1.0.0"
 
 
 class VaultlyService(
@@ -38,7 +58,7 @@ class VaultlyService(
     behaviour is identical to the original monolithic implementation.
     """
 
-    VERSION = "1.00000"
+    VERSION = _service_version()
     AUTO_SCAN_SUCCESS_INTERVAL_SECONDS = 30 * 60
     AUTO_SCAN_RETRY_INTERVAL_SECONDS = 30
     MAX_MEDIA_BYTES = 150 * 1024 * 1024

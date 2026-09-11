@@ -57,7 +57,7 @@ class NotificationManager:
 
     def list_channels(self) -> list[dict[str, Any]]:
         with self.store.connect() as connection:
-            rows = connection.execute("SELECT * FROM notification_channels ORDER BY channel_id").fetchall()
+            rows = connection.execute("SELECT channel_id, channel_type, name, enabled, config_encrypted, created_at, updated_at FROM notification_channels ORDER BY channel_id").fetchall()
         output = []
         for source in rows:
             item = dict(source)
@@ -70,7 +70,7 @@ class NotificationManager:
 
     def configure(self, channel_id: str, payload: dict[str, Any], *, confirmed: bool) -> dict[str, Any]:
         with self.store.connect() as connection:
-            row = connection.execute("SELECT * FROM notification_channels WHERE channel_id=?", (channel_id,)).fetchone()
+            row = connection.execute("SELECT channel_id, channel_type, name, enabled, config_encrypted, created_at, updated_at FROM notification_channels WHERE channel_id=?", (channel_id,)).fetchone()
         if not row:
             raise ValueError("找不到通知管道")
         enabled = bool(payload.get("enabled"))
@@ -622,7 +622,7 @@ class InvestmentAutomation:
 
     def status(self) -> dict[str, Any]:
         with self.store.connect() as connection:
-            rows = connection.execute("SELECT * FROM scheduler_runs ORDER BY started_at DESC LIMIT 20").fetchall()
+            rows = connection.execute("SELECT run_id, job_name, started_at, finished_at, status, detail_encrypted FROM scheduler_runs ORDER BY started_at DESC LIMIT 20").fetchall()
         runs = []
         for source in rows:
             item = dict(source)

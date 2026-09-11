@@ -93,7 +93,7 @@ class InvestmentV3Engine:
         with self.store.connect() as connection:
             direct = connection.execute(
                 """
-                SELECT * FROM fx_rates
+                SELECT base_currency, quote_currency, observed_at, rate, provider, verified FROM fx_rates
                 WHERE base_currency = ? AND quote_currency = ? AND observed_at <= ?
                 ORDER BY observed_at DESC, verified DESC LIMIT 1
                 """,
@@ -103,7 +103,7 @@ class InvestmentV3Engine:
                 return dict(direct)
             inverse = connection.execute(
                 """
-                SELECT * FROM fx_rates
+                SELECT base_currency, quote_currency, observed_at, rate, provider, verified FROM fx_rates
                 WHERE base_currency = ? AND quote_currency = ? AND observed_at <= ?
                 ORDER BY observed_at DESC, verified DESC LIMIT 1
                 """,
@@ -675,7 +675,7 @@ class InvestmentV3Engine:
                     (uuid.uuid4().hex, utc_text(), "corporate_action_validation", symbol, "critical", "企業行動資料異常", protect_text(issue), "open", ""),
                 )
             stored = connection.execute(
-                "SELECT * FROM corporate_actions WHERE dedupe_key=?",
+                "SELECT action_id, dedupe_key, symbol, action_type, effective_at, ratio, cash_amount, currency, old_symbol, new_symbol, source, confidence, status, details_encrypted, created_at, reviewed_at FROM corporate_actions WHERE dedupe_key=?",
                 (row["dedupe_key"],),
             ).fetchone()
         self.store.audit("corporate_action_ingested", {"symbol": symbol, "action_type": action_type, "status": row["status"], "created": not bool(existing)})
@@ -709,8 +709,8 @@ class InvestmentV3Engine:
 
     def corporate_action_governance(self) -> dict[str, Any]:
         with self.store.connect() as connection:
-            action_rows = connection.execute("SELECT * FROM corporate_actions ORDER BY effective_at DESC LIMIT 500").fetchall()
-            issue_rows = connection.execute("SELECT * FROM data_quality_issues ORDER BY created_at DESC LIMIT 500").fetchall()
+            action_rows = connection.execute("SELECT action_id, dedupe_key, symbol, action_type, effective_at, ratio, cash_amount, currency, old_symbol, new_symbol, source, confidence, status, details_encrypted, created_at, reviewed_at FROM corporate_actions ORDER BY effective_at DESC LIMIT 500").fetchall()
+            issue_rows = connection.execute("SELECT issue_id, created_at, issue_type, symbol, severity, title, detail_encrypted, status, resolved_at FROM data_quality_issues ORDER BY created_at DESC LIMIT 500").fetchall()
         actions = []
         for row in action_rows:
             item = dict(row)

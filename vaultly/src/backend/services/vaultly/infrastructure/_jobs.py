@@ -94,7 +94,7 @@ class JobMixin:
     def get_job(self, job_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT * FROM vaultly_jobs WHERE job_id = ?",
+                "SELECT job_id, status, preview_only, destination, conditions_json, account_ids_json, progress_current, progress_total, matched, downloaded, skipped, failed, message, created_at, started_at, finished_at FROM vaultly_jobs WHERE job_id = ?",
                 (job_id,),
             ).fetchone()
         return self._job_row(row) if row is not None else None
@@ -102,7 +102,7 @@ class JobMixin:
     def list_jobs(self, limit: int = 20) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM vaultly_jobs ORDER BY created_at DESC LIMIT ?",
+                "SELECT job_id, status, preview_only, destination, conditions_json, account_ids_json, progress_current, progress_total, matched, downloaded, skipped, failed, message, created_at, started_at, finished_at FROM vaultly_jobs ORDER BY created_at DESC LIMIT ?",
                 (max(1, min(100, limit)),),
             ).fetchall()
         return [self._job_row(row) for row in rows]

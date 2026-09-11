@@ -62,7 +62,7 @@ class PostScanJobMixin:
     def get_post_scan_job(self, scan_job_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT * FROM vaultly_post_scan_jobs WHERE scan_job_id = ?",
+                "SELECT scan_job_id, status, account_ids_json, limit_per_account, inspect_existing, progress_current, progress_total, discovered, inspected, skipped_existing, failed, message, created_at, started_at, finished_at FROM vaultly_post_scan_jobs WHERE scan_job_id = ?",
                 (scan_job_id,),
             ).fetchone()
         return self._post_scan_job_row(row) if row is not None else None
@@ -71,8 +71,7 @@ class PostScanJobMixin:
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT *
-                FROM vaultly_post_scan_jobs
+                SELECT scan_job_id, status, account_ids_json, limit_per_account, inspect_existing, progress_current, progress_total, discovered, inspected, skipped_existing, failed, message, created_at, started_at, finished_at FROM vaultly_post_scan_jobs
                 ORDER BY created_at DESC
                 LIMIT ?
                 """,

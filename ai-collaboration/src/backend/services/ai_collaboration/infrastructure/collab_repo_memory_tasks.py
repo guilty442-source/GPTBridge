@@ -13,7 +13,7 @@ class CollabRepoMemoryTasksMixin:
     def list_memory_items(self) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM ai_nexus_memory_items ORDER BY updated_at DESC LIMIT 100"
+                "SELECT memory_id, kind, title, content, business_scope, source_agent_id, owner_model_id, status, content_hash, created_at, updated_at FROM ai_nexus_memory_items ORDER BY updated_at DESC LIMIT 100"
             ).fetchall()
         return [dict(row) for row in rows]
 
@@ -41,7 +41,7 @@ class CollabRepoMemoryTasksMixin:
     def list_tasks(self) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM ai_nexus_tasks ORDER BY updated_at DESC LIMIT 100"
+                "SELECT task_id, title, status, source_message_id, participant_agents_json, conclusion, files_json, created_at, updated_at FROM ai_nexus_tasks ORDER BY updated_at DESC LIMIT 100"
             ).fetchall()
         output = []
         for row in rows:

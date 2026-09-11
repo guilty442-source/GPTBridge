@@ -270,9 +270,9 @@ class BrokerReconciliationService:
 
     def get_import(self, import_id: str) -> dict[str, Any]:
         with self.store.connect() as connection:
-            header = connection.execute("SELECT * FROM broker_imports WHERE import_id = ?", (import_id,)).fetchone()
+            header = connection.execute("SELECT import_id, imported_at, source_name, source_hash, broker, row_count, matched_count, difference_count, status, summary_encrypted FROM broker_imports WHERE import_id = ?", (import_id,)).fetchone()
             rows = connection.execute(
-                "SELECT * FROM broker_import_rows WHERE import_id = ? ORDER BY occurred_at, row_id", (import_id,)
+                "SELECT row_id, import_id, occurred_at, symbol, side, quantity, price, amount, fee, tax, currency, match_status, matched_transaction_id, raw_encrypted FROM broker_import_rows WHERE import_id = ? ORDER BY occurred_at, row_id", (import_id,)
             ).fetchall()
         if not header:
             raise ValueError("找不到券商匯入批次")
@@ -287,7 +287,7 @@ class BrokerReconciliationService:
 
     def list_imports(self, limit: int = 30) -> list[dict[str, Any]]:
         with self.store.connect() as connection:
-            rows = connection.execute("SELECT * FROM broker_imports ORDER BY imported_at DESC LIMIT ?", (max(1, min(limit, 100)),)).fetchall()
+            rows = connection.execute("SELECT import_id, imported_at, source_name, source_hash, broker, row_count, matched_count, difference_count, status, summary_encrypted FROM broker_imports ORDER BY imported_at DESC LIMIT ?", (max(1, min(limit, 100)),)).fetchall()
         output = []
         for source in rows:
             item = dict(source)

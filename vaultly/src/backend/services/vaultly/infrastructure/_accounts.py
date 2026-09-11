@@ -184,8 +184,7 @@ class AccountMixin:
         with self._connect() as connection:
             rows = connection.execute(
                 f"""
-                SELECT *
-                FROM vaultly_accounts
+                SELECT account_id, platform, handle, display_name, profile_url, avatar_url, verified, selected, discovered_at, updated_at, is_active, deactivated_at FROM vaultly_accounts
                 WHERE account_id IN ({placeholders}) AND is_active = 1
                 """,
                 tuple(ids),

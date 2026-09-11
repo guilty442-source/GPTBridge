@@ -189,7 +189,7 @@ class InvestmentAnalyticsStoreQueries:
             return None
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM import_operations WHERE operation_id = ?",
+                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE operation_id = ?",
                 (normalized,),
             ).fetchone()
         return self._public_import_operation(row) if row is not None else None
@@ -206,7 +206,7 @@ class InvestmentAnalyticsStoreQueries:
         now = utc_text()
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM import_operations WHERE request_fingerprint = ?",
+                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE request_fingerprint = ?",
                 (fingerprint,),
             ).fetchone()
             if row is None:
@@ -266,7 +266,7 @@ class InvestmentAnalyticsStoreQueries:
                     ),
                 )
             operation_row = connection.execute(
-                "SELECT * FROM import_operations WHERE request_fingerprint = ?",
+                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE request_fingerprint = ?",
                 (fingerprint,),
             ).fetchone()
         if operation_row is None:
@@ -299,7 +299,7 @@ class InvestmentAnalyticsStoreQueries:
         now = utc_text()
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM import_operations WHERE operation_id = ?",
+                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE operation_id = ?",
                 (normalized,),
             ).fetchone()
             if row is None:
@@ -371,7 +371,7 @@ class InvestmentAnalyticsStoreQueries:
                 ),
             )
             updated = connection.execute(
-                "SELECT * FROM import_operations WHERE operation_id = ?",
+                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE operation_id = ?",
                 (normalized,),
             ).fetchone()
         if updated is None:
@@ -383,7 +383,7 @@ class InvestmentAnalyticsStoreQueries:
         with self.connect() as connection:
             rows = connection.execute(
                 """
-                SELECT * FROM import_operations
+                SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations
                 WHERE status IN ('queued', 'processing', 'resume_pending')
                 ORDER BY created_at ASC LIMIT ?
                 """,
@@ -466,7 +466,7 @@ class InvestmentAnalyticsStoreQueries:
         with self.connect() as connection:
             row = connection.execute(
                 """
-                SELECT * FROM transactions
+                SELECT transaction_id, occurred_at, symbol, market, asset_type, side, quantity, price, currency, fee, tax, note_encrypted, created_at, deleted_at, delete_reason_encrypted, delete_audit_id FROM transactions
                 WHERE transaction_id = ? AND deleted_at = ''
                 """,
                 (normalized,),
@@ -530,7 +530,7 @@ class InvestmentAnalyticsStoreQueries:
         with self.connect() as connection:
             rows = connection.execute(
                 (
-                    "SELECT * FROM transactions "
+                    "SELECT transaction_id, occurred_at, symbol, market, asset_type, side, quantity, price, currency, fee, tax, note_encrypted, created_at, deleted_at, delete_reason_encrypted, delete_audit_id FROM transactions "
                     + ("" if include_deleted else "WHERE deleted_at = '' ")
                     + "ORDER BY occurred_at DESC, created_at DESC LIMIT ?"
                 ),
@@ -839,7 +839,7 @@ class InvestmentAnalyticsStoreQueries:
         }
         with self.connect() as connection:
             existing = connection.execute(
-                "SELECT * FROM market_events WHERE dedupe_key = ?",
+                "SELECT event_id, dedupe_key, event_type, symbol, title, scheduled_at, source, source_url_encrypted, sentiment, confidence, status, details_encrypted, created_at FROM market_events WHERE dedupe_key = ?",
                 (dedupe_key,),
             ).fetchone()
             if existing is not None:
@@ -894,7 +894,7 @@ class InvestmentAnalyticsStoreQueries:
     def list_events(self, limit: int = 200) -> list[dict[str, Any]]:
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM market_events ORDER BY scheduled_at DESC LIMIT ?",
+                "SELECT event_id, dedupe_key, event_type, symbol, title, scheduled_at, source, source_url_encrypted, sentiment, confidence, status, details_encrypted, created_at FROM market_events ORDER BY scheduled_at DESC LIMIT ?",
                 (max(1, min(2000, limit)),),
             ).fetchall()
         return [self._public_event(row) for row in rows]
@@ -1046,7 +1046,7 @@ class InvestmentAnalyticsStoreQueries:
     def list_alert_events(self, limit: int = 200) -> list[dict[str, Any]]:
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM alert_events ORDER BY triggered_at DESC LIMIT ?",
+                "SELECT alert_event_id, rule_id, dedupe_key, triggered_at, severity, title, detail, value, acknowledged_at FROM alert_events ORDER BY triggered_at DESC LIMIT ?",
                 (max(1, min(2000, limit)),),
             ).fetchall()
         return [dict(row) for row in rows]
@@ -1322,7 +1322,7 @@ class InvestmentAnalyticsStoreQueries:
     def decisions(self, limit: int = 200) -> list[dict[str, Any]]:
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM decisions ORDER BY created_at DESC LIMIT ?",
+                "SELECT decision_id, dedupe_key, created_at, symbol, action, confidence, score, risk_level, reference_price, evidence_encrypted, snapshot_encrypted, user_status, outcome_due_at, outcome_encrypted FROM decisions ORDER BY created_at DESC LIMIT ?",
                 (max(1, min(2000, limit)),),
             ).fetchall()
         result = []

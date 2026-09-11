@@ -215,7 +215,7 @@ class InvestmentAnalyticsStore(InvestmentAnalyticsStoreSchema, InvestmentAnalyti
     def list_audit_log(self, limit: int = 200) -> list[dict[str, Any]]:
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM audit_log ORDER BY occurred_at DESC LIMIT ?",
+                "SELECT audit_id, occurred_at, action, severity, details_encrypted FROM audit_log ORDER BY occurred_at DESC LIMIT ?",
                 (max(1, min(2000, int(limit))),),
             ).fetchall()
         output = []

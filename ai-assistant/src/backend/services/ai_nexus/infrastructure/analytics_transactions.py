@@ -94,7 +94,7 @@ class TransactionsMixin:
         with self.connect() as connection:
             row = connection.execute(
                 """
-                SELECT * FROM transactions
+                SELECT transaction_id, occurred_at, symbol, market, asset_type, side, quantity, price, currency, fee, tax, note_encrypted, created_at, deleted_at, delete_reason_encrypted, delete_audit_id FROM transactions
                 WHERE transaction_id = ? AND deleted_at = ''
                 """,
                 (normalized,),
@@ -157,7 +157,7 @@ class TransactionsMixin:
         with self.connect() as connection:
             rows = connection.execute(
                 (
-                    "SELECT * FROM transactions "
+                    "SELECT transaction_id, occurred_at, symbol, market, asset_type, side, quantity, price, currency, fee, tax, note_encrypted, created_at, deleted_at, delete_reason_encrypted, delete_audit_id FROM transactions "
                     + ("" if include_deleted else "WHERE deleted_at = '' ")
                     + "ORDER BY occurred_at DESC, created_at DESC LIMIT ?"
                 ),

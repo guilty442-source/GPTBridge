@@ -15,7 +15,7 @@ class CollabRepoAgentsMixin:
     def list_agents(self) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM ai_nexus_agents ORDER BY rowid"
+                "SELECT agent_id, name, provider, home_url, general_url, investment_url, star_training_url, general_enabled, investment_enabled, business_capabilities_json, enabled, selected, status, last_error, updated_at FROM ai_nexus_agents ORDER BY rowid"
             ).fetchall()
         return [self._agent_row(row) for row in rows]
 
@@ -25,7 +25,7 @@ class CollabRepoAgentsMixin:
         placeholders = ",".join("?" for _ in agent_ids)
         with self._connect() as connection:
             rows = connection.execute(
-                f"SELECT * FROM ai_nexus_agents WHERE agent_id IN ({placeholders}) ORDER BY rowid",
+                f"SELECT agent_id, name, provider, home_url, general_url, investment_url, star_training_url, general_enabled, investment_enabled, business_capabilities_json, enabled, selected, status, last_error, updated_at FROM ai_nexus_agents WHERE agent_id IN ({placeholders}) ORDER BY rowid",
                 agent_ids,
             ).fetchall()
         found = {str(row["agent_id"]): self._agent_row(row) for row in rows}
