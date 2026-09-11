@@ -122,7 +122,39 @@ class PhaseMixin:
             return False
     def _phase_qdrant(self) -> dict[str, Any]:
         start = time.monotonic()
-        ok = self._probe_tcp("127.0.0.1", 6333, timeout=QDRANT_PROBE_TIMEOUT)
+
+        def _check() -> bool:
+            return self._probe_tcp("127.0.0.1", 6333, timeout=QDRANT_PROBE_TIMEOUT)
+
+        ok = _check()
+        if not ok:
+            # Attempt to start Qdrant (mirrors _phase_ollama behavior).
+            # Search known locations for the Qdrant binary.
+            workspace = getattr(self, "workspace_root", None) or Path.cwd()
+            candidates = [
+                workspace / "local-model" / "runtime" / "qdrant" / "bin" / "qdrant.exe",
+                Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "qdrant" / "qdrant.exe",
+            ]
+            qdrant_exe = next((c for c in candidates if c.is_file()), None)
+            if qdrant_exe is not None:
+                qdrant_root = qdrant_exe.parents[1]  # .../qdrant/
+                creationflags = (
+                    int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
+                    | int(getattr(subprocess, "DETACHED_PROCESS", 0) or 0)
+                )
+                try:
+                    subprocess.Popen(  # noqa: S603 — governed local tool spawn
+                        [str(qdrant_exe)],
+                        cwd=str(qdrant_root),
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        creationflags=creationflags,
+                    )
+                except Exception:
+                    pass
+                if not self._stop.wait(timeout=5.0):
+                    ok = _check()
         return {
             "phase": "qdrant-start",
             "label": "啟動 Qdrant",
