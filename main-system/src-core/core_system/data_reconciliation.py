@@ -178,13 +178,35 @@ class ReconcileService:
             (module_id, batch_size),
         ).fetchall()
 
+        # A207: batch-fetch all central resources in one query instead of
+        # per-row N+1 lookups.
+        resource_ids = [str(row[0]) for row in rows]
+        central_map: dict[str, dict[str, Any] | None] = {}
+        if resource_ids:
+            try:
+                cur = self.pg.execute(
+                    """SELECT resource_id, version, content_hash, updated_at, status
+                       FROM gptbridge_index.resource
+                       WHERE module_id = %s AND resource_id = ANY(%s)""",
+                    (module_id, resource_ids),
+                )
+                for pg_row in cur.fetchall():
+                    central_map[str(pg_row[0])] = {
+                        "version": int(pg_row[1]),
+                        "content_hash": str(pg_row[2]) if pg_row[2] else None,
+                        "updated_at": str(pg_row[3]),
+                        "status": str(pg_row[4]),
+                    }
+            except Exception:
+                pass
+
         for row in rows:
             resource_id = str(row[0])
             local_version = int(row[1])
             local_updated_at = str(row[2])
             local_hash = str(row[3]) if row[3] else None
 
-            central = self._fetch_central(module_id, resource_id)
+            central = central_map.get(resource_id)
             now = datetime.now(timezone.utc).isoformat()
 
             if central is None:
