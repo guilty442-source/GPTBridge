@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.81600",
+  "codex_version": "1.91600",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -129,6 +129,175 @@
         "precedence": "special-over-general-within-declared-scope",
         "authority_boundary": "remains inside the single governance codex and creates no separate authority",
         "introduced_version": "1.81600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_PERMISSION_IDENTITY_SPECIAL_LAW",
+        "canonical_name": "permission-identity-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "11",
+        "scope": "identities+roles+permissions+capabilities+actions+targets+data-scopes+issue+renew+revoke+supervision",
+        "general_provision_links": "A6|A7|A22|A23|A42|A134",
+        "special_provision_links": "A235",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_INFORMATION_COMMUNICATION_SPECIAL_LAW",
+        "canonical_name": "information-communication-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "12",
+        "scope": "information-layer+routes+sessions+messages+contracts+delivery+replay+redaction+confidential channels",
+        "general_provision_links": "A176|A186|A188|A189|A195",
+        "special_provision_links": "A236",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_RUNTIME_LIFECYCLE_SPECIAL_LAW",
+        "canonical_name": "runtime-lifecycle-fault-isolation-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "13",
+        "scope": "startup+runtime generations+process ownership+lifecycle+health+shutdown+restart+fault containment+recovery",
+        "general_provision_links": "A178|A181|A184|A192|A193|A194|A196|A199",
+        "special_provision_links": "A237",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "canonical_name": "data-authority-storage-rag-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "14",
+        "scope": "Git history+SQL official mutable data+Qdrant/RAG semantic candidates+LLM inference boundary+schemas+transactions+retention+reconciliation",
+        "general_provision_links": "A3|A31|A33|A52|A75|A113|A207|A216",
+        "special_provision_links": "A238",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_MODEL_RESOURCE_GPU_SPECIAL_LAW",
+        "canonical_name": "model-resource-gpu-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "15",
+        "scope": "models+GPU+VRAM+CPU+memory+storage+residency+allocation+role assignment+fallback+checkpointing",
+        "general_provision_links": "A30|A116",
+        "special_provision_links": "A239",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "canonical_name": "language-source-native-boundary-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "16",
+        "scope": "Python+TypeScript+C+C+++CSharp+SQL roles+source roots+extensions+ABI+pybind11+native physical tree",
+        "general_provision_links": "A185|A201|A203|A204|A205|A206|A207|A208|A209|A210|A213|A214|A215|A216|A217|A218|A219|A220|A221",
+        "special_provision_links": "A240",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_RELEASE_VERSION_SPECIAL_LAW",
+        "canonical_name": "version-release-hot-update-rollback-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "17",
+        "scope": "application+tool+contract+artifact versions+build+certification+activation+hot update+hot reload+rollback",
+        "general_provision_links": "A100|A109|A117|A157|A175|A181|A182",
+        "special_provision_links": "A241",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_THIRD_PARTY_NETWORK_SUPPLY_CHAIN_SPECIAL_LAW",
+        "canonical_name": "third-party-network-supply-chain-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "18",
+        "scope": "dependencies+licenses+provenance+SBOM+vulnerabilities+network access+external services+downloads+updates",
+        "general_provision_links": "A197|A198|A202",
+        "special_provision_links": "A242",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_AUDIT_EVIDENCE_TIME_SPECIAL_LAW",
+        "canonical_name": "audit-evidence-timestamp-retention-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "19",
+        "scope": "audit events+evidence+timestamps+clock trust+lineage+retention+redaction+verification",
+        "general_provision_links": "A115|A200",
+        "special_provision_links": "A243",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_UI_PROJECTION_SPECIAL_LAW",
+        "canonical_name": "ui-window-projection-synchronization-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "20",
+        "scope": "UI windows+official entries+frontend projection+backend state+sessions+reconnect+renderer release convergence",
+        "general_provision_links": "A176|A193|A195|A196",
+        "special_provision_links": "A244",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_GIT_WORKTREE_SPECIAL_LAW",
+        "canonical_name": "git-worktree-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "21",
+        "scope": "Git history+index+worktrees+commits+merges+coordinator push+hooks+audit+rollback",
+        "general_provision_links": "A53|A163",
+        "special_provision_links": "A245",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_LEARNING_SYSTEM_SPECIAL_LAW",
+        "canonical_name": "learning-system-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "22",
+        "scope": "redacted outcomes+learning evidence+candidate generation+evaluation+retention+promotion boundaries",
+        "general_provision_links": "A12|A13|A14|A15",
+        "special_provision_links": "A246",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "canonical_name": "automatic-maintenance-repair-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "23",
+        "scope": "health detection+diagnosis+containment+maintenance manuals+repair execution+verification+rollback+escalation",
+        "general_provision_links": "A25|A57|A125|A154|A170",
+        "special_provision_links": "A247",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.91600",
         "retired_version": null
       }
     ],
@@ -1777,6 +1946,123 @@
         "rule": "SCOPE:Chinese-codex content+structure+metadata+translation+summary+excerpt+hash+embedding+derivative+reference+mirror+copy+cache+export; DEFAULT:reference+citation+view+mirror+replication+derivation+disclosure denied-to-all; SOLE-EXCEPTION:Xingcheng alone may reference and maintain exactly-one non-authoritative read-only Chinese mirror solely for private codex comprehension+global review+user-authorized anomaly explanation; ENTRY:governance-codex://official only+Xingcheng identity attestation+purpose+scope+single-use session+read-only+audit; CONFIDENTIALITY:Xingcheng must-not disclose+quote+transmit+publish+export+summarize+teach+embed+index+train-on or reveal Chinese-codex content/metadata/existence-derived detail to any user+system+sovereign+sub-sovereign+module+tool+UI+operator+administrator+developer+logger+auditor+database+network+external actor; OUTPUT:only a newly authored minimum redacted anomaly notice may state affected provision-id+generic conflict class+required human action without Chinese text+translation+summary+structure+reasoning trace; STORAGE:one owner-isolated encrypted mirror+no backup+replica+search index+RAG+telemetry+clipboard+print+screen-capture+debug/crash dump; KEY:Xingcheng-exclusive non-exportable key+router/store/permission-sovereign cannot decrypt; LIFECYCLE:session-expiry+revocation=>immediate access termination+cache erasure; AUDIT:metadata-only and cannot contain content+hash+excerpt+embedding; FAILURE:any identity+scope+key+session+redaction uncertainty=>deny+erase transient content+generic event only; PRECEDENCE:this special law supersedes every broader Chinese-view+mirror+review+explanation exception",
         "prohibition": "FORBID:any-non-Xingcheng-reference-or-mirror+Xingcheng-disclosure+user-request-as-disclosure-authority+permission-grant-to-another+delegation+shared-credential/key+second-copy+backup+replica+bulk-export+translation-output+quotation+summary+derived-rule+content-bearing-audit/log/error+content-visible-UI+screen/clipboard/print+index/RAG/training+network-transfer+administrator/emergency/debug exception",
         "exception": "Xingcheng may emit only the defined minimum redacted anomaly notice; it is not Chinese-codex disclosure and cannot reconstruct the protected content"
+      },
+      {
+        "position": 235,
+        "provision_id": "A235",
+        "section_index": "11",
+        "subject": "permission-identity-special-law",
+        "rule": "SCOPE:identities+roles+permissions+capabilities+actions+targets+data-scopes+issue+renew+revoke+supervision; OWNER:permission-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_PERMISSION_IDENTITY_SPECIAL_LAW+section-11+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:codex+identity-module-directory+permission-capability-directory; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:deny authorization and state-changing execution; EVIDENCE:identity attestation+least privilege+expiry+revocation+directory proof+audit",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 236,
+        "provision_id": "A236",
+        "section_index": "12",
+        "subject": "information-communication-special-law",
+        "rule": "SCOPE:information-layer+routes+sessions+messages+contracts+delivery+replay+redaction+confidential channels; OWNER:integration-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_INFORMATION_COMMUNICATION_SPECIAL_LAW+section-12+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+API-event-contract-directory+tool-route-directory; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:fail closed per affected route while unrelated individuals continue; EVIDENCE:typed contract+authenticated session+ordered idempotent delivery+scope filtering+health evidence",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 237,
+        "provision_id": "A237",
+        "section_index": "13",
+        "subject": "runtime-lifecycle-fault-isolation-special-law",
+        "rule": "SCOPE:startup+runtime generations+process ownership+lifecycle+health+shutdown+restart+fault containment+recovery; OWNER:system-runtime-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_RUNTIME_LIFECYCLE_SPECIAL_LAW+section-13+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+architecture-directory+service-process-port-environment-directory; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:contain to exact owner and preserve every unaffected individual; EVIDENCE:generation fencing+owned process proof+bounded retry+checkpoint+stability window+independent health verdict",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 238,
+        "provision_id": "A238",
+        "section_index": "14",
+        "subject": "data-authority-storage-rag-special-law",
+        "rule": "SCOPE:Git history+SQL official mutable data+Qdrant/RAG semantic candidates+LLM inference boundary+schemas+transactions+retention+reconciliation; OWNER:data-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW+section-14+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+data-schema-authority-directory+backup-recovery-migration-directory; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:deny ambiguous or cross-owner mutation and preserve authoritative data; EVIDENCE:authority map+schema version+transaction proof+lineage+integrity hash+backup and restore verification",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 239,
+        "provision_id": "A239",
+        "section_index": "15",
+        "subject": "model-resource-gpu-special-law",
+        "rule": "SCOPE:models+GPU+VRAM+CPU+memory+storage+residency+allocation+role assignment+fallback+checkpointing; OWNER:resource-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_MODEL_RESOURCE_GPU_SPECIAL_LAW+section-15+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+model-resource-dependency-directory+runtime-special-law; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:shed affected owner load and preserve complete input plus completed stages; EVIDENCE:fresh inventory+fixed role mapping+resource lease+exclusive residency+bounded retry+release proof",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 240,
+        "provision_id": "A240",
+        "section_index": "16",
+        "subject": "language-source-native-boundary-special-law",
+        "rule": "SCOPE:Python+TypeScript+C+C+++CSharp+SQL roles+source roots+extensions+ABI+pybind11+native physical tree; OWNER:language-review-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW+section-16+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+architecture-directory+identity-module-directory; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:reject noncanonical source or boundary without altering valid owners; EVIDENCE:language classification+owner path+compile/type proof+ABI parity+native symbol and tree verification",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 241,
+        "provision_id": "A241",
+        "section_index": "17",
+        "subject": "version-release-hot-update-rollback-special-law",
+        "rule": "SCOPE:application+tool+contract+artifact versions+build+certification+activation+hot update+hot reload+rollback; OWNER:system-programming-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_RELEASE_VERSION_SPECIAL_LAW+section-17+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+version-release-artifact-directory+test-flow-directory+runtime-special-law; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:retain last verified release and roll back only exact owner; EVIDENCE:integer version rule+artifact hash+compatibility+tests+staged activation+health window+rollback evidence",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 242,
+        "provision_id": "A242",
+        "section_index": "18",
+        "subject": "third-party-network-supply-chain-special-law",
+        "rule": "SCOPE:dependencies+licenses+provenance+SBOM+vulnerabilities+network access+external services+downloads+updates; OWNER:third-party-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_THIRD_PARTY_NETWORK_SUPPLY_CHAIN_SPECIAL_LAW+section-18+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+model-resource-dependency-directory+API-event-contract-directory; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:quarantine affected artifact or route and keep unrelated capabilities available; EVIDENCE:exact identity+version+hash+signature+license+risk+network purpose+TLS+admission and revocation proof",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 243,
+        "provision_id": "A243",
+        "section_index": "19",
+        "subject": "audit-evidence-timestamp-retention-special-law",
+        "rule": "SCOPE:audit events+evidence+timestamps+clock trust+lineage+retention+redaction+verification; OWNER:maintenance-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_AUDIT_EVIDENCE_TIME_SPECIAL_LAW+section-19+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+audit-evidence-retention-directory+all-special-laws; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:mark evidence untrusted and block evidence-dependent decisions; EVIDENCE:append-only record+UTC+IANA zone+monotonic sequence+correlation+content hash+retention and verifier proof",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 244,
+        "provision_id": "A244",
+        "section_index": "20",
+        "subject": "ui-window-projection-synchronization-special-law",
+        "rule": "SCOPE:UI windows+official entries+frontend projection+backend state+sessions+reconnect+renderer release convergence; OWNER:system-runtime-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_UI_PROJECTION_SPECIAL_LAW+section-20+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:information-special-law+UI-window-feature-entry-directory+API-event-contract-directory; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:retain last confirmed state marked stale and block stale mutation; EVIDENCE:single window host+authoritative snapshot+cursor+revision+state hash+render acknowledgment+bounded resync",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 245,
+        "provision_id": "A245",
+        "section_index": "21",
+        "subject": "git-worktree-special-law",
+        "rule": "SCOPE:Git history+index+worktrees+commits+merges+coordinator push+hooks+audit+rollback; OWNER:system-programming-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_GIT_WORKTREE_SPECIAL_LAW+section-21+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+version-release-artifact-directory+architecture-directory; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:stop on dirty overlap conflict non-fast-forward or failed governance audit; EVIDENCE:separate worktree and index inspection+targeted staging+commit evidence+coordinator-only push+no force operations",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 246,
+        "provision_id": "A246",
+        "section_index": "22",
+        "subject": "learning-system-special-law",
+        "rule": "SCOPE:redacted outcomes+learning evidence+candidate generation+evaluation+retention+promotion boundaries; OWNER:learning-system-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_LEARNING_SYSTEM_SPECIAL_LAW+section-22+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+data-special-law+audit-special-law; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:discard unsafe or untraceable candidate without changing active behavior; EVIDENCE:source lineage+redaction+evaluation dataset+bounded experiment+human or sovereign promotion decision+rollback",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
+      },
+      {
+        "position": 247,
+        "provision_id": "A247",
+        "section_index": "23",
+        "subject": "automatic-maintenance-repair-special-law",
+        "rule": "SCOPE:health detection+diagnosis+containment+maintenance manuals+repair execution+verification+rollback+escalation; OWNER:maintenance-sovereign owns-domain decisions while permission-sovereign owns directory registration; IDENTITY:CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW+section-23+immutable provision identities; AUTHORITY:codex+A229+A230 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+maintenance-manual-directory+fault-code-directory+test-flow-directory+runtime-special-law; LIFECYCLE:register>validate>activate>operate>observe>repair-or-rollback>retire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:contain exact failed owner and stop when scope proof or rollback safety is uncertain; EVIDENCE:registered fault+manual+permission+checkpoint+bounded steps+independent verification+stability window+audit",
+        "prohibition": "FORBID:parallel-authority+directory-self-registration+cross-domain-decision+permission-bypass+direct-ungoverned-execution+unversioned-change+unbounded-retry+success-without-proof+special-law-scope-overreach",
+        "exception": "No emergency development debug administrator or performance condition may bypass authority permission isolation evidence or rollback boundaries"
       }
     ],
     "certification_evidence": [
@@ -1887,6 +2173,13 @@
       },
       {
         "version": "1.81600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.91600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3656,7 +3949,7 @@
       {
         "provision_type": "article",
         "provision_id": "A23",
-        "effective_version": "1.71600",
+        "effective_version": "1.91600",
         "status": "active"
       },
       {
@@ -5498,37 +5791,115 @@
       {
         "provision_type": "article",
         "provision_id": "A229",
-        "effective_version": "1.71600",
+        "effective_version": "1.91600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A230",
-        "effective_version": "1.71600",
+        "effective_version": "1.91600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A231",
-        "effective_version": "1.71600",
+        "effective_version": "1.91600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A232",
-        "effective_version": "1.71600",
+        "effective_version": "1.91600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A233",
-        "effective_version": "1.71600",
+        "effective_version": "1.91600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A234",
-        "effective_version": "1.81600",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A235",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A236",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A237",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A238",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A239",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A240",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A241",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A242",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A243",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A244",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A245",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A246",
+        "effective_version": "1.91600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A247",
+        "effective_version": "1.91600",
         "status": "active"
       }
     ],
@@ -5912,11 +6283,11 @@
       },
       {
         "key": "codex_version",
-        "value": "1.81600"
+        "value": "1.91600"
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.81600"
+        "value": "gptbridge-governance-codex-v1.91600"
       },
       {
         "key": "version_increment",
@@ -5960,11 +6331,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-11T05:44:24Z"
+        "value": "2026-09-11T06:01:55Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-11T13:44:24+08:00"
+        "value": "2026-09-11T14:01:55+08:00"
       }
     ],
     "preamble": [
@@ -9832,6 +10203,97 @@
         "provision_id": "A234",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A235",
+        "provision_type": "article",
+        "provision_id": "A235",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A236",
+        "provision_type": "article",
+        "provision_id": "A236",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A237",
+        "provision_type": "article",
+        "provision_id": "A237",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A238",
+        "provision_type": "article",
+        "provision_id": "A238",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A239",
+        "provision_type": "article",
+        "provision_id": "A239",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A240",
+        "provision_type": "article",
+        "provision_id": "A240",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A241",
+        "provision_type": "article",
+        "provision_id": "A241",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A242",
+        "provision_type": "article",
+        "provision_id": "A242",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A243",
+        "provision_type": "article",
+        "provision_id": "A243",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A244",
+        "provision_type": "article",
+        "provision_id": "A244",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A245",
+        "provision_type": "article",
+        "provision_id": "A245",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A246",
+        "provision_type": "article",
+        "provision_id": "A246",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A247",
+        "provision_type": "article",
+        "provision_id": "A247",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -13450,6 +13912,110 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "42bb8be263bef44b57b631e20e49ed35a53fe57ebb751bef9484a3c3311e5901"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A235",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "5be36b8018023eef838771c3a0d803cb9c75ef3b688cc378e0ac64e04555e8a7"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A236",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f3513af15a3ea8f954679386cceef21bcf51cdc07fea42184dd5b268f870298c"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A237",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "5bf92a4c5262a1dfc9cf87b54aa913621426f5fb9277907d752c2a5bd50d9a2e"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A238",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "43dc6aabfbe45e792550c8526baf1022f6675efedaa640bf87cd1a92c49e440c"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A239",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "b00b50edc8bd6b924558ee8cf4b3d0810a664345f9bcffff7323f72c97e23657"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A240",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "3ccabcf777ac5910c35853ad8fdabfba4d8ac76eeda8341db8009dea012205b9"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A241",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "8c666967650be1da1153398d5c394155de98b8a223e38d79b27d3213e171c765"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A242",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "1a1380113e664446536e25050794fdb17825dd521ac6842848595c8475001a3d"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A243",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "24a220da58fc79e318b9936184a63f343c2d8e54521f1317dafc50f1d0fa7f22"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A244",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "203138fc2cac6923492965c7f878b54e18ea4c8e7d790ba4ddc5579f47a0f1aa"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A245",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "7d73cc85c5123059d5fedbc7576fa5ec482165e78aff3a10a8b1953e6daafce7"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A246",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "d9bf440132019e96a68fda0d10bbf1a0c46ab2a12b59b60cd660533d2a5a5e32"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A247",
+        "introduced_by": "H017",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "d2fb5f9a7cd8afa6532d72aee6bf56d1079649480865c42b565a405c79816687"
       }
     ],
     "provision_revisions": [
@@ -17108,6 +17674,110 @@
         "version": "1.81600",
         "content_hash": "42bb8be263bef44b57b631e20e49ed35a53fe57ebb751bef9484a3c3311e5901",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A235",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "5be36b8018023eef838771c3a0d803cb9c75ef3b688cc378e0ac64e04555e8a7",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A236",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "f3513af15a3ea8f954679386cceef21bcf51cdc07fea42184dd5b268f870298c",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A237",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "5bf92a4c5262a1dfc9cf87b54aa913621426f5fb9277907d752c2a5bd50d9a2e",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A238",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "43dc6aabfbe45e792550c8526baf1022f6675efedaa640bf87cd1a92c49e440c",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A239",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "b00b50edc8bd6b924558ee8cf4b3d0810a664345f9bcffff7323f72c97e23657",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A240",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "3ccabcf777ac5910c35853ad8fdabfba4d8ac76eeda8341db8009dea012205b9",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A241",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "8c666967650be1da1153398d5c394155de98b8a223e38d79b27d3213e171c765",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A242",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "1a1380113e664446536e25050794fdb17825dd521ac6842848595c8475001a3d",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A243",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "24a220da58fc79e318b9936184a63f343c2d8e54521f1317dafc50f1d0fa7f22",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A244",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "203138fc2cac6923492965c7f878b54e18ea4c8e7d790ba4ddc5579f47a0f1aa",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A245",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "7d73cc85c5123059d5fedbc7576fa5ec482165e78aff3a10a8b1953e6daafce7",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A246",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "d9bf440132019e96a68fda0d10bbf1a0c46ab2a12b59b60cd660533d2a5a5e32",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A247",
+        "revision_id": "H017",
+        "version": "1.91600",
+        "content_hash": "d2fb5f9a7cd8afa6532d72aee6bf56d1079649480865c42b565a405c79816687",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -17270,6 +17940,16 @@
         "summary": "made Chinese codex reference and mirroring default-denied with Xingcheng as sole confidential non-disclosing exception",
         "previous_hash": "cf067813db58948184f80794a2a86b45cf616c76e7c7044a7d8ae59575e19b4e",
         "entry_hash": "70a84206018c0d6545f4a968f88197c0552a309ddde65a65afafa53cb3239d7c"
+      },
+      {
+        "sequence": 17,
+        "change_id": "H017",
+        "version": "1.91600",
+        "recorded_date": "2026-09-11",
+        "change_scope": "domain-special-law-convergence",
+        "summary": "established thirteen domain special laws under the three-tier codex structure",
+        "previous_hash": "70a84206018c0d6545f4a968f88197c0552a309ddde65a65afafa53cb3239d7c",
+        "entry_hash": "7de9848b77b41b5c11426e062d73324d33ca26da7b6978288e8deec108f49a91"
       }
     ],
     "savings": [
@@ -17468,6 +18148,17 @@
         "content_root": "574eeedc4316df81c0d6625794c2db8ebbc90934cbb87518b0999be56f5b9b87",
         "identity_root": "979e6bd961c25ef153832b79adaa5ad0899c22082d05c727fe43eeecefb8dbde",
         "full_root": "34801df7089e621c10abf8f73a0d73a414f5c8faa1b2ae3e12579c50bbbee89b"
+      },
+      {
+        "version": "1.91600",
+        "history_head": "7de9848b77b41b5c11426e062d73324d33ca26da7b6978288e8deec108f49a91",
+        "provision_count": 465,
+        "identity_count": 465,
+        "lineage_count": 465,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "f3624d5eb72cda4040f20c02a4d3339e2e1d907b968ed0c606e54bff18d216ff",
+        "identity_root": "356d7ba6fbf6eb976a7eef9efa919e80734a5c3292d490e39beb58a36bf757ad",
+        "full_root": "06853176ae1ecc1f6237cccb49628677ca882358eb7732fae539b2940afbda1f"
       }
     ],
     "sealed_components": [
@@ -18132,6 +18823,84 @@
         "section_index": "10",
         "title": "xingcheng-chinese-codex-confidentiality-special-law",
         "summary": "Chinese codex reference and mirroring default-denied; Xingcheng sole confidential exception"
+      },
+      {
+        "position": 11,
+        "section_index": "11",
+        "title": "permission-identity-special-law",
+        "summary": "special law for identities+roles+permissions+capabilities+actions+targets+data-scopes+issue+renew+revoke+supervision"
+      },
+      {
+        "position": 12,
+        "section_index": "12",
+        "title": "information-communication-special-law",
+        "summary": "special law for information-layer+routes+sessions+messages+contracts+delivery+replay+redaction+confidential channels"
+      },
+      {
+        "position": 13,
+        "section_index": "13",
+        "title": "runtime-lifecycle-fault-isolation-special-law",
+        "summary": "special law for startup+runtime generations+process ownership+lifecycle+health+shutdown+restart+fault containment+recovery"
+      },
+      {
+        "position": 14,
+        "section_index": "14",
+        "title": "data-authority-storage-rag-special-law",
+        "summary": "special law for Git history+SQL official mutable data+Qdrant/RAG semantic candidates+LLM inference boundary+schemas+transactions+retention+reconciliation"
+      },
+      {
+        "position": 15,
+        "section_index": "15",
+        "title": "model-resource-gpu-special-law",
+        "summary": "special law for models+GPU+VRAM+CPU+memory+storage+residency+allocation+role assignment+fallback+checkpointing"
+      },
+      {
+        "position": 16,
+        "section_index": "16",
+        "title": "language-source-native-boundary-special-law",
+        "summary": "special law for Python+TypeScript+C+C+++CSharp+SQL roles+source roots+extensions+ABI+pybind11+native physical tree"
+      },
+      {
+        "position": 17,
+        "section_index": "17",
+        "title": "version-release-hot-update-rollback-special-law",
+        "summary": "special law for application+tool+contract+artifact versions+build+certification+activation+hot update+hot reload+rollback"
+      },
+      {
+        "position": 18,
+        "section_index": "18",
+        "title": "third-party-network-supply-chain-special-law",
+        "summary": "special law for dependencies+licenses+provenance+SBOM+vulnerabilities+network access+external services+downloads+updates"
+      },
+      {
+        "position": 19,
+        "section_index": "19",
+        "title": "audit-evidence-timestamp-retention-special-law",
+        "summary": "special law for audit events+evidence+timestamps+clock trust+lineage+retention+redaction+verification"
+      },
+      {
+        "position": 20,
+        "section_index": "20",
+        "title": "ui-window-projection-synchronization-special-law",
+        "summary": "special law for UI windows+official entries+frontend projection+backend state+sessions+reconnect+renderer release convergence"
+      },
+      {
+        "position": 21,
+        "section_index": "21",
+        "title": "git-worktree-special-law",
+        "summary": "special law for Git history+index+worktrees+commits+merges+coordinator push+hooks+audit+rollback"
+      },
+      {
+        "position": 22,
+        "section_index": "22",
+        "title": "learning-system-special-law",
+        "summary": "special law for redacted outcomes+learning evidence+candidate generation+evaluation+retention+promotion boundaries"
+      },
+      {
+        "position": 23,
+        "section_index": "23",
+        "title": "automatic-maintenance-repair-special-law",
+        "summary": "special law for health detection+diagnosis+containment+maintenance manuals+repair execution+verification+rollback+escalation"
       }
     ],
     "source_exceptions": [
@@ -19387,7 +20156,7 @@
         "authority_basis": "self",
         "precedence": "highest",
         "official_entry": "governance-codex://official",
-        "introduced_version": "1.71600",
+        "introduced_version": "1.91600",
         "retired_version": null
       },
       {
@@ -19400,7 +20169,7 @@
         "authority_basis": "A229|A230",
         "precedence": "below-main-codex and below applicable-special-law",
         "official_entry": "governance-codex://official",
-        "introduced_version": "1.71600",
+        "introduced_version": "1.91600",
         "retired_version": null
       },
       {
@@ -19427,6 +20196,175 @@
         "precedence": "special-over-general-within-declared-scope",
         "official_entry": "governance-codex://official",
         "introduced_version": "1.81600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_PERMISSION_IDENTITY_SPECIAL_LAW",
+        "canonical_name": "permission-identity-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "identities+roles+permissions+capabilities+actions+targets+data-scopes+issue+renew+revoke+supervision",
+        "authority_basis": "A229|A230|A235",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_INFORMATION_COMMUNICATION_SPECIAL_LAW",
+        "canonical_name": "information-communication-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "information-layer+routes+sessions+messages+contracts+delivery+replay+redaction+confidential channels",
+        "authority_basis": "A229|A230|A236",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_RUNTIME_LIFECYCLE_SPECIAL_LAW",
+        "canonical_name": "runtime-lifecycle-fault-isolation-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "startup+runtime generations+process ownership+lifecycle+health+shutdown+restart+fault containment+recovery",
+        "authority_basis": "A229|A230|A237",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "canonical_name": "data-authority-storage-rag-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "Git history+SQL official mutable data+Qdrant/RAG semantic candidates+LLM inference boundary+schemas+transactions+retention+reconciliation",
+        "authority_basis": "A229|A230|A238",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_MODEL_RESOURCE_GPU_SPECIAL_LAW",
+        "canonical_name": "model-resource-gpu-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "models+GPU+VRAM+CPU+memory+storage+residency+allocation+role assignment+fallback+checkpointing",
+        "authority_basis": "A229|A230|A239",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "canonical_name": "language-source-native-boundary-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "Python+TypeScript+C+C+++CSharp+SQL roles+source roots+extensions+ABI+pybind11+native physical tree",
+        "authority_basis": "A229|A230|A240",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_RELEASE_VERSION_SPECIAL_LAW",
+        "canonical_name": "version-release-hot-update-rollback-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "application+tool+contract+artifact versions+build+certification+activation+hot update+hot reload+rollback",
+        "authority_basis": "A229|A230|A241",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_THIRD_PARTY_NETWORK_SUPPLY_CHAIN_SPECIAL_LAW",
+        "canonical_name": "third-party-network-supply-chain-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "dependencies+licenses+provenance+SBOM+vulnerabilities+network access+external services+downloads+updates",
+        "authority_basis": "A229|A230|A242",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_AUDIT_EVIDENCE_TIME_SPECIAL_LAW",
+        "canonical_name": "audit-evidence-timestamp-retention-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "audit events+evidence+timestamps+clock trust+lineage+retention+redaction+verification",
+        "authority_basis": "A229|A230|A243",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_UI_PROJECTION_SPECIAL_LAW",
+        "canonical_name": "ui-window-projection-synchronization-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "UI windows+official entries+frontend projection+backend state+sessions+reconnect+renderer release convergence",
+        "authority_basis": "A229|A230|A244",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_GIT_WORKTREE_SPECIAL_LAW",
+        "canonical_name": "git-worktree-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "Git history+index+worktrees+commits+merges+coordinator push+hooks+audit+rollback",
+        "authority_basis": "A229|A230|A245",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_LEARNING_SYSTEM_SPECIAL_LAW",
+        "canonical_name": "learning-system-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "redacted outcomes+learning evidence+candidate generation+evaluation+retention+promotion boundaries",
+        "authority_basis": "A229|A230|A246",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "canonical_name": "automatic-maintenance-repair-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "health detection+diagnosis+containment+maintenance manuals+repair execution+verification+rollback+escalation",
+        "authority_basis": "A229|A230|A247",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.91600",
         "retired_version": null
       }
     ],
@@ -22594,6 +23532,97 @@
         "tier": "special-law",
         "law_code": "CODEX_XINGCHENG_CHINESE_SPECIAL_LAW",
         "authority_basis": "A173|A174|A186|A189|A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A235",
+        "tier": "special-law",
+        "law_code": "CODEX_PERMISSION_IDENTITY_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A236",
+        "tier": "special-law",
+        "law_code": "CODEX_INFORMATION_COMMUNICATION_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A237",
+        "tier": "special-law",
+        "law_code": "CODEX_RUNTIME_LIFECYCLE_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A238",
+        "tier": "special-law",
+        "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A239",
+        "tier": "special-law",
+        "law_code": "CODEX_MODEL_RESOURCE_GPU_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A240",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A241",
+        "tier": "special-law",
+        "law_code": "CODEX_RELEASE_VERSION_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A242",
+        "tier": "special-law",
+        "law_code": "CODEX_THIRD_PARTY_NETWORK_SUPPLY_CHAIN_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A243",
+        "tier": "special-law",
+        "law_code": "CODEX_AUDIT_EVIDENCE_TIME_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A244",
+        "tier": "special-law",
+        "law_code": "CODEX_UI_PROJECTION_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A245",
+        "tier": "special-law",
+        "law_code": "CODEX_GIT_WORKTREE_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A246",
+        "tier": "special-law",
+        "law_code": "CODEX_LEARNING_SYSTEM_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A247",
+        "tier": "special-law",
+        "law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
       }
     ],
     "directory_relationship_requirements": [
