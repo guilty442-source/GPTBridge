@@ -424,7 +424,8 @@ def test_ui_exposes_explicit_safe_automation_controls() -> None:
     assert "MiniCPM-V 4.6" in source
     assert "gptbridge.file-sorter.last-target-dir.v1" in source
     assert "invoke?.('dialog:validate-folder', savedTarget)" in source
-    assert "useState(loadLastTargetDir)" in source
+    assert "const [targetDir, setTargetDir] = useState('')" in source
+    assert "const [targetValidated, setTargetValidated] = useState(false)" in source
     assert "localStorage.removeItem(LAST_TARGET_DIR_STORAGE_KEY)" in source
     source_host = (
         WORKSPACE_ROOT
@@ -443,6 +444,10 @@ def test_ui_exposes_explicit_safe_automation_controls() -> None:
     assert "ipcMain.handle('dialog:validate-folder'" in source_host
     assert "'dialog:validate-folder'" in source_preload
     assert "window.localStorage.setItem(LAST_TARGET_DIR_STORAGE_KEY, value)" in source
+    assert "if (!backendConnected)" in source
+    assert "scanDestinationFolders(target, abortController.signal)" in source
+    assert "timeoutMs: FOLDER_SCAN_TIMEOUT_MS" in source
+    assert "folderScanGenerationRef.current += 1" in source
     assert "style={{ display: 'none' }}" not in source
     assert "setProfileEnabled, 'true'" not in source
     assert "'--cleanup-scan', '--json', '--progress-jsonl'" not in source

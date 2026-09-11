@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   formatFileSize,
   formatRunOutput,
@@ -299,7 +299,8 @@ function loadLastTargetDir(): string {
 
 export function FileSorterWindowApp() {
   const { cancelToolRun, requestToolRun, socketStatus } = useToolRunner(TOOL_ID, 30 * 60 * 1000)
-  const [targetDir, setTargetDir] = useState(loadLastTargetDir)
+  const [targetDir, setTargetDir] = useState('')
+  const [targetValidated, setTargetValidated] = useState(false)
   const [keywordInput, setKeywordInput] = useState('')
   const [keywordFolder, setKeywordFolder] = useState('')
   const [destinationFolders, setDestinationFolders] = useState<string[]>([])
@@ -342,6 +343,7 @@ export function FileSorterWindowApp() {
   const cleanupAbortControllerRef = useRef<AbortController | null>(null)
   const cleanupStopRequestedRef = useRef(false)
   const profileSelectionVersionRef = useRef(0)
+  const folderScanGenerationRef = useRef(0)
 
   const keywords = useMemo(() => parseKeywords(keywordInput), [keywordInput])
   const destinationFolderOptions = useMemo(
@@ -352,11 +354,11 @@ export function FileSorterWindowApp() {
     isDirectChildFolderName(keywordFolder) &&
     destinationFolderOptions.includes(keywordFolder.trim())
   const actionBusy = runState === 'running' || cleanupState === 'running'
-  const canRun = !actionBusy && targetDir.trim().length > 0
+  const canRun = !actionBusy && targetValidated && targetDir.trim().length > 0
   const backendConnected = socketStatus === 'Connected'
   const canMutate = canRun && backendConnected
   const canChangeAutoClassification =
-    backendConnected && !actionBusy && targetDir.trim().length > 0
+    backendConnected && canRun
   const cleanupEnabled = cleanupImageIssues || cleanupSimilarImages || cleanupVideoIssues || cleanupSimilarVideos
   const canCleanup = canRun && cleanupEnabled
   const activePlanId = sortPlanId(sortPlan)
@@ -371,9 +373,11 @@ export function FileSorterWindowApp() {
         ? 100
         : 0
 
-  const updateTargetDir = (value: string) => {
+  const updateTargetDir = (value: string, validated = false) => {
     profileSelectionVersionRef.current += 1
+    folderScanGenerationRef.current += 1
     setTargetDir(value)
+    setTargetValidated(validated)
     setAutoOrganizeFiles(false)
     setDuplicateTrashEnabled(false)
     setKeywordFolder('')
@@ -407,7 +411,7 @@ export function FileSorterWindowApp() {
         if (cancelled) return
         const value = String(validatedTarget || '').trim()
         if (value) {
-          updateTargetDir(value)
+          updateTargetDir(value, true)
           return
         }
         try {
@@ -464,7 +468,7 @@ export function FileSorterWindowApp() {
 
   useEffect(() => {
     const value = targetDir.trim()
-    if (!value) return
+    if (!value || !targetValidated) return
     const timer = window.setTimeout(() => {
       try {
         window.localStorage.setItem(LAST_TARGET_DIR_STORAGE_KEY, value)
@@ -473,7 +477,77 @@ export function FileSorterWindowApp() {
       }
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [targetDir])
+  }, [targetDir, targetValidated])
+
+  const validateTargetDir = useCallback(async () => {
+    const candidate = targetDir.trim()
+    if (!candidate) {
+      updateTargetDir('')
+      return false
+    }
+    try {
+      const validated = String(
+        (await (window as any).electron?.invoke?.(
+          'dialog:validate-folder',
+          candidate
+        )) || ''
+      ).trim()
+      if (!validated) {
+        setTargetValidated(false)
+        setFolderScanStatus('目標資料夾不存在或無法存取')
+        return false
+      }
+      if (validated !== targetDir || !targetValidated) {
+        updateTargetDir(validated, true)
+      }
+      return true
+    } catch {
+      setTargetValidated(false)
+      setFolderScanStatus('無法驗證目標資料夾')
+      return false
+    }
+  }, [targetDir, targetValidated])
+
+  const scanDestinationFolders = useCallback(
+    async (target: string, signal?: AbortSignal) => {
+      const generation = ++folderScanGenerationRef.current
+      setFolderScanStatus('正在掃描可用目的地資料夾...')
+      try {
+        const result = await requestToolRun([target, '--list-folders'], {
+          mode: 'read-only',
+          timeoutMs: FOLDER_SCAN_TIMEOUT_MS,
+          signal,
+        })
+        if (generation !== folderScanGenerationRef.current) return result
+        if (result.ok !== true) {
+          setDestinationFolders([])
+          setKeywordFolder('')
+          setFolderScanStatus(result.message || '資料夾掃描失敗')
+          return result
+        }
+        const folders = parseDestinationFolders(result.stdout)
+        setDestinationFolders(folders)
+        setKeywordFolder((current) =>
+          folders.includes(current.trim()) ? current.trim() : ''
+        )
+        setFolderScanStatus(
+          folders.length > 0
+            ? `已找到 ${folders.length} 個目的地資料夾`
+            : '尚未找到可用目的地資料夾'
+        )
+        return result
+      } catch (error) {
+        if (generation !== folderScanGenerationRef.current) return null
+        setDestinationFolders([])
+        setKeywordFolder('')
+        setFolderScanStatus(
+          error instanceof Error ? error.message : '資料夾掃描失敗'
+        )
+        return null
+      }
+    },
+    [requestToolRun]
+  )
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -494,7 +568,7 @@ export function FileSorterWindowApp() {
 
   useEffect(() => {
     const target = targetDir.trim()
-    if (!target) return
+    if (!target || !targetValidated || !backendConnected) return
 
     let cancelled = false
     const selectionVersion = profileSelectionVersionRef.current
@@ -555,60 +629,39 @@ export function FileSorterWindowApp() {
       abortController.abort()
       window.clearTimeout(timer)
     }
-  }, [backendConnected, requestToolRun, targetDir])
+  }, [backendConnected, requestToolRun, targetDir, targetValidated])
 
   useEffect(() => {
     const target = targetDir.trim()
-    if (!autoScanFolders || !target) {
+    if (!autoScanFolders || !target || !targetValidated) {
       setDestinationFolders([])
       setKeywordFolder('')
-      setFolderScanStatus('')
+      if (!target) setFolderScanStatus('')
       return
     }
 
-    let cancelled = false
+    if (!backendConnected) {
+      setFolderScanStatus('等待後端連線後自動掃描...')
+      return
+    }
+
     const abortController = new AbortController()
     const timer = window.setTimeout(() => {
-      setFolderScanStatus('正在掃描可用目的地資料夾...')
-      void requestToolRun([target, '--list-folders'], {
-        mode: 'read-only',
-        queueTtlMs: READ_ONLY_QUEUE_TTL_MS,
-        timeoutMs: FOLDER_SCAN_TIMEOUT_MS,
-        signal: abortController.signal,
-      })
-        .then((result) => {
-          if (cancelled) return
-          if (result.ok !== true) {
-            setDestinationFolders([])
-            setKeywordFolder('')
-            setFolderScanStatus(result.message || '資料夾掃描失敗')
-            return
-          }
-          const folders = parseDestinationFolders(result.stdout)
-          setDestinationFolders(folders)
-          setKeywordFolder((current) =>
-            folders.includes(current.trim()) ? current.trim() : ''
-          )
-          setFolderScanStatus(
-            folders.length > 0
-              ? `已找到 ${folders.length} 個目的地資料夾`
-              : '尚未找到可用目的地資料夾'
-          )
-        })
-        .catch((error) => {
-          if (cancelled) return
-          setDestinationFolders([])
-          setKeywordFolder('')
-          setFolderScanStatus(error instanceof Error ? error.message : '資料夾掃描失敗')
-        })
-    }, 600)
+      void scanDestinationFolders(target, abortController.signal)
+    }, 300)
 
     return () => {
-      cancelled = true
+      folderScanGenerationRef.current += 1
       abortController.abort()
       window.clearTimeout(timer)
     }
-  }, [autoScanFolders, requestToolRun, targetDir])
+  }, [
+    autoScanFolders,
+    backendConnected,
+    scanDestinationFolders,
+    targetDir,
+    targetValidated,
+  ])
 
   useEffect(() => {
     const target = targetDir.trim()
@@ -638,7 +691,7 @@ export function FileSorterWindowApp() {
 
   const chooseTarget = async () => {
     const folder = await selectFolder()
-    if (folder) updateTargetDir(folder)
+    if (folder) updateTargetDir(folder, true)
   }
 
   const changeAutoOrganizeFiles = (enabled: boolean) => {
@@ -745,31 +798,8 @@ export function FileSorterWindowApp() {
   }
 
   const refreshDestinationFolders = async () => {
-    if (!canRun) return
-    const result = await execute(
-      [targetDir.trim(), '--list-folders'],
-      '正在掃描目的地資料夾...',
-      '目的地資料夾已更新',
-      {
-        mode: 'read-only',
-        queueTtlMs: READ_ONLY_QUEUE_TTL_MS,
-        timeoutMs: SHORT_REQUEST_TIMEOUT_MS,
-      }
-    )
-    if (result?.ok !== true) {
-      setDestinationFolders([])
-      setKeywordFolder('')
-      setFolderScanStatus(result?.message || '資料夾掃描失敗')
-      return
-    }
-    const folders = parseDestinationFolders(result?.stdout)
-    setDestinationFolders(folders)
-    setKeywordFolder((current) =>
-      folders.includes(current.trim()) ? current.trim() : ''
-    )
-    setFolderScanStatus(
-      folders.length > 0 ? `已找到 ${folders.length} 個目的地資料夾` : '尚未找到可用目的地資料夾'
-    )
+    if (!backendConnected || !(await validateTargetDir())) return
+    await scanDestinationFolders(targetDir.trim())
   }
 
   const previewSorter = () => {
@@ -1121,6 +1151,7 @@ export function FileSorterWindowApp() {
             <input
               value={targetDir}
               onChange={(event) => updateTargetDir(event.target.value)}
+              onBlur={() => void validateTargetDir()}
               placeholder="選擇或貼上要管理的資料夾"
               disabled={actionBusy}
               style={styles.input}
