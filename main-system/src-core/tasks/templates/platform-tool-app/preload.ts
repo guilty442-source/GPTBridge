@@ -5,6 +5,7 @@ const allowedInvokeChannels = new Set([
   'app:get-backend-session',
   'app:open-path',
   'dialog:select-folder',
+  'dialog:validate-folder',
   'dialog:create-file',
   'dialog:open-file',
 ])
@@ -21,6 +22,7 @@ contextBridge.exposeInMainWorld('electron', { invoke })
 contextBridge.exposeInMainWorld('gptBridge', {
   standaloneTool: true,
   selectFolder: () => invoke('dialog:select-folder'),
+  validateFolder: (candidate = '') => invoke('dialog:validate-folder', candidate),
   createFile: (defaultPath = '') => invoke('dialog:create-file', defaultPath),
   openFile: (defaultPath = '') => invoke('dialog:open-file', defaultPath),
   openPath: (payload) => invoke('app:open-path', payload),

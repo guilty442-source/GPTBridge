@@ -299,7 +299,7 @@ function loadLastTargetDir(): string {
 
 export function FileSorterWindowApp() {
   const { cancelToolRun, requestToolRun, socketStatus } = useToolRunner(TOOL_ID, 30 * 60 * 1000)
-  const [targetDir, setTargetDir] = useState(loadLastTargetDir)
+  const [targetDir, setTargetDir] = useState('')
   const [keywordInput, setKeywordInput] = useState('')
   const [keywordFolder, setKeywordFolder] = useState('')
   const [destinationFolders, setDestinationFolders] = useState<string[]>([])
@@ -396,6 +396,33 @@ export function FileSorterWindowApp() {
     setHistoryEntries([])
     setHistoryOutput('')
   }
+
+  useEffect(() => {
+    const savedTarget = loadLastTargetDir()
+    if (!savedTarget) return
+    let cancelled = false
+    void (window as any).electron
+      ?.invoke?.('dialog:validate-folder', savedTarget)
+      .then((validatedTarget: unknown) => {
+        if (cancelled) return
+        const value = String(validatedTarget || '').trim()
+        if (value) {
+          updateTargetDir(value)
+          return
+        }
+        try {
+          window.localStorage.removeItem(LAST_TARGET_DIR_STORAGE_KEY)
+        } catch {
+          // Invalid saved state is ignored when storage is unavailable.
+        }
+      })
+      .catch(() => {
+        // Keep the target empty until the user selects an existing directory.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const appendHistory = (action: string, ok: boolean, detail: string) => {
     setHistoryEntries((current) =>

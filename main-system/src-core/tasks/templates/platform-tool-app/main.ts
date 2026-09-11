@@ -3334,6 +3334,19 @@ ipcMain.handle('dialog:select-folder', async () => {
   return selected
 })
 
+ipcMain.handle('dialog:validate-folder', async (_event, candidate = '') => {
+  const selected = String(candidate || '').trim()
+  if (!selected || !path.isAbsolute(selected)) return ''
+  try {
+    const resolved = fs.realpathSync.native(selected)
+    if (!fs.statSync(resolved).isDirectory()) return ''
+    registerOpenPathCapability(resolved, true)
+    return resolved
+  } catch {
+    return ''
+  }
+})
+
 ipcMain.handle('dialog:create-file', async (_event, defaultPath = '') => {
   const result = await dialog.showSaveDialog({
     defaultPath: String(defaultPath || ''),
