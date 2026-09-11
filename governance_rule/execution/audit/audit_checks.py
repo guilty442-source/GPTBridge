@@ -27,6 +27,7 @@ from .audit_authority import (
     check_shared_layer_structure,
     check_third_party_inventory,
 )
+from .audit_directories import check_directory_audit
 from .audit_manifests import (
     check_tool_identity_registration,
     check_tool_manifests,
@@ -62,6 +63,7 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
     check_tool_identity_registration(root, errors, manifest_tool_ids)
 
     check_codex_consistency(root, errors)
+    check_directory_audit(root, errors)
     check_git_tiers(root, errors)
     check_metadata_contract(root, errors)
     check_reconcile_modules(root, errors)

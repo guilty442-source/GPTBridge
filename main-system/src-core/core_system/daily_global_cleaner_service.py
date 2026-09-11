@@ -43,7 +43,13 @@ class DailyGlobalCleanerService:
         return datetime.now(timezone.utc).isoformat()
 
     def _permission_master_entry(self) -> Any:
-        return getattr(self.app, "permission_sovereign", None)
+        permission = getattr(self.app, "permission_sovereign", None)
+        if permission is not None:
+            return permission
+        system_sovereign = getattr(self.app, "system_sovereign_service", None)
+        if system_sovereign is not None:
+            return getattr(system_sovereign, "permission_sovereign", None)
+        return None
 
     def _load_state(self) -> dict[str, Any]:
         try:
@@ -82,7 +88,7 @@ class DailyGlobalCleanerService:
         state = self._load_state()
         return {
             "enabled": True,
-            "owner": "maintenance-sovereign",
+            "owner": "main-system",
             "executor": "global-cleaner",
             "channel": "governance-authenticated-shared-layer",
             "interval_hours": 24,

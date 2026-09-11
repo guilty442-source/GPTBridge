@@ -56,4 +56,12 @@ DEFAULT_AGENTS: tuple[dict[str, Any], ...] = (
         "home_url": "https://www.perplexity.ai/",
         "business_capabilities": ["general", "advanced_search", "calculation"],
     },
+    {
+        "agent_id": "google-search",
+        "name": "Google Search",
+        "provider": "google-search",
+        "home_url": "https://www.google.com/",
+        "business_capabilities": ["search"],
+        "selected": False,
+    },
 )

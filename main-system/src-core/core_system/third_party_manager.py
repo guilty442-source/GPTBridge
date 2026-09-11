@@ -50,6 +50,13 @@ THIRD_PARTY_MANAGER_VERSION = component_version("third-party-manager")
 # Tools that can be auto-updated by the manager (safe, self-contained).
 AUTO_UPDATABLE_TOOLS: frozenset[str] = frozenset({"uv", "npm", "ollama", "electron"})
 
+# Capabilities that prove a governed approval token before any third-party
+# update may execute.  Mirrors the governed hot-update approval gate so only
+# tokens actually issued (and authenticated) by the governance service pass.
+THIRD_PARTY_UPDATE_APPROVAL_CAPABILITIES: frozenset[str] = frozenset(
+    {"hot-update", "hot-reload"}
+)
+
 # Probe commands: tool_id → (command, args, version_regex)
 # The regex must have exactly one capturing group for the version string.
 _PROBE_COMMANDS: dict[str, tuple[str, list[str], str]] = {
@@ -199,8 +206,14 @@ class ThirdPartyManager:
 
     VERSION = THIRD_PARTY_MANAGER_VERSION
 
-    def __init__(self, inventory_path: str | Path) -> None:
+    def __init__(
+        self,
+        inventory_path: str | Path,
+        *,
+        token_authenticator: Callable[[str], Any] | None = None,
+    ) -> None:
         self._inventory_path = Path(inventory_path)
+        self._token_authenticator = token_authenticator
         self._version_cache: dict[str, ToolVersionInfo] = {}
         self._update_cache: dict[str, UpdateCheckResult] = {}
         self._last_full_probe: float = 0.0
@@ -424,6 +437,28 @@ class ThirdPartyManager:
 
     # ─── Update Execution ──────────────────────────────────────────────
 
+    def _verify_approval_token(
+        self, approval_token: str | None
+    ) -> tuple[bool, str]:
+        """Authenticate a governed approval token (fail-closed).
+
+        Returns (authorized, reason).  Any missing authenticator, missing
+        token, unauthenticated token, or capability mismatch denies the
+        update before any command can run.
+        """
+        if self._token_authenticator is None:
+            return False, "governance-authentication-unavailable"
+        if not approval_token:
+            return False, "missing-approval-token"
+        try:
+            claims = self._token_authenticator(approval_token)
+        except (PermissionError, ValueError) as exc:
+            return False, f"permission-denied: {exc}"
+        capability = getattr(claims, "capability", "")
+        if capability not in THIRD_PARTY_UPDATE_APPROVAL_CAPABILITIES:
+            return False, "capability-mismatch"
+        return True, ""
+
     async def execute_update(
         self,
         tool_id: str,
@@ -432,8 +467,9 @@ class ThirdPartyManager:
     ) -> UpdateExecutionResult:
         """Execute an update for a single tool.
 
-        This is a governed action — it requires an approval token from the
-        governance layer.  Only auto-updatable tools can be updated here.
+        This is a governed action — it requires an authenticated approval
+        token from the governance layer.  Only auto-updatable tools can be
+        updated here.
         """
         result = UpdateExecutionResult(
             tool_id=tool_id,
@@ -447,8 +483,9 @@ class ThirdPartyManager:
             )
             return result
 
-        if not approval_token:
-            result.error = "governance approval token required for update execution"
+        authorized, auth_message = self._verify_approval_token(approval_token)
+        if not authorized:
+            result.error = auth_message
             return result
 
         # Record before-version
@@ -506,6 +543,9 @@ class ThirdPartyManager:
         If only_available is True, only update tools where an update is
         confirmed available (requires a prior check_for_updates call).
         """
+        authorized, auth_message = self._verify_approval_token(approval_token)
+        if not authorized:
+            raise PermissionError(f"permission-denied: {auth_message}")
         results: dict[str, UpdateExecutionResult] = {}
         for tool_id in AUTO_UPDATABLE_TOOLS:
             if only_available:
@@ -552,6 +592,7 @@ class ThirdPartyManager:
 __all__ = [
     "AUTO_UPDATABLE_TOOLS",
     "THIRD_PARTY_MANAGER_VERSION",
+    "THIRD_PARTY_UPDATE_APPROVAL_CAPABILITIES",
     "ThirdPartyManager",
     "ToolVersionInfo",
     "UpdateCheckResult",

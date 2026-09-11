@@ -33,7 +33,7 @@ class InvestmentAiConnections:
 
     @property
     def is_configured(self) -> bool:
-        return self._client is not None and self._ollama_ready()
+        return self._client is not None
 
     @staticmethod
     def _ollama_ready() -> bool:
@@ -249,30 +249,21 @@ class InvestmentAiConnections:
         *,
         trigger: str,
     ) -> dict[str, Any]:
-        if not self._ollama_ready():
+        if not self.is_configured:
             return self._not_ready()
-        prompt = (
-            "You are an investment accounting reviewer. Given reconciliation and "
-            "ledger summary data, produce a JSON object with at least 'ok' (bool), "
-            "'advice' (str), and 'warnings' (list of {title, description}).\n\n"
-            f"RECONCILIATION: {json.dumps(reconciliation, ensure_ascii=False)}\n"
-            f"LEDGER SUMMARY: {json.dumps(ledger_summary, ensure_ascii=False)}\n"
-            f"TRIGGER: {trigger}"
-        )
-        result = self._ollama_request_sync(prompt, json_mode=True, timeout_seconds=120)
-        if result.get("ok") is not True:
-            return result
-        parsed = result.get("parsed") or result.get("raw", {})
-        if not isinstance(parsed, dict):
-            parsed = {}
-        return {
-            "ok": True,
-            "queued": False,
-            "advice": parsed.get("advice", ""),
-            "warnings": parsed.get("warnings", []),
-            "model": OLLAMA_MODEL,
-            "provider": "ollama",
+        payload = {
+            "reconciliation": reconciliation,
+            "ledger_summary": ledger_summary,
+            "trigger": trigger,
+            "autonomous": True,
+            "request_origin": "offline-ai-investment-manager",
         }
+        return self._client.request_sync(
+            "xingcheng",
+            "xingcheng_manage_investment_accounting",
+            payload,
+            timeout_seconds=120,
+        )
 
     @staticmethod
     def _discussion_snapshot(analysis: dict[str, Any]) -> dict[str, Any]:
@@ -318,27 +309,18 @@ class InvestmentAiConnections:
         }
 
     def discuss_analysis_sync(self, analysis: dict[str, Any]) -> dict[str, Any]:
-        if not self._ollama_ready():
+        if not self.is_configured:
             return self._not_ready()
-        prompt = (
-            "You are an investment discussion assistant. Given the following "
-            "investment analysis snapshot, produce a JSON object with at least "
-            "'ok' (bool) and 'summary' (str).\n\n"
-            f"ANALYSIS SNAPSHOT: {json.dumps(self._discussion_snapshot(analysis), ensure_ascii=False)}"
-        )
-        result = self._ollama_request_sync(prompt, json_mode=True, timeout_seconds=200)
-        if result.get("ok") is not True:
-            return result
-        parsed = result.get("parsed") or result.get("raw", {})
-        if not isinstance(parsed, dict):
-            parsed = {}
-        return {
-            "ok": True,
-            "queued": False,
-            "summary": parsed.get("summary", ""),
-            "model": OLLAMA_MODEL,
-            "provider": "ollama",
+        payload = {
+            "analysis_snapshot": self._discussion_snapshot(analysis),
+            "request_origin": "offline-ai-investment-manager",
         }
+        return self._client.request_sync(
+            "xingcheng",
+            "xingcheng_discuss_investment_analysis",
+            payload,
+            timeout_seconds=200,
+        )
 
     def list_star_memory_sync(
         self,

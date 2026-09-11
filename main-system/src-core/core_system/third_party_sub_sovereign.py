@@ -105,7 +105,10 @@ class ThirdPartySubSovereign:
                 / "tool_inventory.json"
             )
         self._tool_inventory = self._load_inventory()
-        self._manager = ThirdPartyManager(self._inventory_path)
+        self._manager = ThirdPartyManager(
+            self._inventory_path,
+            token_authenticator=self._token_authenticator,
+        )
         self._started_at = _iso_now()
         self._started = True
 
@@ -214,6 +217,22 @@ class ThirdPartySubSovereign:
             "auto_updatable_tools": sorted(AUTO_UPDATABLE_TOOLS),
             "decision": decision_basis(SYSTEM_THIRD_PARTY_MANAGER_AUTHORITY),
         }
+
+    def _token_authenticator(self, token: str) -> Any:
+        """Authenticate a third-party approval token through the governance
+        authentication service (fail-closed: any unavailable or invalid state
+        raises so the manager denies the update)."""
+        governance = getattr(self.app, "governance", None)
+        if governance is None:
+            raise PermissionError("governance-unavailable")
+        authentication = getattr(governance, "_authentication", None)
+        if authentication is None:
+            authentication = getattr(governance, "authentication", None)
+        if authentication is None or not callable(
+            getattr(authentication, "authenticate_token", None)
+        ):
+            raise PermissionError("governance-authentication-unavailable")
+        return authentication.authenticate_token(token)
 
     def _inventory_status(self) -> dict[str, Any]:
         return {

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import governance_rule.execution.git_tiers
 from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.execution.codex_repository import format_codex_version
 
 
 def check_codex_consistency(root: Path, errors: list[str]) -> None:
@@ -18,7 +19,9 @@ def check_codex_consistency(root: Path, errors: list[str]) -> None:
     except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError) as error:
         errors.append(f"Chinese codex reference is invalid: {error}")
         chinese, tables = {}, {}
-    if str(chinese.get("codex_version")) != f"{GOVERNANCE_CODEX.codex_version:.5f}":
+    if str(chinese.get("codex_version")) != format_codex_version(
+        GOVERNANCE_CODEX.codex_version
+    ):
         errors.append("Chinese codex version is not synchronized")
     expected_ids = {
         "principles": {item.id for item in GOVERNANCE_CODEX.principles},

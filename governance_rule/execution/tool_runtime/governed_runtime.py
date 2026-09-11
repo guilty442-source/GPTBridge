@@ -346,6 +346,7 @@ class GovernedToolRuntime:
             idle_poll_seconds = 0.25
             request_id = str(request["request_id"])
             payload = request.get("payload")
+            command = ""
             try:
                 if not isinstance(payload, dict):
                     raise permission_denied()
@@ -403,7 +404,9 @@ class GovernedToolRuntime:
                     # in waiters.
                     result["request_id"] = request_id
             except Exception:
-                event = "error"
+                # Preserve request correlation on governed failures. Clients
+                # waiting for toolbox_run_tool_result can then fail promptly.
+                event = f"{command}_result" if command else "error"
                 result = {
                     "ok": False,
                     "tool_id": self.tool_id,
@@ -418,7 +421,7 @@ class GovernedToolRuntime:
                 if active_channel_id is not None:
                     self._record_channel_health(active_channel_id, ok=True)
             except Exception:
-                event = "error"
+                event = f"{command}_result" if command else "error"
                 if active_channel_id is not None:
                     self._record_channel_health(active_channel_id, ok=False)
                 result = {
@@ -435,6 +438,8 @@ class GovernedToolRuntime:
 
     async def _handler(self, websocket: Any) -> None:
         async for raw_message in websocket:
+            command = ""
+            request_id = ""
             try:
                 message = json.loads(raw_message)
                 command = str(message.get("command") or "").strip()
@@ -480,8 +485,14 @@ class GovernedToolRuntime:
             except Exception:
                 await self.send(
                     websocket,
-                    "error",
-                    {"error_code": "PERMISSION_DENIED", "message": "PERMISSION_DENIED"},
+                    f"{command}_result" if command else "error",
+                    {
+                        "ok": False,
+                        "tool_id": self.tool_id,
+                        "request_id": request_id,
+                        "error_code": "PERMISSION_DENIED",
+                        "message": "PERMISSION_DENIED",
+                    },
                 )
 
     async def _run_local_self_repair(self) -> dict[str, Any]:

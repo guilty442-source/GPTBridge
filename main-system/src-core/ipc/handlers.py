@@ -12,7 +12,9 @@ TOOL_LIFECYCLE_HANDLERS = {
     "toolbox_stop_tool": "stop_tool",
     "toolbox_force_close_tool": "force_close_tool",
     "toolbox_request_tool_execution": "request_tool_execution",
+    "toolbox_run_tool": "run_tool",
     "toolbox_cancel_tool_execution": "cancel_tool_execution",
+    "toolbox_cancel_tool_run": "cancel_tool_execution",
 }
 
 MAIN_COMMANDS = {
@@ -21,7 +23,9 @@ MAIN_COMMANDS = {
     "toolbox_stop_tool",
     "toolbox_force_close_tool",
     "toolbox_request_tool_execution",
+    "toolbox_run_tool",
     "toolbox_cancel_tool_execution",
+    "toolbox_cancel_tool_run",
     "app:get-runtime-status",
     "app:get-governance-rules",
     "app:run-main-system-self-maintenance",

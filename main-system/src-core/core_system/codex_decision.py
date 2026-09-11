@@ -20,7 +20,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
-from governance_rule.execution.codex_repository import load_governance_codex
+from governance_rule.execution.codex_repository import (
+    format_codex_version,
+    load_governance_codex,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -196,11 +199,12 @@ def decision_basis(area: str) -> dict[str, Any]:
     """
 
     edicts = codex_edicts(area)
+    codex_snapshot = load_governance_codex()
     return {
         "decision_source": "governance-codex",
-        "codex_schema": load_governance_codex().schema,
-        "codex_version": load_governance_codex().codex_version,
-        "authority_rank": load_governance_codex().preamble.authority_rank,
+        "codex_schema": codex_snapshot.schema,
+        "codex_version": format_codex_version(codex_snapshot.codex_version),
+        "authority_rank": codex_snapshot.preamble.authority_rank,
         "area": area,
         "edicts": edicts,
         "sovereign": _sovereign_for_area(area),

@@ -75,9 +75,10 @@ TIER2_OPS: Final[frozenset[str]] = frozenset({
 TIER3_OPS: Final[frozenset[str]] = frozenset({
     "push --force", "push --force-with-lease", "push -f", "push +",
     "commit --amend", "reset --hard", "reset --soft", "branch -D",
-    "branch -d", "filter-branch", "filter-repo", "rebase -i",
-    "rebase --interactive", "rebase --root", "gc --prune", "gc --prune=now",
-    "gc --aggressive", "reflog expire", "reflog expire --expire=now",
+    "branch -d", "branch --delete", "filter-branch", "filter-repo",
+    "rebase -i", "rebase --interactive", "rebase --root",
+    "gc --prune", "gc --prune=now", "gc --aggressive",
+    "reflog expire", "reflog expire --expire=now",
     "update-ref -d", "clean -fd", "clean -fdx", "stash drop",
     "stash clear", "push --delete", "tag -d", "replace", "notes remove",
 })

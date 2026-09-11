@@ -119,6 +119,7 @@ const SORTER_FLAGS = {
 
 const READ_ONLY_QUEUE_TTL_MS = 8_000
 const SHORT_REQUEST_TIMEOUT_MS = 20_000
+const FOLDER_SCAN_TIMEOUT_MS = 120_000
 const PLAN_JSON_PREFIXES = [
   'FILE_SORTER_PREVIEW_JSON=',
   'FILE_SORTER_PLAN_JSON=',
@@ -545,7 +546,7 @@ export function FileSorterWindowApp() {
       void requestToolRun([target, '--list-folders'], {
         mode: 'read-only',
         queueTtlMs: READ_ONLY_QUEUE_TTL_MS,
-        timeoutMs: SHORT_REQUEST_TIMEOUT_MS,
+        timeoutMs: FOLDER_SCAN_TIMEOUT_MS,
         signal: abortController.signal,
       })
         .then((result) => {

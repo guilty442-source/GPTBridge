@@ -76,17 +76,31 @@ class EnvironmentMixin:
         requested_mode: str,
         executable_exists: bool,
     ) -> bool:
-        # Independent tools always launch from governed native source code;
-        # packaged EXEs are no longer used for startup.
         if not ToolPathResolver.has_governed_source_runtime(manifest):
             return False
-        if not ToolPathResolver.is_dual_runtime(manifest):
+        requested = str(requested_mode).strip().casefold()
+        if requested == "executable":
+            return False
+        if requested == "source":
             return True
-        # Dual-runtime: background or explicit source request uses source launch;
-        # foreground with no preference uses the executable when it exists.
-        if background or str(requested_mode).strip().casefold() == "source":
-            return True
-        return not executable_exists
+        launch = manifest.get("launch") or {}
+        if ToolPathResolver.is_dual_runtime(manifest):
+            return not executable_exists
+        if background:
+            return str(launch.get("background") or "").strip().casefold() in {
+                "governed-source",
+                "governed-source-ui",
+                "governed-source-channel",
+                "source",
+            }
+        if executable_exists:
+            return False
+        return str(launch.get("primary") or "").strip().casefold() in {
+            "governed-source",
+            "governed-source-ui",
+            "governed-source-channel",
+            "source",
+        }
 
     @staticmethod
     def _source_fallback_allowed(
@@ -112,8 +126,12 @@ class EnvironmentMixin:
         requested_mode: str,
         executable_exists: bool,
     ) -> bool:
-        # EXE fallback is disabled; independent tools run from native source.
-        return False
+        if not executable_exists:
+            return False
+        if not ToolPathResolver.is_dual_runtime(manifest):
+            return False
+        requested = str(requested_mode).strip().casefold()
+        return requested in {"", "source"}
 
     @staticmethod
     def _tool_version_failure(

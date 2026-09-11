@@ -9,14 +9,14 @@ from pathlib import Path
 from typing import Any
 
 from . import portfolio_file as investment_manager_core
-from .import_excel import _ImportResumePending
+from .import_excel import ImportExcelMixin, _ImportResumePending
 from .import_snapshot import ImportSnapshotMixin
 from .portfolio_file import local_device_now
 from .privacy import encode_binary_document
 from .watch_repository import InvestmentWatchRepository
 
 
-class InvestmentImportServiceMixin(ImportSnapshotMixin):
+class InvestmentImportServiceMixin(ImportExcelMixin, ImportSnapshotMixin):
     """Lifecycle management for investment portfolio import operations."""
 
     def _prepare_import_operation(
