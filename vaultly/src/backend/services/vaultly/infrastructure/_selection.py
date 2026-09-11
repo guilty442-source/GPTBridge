@@ -12,7 +12,7 @@ class SelectionMixin:
         with self._connect() as connection:
             previous_rows = connection.execute(
                 """
-                SELECT *
+                SELECT account_id, selected
                 FROM vaultly_accounts
                 WHERE is_active = 1
                 """

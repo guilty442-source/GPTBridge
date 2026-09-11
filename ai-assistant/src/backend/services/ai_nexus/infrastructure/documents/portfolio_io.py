@@ -253,7 +253,7 @@ MARKET_SESSIONS = {
 
 
 def local_device_now() -> datetime:
-    return datetime.now().astimezone()
+    return datetime.now(timezone.utc)
 
 
 def utc_now() -> datetime:

@@ -8,7 +8,7 @@ import re
 import stat
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -52,7 +52,7 @@ except ImportError:
 
 
 def utc_now() -> str:
-    return datetime.now().astimezone().isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 DATA_ROOT_ENV = "GPTBRIDGE_AI_ASSISTANT_DATA_ROOT"

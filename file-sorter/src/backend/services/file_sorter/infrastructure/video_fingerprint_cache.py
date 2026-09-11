@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +35,7 @@ class VideoFingerprintCache:
                     mtime_ns INTEGER NOT NULL,
                     schema_version INTEGER NOT NULL,
                     payload_json TEXT NOT NULL,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                 )
                 """
             )
@@ -85,14 +86,14 @@ class VideoFingerprintCache:
                 connection.execute(
                     """
                     INSERT INTO video_fingerprints (
-                        path_digest, size, mtime_ns, schema_version, payload_json
-                    ) VALUES (?, ?, ?, ?, ?)
+                        path_digest, size, mtime_ns, schema_version, payload_json, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
                     ON CONFLICT(path_digest) DO UPDATE SET
                         size = excluded.size,
                         mtime_ns = excluded.mtime_ns,
                         schema_version = excluded.schema_version,
                         payload_json = excluded.payload_json,
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at = excluded.updated_at
                     """,
                     (
                         self._path_digest(path),
@@ -100,6 +101,7 @@ class VideoFingerprintCache:
                         int(mtime_ns),
                         VIDEO_FINGERPRINT_CACHE_SCHEMA,
                         payload_json,
+                        datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     ),
                 )
         except (OSError, sqlite3.Error, ValueError, TypeError):

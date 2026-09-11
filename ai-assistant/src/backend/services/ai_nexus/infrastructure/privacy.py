@@ -30,7 +30,7 @@ def _dpapi_available() -> bool:
 
 def protect_bytes(data: bytes, *, entropy_value: bytes | None = None) -> bytes:
     if not _dpapi_available():
-        return data
+        raise OSError("DPAPI_UNAVAILABLE: encryption requires Windows DPAPI")
     source, source_buffer = _blob(data)
     entropy, entropy_buffer = _blob(entropy_value or DEFAULT_ENTROPY)
     target = _DataBlob()
@@ -57,7 +57,7 @@ def protect_bytes(data: bytes, *, entropy_value: bytes | None = None) -> bytes:
 
 def unprotect_bytes(data: bytes, *, entropy_value: bytes | None = None) -> bytes:
     if not _dpapi_available():
-        return data
+        raise OSError("DPAPI_UNAVAILABLE: decryption requires Windows DPAPI")
     source, source_buffer = _blob(data)
     entropy, entropy_buffer = _blob(entropy_value or DEFAULT_ENTROPY)
     target = _DataBlob()
@@ -84,8 +84,6 @@ def unprotect_bytes(data: bytes, *, entropy_value: bytes | None = None) -> bytes
 
 def encode_json_document(payload: dict[str, Any]) -> str:
     encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    if not _dpapi_available():
-        return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
     protected = protect_bytes(encoded)
     envelope = {
         "envelope_version": ENVELOPE_VERSION,
@@ -116,18 +114,14 @@ def encode_binary_document(
     key_id: str | None = None,
 ) -> bytes:
     generation = key_id or uuid.uuid4().hex
-    entropy = os.urandom(32) if _dpapi_available() else b""
-    protected = protect_bytes(data, entropy_value=entropy or None)
+    entropy = os.urandom(32)
+    protected = protect_bytes(data, entropy_value=entropy)
     envelope = {
         "envelope_version": DATABASE_ENVELOPE_VERSION,
-        "protection": (
-            "windows-dpapi-current-user"
-            if _dpapi_available()
-            else "filesystem-permissions"
-        ),
+        "protection": "windows-dpapi-current-user",
         "purpose": str(purpose or "binary"),
         "key_id": generation,
-        "entropy": base64.b64encode(entropy).decode("ascii") if entropy else "",
+        "entropy": base64.b64encode(entropy).decode("ascii"),
         "ciphertext": base64.b64encode(protected).decode("ascii"),
     }
     return (json.dumps(envelope, ensure_ascii=True, separators=(",", ":")) + "\n").encode(
@@ -148,8 +142,6 @@ def decode_binary_document(raw: bytes) -> tuple[bytes, dict[str, Any]]:
     protection = str(envelope.get("protection") or "")
     if protection == "windows-dpapi-current-user":
         decoded = unprotect_bytes(ciphertext, entropy_value=entropy)
-    elif protection == "filesystem-permissions":
-        decoded = ciphertext
     else:
         raise ValueError(f"unsupported binary protection: {protection}")
     return decoded, envelope
@@ -157,7 +149,7 @@ def decode_binary_document(raw: bytes) -> tuple[bytes, dict[str, Any]]:
 
 def protect_text(value: str) -> str:
     text = str(value or "")
-    if not text or not _dpapi_available():
+    if not text:
         return text
     encrypted = protect_bytes(text.encode("utf-8"))
     return "dpapi:" + base64.b64encode(encrypted).decode("ascii")
@@ -172,10 +164,11 @@ def unprotect_text(value: str) -> str:
 
 
 def privacy_status() -> dict[str, Any]:
+    available = _dpapi_available()
     return {
-        "state_encryption": "windows-dpapi-current-user" if _dpapi_available() else "filesystem-permissions",
-        "sensitive_field_encryption": "windows-dpapi-current-user" if _dpapi_available() else "filesystem-permissions",
-        "database_encryption": "windows-dpapi-whole-database" if _dpapi_available() else "filesystem-permissions",
-        "key_rotation": "dpapi-protection-generation" if _dpapi_available() else "not-available",
-        "platform_protected": _dpapi_available(),
+        "state_encryption": "windows-dpapi-current-user" if available else "unavailable-fail-closed",
+        "sensitive_field_encryption": "windows-dpapi-current-user" if available else "unavailable-fail-closed",
+        "database_encryption": "windows-dpapi-whole-database" if available else "unavailable-fail-closed",
+        "key_rotation": "dpapi-protection-generation" if available else "not-available",
+        "platform_protected": available,
     }

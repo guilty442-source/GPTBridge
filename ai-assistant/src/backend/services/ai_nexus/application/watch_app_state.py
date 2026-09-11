@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from time import monotonic
 from typing import Any
@@ -13,7 +13,7 @@ from ..infrastructure.analytics_repository import market_session_status
 
 
 def local_device_now() -> datetime:
-    return datetime.now().astimezone()
+    return datetime.now(timezone.utc)
 
 
 class WatchAppStateMixin:
