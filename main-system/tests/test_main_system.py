@@ -40,6 +40,7 @@ import ast
 import json
 import re
 import subprocess
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -121,8 +122,11 @@ def _manifest_paths() -> list[Path]:
     paths.extend(
         path
         for path in ROOT.glob("*/*/manifest.json")
-        if json.loads(path.read_text("utf-8")).get("main_system_independent_tool")
-        is True
+        if (
+            json.loads(path.read_text("utf-8")).get("main_system_independent_tool")
+            is True
+            or json.loads(path.read_text("utf-8")).get("companion_tool") is True
+        )
     )
     return sorted(paths)
 
@@ -173,7 +177,10 @@ def test_manifest_identity_matches_owned_folder_or_declared_companion(
     manifest = _load_json(manifest_path)
     assert manifest["id"] == folder_name
     if manifest_path.parent.parent != ROOT:
-        assert manifest["main_system_independent_tool"] is True
+        assert (
+            manifest.get("main_system_independent_tool") is True
+            or manifest.get("companion_tool") is True
+        )
         host_manifest = _load_json(manifest_path.parents[1] / "manifest.json")
         assert manifest["host_tool_id"] == host_manifest["id"]
     assert TOOL_ID_PATTERN.fullmatch(folder_name)
@@ -3045,6 +3052,7 @@ class ContractProbe:
         return f"{self.tool_id}-{self.family}-{self.ordinal:04d}"
 
 
+@cache
 def _load_manifest(tool_id: str) -> dict[str, Any]:
     manifest_path = ROOT / tool_id / "manifest.json"
     if not manifest_path.is_file():
@@ -3056,7 +3064,10 @@ def _load_manifest(tool_id: str) -> dict[str, Any]:
             document = json.loads(candidate.read_text("utf-8"))
             if (
                 document.get("id") == tool_id
-                and document.get("main_system_independent_tool") is True
+                and (
+                    document.get("main_system_independent_tool") is True
+                    or document.get("companion_tool") is True
+                )
             ):
                 candidates.append(candidate)
         assert len(candidates) == 1, tool_id
@@ -3311,11 +3322,13 @@ def _build_cases() -> list[ContractProbe]:
 
 
 CASES = _build_cases()
+_GOVERNANCE_POLICY = governance_policy_snapshot()
+_CODE_RULE_DIRECTORY = code_rule_directory_snapshot()
 
 
 def _evaluate_probe(probe: ContractProbe) -> bool:
-    policy = governance_policy_snapshot().identifier_labels
-    code_rules = code_rule_directory_snapshot()
+    policy = _GOVERNANCE_POLICY.identifier_labels
+    code_rules = _CODE_RULE_DIRECTORY
     if probe.family == "tool-id":
         candidate = str(probe.candidate)
         return (

@@ -62,10 +62,17 @@ class ToolPathResolver:
                 )
             except (OSError, json.JSONDecodeError) as error:
                 raise ValueError("Companion tool manifest could not be verified") from error
-            if (
-                manifest.get("host_tool_id") != host_manifest.get("id")
-                or manifest.get("main_system_independent_tool") is not True
-            ):
+            host_tool_id = host_manifest.get("id")
+            legacy_companion = (
+                manifest.get("host_tool_id") == host_tool_id
+                and manifest.get("main_system_independent_tool") is True
+            )
+            owned_companion = (
+                manifest.get("companion_tool") is True
+                and manifest.get("companion_owner") == host_tool_id
+                and manifest.get("runtime_owner_tool_id") == host_tool_id
+            )
+            if not (legacy_companion or owned_companion):
                 raise ValueError("Nested tool is not an authorized main-system companion")
             return resolved
         raise ValueError(
