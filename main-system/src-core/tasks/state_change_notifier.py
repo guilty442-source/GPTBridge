@@ -186,7 +186,10 @@ class StateChangeNotifier:
         state was unchanged (no push needed).  Best-effort: never raises.
         """
         try:
-            snapshot = self._gate.evaluate()
+            # Dependency and governance probes are synchronous.  Keep them
+            # off the IPC event loop so health replies, heartbeats and
+            # reconnect handshakes cannot be starved by readiness polling.
+            snapshot = await asyncio.to_thread(self._gate.evaluate)
             if not self._state_changed(snapshot):
                 return None
             self._last_snapshot = snapshot

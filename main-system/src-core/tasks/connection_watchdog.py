@@ -45,7 +45,7 @@ from core_system.versioning import component_version
 
 CONNECTION_WATCHDOG_VERSION: Final[str] = component_version("connection-watchdog")
 CONNECTION_PROBE_INTERVAL: Final[float] = 5.0
-CONNECTION_PROBE_TIMEOUT: Final[float] = 2.0
+CONNECTION_PROBE_TIMEOUT: Final[float] = 8.0
 CONNECTION_DEAD_THRESHOLD: Final[int] = 3  # consecutive dead probes → disconnected
 CONNECTION_STATE_FILE: Final[str] = "ipc-connection-state.json"
 
