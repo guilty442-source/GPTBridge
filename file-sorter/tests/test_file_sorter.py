@@ -425,6 +425,22 @@ def test_ui_exposes_explicit_safe_automation_controls() -> None:
     assert "gptbridge.file-sorter.last-target-dir.v1" in source
     assert "invoke?.('dialog:validate-folder', savedTarget)" in source
     assert "localStorage.removeItem(LAST_TARGET_DIR_STORAGE_KEY)" in source
+    source_host = (
+        WORKSPACE_ROOT
+        / "main-system"
+        / "scripts"
+        / "source-tool-ui-host"
+        / "main.cjs"
+    ).read_text(encoding="utf-8")
+    source_preload = (
+        WORKSPACE_ROOT
+        / "main-system"
+        / "scripts"
+        / "source-tool-ui-host"
+        / "preload.cjs"
+    ).read_text(encoding="utf-8")
+    assert "ipcMain.handle('dialog:validate-folder'" in source_host
+    assert "'dialog:validate-folder'" in source_preload
     assert "window.localStorage.setItem(LAST_TARGET_DIR_STORAGE_KEY, value)" in source
     assert "style={{ display: 'none' }}" not in source
     assert "setProfileEnabled, 'true'" not in source
