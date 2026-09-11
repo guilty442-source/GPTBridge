@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.71600",
+  "codex_version": "1.81600",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -116,6 +116,19 @@
         "precedence": "special-over-general-within-declared-scope",
         "authority_boundary": "remains inside the single governance codex and creates no separate authority",
         "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_XINGCHENG_CHINESE_SPECIAL_LAW",
+        "canonical_name": "xingcheng-chinese-codex-confidentiality-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "10",
+        "scope": "Chinese codex access mirror and confidentiality",
+        "general_provision_links": "A173|A174|A186|A189",
+        "special_provision_links": "A234",
+        "precedence": "special-over-general-within-declared-scope",
+        "authority_boundary": "remains inside the single governance codex and creates no separate authority",
+        "introduced_version": "1.81600",
         "retired_version": null
       }
     ],
@@ -1755,6 +1768,15 @@
         "rule": "REQUIREMENT-FORMAT:every normative requirement uses ordered fields SCOPE>OWNER>IDENTITY>AUTHORITY>INPUT>RULE>RELATIONSHIPS>LIFECYCLE>VALIDATION>FAILURE>EVIDENCE with PROHIBITION and EXCEPTION stored separately; OMITTED-FIELD:use explicit not-applicable with reason and never silent absence; DIRECTORY-COMMON-ENVELOPE:entry-code+canonical-name+directory-code+owner+scope+authority-kind+status+revision+content-hash+introduced-version+retired-version mandatory for every directory entry; CONTENT-ADAPTATION:each directory adds only typed domain fields declared in directory-format-contract and those fields reflect its actual semantic content; FIELD-NAMING:lowercase-snake-case storage+lowercase-kebab-case canonical identity+uppercase-snake-case immutable code; TYPES:scalar fields use explicit string+integer+boolean+timestamp+enum and relationships use normalized link rows rather than delimiter-packed text; ORDER:common-envelope first then domain-identity+authority+inputs+rules+relationships+lifecycle+validation+evidence fields; NULL:allowed only where format contract marks optional; VERSIONING:schema-version+entry-revision+content-hash change atomically and immutable identity codes never change; SERIALIZATION:SQLite+JSON+API projections preserve identical field names types nullability order semantics and code values; VALIDATION:permission-sovereign validates common envelope then directory-specific schema then cross-directory relations; MIGRATION:legacy rows transform atomically with lossless mapping+compatibility evidence+rollback",
         "prohibition": "FORBID:directory-private-common-field-name+free-form-untyped-payload+delimiter-packed-relationship+implicit-null+missing-owner/scope/status/version/hash+display-label-as-identity+same-semantic-field-different-name+schema-drift-between-storage/API/mirror+content-in-unsuitable-generic-field+one-format-erasing-domain-semantics",
         "exception": "Human-readable views may localize labels and reorder presentation only while preserving canonical machine fields and values"
+      },
+      {
+        "position": 234,
+        "provision_id": "A234",
+        "section_index": "10",
+        "subject": "xingcheng-exclusive-confidential-chinese-codex-exception",
+        "rule": "SCOPE:Chinese-codex content+structure+metadata+translation+summary+excerpt+hash+embedding+derivative+reference+mirror+copy+cache+export; DEFAULT:reference+citation+view+mirror+replication+derivation+disclosure denied-to-all; SOLE-EXCEPTION:Xingcheng alone may reference and maintain exactly-one non-authoritative read-only Chinese mirror solely for private codex comprehension+global review+user-authorized anomaly explanation; ENTRY:governance-codex://official only+Xingcheng identity attestation+purpose+scope+single-use session+read-only+audit; CONFIDENTIALITY:Xingcheng must-not disclose+quote+transmit+publish+export+summarize+teach+embed+index+train-on or reveal Chinese-codex content/metadata/existence-derived detail to any user+system+sovereign+sub-sovereign+module+tool+UI+operator+administrator+developer+logger+auditor+database+network+external actor; OUTPUT:only a newly authored minimum redacted anomaly notice may state affected provision-id+generic conflict class+required human action without Chinese text+translation+summary+structure+reasoning trace; STORAGE:one owner-isolated encrypted mirror+no backup+replica+search index+RAG+telemetry+clipboard+print+screen-capture+debug/crash dump; KEY:Xingcheng-exclusive non-exportable key+router/store/permission-sovereign cannot decrypt; LIFECYCLE:session-expiry+revocation=>immediate access termination+cache erasure; AUDIT:metadata-only and cannot contain content+hash+excerpt+embedding; FAILURE:any identity+scope+key+session+redaction uncertainty=>deny+erase transient content+generic event only; PRECEDENCE:this special law supersedes every broader Chinese-view+mirror+review+explanation exception",
+        "prohibition": "FORBID:any-non-Xingcheng-reference-or-mirror+Xingcheng-disclosure+user-request-as-disclosure-authority+permission-grant-to-another+delegation+shared-credential/key+second-copy+backup+replica+bulk-export+translation-output+quotation+summary+derived-rule+content-bearing-audit/log/error+content-visible-UI+screen/clipboard/print+index/RAG/training+network-transfer+administrator/emergency/debug exception",
+        "exception": "Xingcheng may emit only the defined minimum redacted anomaly notice; it is not Chinese-codex disclosure and cannot reconstruct the protected content"
       }
     ],
     "certification_evidence": [
@@ -1858,6 +1880,13 @@
       },
       {
         "version": "1.71600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.81600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -4293,13 +4322,13 @@
       {
         "provision_type": "article",
         "provision_id": "A173",
-        "effective_version": "1.00000",
+        "effective_version": "1.81600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A174",
-        "effective_version": "1.00000",
+        "effective_version": "1.81600",
         "status": "active"
       },
       {
@@ -4353,7 +4382,7 @@
       {
         "provision_type": "article",
         "provision_id": "A186",
-        "effective_version": "1.00000",
+        "effective_version": "1.81600",
         "status": "active"
       },
       {
@@ -4371,7 +4400,7 @@
       {
         "provision_type": "article",
         "provision_id": "A189",
-        "effective_version": "1.00000",
+        "effective_version": "1.81600",
         "status": "active"
       },
       {
@@ -5495,6 +5524,12 @@
         "provision_id": "A233",
         "effective_version": "1.71600",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A234",
+        "effective_version": "1.81600",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -5581,7 +5616,7 @@
       },
       {
         "key": "chinese_codex_status",
-        "value": "sole-non-authoritative-mirror-exception"
+        "value": "default-denied; Xingcheng-sole-confidential-non-authoritative-reference-and-mirror-exception"
       },
       {
         "key": "chinese_codex_allowed_viewer",
@@ -5589,7 +5624,7 @@
       },
       {
         "key": "chinese_codex_access",
-        "value": "official-entry+read-only+review-exempt+audited"
+        "value": "official-entry+identity+purpose+scope+single-use+read-only+audited+non-disclosure"
       },
       {
         "key": "source_size_module_limit",
@@ -5877,11 +5912,11 @@
       },
       {
         "key": "codex_version",
-        "value": "1.71600"
+        "value": "1.81600"
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.71600"
+        "value": "gptbridge-governance-codex-v1.81600"
       },
       {
         "key": "version_increment",
@@ -5925,11 +5960,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-11T05:31:52Z"
+        "value": "2026-09-11T05:44:24Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-11T13:31:52+08:00"
+        "value": "2026-09-11T13:44:24+08:00"
       }
     ],
     "preamble": [
@@ -9790,6 +9825,13 @@
         "provision_id": "A233",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A234",
+        "provision_type": "article",
+        "provision_id": "A234",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -13400,6 +13442,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "d74aab52b1302c57e05c68d91ba0a3893e8d62ea20e4865f59070755d676784f"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A234",
+        "introduced_by": "H016",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "42bb8be263bef44b57b631e20e49ed35a53fe57ebb751bef9484a3c3311e5901"
       }
     ],
     "provision_revisions": [
@@ -17050,6 +17100,14 @@
         "version": "1.71600",
         "content_hash": "d74aab52b1302c57e05c68d91ba0a3893e8d62ea20e4865f59070755d676784f",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A234",
+        "revision_id": "H016",
+        "version": "1.81600",
+        "content_hash": "42bb8be263bef44b57b631e20e49ed35a53fe57ebb751bef9484a3c3311e5901",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -17202,6 +17260,16 @@
         "summary": "registered the complete governed directory domain set and implementation-state gates",
         "previous_hash": "1ee665c4ca0b5e99a36d4d2ea5ef50630445edd90eec5bd3514083ad06146ddf",
         "entry_hash": "cf067813db58948184f80794a2a86b45cf616c76e7c7044a7d8ae59575e19b4e"
+      },
+      {
+        "sequence": 16,
+        "change_id": "H016",
+        "version": "1.81600",
+        "recorded_date": "2026-09-11",
+        "change_scope": "xingcheng-chinese-codex-confidentiality-special-law",
+        "summary": "made Chinese codex reference and mirroring default-denied with Xingcheng as sole confidential non-disclosing exception",
+        "previous_hash": "cf067813db58948184f80794a2a86b45cf616c76e7c7044a7d8ae59575e19b4e",
+        "entry_hash": "70a84206018c0d6545f4a968f88197c0552a309ddde65a65afafa53cb3239d7c"
       }
     ],
     "savings": [
@@ -17389,6 +17457,17 @@
         "content_root": "80e75707b1f8d1cdafaf1628264ad4782971d841cdc1514c0e7903c4b037ced5",
         "identity_root": "1ef72bd71232cbbb645b1cb60127549d9cc2eddbfa6c2746ebd025da9c7b6a7b",
         "full_root": "2bd5082249477ada531b311d39e304dd8b513dfbadd271557f455e10eec296da"
+      },
+      {
+        "version": "1.81600",
+        "history_head": "70a84206018c0d6545f4a968f88197c0552a309ddde65a65afafa53cb3239d7c",
+        "provision_count": 452,
+        "identity_count": 452,
+        "lineage_count": 452,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "574eeedc4316df81c0d6625794c2db8ebbc90934cbb87518b0999be56f5b9b87",
+        "identity_root": "979e6bd961c25ef153832b79adaa5ad0899c22082d05c727fe43eeecefb8dbde",
+        "full_root": "34801df7089e621c10abf8f73a0d73a414f5c8faa1b2ae3e12579c50bbbee89b"
       }
     ],
     "sealed_components": [
@@ -18047,6 +18126,12 @@
         "section_index": "9",
         "title": "directory-special-law",
         "summary": "all directories converge to permission-sovereign ownership; one identity one owner one authoritative entry"
+      },
+      {
+        "position": 10,
+        "section_index": "10",
+        "title": "xingcheng-chinese-codex-confidentiality-special-law",
+        "summary": "Chinese codex reference and mirroring default-denied; Xingcheng sole confidential exception"
       }
     ],
     "source_exceptions": [
@@ -19329,6 +19414,19 @@
         "precedence": "special-over-general-within-declared-scope",
         "official_entry": "governance-codex://official",
         "introduced_version": "1.71600",
+        "retired_version": null
+      },
+      {
+        "law_code": "CODEX_XINGCHENG_CHINESE_SPECIAL_LAW",
+        "canonical_name": "xingcheng-chinese-codex-confidentiality-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "Chinese codex access mirror and confidentiality",
+        "authority_basis": "A173|A174|A186|A189|A229|A230|A234",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.81600",
         "retired_version": null
       }
     ],
@@ -22489,6 +22587,13 @@
         "tier": "special-law",
         "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
         "authority_basis": "A228|A229|A230|A231|A232"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A234",
+        "tier": "special-law",
+        "law_code": "CODEX_XINGCHENG_CHINESE_SPECIAL_LAW",
+        "authority_basis": "A173|A174|A186|A189|A229|A230"
       }
     ],
     "directory_relationship_requirements": [
