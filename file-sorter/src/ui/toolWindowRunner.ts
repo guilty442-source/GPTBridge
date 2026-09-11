@@ -17,6 +17,7 @@ export {
 } from '../../../shared-layer/src/ui/toolWindow/toolWindowUtils'
 
 const RUN_CANCELLATION_GRACE_MS = 10_000
+const RESULT_DELIVERY_GRACE_MS = 5_000
 const OFFLINE_QUEUE_SAFE_FLAGS = new Set([
   '--cleanup-scan',
   '--history-json',
@@ -118,6 +119,10 @@ export function useToolRunner(toolId: string, timeoutMs = 120000) {
           args,
           source: 'tool_window',
           request_id: requestId,
+          timeout_seconds: Math.max(
+            1,
+            Math.floor((requestTimeoutMs - RESULT_DELIVERY_GRACE_MS) / 1000)
+          ),
         }, {
           allowOfflineQueue,
           queueTtlMs: options.queueTtlMs,
