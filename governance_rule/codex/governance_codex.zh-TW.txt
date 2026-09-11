@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "????????????????????????????????????????",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "3.21600",
+  "codex_version": "3.31600",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -5600,6 +5600,96 @@
         "timeout": "30s",
         "introduced_version": "1.41600",
         "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_CHANNEL_CONTINUITY_FAILURE_INJECTION",
+        "canonical_name": "channel-continuity-failure-injection",
+        "owner": "permission-sovereign",
+        "target_entity": "information-layer",
+        "requirement_ids": "A263",
+        "test_level": "integration+failure-injection",
+        "preconditions": "registered route+authenticated clients+known snapshot/cursor+bounded queues",
+        "fixtures": "peer-kill|half-open|heartbeat-delay|ack-delay|sequence-gap|outbox-stall|queue-saturation|event-loop-block|supervisor-loss",
+        "ordered_steps": "inject each fault>verify ready invalidation>observe single reconnect>reauthenticate>snapshot/replay>verify cursor revision hash>observe stability",
+        "expected_results": "no event loss or duplicate side effect; unrelated individuals remain ready; source hashes unchanged",
+        "evidence": "correlation trace+before/after cursor/revision/hash+latency histogram",
+        "cleanup": "close test routes and retain acknowledged fixture state",
+        "isolation_policy": "isolated processes+unique generation+no production mutation",
+        "timeout": "120s",
+        "introduced_version": "3.31600",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_AUTOMATIC_REPAIR_PRESERVATION",
+        "canonical_name": "automatic-repair-preservation",
+        "owner": "permission-sovereign",
+        "target_entity": "automatic-repair",
+        "requirement_ids": "A261",
+        "test_level": "contract+integration+failure-injection",
+        "preconditions": "dirty tracked and untracked fixtures+known preimage hashes+authorized defect sandbox",
+        "fixtures": "overwrite|reset|checkout|restore-default|whole-file-rewrite|minimal-valid-patch",
+        "ordered_steps": "submit each prohibited plan>verify denial and unchanged hashes>submit bounded patch>verify exact diff>force test failure>verify attempted-patch-only rollback",
+        "expected_results": "all destructive methods denied; uncommitted work preserved; accepted repair changes only authorized defect",
+        "evidence": "before/after Git index/worktree+hashes+diff+decision/permission/test/audit proofs",
+        "cleanup": "discard sandbox only after evidence capture",
+        "isolation_policy": "temporary isolated worktree+no branch/history mutation",
+        "timeout": "120s",
+        "introduced_version": "3.31600",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_UPDATE_RELOAD_CONTINUITY",
+        "canonical_name": "update-reload-continuity",
+        "owner": "permission-sovereign",
+        "target_entity": "release-runtime",
+        "requirement_ids": "A262",
+        "test_level": "integration+system+failure-injection",
+        "preconditions": "active certified generation+isolated compatible and incompatible candidates+connected UI",
+        "fixtures": "compile-fail|import-fail|mid-reload-fail|incompatible-contract|renderer-reload",
+        "ordered_steps": "stage candidates>inject each failure>verify active continuity>verify transactional rollback>start blue-green successor>converge state>atomic switch>observe stability",
+        "expected_results": "active service never interrupted by rejected candidate; one release/generation active; same window host; state converged",
+        "evidence": "release/artifact roots+generation+request/outbox/cursor+window host+health evidence",
+        "cleanup": "retain old certified release or explicit certified activation rollback",
+        "isolation_policy": "candidate namespace and stores isolated from active",
+        "timeout": "180s",
+        "introduced_version": "3.31600",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_STARTUP_TEN_SECOND_DEADLINE",
+        "canonical_name": "startup-ten-second-deadline",
+        "owner": "permission-sovereign",
+        "target_entity": "startup",
+        "requirement_ids": "A265",
+        "test_level": "system+performance+failure-injection",
+        "preconditions": "declared minimum environment+monotonic clock+cold/warm/resident states",
+        "fixtures": "cold|warm|resident-attach|dependency-delay|stale-generation|UI-reconnect",
+        "ordered_steps": "run every fixture>capture inherited budgets and critical path>verify ready proof and UI convergence>force deadline>verify fencing and preservation",
+        "expected_results": "every successful full startup <=10000ms; deadline failure never overlaps generations or mutates code; independent tools survive",
+        "evidence": "p50/p95/p99+each-run phase timeline+generation fence+state convergence proof",
+        "cleanup": "terminate only test generation and preserve independent fixtures",
+        "isolation_policy": "isolated generation+no fixed sleeps in measurement",
+        "timeout": "180s",
+        "introduced_version": "3.31600",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_DIRECTORY_ALIAS_RESOLUTION",
+        "canonical_name": "directory-alias-resolution",
+        "owner": "permission-sovereign",
+        "target_entity": "directory",
+        "requirement_ids": "A268",
+        "test_level": "contract+integration+security",
+        "preconditions": "versioned alias directory+platform/environment/generation fixtures",
+        "fixtures": "valid|missing|wrong-kind|cycle|stale-generation|platform-mismatch|physical-env-value|secret-handle",
+        "ordered_steps": "resolve each fixture through official entry>verify typed result or denial>relocate physical mapping>verify zero source change>scan environment and logs",
+        "expected_results": "valid aliases resolve; invalid cases fail closed; relocation changes directory only; no physical or secret leakage",
+        "evidence": "resolution trace+directory version+source hashes+environment/log scan",
+        "cleanup": "restore prior test mappings transactionally",
+        "isolation_policy": "test directory generation+no production mapping mutation",
+        "timeout": "90s",
+        "introduced_version": "3.31600",
+        "retired_version": null
       }
     ],
     "project_architecture_directory": [
@@ -7883,6 +7973,15 @@
         "rule": "??????????????? DIR_* ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????",
         "prohibition": "???????????????????????????????????????????????????????????????????????????????????????????????",
         "exception": "??????????????????????????????????????"
+      },
+      {
+        "position": 271,
+        "provision_id": "A271",
+        "section_index": "27",
+        "subject": "??????????????",
+        "rule": "????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????",
+        "prohibition": "??????????????????????????????????????????????????????????????????????????????????",
+        "exception": "??????????????????????????????????"
       }
     ],
     "certification_evidence": [
@@ -8084,6 +8183,13 @@
       },
       {
         "version": "3.21600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "3.31600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -11913,6 +12019,12 @@
         "provision_id": "A270",
         "effective_version": "3.21600",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A271",
+        "effective_version": "3.31600",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12295,11 +12407,11 @@
       },
       {
         "key": "codex_version",
-        "value": "3.21600"
+        "value": "3.31600"
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v3.21600"
+        "value": "gptbridge-governance-codex-v3.31600"
       },
       {
         "key": "version_increment",
@@ -12343,11 +12455,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-11T22:55:55.380005+00:00"
+        "value": "2026-09-11T23:00:17.854159+00:00"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-12T06:55:55.410266+08:00"
+        "value": "2026-09-12T07:00:17.883539+08:00"
       }
     ],
     "preamble": [
@@ -16467,6 +16579,13 @@
         "provision_id": "A270",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A271",
+        "provision_type": "article",
+        "provision_id": "A271",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -20373,6 +20492,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "a967673ad6ec8bdf2f33a98176a230a07bc76a71b52ce828ef7ecc9973f1c33a"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A271",
+        "introduced_by": "H031",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "96c575aec3274bd7940dfb953b4efb2f9fd7575933df84f2716621678ad8e537"
       }
     ],
     "provision_revisions": [
@@ -24319,6 +24446,14 @@
         "version": "3.21600",
         "content_hash": "a967673ad6ec8bdf2f33a98176a230a07bc76a71b52ce828ef7ecc9973f1c33a",
         "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A271",
+        "revision_id": "H031",
+        "version": "3.31600",
+        "content_hash": "96c575aec3274bd7940dfb953b4efb2f9fd7575933df84f2716621678ad8e537",
+        "certification_status": "external-signatures-required"
       }
     ],
     "revision_history": [
@@ -24621,6 +24756,16 @@
         "summary": "closed manual coverage duplicate special-law relationship identity-group and independent-tool isolation directory gaps while retaining external gates",
         "previous_hash": "8a0a6a3c279159605d4e1e6c34823964121ff3aa2e5f85c9bc27078ff97e15b7",
         "entry_hash": "91c91fe343ddd2cac602c2bba1fa4b47c4b5295309d4e4ca6250e3f0aaa90250"
+      },
+      {
+        "sequence": 31,
+        "change_id": "H031",
+        "version": "3.31600",
+        "recorded_date": "2026-09-12",
+        "change_scope": "coverage-test-conflict-closure",
+        "summary": "closed directory coverage fault/manual test traceability and special-law conflict precedence gaps",
+        "previous_hash": "91c91fe343ddd2cac602c2bba1fa4b47c4b5295309d4e4ca6250e3f0aaa90250",
+        "entry_hash": "eb67cf3fc111034cd733def398ec95a8c12823a0c1e75aff0abeb62eebfbbdbc"
       }
     ],
     "savings": [
@@ -24973,6 +25118,17 @@
         "content_root": "7477ab21521ac51a09c5eb63cc65804f9610c2fcafb4d4edb28f0bf83c8517da",
         "identity_root": "a68b7207de33045bd70c4d2d909565115a326b09d6ad78f3624ea553e4190e91",
         "full_root": "2aa26c47fc635409de848caafc4a19598d0e694fb85a4a7e475906dfa6a466b1"
+      },
+      {
+        "version": "3.31600",
+        "history_head": "eb67cf3fc111034cd733def398ec95a8c12823a0c1e75aff0abeb62eebfbbdbc",
+        "provision_count": 489,
+        "identity_count": 489,
+        "lineage_count": 489,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "32a29b424781058df4e4381418ba8cb2306f5c7cfb052d4d3d559014cb502165",
+        "identity_root": "c8f36a10fb38b46fc4c3bb3f2f051212c6318f23da0beb098489dccf7dd2b332",
+        "full_root": "e502586c0a4ed67fb7afc901e9751a0a10841c5ffe63a4d6ab5850e355680f24"
       }
     ],
     "sealed_components": [
@@ -30761,6 +30917,13 @@
         "tier": "special-law",
         "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
         "authority_basis": "A228|A231|A232|A233|A259|A267|A269"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A271",
+        "tier": "special-law",
+        "law_code": "CODEX_TEST_VALIDATION_EVALUATION_SPECIAL_LAW",
+        "authority_basis": "A225|A228|A230|A270"
       }
     ],
     "directory_relationship_requirements": [
@@ -30946,6 +31109,132 @@
         "release_gate": "deny-directory-activation-on-gap",
         "owner": "permission-sovereign",
         "introduced_version": "1.71600"
+      },
+      {
+        "directory_name": "identity_module_directory",
+        "required_scope": "every governed identity relation and consumer within identity-module-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "permission_capability_directory",
+        "required_scope": "every governed identity relation and consumer within permission-capability-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "tool_route_directory",
+        "required_scope": "every governed identity relation and consumer within tool-route-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "data_schema_authority_directory",
+        "required_scope": "every governed identity relation and consumer within data-schema-authority-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "api_event_contract_directory",
+        "required_scope": "every governed identity relation and consumer within api-event-contract-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "service_process_port_environment_directory",
+        "required_scope": "every governed identity relation and consumer within service-process-port-environment-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "model_resource_dependency_directory",
+        "required_scope": "every governed identity relation and consumer within model-resource-dependency-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "configuration_credential_secret_directory",
+        "required_scope": "every governed identity relation and consumer within configuration-credential-secret-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "version_release_artifact_directory",
+        "required_scope": "every governed identity relation and consumer within version-release-artifact-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "audit_evidence_retention_directory",
+        "required_scope": "every governed identity relation and consumer within audit-evidence-retention-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "backup_recovery_migration_directory",
+        "required_scope": "every governed identity relation and consumer within backup-recovery-migration-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "ui_window_feature_entry_directory",
+        "required_scope": "every governed identity relation and consumer within ui-window-feature-entry-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "identity_group_directory",
+        "required_scope": "every governed identity relation and consumer within identity-group-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "tool_failure_isolation_matrix",
+        "required_scope": "every governed identity relation and consumer within tool-failure-isolation-matrix",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
       }
     ],
     "directory_master_catalog": [
@@ -31626,6 +31915,106 @@
         "on_conflict": "fail-closed and refer to codex conflict resolution",
         "owner": "permission-sovereign",
         "introduced_version": "2.01600"
+      },
+      {
+        "left_law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "right_law_code": "CODEX_INFORMATION_COMMUNICATION_SPECIAL_LAW",
+        "overlap_scope": "directory identities carried over channels",
+        "precedence_rule": "directory identity and permission rules prevail; information law controls delivery",
+        "joint_proof": "current identity+owner+permission+version+generation+evidence proofs",
+        "on_conflict": "fail closed preserve prior valid state and refer to codex conflict resolution",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "left_law_code": "CODEX_MODEL_RESOURCE_GPU_SPECIAL_LAW",
+        "right_law_code": "CODEX_RUNTIME_LIFECYCLE_SPECIAL_LAW",
+        "overlap_scope": "model residency resource allocation and runtime readiness",
+        "precedence_rule": "resource/model admission proof precedes runtime ready claim",
+        "joint_proof": "current identity+owner+permission+version+generation+evidence proofs",
+        "on_conflict": "fail closed preserve prior valid state and refer to codex conflict resolution",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "left_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "right_law_code": "CODEX_RELEASE_VERSION_SPECIAL_LAW",
+        "overlap_scope": "source boundary and release activation",
+        "precedence_rule": "language conformance is mandatory evidence before release activation",
+        "joint_proof": "current identity+owner+permission+version+generation+evidence proofs",
+        "on_conflict": "fail closed preserve prior valid state and refer to codex conflict resolution",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "left_law_code": "CODEX_THIRD_PARTY_NETWORK_SUPPLY_CHAIN_SPECIAL_LAW",
+        "right_law_code": "CODEX_RELEASE_VERSION_SPECIAL_LAW",
+        "overlap_scope": "dependency update and release",
+        "precedence_rule": "third-party admissibility precedes certified release",
+        "joint_proof": "current identity+owner+permission+version+generation+evidence proofs",
+        "on_conflict": "fail closed preserve prior valid state and refer to codex conflict resolution",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "left_law_code": "CODEX_LEARNING_SYSTEM_SPECIAL_LAW",
+        "right_law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "overlap_scope": "learned repair recommendation and execution",
+        "precedence_rule": "learning may propose only; automatic-repair authority chain controls execution",
+        "joint_proof": "current identity+owner+permission+version+generation+evidence proofs",
+        "on_conflict": "fail closed preserve prior valid state and refer to codex conflict resolution",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "left_law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "right_law_code": "CODEX_INFORMATION_COMMUNICATION_SPECIAL_LAW",
+        "overlap_scope": "disconnect diagnosis and code repair",
+        "precedence_rule": "channel reconnect remains source-nonmutating; repair law applies only after independent code-defect proof",
+        "joint_proof": "current identity+owner+permission+version+generation+evidence proofs",
+        "on_conflict": "fail closed preserve prior valid state and refer to codex conflict resolution",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "left_law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "right_law_code": "CODEX_RELEASE_VERSION_SPECIAL_LAW",
+        "overlap_scope": "repair baseline and rollback",
+        "precedence_rule": "active certified release is baseline; rollback is explicit activation not repair reset",
+        "joint_proof": "current identity+owner+permission+version+generation+evidence proofs",
+        "on_conflict": "fail closed preserve prior valid state and refer to codex conflict resolution",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "left_law_code": "CODEX_STARTUP_CONTROL_SPECIAL_LAW",
+        "right_law_code": "CODEX_RUNTIME_LIFECYCLE_SPECIAL_LAW",
+        "overlap_scope": "startup handoff and runtime ownership",
+        "precedence_rule": "startup law controls before handoff; runtime law controls after acknowledged handoff",
+        "joint_proof": "current identity+owner+permission+version+generation+evidence proofs",
+        "on_conflict": "fail closed preserve prior valid state and refer to codex conflict resolution",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "left_law_code": "CODEX_INDEPENDENT_TOOL_SPECIAL_LAW",
+        "right_law_code": "CODEX_RUNTIME_LIFECYCLE_SPECIAL_LAW",
+        "overlap_scope": "tool lifecycle and shared runtime",
+        "precedence_rule": "independent-tool isolation prevails within tool boundary; runtime law coordinates without ownership merger",
+        "joint_proof": "current identity+owner+permission+version+generation+evidence proofs",
+        "on_conflict": "fail closed preserve prior valid state and refer to codex conflict resolution",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
+      },
+      {
+        "left_law_code": "CODEX_IDENTITY_GROUP_SPECIAL_LAW",
+        "right_law_code": "CODEX_PERMISSION_IDENTITY_SPECIAL_LAW",
+        "overlap_scope": "group membership and effective permission",
+        "precedence_rule": "individual permission intersected with group ceiling; stricter denial prevails",
+        "joint_proof": "current identity+owner+permission+version+generation+evidence proofs",
+        "on_conflict": "fail closed preserve prior valid state and refer to codex conflict resolution",
+        "owner": "permission-sovereign",
+        "introduced_version": "3.31600"
       }
     ],
     "provision_special_law_migration": [

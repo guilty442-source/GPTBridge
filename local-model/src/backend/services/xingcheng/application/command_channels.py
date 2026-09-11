@@ -117,6 +117,20 @@ class CommandChannelsMixin:
                 await self.local_knowledge.sql_save_knowledge(dict(payload), confirmed=confirmed),
             )
 
+    async def _handle_diagnostics(self, command: str, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        if command == "xingcheng_diagnose_fault":
+            symptom = str(
+                payload.get("symptom")
+                or payload.get("question")
+                or payload.get("prompt")
+                or payload.get("instruction")
+                or ""
+            )
+            result = await asyncio.to_thread(
+                self.fault_diagnostics.diagnose, symptom
+            )
+            return "xingcheng_diagnose_fault_result", result
+
     async def _handle_status(self, command: str, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         if command == "xingcheng_status":
             requested_mode = str(payload.get("prepare_mode") or "").strip().casefold()

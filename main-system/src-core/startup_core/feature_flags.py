@@ -30,7 +30,7 @@ _RELOAD_INTERVAL_SECONDS: Final[float] = 2.0
 
 
 def _config_path() -> Path:
-    return Path(__file__).resolve().joinpath(*_CONFIG_RELATIVE)
+    return Path(__file__).resolve().parents[0].joinpath(*_CONFIG_RELATIVE)
 
 
 class FeatureFlags:

@@ -55,11 +55,12 @@ class EmbeddedBrowserClient:
             "url": url,
         })
 
-    def execute_script(self, session_id: str, script: str) -> dict[str, Any]:
+    def execute_script(self, session_id: str, script: str, args: tuple = ()) -> dict[str, Any]:
         """Execute JavaScript in a session and return the result."""
         return self._call_ipc("embedded-browser:execute", {
             "id": session_id,
             "script": script,
+            "args": list(args),
         })
 
     def show(self, session_id: str) -> dict[str, Any]:
@@ -171,7 +172,7 @@ class InProcessEmbeddedBrowser:
         session["url"] = url
         return {"ok": True}
 
-    def execute_script(self, session_id: str, script: str) -> dict[str, Any]:
+    def execute_script(self, session_id: str, script: str, args: tuple = ()) -> dict[str, Any]:
         session = self._sessions.get(session_id)
         if not session:
             return {"ok": False, "message": "SESSION_NOT_FOUND"}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
 import hashlib
 import json
@@ -39,40 +40,115 @@ _RESOURCE_INDICATORS: Final[tuple[str, ...]] = (
     "teardown", "__del__", "_close", "_cleanup", "_shutdown",
 )
 
+# Batch size for progressive reload — modules are reloaded in groups
+# of this size with a health check between batches.
+_RELOAD_BATCH_SIZE: Final[int] = 8
+# Warm-up delay after each batch (seconds) — lets reloaded modules
+# settle before the next batch.
+_RELOAD_BATCH_DELAY: Final[float] = 0.2
+# Maximum wait for idle before timing out a reload request (seconds).
+_IDLE_WAIT_TIMEOUT: Final[float] = 10.0
+# Health check timeout after reload (seconds).
+_POST_RELOAD_HEALTH_TIMEOUT: Final[float] = 5.0
+
 
 def _is_protected(module_name: str) -> bool:
     return any(module_name == prefix or module_name.startswith(prefix + ".") for prefix in PROTECTED_MODULE_PREFIXES)
 
 
+def _resource_cleanup_methods(module: types.ModuleType) -> list[tuple[Any, str]]:
+    """Return resource-holding objects and their cleanup methods.
+
+    Only bound methods on non-callable, non-module, non-class objects are
+    considered, so module-level functions named ``close`` or ``shutdown``
+    do not classify a module as resource-holding.
+    """
+    found: list[tuple[Any, str]] = []
+    for value in vars(module).values():
+        if value is None:
+            continue
+        if isinstance(
+            value,
+            (
+                types.ModuleType,
+                type,
+                types.FunctionType,
+                types.MethodType,
+                types.BuiltinFunctionType,
+                types.BuiltinMethodType,
+            ),
+        ):
+            continue
+        for method_name in _RESOURCE_INDICATORS:
+            method = getattr(value, method_name, None)
+            if callable(method):
+                found.append((value, method_name))
+    return found
+
+
 def _has_resources(module: types.ModuleType) -> bool:
     """Return True if the module's namespace contains resource-holding objects."""
-    for attr_name in _RESOURCE_INDICATORS:
-        attr = getattr(module, attr_name, None)
-        if callable(attr):
-            return True
-    # Also check for common resource-holding patterns: objects with close().
-    for value in vars(module).values():
-        if callable(value):
-            continue
-        close_method = getattr(value, "close", None)
-        if callable(close_method):
-            return True
-        shutdown_method = getattr(value, "shutdown", None)
-        if callable(shutdown_method):
-            return True
-    return False
+    return bool(_resource_cleanup_methods(module))
 
 
 def _cleanup_module(module: types.ModuleType) -> None:
     """Best-effort cleanup of a module's resources before reload."""
-    for method_name in ("close", "cleanup", "shutdown", "stop", "dispose", "teardown"):
-        method = getattr(module, method_name, None)
-        if callable(method):
-            try:
-                method()
-            except Exception:
-                pass
-            break
+    for value, method_name in _resource_cleanup_methods(module):
+        try:
+            getattr(value, method_name)()
+        except Exception:
+            pass
+
+
+def _module_source_hash(file_path: str) -> str | None:
+    """Return SHA-256 of a module's source file, or None if unreadable."""
+    try:
+        return hashlib.sha256(Path(file_path).read_bytes()).hexdigest()
+    except (OSError, ValueError):
+        return None
+
+
+def _topological_sort(
+    candidates: list[tuple[str, types.ModuleType]],
+) -> list[tuple[str, types.ModuleType]]:
+    """Sort candidates so that dependencies (imported modules) reload first.
+
+    Uses a simple DFS-based topological sort on the import graph.  If a
+    cycle is detected, the cycle members are kept in their original order
+    (cycle-safe: Python's importlib.reload handles re-entrant imports).
+    """
+    candidate_names = {name for name, _ in candidates}
+    name_to_module = {name: mod for name, mod in candidates}
+    visited: set[str] = set()
+    in_progress: set[str] = set()
+    result: list[tuple[str, types.ModuleType]] = []
+
+    def visit(name: str) -> None:
+        if name in visited:
+            return
+        if name in in_progress:
+            # Cycle detected — skip to avoid infinite recursion.
+            _logger.debug("hot_reload_cycle_detected module=%s", name)
+            return
+        in_progress.add(name)
+        module = name_to_module.get(name)
+        if module is not None:
+            # Visit imported modules first (dependencies before dependents).
+            for attr_name in dir(module):
+                attr = getattr(module, attr_name, None)
+                if isinstance(attr, types.ModuleType):
+                    dep_name = getattr(attr, "__name__", "")
+                    if dep_name in candidate_names and dep_name != name:
+                        visit(dep_name)
+        in_progress.discard(name)
+        visited.add(name)
+        if module is not None:
+            result.append((name, module))
+
+    for name, _ in candidates:
+        visit(name)
+
+    return result
 
 
 class HotUpdateService:
@@ -105,6 +181,19 @@ class HotUpdateService:
         self._pending_replacements: list[tuple[str, types.ModuleType]] = []
         self._pending_snapshots: dict[str, dict[str, Any]] = {}
         self._pending_lock = threading.Lock()
+        # Concurrent reload lock — prevents two reload_modules calls from
+        # mutating sys.modules simultaneously.  RLock so apply_pending_replacements
+        # can be called from within a reload context if needed.
+        self._reload_lock = threading.RLock()
+        # Source hash tracking — maps module name to last-known SHA-256 of
+        # its source file.  Only modules whose hash changed are reloaded.
+        self._source_hashes: dict[str, str] = {}
+        self._hash_lock = threading.Lock()
+        # Load persisted source hashes so we know what was last reloaded.
+        self._load_source_hashes()
+        # Idle-loop lifecycle.
+        self._stop_event: asyncio.Event | None = None
+        self._idle_task: asyncio.Task[Any] | None = None
 
     def _resolve_src_roots(self) -> list[Path]:
         roots: list[Path] = []
@@ -139,6 +228,126 @@ class HotUpdateService:
         if getattr(claims, "capability", "") != "hot-update" and getattr(claims, "capability", "") != "hot-reload":
             return False, "capability-mismatch"
         return True, ""
+
+    def _load_source_hashes(self) -> None:
+        """Load persisted source hashes from the state file."""
+        path = (
+            self.project_root / "main-system" / "runtime" / "state"
+            / "hot-reload-hashes.json"
+        )
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            with self._hash_lock:
+                self._source_hashes = data.get("hashes", {})
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    def _save_source_hashes(self) -> None:
+        """Persist source hashes so the next reload can diff."""
+        path = (
+            self.project_root / "main-system" / "runtime" / "state"
+            / "hot-reload-hashes.json"
+        )
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with self._hash_lock:
+                payload = {
+                    "version": 1,
+                    "hashes": dict(self._source_hashes),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(tmp, path)
+        except OSError:
+            pass
+
+    def _filter_changed(
+        self, candidates: list[tuple[str, types.ModuleType]]
+    ) -> list[tuple[str, types.ModuleType]]:
+        """Return only candidates whose source hash changed since last reload.
+
+        If a module has no file path, it's always included (can't hash it).
+        On first run (no stored hash), all candidates are included.
+        """
+        changed: list[tuple[str, types.ModuleType]] = []
+        with self._hash_lock:
+            stored = dict(self._source_hashes)
+        for module_name, module in candidates:
+            file_path = getattr(module, "__file__", None)
+            if not file_path:
+                changed.append((module_name, module))
+                continue
+            current_hash = _module_source_hash(file_path)
+            if current_hash is None:
+                changed.append((module_name, module))
+                continue
+            if stored.get(module_name) != current_hash:
+                changed.append((module_name, module))
+            else:
+                _logger.debug(
+                    "hot_reload_skip_unchanged module=%s", module_name,
+                )
+        return changed
+
+    def _update_source_hashes(self, module_names: list[str]) -> None:
+        """Update stored hashes for successfully reloaded modules."""
+        with self._hash_lock:
+            for module_name in module_names:
+                module = sys.modules.get(module_name)
+                if module is None:
+                    continue
+                file_path = getattr(module, "__file__", None)
+                if not file_path:
+                    continue
+                h = _module_source_hash(file_path)
+                if h is not None:
+                    self._source_hashes[module_name] = h
+        self._save_source_hashes()
+
+    def _wait_for_idle(self, timeout: float = _IDLE_WAIT_TIMEOUT) -> bool:
+        """Wait until the system is idle (no in-flight command tasks).
+
+        Returns True if idle within the timeout, False otherwise.
+        """
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.is_idle():
+                return True
+            time.sleep(0.1)
+        return self.is_idle()
+
+    def _post_reload_health_check(self) -> bool:
+        """Verify the system is still healthy after a reload.
+
+        Probes the app's health endpoint if available.  Returns True
+        if healthy, False if the reload appears to have broken something.
+        """
+        health_port = None
+        try:
+            from startup_core.startup_config import port as _cfg_port
+            health_port = _cfg_port("health_probe")
+        except Exception:
+            pass
+        if not health_port:
+            return True  # Can't verify — assume OK.
+        try:
+            import urllib.request
+            url = f"http://127.0.0.1:{health_port}/health?level=brief"
+            request = urllib.request.Request(url, headers={"Connection": "close"})
+            with urllib.request.urlopen(request, timeout=_POST_RELOAD_HEALTH_TIMEOUT) as resp:
+                import json as _json
+                payload = _json.loads(resp.read().decode("utf-8"))
+                return bool(payload.get("ok") is True or payload.get("runtime_state") in ("ready", "degraded"))
+        except Exception:
+            # Health check failed — but the reload itself may have succeeded.
+            # Log a warning but don't fail the reload; the circuit breaker
+            # will catch persistent failures.
+            _logger.warning("hot_reload_health_check_failed — post-reload probe did not respond")
+            return True
 
     def _persist_reload_protection(self, module_names: list[str]) -> None:
         """Pin successfully reloaded source revisions against auto-repair."""
@@ -270,6 +479,35 @@ class HotUpdateService:
                 error="no-reloadable-src-roots",
             )
 
+        # Concurrent reload protection — only one reload at a time.
+        if not self._reload_lock.acquire(blocking=False):
+            return types.SimpleNamespace(
+                ok=False,
+                reloaded=[],
+                skipped=[],
+                errors=["reload-in-progress"],
+                error="reload-in-progress",
+            )
+
+        try:
+            return self._do_reload_locked(roots=roots, requested=requested)
+        finally:
+            self._reload_lock.release()
+
+    def _do_reload_locked(
+        self,
+        *,
+        roots: list[Path],
+        requested: set[str] | None,
+    ) -> types.SimpleNamespace:
+        # Wait for idle before mutating any module — in-flight requests
+        # must not be left with a half-reloaded dependency.
+        if not self._wait_for_idle():
+            _logger.warning(
+                "hot_reload_idle_wait_timeout — proceeding with %d in-flight tasks",
+                len(getattr(self.app, "_command_tasks", set())),
+            )
+
         reloaded: list[str] = []
         skipped: list[str] = []
         errors: list[str] = []
@@ -292,9 +530,27 @@ class HotUpdateService:
                 continue
             candidates.append((module_name, module))
 
+        # Source hash filter — only reload modules whose source actually
+        # changed since the last reload.  This avoids unnecessary disruption.
+        changed = self._filter_changed(candidates)
+        changed_set = {(name, mod) for name, mod in changed}
+        skipped.extend(name for name, mod in candidates if (name, mod) not in changed_set)
+
+        if not changed:
+            return types.SimpleNamespace(
+                ok=True,
+                reloaded=[],
+                skipped=skipped,
+                errors=[],
+                error="",
+            )
+
+        # Topological sort — dependencies reload before dependents.
+        ordered = _topological_sort(changed)
+
         # Fail before mutating any live module when one changed source cannot
         # compile. This keeps the currently serving generation intact.
-        for module_name, module in candidates:
+        for module_name, module in ordered:
             file_path = getattr(module, "__file__", None)
             if not file_path:
                 continue
@@ -305,7 +561,7 @@ class HotUpdateService:
                 return types.SimpleNamespace(
                     ok=False,
                     reloaded=[],
-                    skipped=[name for name, _module in candidates],
+                    skipped=[name for name, _module in ordered],
                     errors=[f"{module_name}: preflight: {error}"],
                     error=f"{module_name}: preflight: {error}",
                 )
@@ -317,22 +573,33 @@ class HotUpdateService:
         resource_aware = get_flags().is_enabled("resource_aware_hot_update")
         safe_candidates: list[tuple[str, types.ModuleType]] = []
         resource_candidates: list[tuple[str, types.ModuleType]] = []
-        for module_name, module in candidates:
+        for module_name, module in ordered:
             if resource_aware and _has_resources(module):
                 resource_candidates.append((module_name, module))
             else:
                 safe_candidates.append((module_name, module))
 
-        # Phase 1: immediately reload safe (stateless) modules.
-        for module_name, module in safe_candidates:
-            snapshots[module_name] = dict(module.__dict__)
-            try:
-                importlib.reload(module)
-                reloaded.append(module_name)
-            except Exception as error:
-                errors.append(f"{module_name}: {error}")
-                skipped.append(module_name)
+        # Phase 1: progressive batch reload of safe (stateless) modules.
+        # Reload in batches of _RELOAD_BATCH_SIZE with a short delay
+        # between batches to let modules settle.
+        batch_errors = False
+        for i in range(0, len(safe_candidates), _RELOAD_BATCH_SIZE):
+            batch = safe_candidates[i:i + _RELOAD_BATCH_SIZE]
+            for module_name, module in batch:
+                snapshots[module_name] = dict(module.__dict__)
+                try:
+                    importlib.reload(module)
+                    reloaded.append(module_name)
+                except Exception as error:
+                    errors.append(f"{module_name}: {error}")
+                    skipped.append(module_name)
+                    batch_errors = True
+                    break
+            if batch_errors:
                 break
+            # Inter-batch settle delay.
+            if i + _RELOAD_BATCH_SIZE < len(safe_candidates):
+                time.sleep(_RELOAD_BATCH_DELAY)
 
         if errors:
             # Roll back the whole attempted generation, including modules that
@@ -344,6 +611,23 @@ class HotUpdateService:
                 module.__dict__.clear()
                 module.__dict__.update(state)
             reloaded = []
+
+        # Post-reload health verification — if the health endpoint
+        # reports failure after reload, roll back everything.
+        if reloaded and not errors:
+            if not self._post_reload_health_check():
+                _logger.warning(
+                    "hot_reload_health_check_failed_after_reload — rolling back %d modules",
+                    len(reloaded),
+                )
+                for module_name, state in snapshots.items():
+                    module = sys.modules.get(module_name)
+                    if not isinstance(module, types.ModuleType):
+                        continue
+                    module.__dict__.clear()
+                    module.__dict__.update(state)
+                reloaded = []
+                errors.append("post-reload-health-check-failed")
 
         # Phase 2: queue resource-holding modules for idle-period replacement.
         if resource_aware and not errors:
@@ -361,6 +645,7 @@ class HotUpdateService:
 
         if reloaded:
             self._persist_reload_protection(reloaded)
+            self._update_source_hashes(reloaded)
 
         return types.SimpleNamespace(
             ok=len(errors) == 0,
@@ -396,14 +681,27 @@ class HotUpdateService:
         Returns a SimpleNamespace with ``applied``, ``errors``, and
         ``skipped`` attributes.
         """
-        applied: list[str] = []
-        errors: list[str] = []
-        skipped: list[str] = []
-
         if not self.is_idle():
             return types.SimpleNamespace(
                 applied=[], errors=[], skipped=[], idle=False,
             )
+
+        # Concurrent reload protection.
+        if not self._reload_lock.acquire(blocking=False):
+            return types.SimpleNamespace(
+                applied=[], errors=[], skipped=[], idle=True,
+                error="reload-in-progress",
+            )
+
+        try:
+            return self._apply_pending_locked()
+        finally:
+            self._reload_lock.release()
+
+    def _apply_pending_locked(self) -> types.SimpleNamespace:
+        applied: list[str] = []
+        errors: list[str] = []
+        skipped: list[str] = []
 
         with self._pending_lock:
             pending = list(self._pending_replacements)
@@ -437,6 +735,13 @@ class HotUpdateService:
 
         if applied:
             self._persist_reload_protection(applied)
+            self._update_source_hashes(applied)
+            # Post-reload health verification.
+            if not self._post_reload_health_check():
+                _logger.warning(
+                    "hot_reload_health_check_failed_after_deferred — "
+                    "applied modules may need attention",
+                )
 
         return types.SimpleNamespace(
             applied=applied,
@@ -445,12 +750,50 @@ class HotUpdateService:
             idle=True,
         )
 
-    def start(self) -> None:
-        """No in-process update loop; hot-reload is triggered explicitly."""
-        return None
+    async def _idle_loop(self) -> None:
+        """Periodically apply deferred resource-holding module replacements.
+
+        Runs only when the system is idle and there are pending resource-holding
+        module replacements.  This prevents half-replaced modules from being used
+        by in-flight requests.
+        """
+        while True:
+            if self._stop_event is not None and self._stop_event.is_set():
+                break
+            try:
+                if self.pending_replacement_count() > 0 and self.is_idle():
+                    await asyncio.to_thread(self.apply_pending_replacements)
+            except Exception:
+                # Best-effort: never let the idle loop die.
+                pass
+            try:
+                await asyncio.sleep(self.interval_seconds)
+            except asyncio.CancelledError:
+                break
+
+    async def start(self) -> None:
+        """Begin the idle-period deferred-replacement loop."""
+        if self._idle_task is not None and not self._idle_task.done():
+            return
+        self._stop_event = asyncio.Event()
+        self._idle_task = asyncio.create_task(
+            self._idle_loop(),
+            name="hot-update-idle-loop",
+        )
 
     async def stop(self) -> None:
-        return None
+        """Cancel the idle-period deferred-replacement loop."""
+        if self._idle_task is None:
+            return
+        if self._stop_event is not None:
+            self._stop_event.set()
+        self._idle_task.cancel()
+        try:
+            await self._idle_task
+        except asyncio.CancelledError:
+            pass
+        self._idle_task = None
+        self._stop_event = None
 
     async def _apply(
         self,

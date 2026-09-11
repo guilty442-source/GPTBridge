@@ -35,13 +35,15 @@ from .constants import (
 )
 from .platform_definition import PLATFORMS, PlatformDefinition
 from .post_scripts import DISCOVER_POSTS_SCRIPT, INSPECT_POST_SCRIPT
-from .scan_scripts import (
+from .navigation_scripts import (
     AUTO_SCAN_CONTEXT_SCRIPT,
-    FOLLOWING_SCAN_SCRIPT,
     INSTAGRAM_PAGE_UNAVAILABLE_SCRIPT,
     INSTAGRAM_PROFILE_NAVIGATION_SCRIPT,
     INSTAGRAM_PROFILE_SETTINGS_SCRIPT,
     OPEN_FOLLOWING_LIST_SCRIPT,
+)
+from .scan_scripts import (
+    FOLLOWING_SCAN_SCRIPT,
     RESET_FOLLOWING_SCROLL_SCRIPT,
     SCROLL_SCRIPT,
 )

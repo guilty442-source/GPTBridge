@@ -21,8 +21,10 @@ from managers.process_utils import terminate_process_tree
 
 from .toolbox_constants import _background_subprocess_kwargs
 from core_system.versioning import component_version
+from tool_codenames import get_tool_codename
 
 _CENTRAL_VERSION = component_version("toolbox")
+_CENTRAL_CODENAME = get_tool_codename("main-system")
 
 
 class LaunchMixin:
@@ -166,7 +168,7 @@ class LaunchMixin:
                     f"?token={runtime_environment['GPTBRIDGE_IPC_SESSION_TOKEN']}"
                     f"&instance={self._workspace_instance_id()}"
                 ),
-                "GPTBRIDGE_SOURCE_UI_VERSION": str(manifest.get("version") or _CENTRAL_VERSION),
+                "GPTBRIDGE_SOURCE_UI_CODENAME": get_tool_codename(tool_id),
                 "GPTBRIDGE_SOURCE_UI_TITLE": str(
                     manifest.get("display_name") or tool_id
                 ),

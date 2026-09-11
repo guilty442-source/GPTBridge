@@ -21,6 +21,7 @@ from ..domain.module_registry import StarModuleRegistry
 from ..domain.capability_composer import StarCapabilityComposer
 from ..infrastructure.model_engines import StarModelEngines
 from ..infrastructure.repository import LocalAiRepository
+from ..infrastructure.fault_diagnostics import FaultDiagnostics
 from ..infrastructure.ollama_model_repository import OllamaModelRepository
 from ..infrastructure.transformer_runtime import StarTransformerRuntime
 from ..infrastructure.transformer_training_repository import (
@@ -214,6 +215,7 @@ class LocalAiService(
         "xingcheng_git_status",
         "xingcheng_git_history",
         "xingcheng_platform_status",
+        "xingcheng_diagnose_fault",
     }
 
     def __init__(
@@ -261,6 +263,9 @@ class LocalAiService(
         self.reading_expert = StarReadingExpert()
         self.local_rag = LocalRagService(self.tool_root, self.transformer_runtime)
         self.git_repository = LocalGitRepository(self.tool_root.parent)
+        # Read-only fault-diagnosis evidence collector: governed codex
+        # directories + main-system runtime state + outbox tail.
+        self.fault_diagnostics = FaultDiagnostics(self.tool_root.parent)
         self.local_knowledge = LocalKnowledgeService(
             self.tool_root,
             self.transformer_runtime,

@@ -204,6 +204,32 @@ class StarNativeInferenceMixin:
                 f"{generation_grounding}\n星澄主模型資料庫中可用的已驗證私有內容如下；"
                 f"僅供本次星澄原生模型推論：\n{private_context['text']}"
             )
+        fault_diagnostics = payload.get("fault_diagnostics")
+        if isinstance(fault_diagnostics, Mapping) and fault_diagnostics.get("ok") is True:
+            diagnostic_lines: list[str] = []
+            matched_codes = [
+                str(code)
+                for code in fault_diagnostics.get("matched_fault_code_ids") or []
+            ][:5]
+            if matched_codes:
+                diagnostic_lines.append(
+                    f"治理故障碼目錄比對結果：{', '.join(matched_codes)}"
+                )
+            for manual in (
+                fault_diagnostics.get("maintenance_manuals") or []
+            )[:2]:
+                if isinstance(manual, Mapping):
+                    diagnostic_lines.append(
+                        f"維護手冊 {manual.get('manual_code')}: "
+                        f"{str(manual.get('ordered_steps') or '')[:400]}"
+                    )
+            if diagnostic_lines:
+                generation_grounding = (
+                    f"{generation_grounding}\n以下是治理故障碼目錄與維護手冊的"
+                    "唯讀診斷證據；只能依此說明故障，不得聲稱已執行修復，"
+                    "也不得補造證據中沒有的錯誤碼：\n"
+                    + "\n".join(diagnostic_lines)
+                )
         generation = self.language_model.generate(
             intent=intent,
             prompt=prompt,

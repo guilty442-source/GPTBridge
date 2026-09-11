@@ -204,7 +204,7 @@ class ToolIsolationManager:
 
     def __init__(self, project_root: Path | str) -> None:
         self.project_root = Path(project_root).resolve()
-        self._config_path = Path(__file__).resolve().joinpath(*_CONFIG_RELATIVE)
+        self._config_path = Path(__file__).resolve().parents[0].joinpath(*_CONFIG_RELATIVE)
         self._lock = threading.Lock()
         self._entries: dict[str, ToolIsolationEntry] = {}  # tool_id → entry
         self._policy_cache: dict[str, Any] | None = None
@@ -322,8 +322,15 @@ class ToolIsolationManager:
         """Check the health of a single tool. Returns a status dict."""
         with self._lock:
             entry = self._entries.get(tool_id)
-        if entry is None:
+            limits = (
+                (entry.memory_limit_mb, entry.cpu_percent_limit, entry.restart_count)
+                if entry is not None
+                else None
+            )
+        if entry is None or limits is None:
             return {"tool_id": tool_id, "status": "not_registered"}
+
+        memory_limit_mb, cpu_limit_percent, restart_count = limits
         try:
             proc = psutil.Process(entry.pid)
             if not proc.is_running():
@@ -332,40 +339,43 @@ class ToolIsolationManager:
                     "status": "crashed",
                     "pid": entry.pid,
                     "exit_code": entry.process.returncode,
-                    "restart_count": entry.restart_count,
+                    "restart_count": restart_count,
                 }
-            cpu = proc.cpu_percent(interval=0.1)
+            # cpu_percent(interval=None) returns the instantaneous CPU
+            # since the last call without blocking.  This avoids a 100ms
+            # stall per tool that would block the monitor thread and,
+            # if called from the event loop, the IPC channel.
+            cpu = proc.cpu_percent(interval=None)
             mem_info = proc.memory_info()
             mem_mb = mem_info.rss / (1024 * 1024)
-            entry.last_health_check = time.monotonic()
-            entry.last_cpu_percent = cpu
-            entry.last_memory_mb = mem_mb
-            over_memory = (
-                entry.memory_limit_mb > 0
-                and mem_mb > entry.memory_limit_mb
-            )
-            over_cpu = (
-                entry.cpu_percent_limit > 0
-                and cpu > entry.cpu_percent_limit * 1.5  # allow brief spikes
-            )
+            over_memory = memory_limit_mb > 0 and mem_mb > memory_limit_mb
+            over_cpu = cpu_limit_percent > 0 and cpu > cpu_limit_percent * 1.5  # allow brief spikes
+
+            with self._lock:
+                # Only write metrics back if this entry is still the active one.
+                if self._entries.get(tool_id) is entry:
+                    entry.last_health_check = time.monotonic()
+                    entry.last_cpu_percent = cpu
+                    entry.last_memory_mb = mem_mb
+
             return {
                 "tool_id": tool_id,
                 "status": "healthy" if not (over_memory or over_cpu) else "warning",
                 "pid": entry.pid,
                 "cpu_percent": round(cpu, 1),
                 "memory_mb": round(mem_mb, 1),
-                "memory_limit_mb": entry.memory_limit_mb,
-                "cpu_limit_percent": entry.cpu_percent_limit,
+                "memory_limit_mb": memory_limit_mb,
+                "cpu_limit_percent": cpu_limit_percent,
                 "over_memory": over_memory,
                 "over_cpu": over_cpu,
-                "restart_count": entry.restart_count,
+                "restart_count": restart_count,
             }
         except psutil.NoSuchProcess:
             return {
                 "tool_id": tool_id,
                 "status": "crashed",
                 "pid": entry.pid,
-                "restart_count": entry.restart_count,
+                "restart_count": restart_count,
             }
         except Exception as exc:
             return {
@@ -398,7 +408,6 @@ class ToolIsolationManager:
         if entry is None:
             return {"tool_id": tool_id, "action": "not_registered"}
 
-        entry.crashed = True
         policy = self.resolve_policy(tool_id)
 
         # Quarantine: record crash info.
@@ -407,44 +416,50 @@ class ToolIsolationManager:
         if crash_config.get("isolate_on_crash", True):
             self._quarantine_crash(tool_id, entry)
 
-        # Notify callbacks.
+        # Notify callbacks (outside the lock so callbacks cannot deadlock).
         for cb in self._crash_callbacks:
             try:
                 cb(tool_id, entry)
             except Exception:
                 pass
 
-        # Restart logic.
+        # Restart logic — entry mutation is protected by the manager lock.
         if not policy.restart_on_crash:
+            with self._lock:
+                entry.crashed = True
             return {"tool_id": tool_id, "action": "quarantined", "restarted": False}
-        if entry.restart_count >= policy.max_restart_attempts:
-            _logger.warning(
-                "tool_crash_max_restarts tool_id=%s restarts=%d — giving up",
-                tool_id, entry.restart_count,
-            )
-            entry.quarantined = True
-            return {
-                "tool_id": tool_id,
-                "action": "quarantined",
-                "restarted": False,
-                "reason": "max_restarts_exceeded",
-            }
 
-        backoff_idx = min(entry.restart_count, len(policy.restart_backoff_seconds) - 1)
-        delay = policy.restart_backoff_seconds[backoff_idx]
-        entry.restart_count += 1
-        entry.last_restart_time = time.monotonic()
+        with self._lock:
+            entry.crashed = True
+            if entry.restart_count >= policy.max_restart_attempts:
+                _logger.warning(
+                    "tool_crash_max_restarts tool_id=%s restarts=%d — giving up",
+                    tool_id, entry.restart_count,
+                )
+                entry.quarantined = True
+                return {
+                    "tool_id": tool_id,
+                    "action": "quarantined",
+                    "restarted": False,
+                    "reason": "max_restarts_exceeded",
+                }
+
+            backoff_idx = min(entry.restart_count, len(policy.restart_backoff_seconds) - 1)
+            delay = policy.restart_backoff_seconds[backoff_idx]
+            entry.restart_count += 1
+            entry.last_restart_time = time.monotonic()
+            attempt = entry.restart_count
 
         _logger.info(
             "tool_crash_restart tool_id=%s attempt=%d delay=%ds",
-            tool_id, entry.restart_count, delay,
+            tool_id, attempt, delay,
         )
         return {
             "tool_id": tool_id,
             "action": "restart_scheduled",
             "restarted": True,
             "delay_seconds": delay,
-            "attempt": entry.restart_count,
+            "attempt": attempt,
         }
 
     def _quarantine_crash(self, tool_id: str, entry: ToolIsolationEntry) -> None:
@@ -535,28 +550,85 @@ class ToolIsolationManager:
         return [self.shutdown_tool(tid, timeout) for tid in tool_ids]
 
     # ------------------------------------------------------------------
+    # Health monitoring loop
+    # ------------------------------------------------------------------
+
+    def start_monitor(self, interval: float = 5.0) -> None:
+        """Start a background thread that periodically checks tool health.
+
+        When a tool crash is detected, the crash callback is invoked and
+        a crash event is recorded.  The monitor runs until ``stop_monitor``
+        is called or the process exits.
+        """
+        if self._monitor_thread is not None and self._monitor_thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._monitor_thread = threading.Thread(
+            target=self._monitor_loop,
+            args=(interval,),
+            name="tool-isolation-monitor",
+            daemon=True,
+        )
+        self._monitor_thread.start()
+        _logger.info("tool_isolation_monitor_started interval=%.1fs", interval)
+
+    def stop_monitor(self) -> None:
+        """Stop the health monitoring background thread."""
+        self._stop_event.set()
+        if self._monitor_thread is not None:
+            self._monitor_thread.join(timeout=5.0)
+            self._monitor_thread = None
+
+    def _monitor_loop(self, interval: float) -> None:
+        """Background health check loop — detects crashes and notifies."""
+        while not self._stop_event.is_set():
+            try:
+                with self._lock:
+                    tool_ids = list(self._entries.keys())
+                for tid in tool_ids:
+                    if self._stop_event.is_set():
+                        break
+                    health = self.check_tool_health(tid)
+                    if health.get("status") == "crashed":
+                        _logger.warning(
+                            "tool_isolation_crash_detected tool_id=%s pid=%s",
+                            tid, health.get("pid"),
+                        )
+                        self.handle_crash(tid)
+                        # Notify crash event listeners.
+                        for cb in self._crash_callbacks:
+                            try:
+                                cb(tid, self._entries.get(tid))
+                            except Exception:
+                                pass
+            except Exception:
+                pass  # Monitor must never die.
+            self._stop_event.wait(timeout=interval)
+
+    # ------------------------------------------------------------------
     # Status
     # ------------------------------------------------------------------
 
     def status(self) -> dict[str, Any]:
         """Return isolation manager status for health checks."""
         with self._lock:
-            entries = {
-                tid: {
-                    "pid": e.pid,
-                    "memory_limit_mb": e.memory_limit_mb,
-                    "cpu_limit_percent": e.cpu_percent_limit,
-                    "restart_count": e.restart_count,
-                    "crashed": e.crashed,
-                    "quarantined": e.quarantined,
-                }
-                for tid, e in self._entries.items()
+            raw_entries = list(self._entries.items())
+        entries = {
+            tid: {
+                "pid": e.pid,
+                "memory_limit_mb": e.memory_limit_mb,
+                "cpu_limit_percent": e.cpu_percent_limit,
+                "restart_count": e.restart_count,
+                "crashed": e.crashed,
+                "quarantined": e.quarantined,
             }
+            for tid, e in raw_entries
+        }
         return {
             "registered_tools": len(entries),
             "tools": entries,
             "job_objects_active": sum(
-                1 for e in self._entries.values() if e.job_handle is not None
+                1 for _, e in raw_entries if e.job_handle is not None
             ),
         }
 

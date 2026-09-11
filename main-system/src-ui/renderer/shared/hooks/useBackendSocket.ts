@@ -2,10 +2,7 @@
 import { BootLogger } from '../BootLogger'
 import { eventBus } from '../RuntimeEventBus'
 import { getAuthenticatedBackendWebSocketUrl } from '../services/backendSession'
-import {
-  requestBackendRestart,
-  resetBackendRecovery,
-} from '../services/backendRecovery'
+import { resetBackendRecovery } from '../services/backendRecovery'
 type BackendSocketState = {
   status: string
   lastStatusAt: number | null
@@ -40,7 +37,10 @@ const WS_CONNECT_TIMEOUT_MS = 8000
 const WS_READINESS_RETRY_MS = 1500
 const WS_COMMAND_QUEUE_MAX = 50
 const WS_COMMAND_QUEUE_TTL_MS = 60_000
-const WS_STALE_CONNECTION_MS = 15_000
+// Stale-connection threshold: the backend sends heartbeat_ping every 10s
+// and closes silent sockets at 30s; we tolerate ~3 missed pings before
+// treating the connection as dead.
+const WS_STALE_CONNECTION_MS = 35_000
 const OUTBOX_CURSOR_KEY = 'gptbridge.outbox.cursor'
 const OUTBOX_GENERATION_KEY = 'gptbridge.outbox.generation'
 const OUTBOX_BUFFER_MAX = 500
@@ -317,17 +317,20 @@ export const useBackendSocket = () => {
           setState((prev) => ({ ...prev, status: 'Synchronizing' }))
           eventBus.emit('socket_connected', { connected: false })
           scheduleReadinessCheck()
-          // A verified dead backend cannot recover by reconnecting — request a
-          // governed boot_core restart (Electron main executes it). Cooldown +
-          // attempt cap live in backendRecovery (FORBID:duplicate owner).
+          // 連線層永不得重啟後端 (A195/A196): a startup_dead payload means the
+          // backend PROCESS is alive (it just sent us a message) but its
+          // runtime init failed — the governed recovery owner is boot_core,
+          // not the UI socket.  Surface a typed degraded signal instead.
           if (runtime.startup_dead === true) {
-            void requestBackendRestart('startup-dead').then((result) => {
-              if (result.requested) {
-                BootLogger.log('WebSocket', 'BACKEND_RESTART_REQUESTED', {
-                  reason: result.reason,
-                })
-              }
+            eventBus.emit('backend_startup_dead', {
+              runtime_state: runtime.runtime_state,
             })
+            BootLogger.log(
+              'WebSocket',
+              'BACKEND_STARTUP_DEAD_DEGRADED',
+              {},
+              'warn'
+            )
           }
         }
       }
@@ -372,6 +375,39 @@ export const useBackendSocket = () => {
           ) {
             const runtime = (payload.payload ?? {}) as Record<string, unknown>
             applyRuntimeReadiness(runtime)
+          }
+
+          // A195: outbox session answer — a generation change means the
+          // backend restarted; invalidate the projection and resume the
+          // stream from sequence 0 instead of trusting the stale cursor.
+          if (payload.event === 'state_event_session') {
+            const sess = payload.payload as
+              | { backend_generation?: string }
+              | undefined
+            const storedGeneration = window.sessionStorage.getItem(
+              OUTBOX_GENERATION_KEY
+            )
+            if (
+              sess?.backend_generation &&
+              storedGeneration !== null &&
+              sess.backend_generation !== storedGeneration
+            ) {
+              outboxAppliedRef.current = 0
+              outboxBufferRef.current.clear()
+              window.sessionStorage.setItem(OUTBOX_CURSOR_KEY, '0')
+              window.sessionStorage.setItem(
+                OUTBOX_GENERATION_KEY,
+                sess.backend_generation
+              )
+              eventBus.emit('state_event_invalidate', {
+                reason: 'backend-generation-change',
+              })
+            } else if (sess?.backend_generation && storedGeneration === null) {
+              window.sessionStorage.setItem(
+                OUTBOX_GENERATION_KEY,
+                sess.backend_generation
+              )
+            }
           }
 
           // A195: transactional outbox state event — validate sequence,

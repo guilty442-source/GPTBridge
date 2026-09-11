@@ -16,7 +16,7 @@ from .toolbox_constants import (
     MAX_TOOL_REQUEST_ID_LENGTH,
     _MANAGED_BACKEND_TOOL_ID_ENV,
     _MANAGED_BACKEND_WORKSPACE_ID_ENV,
-    _MANAGED_BACKEND_VERSION_ENV,
+    _MANAGED_BACKEND_CODENAME_ENV,
     _TOOL_VERSION_PATTERN,
     _TOOL_ENVIRONMENT_ALLOWLIST,
     _TOOL_GOVERNANCE_BOOTSTRAP_ENV,
@@ -308,7 +308,7 @@ class EnvironmentMixin:
         managed_keys = (
             _MANAGED_BACKEND_TOOL_ID_ENV,
             _MANAGED_BACKEND_WORKSPACE_ID_ENV,
-            _MANAGED_BACKEND_VERSION_ENV,
+            _MANAGED_BACKEND_CODENAME_ENV,
         )
         for key in managed_keys:
             child_env.pop(key, None)

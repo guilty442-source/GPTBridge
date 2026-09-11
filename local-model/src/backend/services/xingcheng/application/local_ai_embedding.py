@@ -93,6 +93,7 @@ class LocalAiEmbeddingMixin:
             },
             "analysis": analysis,
             "market_research": market_research,
+            "fault_diagnostics": payload.get("fault_diagnostics"),
             "evidence": embedding_retrieval,
             "embedding_retrieval": {
                 "enabled": bool(embedding_retrieval),

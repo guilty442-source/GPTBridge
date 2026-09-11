@@ -66,7 +66,7 @@ class CircuitBreaker:
         self.recovery_timeout = recovery_timeout_seconds
         self.fallback_fn = fallback_fn
         self.flag_name = flag_name
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._success_count = 0
@@ -96,21 +96,23 @@ class CircuitBreaker:
             if not flags.is_enabled(self.flag_name):
                 return fn(*args, **kwargs)
 
-        current_state = self.state
-        if current_state == CircuitState.OPEN:
-            self._total_fallbacks += 1
-            if self.fallback_fn is not None:
-                _logger.warning(
-                    "circuit_open_fallback name=%s total_fallbacks=%d",
-                    self.name, self._total_fallbacks,
+        with self._lock:
+            current_state = self.state
+            if current_state == CircuitState.OPEN:
+                self._total_fallbacks += 1
+                if self.fallback_fn is not None:
+                    _logger.warning(
+                        "circuit_open_fallback name=%s total_fallbacks=%d",
+                        self.name, self._total_fallbacks,
+                    )
+                    return self.fallback_fn(*args, **kwargs)
+                raise CircuitOpenError(
+                    f"circuit '{self.name}' is open "
+                    f"(failures={self._failure_count})"
                 )
-                return self.fallback_fn(*args, **kwargs)
-            raise CircuitOpenError(
-                f"circuit '{self.name}' is open "
-                f"(failures={self._failure_count})"
-            )
 
-        self._total_calls += 1
+            self._total_calls += 1
+
         try:
             result = fn(*args, **kwargs)
             self._on_success()

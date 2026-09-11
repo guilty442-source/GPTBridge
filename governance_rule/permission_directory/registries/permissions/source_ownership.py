@@ -79,6 +79,8 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "startup.py",
         "runtime_gateway.py",
         "service_probe.py",
+        "resilient_store.py",
+        "tool_codenames.py",
     }
 )
 SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (
@@ -196,21 +198,27 @@ def source_ownership_errors(project_root: Path) -> list[str]:
         if (root / relative).exists():
             errors.append(f"legacy business source remains in shared layer: {relative}")
 
-    for import_prefix, owner_root in OWNED_IMPORT_PREFIXES.items():
-        pattern = re.compile(
-            rf"^\s*(?:from|import)\s+{re.escape(import_prefix)}(?:\.|\s|$)",
+    # Enumerate */src/**/*.py once — a fresh glob per prefix re-walks the
+    # entire tree N times, which is a measurable startup-audit cost.  Each
+    # source is read once and checked against every compiled pattern.
+    import_patterns = {
+        prefix: re.compile(
+            rf"^\s*(?:from|import)\s+{re.escape(prefix)}(?:\.|\s|$)",
             re.MULTILINE,
         )
-        for source in root.glob("*/src/**/*.py"):
-            relative = source.relative_to(root).as_posix()
+        for prefix in OWNED_IMPORT_PREFIXES
+    }
+    for source in root.glob("*/src/**/*.py"):
+        relative = source.relative_to(root).as_posix()
+        try:
+            content = source.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            errors.append(f"owned import source is unreadable: {relative}: {error}")
+            continue
+        for import_prefix, owner_root in OWNED_IMPORT_PREFIXES.items():
             if relative.startswith(f"{owner_root}/"):
                 continue
-            try:
-                content = source.read_text(encoding="utf-8")
-            except (OSError, UnicodeError) as error:
-                errors.append(f"owned import source is unreadable: {relative}: {error}")
-                continue
-            if pattern.search(content):
+            if import_patterns[import_prefix].search(content):
                 errors.append(
                     f"cross-tool internal import is forbidden: {relative}: {import_prefix}"
                 )

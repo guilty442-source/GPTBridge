@@ -238,23 +238,12 @@ class PhaseMixin:
         """
         total_start = time.monotonic()
         results: list[dict[str, Any]] = []
-        gate_ok = True
         handlers = self._PHASE_HANDLERS
 
-        for phase in BOOTSTRAP_PHASES:
-            if self._stop.is_set():
-                gate_ok = False
-                break
-            result = handlers[phase](self)
-            results.append(result)
-            # Required phase failed → gate blocks subsequent phases (A61 GATE).
-            if result.get("critical") and not result.get("ready"):
-                gate_ok = False
-                break
-
         # The governed-startup contracts live in core_system, which is only
-        # importable after the bootstrap phases above install the runtime
-        # paths.  Materialize the certified manifest lazily here.
+        # importable after the runtime paths are installed.  Materialize the
+        # certified manifest first so DAG verification and probing can run
+        # concurrently with the bootstrap gates.
         self._ensure_runtime_paths()
         declarations: tuple[Any, ...] = ()
         dag: Any = None
@@ -276,43 +265,82 @@ class PhaseMixin:
                 "basis": "A191/E166",
                 "violations": [f"{type(error).__name__}: {error}"],
             }
-        if gate_ok and (
-            dag is None or not dag.is_acyclic or not classification["ok"]
-        ):
-            gate_ok = False
 
-        if gate_ok:
-            phase_by_identity = {
-                "postgresql": "postgresql-start",
-                "qdrant": "qdrant-start",
-                "ollama": "ollama-start",
-            }
+        # Bootstrap gates and DAG dependency probes are independent checks —
+        # run them all concurrently (A191/A192 bounded parallelism).  The
+        # spawn gate is evaluated after collection, so every failure is
+        # reported instead of being hidden by a short-circuit break.
+        phase_by_identity = {
+            "postgresql": "postgresql-start",
+            "qdrant": "qdrant-start",
+            "ollama": "ollama-start",
+        }
+        bootstrap_results: dict[str, dict[str, Any]] = {}
+        dependency_results: dict[str, dict[str, Any]] = {}
+        if not self._stop.is_set():
+            workers = max(1, len(BOOTSTRAP_PHASES) + len(declarations))
             with ThreadPoolExecutor(
-                max_workers=len(declarations),
+                max_workers=workers,
                 thread_name_prefix="startup-dag",
             ) as executor:
-                futures = {
-                    executor.submit(handlers[phase_by_identity[dep.identity]], self): dep
-                    for dep in declarations
-                }
+                futures: dict[Any, tuple[str, Any]] = {}
+                for phase in BOOTSTRAP_PHASES:
+                    futures[executor.submit(handlers[phase], self)] = (
+                        "bootstrap",
+                        phase,
+                    )
+                for dep in declarations:
+                    futures[
+                        executor.submit(
+                            handlers[phase_by_identity[dep.identity]], self
+                        )
+                    ] = ("dependency", dep)
                 for future in as_completed(futures):
-                    dep = futures[future]
+                    kind, tag = futures[future]
                     try:
                         result = future.result()
                     except Exception as error:
                         result = {
-                            "phase": phase_by_identity[dep.identity],
+                            "phase": (
+                                tag
+                                if kind == "bootstrap"
+                                else phase_by_identity[tag.identity]
+                            ),
                             "ready": False,
                             "state": "fault",
                             "fault_code": "STARTUP_DEPENDENCY_EXCEPTION",
                             "message": f"{type(error).__name__}: {error}",
                             "duration_ms": 0,
                         }
-                    result["criticality"] = dep.criticality
-                    result["required_by"] = dep.required_by
-                    results.append(result)
-                    if dep.is_core_critical and not result.get("ready"):
-                        gate_ok = False
+                    if kind == "bootstrap":
+                        bootstrap_results[tag] = result
+                    else:
+                        result["criticality"] = tag.criticality
+                        result["required_by"] = tag.required_by
+                        dependency_results[tag.identity] = result
+
+        # Deterministic report order: manifest order, not completion order.
+        results = [
+            *(bootstrap_results[phase] for phase in BOOTSTRAP_PHASES
+              if phase in bootstrap_results),
+            *(dependency_results[dep.identity] for dep in declarations
+              if dep.identity in dependency_results),
+        ]
+
+        gate_ok = not self._stop.is_set()
+        for phase in BOOTSTRAP_PHASES:
+            result = bootstrap_results.get(phase)
+            if result is None:
+                # A gate that produced no result (e.g. stop) fails closed.
+                gate_ok = False
+            elif result.get("critical") and not result.get("ready"):
+                gate_ok = False
+        if dag is None or not dag.is_acyclic or not classification["ok"]:
+            gate_ok = False
+        for dep in declarations:
+            result = dependency_results.get(dep.identity)
+            if dep.is_core_critical and not (result and result.get("ready")):
+                gate_ok = False
 
         total_ms = int((time.monotonic() - total_start) * 1000)
         deadline_exceeded = total_ms > int(STARTUP_GATE_DEADLINE_SECONDS * 1000)

@@ -36,6 +36,11 @@ class _EmbeddedPage:
 
     async def goto(self, url: str, **_kwargs: Any) -> None:
         self._client.navigate(self._session_id, url)
+        # Simulate wait_for_timeout for compatibility
+        await asyncio.sleep(0.1)
+
+    async def wait_for_timeout(self, ms: int) -> None:
+        await asyncio.sleep(ms / 1000.0)
 
     async def close(self) -> None:
         self._client.close(self._session_id)
@@ -44,8 +49,8 @@ class _EmbeddedPage:
     def is_closed(self) -> bool:
         return self._client.get_url(self._session_id) is None
 
-    async def evaluate(self, script: str) -> Any:
-        result = self._client.execute_script(self._session_id, script)
+    async def evaluate(self, script: str, *args: Any) -> Any:
+        result = self._client.execute_script(self._session_id, script, args)
         return result.get("result") if result.get("ok") else None
 
 

@@ -145,11 +145,17 @@ class MainSystemSelfMaintenance:
         from .active_release import resolve_active_pointer
 
         active_pointer = resolve_active_pointer()
-        version_report = await self._duty_version_compatibility()
-        # Stability fix runs only during the startup pass; the periodic loop
-        # reports it as skipped to avoid mutating sources after every interval.
-        stability_report = await self._duty_stability_fix(startup=startup)
-        integrity_report = await self._duty_integrity_verify()
+        # The three duties are independent (version check subprocess, source
+        # syntax scan, integrity verify) — run them concurrently so the
+        # startup pass costs max(duty) instead of sum(duty).
+        version_report, stability_report, integrity_report = await asyncio.gather(
+            self._duty_version_compatibility(),
+            # Stability fix runs only during the startup pass; the periodic
+            # loop reports it as skipped to avoid mutating sources after
+            # every interval.
+            self._duty_stability_fix(startup=startup),
+            self._duty_integrity_verify(),
+        )
         ok = all(
             bool(item.get("ok"))
             for item in (version_report, stability_report, integrity_report)
@@ -242,18 +248,31 @@ class MainSystemSelfMaintenance:
                     "problems": problems,
                     "error": f"{type(probe_error).__name__}: {probe_error}",
                 }
-            for source_path in sources:
+            from concurrent.futures import ThreadPoolExecutor
+
+            def _problem(source_path: Path) -> dict[str, Any] | None:
                 problem = syntax_problems(source_path)
-                if not problem.get("ok"):
-                    problems.append(
-                        {
-                            "file": str(
-                                source_path.relative_to(self.project_root).as_posix()
-                            ),
-                            "error": problem.get("error"),
-                            "message": problem.get("message"),
-                        }
-                    )
+                if problem.get("ok"):
+                    return None
+                return {
+                    "file": str(
+                        source_path.relative_to(self.project_root).as_posix()
+                    ),
+                    "error": problem.get("error"),
+                    "message": problem.get("message"),
+                }
+
+            # ast.parse is I/O+CPU per file; scanning all sources serially
+            # is a measurable startup cost — bounded parallel scan instead.
+            with ThreadPoolExecutor(
+                max_workers=min(8, max(1, len(sources))),
+                thread_name_prefix="stability-scan",
+            ) as executor:
+                problems = [
+                    item
+                    for item in executor.map(_problem, sources)
+                    if item is not None
+                ]
             return {
                 "ok": len(problems) == 0,
                 "probed_sources": len(sources),

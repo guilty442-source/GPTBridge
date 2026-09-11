@@ -417,6 +417,15 @@ class InferPlanningMixin:
             inference_payload["native_private_context"] = self._repository_for(
                 self.models.MAIN
             ).native_private_context()
+        # Fault-diagnosis grounding: when the user asks about a fault,
+        # attach the governed evidence pack (fault-code directory matches,
+        # maintenance manuals, bounded runtime state, outbox tail) so the
+        # answering model works from authoritative data instead of guessing.
+        # Read-only; repair remains owned by main-system central repair.
+        if self.fault_diagnostics.looks_like_fault(prompt):
+            inference_payload["fault_diagnostics"] = (
+                self.fault_diagnostics.diagnose(prompt)
+            )
         if planned_intent in {"analysis", "risk"} and not native_model_requested:
             governed_parameters = self.investment_repository.investment_parameter_values()
             requested_parameters = inference_payload.get("analysis_parameters")

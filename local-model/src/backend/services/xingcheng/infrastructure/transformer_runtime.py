@@ -1801,6 +1801,7 @@ class StarTransformerRuntime:
                 "mathematical_result",
                 "coding_result",
                 "self_repair",
+                "fault_diagnostics",
                 "evidence",
                 "instruction_execution",
                 "parallel_model_results",

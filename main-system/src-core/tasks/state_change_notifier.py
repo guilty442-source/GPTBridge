@@ -223,5 +223,51 @@ class StateChangeNotifier:
     def current_snapshot(self) -> ReadinessSnapshot | None:
         return self._last_snapshot
 
+    def push_tool_crash_event(
+        self,
+        tool_id: str,
+        crash_info: dict[str, Any],
+        *,
+        loop: asyncio.AbstractEventLoop | None = None,
+    ) -> None:
+        """Push a ``tool_crash_event`` to all active UI shells.
+
+        Thread-safe: may be called from the tool isolation monitor thread.
+        If ``loop`` is provided, the push is scheduled on that loop;
+        otherwise a best-effort direct call is attempted.
+        """
+        payload = {
+            "event": "tool_crash",
+            "tool_id": tool_id,
+            "timestamp": _iso_now(),
+            **crash_info,
+        }
+
+        async def _push() -> None:
+            shells = self._active_shells()
+            dead: list[Any] = []
+            for shell in list(shells):
+                send = getattr(shell, "send_event", None)
+                if not callable(send):
+                    continue
+                try:
+                    await send("tool_crash_event", payload)
+                except Exception:
+                    dead.append(shell)
+            for shell in dead:
+                shells.discard(shell)
+
+        if loop is not None and loop.is_running():
+            asyncio.run_coroutine_threadsafe(_push(), loop)
+        else:
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.run_coroutine_threadsafe(_push(), loop)
+                else:
+                    loop.run_until_complete(_push())
+            except Exception:
+                pass
+
 
 __all__ = ["STATE_NOTIFIER_VERSION", "StateChangeNotifier"]

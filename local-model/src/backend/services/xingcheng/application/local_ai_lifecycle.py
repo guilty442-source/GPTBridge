@@ -54,6 +54,11 @@ _INVESTMENT_COMMANDS = frozenset(
         "xingcheng_manage_investment_accounting",
     }
 )
+_DIAGNOSTICS_COMMANDS = frozenset(
+    {
+        "xingcheng_diagnose_fault",
+    }
+)
 
 
 class LocalAiLifecycleMixin:
@@ -145,4 +150,6 @@ class LocalAiLifecycleMixin:
             return await self._handle_tune_mobile(command, payload)
         if command in _INVESTMENT_COMMANDS:
             return await self._handle_investments(command, payload)
+        if command in _DIAGNOSTICS_COMMANDS:
+            return await self._handle_diagnostics(command, payload)
         return await self._handle_infer(command, payload)

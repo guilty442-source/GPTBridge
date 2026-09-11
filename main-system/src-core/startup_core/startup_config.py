@@ -33,7 +33,7 @@ _CONFIG_RELATIVE: Final[tuple[str, ...]] = (
 
 
 def _config_path() -> Path:
-    return Path(__file__).resolve().joinpath(*_CONFIG_RELATIVE)
+    return Path(__file__).resolve().parents[0].joinpath(*_CONFIG_RELATIVE)
 
 
 # ------------------------------------------------------------------
@@ -97,6 +97,7 @@ _FALLBACK: Final[dict[str, Any]] = {
         "healthy_uptime_reset_seconds": 60,
         "health_probe_timeout": 2.0,
         "health_probe_interval": 5.0,
+        "startup_health_probe_interval": 0.5,
         "crash_repair_uptime_threshold": 30.0,
     },
     "governed_startup": {

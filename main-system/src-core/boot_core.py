@@ -65,6 +65,10 @@ HEALTHY_UPTIME_RESET_SECONDS = _cfg_supervisor("healthy_uptime_reset_seconds")
 HEALTH_PROBE_PORT = _cfg_port("health_probe")
 HEALTH_PROBE_TIMEOUT = _cfg_supervisor("health_probe_timeout")
 HEALTH_PROBE_INTERVAL = _cfg_supervisor("health_probe_interval")
+# Fast cadence until the first healthy probe — the supervised interval is
+# for steady-state monitoring; startup readiness detection must not wait
+# up to HEALTH_PROBE_INTERVAL before noticing the backend came up.
+STARTUP_HEALTH_PROBE_INTERVAL = _cfg_supervisor("startup_health_probe_interval")
 STATE_RELATIVE = ("main-system", "runtime", "state", "boot-core.json")
 
 # Early crashes that trigger diagnosis and a governed repair request.
@@ -264,7 +268,12 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 if healthy:
                     self._restarts = 0
                 self._write_state(backend_healthy=healthy)
-            if self._stop.wait(timeout=HEALTH_PROBE_INTERVAL):
+            interval = (
+                HEALTH_PROBE_INTERVAL
+                if self._backend_healthy
+                else STARTUP_HEALTH_PROBE_INTERVAL
+            )
+            if self._stop.wait(timeout=interval):
                 break
 
     def _start_connection_watchdog(self) -> None:

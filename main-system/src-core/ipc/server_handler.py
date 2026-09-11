@@ -77,6 +77,47 @@ async def handler(websocket, app_instance):
     if isinstance(notifier, StateChangeNotifier):
         asyncio.create_task(notifier.maybe_notify())
 
+    # Start heartbeat monitor BEFORE the startup wait — keeps the connection
+    # warm while the backend finishes heavy initialization, so the client's
+    # stale-connection detector does not kill a healthy socket.  The
+    # frontend responds to "heartbeat_ping" with "heartbeat_pong"; once the
+    # read loop below starts consuming messages, a client that stays silent
+    # for HEARTBEAT_TIMEOUT_SECONDS is considered dead and closed.
+    # Library-level ping/pong is disabled (ping_interval=None in serve());
+    # this application-level heartbeat is the sole connection health check.
+    heartbeat_dead = asyncio.Event()
+    # Pongs arriving during the startup wait sit in the socket buffer until
+    # the read loop starts — enforce the pong timeout only from that point.
+    read_loop_active = False
+
+    async def _heartbeat_monitor() -> None:
+        HEARTBEAT_INTERVAL = 10.0
+        HEARTBEAT_TIMEOUT = 30.0
+        while not heartbeat_dead.is_set():
+            await asyncio.sleep(HEARTBEAT_INTERVAL)
+            if heartbeat_dead.is_set():
+                break
+            try:
+                await ui.send_event("heartbeat_ping", {"t": datetime.now(timezone.utc).isoformat()})
+            except Exception:
+                heartbeat_dead.set()
+                break
+            if (
+                read_loop_active
+                and time.monotonic() - last_pong_time > HEARTBEAT_TIMEOUT
+            ):
+                # Client has not responded in 30s — close dead connection
+                heartbeat_dead.set()
+                try:
+                    await websocket.close(code=1001, reason="heartbeat_timeout")
+                except Exception:
+                    pass
+                break
+
+    # Track pong responses via a command handler
+    last_pong_time = time.monotonic()
+    heartbeat_task = asyncio.create_task(_heartbeat_monitor())
+
     # Gracefully wait for the backend to finish its heavy initialization.
     # If startup failed outright (startup_dead), do not stall the connection:
     # enter degraded mode so the client stays connected and can observe
@@ -104,39 +145,7 @@ async def handler(websocket, app_instance):
         if pending:
             await ui.send_event("task_recovery_required", {"ok": True, "tasks": pending})
 
-    # Start heartbeat monitor — detects dead clients.
-    # The frontend responds to "heartbeat_ping" with a "heartbeat_pong" command;
-    # if no pong arrives within HEARTBEAT_TIMEOUT_SECONDS, the connection is
-    # considered dead and closed.
-    # Library-level ping/pong is disabled (ping_interval=None in serve());
-    # this application-level heartbeat is the sole connection health check.
-    heartbeat_dead = asyncio.Event()
-
-    async def _heartbeat_monitor() -> None:
-        HEARTBEAT_INTERVAL = 10.0
-        HEARTBEAT_TIMEOUT = 30.0
-        while not heartbeat_dead.is_set():
-            await asyncio.sleep(HEARTBEAT_INTERVAL)
-            if heartbeat_dead.is_set():
-                break
-            try:
-                await ui.send_event("heartbeat_ping", {"t": datetime.now(timezone.utc).isoformat()})
-            except Exception:
-                heartbeat_dead.set()
-                break
-            if time.monotonic() - last_pong_time > HEARTBEAT_TIMEOUT:
-                # Client has not responded in 30s — close dead connection
-                heartbeat_dead.set()
-                try:
-                    await websocket.close(code=1001, reason="heartbeat_timeout")
-                except Exception:
-                    pass
-                break
-
-    # Track pong responses via a command handler
-    last_pong_time = time.monotonic()
-    heartbeat_task = asyncio.create_task(_heartbeat_monitor())
-
+    read_loop_active = True
     try:
         async for message in websocket:
             try:

@@ -118,7 +118,7 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
             is_busy=lambda: bool(getattr(app_instance, "_command_tasks", set())),
         )
 
-        def process_request_with_shutdown(_connection, request):
+        async def process_request_with_shutdown(_connection, request):
             parsed_request = urlsplit(str(request.path))
             request_path = parsed_request.path
             if request_path == "/health":
@@ -135,43 +135,66 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                 else:
                     health_level = "full"
 
-                startup_status = (
-                    app_instance.get_startup_status()
-                    if hasattr(app_instance, "get_startup_status")
-                    else {}
-                )
+                def _readiness() -> Any:
+                    from tasks.readiness_gate import ReadinessGate
+
+                    return ReadinessGate(app_instance).evaluate()
+
+                def _startup_status() -> dict[str, Any]:
+                    if hasattr(app_instance, "get_startup_status"):
+                        try:
+                            return app_instance.get_startup_status()
+                        except Exception:
+                            pass
+                    return {}
+
+                def _tool_isolation_status() -> Any:
+                    try:
+                        from core_system.tool_isolation import get_isolation_manager
+                        return get_isolation_manager().status()
+                    except Exception:
+                        return None
+
                 # A67 four-condition readiness gate:
                 #   backend-runtime-ready + governance-ready
                 #   + required-dependencies-ready + authenticated-ipc-connected
                 # A socket being open alone is NOT ready.
-                from tasks.readiness_gate import ReadinessGate
-
                 notifier = getattr(app_instance, "_state_change_notifier", None)
                 readiness = None
                 # Brief level: use cached snapshot if available (no probes).
                 if health_level == "brief" and notifier is not None:
                     readiness = notifier.current_snapshot()
                 if readiness is None:
-                    # Full and deep levels: evaluate the readiness gate.
-                    # For deep level, the gate performs live TCP probes.
-                    readiness = ReadinessGate(app_instance).evaluate()
+                    # Full and deep levels: evaluate the readiness gate off the
+                    # event loop so TCP dependency probes do not stall the IPC
+                    # server or heartbeat traffic.
+                    readiness = await asyncio.to_thread(_readiness)
+
+                startup_status: dict[str, Any] = {}
+                iso_status: Any = None
+                if health_level != "brief":
+                    startup_status, iso_status = await asyncio.gather(
+                        asyncio.to_thread(_startup_status),
+                        asyncio.to_thread(_tool_isolation_status),
+                    )
+
                 ready = readiness.overall_ready
                 runtime_state = readiness.runtime_state
                 payload = {
-                        "ok": ready,
-                        "version": str(getattr(app_instance, "version", "0.0.0")),
-                        "workspace_instance_id": _workspace_instance_id(),
-                        "runtime_state": runtime_state,
-                        "runtime_scope": "main",
-                        "governance_ready": readiness.governance_ready,
-                        "backend_runtime_ready": readiness.backend_runtime_ready,
-                        "dependencies_ready": readiness.dependencies_ready,
-                        "authenticated_ipc_connected": readiness.authenticated_ipc_connected,
-                        "dependencies": [d.as_dict() for d in readiness.dependencies],
-                        "services": {},
-                        "capabilities": {},
-                        "health_level": health_level,
-                    }
+                    "ok": ready,
+                    "version": str(getattr(app_instance, "version", "0.0.0")),
+                    "workspace_instance_id": _workspace_instance_id(),
+                    "runtime_state": runtime_state,
+                    "runtime_scope": "main",
+                    "governance_ready": readiness.governance_ready,
+                    "backend_runtime_ready": readiness.backend_runtime_ready,
+                    "dependencies_ready": readiness.dependencies_ready,
+                    "authenticated_ipc_connected": readiness.authenticated_ipc_connected,
+                    "dependencies": [d.as_dict() for d in readiness.dependencies],
+                    "services": {},
+                    "capabilities": {},
+                    "health_level": health_level,
+                }
                 # Brief level: skip memory maintenance and startup status
                 # to keep the response as fast as possible.
                 if health_level != "brief":
@@ -179,15 +202,8 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                         memory_maintenance=memory_maintainer.status(),
                         **startup_status,
                     )
-                # A191/A192: include tool isolation status in full/deep
-                # health checks so the UI can observe isolated tool health.
-                if health_level != "brief":
-                    try:
-                        from core_system.tool_isolation import get_isolation_manager
-                        iso_mgr = get_isolation_manager()
-                        payload["tool_isolation"] = iso_mgr.status()
-                    except Exception:
-                        pass
+                    if iso_status is not None:
+                        payload["tool_isolation"] = iso_status
                 body = json.dumps(
                     payload,
                     ensure_ascii=False,

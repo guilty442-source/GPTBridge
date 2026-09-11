@@ -220,6 +220,33 @@ class GPTBridgeApp:
             self._record_startup_failure("hot_reload_watcher", error)
         self._mark_startup_phase("hot_reload_watcher_started")
 
+        # Start the hot-update idle loop so deferred resource-holding module
+        # replacements are applied automatically when the system is idle.
+        try:
+            await self.hot_update_service.start()
+        except Exception as error:
+            self._record_startup_failure("hot_update_service", error)
+        # Start the tool isolation health monitor and wire crash events to
+        # the state change notifier so the UI sees tool crashes immediately.
+        try:
+            from core_system.tool_isolation import get_isolation_manager
+            iso_mgr = get_isolation_manager(self.project_root)
+            notifier = getattr(self, "_state_change_notifier", None)
+            loop = asyncio.get_event_loop()
+            if notifier is not None:
+                def _on_crash(tool_id: str, entry: Any) -> None:
+                    crash_info = {
+                        "pid": getattr(entry, "pid", None),
+                        "restart_count": getattr(entry, "restart_count", 0),
+                        "exit_code": getattr(entry, "process", None),
+                    }
+                    if hasattr(entry, "process") and entry.process is not None:
+                        crash_info["exit_code"] = entry.process.returncode
+                    notifier.push_tool_crash_event(tool_id, crash_info, loop=loop)
+                iso_mgr.register_crash_callback(_on_crash)
+            iso_mgr.start_monitor()
+        except Exception as error:
+            self._record_startup_failure("tool_isolation_monitor", error)
         self._mark_startup_phase("main_runtime_ready")
         self._log({
             "type": "status",
@@ -279,6 +306,12 @@ class GPTBridgeApp:
         await self.maintenance_sovereign.stop()
         await self.daily_global_cleaner_service.stop()
         await self.hot_update_service.stop()
+        # Stop the tool isolation health monitor.
+        try:
+            from core_system.tool_isolation import get_isolation_manager
+            get_isolation_manager().stop_monitor()
+        except Exception:
+            pass
         watcher = self.hot_reload_watcher
         if watcher is not None:
             await watcher.stop()

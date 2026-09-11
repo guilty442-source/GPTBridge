@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -36,6 +37,7 @@ MAIN_COMMANDS = {
     "app:auto-update-third-party-tools",
     "app:get-repair-status",
     "app:hot-reload-backend",
+    "app:get-fault-analysis",
 }
 
 class CommandRouter:
@@ -314,6 +316,66 @@ class CommandRouter:
                     "message": f"{type(error).__name__}: {error}",
                 }
             return f"{command}_result", result
+
+        # app:get-fault-analysis — read-only fault evidence aggregation
+        # for Xingcheng global review (A174/A6500).  Returns aggregated
+        # fault data, detected patterns, and system health overview.
+        # All analysis is strictly read-only.  All SQLite/file I/O is
+        # offloaded to a worker thread so the IPC event loop is never
+        # blocked (A195: channel must not be interrupted).
+        if command == "app:get-fault-analysis":
+            from core_system.fault_analysis_service import get_fault_analysis_service
+
+            query = str(payload.get("query") or "overview").strip().lower()
+            service = get_fault_analysis_service()
+            try:
+                if query == "overview":
+                    result = await asyncio.to_thread(service.system_health_overview)
+                elif query == "patterns":
+                    faults = await asyncio.to_thread(service.collect_all_faults)
+                    patterns = await asyncio.to_thread(service.detect_patterns, faults)
+                    result = {
+                        "ok": True,
+                        "patterns": [p.as_dict() for p in patterns],
+                        "total_faults": len(faults),
+                    }
+                elif query == "knowledge":
+                    result = await asyncio.to_thread(service.repair_knowledge_summary)
+                elif query == "component":
+                    component = str(payload.get("component") or "").strip()
+                    if not component:
+                        return f"{command}_result", {
+                            "ok": False,
+                            "error_code": "MISSING_COMPONENT",
+                            "message": "component is required for query=component",
+                        }
+                    result = await asyncio.to_thread(service.analyze_component, component)
+                elif query == "detail":
+                    fault_id = str(payload.get("fault_id") or "").strip()
+                    if not fault_id:
+                        return f"{command}_result", {
+                            "ok": False,
+                            "error_code": "MISSING_FAULT_ID",
+                            "message": "fault_id is required for query=detail",
+                        }
+                    detail = await asyncio.to_thread(service.fault_detail, fault_id)
+                    if detail is None:
+                        return f"{command}_result", {
+                            "ok": False,
+                            "error_code": "FAULT_NOT_FOUND",
+                            "message": f"No fault found with id={fault_id}",
+                        }
+                    result = {"ok": True, "fault": detail}
+                else:
+                    result = await asyncio.to_thread(service.system_health_overview)
+                result.setdefault("ok", True)
+                return f"{command}_result", result
+            except Exception as error:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "FAULT_ANALYSIS_FAILED",
+                    "message": f"{type(error).__name__}: {error}",
+                }
 
         handler_name = TOOL_LIFECYCLE_HANDLERS.get(command)
         if handler_name is not None:
