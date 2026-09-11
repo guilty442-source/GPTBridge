@@ -2,10 +2,11 @@ import packageMetadata from '../../package.json'
 
 const bundledVersion = String(packageMetadata.version || '').trim()
 const LOCKED_PRODUCT_VERSION = '1.00000'
+const LOCKED_PACKAGE_VERSION = '1.0.0'
 
-if (bundledVersion !== LOCKED_PRODUCT_VERSION) {
+if (bundledVersion !== LOCKED_PACKAGE_VERSION) {
   throw new Error(
-    `GPTBridge product version is locked to ${LOCKED_PRODUCT_VERSION}; found ${bundledVersion || 'missing'}`
+    `GPTBridge package version is locked to ${LOCKED_PACKAGE_VERSION}; found ${bundledVersion || 'missing'}`
   )
 }
 
