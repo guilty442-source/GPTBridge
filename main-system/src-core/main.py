@@ -237,6 +237,41 @@ class GPTBridgeApp:
             self._shutdown_complete.set()
 
     async def _shutdown_once(self) -> None:
+        toolbox = self.toolbox_service
+        if toolbox is not None:
+            for record in toolbox._load_manifest_records():
+                if record.get("has_custom_ui") is not True:
+                    continue
+                tool_id = str(record.get("id") or "").strip()
+                if not tool_id:
+                    continue
+                try:
+                    result = await toolbox.force_close_tool(
+                        {
+                            "tool_id": tool_id,
+                            "request_id": f"main-window-close-{tool_id}-{time.time_ns()}",
+                            "reason": "main-window-closed",
+                        }
+                    )
+                    if result.get("ok") is not True:
+                        self._log(
+                            {
+                                "type": "warning",
+                                "message": "tool backend did not exit during window shutdown",
+                                "tool_id": tool_id,
+                                "error_code": str(result.get("error_code") or ""),
+                            }
+                        )
+                except Exception as error:
+                    self._log(
+                        {
+                            "type": "warning",
+                            "message": "tool backend shutdown failed during window shutdown",
+                            "tool_id": tool_id,
+                            "error_type": type(error).__name__,
+                        }
+                    )
+
         if self.main_system_self_maintenance is not None:
             await self.main_system_self_maintenance.stop()
         await self.system_sovereign_service.stop()
@@ -247,12 +282,8 @@ class GPTBridgeApp:
         if watcher is not None:
             await watcher.stop()
 
-        # Independent tools (非常駐服務) are NOT stopped here.  They run in
-        # detached process groups (CREATE_NEW_PROCESS_GROUP) so they survive
-        # a main-system crash or graceful shutdown.  Only resident services
-        # are stopped via the sovereigns above.  This ensures users can
-        # continue using independent tools (e.g. ai-assistant, file-sorter)
-        # even when the main system is restarting or repairing.
+        # Window-backed tools are closed above before the sovereign stack is
+        # stopped, so no UI-owned backend remains after application exit.
 
         pending_tasks = [task for task in self._command_tasks if not task.done()]
         for task in pending_tasks:
