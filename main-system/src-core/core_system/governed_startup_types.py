@@ -2,6 +2,11 @@
 
 Constants and data structures for the startup sequence.  Split from
 ``governed_startup`` for A185/E160 source-size compliance.
+
+A191/A192: phase lists, criticality classes, and ready-conditions are
+loaded from ``config/startup_manifest.json`` via
+``startup_core.startup_config`` so the startup DAG can be adjusted
+without source-code changes.
 """
 
 from __future__ import annotations
@@ -9,57 +14,28 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Final
 
+from startup_core.startup_config import governed_startup_constant as _cfg_gs
+
 # ---------------------------------------------------------------------------
-# Startup phases (A192: PHASE-0 through PHASE-6)
+# Startup phases (A192: PHASE-0 through PHASE-6) — loaded from config
 # ---------------------------------------------------------------------------
 
-STARTUP_PHASES: Final[tuple[str, ...]] = (
-    "phase-0-local-preflight",
-    "phase-1-minimal-information-bootstrap",
-    "phase-2-read-official-codex",
-    "phase-3-load-permission-directory",
-    "phase-4-switch-normal-information-mode",
-    "phase-5-classify-dependency-dag",
-    "phase-6-activate-core-sovereigns",
-)
+STARTUP_PHASES: Final[tuple[str, ...]] = _cfg_gs("startup_phases")
 
 # A192: CORE-READY — all conditions that must hold for core-ready
-CORE_READY_CONDITIONS: Final[tuple[str, ...]] = (
-    "official-codex-valid",
-    "permission-sovereign-active",
-    "normal-information-layer-active",
-    "system-decision-active",
-    "system-runtime-active",
-    "maintenance-active",
-    "all-core-critical-dependencies-ready",
-)
+CORE_READY_CONDITIONS: Final[tuple[str, ...]] = _cfg_gs("core_ready_conditions")
 
 # A192: BOOTSTRAP-CAPABILITY properties
-BOOTSTRAP_CAPABILITY_PROPERTIES: Final[tuple[str, ...]] = (
-    "pre-issued",
-    "read-only",
-    "startup-sovereign-bound",
-    "official-codex-entry-only",
-    "sealed-in-active-release",
-    "verified-mechanically-without-live-permission-decision",
-)
+BOOTSTRAP_CAPABILITY_PROPERTIES: Final[tuple[str, ...]] = _cfg_gs("bootstrap_capability_properties")
 
 # ---------------------------------------------------------------------------
-# Dependency criticality classes (A191)
+# Dependency criticality classes (A191) — loaded from config
 # ---------------------------------------------------------------------------
 
-DEPENDENCY_CRITICALITY_CLASSES: Final[tuple[str, ...]] = (
-    "core-critical",
-    "capability-critical",
-    "optional",
-)
+DEPENDENCY_CRITICALITY_CLASSES: Final[tuple[str, ...]] = _cfg_gs("dependency_criticality_classes")
 
 # A191: services with no global fixed criticality
-NO_FIXED_CRITICALITY_SERVICES: Final[tuple[str, ...]] = (
-    "postgresql",
-    "qdrant",
-    "ollama",
-)
+NO_FIXED_CRITICALITY_SERVICES: Final[tuple[str, ...]] = _cfg_gs("no_fixed_criticality_services")
 
 
 # ---------------------------------------------------------------------------

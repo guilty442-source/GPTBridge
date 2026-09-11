@@ -122,6 +122,19 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
             parsed_request = urlsplit(str(request.path))
             request_path = parsed_request.path
             if request_path == "/health":
+                # Health check levels (A191/A192 parallel-update safety):
+                #   ?level=brief — cached snapshot only, no probes (heartbeat)
+                #   ?level=full  — readiness gate + memory + startup_status (default)
+                #   ?level=deep  — full + live TCP dependency probes (diagnostics)
+                # Legacy ?brief=1 is mapped to ?level=brief for backward compat.
+                query = parsed_request.query
+                if query == "brief=1" or query == "level=brief":
+                    health_level = "brief"
+                elif query == "level=deep":
+                    health_level = "deep"
+                else:
+                    health_level = "full"
+
                 startup_status = (
                     app_instance.get_startup_status()
                     if hasattr(app_instance, "get_startup_status")
@@ -135,9 +148,12 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
 
                 notifier = getattr(app_instance, "_state_change_notifier", None)
                 readiness = None
-                if parsed_request.query == "brief=1" and notifier is not None:
+                # Brief level: use cached snapshot if available (no probes).
+                if health_level == "brief" and notifier is not None:
                     readiness = notifier.current_snapshot()
                 if readiness is None:
+                    # Full and deep levels: evaluate the readiness gate.
+                    # For deep level, the gate performs live TCP probes.
                     readiness = ReadinessGate(app_instance).evaluate()
                 ready = readiness.overall_ready
                 runtime_state = readiness.runtime_state
@@ -154,12 +170,24 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                         "dependencies": [d.as_dict() for d in readiness.dependencies],
                         "services": {},
                         "capabilities": {},
+                        "health_level": health_level,
                     }
-                if parsed_request.query != "brief=1":
+                # Brief level: skip memory maintenance and startup status
+                # to keep the response as fast as possible.
+                if health_level != "brief":
                     payload.update(
                         memory_maintenance=memory_maintainer.status(),
                         **startup_status,
                     )
+                # A191/A192: include tool isolation status in full/deep
+                # health checks so the UI can observe isolated tool health.
+                if health_level != "brief":
+                    try:
+                        from core_system.tool_isolation import get_isolation_manager
+                        iso_mgr = get_isolation_manager()
+                        payload["tool_isolation"] = iso_mgr.status()
+                    except Exception:
+                        pass
                 body = json.dumps(
                     payload,
                     ensure_ascii=False,

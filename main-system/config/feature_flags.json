@@ -1,0 +1,37 @@
+{
+  "schema": "gptbridge-feature-flags-v1",
+  "comment": "Feature flags for parallel update safety. Toggle new code paths on/off without restart. Edit this file to enable/disable; changes take effect on next flag check (hot-reload).",
+
+  "flags": {
+    "shadow_mode_enabled": {
+      "description": "Run new logic alongside old, compare results, log discrepancies",
+      "enabled": false,
+      "rollout_percentage": 0
+    },
+    "circuit_breaker_hot_reload": {
+      "description": "Circuit breaker protection on hot-reload operations",
+      "enabled": true,
+      "failure_threshold": 3,
+      "recovery_timeout_seconds": 30
+    },
+    "resource_aware_hot_update": {
+      "description": "Defer reload of resource-holding modules to idle periods",
+      "enabled": true,
+      "idle_threshold_seconds": 2.0
+    },
+    "outbox_async_replay": {
+      "description": "Asynchronous outbox replay consumer (non-blocking event loop)",
+      "enabled": true,
+      "replay_batch_size": 100
+    },
+    "health_check_deep_probes": {
+      "description": "Enable ?level=deep health checks with live TCP dependency probes",
+      "enabled": false
+    },
+    "new_ipc_handler_v2": {
+      "description": "Example: new IPC handler implementation behind feature flag",
+      "enabled": false,
+      "rollout_percentage": 0
+    }
+  }
+}

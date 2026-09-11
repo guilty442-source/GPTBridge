@@ -225,8 +225,12 @@ class OutboxPublisher:
                 start_after = session["acked"]
             if start_after >= window_end:
                 continue
-            events = self._store.fetch_after(
-                start_after, limit=min(DRAIN_BATCH_LIMIT, window_end - start_after)
+            # Offload SQLite fetch to a thread so the event loop is never
+            # blocked by disk I/O (A191/A192 parallel-update safety).
+            events = await asyncio.to_thread(
+                self._store.fetch_after,
+                start_after,
+                min(DRAIN_BATCH_LIMIT, window_end - start_after),
             )
             for event in events:
                 if event["sequence"] > window_end:
@@ -255,6 +259,17 @@ class OutboxPublisher:
             floor = self._store.max_sequence()
         try:
             self._store.prune(below_sequence=floor)
+        except Exception:
+            pass
+
+    async def _prune_async(self) -> None:
+        """Non-blocking prune — offloads SQLite DELETE to a thread."""
+        if self._sessions:
+            floor = min(s["acked"] for s in self._sessions.values())
+        else:
+            floor = await asyncio.to_thread(self._store.max_sequence)
+        try:
+            await asyncio.to_thread(self._store.prune, below_sequence=floor)
         except Exception:
             pass
 

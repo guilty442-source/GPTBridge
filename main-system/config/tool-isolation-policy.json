@@ -1,0 +1,94 @@
+{
+  "schema": "gptbridge-tool-isolation-policy-v1",
+  "comment": "Per-tool isolation policy. Defines resource limits, health monitoring, crash containment, and graceful shutdown rules for independent tools.",
+
+  "defaults": {
+    "memory_limit_mb": 512,
+    "cpu_percent_limit": 50,
+    "health_check_interval_seconds": 5.0,
+    "health_check_timeout_seconds": 10.0,
+    "restart_on_crash": true,
+    "max_restart_attempts": 3,
+    "restart_backoff_seconds": [2, 5, 15],
+    "graceful_shutdown_timeout_seconds": 10.0,
+    "kill_on_job_close": true,
+    "allow_breakaway": false,
+    "network_policy": "loopback-only",
+    "filesystem_policy": "tool-scoped",
+    "state_isolation": true
+  },
+
+  "network_policies": {
+    "loopback-only": {
+      "description": "Tools may only connect to 127.0.0.1 / localhost",
+      "allowed_hosts": ["127.0.0.1", "localhost", "::1"],
+      "allowed_ports": "inherit-from-manifest"
+    },
+    "unrestricted": {
+      "description": "No network restrictions (use with caution)",
+      "allowed_hosts": ["*"],
+      "allowed_ports": "*"
+    },
+    "offline": {
+      "description": "No network access at all",
+      "allowed_hosts": [],
+      "allowed_ports": []
+    }
+  },
+
+  "filesystem_policies": {
+    "tool-scoped": {
+      "description": "Tools may only access their own directory + shared-layer + temp",
+      "allowed_roots": [
+        "{tool_dir}",
+        "{project_root}/shared-layer",
+        "{project_root}/main-system/runtime/temp/tools/{tool_id}"
+      ],
+      "deny_patterns": [
+        "governance_rule/codex/**",
+        "main-system/runtime/state/**",
+        "**/.env",
+        "**/*.key",
+        "**/*.pem"
+      ]
+    },
+    "unrestricted": {
+      "description": "No filesystem restrictions (use with caution)",
+      "allowed_roots": ["*"],
+      "deny_patterns": []
+    }
+  },
+
+  "per_tool_overrides": {
+    "file-sorter": {
+      "memory_limit_mb": 256,
+      "cpu_percent_limit": 30,
+      "network_policy": "offline",
+      "filesystem_policy": "tool-scoped"
+    },
+    "xingcheng": {
+      "memory_limit_mb": 1024,
+      "cpu_percent_limit": 80,
+      "network_policy": "loopback-only",
+      "filesystem_policy": "tool-scoped",
+      "restart_on_crash": true,
+      "max_restart_attempts": 5,
+      "restart_backoff_seconds": [3, 10, 30, 60, 120]
+    }
+  },
+
+  "crash_containment": {
+    "isolate_on_crash": true,
+    "quarantine_dir": "main-system/runtime/state/tool-crash-quarantine",
+    "capture_crash_dump": false,
+    "notify_main_system": true,
+    "max_quarantine_entries": 20
+  },
+
+  "graceful_shutdown": {
+    "signal_order": ["SIGTERM", "SIGTERM", "SIGKILL"],
+    "signal_delays_seconds": [3.0, 5.0, 0.0],
+    "flush_state_timeout_seconds": 8.0,
+    "wait_for_children": true
+  }
+}

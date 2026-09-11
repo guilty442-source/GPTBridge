@@ -19,6 +19,7 @@ from governance_rule.execution.integrity.package_integrity import (
 
 from .toolbox_constants import _background_subprocess_kwargs
 from .toolbox_watcher import ToolWatcherMixin
+from core_system.tool_isolation import get_isolation_manager
 
 
 class StartMixin(ToolWatcherMixin):
@@ -626,6 +627,18 @@ class StartMixin(ToolWatcherMixin):
                 return failure_result
 
         cancel_pending = await self._register_tool_process(request_id, process)
+        # A191/A192: register the tool process with the isolation manager
+        # for resource limits (Job Object), health monitoring, and crash
+        # containment.  The tool survives main-system crashes independently.
+        try:
+            isolation_mgr = get_isolation_manager(self.project_root)
+            await asyncio.to_thread(
+                isolation_mgr.register_tool,
+                tool_id,
+                process,
+            )
+        except Exception:
+            pass  # Isolation is best-effort; never block tool start.
         asyncio.create_task(
             self._watch_started_tool(
                 request_id,

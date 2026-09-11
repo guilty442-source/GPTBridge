@@ -8,61 +8,40 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Final
 
-# ------------------------------------------------------------------
-# Startup phase constants
-# ------------------------------------------------------------------
-
-OLLAMA_PROBE_TIMEOUT: Final[float] = 0.5
-POSTGRES_CONNECT_TIMEOUT: Final[float] = 1.0
-POSTGRES_PROBE_ATTEMPTS: Final[int] = 3
-POSTGRES_PROBE_DELAY: Final[float] = 0.5
-QDRANT_PROBE_TIMEOUT: Final[float] = 0.5
-STARTUP_GATE_DEADLINE_SECONDS: Final[float] = 8.0
-
-BOOTSTRAP_PHASES: Final[tuple[str, ...]] = (
-    "environment-check",
-    "governance-audit",
+from startup_core.startup_config import (
+    bootstrap_phases as _cfg_bootstrap_phases,
+    dependency_manifest as _cfg_dependency_manifest,
+    port as _cfg_port,
+    probe_constant as _cfg_probe,
 )
+
+# ------------------------------------------------------------------
+# Startup phase constants — loaded from config/startup_manifest.json
+# (A191/A192: no longer hardcoded; editable without source changes)
+# ------------------------------------------------------------------
+
+OLLAMA_PROBE_TIMEOUT: Final[float] = _cfg_probe("ollama_probe_timeout")
+POSTGRES_CONNECT_TIMEOUT: Final[float] = _cfg_probe("postgres_connect_timeout")
+POSTGRES_PROBE_ATTEMPTS: Final[int] = _cfg_probe("postgres_probe_attempts")
+POSTGRES_PROBE_DELAY: Final[float] = _cfg_probe("postgres_probe_delay")
+QDRANT_PROBE_TIMEOUT: Final[float] = _cfg_probe("qdrant_probe_timeout")
+STARTUP_GATE_DEADLINE_SECONDS: Final[float] = _cfg_probe("startup_gate_deadline_seconds")
+
+BOOTSTRAP_PHASES: Final[tuple[str, ...]] = _cfg_bootstrap_phases()
 
 # Current certified dependency contracts. Criticality is declared by the
 # consuming contract, never inferred from a service name.
 #
-# Stored as plain data so this module stays importable by ``boot_core``
-# before ``_ensure_runtime_paths()`` installs the workspace paths; the
-# declarations are materialized into ``DependencyDeclaration`` objects at
-# runtime inside ``_run_startup_phases``.
-DEPENDENCY_MANIFEST: Final[tuple[dict[str, Any], ...]] = (
-    {
-        "identity": "postgresql",
-        "owner": "data-runtime-sovereign",
-        "required_by": "main-system-authoritative-state",
-        "criticality": "core-critical",
-        "readiness_contract": "tcp-or-dsn-select-1",
-        "deadline": "3s",
-        "retry_budget": 2,
-        "shutdown_order": 30,
-    },
-    {
-        "identity": "qdrant",
-        "owner": "rag-runtime-sovereign",
-        "required_by": "rag-semantic-retrieval",
-        "criticality": "capability-critical",
-        "readiness_contract": "loopback-tcp-6333",
-        "deadline": "3s",
-        "retry_budget": 1,
-        "shutdown_order": 20,
-    },
-    {
-        "identity": "ollama",
-        "owner": "model-runtime-sovereign",
-        "required_by": "local-model-inference",
-        "criticality": "capability-critical",
-        "readiness_contract": "loopback-tcp-11434",
-        "deadline": "3s",
-        "retry_budget": 1,
-        "shutdown_order": 10,
-    },
-)
+# Loaded from ``config/startup_manifest.json`` so new dependencies can be
+# added without source-code changes.  The declarations are materialized
+# into ``DependencyDeclaration`` objects at runtime inside
+# ``_run_startup_phases``.
+DEPENDENCY_MANIFEST: Final[tuple[dict[str, Any], ...]] = _cfg_dependency_manifest()
+
+# Port constants — loaded from config (A191/A192)
+OLLAMA_PORT: Final[int] = _cfg_port("ollama")
+POSTGRESQL_PORT: Final[int] = _cfg_port("postgresql")
+QDRANT_PORT: Final[int] = _cfg_port("qdrant")
 
 
 class PhaseMixin:
@@ -70,7 +49,7 @@ class PhaseMixin:
         start = time.monotonic()
 
         def _check_api() -> bool:
-            return self._probe_tcp("127.0.0.1", 11434, timeout=OLLAMA_PROBE_TIMEOUT)
+            return self._probe_tcp("127.0.0.1", OLLAMA_PORT, timeout=OLLAMA_PROBE_TIMEOUT)
 
         ok = _check_api()
         if not ok:
@@ -124,7 +103,7 @@ class PhaseMixin:
                     return True
                 except Exception:
                     pass
-            return self._probe_tcp("127.0.0.1", 5432, timeout=POSTGRES_CONNECT_TIMEOUT)
+            return self._probe_tcp("127.0.0.1", POSTGRESQL_PORT, timeout=POSTGRES_CONNECT_TIMEOUT)
 
         for attempt in range(POSTGRES_PROBE_ATTEMPTS):
             if self._stop.is_set():
@@ -163,7 +142,7 @@ class PhaseMixin:
         start = time.monotonic()
 
         def _check() -> bool:
-            return self._probe_tcp("127.0.0.1", 6333, timeout=QDRANT_PROBE_TIMEOUT)
+            return self._probe_tcp("127.0.0.1", QDRANT_PORT, timeout=QDRANT_PROBE_TIMEOUT)
 
         ok = _check()
         if not ok:

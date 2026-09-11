@@ -60,6 +60,30 @@ _FORBIDDEN_TOOL_ENVIRONMENT_MARKERS = frozenset(
     {"API_KEY", "CREDENTIAL", "PASSWORD", "SECRET", "TOKEN"}
 )
 
+# A191/A192: Network isolation — environment markers that tools must NOT
+# receive.  These would allow a tool to bypass the governed network path
+# or access the main system's authentication secrets.
+_NETWORK_ISOLATION_BLOCKED_ENV = frozenset(
+    {
+        "GPTBRIDGE_GOVERNANCE_BOOTSTRAP",
+        "GPTBRIDGE_MANAGED_BACKEND_TOOL_ID",
+        "GPTBRIDGE_MANAGED_BACKEND_WORKSPACE_INSTANCE_ID",
+        "GPTBRIDGE_MANAGED_BACKEND_VERSION",
+        "GPTBRIDGE_TOOL_GOVERNANCE_BOOTSTRAP",
+    }
+)
+
+# Filesystem deny patterns — paths that tools must never access directly.
+# These are checked at spawn time to ensure the tool's working directory
+# and environment do not leak access to governance or state files.
+_FILESYSTEM_DENY_PATTERNS = (
+    "governance_rule/codex/",
+    "main-system/runtime/state/",
+    ".env",
+    ".key",
+    ".pem",
+)
+
 
 def _is_declarable_tool_environment_key(value: Any) -> bool:
     key = str(value or "").strip().upper()

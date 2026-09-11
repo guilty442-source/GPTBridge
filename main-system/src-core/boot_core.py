@@ -56,18 +56,19 @@ from pathlib import Path
 from typing import Any
 from startup_core.phases import PhaseMixin
 from startup_core.governance import GovernanceMixin
+from startup_core.startup_config import port as _cfg_port, supervisor_constant as _cfg_supervisor
 from tasks.crash_diagnosis import CrashDiagnoser
 
-MAX_RESTARTS = 10
-BACKOFF_SCHEDULE_SECONDS = (2, 5, 10, 20, 30, 45, 60)
-HEALTHY_UPTIME_RESET_SECONDS = 60
-HEALTH_PROBE_PORT = 8765
-HEALTH_PROBE_TIMEOUT = 2.0
-HEALTH_PROBE_INTERVAL = 5.0
+MAX_RESTARTS = _cfg_supervisor("max_restarts")
+BACKOFF_SCHEDULE_SECONDS = _cfg_supervisor("backoff_schedule_seconds")
+HEALTHY_UPTIME_RESET_SECONDS = _cfg_supervisor("healthy_uptime_reset_seconds")
+HEALTH_PROBE_PORT = _cfg_port("health_probe")
+HEALTH_PROBE_TIMEOUT = _cfg_supervisor("health_probe_timeout")
+HEALTH_PROBE_INTERVAL = _cfg_supervisor("health_probe_interval")
 STATE_RELATIVE = ("main-system", "runtime", "state", "boot-core.json")
 
 # Early crashes that trigger diagnosis and a governed repair request.
-CRASH_REPAIR_UPTIME_THRESHOLD = 30.0
+CRASH_REPAIR_UPTIME_THRESHOLD = _cfg_supervisor("crash_repair_uptime_threshold")
 
 
 def _iso_now() -> str:
