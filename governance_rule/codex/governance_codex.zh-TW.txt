@@ -2,7 +2,7 @@
   "document_identity": "governance-codex-chinese-reference",
   "sync_requirement": "mandatory-complete-mirror",
   "authority_source": "governance_rule/codex/data/governance_codex.sqlite3",
-  "codex_version": "1.51600",
+  "codex_version": "1.61600",
   "viewer": "xingcheng-only-via-official-entry",
   "authority": "none",
   "tables": {
@@ -115,7 +115,7 @@
         "special_provision_links": "A222|A223|A224|A225|A226|A227|A228",
         "precedence": "special-over-general-within-declared-scope",
         "authority_boundary": "remains inside the single governance codex and creates no separate authority",
-        "introduced_version": "1.41600",
+        "introduced_version": "1.61600",
         "retired_version": null
       }
     ],
@@ -1728,6 +1728,15 @@
         "rule": "MAIN-CODEX:本典; FORM:大綱; CONTENT:constitutional-purpose+highest-principles+authority-separation+sovereign boundaries+permission basis+rights+duties+absolute prohibitions+law-tier hierarchy+amendment and conflict rules; DETAIL-ROUTING:repeatable operational procedure+field schema+implementation workflow+test sequence+maintenance steps route-to 子法-條例 or exact-scope 專法; INTERPRETATION:本典 controls all tiers and supplies validity basis; COMPLETENESS:本典 states every nondelegable boundary and delegates every permitted detailed domain explicitly",
         "prohibition": "FORBID:implementation-specific duplication+temporary runtime detail+vendor-specific procedure+directory row body+test fixture+repair step inside main-codex outline",
         "exception": "A concise invariant may remain in 本典 when removing it would permit a subordinate or special law to alter a nondelegable boundary"
+      },
+      {
+        "position": 231,
+        "provision_id": "A231",
+        "section_index": "9",
+        "subject": "directory-special-law-gap-closure-and-implementation-acceptance",
+        "rule": "CLOSURE-SCOPE:A222-A230+all-current-and-future governed directories; COMPLETE-INVENTORY:before activation each directory contains every in-scope production identity and no demonstration-only placeholder; LAW-CLASSIFICATION:every principle+article+edict+sovereign maps-to exactly-one of 本典|子法-條例|專法 with law-code+authority-basis; RELATIONSHIP-INTEGRITY:command+fault+manual+test+architecture+special-law references use normalized validated relationships and reject missing+duplicate+retired+cyclic targets; ARCHITECTURE-COVERAGE:every project root+manifest+main-system+independent-tool+sovereign+shared-layer+service+store+interface+runtime maps-to one active architecture owner; IMPLEMENTATION-HANDOFF:runtime readers+dispatch+authorization+repair+test+release consume authoritative directories read-only and fail-closed on invalid identity; AUDIT-GATE:governance audit verifies schemas+owners+uniqueness+format+classification+coverage+foreign relationships+acyclic topology+mirror parity+version+seal and blocks release on any gap; VERSION-UNITY:all rows introduced-or-changed by one amendment use its exact codex-version; SEAL:content-root+identity-root+history-head+counts regenerated atomically and external signature remains mandatory before verified status; EVIDENCE:implementation owner supplies coverage report+relationship report+runtime-consumption tests+audit verdict+external signature proof",
+        "prohibition": "FORBID:partial-catalog-claimed-complete+placeholder-as-production-entry+text-only-unvalidated-reference+unclassified-provision+unregistered-architecture-entity+runtime-private-copy+audit-ignoring-directory+mixed-introduced-version+verified-status-without-external-signature+release-before-all-acceptance-evidence",
+        "exception": "Implementation may be delivered separately from this declarative amendment, but activation and verified release remain denied until every acceptance item is proven"
       }
     ],
     "certification_evidence": [
@@ -1817,6 +1826,13 @@
       },
       {
         "version": "1.51600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "1.61600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -3586,7 +3602,7 @@
       {
         "provision_type": "article",
         "provision_id": "A23",
-        "effective_version": "1.00000",
+        "effective_version": "1.61600",
         "status": "active"
       },
       {
@@ -5386,55 +5402,61 @@
       {
         "provision_type": "article",
         "provision_id": "A222",
-        "effective_version": "1.51600",
+        "effective_version": "1.61600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A223",
-        "effective_version": "1.51600",
+        "effective_version": "1.61600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A224",
-        "effective_version": "1.51600",
+        "effective_version": "1.61600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A225",
-        "effective_version": "1.51600",
+        "effective_version": "1.61600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A226",
-        "effective_version": "1.51600",
+        "effective_version": "1.61600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A227",
-        "effective_version": "1.51600",
+        "effective_version": "1.61600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A228",
-        "effective_version": "1.51600",
+        "effective_version": "1.61600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A229",
-        "effective_version": "1.51600",
+        "effective_version": "1.61600",
         "status": "active"
       },
       {
         "provision_type": "article",
         "provision_id": "A230",
-        "effective_version": "1.51600",
+        "effective_version": "1.61600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A231",
+        "effective_version": "1.61600",
         "status": "active"
       }
     ],
@@ -5818,11 +5840,11 @@
       },
       {
         "key": "codex_version",
-        "value": "1.51600"
+        "value": "1.61600"
       },
       {
         "key": "schema",
-        "value": "gptbridge-governance-codex-v1.51600"
+        "value": "gptbridge-governance-codex-v1.61600"
       },
       {
         "key": "version_increment",
@@ -5866,11 +5888,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-11T05:20:34Z"
+        "value": "2026-09-11T05:26:12Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-11T13:20:34+08:00"
+        "value": "2026-09-11T13:26:12+08:00"
       }
     ],
     "preamble": [
@@ -9710,6 +9732,13 @@
         "provision_id": "A230",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "codex/provision/article/A231",
+        "provision_type": "article",
+        "provision_id": "A231",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_lineage": [
@@ -13228,7 +13257,7 @@
       {
         "provision_type": "article",
         "provision_id": "A222",
-        "introduced_by": "H013",
+        "introduced_by": "H014",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "b4c6c84d97a6e233de9cbac7f777c77a727a58bd14ec446fbc682613e8b293ad"
@@ -13236,7 +13265,7 @@
       {
         "provision_type": "article",
         "provision_id": "A223",
-        "introduced_by": "H013",
+        "introduced_by": "H014",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "1822a8a1354fca54182feedc0ee22303e4826cac024fafc55c9b5dcea42dac06"
@@ -13244,7 +13273,7 @@
       {
         "provision_type": "article",
         "provision_id": "A224",
-        "introduced_by": "H013",
+        "introduced_by": "H014",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "f0be833b184da5d9c27dea8d99d4429326943cd3d1f7e0f77c3bb2b0ce150ca4"
@@ -13252,7 +13281,7 @@
       {
         "provision_type": "article",
         "provision_id": "A225",
-        "introduced_by": "H013",
+        "introduced_by": "H014",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "ae2b6dcfe2083747890c237d68b0b88483ec5232ffbbd5fd967f4f22a95b218a"
@@ -13260,7 +13289,7 @@
       {
         "provision_type": "article",
         "provision_id": "A226",
-        "introduced_by": "H013",
+        "introduced_by": "H014",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "f7319fc1c21fbe6fb6ad49368379d9a35f88791662b99f18a5a6170c96d9682b"
@@ -13268,7 +13297,7 @@
       {
         "provision_type": "article",
         "provision_id": "A227",
-        "introduced_by": "H013",
+        "introduced_by": "H014",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "0a3ba8dd29398581416ebd349c0b9882f2a28c3911cb6591c7eddd0cb961b758"
@@ -13276,7 +13305,7 @@
       {
         "provision_type": "article",
         "provision_id": "A228",
-        "introduced_by": "H013",
+        "introduced_by": "H014",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "7adbd829a2be18141aad7ba88d253799c6dfb56cdf9df5f4aa567b92a1c9c66f"
@@ -13284,7 +13313,7 @@
       {
         "provision_type": "article",
         "provision_id": "A229",
-        "introduced_by": "H013",
+        "introduced_by": "H014",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "bdd22ea5613989e5e4041cf1ee28653cd62ec33df69ea1b5d06c668ddbf121a9"
@@ -13292,10 +13321,18 @@
       {
         "provision_type": "article",
         "provision_id": "A230",
-        "introduced_by": "H013",
+        "introduced_by": "H014",
         "supersedes_id": null,
         "status": "active",
         "content_hash": "b1940d871042aa347a17e1aa95776576eee63bb857672c1a93561d49ee097a38"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A231",
+        "introduced_by": "H014",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "76c956a019059790a30ef634c2a8aa4d5f067efd43dffd21c009ebc6ad95ed55"
       }
     ],
     "provision_revisions": [
@@ -16854,73 +16891,81 @@
       {
         "provision_type": "article",
         "provision_id": "A222",
-        "revision_id": "H013",
-        "version": "1.51600",
+        "revision_id": "H014",
+        "version": "1.61600",
         "content_hash": "b4c6c84d97a6e233de9cbac7f777c77a727a58bd14ec446fbc682613e8b293ad",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A223",
-        "revision_id": "H013",
-        "version": "1.51600",
+        "revision_id": "H014",
+        "version": "1.61600",
         "content_hash": "1822a8a1354fca54182feedc0ee22303e4826cac024fafc55c9b5dcea42dac06",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A224",
-        "revision_id": "H013",
-        "version": "1.51600",
+        "revision_id": "H014",
+        "version": "1.61600",
         "content_hash": "f0be833b184da5d9c27dea8d99d4429326943cd3d1f7e0f77c3bb2b0ce150ca4",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A225",
-        "revision_id": "H013",
-        "version": "1.51600",
+        "revision_id": "H014",
+        "version": "1.61600",
         "content_hash": "ae2b6dcfe2083747890c237d68b0b88483ec5232ffbbd5fd967f4f22a95b218a",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A226",
-        "revision_id": "H013",
-        "version": "1.51600",
+        "revision_id": "H014",
+        "version": "1.61600",
         "content_hash": "f7319fc1c21fbe6fb6ad49368379d9a35f88791662b99f18a5a6170c96d9682b",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A227",
-        "revision_id": "H013",
-        "version": "1.51600",
+        "revision_id": "H014",
+        "version": "1.61600",
         "content_hash": "0a3ba8dd29398581416ebd349c0b9882f2a28c3911cb6591c7eddd0cb961b758",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A228",
-        "revision_id": "H013",
-        "version": "1.51600",
+        "revision_id": "H014",
+        "version": "1.61600",
         "content_hash": "7adbd829a2be18141aad7ba88d253799c6dfb56cdf9df5f4aa567b92a1c9c66f",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A229",
-        "revision_id": "H013",
-        "version": "1.51600",
+        "revision_id": "H014",
+        "version": "1.61600",
         "content_hash": "bdd22ea5613989e5e4041cf1ee28653cd62ec33df69ea1b5d06c668ddbf121a9",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
         "provision_id": "A230",
-        "revision_id": "H013",
-        "version": "1.51600",
+        "revision_id": "H014",
+        "version": "1.61600",
         "content_hash": "b1940d871042aa347a17e1aa95776576eee63bb857672c1a93561d49ee097a38",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A231",
+        "revision_id": "H014",
+        "version": "1.61600",
+        "content_hash": "76c956a019059790a30ef634c2a8aa4d5f067efd43dffd21c009ebc6ad95ed55",
         "certification_status": "external-signatures-required"
       }
     ],
@@ -17054,6 +17099,16 @@
         "summary": "consolidated canonical directories under permission-sovereign and established directory special law",
         "previous_hash": "32589177ecd374fd5b3ca12d660cec3a4de7765d437c74118b1d5b97d2838546",
         "entry_hash": "a384f73504a087fec33346b48db48509322dfade9e9930e5dd1a3632a723d2f7"
+      },
+      {
+        "sequence": 14,
+        "change_id": "H014",
+        "version": "1.61600",
+        "recorded_date": "2026-09-11",
+        "change_scope": "directory-special-law-gap-closure",
+        "summary": "consolidated three-tier law model and closed directory-law completeness relationship architecture audit version and seal requirements",
+        "previous_hash": "a384f73504a087fec33346b48db48509322dfade9e9930e5dd1a3632a723d2f7",
+        "entry_hash": "1ee665c4ca0b5e99a36d4d2ea5ef50630445edd90eec5bd3514083ad06146ddf"
       }
     ],
     "savings": [
@@ -17219,6 +17274,17 @@
         "content_root": "78712d753cd3ce57959a3957b24bc2fe576c4b4940d0a1fd52fc754205cb53c3",
         "identity_root": "593eb175ffe9e22f4c51317b6a9e8b202c3ee8fdf423e127c5865d4efebcd8e1",
         "full_root": "e0dda4fb53946af385dcd902bf435d73c9d2c405a17d0eca2f1e73f1e17c5ec2"
+      },
+      {
+        "version": "1.61600",
+        "history_head": "1ee665c4ca0b5e99a36d4d2ea5ef50630445edd90eec5bd3514083ad06146ddf",
+        "provision_count": 449,
+        "identity_count": 449,
+        "lineage_count": 449,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "dc5ea57cd2da714670b21df6cf1cddaeedca8ee12163b1637830fd3b89015cc0",
+        "identity_root": "00b69918358332c7b10811d92c09db9034a449e684e3fc1a295f18cedc23014e",
+        "full_root": "86daee2a5c553b69ec6d0206824546611ea415ab8a5a92ac90a0e5072e0c8d30"
       }
     ],
     "sealed_components": [
@@ -19132,7 +19198,7 @@
         "authority_basis": "self",
         "precedence": "highest",
         "official_entry": "governance-codex://official",
-        "introduced_version": "1.51600",
+        "introduced_version": "1.61600",
         "retired_version": null
       },
       {
@@ -19145,7 +19211,7 @@
         "authority_basis": "A229|A230",
         "precedence": "below-main-codex and below applicable-special-law",
         "official_entry": "governance-codex://official",
-        "introduced_version": "1.51600",
+        "introduced_version": "1.61600",
         "retired_version": null
       },
       {
@@ -19158,8 +19224,3281 @@
         "authority_basis": "A228|A229|A230",
         "precedence": "special-over-general-within-declared-scope",
         "official_entry": "governance-codex://official",
-        "introduced_version": "1.51600",
+        "introduced_version": "1.61600",
         "retired_version": null
+      }
+    ],
+    "provision_law_classification": [
+      {
+        "provision_type": "principle",
+        "provision_id": "P1",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P2",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P3",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P4",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P5",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P6",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P7",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P8",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P9",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P10",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P12",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P13",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P14",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P15",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P16",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P18",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P19",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P20",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P21",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P22",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P23",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P24",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P27",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P28",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P29",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P30",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P31",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P32",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P33",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P34",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P35",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P36",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P37",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P38",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P39",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P40",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P41",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P42",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P43",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P45",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P46",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P47",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P48",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P49",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P50",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P51",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P52",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P53",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P54",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P55",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P57",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P58",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P59",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P61",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P62",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P63",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P64",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P65",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P66",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P67",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P68",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P69",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P70",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P71",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P72",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P73",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P74",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P75",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P76",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P77",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P78",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P79",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P80",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P81",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P82",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P83",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P84",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P85",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P86",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P87",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P88",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P90",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P91",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P92",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P93",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P94",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P95",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P96",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P97",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P98",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P99",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P100",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P101",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P102",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P103",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P104",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P105",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P106",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P107",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P108",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P109",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P110",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P111",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P112",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P113",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P114",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P115",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P116",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P117",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P118",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P119",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P120",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P121",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P122",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P123",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A1",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A2",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A3",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A5",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A6",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A7",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A22",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A23",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A8",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A10",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A11",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A12",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A13",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A20",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A14",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A15",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A17",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A25",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A28",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A29",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A30",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A31",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A32",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A33",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A35",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A38",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A39",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A40",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A41",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A42",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A44",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A45",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A46",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A47",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A48",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A49",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A50",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A52",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A53",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A55",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A56",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A57",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A58",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A65",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A66",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A68",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A69",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A74",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A75",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A77",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A78",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A79",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A80",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A82",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A83",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A85",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A86",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A87",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A88",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A89",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A91",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A94",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A95",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A96",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A98",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A99",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A100",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A101",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A102",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A103",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A104",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A107",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A108",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A109",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A111",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A112",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A113",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A114",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A115",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A116",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A117",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A118",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A119",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A120",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A121",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A122",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A123",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A124",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A125",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A126",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A127",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A128",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A130",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A131",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A132",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A134",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A137",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A138",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A139",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A140",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A141",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A144",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A145",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A146",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A148",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A149",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A150",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A151",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A152",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A154",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A155",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A156",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A157",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A158",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A159",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A160",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A161",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A163",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A165",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A166",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A170",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A173",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A174",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A175",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A176",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A177",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A178",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A181",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A182",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A184",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A185",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A186",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A187",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A188",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A189",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A191",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A192",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A193",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A194",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A195",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A196",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A197",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A198",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A199",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A200",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A201",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A202",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A203",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A204",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A205",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A206",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A207",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A208",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A209",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A210",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A211",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A212",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A213",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A214",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A215",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A216",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A217",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A218",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A219",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A220",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A221",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A222",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A228|A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A223",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A228|A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A224",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A228|A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A225",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A228|A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A226",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A228|A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A227",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A228|A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A228",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A228|A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A229",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A230",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A231",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A228|A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E1",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E2",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E3",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E4",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E6",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E7",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E9",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E10",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E11",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E12",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E16",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E17",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E18",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E19",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E21",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E24",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E25",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E26",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E27",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E28",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E30",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E31",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E32",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E33",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E34",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E35",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E36",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E38",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E39",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E41",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E42",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E43",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E44",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E46",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E49",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E54",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E55",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E56",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E57",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E58",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E59",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E60",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E61",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E62",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E63",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E65",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E66",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E67",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E68",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E69",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E71",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E72",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E73",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E74",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E75",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E76",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E77",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E79",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E80",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E81",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E82",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E84",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E85",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E86",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E88",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E89",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E90",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E91",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E92",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E93",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E94",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E95",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E96",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E97",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E98",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E99",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E100",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E101",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E102",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E103",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E105",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E107",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E108",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E111",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E114",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E115",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E117",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E118",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E120",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E121",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E122",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E124",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E125",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E126",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E127",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E128",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E129",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E130",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E131",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E132",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E133",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E134",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E135",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E136",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E138",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E140",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E141",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E145",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E148",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E149",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E150",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E151",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E152",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E153",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E155",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E156",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E157",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E159",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E160",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E161",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E162",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E163",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E164",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E166",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E167",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E168",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E169",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E170",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E171",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E172",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E173",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E174",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E175",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E176",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E177",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E178",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E179",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E180",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E181",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E182",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E183",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E184",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E185",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E186",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "governance-authority",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "system-decision-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "maintenance-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "permission-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "xingcheng",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "learning-system-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "system-programming-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "startup-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "system-runtime-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "resource-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "data-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "integration-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "third-party-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "language-review-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      }
+    ],
+    "directory_relationship_requirements": [
+      {
+        "relationship_code": "FAULT_TO_MANUAL",
+        "source_directory": "fault_code_directory",
+        "source_field": "fault_code",
+        "target_directory": "maintenance_manual_directory",
+        "target_field": "applicable_fault_codes",
+        "cardinality": "one-to-many",
+        "on_missing": "deny-repairable-fault-activation",
+        "on_retired": "require-active-successor",
+        "cycle_policy": "acyclic",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
+      },
+      {
+        "relationship_code": "COMMAND_TO_TEST",
+        "source_directory": "command_code_directory",
+        "source_field": "command_code",
+        "target_directory": "test_flow_directory",
+        "target_field": "requirement_ids",
+        "cardinality": "one-to-many",
+        "on_missing": "deny-command-activation",
+        "on_retired": "require-active-successor",
+        "cycle_policy": "acyclic",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
+      },
+      {
+        "relationship_code": "MANUAL_TO_TEST",
+        "source_directory": "maintenance_manual_directory",
+        "source_field": "manual_code",
+        "target_directory": "test_flow_directory",
+        "target_field": "requirement_ids",
+        "cardinality": "one-to-many",
+        "on_missing": "deny-manual-activation",
+        "on_retired": "require-active-successor",
+        "cycle_policy": "acyclic",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
+      },
+      {
+        "relationship_code": "ARCHITECTURE_TO_ALL_DIRECTORIES",
+        "source_directory": "project_architecture_directory",
+        "source_field": "architecture_code",
+        "target_directory": "command_code_directory|fault_code_directory|maintenance_manual_directory|test_flow_directory",
+        "target_field": "registered-code",
+        "cardinality": "one-to-many",
+        "on_missing": "deny-architecture-activation",
+        "on_retired": "require-active-successor",
+        "cycle_policy": "acyclic",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
+      }
+    ],
+    "directory_coverage_requirements": [
+      {
+        "directory_name": "fault_code_directory",
+        "required_scope": "every production fault emitted by every governed layer",
+        "completion_rule": "exact inventory equals independently discovered governed scope",
+        "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
+        "release_gate": "deny-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
+      },
+      {
+        "directory_name": "command_code_directory",
+        "required_scope": "every production command accepted or emitted by every governed layer",
+        "completion_rule": "exact inventory equals independently discovered governed scope",
+        "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
+        "release_gate": "deny-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
+      },
+      {
+        "directory_name": "maintenance_manual_directory",
+        "required_scope": "every repairable registered fault and governed repair procedure",
+        "completion_rule": "exact inventory equals independently discovered governed scope",
+        "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
+        "release_gate": "deny-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
+      },
+      {
+        "directory_name": "test_flow_directory",
+        "required_scope": "every testable provision command fault manual and architecture boundary",
+        "completion_rule": "exact inventory equals independently discovered governed scope",
+        "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
+        "release_gate": "deny-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
+      },
+      {
+        "directory_name": "project_architecture_directory",
+        "required_scope": "every governed path manifest component service store interface and runtime",
+        "completion_rule": "exact inventory equals independently discovered governed scope",
+        "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
+        "release_gate": "deny-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
+      },
+      {
+        "directory_name": "special_law_directory",
+        "required_scope": "every active and retired special law",
+        "completion_rule": "exact inventory equals independently discovered governed scope",
+        "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
+        "release_gate": "deny-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
+      },
+      {
+        "directory_name": "law_structure_directory",
+        "required_scope": "all three law tiers and every future registered law",
+        "completion_rule": "exact inventory equals independently discovered governed scope",
+        "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
+        "release_gate": "deny-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
+      },
+      {
+        "directory_name": "provision_law_classification",
+        "required_scope": "every principle article edict and sovereign identity",
+        "completion_rule": "exact inventory equals independently discovered governed scope",
+        "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
+        "release_gate": "deny-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.61600"
       }
     ]
   }
