@@ -209,7 +209,10 @@ class PhaseMixin:
         try:
             self._ensure_runtime_paths()
             from governance_rule.execution.audit import audit_runtime_governance
-            errors = audit_runtime_governance(self.workspace_root)
+            errors = audit_runtime_governance(
+                self.workspace_root,
+                include_self_health=False,
+            )
             ok = len(errors) == 0
             detail = "; ".join(errors[:5]) if errors else "audit-pass"
         except Exception as exc:

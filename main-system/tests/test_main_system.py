@@ -2524,6 +2524,29 @@ def test_independent_window_close_policy_covers_source_and_packaged_ui() -> None
     assert "app.on('before-quit'" in packaged_template
 
 
+def test_main_startup_follows_declared_dag_and_detaches_ui() -> None:
+    phases_source = (
+        ROOT / "main-system" / "src-core" / "startup_core" / "phases.py"
+    ).read_text("utf-8")
+    boot_source = (
+        ROOT / "main-system" / "src-core" / "boot_core.py"
+    ).read_text("utf-8")
+    ui_source = (
+        ROOT / "main-system" / "src-ui" / "main" / "index.ts"
+    ).read_text("utf-8")
+
+    assert "DEPENDENCY_MANIFEST" in phases_source
+    assert "DependencyDeclaration(**entry)" in phases_source
+    assert "ThreadPoolExecutor" in phases_source
+    assert "STARTUP_GATE_DEADLINE_SECONDS: Final[float] = 8.0" in phases_source
+    assert "include_self_health=False" in phases_source
+    assert "CrashRepair" not in boot_source
+    assert "signal_only=True" in boot_source
+    before_quit = ui_source.split("app.on('before-quit', () =>", 1)[1]
+    assert "stopBackend()" not in before_quit
+    assert "main.ui-detached" in before_quit
+
+
 def test_foreground_ui_exit_force_closes_the_complete_tool(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

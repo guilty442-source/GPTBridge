@@ -41,8 +41,16 @@ from .audit_self_health import _verify_self_health_test_files
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
-def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
-    """Run all governance runtime checks and return a list of errors."""
+def audit_runtime_governance(
+    project_root: Path = PROJECT_ROOT,
+    *,
+    include_self_health: bool = True,
+) -> list[str]:
+    """Run governance checks and return errors.
+
+    Startup may omit subprocess-based test collection; release and explicit
+    audits retain the complete self-health barrier by default.
+    """
     root = project_root.resolve()
     errors: list[str] = []
 
@@ -71,6 +79,7 @@ def audit_runtime_governance(project_root: Path = PROJECT_ROOT) -> list[str]:
     check_sqlite_template(root, errors)
     check_embedded_browser(root, errors)
 
-    _verify_self_health_test_files(root, errors)
+    if include_self_health:
+        _verify_self_health_test_files(root, errors)
 
     return errors
