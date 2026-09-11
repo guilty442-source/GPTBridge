@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -83,7 +83,7 @@ class CollabSvcDiagnosticsMixin:
                 "latest_message_id": latest_message.get("message_id") if latest_message else "",
             },
             "browser": browser_status,
-            "generated_at": datetime.now().isoformat(timespec="seconds"),
+            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         }
 
     async def _export_report(self, _payload: dict[str, Any]) -> dict[str, Any]:

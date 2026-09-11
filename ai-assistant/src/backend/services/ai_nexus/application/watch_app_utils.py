@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from ..infrastructure import portfolio_file as investment_manager_core
 
 
 def local_device_now() -> datetime:
-    return datetime.now().astimezone()
+    return datetime.now(timezone.utc)
 
 
 class WatchAppUtilsMixin:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import traceback
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from ..infrastructure.privacy import protect_text
@@ -11,7 +11,7 @@ from ..infrastructure.watch_repository import InvestmentWatchRepository
 
 
 def local_device_now() -> datetime:
-    return datetime.now().astimezone()
+    return datetime.now(timezone.utc)
 
 
 class WatchAppDispatchMixin:

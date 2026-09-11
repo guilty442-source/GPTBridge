@@ -11,6 +11,7 @@ import time
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -363,7 +364,7 @@ class ResourceManager:
             errors.append(str(error))
         collected = int(gc.collect())
         return {"released_models": released, "collected_objects": collected,
-                "errors": tuple(errors), "completed_at": time.time()}
+                "errors": tuple(errors), "completed_at": datetime.now(timezone.utc).isoformat()}
 
 
 __all__ = ["ResourceManager"]

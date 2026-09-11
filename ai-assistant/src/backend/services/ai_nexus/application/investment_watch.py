@@ -9,7 +9,7 @@ import threading
 import traceback
 import uuid
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from time import monotonic
 from typing import Any, Iterator
@@ -47,7 +47,7 @@ TOOL_ROOT = Path(__file__).resolve().parents[4]
 
 
 def local_device_now() -> datetime:
-    return datetime.now().astimezone()
+    return datetime.now(timezone.utc)
 
 # Local parsing exports retained for the import service. Legacy market-provider
 # entry points are intentionally not exposed: all market data arrives via Star.
