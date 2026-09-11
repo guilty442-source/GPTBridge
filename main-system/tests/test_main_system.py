@@ -2589,6 +2589,7 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
     assert "if healthy:\n                    self._restarts = 0" in boot
     assert 'HEALTH_PROBE_PORT}/health?brief=1' in boot
     assert 'parsed_request.query != "brief=1"' in lifecycle
+    assert "readiness = notifier.current_snapshot()" in lifecycle
     assert "WS_STALE_CONNECTION_MS" in socket
     assert "QUEUE_ITEM_EXPIRED" in socket
     assert "runtime:hot-reload-completed" in hmr

@@ -133,7 +133,12 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                 # A socket being open alone is NOT ready.
                 from tasks.readiness_gate import ReadinessGate
 
-                readiness = ReadinessGate(app_instance).evaluate()
+                notifier = getattr(app_instance, "_state_change_notifier", None)
+                readiness = None
+                if parsed_request.query == "brief=1" and notifier is not None:
+                    readiness = notifier.current_snapshot()
+                if readiness is None:
+                    readiness = ReadinessGate(app_instance).evaluate()
                 ready = readiness.overall_ready
                 runtime_state = readiness.runtime_state
                 payload = {
