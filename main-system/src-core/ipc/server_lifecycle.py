@@ -119,7 +119,8 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
         )
 
         def process_request_with_shutdown(_connection, request):
-            request_path = urlsplit(str(request.path)).path
+            parsed_request = urlsplit(str(request.path))
+            request_path = parsed_request.path
             if request_path == "/health":
                 startup_status = (
                     app_instance.get_startup_status()
@@ -135,8 +136,7 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                 readiness = ReadinessGate(app_instance).evaluate()
                 ready = readiness.overall_ready
                 runtime_state = readiness.runtime_state
-                body = json.dumps(
-                    {
+                payload = {
                         "ok": ready,
                         "version": str(getattr(app_instance, "version", "0.0.0")),
                         "workspace_instance_id": _workspace_instance_id(),
@@ -149,9 +149,14 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                         "dependencies": [d.as_dict() for d in readiness.dependencies],
                         "services": {},
                         "capabilities": {},
-                        "memory_maintenance": memory_maintainer.status(),
+                    }
+                if parsed_request.query != "brief=1":
+                    payload.update(
+                        memory_maintenance=memory_maintainer.status(),
                         **startup_status,
-                    },
+                    )
+                body = json.dumps(
+                    payload,
                     ensure_ascii=False,
                 ).encode("utf-8")
                 if ready:

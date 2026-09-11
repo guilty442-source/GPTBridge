@@ -233,7 +233,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
         """
         try:
             request = urllib.request.Request(
-                f"http://127.0.0.1:{HEALTH_PROBE_PORT}/health",
+                f"http://127.0.0.1:{HEALTH_PROBE_PORT}/health?brief=1",
                 headers={"Connection": "close"},
             )
             with urllib.request.urlopen(

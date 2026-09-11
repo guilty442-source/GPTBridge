@@ -2559,6 +2559,9 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
         "utf-8"
     )
     boot = (root / "src-core" / "boot_core.py").read_text("utf-8")
+    lifecycle = (root / "src-core" / "ipc" / "server_lifecycle.py").read_text(
+        "utf-8"
+    )
     socket = (
         root
         / "src-ui"
@@ -2584,6 +2587,8 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
     assert "requestGracefulBackendShutdown" in backend
     assert "GPTBRIDGE_SHUTDOWN_TOKEN" in backend
     assert "if healthy:\n                    self._restarts = 0" in boot
+    assert 'HEALTH_PROBE_PORT}/health?brief=1' in boot
+    assert 'parsed_request.query != "brief=1"' in lifecycle
     assert "WS_STALE_CONNECTION_MS" in socket
     assert "QUEUE_ITEM_EXPIRED" in socket
     assert "runtime:hot-reload-completed" in hmr

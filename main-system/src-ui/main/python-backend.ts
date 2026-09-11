@@ -54,7 +54,7 @@ let shutdownToken = ''
 function probeExistingBackend(): Promise<boolean> {
   return new Promise((resolve) => {
     const request = http.get(
-      { host: '127.0.0.1', port: 8765, path: '/health', timeout: 1_500 },
+      { host: '127.0.0.1', port: 8765, path: '/health?brief=1', timeout: 1_500 },
       (response) => {
         const chunks: Buffer[] = []
         response.on('data', (chunk) => chunks.push(Buffer.from(chunk)))

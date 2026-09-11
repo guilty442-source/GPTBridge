@@ -153,7 +153,7 @@ class ConnectionWatchdog:
         """Probe the backend HTTP /health endpoint."""
         try:
             request = urllib.request.Request(
-                f"http://127.0.0.1:{self.health_port}/health",
+                f"http://127.0.0.1:{self.health_port}/health?brief=1",
                 headers={"Connection": "close"},
             )
             with urllib.request.urlopen(request, timeout=self.probe_timeout) as response:
