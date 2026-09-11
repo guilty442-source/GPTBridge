@@ -2558,6 +2558,7 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
     backend = (root / "src-ui" / "main" / "python-backend.ts").read_text(
         "utf-8"
     )
+    boot = (root / "src-core" / "boot_core.py").read_text("utf-8")
     socket = (
         root
         / "src-ui"
@@ -2582,6 +2583,7 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
     assert "probeExistingBackend" in backend
     assert "requestGracefulBackendShutdown" in backend
     assert "GPTBRIDGE_SHUTDOWN_TOKEN" in backend
+    assert "if healthy:\n                    self._restarts = 0" in boot
     assert "WS_STALE_CONNECTION_MS" in socket
     assert "QUEUE_ITEM_EXPIRED" in socket
     assert "runtime:hot-reload-completed" in hmr

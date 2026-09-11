@@ -257,6 +257,11 @@ class BootCore(PhaseMixin, GovernanceMixin):
             healthy = self._probe_health()
             if healthy != self._backend_healthy:
                 self._backend_healthy = healthy
+                # The restart budget counts consecutive failed generations,
+                # not historical startup-gate failures.  Once a generation
+                # reaches governed readiness it owns a fresh recovery budget.
+                if healthy:
+                    self._restarts = 0
                 self._write_state(backend_healthy=healthy)
             if self._stop.wait(timeout=HEALTH_PROBE_INTERVAL):
                 break
