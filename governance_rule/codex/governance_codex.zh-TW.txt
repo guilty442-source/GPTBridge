@@ -1,5 +1,5 @@
 {
-  "codex_version": "4.61600",
+  "codex_version": "1.00000",
   "tables": {
     "access_actor_classes": [
       {
@@ -1274,7 +1274,7 @@
         "provision_id": "A193",
         "section_index": "4",
         "subject": "official-startup-entry-and-ui-launcher",
-        "rule": "OFFICIAL-PLATFORM-ENTRY:gptbridge-start as-single-user-facing-native-source-entry; ENTRY-ROLE:mechanical-process-wake-only+no-governance/system/business-decision; DUAL-WAKE:start-or-attach exactly-one-hidden-startup-sovereign-source-runtime generation and exactly-one-formal-UI-launcher/window; ORDER:UI-shell-visible-immediately+startup-runtime-wake-nonblocking+status-attach-when-bootstrap-information-route-ready; LAUNCHER-DUTY:show/restore/focus/reload-formal-UI+display-last-confirmed-state-as-stale-until-live-snapshot+subscribe-to-startup-events+submit-typed-user-start/cancel/shutdown-intent; LAUNCHER-SYSTEM-POWER:none; PROCESS-VISIBILITY:python/node/powershell/background-host no-console-window; SINGLE-INSTANCE:duplicate-entry focuses-existing-UI+attaches-current-generation+does-not-spawn-duplicate-backend; UI-FAILURE:restart-renderer-only+startup/runtime-continue; STARTUP-RUNTIME-FAILURE:UI-remains-open+shows-failure+new-bounded-start-intent through-information-layer; UI-CLOSE:detach-view-only+does-not-stop-main-system-or-independent-tools; F5/RELOAD:renderer-only+resubscribe+snapshot-reconcile+no-backend/process/release reset; SHUTDOWN:explicit-user-intent>information-layer>permission-validation>system-runtime-owned-shutdown; SOURCE:governed-native-source-only+no-internal-EXE-fallback",
+        "rule": "OFFICIAL-PLATFORM-ENTRY:gptbridge-start as-single-user-facing-native-source-entry; ENTRY-ROLE:mechanical-process-wake-only+no-governance/system/business-decision; DUAL-WAKE:start-or-attach exactly-one-hidden-startup-sovereign-source-runtime generation and exactly-one-formal-UI-launcher/window; ORDER:UI-shell-visible-immediately+startup-runtime-wake-nonblocking+status-attach-when-bootstrap-information-route-ready; LAUNCHER-DUTY:show/restore/focus/reload-formal-UI+display-last-confirmed-state-as-stale-until-live-snapshot+subscribe-to-startup-events+submit-typed-user-start/cancel/shutdown-intent; LAUNCHER-SYSTEM-POWER:none; PROCESS-VISIBILITY:python/node/powershell/background-host no-console-window; SINGLE-INSTANCE:duplicate-entry focuses-existing-UI+attaches-current-generation+does-not-spawn-duplicate-backend; UI-FAILURE:restart-renderer-only+startup/runtime-continue; STARTUP-RUNTIME-FAILURE:UI-remains-open+shows-failure+new-bounded-start-intent through-information-layer; UI-CLOSE:detach-view-only+does-not-stop-main-system-or-independent-tools; F5/RELOAD:renderer-only+resubscribe+snapshot-reconcile+no-backend/process/release reset; SHUTDOWN:explicit-user-intent>information-layer>permission-validation>system-runtime-owned-shutdown; SOURCE:governed-native-source-only+no-internal-EXE-fallback 啟動入口只能帶出 UI，不得直接喚醒或附接後端、啟動核心或系統執行環境。UI 顯示後，僅能透過資訊層送出具型別的啟動意圖，由啟動核心獨立驗證並啟動受治理世代。",
         "prohibition": "FORBID:launcher-environment/governance/dependency checks+launcher-direct-backend/database/model/tool-start+launcher-owning-startup-state+blocking-UI-until-backend-ready+visible-console+duplicate-runtime+UI-close-as-system-kill+F5-as-backend-restart+stale-status-as-live+direct-socket/private-channel+executable-fallback",
         "exception": "Distribution packaging may invoke the same governed source entry contract but cannot become the internal runtime authority"
       },
@@ -2075,7 +2075,7 @@
         "provision_id": "A282",
         "section_index": "9",
         "subject": "launcher 收斂至 main-system 條例",
-        "rule": "launcher 必須收斂至 E:\\GPTBridge\\main-system\\launcher，作為 main-system 內的啟動核心頂層資料夾。啟用後不得在 E:\\GPTBridge\\launcher 或 main-system 外保留有效正式根目錄。遷移必須先更新架構登錄，再原子更新入口、清單、環境代號、建置、測試、捷徑及發行產物並保留歷史。launcher 只負責機械式喚醒與呈現；啟動決策仍由啟動主宰負責。所有 launcher 所屬檔案與產物均不得超出新根目錄。",
+        "rule": "launcher 必須收斂至 E:\\GPTBridge\\main-system\\launcher，作為 main-system 內的啟動核心頂層資料夾。啟用後不得在 E:\\GPTBridge\\launcher 或 main-system 外保留有效正式根目錄。遷移必須先更新架構登錄，再原子更新入口、清單、環境代號、建置、測試、捷徑及發行產物並保留歷史。launcher 只負責機械式喚醒與呈現；啟動決策仍由啟動主宰負責。所有 launcher 所屬檔案與產物均不得超出新根目錄。 launcher 作為啟動入口只能帶出 UI，不得直接啟動或附接後端、啟動核心或系統執行環境；UI 必須經資訊層提交啟動意圖。",
         "prohibition": "禁止 launcher 在 main-system 外保留有效根目錄、繼續使用 E:\\GPTBridge\\launcher 作為有效路徑、多重根目錄、未驗證搬移、直接控制後端或工具、使用私有通道，以及路徑或環境代號逃逸。",
         "exception": "舊 E:\\GPTBridge\\launcher 只能在已登錄遷移期間唯讀保留，不得啟動、接收寫入或在新根啟用後繼續作為正式路徑。"
       },
@@ -2087,16 +2087,36 @@
         "rule": "shared-layer 必須收斂至 E:\\GPTBridge\\main-system 內，成為已登錄的內部共用服務邊界。啟用後不得在 E:\\GPTBridge\\shared-layer 或 main-system 外保留有效正式根目錄。遷移必須先更新架構登錄，再原子更新匯入、清單、環境代號、建置、測試、啟動器及發行產物並保留歷史。所有 shared-layer 所屬檔案與產物不得超出 main-system。獨立工具只能透過已登錄介面使用共用能力。",
         "prohibition": "禁止 shared-layer 在 main-system 外保留有效根目錄、多重根目錄、舊匯入或路徑、連結與環境代號逃逸、獨立工具直接寫入，或未具測試、回復與證據即搬移。",
         "exception": "舊 E:\\GPTBridge\\shared-layer 只能在已登錄遷移期間唯讀保留，不得被匯入、啟動、寫入或在新根啟用後繼續作為正式路徑。"
+      },
+      {
+        "position": 284,
+        "provision_id": "A284",
+        "section_index": "4",
+        "subject": "GPTBridge 正式分層專案架構條例",
+        "rule": "GPTBridge 依序分為：只帶出 UI 的啟動入口；負責啟動治理與系統核心的啟動核心；Governance Authority 治理權威層；由系統主宰、維護主宰、權限主宰組成的決策主宰層；由 System、Maintenance、Permission Sub-Sovereigns 組成的執行控制與派工子主宰層；由收斂於 main-system 的 Shared Layer、PostgreSQL、Qdrant、狀態、事件與 IPC 組成的跨層資訊層；以及模組執行層。模組執行層包含本地模型及其模型對話、星澄專屬資料夾，投資管家及投資管家手機版專屬資料夾，外部協作、自動化檔案管理與自動化影音下載。治理流程固定為治理權威、主宰決策、子主宰控制派工、受治理執行；跨層資訊一律經資訊層。",
+        "prohibition": "禁止啟動入口直接喚醒後端或作決策、跨層越權、子主宰取代最終政策決策、模組取得主宰權、使用私有跨層通道、繞過資訊層直接存取 PostgreSQL 或 Qdrant、洩露星澄專屬資料夾，或合併模組資料、執行與故障邊界。",
+        "exception": "啟動 UI 得顯示明確標示為過期的快取狀態並提交具型別的啟動意圖；只有啟動核心得開始受治理的系統啟動。"
+      },
+      {
+        "position": 284,
+        "provision_id": "A284",
+        "section_index": "4",
+        "subject": "GPTBridge 正式分層專案架構條例",
+        "rule": "GPTBridge 依序分為：只帶出 UI 的啟動入口；負責啟動治理與系統核心的啟動核心；Governance Authority 治理權威層；由系統主宰、維護主宰、權限主宰組成的決策主宰層；由 System、Maintenance、Permission Sub-Sovereigns 組成的執行控制與派工子主宰層；由收斂於 main-system 的 Shared Layer、PostgreSQL、Qdrant、狀態、事件與 IPC 組成的跨層資訊層；以及模組執行層。模組執行層包含本地模型及其模型對話、星澄專屬資料夾，投資管家及投資管家手機版專屬資料夾，外部協作、自動化檔案管理與自動化影音下載。治理流程固定為治理權威、主宰決策、子主宰控制派工、受治理執行；跨層資訊一律經資訊層。",
+        "prohibition": "禁止啟動入口直接喚醒後端或作決策、跨層越權、子主宰取代最終政策決策、模組取得主宰權、使用私有跨層通道、繞過資訊層直接存取 PostgreSQL 或 Qdrant、洩露星澄專屬資料夾，或合併模組資料、執行與故障邊界。",
+        "exception": "啟動 UI 得顯示明確標示為過期的快取狀態並提交具型別的啟動意圖；只有啟動核心得開始受治理的系統啟動。"
+      },
+      {
+        "position": 285,
+        "provision_id": "A285",
+        "section_index": "1",
+        "subject": "人工法典版本基準重設條例",
+        "rule": "依人類治理者明確指示，本次將完整整合法典版本手動重設為 1.00000，並保存重設前版本、歷史鏈頭及各項根雜湊。所有修訂歷史、條款身份、沿革及取代證據均保留。後續版本自 1.00000 依最高適用變更程度重新自然演化，任何自動程序均不得再次重設版本。",
+        "prohibition": "禁止自動或靜默重設版本、刪除歷史或身份證據、未記錄前任根雜湊、由執行期、修復、更新或工具變更版本，以及外部簽章未完成即宣告驗證。",
+        "exception": "本次重設僅由 H045 記錄的人類治理者明確指示授權，不產生常設自動重設權。"
       }
     ],
     "certification_evidence": [
-      {
-        "version": "1.00000",
-        "signed_payload_fields": "version|content-root|history-head|identity-root",
-        "evidence_location": "current-human-governor-complete-reconstitution-adoption",
-        "validation_rule": "explicit-human-governor-genesis-adoption",
-        "status": "genesis-adopted"
-      },
       {
         "version": "1.01000",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
@@ -2397,6 +2417,13 @@
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
         "status": "external-signatures-required"
+      },
+      {
+        "version": "1.00000",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
       }
     ],
     "certification_policy": [
@@ -2429,13 +2456,6 @@
       }
     ],
     "codex_timestamps": [
-      {
-        "version": "1.00000",
-        "recorded_at_utc": "2026-09-10T07:38:25Z",
-        "recorded_at_local": "2026-09-10T15:38:25+08:00",
-        "timezone": "Asia/Taipei",
-        "event": "complete-reconstitution-genesis-adoption"
-      },
       {
         "version": "1.01000",
         "recorded_at_utc": "2026-09-10T07:57:12Z",
@@ -2736,6 +2756,13 @@
         "recorded_at_local": "2026-09-12T08:47:34+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed"
+      },
+      {
+        "version": "1.00000",
+        "recorded_at_utc": "2026-09-12T00:52:09Z",
+        "recorded_at_local": "2026-09-12T08:52:09+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "human-governor-manual-version-baseline-reset"
       }
     ],
     "command_code_directory": [
@@ -10203,6 +10230,18 @@
         "provision_id": "A283",
         "effective_version": "4.51600",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A284",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A285",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -14868,10 +14907,6 @@
         "value": "deleted-by-human-governor-direction"
       },
       {
-        "key": "version_evolution_mode",
-        "value": "natural-highest-degree-after-genesis"
-      },
-      {
         "key": "version_reset_after_genesis",
         "value": "forbidden"
       },
@@ -15009,7 +15044,7 @@
       },
       {
         "key": "codex_version",
-        "value": "4.61600"
+        "value": "1.00000"
       },
       {
         "key": "schema",
@@ -15062,6 +15097,30 @@
       {
         "key": "codex_recorded_at_local",
         "value": "2026-09-12T07:29:49.989372+08:00"
+      },
+      {
+        "key": "manual_reset_previous_version",
+        "value": "4.61600"
+      },
+      {
+        "key": "manual_reset_previous_history_head",
+        "value": "H044"
+      },
+      {
+        "key": "manual_reset_previous_content_root",
+        "value": "bb4737e5681b61aff1c51d591bf5ea07a317d7c7874f3c915f11abbc05b75387"
+      },
+      {
+        "key": "manual_reset_previous_identity_root",
+        "value": "4d8df93f1f2a916f72584d900df74e1f7bcb876ff3e7d894c027ef49e0ee8ce4"
+      },
+      {
+        "key": "manual_reset_previous_full_root",
+        "value": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223"
+      },
+      {
+        "key": "version_evolution_mode",
+        "value": "natural-highest-degree-after-manual-baseline-reset"
       }
     ],
     "preamble": [
@@ -15884,11 +15943,11 @@
         "parent_code": "MAIN_SYSTEM",
         "physical_root": "E:\\GPTBridge\\main-system\\launcher",
         "logical_boundary": "canonical startup-core top-level boundary converged inside main-system",
-        "responsibilities": "native startup entry|launcher shell|startup intent handoff|single-instance attachment|startup status presentation",
+        "responsibilities": "UI-only startup entry|launcher shell|typed startup intent submission|single-instance UI attachment|startup status presentation",
         "dependencies": "startup sovereign|main-system|information layer|governance codex",
         "interfaces": "official startup entry|typed startup intent|information-layer status",
         "data_authority": "launcher-local presentation state only",
-        "runtime_boundary": "mechanical wake and presentation inside main-system; startup decisions remain with startup-sovereign",
+        "runtime_boundary": "UI process only; no direct backend or startup-core wake; startup decisions remain with startup-sovereign",
         "failure_boundary": "launcher failure does not become main-system or independent-tool failure",
         "permission_scope": "startup-entry and launcher presentation",
         "command_codes": "",
@@ -19406,6 +19465,20 @@
         "provision_id": "A283",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A284",
+        "provision_type": "article",
+        "provision_id": "A284",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A285",
+        "provision_type": "article",
+        "provision_id": "A285",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -22915,6 +22988,20 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A193|A227|A265|A276|A280"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A284",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A184|A193|A227|A266|A280|A282|A283"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A285",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A1|A274|A275"
       }
     ],
     "provision_lineage": [
@@ -24844,7 +24931,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "c4931e763dbee8e9834cce760dceb818b97150bb830a0f532f5aae569cc1ecaf"
+        "content_hash": "910ebaba4a126eb8f4682e13d2c0c68941b9840f2440ae90d6af2bced3767c7d"
       },
       {
         "provision_type": "article",
@@ -26916,7 +27003,7 @@
         "introduced_by": "H043",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "511020ba631acb7196165e0e3bf92a0f01bd7ce1be420f069c11fd428775c960"
+        "content_hash": "8ac3e20b972f2ff21da2eea6188102503540c95ad2352b770bf4739f2a1e8a83"
       },
       {
         "provision_type": "article",
@@ -26925,6 +27012,22 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "cfa44006eec8f163a41c18977a182799fc3ba837f1048ac3f99cfd976e50e15b"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A284",
+        "introduced_by": "H045",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "959c8600f77e0c672e9d68bd6da40cd9640a3db30d45f1d794425e659870b943"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A285",
+        "introduced_by": "H045",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "c45ff897780903a2f9d4b0ed713079ccb4be4b2aaa218b6a714bd45b8d316cf4"
       }
     ],
     "provision_revisions": [
@@ -31030,6 +31133,38 @@
         "revision_id": "H044",
         "version": "4.61600",
         "content_hash": "511020ba631acb7196165e0e3bf92a0f01bd7ce1be420f069c11fd428775c960",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A284",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "959c8600f77e0c672e9d68bd6da40cd9640a3db30d45f1d794425e659870b943",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A285",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "c45ff897780903a2f9d4b0ed713079ccb4be4b2aaa218b6a714bd45b8d316cf4",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A193",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "910ebaba4a126eb8f4682e13d2c0c68941b9840f2440ae90d6af2bced3767c7d",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A282",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "8ac3e20b972f2ff21da2eea6188102503540c95ad2352b770bf4739f2a1e8a83",
         "certification_status": "external-signatures-required"
       }
     ],
@@ -36175,6 +36310,16 @@
         "summary": "changed launcher canonical root to E:\\GPTBridge\\main-system\\launcher and retired external active-root authority",
         "previous_hash": "662c691e4d235a591566eb58bdd03addfbd574fef2c9da898b49a9ebd43cd10b",
         "entry_hash": "4f652bc5ac129b289410f07ce2bb3bc4e863b18188b3729d4432219920626734"
+      },
+      {
+        "sequence": 45,
+        "change_id": "H045",
+        "version": "1.00000",
+        "recorded_date": "2026-09-12",
+        "change_scope": "integrated-architecture-and-manual-version-baseline-reset",
+        "summary": "integrated the canonical GPTBridge layer architecture and manually reset the codex baseline from 4.61600 to 1.00000 for renewed natural evolution",
+        "previous_hash": "4f652bc5ac129b289410f07ce2bb3bc4e863b18188b3729d4432219920626734",
+        "entry_hash": "21954817317b5edf53921f2106185372cb1ba0f78aed10a086e23de90267872b"
       }
     ],
     "savings": [
@@ -36198,17 +36343,6 @@
       }
     ],
     "seal_manifest": [
-      {
-        "version": "1.00000",
-        "history_head": "f292f44ac85d961bc739e749ca14635fbeb1ae289bcca7939ae39bda543467d6",
-        "provision_count": 380,
-        "identity_count": 394,
-        "lineage_count": 394,
-        "certification_state": "genesis-adopted-read-only",
-        "content_root": "06780b77551f52710fa35b892a8a848789a69044e7911954e2baa8f055df9046",
-        "identity_root": "6a17fbc8338e2d507cb16eeb327f5134fd7ddb45cec7a47ad471a129846dc5a3",
-        "full_root": "e72b0f5b929b25631e21ea85c242bae43e1ed20031ba9d59dd66ad9238af5d2a"
-      },
       {
         "version": "1.01000",
         "history_head": "06ff7129192b6045ffb1d622af3f3b6d462b53de31e8f384424b5dd50655899e",
@@ -36681,60 +36815,21 @@
         "content_root": "bb4737e5681b61aff1c51d591bf5ea07a317d7c7874f3c915f11abbc05b75387",
         "identity_root": "4d8df93f1f2a916f72584d900df74e1f7bcb876ff3e7d894c027ef49e0ee8ce4",
         "full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223"
+      },
+      {
+        "version": "1.00000",
+        "history_head": "H045",
+        "provision_count": 503,
+        "identity_count": 503,
+        "lineage_count": 503,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "6eb08ecb3cb5f58f906d9256601608e17376ed3f002fca46409e9e80668044b0",
+        "identity_root": "db784682d646fe24ee6fa26c338a8e6c71bfe8cae21bf86ca608750c0c3ca8b2",
+        "full_root": "d063ca49e8286201b6cc14475217d0db0808a4b15080442265475ce1ea85fac5"
       }
     ],
     "sealed_components": [
       {
-        "version": "1.00000",
-        "component": "provisions",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "1.00000",
-        "component": "identities",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "1.00000",
-        "component": "lineage",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "1.00000",
-        "component": "history",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "1.00000",
-        "component": "metadata",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "1.00000",
-        "component": "schema",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "1.00000",
-        "component": "sovereigns",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "1.00000",
-        "component": "supersessions",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "1.00000",
-        "component": "version-rules",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "1.00000",
-        "component": "certification-policy",
-        "included_in_full_root": 1
-      },
-      {
         "version": "1.01000",
         "component": "certification-policy",
         "included_in_full_root": 1
@@ -38881,6 +38976,56 @@
       },
       {
         "version": "4.61600",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.00000",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.00000",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.00000",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.00000",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.00000",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.00000",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.00000",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.00000",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.00000",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "1.00000",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -40880,14 +41025,6 @@
     ],
     "trust_anchor_requirements": [
       {
-        "version": "1.00000",
-        "algorithm": "Ed25519",
-        "threshold": 2,
-        "key_count": 3,
-        "detached_signatures_required": 1,
-        "private_key_storage": "external-offline-never-in-codex"
-      },
-      {
         "version": "1.01000",
         "algorithm": "Ed25519",
         "threshold": 2,
@@ -41225,6 +41362,14 @@
       },
       {
         "version": "4.61600",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "1.00000",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
