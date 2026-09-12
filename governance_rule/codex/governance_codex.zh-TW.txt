@@ -1,5 +1,5 @@
 {
-  "codex_version": "4.21600",
+  "codex_version": "4.31600",
   "tables": {
     "access_actor_classes": [
       {
@@ -2021,7 +2021,7 @@
         "provision_id": "A276",
         "section_index": "9",
         "subject": "main-system 平台核心實體目錄定位條例",
-        "rule": "main-system 的實體路徑為 E:\\GPTBridge\\main-system，定位為平台核心實體目錄；邏輯上同時承載啟動核心、平台編排及部分執行模組。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用，均須將其標記為平台核心實體目錄，不得單純描述為模組執行層的一個工具。此定位不改變其與各獨立工具依 A184 維持的個體及故障隔離。",
+        "rule": "main-system 的實體路徑為 E:\\GPTBridge\\main-system，定位為平台核心實體目錄；邏輯上同時承載啟動核心、平台編排及部分執行模組。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用，均須將其標記為平台核心實體目錄，不得單純描述為模組執行層的一個工具。此定位不改變其與各獨立工具依 A184 維持的個體及故障隔離。 所有由 main-system 擁有的平台核心元件，其有效正式實體根目錄都必須收斂於 E:\\GPTBridge\\main-system 之下；外部舊路徑只能作為不可啟動且唯讀的遷移證據，完成後必須退役。",
         "prohibition": "禁止把 main-system 分類為模組執行層工具、將平台核心扁平化為獨立工具、藉實體目錄名稱混同邏輯權責，或以此定位規避個體隔離。",
         "exception": "位於 main-system 內的部分執行模組，仍各自遵循已登錄的邏輯責任者與權限邊界。"
       },
@@ -2039,7 +2039,7 @@
         "provision_id": "A278",
         "section_index": "9",
         "subject": "Standalone tools 獨立工具頂層資料夾定位條例",
-        "rule": "Standalone tools 是位於 E:\\GPTBridge\\Standalone tools 的獨立工具頂層資料夾。它是獨立工具的正式架構容器，本身不是單一工具、共用執行個體或監督程序。其下每個已登錄工具仍是不同個體，分別擁有責任者、生命週期、執行環境、故障、資料、維修、更新及關閉邊界。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用均須使用此正式定位與路徑。",
+        "rule": "Standalone tools 是位於 E:\\GPTBridge\\Standalone tools 的獨立工具頂層資料夾。它是獨立工具的正式架構容器，本身不是單一工具、共用執行個體或監督程序。其下每個已登錄工具仍是不同個體，分別擁有責任者、生命週期、執行環境、故障、資料、維修、更新及關閉邊界。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用均須使用此正式定位與路徑。 所有獨立工具的有效正式實體根目錄都必須收斂於 E:\\GPTBridge\\Standalone tools 之下；外部舊路徑只能作為不可啟動且唯讀的遷移證據，完成後必須退役。",
         "prohibition": "禁止把 Standalone tools 視為單一工具、共用執行個體、共用監督者、共用故障域或 main-system 子模組；禁止合併子工具身份或跨工具控制生命週期、資料、維修、更新與關閉。",
         "exception": "只有透過已登錄治理介面的唯讀共用基礎設施得共用；不得因此合併各工具的所有權、狀態、生命週期或故障邊界。"
       },
@@ -2051,6 +2051,15 @@
         "rule": "Governance Codex 是位於 E:\\GPTBridge\\governance_rule\\codex 的法典資料夾，正式名稱為 governance-codex。其範圍包含官方機器法典、僅供星澄查閱的機密中文法典及法典存取邊界，由治理權威唯一主宰。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用均須使用此定位與精確路徑。",
         "prohibition": "禁止把 Governance Codex 視為一般文件資料夾、建立替代權威法典、未授權寫入或由執行期自行修法；中文法典除星澄外不得被引用、鏡像、匯出或透露。",
         "exception": "已認證工具得透過受治理的法典儲存庫介面讀取官方機器法典，但不因此取得直接修改檔案的權限。"
+      },
+      {
+        "position": 280,
+        "provision_id": "A280",
+        "section_index": "9",
+        "subject": "法典目錄整合與主系統、獨立工具收斂條例",
+        "rule": "法典統一登錄四個正式目錄：E:\\GPTBridge\\main-system 為平台核心實體目錄；E:\\GPTBridge\\local-model\\model-dialogue 為本地模型頂層資料夾；E:\\GPTBridge\\Standalone tools 為獨立工具頂層資料夾；E:\\GPTBridge\\governance_rule\\codex 為法典資料夾。所有主系統平台核心元件的正式實體根目錄必須收斂於 main-system 之下；所有獨立工具的正式實體根目錄必須收斂於 Standalone tools 之下，雙方均不得在外部保留有效正式根目錄。任何所屬原始碼、設定、清單、執行狀態、資料、快取、日誌、暫存檔、產物、啟動器及生成輸出，在環境代號展開、正規化及解析符號連結、接合點與重新解析點後，都不得超出各自登錄的頂層資料夾。每個元件或工具仍保有唯一身份、責任者、生命週期、執行環境、故障、資料、維修、更新與關閉邊界。",
+        "prohibition": "禁止任何所屬路徑超出登錄頂層資料夾，禁止利用絕對路徑、相對穿越、符號連結、接合點、重新解析點或環境代號逃逸；禁止主系統元件在 main-system 外保留有效根目錄、獨立工具在 Standalone tools 外保留有效根目錄、同一個體多重根目錄、硬編碼舊路徑、未登錄搬移、合併個體邊界，或把 model-dialogue、Governance Codex 誤列為獨立工具。",
+        "exception": "遷移期間舊路徑只能唯讀保留作證據，不得啟動、接收寫入、由有效執行環境解析，或在新根啟用後繼續作為正式路徑。"
       }
     ],
     "certification_evidence": [
@@ -2322,6 +2331,20 @@
       },
       {
         "version": "4.21600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "4.31600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "2.21600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2635,6 +2658,13 @@
         "version": "4.21600",
         "recorded_at_utc": "2026-09-12T00:37:35Z",
         "recorded_at_local": "2026-09-12T08:37:35+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "codex-successor-sealed"
+      },
+      {
+        "version": "4.31600",
+        "recorded_at_utc": "2026-09-12T00:41:50Z",
+        "recorded_at_local": "2026-09-12T08:41:50+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed"
       }
@@ -10080,6 +10110,12 @@
         "provision_id": "A279",
         "effective_version": "4.21600",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A280",
+        "effective_version": "4.31600",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -14886,7 +14922,7 @@
       },
       {
         "key": "codex_version",
-        "value": "4.21600"
+        "value": "4.31600"
       },
       {
         "key": "schema",
@@ -19233,6 +19269,13 @@
         "provision_id": "A279",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A280",
+        "provision_type": "article",
+        "provision_id": "A280",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -22714,6 +22757,13 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A1|A227|A253"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A280",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A184|A227|A266|A276|A277|A278|A279"
       }
     ],
     "provision_lineage": [
@@ -26667,7 +26717,7 @@
         "introduced_by": "H038",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "cf2c27f391d38abb4d87ed012589a8664d05cd03b6759ea8d65aeb4c7fb12a10"
+        "content_hash": "9b38c1775eeebf8623863019f5d15938fe18ce3f81e79cc297731360c72c14ec"
       },
       {
         "provision_type": "article",
@@ -26683,7 +26733,7 @@
         "introduced_by": "H039",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "70b00ae2608aa6b5c9468dab51fd16acab03cbc7298b14122d74ece0a5e010e9"
+        "content_hash": "28c45f490009468a9ee49b4a31a6c43a57299f4d83458a42b82a37843f2eba96"
       },
       {
         "provision_type": "article",
@@ -26692,6 +26742,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "cccaa112870b2508ae8e30db59474cba4dd60b60a0cf129701f51dd312ce60d8"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A280",
+        "introduced_by": "H041",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "027f6a60f3aabebc2c5d0d6df9b586827339e93e777bd9399fde1272107a9772"
       }
     ],
     "provision_revisions": [
@@ -30725,6 +30783,30 @@
         "revision_id": "H040",
         "version": "4.21600",
         "content_hash": "cccaa112870b2508ae8e30db59474cba4dd60b60a0cf129701f51dd312ce60d8",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A280",
+        "revision_id": "H041",
+        "version": "4.31600",
+        "content_hash": "027f6a60f3aabebc2c5d0d6df9b586827339e93e777bd9399fde1272107a9772",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A278",
+        "revision_id": "H041",
+        "version": "4.31600",
+        "content_hash": "28c45f490009468a9ee49b4a31a6c43a57299f4d83458a42b82a37843f2eba96",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A276",
+        "revision_id": "H041",
+        "version": "4.31600",
+        "content_hash": "9b38c1775eeebf8623863019f5d15938fe18ce3f81e79cc297731360c72c14ec",
         "certification_status": "external-signatures-required"
       }
     ],
@@ -35830,6 +35912,16 @@
         "summary": "registered Governance Codex as the codex directory at E:\\GPTBridge\\governance_rule\\codex",
         "previous_hash": "a70d525b2ec541bb72a6b057fdb8e054ddcac6b6a3ecca408b4a35a78f41ca5a",
         "entry_hash": "868bc902322acffe2e46e3bb3f09d1692812bf031dbe2da43e9e501f6c4e7eb1"
+      },
+      {
+        "sequence": 41,
+        "change_id": "H041",
+        "version": "4.31600",
+        "recorded_date": "2026-09-12",
+        "change_scope": "codex-directory-integration-and-system-tool-convergence",
+        "summary": "integrated canonical top-level directories and required main-system components and independent tools to converge under their respective roots",
+        "previous_hash": "868bc902322acffe2e46e3bb3f09d1692812bf031dbe2da43e9e501f6c4e7eb1",
+        "entry_hash": "37a281f746f2eb54953dd03f7394a669183d53ec6989ad8224e1649747c45492"
       }
     ],
     "savings": [
@@ -36292,6 +36384,17 @@
         "content_root": "4e1b724193ea5dbaa0ae2ca5f4423a9435b34ef55dd8044bb1b60d5617db83e6",
         "identity_root": "c8c46c9460def7db5a509343d9d65aea82d8b72172938e84e8ce433525e49b83",
         "full_root": "4ea171580253c701d094057e91b93329b526220b5ad4b0f4b3df64449d8b24c9"
+      },
+      {
+        "version": "4.31600",
+        "history_head": "H041",
+        "provision_count": 498,
+        "identity_count": 498,
+        "lineage_count": 498,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "77af5579fc168616ae0525a4f2454d680cdec658fe175556d29eab11bce8df20",
+        "identity_root": "5463d2e8a5d47aa68cfca1223d96f7fbfe4fba2abb30e1801a94057c573bcab2",
+        "full_root": "6bfcb384ed8e4db31bfd37182c1d8a3e8545fcd988f38402eb77a3a38c5ada33"
       }
     ],
     "sealed_components": [
@@ -38292,6 +38395,56 @@
       },
       {
         "version": "4.21600",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.31600",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.31600",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.31600",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.31600",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.31600",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.31600",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.31600",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.31600",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.31600",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.31600",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -40588,6 +40741,30 @@
       },
       {
         "version": "4.21600",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "3.81600",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "3.91600",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "4.31600",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
