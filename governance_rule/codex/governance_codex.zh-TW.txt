@@ -1,5 +1,5 @@
 {
-  "codex_version": "4.51600",
+  "codex_version": "4.61600",
   "tables": {
     "access_actor_classes": [
       {
@@ -2074,10 +2074,10 @@
         "position": 282,
         "provision_id": "A282",
         "section_index": "9",
-        "subject": "launcher 啟動核心頂層資料夾定位條例",
-        "rule": "launcher 是位於 E:\\GPTBridge\\launcher 的啟動核心頂層資料夾，負責正式原生啟動入口、啟動器介面、啟動意圖交接、單一實例附接及啟動狀態呈現。launcher 只負責機械式喚醒與呈現；啟動決策仍由啟動主宰負責，main-system 保留平台編排及部分內部啟動執行模組。所有 launcher 所屬內容均不得超出此頂層資料夾。",
-        "prohibition": "禁止 launcher 路徑超出正式根目錄、成為系統決策權威、擁有 main-system 生命週期、直接控制後端、資料庫、模型或工具、使用私有通道或路徑逃逸。",
-        "exception": "發行封裝得呼叫同一已認證啟動契約，但不得成為替代啟動權威或正式原始碼根目錄。"
+        "subject": "launcher 收斂至 main-system 條例",
+        "rule": "launcher 必須收斂至 E:\\GPTBridge\\main-system\\launcher，作為 main-system 內的啟動核心頂層資料夾。啟用後不得在 E:\\GPTBridge\\launcher 或 main-system 外保留有效正式根目錄。遷移必須先更新架構登錄，再原子更新入口、清單、環境代號、建置、測試、捷徑及發行產物並保留歷史。launcher 只負責機械式喚醒與呈現；啟動決策仍由啟動主宰負責。所有 launcher 所屬檔案與產物均不得超出新根目錄。",
+        "prohibition": "禁止 launcher 在 main-system 外保留有效根目錄、繼續使用 E:\\GPTBridge\\launcher 作為有效路徑、多重根目錄、未驗證搬移、直接控制後端或工具、使用私有通道，以及路徑或環境代號逃逸。",
+        "exception": "舊 E:\\GPTBridge\\launcher 只能在已登錄遷移期間唯讀保留，不得啟動、接收寫入或在新根啟用後繼續作為正式路徑。"
       },
       {
         "position": 283,
@@ -2386,6 +2386,13 @@
       },
       {
         "version": "4.51600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "4.61600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2720,6 +2727,13 @@
         "version": "4.51600",
         "recorded_at_utc": "2026-09-12T00:45:39Z",
         "recorded_at_local": "2026-09-12T08:45:39+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "codex-successor-sealed"
+      },
+      {
+        "version": "4.61600",
+        "recorded_at_utc": "2026-09-12T00:47:34Z",
+        "recorded_at_local": "2026-09-12T08:47:34+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed"
       }
@@ -14995,7 +15009,7 @@
       },
       {
         "key": "codex_version",
-        "value": "4.51600"
+        "value": "4.61600"
       },
       {
         "key": "schema",
@@ -15865,16 +15879,16 @@
       {
         "architecture_code": "LAUNCHER",
         "canonical_name": "launcher",
-        "entity_kind": "startup-core-top-level-directory",
+        "entity_kind": "startup-core-top-level-directory-within-main-system",
         "owner": "permission-sovereign",
-        "parent_code": "PROJECT_GPTBRIDGE",
-        "physical_root": "E:\\GPTBridge\\launcher",
-        "logical_boundary": "canonical physical boundary for official startup entry and launcher",
+        "parent_code": "MAIN_SYSTEM",
+        "physical_root": "E:\\GPTBridge\\main-system\\launcher",
+        "logical_boundary": "canonical startup-core top-level boundary converged inside main-system",
         "responsibilities": "native startup entry|launcher shell|startup intent handoff|single-instance attachment|startup status presentation",
         "dependencies": "startup sovereign|main-system|information layer|governance codex",
         "interfaces": "official startup entry|typed startup intent|information-layer status",
         "data_authority": "launcher-local presentation state only",
-        "runtime_boundary": "mechanical wake and presentation; startup decisions remain with startup-sovereign",
+        "runtime_boundary": "mechanical wake and presentation inside main-system; startup decisions remain with startup-sovereign",
         "failure_boundary": "launcher failure does not become main-system or independent-tool failure",
         "permission_scope": "startup-entry and launcher presentation",
         "command_codes": "",
@@ -26886,7 +26900,7 @@
         "introduced_by": "H041",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "1a832d79f7099e241de827e07267f9f5966c891494f350aa34adda523ca937d1"
+        "content_hash": "e6b655842e098ee29960c161373e119a5b1916cd94c09290f7ab68b397a26a25"
       },
       {
         "provision_type": "article",
@@ -26902,7 +26916,7 @@
         "introduced_by": "H043",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "c08567261bc8bc87376101916e813450c6013f233566015b5c5fcf8ddfd59b3d"
+        "content_hash": "511020ba631acb7196165e0e3bf92a0f01bd7ce1be420f069c11fd428775c960"
       },
       {
         "provision_type": "article",
@@ -31000,6 +31014,22 @@
         "revision_id": "H043",
         "version": "4.51600",
         "content_hash": "1a832d79f7099e241de827e07267f9f5966c891494f350aa34adda523ca937d1",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A280",
+        "revision_id": "H044",
+        "version": "4.61600",
+        "content_hash": "e6b655842e098ee29960c161373e119a5b1916cd94c09290f7ab68b397a26a25",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A282",
+        "revision_id": "H044",
+        "version": "4.61600",
+        "content_hash": "511020ba631acb7196165e0e3bf92a0f01bd7ce1be420f069c11fd428775c960",
         "certification_status": "external-signatures-required"
       }
     ],
@@ -36135,6 +36165,16 @@
         "summary": "classified launcher as startup-core top-level and required shared-layer to converge inside main-system",
         "previous_hash": "5d6b0bf74c058f14842d5b0080da5ee2953ca0ec143f519ec991155fffd590f7",
         "entry_hash": "662c691e4d235a591566eb58bdd03addfbd574fef2c9da898b49a9ebd43cd10b"
+      },
+      {
+        "sequence": 44,
+        "change_id": "H044",
+        "version": "4.61600",
+        "recorded_date": "2026-09-12",
+        "change_scope": "launcher-convergence-into-main-system",
+        "summary": "changed launcher canonical root to E:\\GPTBridge\\main-system\\launcher and retired external active-root authority",
+        "previous_hash": "662c691e4d235a591566eb58bdd03addfbd574fef2c9da898b49a9ebd43cd10b",
+        "entry_hash": "4f652bc5ac129b289410f07ce2bb3bc4e863b18188b3729d4432219920626734"
       }
     ],
     "savings": [
@@ -36630,6 +36670,17 @@
         "content_root": "7d0c3050f6e5b4eb6cb99b052626fc7c7838e59b5c20846522830de29184cec2",
         "identity_root": "4d8df93f1f2a916f72584d900df74e1f7bcb876ff3e7d894c027ef49e0ee8ce4",
         "full_root": "cbac6358864a8ed5f6e4b73c5b2667f91dd70e1d4869f22ac84c45922245728b"
+      },
+      {
+        "version": "4.61600",
+        "history_head": "H044",
+        "provision_count": 501,
+        "identity_count": 501,
+        "lineage_count": 501,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "bb4737e5681b61aff1c51d591bf5ea07a317d7c7874f3c915f11abbc05b75387",
+        "identity_root": "4d8df93f1f2a916f72584d900df74e1f7bcb876ff3e7d894c027ef49e0ee8ce4",
+        "full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223"
       }
     ],
     "sealed_components": [
@@ -38780,6 +38831,56 @@
       },
       {
         "version": "4.51600",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.61600",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.61600",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.61600",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.61600",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.61600",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.61600",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.61600",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.61600",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.61600",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.61600",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -41116,6 +41217,14 @@
       },
       {
         "version": "4.51600",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "4.61600",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
