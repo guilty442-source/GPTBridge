@@ -20,9 +20,13 @@ never bypasses governance.
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 import sys
 import time
 import types
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
@@ -163,15 +167,11 @@ class HotReloadWatcher:
             app, "maintenance_ready", False
         ):
             return False
-        # E127: hot-reload is a runtime action owned by the runtime
-        # sub-sovereign (under the decision-sovereign).
+        synchronization = getattr(app, "synchronization_sovereign", None)
+        if synchronization is None:
+            return False
         decision_sovereign = getattr(app, "decision_sovereign", None)
-        runtime_sovereign = (
-            getattr(decision_sovereign, "runtime_sovereign", None)
-            if decision_sovereign is not None
-            else None
-        )
-        if runtime_sovereign is None:
+        if decision_sovereign is None:
             return False
         governance = getattr(app, "governance", None)
         if governance is None:
@@ -193,13 +193,66 @@ class HotReloadWatcher:
 
         self._in_flight = True
         try:
-            report = await runtime_sovereign.execute_hot_reload(
+            hot_update = getattr(app, "hot_update_service", None)
+            prepare = getattr(hot_update, "prepare_generation", None)
+            if not callable(prepare):
+                return False
+            prepared = await asyncio.to_thread(
+                prepare,
+                governance=governance,
                 approval_token=token,
                 modules=module_names,
             )
-            ok = bool(report.get("ok")) if isinstance(report, dict) else bool(
-                getattr(report, "ok", False)
+            if not bool(getattr(prepared, "ok", False)):
+                self._backoff_until = time.monotonic() + FAILURE_BACKOFF_SECONDS
+                return False
+            operation_id = uuid.uuid4().hex
+            target_generation = f"backend-{time.time_ns()}"
+            from core_system.codex_decision import SovereignRequest
+            # A152/A154: route through the decision-sovereign's repair-decision
+            # gate, which validates the certification proof and delegates A330
+            # execution to the synchronization-sovereign.
+            decision = await decision_sovereign.handle(
+                SovereignRequest(
+                    intent="repair.certified-update",
+                    subject="main-system-backend-generation",
+                    requester="main-system",
+                    payload={
+                        "update_type": "backend-release",
+                        "certified": True,
+                        "update_set": module_names,
+                        "artifact_hashes": dict(prepared.hashes),
+                        "operation_id": operation_id,
+                        "target_generation": target_generation,
+                    },
+                )
             )
+            if not decision.accepted:
+                self._backoff_until = time.monotonic() + FAILURE_BACKOFF_SECONDS
+                return False
+            request_path = (
+                self.project_root / "main-system" / "runtime" / "state"
+                / "backend-update-request.json"
+            )
+            request_path.parent.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "schema_version": 1,
+                "operation_id": operation_id,
+                "update_type": "backend-release",
+                "certified": True,
+                "modules": module_names,
+                "artifact_hashes": dict(prepared.hashes),
+                "target_generation": target_generation,
+                "requested_at": datetime.now(timezone.utc).isoformat(),
+                "terminal_status": "prepared",
+            }
+            temporary = request_path.with_suffix(".tmp")
+            temporary.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(temporary, request_path)
+            ok = True
             if ok:
                 self._last_reload_at = time.monotonic()
                 self._reload_timestamps.append(self._last_reload_at)
@@ -209,12 +262,9 @@ class HotReloadWatcher:
                 "type": "hot_reload_watcher",
                 "ok": ok,
                 "modules": module_names,
-                "reloaded": list(report.get("reloaded", []))[:16]
-                if isinstance(report, dict)
-                else [],
-                "errors": list(report.get("errors", []))[:8]
-                if isinstance(report, dict)
-                else [],
+                "operation_id": operation_id,
+                "target_generation": target_generation,
+                "handover": "prepared",
             })
             return ok
         except Exception as error:
@@ -311,6 +361,24 @@ class HotReloadWatcher:
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
     def _log(self, payload: dict[str, Any]) -> None:
+        try:
+            state_path = (
+                self.project_root / "main-system" / "runtime" / "state"
+                / "hot-reload-watcher.json"
+            )
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = state_path.with_suffix(".tmp")
+            temporary.write_text(
+                json.dumps(
+                    {**payload, "recorded_at": datetime.now(timezone.utc).isoformat()},
+                    ensure_ascii=False,
+                    indent=2,
+                ) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(temporary, state_path)
+        except OSError:
+            pass
         try:
             log = getattr(self.app, "_log", None)
             if callable(log):

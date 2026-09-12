@@ -60,6 +60,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -107,6 +108,19 @@ class DecisionSovereign(SovereignBase):
 
     ROLE = _DECISION_SOVEREIGN.id
 
+    # A10/A12 explicit intent allowlist — the codex edict IDs are article
+    # tokens (A10, A12, ...), not the kebab-case intent strings used by
+    # callers, so the base-class ``_verify_intent`` check against edict IDs
+    # would reject every real intent.  This sovereign owns a fixed set of
+    # decision intents; list them explicitly (fail-closed, A10/A11).
+    _INTENT_ALLOWLIST: frozenset[str] = frozenset({
+        "startup.stack.dispatch",
+        "repair.decide-and-route",
+        "repair.certified-update",
+        "sub-sovereign.assign",
+        "governance-rule.coordinate",
+    })
+
     def __init__(self, app: Any | None = None) -> None:
         super().__init__(app)
         workspace_root = Path(getattr(app, "project_root", Path.cwd()))
@@ -134,6 +148,11 @@ class DecisionSovereign(SovereignBase):
         # decision chain.  The health-maintenance sub-sovereign classifies
         # health signals (health-only) and delegates the decision here.
         self._repair_decision_chain = RepairDecisionChain(app)
+        # A330 certified-update operation tracking — the decision-sovereign
+        # records each certified update it authorizes so it can report the
+        # operation lifecycle (prepared → authorized → executing →
+        # converged/failed) without owning the execution itself.
+        self._certified_updates: dict[str, dict[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # Child access (registry-backed; materialized by the governed executor)
@@ -196,6 +215,15 @@ class DecisionSovereign(SovereignBase):
         return reporter() if callable(reporter) else {"role": child_id}
 
     # ------------------------------------------------------------------
+    # Intent gate (A10/A11 explicit allowlist)
+    # ------------------------------------------------------------------
+
+    def _verify_intent(self, intent: str) -> bool:
+        """Override the base-class edict-ID check with this sovereign's
+        explicit intent allowlist (A10/A11 fail-closed)."""
+        return intent in self._INTENT_ALLOWLIST
+
+    # ------------------------------------------------------------------
     # Single-gate adjudication (A10/A11)
     # ------------------------------------------------------------------
 
@@ -207,6 +235,8 @@ class DecisionSovereign(SovereignBase):
             return await self._adjudicate_startup_dispatch(request)
         if intent == "repair.decide-and-route":
             return await self._adjudicate_repair_decision(request)
+        if intent == "repair.certified-update":
+            return await self._adjudicate_certified_update(request)
         if intent == "sub-sovereign.assign":
             return await self._adjudicate_sub_sovereign_assign(request)
         if intent == "governance-rule.coordinate":
@@ -255,6 +285,90 @@ class DecisionSovereign(SovereignBase):
                 "forbidden": "maintenance-owning-non-health-decisions",
             },
             self.verified_basis("A152", "A154", "E127", "E128"),
+        )
+
+    async def _adjudicate_certified_update(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """A152/A154/A330: 認證更新決策 — 決策主宰裁決後委派同步主宰執行。
+
+        Per A152 the decision-sovereign owns the repair decision.  A
+        certified backend-release update (A330) is a repair-class
+        decision: the decision-sovereign validates the certification proof,
+        authorizes the update, and delegates A330 execution to the
+        synchronization-sovereign (the only sovereign with A330 execution
+        power).  The decision-sovereign records the operation for lifecycle
+        tracking but never executes the update itself (A63/A64).
+        """
+        # A330 certification gate — fail-closed (A10/A11).
+        update_type = request.payload.get("update_type")
+        if not update_type:
+            return refusal_outcome(
+                "MISSING_UPDATE_TYPE", self.verified_basis("A152", "A330")
+            )
+        if request.payload.get("certified") is not True:
+            return refusal_outcome(
+                "CERTIFICATION_MISSING", self.verified_basis("A152", "A330")
+            )
+        update_set = request.payload.get("update_set")
+        if not isinstance(update_set, (list, tuple)) or not update_set:
+            return refusal_outcome(
+                "EMPTY_UPDATE_SET", self.verified_basis("A152", "A330")
+            )
+        artifact_hashes = request.payload.get("artifact_hashes")
+        if not isinstance(artifact_hashes, dict) or not artifact_hashes:
+            return refusal_outcome(
+                "MISSING_ARTIFACT_HASHES", self.verified_basis("A152", "A330")
+            )
+
+        # Delegate A330 execution adjudication to the synchronization
+        # sovereign — the sole holder of A330 execution power (A301/A322).
+        synchronization = getattr(self.app, "synchronization_sovereign", None)
+        if synchronization is None:
+            return refusal_outcome(
+                "SYNCHRONIZATION_SOVEREIGN_UNAVAILABLE",
+                self.verified_basis("A152", "A330", "A301"),
+            )
+        sync_outcome = await synchronization._adjudicate_A330_certified_update(
+            SovereignRequest(
+                intent="A330.certified-update",
+                subject=request.subject,
+                requester=request.requester,
+                payload=request.payload,
+            )
+        )
+        if not sync_outcome.accepted:
+            return sync_outcome
+
+        # Record the operation for lifecycle tracking.  The decision-sovereign
+        # tracks the decision state; execution state is owned by boot_core
+        # and the synchronization-sovereign.
+        operation_id = str(
+            request.payload.get("operation_id")
+            or f"{update_type}-{int(time.monotonic() * 1000)}"
+        )
+        self._certified_updates[operation_id] = {
+            "operation_id": operation_id,
+            "update_type": update_type,
+            "update_set": list(update_set),
+            "artifact_hashes": dict(artifact_hashes),
+            "target_generation": request.payload.get("target_generation", ""),
+            "decision": "authorized",
+            "sync_authorization": sync_outcome.result,
+            "authorized_at": _iso_now(),
+            "terminal_status": "authorized",
+        }
+
+        return accepted_outcome(
+            {
+                "repair_decision": "authorized",
+                "update_type": update_type,
+                "operation_id": operation_id,
+                "route": "decision-sovereign > synchronization-sovereign(A330) > governed-executor",
+                "sync_authorization": sync_outcome.result,
+                "forbidden": "decision-sovereign-direct-execution",
+            },
+            self.verified_basis("A152", "A154", "A330", "A63", "A64"),
         )
 
     async def _adjudicate_sub_sovereign_assign(
@@ -369,6 +483,40 @@ class DecisionSovereign(SovereignBase):
         return self._repair_decision_chain.decide_and_route(classified_signal)
 
     # ------------------------------------------------------------------
+    # Certified-update lifecycle tracking (A152/A330 decision-layer)
+    # ------------------------------------------------------------------
+
+    def record_certified_update_status(
+        self, operation_id: str, terminal_status: str, **detail: Any
+    ) -> None:
+        """Update a tracked certified-update operation's terminal status.
+
+        Called by the governed executor or synchronization-sovereign when
+        a certified update reaches a terminal state (converged, failed,
+        rolled-back, partial-deferred).  The decision-sovereign records
+        the outcome for lifecycle reporting but does not execute anything.
+        """
+        record = self._certified_updates.get(operation_id)
+        if record is None:
+            return
+        record["terminal_status"] = terminal_status
+        record["updated_at"] = _iso_now()
+        record.update(detail)
+
+    def certified_update_status(self) -> dict[str, Any]:
+        """Read-only lifecycle status of tracked certified-update operations."""
+        return {
+            "active_operations": [
+                record
+                for record in self._certified_updates.values()
+                if record.get("terminal_status")
+                not in ("converged", "failed-isolated", "rolled-back", "partial-deferred")
+            ],
+            "recent_operations": list(self._certified_updates.values())[-8:],
+            "total_tracked": len(self._certified_updates),
+        }
+
+    # ------------------------------------------------------------------
     # Status
     # ------------------------------------------------------------------
 
@@ -402,6 +550,7 @@ class DecisionSovereign(SovereignBase):
             },
             "health_owner": "health-maintenance-test-sub-sovereign",
             "governance_rules": self.governance_rule_coordination.coordination_status(),
+            "certified_updates": self.certified_update_status(),
             "runtime": self._child_status("runtime-state-sync-sub-sovereign"),
             "maintenance": (
                 maintenance_sovereign.live_status()
