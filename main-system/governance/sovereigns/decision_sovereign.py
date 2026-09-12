@@ -257,6 +257,11 @@ class DecisionSovereign(SovereignBase):
             self.verified_basis("A12", "A63"),
         )
 
+    @property
+    def permission_sovereign(self) -> Any:
+        """Read-only passthrough to the app's permission sovereign."""
+        return getattr(self.app, "permission_sovereign", None)
+
     def register_sub_sovereign(self, name: str, sovereign: Any) -> None:
         self._sub_sovereigns[name] = sovereign
 
@@ -318,6 +323,31 @@ class DecisionSovereign(SovereignBase):
             app.maintenance_sovereign = sub.HealthMaintenanceTestSubSovereign(
                 app, parent=self
             )
+        app_registry = getattr(app, "_sub_sovereigns", None)
+        if isinstance(app_registry, dict):
+            app_registry[
+                "health-maintenance-test-sub-sovereign"
+            ] = app.maintenance_sovereign
+            app_registry.update(self._sub_sovereigns)
+
+        # Codex parents (A322/A327/A308): synchronization children report to
+        # the synchronization-sovereign; language review to the
+        # permission-sovereign.  Parent links are attached here once the
+        # parent sovereigns have been materialized by the app.
+        synchronization = getattr(app, "synchronization_sovereign", None)
+        permission = getattr(app, "permission_sovereign", None)
+        if synchronization is not None:
+            for child in (
+                self.resource_sovereign,
+                self.integration_sovereign,
+                self.third_party_sovereign,
+                self.runtime_sovereign,
+                self.learning_system_sovereign,
+                self.system_programming_sovereign,
+            ):
+                child.set_parent(synchronization)
+        if permission is not None:
+            self.language_review_sovereign.set_parent(permission)
 
         # Learning-evidence and release-update are synchronization child
         # sub-sovereigns. They start before maintenance so every subsequent

@@ -165,7 +165,7 @@ class HotReloadWatcher:
             return False
         # E127: hot-reload is a runtime action owned by the runtime
         # sub-sovereign (under the decision-sovereign).
-        decision_sovereign = getattr(app, "decision_sovereign_service", None)
+        decision_sovereign = getattr(app, "decision_sovereign", None)
         runtime_sovereign = (
             getattr(decision_sovereign, "runtime_sovereign", None)
             if decision_sovereign is not None

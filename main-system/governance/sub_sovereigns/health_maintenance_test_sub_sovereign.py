@@ -69,6 +69,8 @@ if _MAINTENANCE_SOVEREIGN is None:
 
 MAINTENANCE_RESPONSIBILITIES = _MAINTENANCE_SOVEREIGN.duties
 
+MAINTENANCE_RESPONSIBILITIES = _MAINTENANCE_SOVEREIGN.duties
+
 
 class HealthMaintenanceTestSubSovereign(
     MaintenanceLifecycleMixin,

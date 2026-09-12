@@ -1,7 +1,7 @@
 """Maintenance Sovereign — persistent learning mixin.
 
 Provides the learning-state methods that survive auto-repair restarts via a
-SQLite-backed store.  Extracted from ``maintenance_sovereign`` to keep each
+SQLite-backed store.  Extracted from ``maintenance_sovereign`` (retired, A302/A323) to keep each
 module focused and under 500 lines.
 """
 

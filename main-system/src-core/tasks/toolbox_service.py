@@ -38,7 +38,7 @@ from .toolbox_repair import RepairMixin
 from .toolbox_start import StartMixin
 from .toolbox_shutdown import ShutdownMixin
 from .toolbox_constants import ToolEventCallback  # re-export for compatibility
-from core_system.permission_sovereign import PermissionSovereign
+from governance import PermissionSovereign
 
 __all__ = ["ToolboxService", "ToolEventCallback"]
 

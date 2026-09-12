@@ -86,7 +86,7 @@
     "owner": "main-system",
     "automatic": true,
     "runtime_only": true,
-    "learned_at": "2026-09-12T07:51:31.420608+00:00",
+    "learned_at": "2026-09-12T13:19:44.055072+00:00",
     "occurrence_count": 200,
     "success_rate": 1.0,
     "source": "learned"
@@ -102,8 +102,8 @@
     "owner": "main-system",
     "automatic": true,
     "runtime_only": true,
-    "learned_at": "2026-09-12T06:42:52.798433+00:00",
-    "occurrence_count": 107,
+    "learned_at": "2026-09-12T13:17:40.734868+00:00",
+    "occurrence_count": 141,
     "success_rate": 1.0,
     "source": "learned"
   },
@@ -118,7 +118,7 @@
     "owner": "main-system",
     "automatic": true,
     "runtime_only": true,
-    "learned_at": "2026-09-12T07:50:57.049443+00:00",
+    "learned_at": "2026-09-12T13:19:12.090656+00:00",
     "occurrence_count": 200,
     "success_rate": 1.0,
     "source": "learned"
@@ -134,8 +134,8 @@
     "owner": "main-system",
     "automatic": true,
     "runtime_only": true,
-    "learned_at": "2026-09-12T06:55:01.327880+00:00",
-    "occurrence_count": 6,
+    "learned_at": "2026-09-12T12:24:07.668824+00:00",
+    "occurrence_count": 8,
     "success_rate": 1.0,
     "source": "learned"
   },
