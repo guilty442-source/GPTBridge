@@ -54,7 +54,7 @@ GOVERNANCE_RULE_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
         tool_id_field="id",
         maximum_bytes=1_048_576,
         required_capabilities=(
-            "governance-authority-read-execute",
+            "codex-read-execute",
             "permission-directory-read-execute",
         ),
         requirements=(

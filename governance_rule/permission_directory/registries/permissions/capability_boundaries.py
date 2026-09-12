@@ -16,11 +16,11 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         "direct-authoritative-governance-snapshot-read-only", "none",
         (
             CapabilityGrant(
-                "read", "governance-authority-snapshot", "none",
+                "read", "codex-snapshot", "none",
                 path_match="within", path_roots=("governance_rule",),
             ),
             CapabilityGrant(
-                "read", "permission-directory-snapshot", "none",
+                "read", "directory-authority-snapshot", "none",
                 path_match="within",
                 path_roots=("governance_rule/permission_directory",),
             ),
@@ -74,11 +74,11 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         ), False, False,
     ),
     CapabilityAuthority(
-        "governance-authority-read-execute", "tool:governance_rule",
+        "codex-read-execute", "tool:governance_rule",
         "own-authority-snapshot-read-and-declared-entry-execute-only", "none",
         (
             CapabilityGrant(
-                "read", "governance-authority-snapshot", "none",
+                "read", "codex-snapshot", "none",
                 path_match="within", path_roots=("governance_rule",),
             ),
             CapabilityGrant(
@@ -92,7 +92,7 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         "managed-directory-snapshot-read-and-declared-module-execute-only", "none",
         (
             CapabilityGrant(
-                "read", "permission-directory-snapshot", "none",
+                "read", "directory-authority-snapshot", "none",
                 path_match="within",
                 path_roots=("governance_rule/permission_directory",),
             ),
@@ -158,7 +158,7 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
     ),
     CapabilityAuthority(
         "system-channel-request-process", "governance-policy",
-        "governance-authorized-own-system-request-claim-and-response-only",
+        "codex-authorized-own-system-request-claim-and-response-only",
         "system-channel-request-database-only",
         tuple(
             CapabilityGrant(
@@ -173,7 +173,7 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
     ),
     CapabilityAuthority(
         "ai-channel-request-submit", "governance-policy",
-        "governance-authorized-ai-channel-submit-cancel-and-consume-only",
+        "codex-authorized-ai-channel-submit-cancel-and-consume-only",
         "ai-channel-request-database-only",
         tuple(
             CapabilityGrant(
@@ -188,7 +188,7 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
     ),
     CapabilityAuthority(
         "ai-channel-request-process", "governance-policy",
-        "governance-authorized-own-ai-request-claim-and-response-only",
+        "codex-authorized-own-ai-request-claim-and-response-only",
         "ai-channel-request-database-only",
         tuple(
             CapabilityGrant(

@@ -11,7 +11,6 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_INVESTMENT_MOBILE,
     IDENTITY_GROUP_MAIN_SYSTEM,
     IDENTITY_GROUP_SHARED_LAYER,
-    IDENTITY_GROUP_STAR_CHAT,
     IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
@@ -39,7 +38,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         group_id=IDENTITY_GROUP_GOVERNANCE_RULE,
         actor="governance/tool/governance_rule",
         capabilities=(
-            "governance-authority-read-execute",
+            "codex-read-execute",
             "permission-directory-read-execute",
             "system-channel-request-submit",
             "system-channel-request-process",

@@ -25,15 +25,41 @@ from core_system.runtime_bootstrap import RuntimeBootstrap
 from core_system.governance_runtime import MainSystemGovernance
 from core_system.hot_update_service import HotUpdateService
 from core_system.daily_global_cleaner_service import DailyGlobalCleanerService
-from core_system.maintenance_sovereign import MaintenanceSovereign
-from core_system.permission_sovereign import PermissionSovereign
-from core_system.decision_sovereign import DecisionSovereignService
-from core_system.main_system_self_maintenance import MainSystemSelfMaintenance
 from core_system.versioning import application_version
 from ipc.server import run_server
 from tasks.queue import TaskQueue
 from tasks.toolbox_service import ToolboxService
 from tasks.runtime_status_service import RuntimeStatusService
+
+# Import new governance architecture sovereigns
+from governance.sovereigns import (
+    DecisionSovereign,
+    PermissionSovereign,
+    SystemRuntimeSovereign,
+    SynchronizationSovereign,
+    XingchengSovereign,
+)
+from governance.sub_sovereigns import (
+    SystemSubSovereign,
+    StartupSubSovereign,
+    LanguageReviewSubSovereign,
+    DirectorySubSovereign,
+    IdentityGroupSubSovereign,
+    ResourceDependencySyncSubSovereign,
+    ChannelContractSyncSubSovereign,
+    PolicyArchitectureSubSovereign,
+    HealthMaintenanceTestSubSovereign,
+    DataGovernanceSubSovereign,
+    PriorityCapabilitySubSovereign,
+    ChangeAcceptanceSubSovereign,
+    DependencySyncSubSovereign,
+    ReleaseUpdateSyncSubSovereign,
+    RuntimeStateSyncSubSovereign,
+    RepairBackupSyncSubSovereign,
+    CleanupRetentionSyncSubSovereign,
+    LearningEvidenceSyncSubSovereign,
+    AutomaticLogSyncSubSovereign,
+)
 
 
 class GPTBridgeApp:
@@ -58,13 +84,18 @@ class GPTBridgeApp:
         self.runtime_bootstrap = RuntimeBootstrap(self)
         self.hot_update_service = HotUpdateService(self)
         self.daily_global_cleaner_service = DailyGlobalCleanerService(self)
-        # 維護、權限與系統主宰皆由 DecisionSovereignService 統一分派啟動。
-        # main.py 不再直接 materialize 或啟動任何主宰，只透過
-        # decision_sovereign_service.start_sovereign_stack() 發出啟動指令。
-        self.maintenance_sovereign = MaintenanceSovereign(self)
-        self.permission_sovereign: PermissionSovereign | None = None
-        self.decision_sovereign_service = DecisionSovereignService(self)
-        self.main_system_self_maintenance: MainSystemSelfMaintenance | None = None
+
+        # New governance architecture sovereigns (A63/A64/A12/A128)
+        # Decision layer sovereigns
+        self.decision_sovereign = DecisionSovereign(self)
+        self.permission_sovereign = PermissionSovereign(self)
+        self.system_runtime_sovereign = SystemRuntimeSovereign(self)
+        self.synchronization_sovereign = SynchronizationSovereign(self)
+        self.xingcheng_sovereign = XingchengSovereign(self)
+
+        # Sub-sovereigns (initialized on demand, parent set via set_parent)
+        self._sub_sovereigns: dict[str, Any] = {}
+
         self.hot_reload_watcher: Any | None = None
         self._command_tasks: set[asyncio.Task[Any]] = set()
         self._command_task_meta: dict[asyncio.Task[Any], dict[str, Any]] = {}
@@ -128,18 +159,15 @@ class GPTBridgeApp:
             "startup_failures": list(self.startup_failures),
             "startup_dead": self.startup_dead,
             "daily_global_cleaner": self.daily_global_cleaner_service.status(),
-            "maintenance_sovereign": self.maintenance_sovereign.live_status(),
-            "permission_sovereign": (
-                self.permission_sovereign.coordination_status()
-                if self.permission_sovereign is not None
-                else {"enabled": False}
-            ),
-            "decision_sovereign": self.decision_sovereign_service.status(),
-            "main_system_self_maintenance": (
-                self.main_system_self_maintenance.status()
-                if self.main_system_self_maintenance is not None
-                else {"enabled": False}
-            ),
+            # New governance architecture status
+            "decision_sovereign": self.decision_sovereign.live_status(),
+            "permission_sovereign": self.permission_sovereign.coordination_status(),
+            "system_runtime_sovereign": self.system_runtime_sovereign.live_status(),
+            "synchronization_sovereign": self.synchronization_sovereign.live_status(),
+            "xingcheng_sovereign": self.xingcheng_sovereign.live_status(),
+            "sub_sovereigns": {
+                name: sov.live_status() for name, sov in self._sub_sovereigns.items()
+            },
         }
 
     def _load_governance_rules(self) -> list[str]:
@@ -199,6 +227,30 @@ class GPTBridgeApp:
         startup_state = os.environ.get("GPTBRIDGE_STARTUP_STATE", "")
         generation_id = os.environ.get("GPTBRIDGE_STARTUP_GENERATION", "")
 
+        # A128/A130: Sovereign stack startup sequence
+        # 1. Peer sovereigns (learning, programming, cleaner) — parallel
+        # 2. Permission sovereign (read-only)
+        # 3. Maintenance sovereign + self-maintenance — parallel
+        # 4. System sovereign + 6 sub-sovereigns — parallel
+
+        self._mark_startup_phase("sovereign_stack_starting")
+
+        # Start permission sovereign (read-only coordination face)
+        await self.permission_sovereign.start()
+
+        # Start system runtime sovereign (will start its sub-sovereigns)
+        await self.system_runtime_sovereign.start()
+
+        # Start synchronization sovereign
+        await self.synchronization_sovereign.start()
+
+        # Start xingcheng sovereign
+        await self.xingcheng_sovereign.start()
+
+        # Start decision sovereign (orchestrates the stack)
+        await self.decision_sovereign.start()
+
+        # Check if boot_core has already completed phases 0-5
         if startup_state in ("READY", "DEGRADED"):
             # CAPABILITY 1 already complete — run CAPABILITY 2 only
             self._mark_startup_phase("capability-2-startup-executor")
@@ -339,10 +391,20 @@ class GPTBridgeApp:
                         }
                     )
 
-        if self.main_system_self_maintenance is not None:
-            await self.main_system_self_maintenance.stop()
-        await self.decision_sovereign_service.stop()
-        await self.maintenance_sovereign.stop()
+        # Stop sub-sovereigns
+        for sov in self._sub_sovereigns.values():
+            try:
+                await sov.stop()
+            except Exception:
+                pass
+
+        # Stop sovereigns (A63/A64: decision only, execution delegated)
+        await self.synchronization_sovereign.stop()
+        await self.xingcheng_sovereign.stop()
+        await self.system_runtime_sovereign.stop()
+        await self.permission_sovereign.stop()
+        await self.decision_sovereign.stop()
+
         await self.daily_global_cleaner_service.stop()
         await self.hot_update_service.stop()
         # Stop the tool isolation health monitor.

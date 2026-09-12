@@ -1,16 +1,27 @@
 # 維護主宰職責與相關模組功能說明
 
+> **重要：維護主宰已退役（A302/A323）**。本文件保留為歷史追溯參考。
+> 維護主宰的職責已移至 **健康維護測試子主宰**（health-maintenance-test-sub-sovereign），
+> 隸屬決策主宰（decision-sovereign）。自動清理/備份/修復/更新已移至對應的
+> 同步子主宰（cleanup-retention / repair-backup / release-update 等，A322）。
+> 現行正典身分請查法典權威本（`governance_rule/codex/data/governance_codex.sqlite3`）。
+>
 > 本文件以治理法典（Governance Codex）權威條文為依據，整理維護主宰（maintenance-sovereign）的職責範圍、子主宰能力劃分、以及對應的實作模組。中文僅作備用參考；判定依據一律以法典正式權威本（`governance_rule/codex/__init__.py`）為準（A36/E22）。
 >
-> **法典修正說明**：法典已透過 H009（v1.52010「maintenance narrowed」）與 H014（v1.73120）修正。維護主宰從原本的「top-orchestrator」（擁有 update/repair/fault/backup）收窄為「specialized-decision-sovereign」（聚焦 system-health）。舊條文 A24/E8/A67/A72/E48/E52 均已 superseded，由 A125/E102/A152/A154/E127/E128 取代。
+> **法典修正說明**：法典已透過 H009（v1.52010「maintenance narrowed」）與 H014（v1.73120）修正。維護主宰從原本的「top-orchestrator」（擁有 update/repair/fault/backup）收窄為「specialized-decision-sovereign」（聚焦 system-health）。舊條文 A24/E8/A67/A72/E48/E52 均已 superseded，由 A125/E102/A152/A154/E127/E128 取代。隨後 A302（v1.11000）將維護主宰退役，職責移至健康維護測試子主宰（隸屬決策主宰）；A323 進一步細分決策主宰底下的子主宰。
 
 ---
 
 ## 1. 法典依據
 
-### 1.1 主宰宣告
+### 1.1 主宰宣告（已退役 — A302/A323）
 
-維護主宰定義於法典權威本（`governance_rule/codex/__init__.py` → SQLite 資料庫）：
+> **退役宣告**：維護主宰（maintenance-sovereign）已依 A302 退役。
+> 其法典記錄保留為歷史血脈（rank 標記為 retired）。
+> 現行正典身分為 **健康維護測試子主宰**（health-maintenance-test-sub-sovereign），
+> 隸屬決策主宰（decision-sovereign），area=maintenance。
+
+維護主宰定義於法典權威本（`governance_rule/codex/__init__.py` → SQLite 資料庫），現為退役記錄：
 
 | 欄位 | 值 |
 |---|---|
@@ -95,13 +106,13 @@
 
 | 職權 | 擁有者 | 法典依據 |
 |---|---|---|
-| 系統健康（監控/維護/維持） | **維護主宰** | A125/E102 |
+| 系統健康（監控/維護/維持） | **健康維護測試子主宰** (health-maintenance-test-sub-sovereign) | A302/A323 |
 | 修復決策 | **決策主宰** (decision-sovereign) | A152/E127 |
-| 運行動作（熱重載/重啟） | **系統運行主宰** (system-runtime-sovereign) | E127 |
-| 程式碼變更 | **系統程式主宰** (system-programming-sovereign) | E127 |
-| 錯誤學習 | **學習決策主宰** (learning-system-sovereign) | E127 |
-| 第三方軟體更新 | **第三方主宰** (third-party-sovereign) | dependency-governance |
-| 資料完整性查核 | **資料主宰** (data-sovereign) | A33/E20 |
+| 運行動作（熱重載/重啟） | **運行主宰** (runtime-sovereign) | A300/E127 |
+| 程式碼變更 | **發布更新同步子主宰** (release-update-sync-sub-sovereign) | A309/A322 |
+| 錯誤學習 | **學習證據同步子主宰** (learning-evidence-sync-sub-sovereign) | A310/A322 |
+| 第三方軟體更新 | **依賴同步子主宰** (dependency-sync-sub-sovereign) | A307/A322 |
+| 資料完整性查核 | **資料治理子主宰** (data-governance-sub-sovereign) | A304/A323 |
 
 ### 3.1 修復決策鏈（E128）
 
@@ -117,9 +128,15 @@
 
 ---
 
-## 4. 維護主宰底下之子主宰
+## 4. 維護主宰底下之子主宰（已退役 — A302/A322/A323）
 
-維護主宰的執行能力下放給五個統一子主宰（role=sub-sovereign），定義於 `governance_rule/execution/tool_runtime/sub_sovereign.py`。五者皆隸屬維護主宰（`UNDER: ("maintenance",)`）。
+> **退役宣告**：維護主宰已退役（A302），其底下之子主宰角色常數保留於
+> `governance_rule/execution/tool_runtime/sub_sovereign.py` 作為相容性別名。
+> 自動清理/備份/修復/更新已移至同步主宰底下的單一職責同步子主宰（A322）：
+> cleanup-retention-sync / repair-backup-sync / release-update-sync。
+> 健康監控已移至健康維護測試子主宰（隸屬決策主宰，A323）。
+
+原維護主宰的執行能力下放給五個統一子主宰（role=sub-sovereign），定義於 `governance_rule/execution/tool_runtime/sub_sovereign.py`。五者皆隸屬維護主宰（`UNDER: ("maintenance",)`）。現已退役，僅保留相容性常數。
 
 | 子主宰 | authority | 職責 (duty) | 對應模組 |
 |---|---|---|---|
@@ -135,11 +152,12 @@
 
 ## 5. 實作模組功能說明
 
-### 5.1 維護主宰本體
+### 5.1 維護主宰本體（已退役 — 相容別名）
 
-**檔案**：`main-system/src-core/core_system/maintenance_sovereign.py`
+**檔案**：`main-system/src-core/core_system/maintenance_sovereign.py`（相容 shim）
+**現行實作**：`main-system/governance/sub-sovereigns/health_maintenance_test_sub_sovereign.py`
 
-`MaintenanceSovereign` 類別是維護主宰的程式內（in-process）實作。它是決策層（health-only），協調已注入的受治理服務，本身不執行重工作。
+`MaintenanceSovereign` 類別是維護主宰的程式內（in-process）實作，現為相容別名，指向健康維護測試子主宰（HealthMaintenanceTestSubSovereign）。原為決策層（health-only），協調已注入的受治理服務，本身不執行重工作。
 
 | 方法 | 對應職責 | 說明 |
 |---|---|---|

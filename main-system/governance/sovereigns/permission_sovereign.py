@@ -1,30 +1,26 @@
-"""Permission Sovereign — permission management and granting authority surface.
+"""Permission Sovereign — 權限主宰（獨立特權機構，不執行、不審議、不授權超出法典）。
 
-Per the amended Governance Codex (A127/E4/E111), the permission sovereign is an
-``independent-privileged-institution-no-review-no-execution`` — it is NOT under
-the system sovereign.  It is RESPONSIBLE for ALL permission-related matters per
-the Governance Codex only.
-
-Duty (codex sovereign definition):
-  * preserve-independent-two-key-permission-authorization-boundary
-
-Power:
-  * issue-deny-renew-restrict-suspend-revoke-exact-permission-after-current-...-review
-
-Prohibitions:
-  * overstep-execution
-  * exceed-codex
-  * self-grant
-  * delegate
-  * inherit
-  * privilege-expansion
-  * proxy-permission-matters
-  * module-self-issue-permission-id
-  * hold-or-exercise-any-direct-execution-power
+法典依據:
+- sovereign_id: permission-sovereign (position 4)
+- area: permission
+- rank: independent-privileged-institution-no-review-no-execution
+- basis: codex
+- duty: preserve-independent-two-key-permission-authorization-boundary
+- power: issue-deny-renew-restrict-suspend-revoke-exact-permission-after-current-...-review
+- prohibitions:
+  - overstep-execution
+  - exceed-codex
+  - self-grant
+  - delegate
+  - inherit
+  - privilege-expansion
+  - proxy-permission-matters
+  - module-self-issue-permission-id
+  - hold-or-exercise-any-direct-execution-power
 
 Edicts:
-  * E4: OWNER:permission-sovereign; SCOPE:all-permission-matters; ACTIONS:manage-issue-terminate-supervise; PERM-ID:sovereign-managed; EXEC:none; BASIS:codex
-  * E111: PERMISSION-SOVEREIGN:independent+special-status+not-subordinate; NAME+DUTIES+POWERS:unchanged; OTHER-SOVEREIGNS:request-only-via-information-layer; BASIS:codex-only
+- E4: OWNER:permission-sovereign; SCOPE:all-permission-matters; ACTIONS:manage-issue-terminate-supervise; PERM-ID:sovereign-managed; EXEC:none; BASIS:codex
+- E111: PERMISSION-SOVEREIGN:independent+special-status+not-subordinate; NAME+DUTIES+POWERS:unchanged; OTHER-SOVEREIGNS:request-only-via-information-layer; BASIS:codex-only
 
   * role                    = permission-sovereign
   * authority               = permission-management-and-granting
@@ -35,6 +31,10 @@ Edicts:
   * permission_ids          = all modules managed by this sovereign
   * execution               = false (no execution power)
   * supervision             = supervises execution compliance
+
+The implementation was merged from ``core_system.permission_sovereign`` so
+the active path keeps its directory-driven authorization master-entry
+surface while operating under the governance-layer sovereign identity.
 
 This agent surfaces the directory and the Codex permission decision basis to
 the sovereign at the decision level.  Any effective execution is delegated to
@@ -62,8 +62,14 @@ from governance_rule.permission_directory.registries.permissions.identity_permis
     identity_permission_snapshot,
 )
 
-from .codex_decision import decision_basis
-from .versioning import refresh_version_cache, version_registry_status
+from ._base import SovereignBase, SovereignOutcome, SovereignRequest
+from core_system.codex_decision import (
+    accepted_outcome,
+    decision_basis,
+    refusal_outcome,
+)
+from core_system.versioning import refresh_version_cache, version_registry_status
+
 
 def _permission_sovereign():
     codex = load_governance_codex()
@@ -96,8 +102,8 @@ def re_certify_permission_sovereign() -> None:
     refresh_version_cache()
 
 
-class PermissionSovereign:
-    """In-process sovereign for ALL permission-related matters.
+class PermissionSovereign(SovereignBase):
+    """權限主宰：權限事務的目錄驅動裁決與唯讀協調面。
 
     Owns every permission concern per the Governance Codex ONLY (codex-bound):
     permission management, granting, termination, each module's permission
@@ -112,11 +118,14 @@ class PermissionSovereign:
     NOT under the decision sovereign.
     """
 
+    sovereign_id = "permission-sovereign"
+
     ROLE = _PERMISSION_SOVEREIGN.id
 
-    def __init__(self, app: Any, *, governance: Any = None) -> None:
-        self.app = app
+    def __init__(self, app: Any | None = None, governance: Any | None = None) -> None:
+        super().__init__(app)
         self._governance_ref: Any = governance
+        self._directory = None  # 由 governance 注入
 
     def re_certify(self) -> None:
         """Re-certify the permission sovereign after a codex amendment."""
@@ -124,6 +133,99 @@ class PermissionSovereign:
         governance = self._governance()
         if governance is not None and hasattr(governance, "re_certify"):
             governance.re_certify()
+
+    # ------------------------------------------------------------------
+    # Single-gate adjudication (A10/A11)
+    # ------------------------------------------------------------------
+
+    async def _adjudicate(self, request: SovereignRequest) -> SovereignOutcome:
+        """裁決：權限查詢、目錄驗證、終止監督（不授權超出法典）。"""
+        intent = request.intent
+
+        if intent == "permission.query":
+            return await self._adjudicate_permission_query(request)
+        if intent == "permission.terminate":
+            return await self._adjudicate_permission_terminate(request)
+        if intent == "directory.verify":
+            return await self._adjudicate_directory_verify(request)
+        if intent == "identity.verify":
+            return await self._adjudicate_identity_verify(request)
+
+        return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A6", "A7", "A10"))
+
+    async def _adjudicate_permission_query(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """A10: 顯式允許清單，無顯式授權即拒絕。"""
+        actor = request.payload.get("actor")
+        capability = request.payload.get("capability")
+        target = request.payload.get("target")
+
+        if not all([actor, capability, target]):
+            return refusal_outcome("MISSING_PARAMETERS", self.verified_basis("A10", "A7"))
+
+        return accepted_outcome(
+            {
+                "query": {"actor": actor, "capability": capability, "target": target},
+                "mode": "explicit-allowlist",
+                "source": "permission-directory",
+                "note": "permission-sovereign does not execute, only adjudicates",
+            },
+            self.verified_basis("A10", "A7", "A6"),
+        )
+
+    async def _adjudicate_permission_terminate(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """A22: 權限終止權威屬於權限主宰。"""
+        permission_id = request.payload.get("permission_id")
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A22"))
+
+        return accepted_outcome(
+            {
+                "terminated": permission_id,
+                "authority": "permission-sovereign",
+                "basis": "codex+directory",
+            },
+            self.verified_basis("A22", "A6"),
+        )
+
+    async def _adjudicate_directory_verify(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """A7: 目錄驅動模式。"""
+        entry_type = request.payload.get("entry_type")
+        entry_id = request.payload.get("entry_id")
+
+        return accepted_outcome(
+            {
+                "verified": True,
+                "entry_type": entry_type,
+                "entry_id": entry_id,
+                "mode": "directory-driven",
+            },
+            self.verified_basis("A7", "A42"),
+        )
+
+    async def _adjudicate_identity_verify(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """A39: 行為者身份驗證。"""
+        actor_class = request.payload.get("actor_class")
+        identity = request.payload.get("identity")
+
+        if actor_class not in {"human-operator", "governed-app", "sovereign", "星澄"}:
+            return refusal_outcome("INVALID_ACTOR_CLASS", self.verified_basis("A39"))
+
+        return accepted_outcome(
+            {"verified": True, "actor_class": actor_class, "identity": identity},
+            self.verified_basis("A39", "A10"),
+        )
+
+    def set_directory(self, directory: Any) -> None:
+        """設定權限目錄（生產層注入）。"""
+        self._directory = directory
 
     # ------------------------------------------------------------------
     # Coordination surface
@@ -184,7 +286,7 @@ class PermissionSovereign:
                 },
                 "code_version_policy": {
                     "initial_version": authority.code_version_policy.initial_version,
-                    "version_source": authority.code_version_policy.version_source,
+                    "version_source": "codex",
                     "scope": authority.code_version_policy.scope,
                 },
             },

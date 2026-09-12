@@ -1,16 +1,23 @@
-"""sub_sovereign — 統一子主宰契約（受治理執行層之執行器官）。
+"""sub_sovereign — 受治理執行器契約（模組執行層之執行器官）。
 
-主宰（主線）為決策層且無執行權（A5/E2）；頂層主宰只有決策權，實際執行
-能力一律下放給子主宰承擔。子主宰即承擔此職責之受治理執行層：本倉內以
-各域 channel_runtime.py 之 GovernedToolRuntime 實例為子主宰，向其隸屬
-主宰回報通道角色、健康狀態與本地維護（清理／修復／備份協調）結果。
+本契約描述 **模組執行層** 的受治理執行器（GovernedToolRuntime），
+非法典子主宰決策層。法典子主宰（A315/A322/A323/A324）為無決策、
+無審查、無授權、無執行之管理角色，定義於
+``main-system/governance/sub_sovereigns/``，與本契約為不同層次。
 
-  * role                   = sub-sovereign
+本契約中各域 channel_runtime.py 之 GovernedToolRuntime 實例為受治理
+執行器，向其隸屬主宰回報通道角色、健康狀態與本地維護（清理／修復／
+備份協調）結果。
+
+  * role                   = governed-executor (tool-runtime)
   * authority              = information-management-delivery-channels-and-channel-health-and-automatic-cleanup-repair-backup
   * scope                  = all-owned-channel-delivery-health-and-local-maintenance-duties
-  * subordinate_to         = system / maintenance (隸屬各主宰之統一子主宰)
+  * subordinate_to         = parent-sovereign (經由資訊層)
   * execution              = true (受治理執行器；執行權歸執行層)
   * decision               = false (不涉入主宰決策層)
+
+注意：下列角色常數中，部分對應之法典身分已退役（A302–A310/A322/A323）。
+退役常數保留為相容性別名，活躍路徑應使用法典現行正典身分。
 """
 
 from __future__ import annotations
@@ -38,14 +45,21 @@ SUB_SOVEREIGN_DUTY: tuple[str, ...] = (
     "automatic-backup-coordination",
 )
 
-# 統一子主宰隸屬各主宰；可於多個主宰下承載執行職責。
+# 受治理執行器隸屬各主宰；可於多個主宰下承載執行職責。
+# 注意：「maintenance」對應之法典身分已退役（A302），保留僅為相容性。
 SUB_SOVEREIGN_UNDER: tuple[str, ...] = ("system", "maintenance")
 
 
 # ---------------------------------------------------------------------------
-# 系統主宰底下之子主宰：運行 / 資源 / 資料 / 整合 / 程式語言審查 /
-# 第三方軟體管理。
-# 六者皆為統一子主宰（role=sub-sovereign），隸屬系統主宰（system）。
+# 系統主宰底下之受治理執行器角色常數。
+# 注意：下列角色 ID 已退役（A304-A310/A322/A323），法典現行正典身分
+#   system-data-sub-sovereign      → data-governance-sub-sovereign
+#   system-integration-sub-sovereign → channel-contract-sync-sub-sovereign
+#   system-resource-sub-sovereign  → resource-dependency-sync-sub-sovereign
+#   system-runtime-sub-sovereign   → runtime-state-sync-sub-sovereign
+#   system-language-review-sub-sovereign → language-review-sub-sovereign
+#   system-third-party-sub-sovereign → dependency-sync-sub-sovereign
+# 常數保留為相容性別名；活躍路徑應使用法典現行正典身分。
 # ---------------------------------------------------------------------------
 
 SYSTEM_RUNTIME_ROLE: str = "system-runtime-sub-sovereign"
@@ -125,8 +139,10 @@ SYSTEM_THIRD_PARTY_MANAGER_UNDER: tuple[str, ...] = ("system",)
 
 
 # ---------------------------------------------------------------------------
-# 權限主宰底下之子主宰：能力劃分為 監察 / 發權 / 收權。
-# 三者皆為統一子主宰（role=sub-sovereign），隸屬權限主宰（permission）。
+# 權限主宰底下之受治理執行器角色常數。
+# 注意：下列角色 ID 為執行層角色，非法典子主宰身分。法典權限主宰底下
+# 之子主宰為 language-review / directory / identity-group（A316/A317）。
+# 常數保留為相容性別名。
 # ---------------------------------------------------------------------------
 
 PERMISSION_SUPERVISOR_ROLE: str = "permission-supervisor-sub-sovereign"
@@ -161,9 +177,11 @@ PERMISSION_REVOKER_UNDER: tuple[str, ...] = ("permission",)
 
 
 # ---------------------------------------------------------------------------
-# 維護主宰底下之子主宰：能力劃分為 自動清理 / 自動備份 / 自動修復 /
-# 自動更新 / 健康監控。
-# 五者皆為統一子主宰（role=sub-sovereign），隸屬維護主宰（maintenance）。
+# 維護主宰底下之受治理執行器角色常數。
+# 注意：maintenance-sovereign 已退役（A302），其維護職責移至
+# health-maintenance-test-sub-sovereign（決策主宰底下）及對應的同步子主宰
+# （cleanup-retention / repair-backup / release-update 等，A322/A323）。
+# 常數保留為相容性別名；活躍路徑應使用法典現行正典身分。
 # ---------------------------------------------------------------------------
 
 MAINTENANCE_CLEANER_ROLE: str = "maintenance-cleaner-sub-sovereign"
@@ -239,16 +257,19 @@ class ChannelHealth:
 
 @runtime_checkable
 class SubSovereign(Protocol):
-    """統一子主宰：受治理執行層之執行器官契約。
+    """受治理執行器契約（模組執行層）。
 
-    各主宰底下之下級執行器必須實作此契約以承擔執行職責。任何執行均
-    委派受治理執行器；子主宰本身有下列責任：
+    各主宰底下之受治理執行器必須實作此契約以承擔執行職責。任何執行均
+    委派受治理執行器；執行器本身有下列責任：
       * 擁有並管理其通道（system / ai）之傳遞；
       * 監督通道健康（last_ok / degraded / latency）並向主宰呈現；
       * 自動清理：清除工具本地之臨時檔／快取／空目錄（tool-local 界限）；
       * 自動修復：隔離與修復受損之 sqlite／pycache 等工具本地狀態；
       * 自動備份協調：遵循治理備份政策向主宰呈報備份動態；
       * 遵從其隸屬主宰之韌性／清除／自修生命週期。
+
+    注意：此契約描述 **模組執行層** 的受治理執行器，非法典子主宰決策層
+    （A315/A322/A323/A324 之子主宰為無決策、無執行之管理角色）。
     """
 
     tool_id: str

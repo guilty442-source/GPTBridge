@@ -2,7 +2,7 @@
 
 The version source is governed by the Permission Sovereign via the
 Directory Authority's ``CodeVersionPolicy``
-(``version_source="governance-authority-or-tool-manifest"``).  This module
+(``version_source="codex-or-tool-manifest"``).  This module
 is the single dynamic resolver that reads the physical version source
 (``main-system/package.json``) under that policy.
 
