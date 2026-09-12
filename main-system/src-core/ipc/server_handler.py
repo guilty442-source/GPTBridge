@@ -91,8 +91,8 @@ async def handler(websocket, app_instance):
     read_loop_active = False
 
     async def _heartbeat_monitor() -> None:
-        HEARTBEAT_INTERVAL = 10.0
-        HEARTBEAT_TIMEOUT = 30.0
+        HEARTBEAT_INTERVAL = 5.0
+        HEARTBEAT_TIMEOUT = 20.0
         while not heartbeat_dead.is_set():
             await asyncio.sleep(HEARTBEAT_INTERVAL)
             if heartbeat_dead.is_set():
@@ -106,7 +106,7 @@ async def handler(websocket, app_instance):
                 read_loop_active
                 and time.monotonic() - last_pong_time > HEARTBEAT_TIMEOUT
             ):
-                # Client has not responded in 30s — close dead connection
+                # Client has not responded in 20s — close dead connection
                 heartbeat_dead.set()
                 try:
                     await websocket.close(code=1001, reason="heartbeat_timeout")
@@ -276,7 +276,7 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
     while not shutdown_event.is_set():
         try:
             # Keep ipc-connections.json fresh for the connection watchdog.
-            # The watchdog rejects a state file older than 30s, while the
+            # The watchdog rejects a state file older than 20s, while the
             # open/close hooks only write on transitions, so a stable healthy
             # connection would otherwise be misread as a frontend disconnect.
             _connection_count = getattr(app_instance, "_active_ws_connections", 0)

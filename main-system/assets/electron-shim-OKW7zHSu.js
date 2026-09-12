@@ -1,0 +1,18 @@
+"use strict";
+const electron = globalThis.__ELECTRON__ || require("electron");
+const app = electron.app;
+const BrowserWindow = electron.BrowserWindow;
+const BrowserView = electron.BrowserView;
+const dialog = electron.dialog;
+const ipcMain = electron.ipcMain;
+const shell = electron.shell;
+const ipcRenderer = electron.ipcRenderer;
+const contextBridge = electron.contextBridge;
+exports.BrowserView = BrowserView;
+exports.BrowserWindow = BrowserWindow;
+exports.app = app;
+exports.contextBridge = contextBridge;
+exports.dialog = dialog;
+exports.ipcMain = ipcMain;
+exports.ipcRenderer = ipcRenderer;
+exports.shell = shell;

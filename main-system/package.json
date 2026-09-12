@@ -4,7 +4,7 @@
   "description": "GPTBridge Windows 11 Stable Baseline",
   "private": true,
   "author": "GPTBridge Development Team",
-  "main": "electron-wrapper.js",
+  "main": "dist-ui/main/index.js",
   "scripts": {
     "start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1",
     "dev": "node scripts/dev.mjs",

@@ -9,15 +9,15 @@ Architecture:
 
   Health layers:
     1. Backend process alive (boot_core supervises)
-    2. Backend HTTP /health returns ready with governance_ready=true (boot_core probes every 5s)
+    2. Backend HTTP /health returns ready with governance_ready=true (boot_core probes every 3s)
     3. Frontend WebSocket connected (IPC server tracks active connections)
     4. ConnectionWatchdog polls all three and records state transitions
 
   When the connection degrades:
-    - Frontend disconnects → useBackendSocket schedules reconnect (3 attempts)
-    - After 3 failed attempts → frontend calls app:restart-backend (Electron)
-    - Electron restarts boot_core → boot_core restarts backend
+    - Frontend disconnects → useBackendSocket schedules reconnect with backoff
+    - ConnectionWatchdog detects sustained disconnection (2 dead probes)
     - ConnectionWatchdog records the outage and learns from it
+    - Repair is requested through the governed repair path (A72)
 
   This module runs inside boot_core as a background thread.  It:
     - Polls backend /health every CONNECTION_PROBE_INTERVAL seconds
@@ -44,10 +44,13 @@ from typing import Any, Final
 from core_system.versioning import component_version
 
 CONNECTION_WATCHDOG_VERSION: Final[str] = component_version("connection-watchdog")
-CONNECTION_PROBE_INTERVAL: Final[float] = 5.0
-CONNECTION_PROBE_TIMEOUT: Final[float] = 8.0
-CONNECTION_DEAD_THRESHOLD: Final[int] = 3  # consecutive dead probes → disconnected
+CONNECTION_PROBE_INTERVAL: Final[float] = 3.0
+CONNECTION_PROBE_TIMEOUT: Final[float] = 3.0
+CONNECTION_DEAD_THRESHOLD: Final[int] = 2  # consecutive dead probes → disconnected
 CONNECTION_STATE_FILE: Final[str] = "ipc-connection-state.json"
+# Allow a single transient probe failure without counting toward the dead
+# threshold — only sustained failures indicate a real disconnection.
+CONNECTION_PROBE_RETRY_GRACE: Final[int] = 1
 
 
 def _iso_now() -> str:
@@ -216,13 +219,14 @@ class ConnectionWatchdog:
             data = json.loads(self._ipc_state_file.read_text(encoding="utf-8"))
             active = int(data.get("active_connections", 0))
             updated_at = str(data.get("updated_at", ""))
-            # Consider stale if older than 30 seconds.
+            # Consider stale if older than 20 seconds (aligned with the
+            # backend heartbeat timeout so a dead session is detected promptly).
             if updated_at:
                 from datetime import datetime as _dt
                 try:
                     parsed = _dt.fromisoformat(updated_at.replace("Z", "+00:00"))
                     age = (datetime.now(timezone.utc) - parsed).total_seconds()
-                    if age > 30:
+                    if age > 20:
                         return False
                 except (ValueError, TypeError):
                     pass
@@ -362,10 +366,20 @@ class ConnectionWatchdog:
         with self._lock:
             old_state = self._snapshot.overall_state
             old_dead = self._snapshot.consecutive_dead
-            if new_state != "connected":
-                new_dead = old_dead + 1
-            else:
+            if new_state == "connected":
                 new_dead = 0
+            elif new_state == "degraded":
+                # Backend is healthy but frontend is not connected — this
+                # is an expected state while waiting for a user session and
+                # should not count toward the dead threshold.
+                new_dead = 0
+            elif old_state == "connected" and new_state == "disconnected":
+                # Sudden drop from connected to disconnected is likely a
+                # transient network glitch — allow one grace probe before
+                # counting toward the dead threshold.
+                new_dead = max(0, old_dead - CONNECTION_PROBE_RETRY_GRACE + 1)
+            else:
+                new_dead = old_dead + 1
             self._snapshot = ConnectionSnapshot(
                 backend_process_alive=backend_process_alive,
                 backend_http_healthy=backend_http,

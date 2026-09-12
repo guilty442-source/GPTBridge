@@ -10,13 +10,13 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: resolve(__dirname, '.'),
-    emptyOutDir: false,
+    outDir: resolve(__dirname, 'dist-ui/main'),
+    emptyOutDir: true,
     minify: false,
     target: 'node18',
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'src-ui/main/index.ts'),
+        index: resolve(__dirname, 'src-ui/main/index.ts'),
         preload: resolve(__dirname, 'src-ui/main/preload.ts'),
       },
       output: {
