@@ -110,6 +110,7 @@ async def process_command_task(
                 audit=lambda record: _write_core_log_safely(
                     app, "information-channel", "command routed", record
                 ),
+                project_root=getattr(app, "project_root", None),
             )
             app._information_channel_gateway = gateway
         event_name, payload_out = await gateway.dispatch(

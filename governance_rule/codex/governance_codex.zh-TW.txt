@@ -1,5 +1,5 @@
 {
-  "codex_version": "3.91600",
+  "codex_version": "3.71600",
   "tables": {
     "access_actor_classes": [
       {
@@ -832,10 +832,10 @@
         "position": 89,
         "provision_id": "A125",
         "section_index": "6",
-        "subject": "維護主宰專責職務",
-        "rule": "維護主宰負責監測與維持系統健康、系統維護，以及測試政策、範圍規劃、執行協調、證據驗收、狀態追蹤與缺口閉合。權限主宰仍唯一負責測試流程目錄登錄與權限，各領域主宰仍對所屬測試內容負責。所有測試必須具備登錄代碼、需求追蹤、正反向結果、故障代碼、複測證明、驗收決定及稽核紀錄。",
-        "prohibition": "禁止維護主宰奪取其他領域權責、自行登錄測試目錄、繞過權限、執行未登錄測試、隱藏或偽造結果、無證據驗收、未複測即關閉缺口，或直接交由未受治理的執行者處理。",
-        "exception": "緊急隔離只能停止受影響測試或服務，不得免除後續登錄、證據、複測、驗收與稽核要求。"
+        "subject": "maintenance-sovereign-focused-duty",
+        "rule": "OWNER:maintenance-sovereign; DUTIES:monitor-system-health+preserve-system-health+maintain-system; BASIS:codex; DELEGATE:governed-maintenance-executors",
+        "prohibition": "FORBID:non-maintenance-domain-ownership+direct-ungoverned-execution",
+        "exception": ""
       },
       {
         "position": 90,
@@ -2255,20 +2255,6 @@
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
         "status": "external-signatures-required"
-      },
-      {
-        "version": "3.81600",
-        "signed_payload_fields": "version|content-root|history-head|identity-root",
-        "evidence_location": "external-offline-signature-bundle",
-        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
-        "status": "external-signatures-required"
-      },
-      {
-        "version": "3.91600",
-        "signed_payload_fields": "version|content-root|history-head|identity-root",
-        "evidence_location": "external-offline-signature-bundle",
-        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
-        "status": "external-signatures-required"
       }
     ],
     "certification_policy": [
@@ -2545,20 +2531,6 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "complete-seal-evidence-bundle"
-      },
-      {
-        "version": "3.81600",
-        "recorded_at_utc": "2026-09-12T00:25:41Z",
-        "recorded_at_local": "2026-09-12T08:25:41+08:00",
-        "timezone": "Asia/Taipei",
-        "event": "retrospective-evidence-gap-recorded-not-original-seal-time"
-      },
-      {
-        "version": "3.91600",
-        "recorded_at_utc": "2026-09-12T00:25:41Z",
-        "recorded_at_local": "2026-09-12T08:25:41+08:00",
-        "timezone": "Asia/Taipei",
-        "event": "codex-successor-sealed"
       }
     ],
     "command_code_directory": [
@@ -14784,7 +14756,7 @@
       },
       {
         "key": "codex_version",
-        "value": "3.91600"
+        "value": "3.71600"
       },
       {
         "key": "schema",
@@ -24005,7 +23977,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "3b2542c2888c3873baf645c968cd0fa3be06be79afd3b4d934ae70cf3bc36600"
+        "content_hash": "4a9ba9cb6297641bad77c48cbfb5b9b31d16fa09a448f5bf4fa3e8c5f51a4f73"
       },
       {
         "provision_type": "article",
@@ -30400,14 +30372,6 @@
         "version": "3.71600",
         "content_hash": "259065f864ecdf8369eb7c761180e02bf79bba5225bb38e88117e4c9f643edea",
         "certification_status": "external-signatures-required"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A125",
-        "revision_id": "H037",
-        "version": "3.91600",
-        "content_hash": "3b2542c2888c3873baf645c968cd0fa3be06be79afd3b4d934ae70cf3bc36600",
-        "certification_status": "external-signatures-required"
       }
     ],
     "provision_special_law_migration": [
@@ -35472,16 +35436,6 @@
         "summary": "add APP_GET_FAULT_ANALYSIS and XINGCHENG_DIAGNOSE_FAULT",
         "previous_hash": "2a0452ff99dc9048f630453ffe6bcb14f594e832664ec8a96604be8ba5f5edb9",
         "entry_hash": "26b191c409c57b223e0c9e76905b7f98111d71ac29a77bf29d3292543806d156"
-      },
-      {
-        "sequence": 37,
-        "change_id": "H037",
-        "version": "3.91600",
-        "recorded_date": "2026-09-12",
-        "change_scope": "maintenance-sovereign-test-management-duty",
-        "summary": "added governed test management to maintenance-sovereign while preserving permission and domain-owner boundaries",
-        "previous_hash": "26b191c409c57b223e0c9e76905b7f98111d71ac29a77bf29d3292543806d156",
-        "entry_hash": "00a66d2e7c2067e8c32a4c9f2f533a8a7f0f0868ebbc53ade47d3d9c060f87f7"
       }
     ],
     "savings": [
@@ -35900,17 +35854,6 @@
         "content_root": "3b9a97de65c1c509387d6c3cb829e576cfba1e3e22a0bf0164791613819163c6",
         "identity_root": "98e7de854efa0ea38c7662da18d9b047d6146269382c587fcdc938fb914667b9",
         "full_root": "70a78bac45efd80058a372f0c262b8dbe6c70baf222d6a66b57a62900ad1f1d4"
-      },
-      {
-        "version": "3.91600",
-        "history_head": "H037",
-        "provision_count": 493,
-        "identity_count": 493,
-        "lineage_count": 493,
-        "certification_state": "sealed-read-only-pending-external-signatures",
-        "content_root": "12b842428b24ca70bbd25d458df74aa5954193993a5f17c0c29ca7e3c7c69e31",
-        "identity_root": "ca44eb1e60447864aaed2431dc028b6ba30bb43b1b701332fa7d92f5cdca150a",
-        "full_root": "076d70a5e8b8440b942aaf1a73d43b1c2cf7ea9b32c137b38954ffe7b2174de9"
       }
     ],
     "sealed_components": [
@@ -37661,106 +37604,6 @@
       },
       {
         "version": "3.71600",
-        "component": "version-rules",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.81600",
-        "component": "certification-policy",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.81600",
-        "component": "history",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.81600",
-        "component": "identities",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.81600",
-        "component": "lineage",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.81600",
-        "component": "metadata",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.81600",
-        "component": "provisions",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.81600",
-        "component": "schema",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.81600",
-        "component": "sovereigns",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.81600",
-        "component": "supersessions",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.81600",
-        "component": "version-rules",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.91600",
-        "component": "certification-policy",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.91600",
-        "component": "history",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.91600",
-        "component": "identities",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.91600",
-        "component": "lineage",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.91600",
-        "component": "metadata",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.91600",
-        "component": "provisions",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.91600",
-        "component": "schema",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.91600",
-        "component": "sovereigns",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.91600",
-        "component": "supersessions",
-        "included_in_full_root": 1
-      },
-      {
-        "version": "3.91600",
         "component": "version-rules",
         "included_in_full_root": 1
       }
