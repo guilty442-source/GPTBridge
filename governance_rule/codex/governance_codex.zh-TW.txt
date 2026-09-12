@@ -353,7 +353,7 @@
       },
       {
         "architecture_code": "INVESTMENT_MOBILE",
-        "target_root": "E:\\GPTBridge\\Standalone tools\\ai-assistant\\investment-mobile",
+        "target_root": "E:\\GPTBridge\\Standalone tools\\investment-mobile",
         "current_state": "active",
         "required_state": "active",
         "legacy_root": "E:\\GPTBridge\\Standalone tools\\investment-mobile",
@@ -2892,37 +2892,37 @@
         "position": 331,
         "provision_id": "A331",
         "section_index": "17",
-        "subject": "整部法典完整性與缺口收旂專法",
-        "rule": "檢查範圍必須覆蓋完整法典資料庫、機密中文鏡像、身分、沿革、修訂、效力、分類、目錄、引用、主宰拓撲、職責上限、版本、歷史鏈與封印。必須檢查結構唯一性、登錄閉包、鏡像內容同步、引用可解析、圖譜無循環、權限與執行邊界、專法衝突優先序、版本及封印可重現性、保密與禁止越獄控制。每項輸出通過、失敗或不適用及精確身分與證據雜湊；任何孤兒、過期鏡像、歧義、破損封印、未授權舊身分或矛盾有效規則都必須阻擋認證與發布。修復只能精確修正缺陷記錄，保留歷史與無關工作。",
-        "prohibition": "禁止抽樣代替全量檢查、只比對身分不比對內容、靜默正規化、使用 Unicode 實體識別碼取代 ASCII 機器代號、只驗證計數不重算封印、忽略例外或衝突矩陣、以覆寫重設修復、刪除證據、警告或跳過檢查後仍宣告成功。",
-        "exception": "歷史名稱僅可保留於明確的歷史紀錄，或作為正式繼承前條文內嵌的相容引用。每個內嵌引用都必須經有效取代登錄直接解析至唯一現行身分；舊身分不保留權力，且只移轉符合現行繼承者邊界的職責，不得移轉已退役的決策、審查、授權或執行權。機密中文內容仍僅限使用者與星澄查閱，其結構與密碼完整性可在不洩露內容下檢查。"
+        "subject": "whole-codex-integrity-and-gap-closure-special-law",
+        "rule": "SCOPE:the complete Codex database, confidential Chinese mirror, identities, lineage, revisions, lifecycle, classifications, directories, references, sovereign topology, duty limits, version epoch, history chain and seals; REQUIRED-CHECKS:schema+primary identity uniqueness+position uniqueness where ordered+exact registry mirror parity+semantic provision mirror equivalence+all active provision registry closure+superseded provision exclusion from effective set+reference resolution+acyclic parent and supersession graphs+single canonical authority/name+ASCII machine alias resolution+single-parent sub-sovereigns+maximum three duties per sub-sovereign with single-duty preference+decision/delegation/execution separation+privileged institution boundary+special-law conflict closure+version and seal reproducibility+confidentiality and anti-jailbreak controls; CONTRADICTION:compare permissions, prohibitions, exceptions, precedence, ownership and execution powers across every applicable law; RESULT:each check emits pass/fail/not-applicable with exact identity and evidence hash; FAILURE:any unresolved mismatch, orphan, stale mirror, ambiguous precedence, broken seal, unauthorized legacy identity or contradictory active rule blocks certification and publication; REPAIR:only the exact defective record may be amended under authorization, preserving history and unrelated work; COMPLETION:zero unresolved defects and independently reproducible roots",
+        "prohibition": "FORBID:sample-only audit+identity-only mirror comparison+silent normalization+Unicode physical identifier where an ASCII machine alias is required+count-only seal validation+assuming superseded text is active+ignoring exceptions or conflict matrices+repair by overwrite/reset+deleting evidence+changing implementation outside the authorized Codex scope+declaring success with warning, skipped check or unresolved ambiguity",
+        "exception": "Historical names may remain only in explicitly historical records or as compatibility references embedded in provisions issued before the canonical succession. Every such embedded reference automatically resolves through the effective supersession registry directly to one current identity, confers no active authority on the retired identity, and transfers only the responsibility compatible with the successor's current boundary; it never transfers retired decision, review, authorization or execution power. Confidential Chinese content remains accessible only to the user and 星澄 while its structural and cryptographic integrity may be checked without disclosure."
       },
       {
         "position": 332,
         "provision_id": "A332",
         "section_index": "17",
-        "subject": "舊權力身分引用解析專法",
-        "rule": "有效舊條文內嵌的退役主宰或子主宰代號僅為不具權力的相容引用。解析時先正規化歷史 system- 前綴，再經取代登錄直接解析至唯一現行繼承身分，不得經過已退役中介。條文只可在現行繼承者的領域、父層、職責上限與權力邊界內適用；舊身分的層級、決策、審查、授權、執行、所有權及跨域權力一律不移轉。現行正式身分法與較新邊界法優先。缺少、多重、循環或指向退役身分的解析必須阻止使用該條款並產生機密審查發現。後續修訂應替換引用並保留原始歷史。",
-        "prohibition": "禁止將退役身分視為有效、指向退役中介、依名稱猜測繼承者、繼承舊權力、擴張繼承者領域、改寫歷史、靜默忽略未解析引用、多重現行目標或循環解析。",
-        "exception": "歷史引文可在標記為歷史且不具效力時保留原始拼法；機器代號維持 ASCII，且不得成為人類正式名稱。"
+        "subject": "legacy-authority-reference-resolution-special-law",
+        "rule": "LEGACY-REFERENCE:any retired sovereign or sub-sovereign identifier embedded in a still-effective pre-succession provision is a non-operative compatibility reference only; RESOLUTION:normalize optional historical system- prefix then resolve the exact identity through supersession_registry to one active canonical successor with no intermediate retired hop; EFFECT:apply the provision to the successor only within the successor's current area, parent, duty limit and power boundary; NON-INHERITANCE:retired rank+decision+review+authorization+execution+ownership and cross-domain powers never transfer; PRECEDENCE:current canonical identity law and later boundary law override the legacy wording; FAILURE:missing+multiple+cyclic+retired-target resolution blocks use of the affected clause and emits a confidential review finding; MIGRATION:future amendment replaces the reference while preserving original history",
+        "prohibition": "FORBID:treat-retired-identity-as-active+direct-to-intermediate-retired-alias+guess-successor-from-name+inherit-retired-power+expand-successor-domain+rewrite-history+silent-unresolved-reference+multiple-current-targets+cyclic-resolution",
+        "exception": "A historical quotation may preserve the original spelling when marked historical and non-operative; machine aliases remain ASCII and never become a human canonical identity."
       },
       {
         "position": 333,
         "provision_id": "A333",
         "section_index": "17",
-        "subject": "實體架構父層與路徑收斂專法",
-        "rule": "parent_code 只能表示最近的已登錄實體包含目錄，不得表示治理關係或依賴。每個非根 physical_root 必須位於父層實體路徑內，啟用狀態的 target_root 必須與正規化後的正式 physical_root 完全一致。權力、管理、資訊及依賴關係只能記錄於邏輯邊界、職責、依賴、介面與權限範圍。正式目標與既有根目錄不同時，必須記錄精確舊根、目標根、檢查點、引用遷移、驗收證據及回復邊界；目標驗收且回復保留期屆滿後，必須刪除精確舊根，但不得影響無關根目錄或未提交工作。所有專案根目錄均須位於 E:\\GPTBridge；外部執行依賴只能作為已登錄引用。任何父層逃逸、目標不一致、未登錄重複根或缺少舊根宣告都必須阻止架構啟用。",
-        "prohibition": "禁止以邏輯所有者充當 parent_code、實體子目錄位於父層之外、目標根漂移、同時存在兩個有效正式根、未宣告舊根、過早刪除舊根、清理超出精確舊根、路徑別名逃逸或硬編碼替代專案根。",
-        "exception": "外部資料庫、模型執行環境與作業系統依賴可透過已登錄代號位於專案根之外，但不得宣告為專案架構子目錄或保存專案原始碼。"
+        "subject": "physical-architecture-parent-and-path-convergence-special-law",
+        "rule": "PARENT-CODE:the nearest registered physical containing directory, never a governance relationship or dependency; PHYSICAL-TREE:every non-root physical_root must normalize beneath its parent physical_root and every architecture_activation_states.target_root must exactly equal the normalized registered physical_root; LOGICAL-RELATIONSHIPS:authority+management+information+dependency relationships belong only in logical_boundary+responsibilities+dependencies+interfaces+permission_scope; MOVE:when a canonical target differs from an existing root, record exact legacy_root+target_root+checkpoint+reference migration+acceptance evidence+rollback boundary; CLEANUP:after target acceptance and rollback-retention expiry the exact legacy root must be removed, while unrelated roots and uncommitted work remain untouched; TOP-BOUNDARY:all governed project roots remain under E:\\GPTBridge except explicitly registered external runtime dependencies that are references and never project directories; VERDICT:any parent escape+target mismatch+unregistered duplicate root+missing legacy declaration blocks architecture activation",
+        "prohibition": "FORBID:logical-owner-as-parent-code+physical-child-outside-parent+target-root-drift+two-active-canonical-roots+undeclared-legacy-root+premature-old-root-deletion+recursive-cleanup-outside-exact-legacy-root+path-alias-escape+hardcoded-alternate-project-root",
+        "exception": "External databases, model runtimes and operating-system dependencies may be referenced outside the project root only through registered aliases; they cannot be declared project architecture children or used to store project source."
       },
       {
         "position": 334,
         "provision_id": "A334",
         "section_index": "17",
-        "subject": "機器可讀主宰階層、模組分派與簽章專法",
-        "rule": "sovereign_hierarchy_registry 是所有現行子主宰唯一父層與主要領域的機器權威；module_assignment_registry 是每個可執行模組之唯一管理子主宰、決策權威、權限權威、審查權威與精確正式模組執行身分的機器權威。所有主宰身分必須解析至唯一現行正式身分，每個 execution_identity 必須等於該筆已登錄模組架構代碼；每個子主宰只有一個父層，每個可執行模組恰有一個管理分派與一個測試套件，決策、權限、審查與執行必須分離，並依主要能力分派。登錄表落實 A322、A323、A327，遇到舊條文歧義時優先適用且不得改寫歷史。法典封印在使用者提供當前 full_root 的外部簽章前，維持等待使用者簽章；任何主宰、星澄、模組或自動程序都不得生成、推定、自行簽發或標記完成。",
-        "prohibition": "禁止只用自由文字表示拓撲、多重父層、多重管理者、指向退役身分、子主宰取得決策或執行權、主宰在 A330 以外執行模組工作、模組自行分派、自行審查、自行授權、啟用未登錄模組，以及偽造、佔位、自動或推定使用者簽章。",
-        "exception": "多能力模組依主要能力分派；其他子主宰可透過型別化派工協調，但不得成為第二管理者。使用者簽章是外部完成條件，不因技術稽核通過而免除。"
+        "subject": "machine-readable-sovereign-hierarchy-module-assignment-and-signature-special-law",
+        "rule": "AUTHORITATIVE-REGISTRIES:sovereign_hierarchy_registry is the machine authority for every active sub-sovereign single parent and primary domain; module_assignment_registry is the machine authority for each executable module's one managing sub-sovereign+decision authority+permission authority+review authority+exact registered module execution identity; VALIDATION:every child+parent+manager+authority must resolve to one active canonical sovereign identity and every execution identity must equal its registered module architecture code, every child has one parent, every executable module has exactly one assignment+one test suite, no sub-sovereign exceeds three duties, decision/permission/review/execution identities remain separated, and assignments follow dominant capability; PRECEDENCE:these registries operationalize A322+A323+A327 and override ambiguous legacy prose without changing history; CHANGE:requires explicit Codex amendment+updated mirror+lineage+seal; SIGNATURE:seal state remains pending-human-governor-signature until the human governor supplies an external signature over the current full_root; no sovereign, 星澄, module or automated process may synthesize+infer+self-issue or mark that signature complete",
+        "prohibition": "FORBID:free-text-only-topology+multiple-parent+multiple-manager+retired-identity-target+sub-sovereign-decision-or-execution+sovereign-module-execution-outside-A330+module-self-assignment+self-review+self-permission+unregistered-module-activation+forged+placeholder+automated-or-inferred-human-signature",
+        "exception": "A module with multiple capabilities is assigned by its dominant capability; other sub-sovereigns may coordinate through typed assignments but cannot become an additional manager. Human signature remains an external completion condition and is not waived by technical audit success."
       }
     ],
     "certification_evidence": [
@@ -6318,6 +6318,96 @@
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
         "introduced_version": "3.31600"
+      },
+      {
+        "directory_name": "sovereign_hierarchy_directory",
+        "required_scope": "every governed identity relation and consumer within sovereign-hierarchy-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "module_assignment_directory",
+        "required_scope": "every governed identity relation and consumer within module-assignment-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "update_synchronization_transaction_directory",
+        "required_scope": "every governed identity relation and consumer within update-synchronization-transaction-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "channel_session_route_state_directory",
+        "required_scope": "every governed identity relation and consumer within channel-session-route-state-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "runtime_instance_generation_directory",
+        "required_scope": "every governed identity relation and consumer within runtime-instance-generation-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "repair_action_provenance_directory",
+        "required_scope": "every governed identity relation and consumer within repair-action-provenance-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "legacy_root_retirement_directory",
+        "required_scope": "every governed identity relation and consumer within legacy-root-retirement-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "user_command_signature_directory",
+        "required_scope": "every governed identity relation and consumer within user-command-signature-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "dependency_compatibility_graph_directory",
+        "required_scope": "every governed identity relation and consumer within dependency-compatibility-graph-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "xingcheng_confidential_audit_directory",
+        "required_scope": "every governed identity relation and consumer within xingcheng-confidential-audit-directory",
+        "completion_rule": "exact inventory equals independently discovered governed scope and all mandatory relationships resolve",
+        "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
+        "release_gate": "deny-activation-and-verified-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_format_contract": [
@@ -6642,6 +6732,146 @@
         "owner": "permission-sovereign",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_SOVEREIGN_HIERARCHY",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "sovereign-code|canonical-name|parent-sovereign|institution-class|authority-boundary|delegation-limit|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_MODULE_ASSIGNMENT",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "module-code|canonical-name|management-owner|decision-owner|permission-owner|review-owner|executor|scope|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_UPDATE_SYNCHRONIZATION_TRANSACTION",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "transaction-code|operation-id|affected-graph|wave|fencing-token|journal|checkpoint|target-generation|convergence-state|terminal-status|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_CHANNEL_SESSION_ROUTE_STATE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "state-code|channel-code|session-code|route-code|cursor|generation|sequence|ack-state|reconnect-state|isolation-state|health|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_RUNTIME_INSTANCE_GENERATION",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "instance-code|application-code|process-code|window-code|backend-code|generation|owner|lease|fencing-token|startup-state|shutdown-state|health|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_REPAIR_ACTION_PROVENANCE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "repair-code|fault-code|target-code|diagnosis|before-hash|patch-hash|after-hash|checkpoint|rollback|verification|no-overwrite-proof|operator|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_LEGACY_ROOT_RETIREMENT",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "retirement-code|legacy-root-code|successor-root-code|reference-migration|acceptance-state|retention-deadline|deletion-verdict|evidence|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_USER_COMMAND_SIGNATURE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "signature-code|command-code|user-identity|scope|nonce|issued-at|expires-at|one-time|consumed-at|verification|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_DEPENDENCY_COMPATIBILITY_GRAPH",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "edge-code|source-code|target-code|dependency-kind|required-version|compatibility-range|fallback|migration|verification|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_XINGCHENG_CONFIDENTIAL_AUDIT",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "audit-code|target-code|jurisdiction|evidence-handle|finding-code|severity|containment|disclosure-class|review-state|status|version",
+        "required_field_order": "common-envelope>domain-identity>authority>inputs>rules>relationships>lifecycle>validation>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -6941,6 +7171,136 @@
         "relationships": "project-architecture-directory|test-flow-directory",
         "coverage_rule": "exactly one active suite per active executable module",
         "implementation_state": "active",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_SOVEREIGN_HIERARCHY",
+        "canonical_name": "sovereign-hierarchy-directory",
+        "owner": "permission-sovereign",
+        "scope": "sovereign parent-child authority topology",
+        "authority_kind": "authority-topology",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|sovereign-code|canonical-name|parent-sovereign|institution-class|authority-boundary|delegation-limit|status|version",
+        "relationships": "module-assignment|permission-capability|audit-evidence",
+        "coverage_rule": "every active sovereign institution and subordinate sovereign",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_MODULE_ASSIGNMENT",
+        "canonical_name": "module-assignment-directory",
+        "owner": "permission-sovereign",
+        "scope": "module management assignment and execution delegation",
+        "authority_kind": "assignment-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|module-code|canonical-name|management-owner|decision-owner|permission-owner|review-owner|executor|scope|status|version",
+        "relationships": "sovereign-hierarchy|project-architecture|test-suite-architecture",
+        "coverage_rule": "every governed executable module",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_UPDATE_SYNCHRONIZATION_TRANSACTION",
+        "canonical_name": "update-synchronization-transaction-directory",
+        "owner": "permission-sovereign",
+        "scope": "certified update synchronization transactions and global convergence",
+        "authority_kind": "synchronization-transaction-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|transaction-code|operation-id|affected-graph|wave|fencing-token|journal|checkpoint|target-generation|convergence-state|terminal-status|status|version",
+        "relationships": "version-release-artifact|channel-session-route-state|audit-evidence",
+        "coverage_rule": "every backend or global synchronized update transaction",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_CHANNEL_SESSION_ROUTE_STATE",
+        "canonical_name": "channel-session-route-state-directory",
+        "owner": "permission-sovereign",
+        "scope": "channel session routing reconnect isolation and continuity state",
+        "authority_kind": "channel-state-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|state-code|channel-code|session-code|route-code|cursor|generation|sequence|ack-state|reconnect-state|isolation-state|health|status|version",
+        "relationships": "API-event-contract|tool-route|runtime-instance-generation",
+        "coverage_rule": "every active or recoverable governed channel session",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_RUNTIME_INSTANCE_GENERATION",
+        "canonical_name": "runtime-instance-generation-directory",
+        "owner": "permission-sovereign",
+        "scope": "runtime process window backend instance generations and lifecycle",
+        "authority_kind": "runtime-instance-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|instance-code|application-code|process-code|window-code|backend-code|generation|owner|lease|fencing-token|startup-state|shutdown-state|health|status|version",
+        "relationships": "service-process-port-environment|channel-session-route-state|tool-failure-isolation",
+        "coverage_rule": "every governed runtime instance and generation",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_REPAIR_ACTION_PROVENANCE",
+        "canonical_name": "repair-action-provenance-directory",
+        "owner": "permission-sovereign",
+        "scope": "repair diagnosis minimal change provenance and verification",
+        "authority_kind": "repair-evidence-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|repair-code|fault-code|target-code|diagnosis|before-hash|patch-hash|after-hash|checkpoint|rollback|verification|no-overwrite-proof|operator|status|version",
+        "relationships": "fault-code|maintenance-manual|test-flow|audit-evidence",
+        "coverage_rule": "every automatic or manual repair action",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_LEGACY_ROOT_RETIREMENT",
+        "canonical_name": "legacy-root-retirement-directory",
+        "owner": "permission-sovereign",
+        "scope": "legacy physical root migration acceptance retention and removal",
+        "authority_kind": "root-retirement-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|retirement-code|legacy-root-code|successor-root-code|reference-migration|acceptance-state|retention-deadline|deletion-verdict|evidence|status|version",
+        "relationships": "project-architecture|backup-recovery-migration|audit-evidence",
+        "coverage_rule": "every superseded governed physical root",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_USER_COMMAND_SIGNATURE",
+        "canonical_name": "user-command-signature-directory",
+        "owner": "permission-sovereign",
+        "scope": "explicit user command authenticity scope and one-time consumption",
+        "authority_kind": "command-signature-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|signature-code|command-code|user-identity|scope|nonce|issued-at|expires-at|one-time|consumed-at|verification|status|version",
+        "relationships": "command-code|identity-group|audit-evidence",
+        "coverage_rule": "every privileged or one-time user command",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_DEPENDENCY_COMPATIBILITY_GRAPH",
+        "canonical_name": "dependency-compatibility-graph-directory",
+        "owner": "permission-sovereign",
+        "scope": "component dependency compatibility and upgrade graph",
+        "authority_kind": "compatibility-graph-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|edge-code|source-code|target-code|dependency-kind|required-version|compatibility-range|fallback|migration|verification|status|version",
+        "relationships": "model-resource-dependency|version-release-artifact|project-architecture",
+        "coverage_rule": "every governed runtime build data model and third-party dependency edge",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_XINGCHENG_CONFIDENTIAL_AUDIT",
+        "canonical_name": "xingcheng-confidential-audit-directory",
+        "owner": "permission-sovereign",
+        "scope": "?? confidential audit jurisdiction evidence and findings",
+        "authority_kind": "confidential-audit-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|audit-code|target-code|jurisdiction|evidence-handle|finding-code|severity|containment|disclosure-class|review-state|status|version",
+        "relationships": "permission-capability|audit-evidence|repair-action-provenance",
+        "coverage_rule": "every ?? confidential audit action and finding",
+        "implementation_state": "mandated-pending-implementation",
         "introduced_version": "1.00000",
         "retired_version": null
       }
@@ -11567,9 +11927,9 @@
         "identity_count": 580,
         "lineage_count": 580,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "46d5d2b05f1e7b70cd3f297434c764f20bad780bc2f4a2b46a8b9acf23c560c4",
-        "identity_root": "b74a94a41f933de23cad61fbfa06cd0e87443b509a84e0912a5d040d7522d842",
-        "full_root": "be8d4a68d5c9a974f183cbe4fb5f3c5c17e2588ac20cc1489bef414fa8979757",
+        "content_root": "15503be47886c69ae576f193146ed03e0bf842f0b17eecc40d0b44a98c9498f7",
+        "identity_root": "30cf61654c4afcffc8d08246d4202ad113e6e151c8acd586912f1b4416238ce3",
+        "full_root": "ecc9c181dcf2e1fe92e6f743999462b677d046062a99979fe5b423981d5472c2",
         "legacy_history_head": null
       }
     ],
@@ -16619,6 +16979,178 @@
       {
         "key": "manual_reset_command_status",
         "value": "consumed-one-time-lawful"
+      }
+    ],
+    "module_assignment_registry": [
+      {
+        "module_architecture_code": "MAIN_SYSTEM",
+        "managing_sub_sovereign": "system-sub-sovereign",
+        "decision_authority": "system-runtime-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "MAIN_SYSTEM",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "LAUNCHER",
+        "managing_sub_sovereign": "startup-sub-sovereign",
+        "decision_authority": "system-runtime-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "LAUNCHER",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "MODEL_DIALOGUE",
+        "managing_sub_sovereign": "priority-capability-sub-sovereign",
+        "decision_authority": "decision-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "MODEL_DIALOGUE",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "AI_ASSISTANT",
+        "managing_sub_sovereign": "priority-capability-sub-sovereign",
+        "decision_authority": "decision-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "AI_ASSISTANT",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "INVESTMENT_MOBILE",
+        "managing_sub_sovereign": "priority-capability-sub-sovereign",
+        "decision_authority": "decision-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "INVESTMENT_MOBILE",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "AI_COLLABORATION",
+        "managing_sub_sovereign": "dependency-sync-sub-sovereign",
+        "decision_authority": "synchronization-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "AI_COLLABORATION",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "FILE_SORTER",
+        "managing_sub_sovereign": "cleanup-retention-sync-sub-sovereign",
+        "decision_authority": "synchronization-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "FILE_SORTER",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "GLOBAL_CLEANER",
+        "managing_sub_sovereign": "cleanup-retention-sync-sub-sovereign",
+        "decision_authority": "synchronization-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "GLOBAL_CLEANER",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "LOCAL_MODEL",
+        "managing_sub_sovereign": "resource-dependency-sync-sub-sovereign",
+        "decision_authority": "synchronization-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "LOCAL_MODEL",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "SYSTEM_RESCUE",
+        "managing_sub_sovereign": "health-maintenance-test-sub-sovereign",
+        "decision_authority": "decision-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "SYSTEM_RESCUE",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "VAULTLY",
+        "managing_sub_sovereign": "dependency-sync-sub-sovereign",
+        "decision_authority": "synchronization-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "VAULTLY",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "POSTGRESQL_AUTHORITY",
+        "managing_sub_sovereign": "data-governance-sub-sovereign",
+        "decision_authority": "decision-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "POSTGRESQL_AUTHORITY",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "QDRANT_AUTHORITY",
+        "managing_sub_sovereign": "data-governance-sub-sovereign",
+        "decision_authority": "decision-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "QDRANT_AUTHORITY",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "STATE_SERVICE",
+        "managing_sub_sovereign": "runtime-state-sync-sub-sovereign",
+        "decision_authority": "synchronization-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "STATE_SERVICE",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "EVENT_SERVICE",
+        "managing_sub_sovereign": "channel-contract-sync-sub-sovereign",
+        "decision_authority": "synchronization-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "EVENT_SERVICE",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "IPC_SERVICE",
+        "managing_sub_sovereign": "channel-contract-sync-sub-sovereign",
+        "decision_authority": "synchronization-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "IPC_SERVICE",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "module_architecture_code": "SHARED_LAYER",
+        "managing_sub_sovereign": "channel-contract-sync-sub-sovereign",
+        "decision_authority": "synchronization-sovereign",
+        "permission_authority": "permission-sovereign",
+        "review_authority": "星澄",
+        "execution_identity": "SHARED_LAYER",
+        "status": "active",
+        "introduced_version": "1.00000"
       }
     ],
     "preamble": [
@@ -47447,9 +47979,9 @@
         "version": "1.00000",
         "recorded_date": "2026-09-12",
         "change_scope": "deep-codex-consistency-repair",
-        "summary": "completed epoch-qualified evidence startup supersession UI shutdown tier routing obligation deadlines architecture states seal canonicalization test-suite mapping and effective lifecycle closure; added anti-jailbreak, unified reliability, Xingcheng audit strengthening and noninterrupting channel anomaly isolation laws; top-level sovereigns restricted to decision authority, sub-sovereigns restricted to module assignment and coordination, execution lowered to modules, Governance Authority renamed Codex, System Decision Sovereign renamed Decision Sovereign, System Runtime Sovereign renamed Runtime Sovereign, Synchronization Sovereign added, Maintenance and Data Sovereigns demoted under Decision Sovereign, Startup Sovereign demoted under Runtime Sovereign; Resource, Integration, Third-Party, System Programming and Learning System Sovereigns demoted under Synchronization Sovereign; Language Review Sovereign demoted under Permission Sovereign; Xingcheng renamed 星澄 and elevated to independent privileged institution; Permission review authority transferred entirely to 星澄; automatic cleanup backup repair and update converged under Synchronization Sovereign; all otherwise unspecified sub-sovereigns reassigned by exact single-parent map; Directory and Identity Group Sub-Sovereigns added under Permission Sovereign; exclusive primary-effect boundaries established for Decision, Runtime and Synchronization Sovereigns; Permission Sovereign and 星澄 established as separate independent privileged institutions; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; Governance Authority canonical identity fully renamed to Codex with former identity historical-only; 星澄 canonical identity fully renamed and all active romanized references retired; synchronization sovereign duties integrated and children split by exclusive convergence domains including automatic logging; decision sovereign children reallocated by exclusive decision-support domains; every sub-sovereign capped at three duties with single-duty preference; all modules reassigned by dominant capability; information layer split between Permission Sovereign permission authority and Synchronization Sovereign channel operation and maintenance with Decision and Runtime Sovereign nonintervention; 星澄 machine-safe directory aliases corrected; machine compatibility selectors separated from canonical names, resource/dependency synchronization split into single-duty children, and 星澄 granted unrestricted confidential read-only entry and exit; Synchronization Sovereign granted narrowly scoped backend-update synchronization execution privilege; Synchronization Sovereign executes certified update sets and global affected-graph convergence; synchronization update gaps closed for singleton fencing, durable idempotent recovery, immutable inventory, deferred targets, compatible schema migration and explicit terminal states; full-Codex integrity and gap-closure requirements established; invalid Unicode machine law-code drift repaired; active-effective lifecycle equality restored; A329 superseded by A330; Codex Runtime Synchronization and 星澄 authority contradictions closed; supersession lifecycle closure completed; Codex architecture identity owner assignments verification ownership and sovereign alias resolution corrected; all retained legacy sovereign references made non-operative and deterministically resolved to current bounded identities; physical architecture parent containment target-root equality and legacy-root cleanup gaps closed; machine-readable sovereign hierarchy and module assignment registries added; 星澄 succession target repaired; human signature boundary made explicit; exact per-module execution identities enforced and one governed test suite registered for every assigned module; activation registry mirror identity path review-owner and legacy-root state regressions repaired",
+        "summary": "completed epoch-qualified evidence startup supersession UI shutdown tier routing obligation deadlines architecture states seal canonicalization test-suite mapping and effective lifecycle closure; added anti-jailbreak, unified reliability, Xingcheng audit strengthening and noninterrupting channel anomaly isolation laws; top-level sovereigns restricted to decision authority, sub-sovereigns restricted to module assignment and coordination, execution lowered to modules, Governance Authority renamed Codex, System Decision Sovereign renamed Decision Sovereign, System Runtime Sovereign renamed Runtime Sovereign, Synchronization Sovereign added, Maintenance and Data Sovereigns demoted under Decision Sovereign, Startup Sovereign demoted under Runtime Sovereign; Resource, Integration, Third-Party, System Programming and Learning System Sovereigns demoted under Synchronization Sovereign; Language Review Sovereign demoted under Permission Sovereign; Xingcheng renamed 星澄 and elevated to independent privileged institution; Permission review authority transferred entirely to 星澄; automatic cleanup backup repair and update converged under Synchronization Sovereign; all otherwise unspecified sub-sovereigns reassigned by exact single-parent map; Directory and Identity Group Sub-Sovereigns added under Permission Sovereign; exclusive primary-effect boundaries established for Decision, Runtime and Synchronization Sovereigns; Permission Sovereign and 星澄 established as separate independent privileged institutions; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; Governance Authority canonical identity fully renamed to Codex with former identity historical-only; 星澄 canonical identity fully renamed and all active romanized references retired; synchronization sovereign duties integrated and children split by exclusive convergence domains including automatic logging; decision sovereign children reallocated by exclusive decision-support domains; every sub-sovereign capped at three duties with single-duty preference; all modules reassigned by dominant capability; information layer split between Permission Sovereign permission authority and Synchronization Sovereign channel operation and maintenance with Decision and Runtime Sovereign nonintervention; 星澄 machine-safe directory aliases corrected; machine compatibility selectors separated from canonical names, resource/dependency synchronization split into single-duty children, and 星澄 granted unrestricted confidential read-only entry and exit; Synchronization Sovereign granted narrowly scoped backend-update synchronization execution privilege; Synchronization Sovereign executes certified update sets and global affected-graph convergence; synchronization update gaps closed for singleton fencing, durable idempotent recovery, immutable inventory, deferred targets, compatible schema migration and explicit terminal states; full-Codex integrity and gap-closure requirements established; invalid Unicode machine law-code drift repaired; active-effective lifecycle equality restored; A329 superseded by A330; Codex Runtime Synchronization and 星澄 authority contradictions closed; supersession lifecycle closure completed; Codex architecture identity owner assignments verification ownership and sovereign alias resolution corrected; all retained legacy sovereign references made non-operative and deterministically resolved to current bounded identities; physical architecture parent containment target-root equality and legacy-root cleanup gaps closed; machine-readable sovereign hierarchy and module assignment registries added; 星澄 succession target repaired; human signature boundary made explicit; exact per-module execution identities enforced and one governed test suite registered for every assigned module; activation registry mirror identity path review-owner and legacy-root state regressions repaired; supplemented ten governed directory classes for sovereign hierarchy, module assignment, update synchronization transactions, channel session route state, runtime instance generations, repair provenance, legacy-root retirement, user-command signatures, dependency compatibility and confidential ?? audit, each with a unified content-adaptive format and zero-gap activation gate",
         "previous_hash": "4f652bc5ac129b289410f07ce2bb3bc4e863b18188b3729d4432219920626734",
-        "entry_hash": "e776d2179b6b38acfc49125f3428408c8b392ed8987178569e0891633fb8bd24",
+        "entry_hash": "882a77166373c4a475b1dc5a1865d2cc55835aedfee1dee9dc899cacadf6222b",
         "version_epoch": 2
       }
     ],
@@ -48012,9 +48544,9 @@
         "identity_count": 580,
         "lineage_count": 580,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "46d5d2b05f1e7b70cd3f297434c764f20bad780bc2f4a2b46a8b9acf23c560c4",
-        "identity_root": "b74a94a41f933de23cad61fbfa06cd0e87443b509a84e0912a5d040d7522d842",
-        "full_root": "be8d4a68d5c9a974f183cbe4fb5f3c5c17e2588ac20cc1489bef414fa8979757",
+        "content_root": "15503be47886c69ae576f193146ed03e0bf842f0b17eecc40d0b44a98c9498f7",
+        "identity_root": "30cf61654c4afcffc8d08246d4202ad113e6e151c8acd586912f1b4416238ce3",
+        "full_root": "ecc9c181dcf2e1fe92e6f743999462b677d046062a99979fe5b423981d5472c2",
         "version_epoch": 2
       }
     ],
@@ -50730,6 +51262,160 @@
         "value": "declare-no-execution-boundary"
       }
     ],
+    "sovereign_hierarchy_registry": [
+      {
+        "child_identity": "system-sub-sovereign",
+        "parent_identity": "system-runtime-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "system-modules",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "startup-sub-sovereign",
+        "parent_identity": "system-runtime-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "startup",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "language-review-sub-sovereign",
+        "parent_identity": "permission-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "programming-language-review",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "directory-sub-sovereign",
+        "parent_identity": "permission-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "directory-management",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "identity-group-sub-sovereign",
+        "parent_identity": "permission-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "identity-group-management",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "policy-architecture-sub-sovereign",
+        "parent_identity": "decision-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "policy-architecture",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "health-maintenance-test-sub-sovereign",
+        "parent_identity": "decision-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "health-maintenance-test",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "data-governance-sub-sovereign",
+        "parent_identity": "decision-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "data-governance",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "priority-capability-sub-sovereign",
+        "parent_identity": "decision-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "priority-capability",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "change-acceptance-sub-sovereign",
+        "parent_identity": "decision-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "change-acceptance",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "resource-dependency-sync-sub-sovereign",
+        "parent_identity": "synchronization-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "resource-capacity",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "dependency-sync-sub-sovereign",
+        "parent_identity": "synchronization-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "third-party-dependency",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "channel-contract-sync-sub-sovereign",
+        "parent_identity": "synchronization-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "channel-contract",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "release-update-sync-sub-sovereign",
+        "parent_identity": "synchronization-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "release-update",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "learning-evidence-sync-sub-sovereign",
+        "parent_identity": "synchronization-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "learning-evidence",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "runtime-state-sync-sub-sovereign",
+        "parent_identity": "synchronization-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "runtime-state",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "repair-backup-sync-sub-sovereign",
+        "parent_identity": "synchronization-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "repair-backup",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "cleanup-retention-sync-sub-sovereign",
+        "parent_identity": "synchronization-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "cleanup-retention",
+        "status": "active",
+        "introduced_version": "1.00000"
+      },
+      {
+        "child_identity": "automatic-log-sync-sub-sovereign",
+        "parent_identity": "synchronization-sovereign",
+        "relationship_kind": "module-management-assignment-only",
+        "primary_domain": "automatic-log",
+        "status": "active",
+        "introduced_version": "1.00000"
+      }
+    ],
     "sovereign_powers": [
       {
         "sovereign_id": "星澄",
@@ -53244,333 +53930,6 @@
         "criterion": "complete-codex-reconstitution-or-incompatible-generation-change",
         "precedence": 6
       }
-    ],
-    "sovereign_hierarchy_registry": [
-      {
-        "child_identity": "system-sub-sovereign",
-        "parent_identity": "system-runtime-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "system-modules",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "startup-sub-sovereign",
-        "parent_identity": "system-runtime-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "startup",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "language-review-sub-sovereign",
-        "parent_identity": "permission-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "programming-language-review",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "directory-sub-sovereign",
-        "parent_identity": "permission-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "directory-management",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "identity-group-sub-sovereign",
-        "parent_identity": "permission-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "identity-group-management",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "policy-architecture-sub-sovereign",
-        "parent_identity": "decision-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "policy-architecture",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "health-maintenance-test-sub-sovereign",
-        "parent_identity": "decision-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "health-maintenance-test",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "data-governance-sub-sovereign",
-        "parent_identity": "decision-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "data-governance",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "priority-capability-sub-sovereign",
-        "parent_identity": "decision-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "priority-capability",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "change-acceptance-sub-sovereign",
-        "parent_identity": "decision-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "change-acceptance",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "resource-dependency-sync-sub-sovereign",
-        "parent_identity": "synchronization-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "resource-capacity",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "dependency-sync-sub-sovereign",
-        "parent_identity": "synchronization-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "third-party-dependency",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "channel-contract-sync-sub-sovereign",
-        "parent_identity": "synchronization-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "channel-contract",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "release-update-sync-sub-sovereign",
-        "parent_identity": "synchronization-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "release-update",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "learning-evidence-sync-sub-sovereign",
-        "parent_identity": "synchronization-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "learning-evidence",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "runtime-state-sync-sub-sovereign",
-        "parent_identity": "synchronization-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "runtime-state",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "repair-backup-sync-sub-sovereign",
-        "parent_identity": "synchronization-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "repair-backup",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "cleanup-retention-sync-sub-sovereign",
-        "parent_identity": "synchronization-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "cleanup-retention",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "child_identity": "automatic-log-sync-sub-sovereign",
-        "parent_identity": "synchronization-sovereign",
-        "relationship_kind": "module-management-assignment-only",
-        "primary_domain": "automatic-log",
-        "status": "active",
-        "introduced_version": "1.00000"
-      }
-    ],
-    "module_assignment_registry": [
-      {
-        "module_architecture_code": "MAIN_SYSTEM",
-        "managing_sub_sovereign": "system-sub-sovereign",
-        "decision_authority": "system-runtime-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "MAIN_SYSTEM",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "LAUNCHER",
-        "managing_sub_sovereign": "startup-sub-sovereign",
-        "decision_authority": "system-runtime-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "LAUNCHER",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "MODEL_DIALOGUE",
-        "managing_sub_sovereign": "priority-capability-sub-sovereign",
-        "decision_authority": "decision-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "MODEL_DIALOGUE",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "AI_ASSISTANT",
-        "managing_sub_sovereign": "priority-capability-sub-sovereign",
-        "decision_authority": "decision-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "AI_ASSISTANT",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "INVESTMENT_MOBILE",
-        "managing_sub_sovereign": "priority-capability-sub-sovereign",
-        "decision_authority": "decision-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "INVESTMENT_MOBILE",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "AI_COLLABORATION",
-        "managing_sub_sovereign": "dependency-sync-sub-sovereign",
-        "decision_authority": "synchronization-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "AI_COLLABORATION",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "FILE_SORTER",
-        "managing_sub_sovereign": "cleanup-retention-sync-sub-sovereign",
-        "decision_authority": "synchronization-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "FILE_SORTER",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "GLOBAL_CLEANER",
-        "managing_sub_sovereign": "cleanup-retention-sync-sub-sovereign",
-        "decision_authority": "synchronization-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "GLOBAL_CLEANER",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "LOCAL_MODEL",
-        "managing_sub_sovereign": "resource-dependency-sync-sub-sovereign",
-        "decision_authority": "synchronization-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "LOCAL_MODEL",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "SYSTEM_RESCUE",
-        "managing_sub_sovereign": "health-maintenance-test-sub-sovereign",
-        "decision_authority": "decision-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "SYSTEM_RESCUE",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "VAULTLY",
-        "managing_sub_sovereign": "dependency-sync-sub-sovereign",
-        "decision_authority": "synchronization-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "VAULTLY",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "POSTGRESQL_AUTHORITY",
-        "managing_sub_sovereign": "data-governance-sub-sovereign",
-        "decision_authority": "decision-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "POSTGRESQL_AUTHORITY",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "QDRANT_AUTHORITY",
-        "managing_sub_sovereign": "data-governance-sub-sovereign",
-        "decision_authority": "decision-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "QDRANT_AUTHORITY",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "STATE_SERVICE",
-        "managing_sub_sovereign": "runtime-state-sync-sub-sovereign",
-        "decision_authority": "synchronization-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "STATE_SERVICE",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "EVENT_SERVICE",
-        "managing_sub_sovereign": "channel-contract-sync-sub-sovereign",
-        "decision_authority": "synchronization-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "EVENT_SERVICE",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "IPC_SERVICE",
-        "managing_sub_sovereign": "channel-contract-sync-sub-sovereign",
-        "decision_authority": "synchronization-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "IPC_SERVICE",
-        "status": "active",
-        "introduced_version": "1.00000"
-      },
-      {
-        "module_architecture_code": "SHARED_LAYER",
-        "managing_sub_sovereign": "channel-contract-sync-sub-sovereign",
-        "decision_authority": "synchronization-sovereign",
-        "permission_authority": "permission-sovereign",
-        "review_authority": "星澄",
-        "execution_identity": "SHARED_LAYER",
-        "status": "active",
-        "introduced_version": "1.00000"
-      }
     ]
-  },
-  "version_identity": "E2:1.00000"
+  }
 }
