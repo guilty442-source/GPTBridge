@@ -43,12 +43,12 @@ MODULE_ROOTS: Final[dict[ModuleIdentity, str]] = {
 
 MODULE_AUTHORITIES: Final[dict[ModuleIdentity, frozenset[str]]] = {
     ModuleIdentity.MAIN_SYSTEM: frozenset({
-        "governance-authority",
-        "startup-sovereign",
-        "system-runtime-sovereign",
-        "system-programming-sovereign",
+        "codex",
+        "decision-sovereign",
+        "runtime-sovereign",
+        "synchronization-sovereign",
         "permission-sovereign",
-        "maintenance-sovereign",
+        "xingcheng",
     }),
     ModuleIdentity.SHARED_LAYER: frozenset({
         "information-layer",

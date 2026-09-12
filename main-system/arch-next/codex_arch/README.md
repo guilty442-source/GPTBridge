@@ -37,7 +37,7 @@ The following modules were **not** integrated because the production
   permission_directory
 
 Missing: startup, learning, programming, third-party, language-review,
-governance-authority, xingcheng.
+codex, xingcheng.
 
 It also uses legacy sovereign IDs (e.g. `system-sovereign`,
 `system-resource-sub-sovereign`) that have been superseded by the codex

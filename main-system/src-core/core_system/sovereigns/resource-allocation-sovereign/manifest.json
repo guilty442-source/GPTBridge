@@ -1,1 +1,12 @@
-{"identity":"resource-sovereign","name":"resource-allocation-sovereign","owner_folder":"resource-allocation-sovereign","codex_entry":"governance-codex://official","duties_source":"sovereign_duties:resource-sovereign","implementation_entries":["../../resource_sub_sovereign.py"],"legacy_role":"compatibility-entry-only","state":"active"}
+{
+ "identity": "resource-sovereign",
+ "name": "resource-allocation-sovereign",
+ "owner_folder": "resource-allocation-sovereign",
+ "codex_entry": "governance-codex://official",
+ "duties_source": "sovereign_duties:resource-sovereign",
+ "implementation_entries": [
+  "../../resource_sub_sovereign.py"
+ ],
+ "legacy_role": "compatibility-entry-only",
+ "state": "retired"
+}

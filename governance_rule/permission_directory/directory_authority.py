@@ -413,7 +413,7 @@ CODE_VERSION_POLICY: Final[CodeVersionPolicy] = CodeVersionPolicy(
     unversioned_update=False,
     same_version_update=False,
     hot_update_requires_version_change=True,
-    version_source="governance-authority-or-tool-manifest",
+    version_source="codex-or-tool-manifest",
     failure_code="PERMISSION_DENIED",
 )
 
@@ -466,7 +466,6 @@ IDENTITY_GROUP_GOVERNANCE_RULE: Final[str] = "identity-group-G00001"
 IDENTITY_GROUP_SHARED_LAYER: Final[str] = "identity-group-S00001"
 IDENTITY_GROUP_AI_ASSISTANT: Final[str] = "identity-group-A00001"
 IDENTITY_GROUP_AI_COLLABORATION: Final[str] = "identity-group-E00001"
-IDENTITY_GROUP_STAR_CHAT: Final[str] = "identity-group-D00001"
 IDENTITY_GROUP_FILE_SORTER: Final[str] = "identity-group-F00001"
 IDENTITY_GROUP_GLOBAL_CLEANER: Final[str] = "identity-group-C00001"
 IDENTITY_GROUP_INVESTMENT_MOBILE: Final[str] = "identity-group-I00001"
@@ -479,7 +478,6 @@ ACTIVE_IDENTITY_GROUP_IDS: Final[tuple[str, ...]] = (
     IDENTITY_GROUP_SHARED_LAYER,
     IDENTITY_GROUP_AI_ASSISTANT,
     IDENTITY_GROUP_AI_COLLABORATION,
-    IDENTITY_GROUP_STAR_CHAT,
     IDENTITY_GROUP_FILE_SORTER,
     IDENTITY_GROUP_GLOBAL_CLEANER,
     IDENTITY_GROUP_INVESTMENT_MOBILE,

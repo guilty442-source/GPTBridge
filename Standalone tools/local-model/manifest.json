@@ -128,8 +128,8 @@
       "Standalone tools/local-model/model-dialogue/xingcheng-excluding-permissions"
     ],
     "allow_read": [
-      "governance-authority-snapshot",
-      "permission-directory-snapshot",
+      "codex-snapshot",
+      "directory-authority-snapshot",
       "opaque-central-index",
       "Standalone tools/local-model/model-dialogue/xingcheng",
       "governed-owner-resolved-resource"

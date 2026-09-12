@@ -1,1 +1,11 @@
-{"identity":"startup-sovereign","name":"system-startup-sovereign","owner_folder":"system-startup-sovereign","codex_entry":"governance-codex://official","duties_source":"sovereign_duties:startup-sovereign","implementation_entries":["../../../boot_core.py"],"state":"active"}
+{
+ "identity": "startup-sovereign",
+ "name": "system-startup-sovereign",
+ "owner_folder": "system-startup-sovereign",
+ "codex_entry": "governance-codex://official",
+ "duties_source": "sovereign_duties:startup-sovereign",
+ "implementation_entries": [
+  "../../../boot_core.py"
+ ],
+ "state": "retired"
+}

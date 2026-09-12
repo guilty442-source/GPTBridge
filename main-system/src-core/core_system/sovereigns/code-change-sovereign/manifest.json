@@ -1,1 +1,11 @@
-{"identity":"system-programming-sovereign","name":"code-change-sovereign","owner_folder":"code-change-sovereign","codex_entry":"governance-codex://official","duties_source":"sovereign_duties:system-programming-sovereign","implementation_entries":["../../system_programming_sovereign.py"],"state":"active"}
+{
+ "identity": "system-programming-sovereign",
+ "name": "code-change-sovereign",
+ "owner_folder": "code-change-sovereign",
+ "codex_entry": "governance-codex://official",
+ "duties_source": "sovereign_duties:system-programming-sovereign",
+ "implementation_entries": [
+  "../../system_programming_sovereign.py"
+ ],
+ "state": "retired"
+}

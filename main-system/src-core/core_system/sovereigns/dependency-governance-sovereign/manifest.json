@@ -1,1 +1,12 @@
-{"identity":"third-party-sovereign","name":"dependency-governance-sovereign","owner_folder":"dependency-governance-sovereign","codex_entry":"governance-codex://official","duties_source":"sovereign_duties:third-party-sovereign","implementation_entries":["../../third_party_sub_sovereign.py"],"legacy_role":"compatibility-entry-only","state":"active"}
+{
+ "identity": "third-party-sovereign",
+ "name": "dependency-governance-sovereign",
+ "owner_folder": "dependency-governance-sovereign",
+ "codex_entry": "governance-codex://official",
+ "duties_source": "sovereign_duties:third-party-sovereign",
+ "implementation_entries": [
+  "../../third_party_sub_sovereign.py"
+ ],
+ "legacy_role": "compatibility-entry-only",
+ "state": "retired"
+}

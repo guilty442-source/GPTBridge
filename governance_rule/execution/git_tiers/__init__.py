@@ -3,7 +3,7 @@
 Three-tier classification:
   Tier 1: read-only, high-frequency, direct execution
   Tier 2: general write, requires confirmation
-  Tier 3: high-risk, strictly restricted, requires governance-authority approval
+  Tier 3: high-risk, strictly restricted, requires codex approval
 
 Enforcement: hook + governance gate + audit ledger (A46).
 """

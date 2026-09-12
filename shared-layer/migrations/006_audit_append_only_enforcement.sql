@@ -1,6 +1,6 @@
 -- 006_audit_append_only_enforcement.sql
 -- gptbridge_audit.event is append-only.
--- No role (except governance-authority) may UPDATE or DELETE audit rows.
+-- No role (except codex) may UPDATE or DELETE audit rows.
 -- A46/E22 — audit ledger integrity.
 
 -- Revoke UPDATE and DELETE from all executor roles

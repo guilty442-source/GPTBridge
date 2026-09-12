@@ -22,9 +22,9 @@ Stable release branch. All merged, verified code.
 
 | Module | Path | Sovereign |
 | --- | --- | --- |
-| Governance Codex | `governance_rule/codex/` | governance-authority |
+| Governance Codex | `governance_rule/codex/` | codex |
 | Permission Directory | `governance_rule/permission_directory/` | permission-sovereign |
-| Execution Layer | `governance_rule/execution/` | governance-authority |
+| Execution Layer | `governance_rule/execution/` | codex |
 | Core System | `main-system/src-core/core_system/` | decision-sovereign |
 | IPC | `main-system/src-core/ipc/` | runtime-sub-sovereign |
 | Tasks | `main-system/src-core/tasks/` | maintenance-sovereign |

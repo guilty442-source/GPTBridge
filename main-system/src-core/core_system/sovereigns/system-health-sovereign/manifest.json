@@ -1,1 +1,17 @@
-{"identity":"maintenance-sovereign","name":"system-health-sovereign","owner_folder":"system-health-sovereign","codex_entry":"governance-codex://official","duties_source":"sovereign_duties:maintenance-sovereign","implementation_entries":["../../maintenance_sovereign.py","../../maintenance_lifecycle.py","../../maintenance_status.py","../../maintenance_update.py","../../maintenance_capability.py","../../maintenance_repair_chain.py","../../maintenance_learning.py"],"state":"active"}
+{
+ "identity": "maintenance-sovereign",
+ "name": "system-health-sovereign",
+ "owner_folder": "system-health-sovereign",
+ "codex_entry": "governance-codex://official",
+ "duties_source": "sovereign_duties:maintenance-sovereign",
+ "implementation_entries": [
+  "../../maintenance_sovereign.py",
+  "../../maintenance_lifecycle.py",
+  "../../maintenance_status.py",
+  "../../maintenance_update.py",
+  "../../maintenance_capability.py",
+  "../../maintenance_repair_chain.py",
+  "../../maintenance_learning.py"
+ ],
+ "state": "retired"
+}

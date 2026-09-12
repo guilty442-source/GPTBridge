@@ -639,7 +639,7 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
             "return-extraction-evidence-through-shared-layer",
             "authorize-recovery-data-use-before-application",
             "execute-listed-stability-repair-actions-only",
-            "verify-no-governance-authority-code-or-business-rule-change",
+            "verify-no-codex-code-or-business-rule-change",
         ),
         shared_layer_write_flow=(
             "load-and-verify-single-governance-policy",
@@ -670,7 +670,7 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
             "own-business-settings-and-database",
         ),
         global_cleaner_prohibited=(
-            "modify-governance-authority",
+            "modify-codex",
         ),
         shared_identity=False,
         shared_source_root=False,
