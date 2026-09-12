@@ -3,7 +3,7 @@
 -- Codex basis:
 --   A8/E21  — PostgreSQL: central-structured-official-data + shared-transport + audit;
 --              FORBID: sqlite-as-central-official-or-shared-audit.
---   A46/E32 — Audit: mandatory-ledger; write=governed-executor; store=system-data-sub-sovereign-declared.
+--   A46/E32 — Audit: mandatory-ledger; write=governed-executor; store=data-governance-sub-sovereign-declared.
 --   A10/E10 — Authorization: explicit-allowlist; deny-by-default; fail-closed.
 --   A52/E38 — RAG: gptbridge_rag schema stores Qdrant point/collection *metadata* only;
 --              Qdrant remains the canonical semantic index (local-owned, local-only).

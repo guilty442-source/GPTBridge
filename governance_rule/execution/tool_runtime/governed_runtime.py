@@ -554,7 +554,7 @@ class GovernedToolRuntime:
                 "cleaned_bytes": 0,
             }
         self._last_local_cleanup = result
-        # Persist for maintenance-sovereign oversight of modules that are not
+        # Persist for health-maintenance-test-sub-sovereign oversight of modules that are not
         # running when the governed daily sweep collects results.
         with contextlib.suppress(Exception):
             await asyncio.to_thread(

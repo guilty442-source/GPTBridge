@@ -7,7 +7,7 @@
 - basis: codex
 - duties: process-survival|runtime-integrity|platform-serving
 - powers: adjudicate-runtime-actions|coordinate-runtime-health
-- prohibitions: FORBID:system-runtime-sub-sovereign-overstep-exec/codex (A28)
+- prohibitions: FORBID:runtime-state-sync-sub-sovereign-overstep-exec/codex (A28)
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ class SystemRuntimeSovereign(SovereignBase):
         """與維護主宰協調健康（A33/A65）。"""
         return accepted_outcome(
             {
-                "coordinated_with": "maintenance-sovereign",
+                "coordinated_with": "health-maintenance-test-sub-sovereign",
                 "scope": "runtime-integrity",
                 "information_layer": "official",
             },

@@ -48,7 +48,7 @@ class GovernanceRuleCoordination:
         active_rules = self._active_rules()
 
         return {
-            "authority": "governance-codex-supreme",
+            "authority": "codex-supreme",
             "rule_layer": "codex",
             "codex_schema": codex.schema,
             "codex_version": format_codex_version(codex.codex_version),
@@ -130,7 +130,7 @@ class GovernanceRuleCoordination:
 
         return {
             "name": "governance-rules",
-            "authority": "governance-codex-supreme",
+            "authority": "codex-supreme",
             "rule_layer": "codex",
             "codex_version": format_codex_version(load_governance_codex().codex_version),
             "active_rule": self._active_rules(),

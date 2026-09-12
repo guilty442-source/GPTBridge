@@ -26,11 +26,11 @@ Stable release branch. All merged, verified code.
 | Permission Directory | `governance_rule/permission_directory/` | permission-sovereign |
 | Execution Layer | `governance_rule/execution/` | codex |
 | Core System | `main-system/src-core/core_system/` | decision-sovereign |
-| IPC | `main-system/src-core/ipc/` | runtime-sub-sovereign |
-| Tasks | `main-system/src-core/tasks/` | maintenance-sovereign |
-| Managers | `main-system/src-core/managers/` | resource-sub-sovereign |
+| IPC | `main-system/src-core/ipc/` | runtime-state-sync-sub-sovereign |
+| Tasks | `main-system/src-core/tasks/` | health-maintenance-test-sub-sovereign |
+| Managers | `main-system/src-core/managers/` | resource-dependency-sync-sub-sovereign |
 | UI | `main-system/src-ui/` | interface-layer (P20) |
-| Shared Layer | `shared-layer/` | integration-sub-sovereign |
+| Shared Layer | `shared-layer/` | channel-contract-sync-sub-sovereign |
 | Local Model | `local-model/` | xingcheng |
 | Independent Tools | `ai-assistant/`, `ai-collaboration/`, etc. | governed-executor |
 | Scripts | `scripts/` | — |

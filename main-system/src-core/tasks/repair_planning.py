@@ -128,7 +128,7 @@ REPAIR_RECIPES: Final[tuple[dict[str, Any], ...]] = (
         "runtime_only": True,
     },
     {
-        "recipe_id": "governance-codex-tamper",
+        "recipe_id": "codex-tamper",
         "name": "Governance codex file tamper detection",
         "failure_signatures": ("PermissionError", "AuthorityIntegrityGuard.verify"),
         "owner": "governance-rule",

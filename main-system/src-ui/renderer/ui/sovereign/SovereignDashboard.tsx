@@ -50,19 +50,19 @@ export interface RuntimeStatusPayload {
 
 const ROLE_LABELS: Record<string, string> = {
   'runtime-sovereign': 'roleRuntime',
-  'maintenance-sovereign': 'roleMaintenance',
-  'resource-sovereign': 'roleResource',
-  'data-sovereign': 'roleData',
-  'integration-sovereign': 'roleIntegration',
+  'health-maintenance-test-sub-sovereign': 'roleMaintenance',
+  'resource-dependency-sync-sub-sovereign': 'roleResource',
+  'data-governance-sub-sovereign': 'roleData',
+  'channel-contract-sync-sub-sovereign': 'roleIntegration',
   'permission-sovereign': 'rolePermission',
 }
 
 const ROLE_SCOPES: Record<string, string> = {
   'runtime-sovereign': 'scopeRuntime',
-  'maintenance-sovereign': 'scopeMaintenance',
-  'resource-sovereign': 'scopeResource',
-  'data-sovereign': 'scopeData',
-  'integration-sovereign': 'scopeIntegration',
+  'health-maintenance-test-sub-sovereign': 'scopeMaintenance',
+  'resource-dependency-sync-sub-sovereign': 'scopeResource',
+  'data-governance-sub-sovereign': 'scopeData',
+  'channel-contract-sync-sub-sovereign': 'scopeIntegration',
   'permission-sovereign': 'scopePermission',
 }
 

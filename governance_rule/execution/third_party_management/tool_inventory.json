@@ -1,6 +1,6 @@
 {
   "schema": "governance-tool-inventory-v1",
-  "managed_by": "system-third-party-sub-sovereign",
+  "managed_by": "dependency-sync-sub-sovereign",
   "codex_basis": ["P25", "A51", "E37"],
   "format": "registry",
   "deny_by_default": true,

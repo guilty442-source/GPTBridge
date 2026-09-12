@@ -39,7 +39,7 @@ class CodeRuleDirectorySnapshot:
 CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
     CodeRuleDirectorySnapshot(
         authority_version=1,
-        managing_authority="governance-codex-via-enforcement-policy",
+        managing_authority="codex-via-enforcement-policy",
         governing_source="governance_rule/codex/__init__.py",
         independent_authority=False,
         runtime_write_allowed=False,

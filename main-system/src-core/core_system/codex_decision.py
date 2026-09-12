@@ -201,7 +201,7 @@ def decision_basis(area: str) -> dict[str, Any]:
     edicts = codex_edicts(area)
     codex_snapshot = load_governance_codex()
     return {
-        "decision_source": "governance-codex",
+        "decision_source": "codex",
         "codex_schema": codex_snapshot.schema,
         "codex_version": format_codex_version(codex_snapshot.codex_version),
         "authority_rank": codex_snapshot.preamble.authority_rank,

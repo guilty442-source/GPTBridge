@@ -63,7 +63,7 @@
     "runtime_only": true
   },
   {
-    "recipe_id": "governance-codex-tamper",
+    "recipe_id": "codex-tamper",
     "name": "Governance codex file tamper detection",
     "failure_signatures": [
       "PermissionError",

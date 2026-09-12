@@ -5,7 +5,7 @@
 --   A7      — Permission-directory: directory-driven; defines role/capability/action/target/data-scope.
 --   A23/E4  — Permission-identifiers: permission-ID=sovereign-managed; FORBID: module-self-issue.
 --   A42/E28 — Directory-write: permission-sovereign-decision + governed-executor execution;
---              store=system-data-sub-sovereign-declared.
+--              store=data-governance-sub-sovereign-declared.
 --   A39/E25 — Actors: human-operator/governed-app/sovereign/xingcheng; identity verified at entry.
 --   A10/E10 — Authorization: explicit-allowlist; deny-by-default.
 --

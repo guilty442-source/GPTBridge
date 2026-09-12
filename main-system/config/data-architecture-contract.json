@@ -63,7 +63,7 @@
   },
   "xingcheng_governance_connection": {
     "mode": "direct-read-only",
-    "sources": ["governance-policy-snapshot", "permission-directory-snapshot"],
+    "sources": ["governance-policy-snapshot", "directory-authority-snapshot"],
     "source_priority": "authoritative-highest",
     "write": false,
     "execute": false,

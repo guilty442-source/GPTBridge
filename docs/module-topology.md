@@ -71,7 +71,7 @@ folder placement.
 `launcher/` is **not an execution-layer module** — it has no `manifest.json`
 and no runtime entry. It is a **startup state storage location**.
 
-Per A129 (startup-sovereign), the launcher (start.ps1) performs:
+Per A129 (startup-sub-sovereign), the launcher (start.ps1) performs:
 1. Environment loading
 2. Runtime checks (PostgreSQL/Qdrant/Ollama probing)
 3. Governance audit

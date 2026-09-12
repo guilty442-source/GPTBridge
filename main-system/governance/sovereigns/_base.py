@@ -4,7 +4,7 @@
 - A12: SOVEREIGN-DECISION: ADJUDICATION-SOURCE:codex; APPLIES:runtime/maintenance/permission-sovereigns; 星澄:outside-decision-chain
 - A63: SOVEREIGN: decision-only; EXECUTION:delegated-to-governed-executor
 - A64: SUB-SOVEREIGN: control/dispatch under parent authority; EXECUTION:governed-executor
-- A74: ALL-CODEX-CITATION: enter-through-governance-codex://official
+- A74: ALL-CODEX-CITATION: enter-through-codex://official
 """
 
 from __future__ import annotations

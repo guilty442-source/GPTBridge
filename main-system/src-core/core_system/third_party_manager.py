@@ -276,7 +276,7 @@ class ThirdPartyManager:
 
                 result = GitRepository(Path.cwd()).run(
                     args,
-                    actor="system-third-party-sub-sovereign/version-probe",
+                    actor="dependency-sync-sub-sovereign/version-probe",
                 )
             else:
                 result = subprocess.run(
