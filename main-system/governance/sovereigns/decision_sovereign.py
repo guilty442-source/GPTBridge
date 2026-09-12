@@ -9,6 +9,13 @@
 - powers: adjudicate-repair|dispatch-sub-sovereigns|coordinate-governance-rules
 - prohibitions: FORBID:direct-execution|FORBID:own-health-decisions (A152/A154)
 
+A63/A64 boundary: this sovereign is DECISION-ONLY.  It does not materialize
+or start sovereigns, sub-sovereigns, or services itself — the startup
+dispatch is adjudicated here and EXECUTED by the governed executor
+(``core_system.sovereign_stack_executor.SovereignStackExecutor``), which
+materializes the child sub-sovereigns into this sovereign's registry and
+performs the actual activation sequence.
+
 The implementation was merged from the retired
 ``core_system.decision_sovereign.DecisionSovereignService`` so the active
 startup path keeps its governed-executor dispatch behavior while operating
@@ -24,7 +31,9 @@ the backend through two channels:
 
 Per A128/A130 (supersedes A63/A64), the mother process (GPTBridgeApp) must
 not directly materialize or start sovereigns.  Instead, it delegates the
-sovereign stack startup to this sovereign via ``start_sovereign_stack``.
+sovereign stack startup to this sovereign via ``start_sovereign_stack``,
+which adjudicates the dispatch and hands execution to the governed
+``SovereignStackExecutor``.
 
 The decision-sovereign also owns the repair DECISION chain per
 A152/A154/E127/E128: the health-maintenance-test sub-sovereign classifies
@@ -33,7 +42,7 @@ makes the repair decision, validates permissions, and routes to the
 release-update (code change) or runtime-state (runtime action)
 synchronization chain for governed execution.
 
-Owned in-process sub-sovereigns (codex-aligned identities, A302–A323):
+Owned child sub-sovereigns (codex-aligned identities, A302–A323):
   * runtime-state-sync-sub-sovereign       -- keeps the platform running and serving
   * resource-dependency-sync-sub-sovereign -- owns all resource-body concerns
   * data-governance-sub-sovereign          -- owns all data-body concerns
@@ -49,11 +58,8 @@ in-process services; they never run heavy work in this mother process.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
-import time
-from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -65,17 +71,6 @@ from core_system.repair_decision_chain import RepairDecisionChain
 from core_system.sovereign_utils import _iso_now
 
 
-def _sub_sovereigns_module() -> Any:
-    """Load the hyphenated ``governance.sub-sovereigns`` package lazily.
-
-    The sub-sovereign layer lives under ``governance.sub_sovereigns`` and is
-    resolved through importlib to keep this module import-safe while the
-    governance package is still initializing.
-    """
-
-    return import_module("governance.sub_sovereigns")
-
-
 _DECISION_SOVEREIGN = next(
     (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "decision"),
     None,
@@ -85,24 +80,27 @@ if _DECISION_SOVEREIGN is None:
 
 DECISION_SOVEREIGN_RESPONSIBILITIES = _DECISION_SOVEREIGN.duties
 
+# Legacy attribute names used by existing callers -> codex child identity
+# (the codex ``sovereign_hierarchy_registry`` remains the sole authority
+# for parent assignment per A334).
+_CHILD_ATTRIBUTE_MAP: dict[str, str] = {
+    "runtime_sovereign": "runtime-state-sync-sub-sovereign",
+    "resource_sovereign": "resource-dependency-sync-sub-sovereign",
+    "data_sovereign": "data-governance-sub-sovereign",
+    "integration_sovereign": "channel-contract-sync-sub-sovereign",
+    "language_review_sovereign": "language-review-sub-sovereign",
+    "third_party_sovereign": "dependency-sync-sub-sovereign",
+    "learning_system_sovereign": "learning-evidence-sync-sub-sovereign",
+    "system_programming_sovereign": "release-update-sync-sub-sovereign",
+}
+
 
 class DecisionSovereign(SovereignBase):
-    """決策主宰：啟動堆疊協調、維修決策、子主宰擁有者。
+    """決策主宰：啟動堆疊裁決/派工、維修決策、子主宰擁有者（不執行）。
 
     Sovereign-stack startup dispatcher (A64) and platform sub-sovereign
-    owner.  Responsibilities at startup:
-
-      - Receive the dispatch from GPTBridgeApp to materialize the entire
-        sovereign stack in order (health-maintenance, permission,
-        self-maintenance, then the Decision Sovereign's sub-sovereigns)
-      - Consume the validated dependency state (env var + orchestrator report)
-      - Record the sovereign startup phase into the platform startup status
-      - Start its own sub-sovereigns: Runtime State, Resource Dependency,
-        Data Governance, Channel Contract, Language Review, Dependency,
-        Learning Evidence, Release Update
-      - Coordinate (read-only) the Health Maintenance Test Sub-Sovereign and
-        Permission Sovereign after this sovereign has materialized them
-      - Delegate all execution to governed executors (never in this process)
+    owner.  Per A63 this sovereign holds decision power only; materialization
+    and activation are executed by the governed ``SovereignStackExecutor``.
     """
 
     sovereign_id = "decision-sovereign"
@@ -129,37 +127,73 @@ class DecisionSovereign(SovereignBase):
         )
         self.platform_id = "main-system"
         self.module_id = "decision-sovereign"
-        # Sub-sovereigns owned and started by the Decision Sovereign.
-        # The attribute names are kept stable for existing callers; the
-        # classes are the codex-aligned governance-layer identities
-        # (A302–A310/A322/A323/A327).
-        sub = _sub_sovereigns_module()
-        self.runtime_sovereign = sub.RuntimeStateSyncSubSovereign(app, parent=self)
-        self.resource_sovereign = sub.ResourceDependencySyncSubSovereign(app, parent=self)
-        self.data_sovereign = sub.DataGovernanceSubSovereign(app, parent=self)
-        self.integration_sovereign = sub.ChannelContractSyncSubSovereign(app, parent=self)
-        self.language_review_sovereign = sub.LanguageReviewSubSovereign(app, parent=self)
-        self.third_party_sovereign = sub.DependencySyncSubSovereign(app, parent=self)
-        self.learning_system_sovereign = sub.LearningEvidenceSyncSubSovereign(app, parent=self)
-        self.system_programming_sovereign = sub.ReleaseUpdateSyncSubSovereign(app, parent=self)
-        self._sub_sovereigns: dict[str, Any] = {
-            child.sovereign_id: child
-            for child in (
-                self.runtime_sovereign,
-                self.resource_sovereign,
-                self.data_sovereign,
-                self.integration_sovereign,
-                self.language_review_sovereign,
-                self.third_party_sovereign,
-                self.learning_system_sovereign,
-                self.system_programming_sovereign,
-            )
-        }
+        # Child registry — populated by the governed executor at activation.
+        self._sub_sovereigns: dict[str, Any] = {}
         self.governance_rule_coordination = GovernanceRuleCoordination(app)
         # A152/A154/E127/E128: the decision-sovereign owns the repair
         # decision chain.  The health-maintenance sub-sovereign classifies
         # health signals (health-only) and delegates the decision here.
         self._repair_decision_chain = RepairDecisionChain(app)
+
+    # ------------------------------------------------------------------
+    # Child access (registry-backed; materialized by the governed executor)
+    # ------------------------------------------------------------------
+
+    def __getattr__(self, name: str) -> Any:
+        child_id = _CHILD_ATTRIBUTE_MAP.get(name)
+        if child_id is not None:
+            return self._child(child_id)
+        raise AttributeError(
+            f"{type(self).__name__!r} object has no attribute {name!r}"
+        )
+
+    @property
+    def permission_sovereign(self) -> Any:
+        """Read-only passthrough to the app's permission sovereign."""
+        return getattr(self.app, "permission_sovereign", None)
+
+    def _parent_for(self, child_id: str) -> Any | None:
+        """A334: resolve a child identity to its codex-registered parent."""
+        from governance.registries import parent_of
+
+        app = self.app
+        return {
+            "decision-sovereign": self,
+            "permission-sovereign": getattr(app, "permission_sovereign", None),
+            "synchronization-sovereign": getattr(
+                app, "synchronization_sovereign", None
+            ),
+            "system-runtime-sovereign": getattr(
+                app, "system_runtime_sovereign", None
+            ),
+        }.get(parent_of(child_id))
+
+    def _child(self, child_id: str) -> Any:
+        """Resolve a child through its codex-registered parent's registry."""
+        parent = self._parent_for(child_id)
+        if parent is None:
+            return None
+        return getattr(parent, "_sub_sovereigns", {}).get(child_id)
+
+    def _all_children(self) -> dict[str, Any]:
+        """All materialized children across every parent's registry."""
+        merged: dict[str, Any] = {}
+        for parent in (
+            self,
+            getattr(self.app, "permission_sovereign", None),
+            getattr(self.app, "synchronization_sovereign", None),
+            getattr(self.app, "system_runtime_sovereign", None),
+        ):
+            if parent is not None:
+                merged.update(getattr(parent, "_sub_sovereigns", {}))
+        return merged
+
+    def _child_status(self, child_id: str, method: str = "live_status") -> dict[str, Any]:
+        child = self._child(child_id)
+        if child is None:
+            return {"role": child_id, "enabled": False, "materialized": False}
+        reporter = getattr(child, method, None)
+        return reporter() if callable(reporter) else {"role": child_id}
 
     # ------------------------------------------------------------------
     # Single-gate adjudication (A10/A11)
@@ -186,7 +220,7 @@ class DecisionSovereign(SovereignBase):
         """A64: 母進程委派啟動堆疊給決策主宰。"""
         dependency_state = request.payload.get("dependency_state", "UNKNOWN")
         if dependency_state not in ("READY", "DEGRADED", "RECOVERY"):
-            return refusal_outcome("INVALID_DEPENDENCY_STATE", self.verified_basis("A64", "A130"))
+            return refusal_outcome("INVALID_DEPENDENCY_STATE", self.verified_basis("A128", "A130"))
 
         return accepted_outcome(
             {
@@ -200,7 +234,7 @@ class DecisionSovereign(SovereignBase):
                 "dependency_state": dependency_state,
                 "parallelism": "bounded-independent-per-A155",
             },
-            self.verified_basis("A64", "A128", "A130", "A155"),
+            self.verified_basis("A128", "A130", "A155"),
         )
 
     async def _adjudicate_repair_decision(
@@ -230,22 +264,19 @@ class DecisionSovereign(SovereignBase):
         sub_sovereign = request.payload.get("sub_sovereign")
         action = request.payload.get("action", "start")
 
-        if sub_sovereign not in set(self._sub_sovereigns) | {
-            "health-maintenance-test-sub-sovereign",
-            "policy-architecture-sub-sovereign",
-            "priority-capability-sub-sovereign",
-            "change-acceptance-sub-sovereign",
-        }:
-            return refusal_outcome("UNKNOWN_SUB_SOVEREIGN", self.verified_basis("A64", "A323"))
+        from governance.registries import children_of, parent_of
+
+        if sub_sovereign not in children_of("decision-sovereign"):
+            return refusal_outcome("UNKNOWN_SUB_SOVEREIGN", self.verified_basis("A130", "A334"))
 
         return accepted_outcome(
             {
                 "sub_sovereign": sub_sovereign,
                 "action": action,
-                "authority": "parent-decision-sovereign",
+                "authority": f"parent-{parent_of(sub_sovereign)}",
                 "execution": "delegated-to-governed-executor",
             },
-            self.verified_basis("A64", "A284", "A287", "A323"),
+            self.verified_basis("A130", "A284", "A287", "A323", "A334"),
         )
 
     async def _adjudicate_governance_coordination(
@@ -254,13 +285,8 @@ class DecisionSovereign(SovereignBase):
         """法典規則協調（A63）。"""
         return accepted_outcome(
             {"coordination": "governance-rules-aligned", "source": "codex-only"},
-            self.verified_basis("A12", "A63"),
+            self.verified_basis("A12", "A128"),
         )
-
-    @property
-    def permission_sovereign(self) -> Any:
-        """Read-only passthrough to the app's permission sovereign."""
-        return getattr(self.app, "permission_sovereign", None)
 
     def register_sub_sovereign(self, name: str, sovereign: Any) -> None:
         self._sub_sovereigns[name] = sovereign
@@ -269,19 +295,17 @@ class DecisionSovereign(SovereignBase):
         return self._sub_sovereigns.get(name)
 
     # ------------------------------------------------------------------
-    # Lifecycle
+    # Lifecycle (decision-layer only; activation is executor work)
     # ------------------------------------------------------------------
 
     async def start(self) -> dict[str, Any]:
-        """Mark the Decision Sovereign active and register its sub-sovereigns.
+        """Mark the Decision Sovereign active and surface its children.
 
-        The actual sub-sovereign startup is performed by
-        ``start_sovereign_stack`` (called by the startup executor at the
-        certified phase boundary); this activation is the decision-layer
-        surface only.
+        Materialization/activation of the stack is performed by the
+        governed executor via ``start_sovereign_stack``; this activation is
+        the decision-layer surface only.
         """
         state = await super().start()
-        # Surface the owned children on the app registry for the status API.
         app_registry = getattr(self.app, "_sub_sovereigns", None)
         if isinstance(app_registry, dict):
             app_registry.update(self._sub_sovereigns)
@@ -289,347 +313,40 @@ class DecisionSovereign(SovereignBase):
         return state
 
     async def start_sovereign_stack(self) -> bool:
-        """Governed-executor startup of the entire sovereign stack.
+        """Adjudicate the sovereign-stack startup dispatch, then delegate
+        execution to the governed ``SovereignStackExecutor`` (A63/A64).
 
-        Per A63 (sovereigns are decision-only) and A64 (sub-sovereigns
-        control/dispatch under parent authority), the mother process
-        (GPTBridgeApp) must not directly materialize sovereigns.  Instead,
-        it dispatches to this sovereign, which materializes the top-level
-        sovereigns in order and then starts the Decision Sovereign's own
-        sub-sovereigns.  All work remains delegated to governed executors.
-
-        Order (E155 bounded-independent-parallelism within each step):
-          1. Synchronization child sub-sovereigns + daily cleaner (learning
-             evidence, release update, cleaner — independent, started in
-             parallel)
-          2. Permission Sovereign (read-only coordination surface)
-          3. Health Maintenance Test Sub-Sovereign + main-system
-             self-maintenance (independent — started in parallel)
-          4. Decision Sovereign and its six sub-sovereigns
-
-        Returns the maintenance_ready flag for the final readiness log.
+        This method does NOT materialize or start anything itself — it
+        decides (A10/A11 fail-closed) and hands the authorized sequence to
+        the governed executor, which performs all activation work.
         """
-
-        app = self.app
-        sub = _sub_sovereigns_module()
-        # Step timings feed the startup executor's phase evidence so a
-        # deadline breach reports the exact bottleneck (E173).
-        step_timings: dict[str, int] = {}
-        _step_start = time.monotonic()
-
-        # Materialize the health-maintenance sub-sovereign if the app has
-        # not already provided one (A302/A323: child-of-decision-sovereign).
-        if getattr(app, "maintenance_sovereign", None) is None:
-            app.maintenance_sovereign = sub.HealthMaintenanceTestSubSovereign(
-                app, parent=self
-            )
-        app_registry = getattr(app, "_sub_sovereigns", None)
-        if isinstance(app_registry, dict):
-            app_registry[
-                "health-maintenance-test-sub-sovereign"
-            ] = app.maintenance_sovereign
-            app_registry.update(self._sub_sovereigns)
-
-        # Codex parents (A322/A327/A308): synchronization children report to
-        # the synchronization-sovereign; language review to the
-        # permission-sovereign.  Parent links are attached here once the
-        # parent sovereigns have been materialized by the app.
-        synchronization = getattr(app, "synchronization_sovereign", None)
-        permission = getattr(app, "permission_sovereign", None)
-        if synchronization is not None:
-            for child in (
-                self.resource_sovereign,
-                self.integration_sovereign,
-                self.third_party_sovereign,
-                self.runtime_sovereign,
-                self.learning_system_sovereign,
-                self.system_programming_sovereign,
-            ):
-                child.set_parent(synchronization)
-        if permission is not None:
-            self.language_review_sovereign.set_parent(permission)
-
-        # Learning-evidence and release-update are synchronization child
-        # sub-sovereigns. They start before maintenance so every subsequent
-        # failure and repair can be learned, and every code change has one
-        # governed dispatch owner.
-        # The daily cleaner is independent — E155 bounded-independent-
-        # parallelism applies to these three starts.
-        app.learning_system_sovereign = self.learning_system_sovereign
-        app.system_programming_sovereign = self.system_programming_sovereign
-        await asyncio.gather(
-            self.learning_system_sovereign.start(),
-            self.system_programming_sovereign.start(),
-            app.daily_global_cleaner_service.start(),
-        )
-        step_timings["peer-sovereigns-and-cleaner_ms"] = int(
-            (time.monotonic() - _step_start) * 1000
-        )
-        _step_start = time.monotonic()
-
-        # 1. Health Maintenance Test Sub-Sovereign — periodic maintenance,
-        #    health, repair classification
-        app._mark_startup_phase("maintenance_sovereign_starting")
-
-        async def _start_maintenance() -> None:
-            try:
-                from core_system.resource_maintenance import release_unused_memory
-
-                app.resource_release = release_unused_memory
-                toolbox = app.toolbox_service
-                central_repair = None
-                if toolbox is not None and hasattr(toolbox, "central_repair"):
-                    try:
-                        central_repair = toolbox.central_repair
-                    except Exception:
-                        central_repair = None
-                maintenance_report = await app.maintenance_sovereign.start(
-                    daily_cleaner=app.daily_global_cleaner_service,
-                    hot_update=app.hot_update_service,
-                    repair_service=central_repair,
-                )
-                app._log(
-                    {
-                        "type": "maintenance_sovereign_startup",
-                        "role": maintenance_report.get("role", ""),
-                    }
-                )
-            except Exception as error:
-                app._record_startup_failure("maintenance_sovereign", error)
-
-        # 2. Permission Sovereign — read-only permission coordination
-        app._mark_startup_phase("permission_sovereign_starting")
-        try:
-            if app.permission_sovereign is None:
-                from .permission_sovereign import PermissionSovereign
-
-                app.permission_sovereign = PermissionSovereign(
-                    app,
-                    governance=app.governance,
-                )
-            app._log(
-                {
-                    "type": "permission_sovereign_startup",
-                    "role": app.permission_sovereign.ROLE,
-                }
-            )
-        except Exception as error:
-            app._record_startup_failure("permission_sovereign", error)
-        app._mark_startup_phase("permission_sovereign_started")
-
-        # 3. Main-system self-maintenance runs before the Decision Sovereign
-        #    so that maintenance_ready is already true when resident tools
-        #    try to start.  No global lock; the boolean flag is the only gate.
-        #    It is independent of the health-maintenance sub-sovereign's
-        #    start, so both
-        #    run under E155 bounded-independent-parallelism.
-        app._mark_startup_phase("sovereign_initializing")
-        from core_system.main_system_self_maintenance import MainSystemSelfMaintenance
-
-        app.main_system_self_maintenance = MainSystemSelfMaintenance(
-            self.workspace_root,
-            authentication=getattr(app.governance, "authentication", None),
-        )
-
-        async def _start_self_maintenance() -> None:
-            try:
-                await app.main_system_self_maintenance.start()
-            except Exception as error:
-                app._record_startup_failure("main_system_self_maintenance", error)
-
-        await asyncio.gather(_start_maintenance(), _start_self_maintenance())
-        step_timings["maintenance-and-self-maintenance_ms"] = int(
-            (time.monotonic() - _step_start) * 1000
-        )
-        _step_start = time.monotonic()
-        # CORE-READY condition "maintenance-active" means the maintenance
-        # services are activated and running their loops — the deferred
-        # startup duty pass reports through _last_report/health monitoring
-        # once it completes; it is not an activation gate.
-        startup_ok = bool(
-            getattr(app.main_system_self_maintenance, "_running", False)
-        )
-        app.maintenance_ready = startup_ok
-        if app.governance is not None:
-            app.governance.maintenance_ready = startup_ok
-
-        # 4. Decision Sovereign and its six sub-sovereigns
-        try:
-            await self.start()
-            sovereign = await self._start_sub_sovereigns()
-            app._log(
-                {
-                    "type": "sovereign_startup",
-                    "dependency_state": sovereign.get("dependency_state", ""),
-                }
-            )
-        except Exception as error:
-            app._record_startup_failure("decision_sovereign", error)
-        step_timings["decision-sovereign-and-subsovereigns_ms"] = int(
-            (time.monotonic() - _step_start) * 1000
-        )
-        app._startup_step_timings = step_timings
-        app._mark_startup_phase("sovereign_initialized")
-        return startup_ok
-
-    async def _start_sub_sovereigns(self) -> dict[str, Any]:
-        """Start the Decision Sovereign's own sub-sovereigns.
-
-        The health-maintenance and permission sovereigns are materialized
-        by ``start_sovereign_stack`` before this method is called.  This
-        method only starts the sub-sovereigns owned by the Decision
-        Sovereign: runtime_state, resource_dependency, data_governance,
-        channel_contract, language_review, dependency.
-
-        Single-fault isolation: each sub-sovereign is started independently.
-        A failure in one does not prevent the rest from starting, and all
-        failures are recorded in the report's ``startup_failures`` list.
-        """
-
-        dependency_state = self._dependency_state()
-        self._startup_failures: list[dict[str, str]] = []
-
-        # All 6 sub-sovereigns are started in parallel because:
-        # - None depend on another's start() completing (they reference
-        #   app.* attributes already set before this method is called).
-        # - Single-fault isolation is already implemented per-sovereign.
-        # - This eliminates serial await latency (6 sequential awaits
-        #   become 1 concurrent gather).
-        memory_maintainer = getattr(self.app, "_idle_memory_maintainer", None)
-
-        async def _start_runtime() -> dict[str, Any]:
-            try:
-                return await self.runtime_sovereign.start()
-            except Exception as error:
-                self._startup_failures.append(
-                    {"sub_sovereign": "runtime", "error": f"{type(error).__name__}: {error}"}
-                )
-                return {}
-
-        async def _start_resource() -> dict[str, Any]:
-            try:
-                return await self.resource_sovereign.start(
-                    memory_maintainer=memory_maintainer,
-                )
-            except Exception as error:
-                self._startup_failures.append(
-                    {"sub_sovereign": "resource", "error": f"{type(error).__name__}: {error}"}
-                )
-                return {}
-
-        async def _start_data() -> dict[str, Any]:
-            try:
-                return await self.data_sovereign.start()
-            except Exception as error:
-                self._startup_failures.append(
-                    {"sub_sovereign": "data", "error": f"{type(error).__name__}: {error}"}
-                )
-                return {}
-
-        async def _start_integration() -> dict[str, Any]:
-            try:
-                return await self.integration_sovereign.start()
-            except Exception as error:
-                self._startup_failures.append(
-                    {"sub_sovereign": "integration", "error": f"{type(error).__name__}: {error}"}
-                )
-                return {}
-
-        async def _start_language_review() -> dict[str, Any]:
-            try:
-                return await self.language_review_sovereign.start()
-            except Exception as error:
-                self._startup_failures.append(
-                    {"sub_sovereign": "language_review", "error": f"{type(error).__name__}: {error}"}
-                )
-                return {}
-
-        async def _start_third_party() -> dict[str, Any]:
-            try:
-                return await self.third_party_sovereign.start()
-            except Exception as error:
-                self._startup_failures.append(
-                    {"sub_sovereign": "third_party", "error": f"{type(error).__name__}: {error}"}
-                )
-                return {}
-
-        runtime, resource, data, integration, language_review, third_party = (
-            await asyncio.gather(
-                _start_runtime(),
-                _start_resource(),
-                _start_data(),
-                _start_integration(),
-                _start_language_review(),
-                _start_third_party(),
+        outcome = await self._adjudicate_startup_dispatch(
+            SovereignRequest(
+                intent="startup.stack.dispatch",
+                subject="sovereign-stack",
+                requester="startup-executor",
+                payload={"dependency_state": self._dependency_state()},
             )
         )
+        if not outcome.accepted:
+            reason = outcome.refusal.reason_code if outcome.refusal else "UNKNOWN"
+            raise RuntimeError(f"startup-dispatch-refused:{reason}")
 
-        sub_sovereign_roles = [
-            result.get("role", "")
-            for result in (
-                runtime,
-                resource,
-                data,
-                integration,
-                language_review,
-                third_party,
+        executor = getattr(self.app, "sovereign_stack_executor", None)
+        if executor is None:
+            from core_system.sovereign_stack_executor import (
+                SovereignStackExecutor,
             )
-            if result
-        ]
 
-        # E173: the startup report is an activation receipt — role names,
-        # failures, and dependency state only.  Full status trees
-        # (orchestration_status/live_status) are served on demand by
-        # status()/orchestration_status(); composing them inline here would
-        # burn the phase budget on reporting, not activation.
-        report = {
-            "ok": len(self._startup_failures) == 0,
-            "sovereign": "decision-sovereign",
-            "dependency_state": dependency_state,
-            "started_at": _iso_now(),
-            "execution_delegation": "governed-executor-only",
-            "sub_sovereigns": sub_sovereign_roles,
-            "startup_failures": list(self._startup_failures),
-            "peer_systems": {
-                "learning": getattr(
-                    self.learning_system_sovereign, "_started", False
-                ),
-                "programming": getattr(
-                    self.system_programming_sovereign, "_started", False
-                ),
-            },
-            "health_owner": "health-maintenance-test-sub-sovereign",
-            "sources": [
-                {"kind": "env", "name": "GPTBRIDGE_STARTUP_STATE"},
-                {
-                    "kind": "report",
-                    "path": str(self.launcher_report_path),
-                },
-            ],
-        }
-        self._save_state(report)
-        return report
+            executor = SovereignStackExecutor(self.app)
+            self.app.sovereign_stack_executor = executor
+        return await executor.activate(self)
 
     async def stop(self) -> None:
-        """Stop only the sub-sovereigns owned by the Decision Sovereign.
-
-        The health-maintenance sub-sovereign and Permission Sovereign are
-        stopped by the app.
-        """
-        for sovereign in (
-            self.third_party_sovereign,
-            self.language_review_sovereign,
-            self.integration_sovereign,
-            self.data_sovereign,
-            self.resource_sovereign,
-            self.runtime_sovereign,
-        ):
-            try:
-                await sovereign.stop()
-            except Exception:
-                pass
-        await self.system_programming_sovereign.stop()
-        await self.learning_system_sovereign.stop()
+        """Dispatch deactivation to the governed executor, then stop."""
+        executor = getattr(self.app, "sovereign_stack_executor", None)
+        if executor is not None:
+            await executor.deactivate(self)
         self._save_state({"stopped_at": _iso_now()})
         await super().stop()
 
@@ -668,20 +385,24 @@ class DecisionSovereign(SovereignBase):
             "started_at": state.get("started_at", ""),
             "executor": "governed-executor-only",
             "sub_sovereigns": [
-                self.runtime_sovereign.live_status(),
-                self.resource_sovereign.live_status(),
-                self.data_sovereign.live_status(),
-                self.integration_sovereign.live_status(),
-                self.language_review_sovereign.live_status(),
-                self.third_party_sovereign.live_status(),
+                self._child_status("runtime-state-sync-sub-sovereign"),
+                self._child_status("resource-dependency-sync-sub-sovereign"),
+                self._child_status("data-governance-sub-sovereign"),
+                self._child_status("channel-contract-sync-sub-sovereign"),
+                self._child_status("language-review-sub-sovereign"),
+                self._child_status("dependency-sync-sub-sovereign"),
             ],
             "peer_systems": {
-                "learning": self.learning_system_sovereign.status(),
-                "programming": self.system_programming_sovereign.status(),
+                "learning": self._child_status(
+                    "learning-evidence-sync-sub-sovereign", "status"
+                ),
+                "programming": self._child_status(
+                    "release-update-sync-sub-sovereign", "status"
+                ),
             },
             "health_owner": "health-maintenance-test-sub-sovereign",
             "governance_rules": self.governance_rule_coordination.coordination_status(),
-            "runtime": self.runtime_sovereign.live_status(),
+            "runtime": self._child_status("runtime-state-sync-sub-sovereign"),
             "maintenance": (
                 maintenance_sovereign.live_status()
                 if maintenance_sovereign is not None
@@ -692,18 +413,18 @@ class DecisionSovereign(SovereignBase):
                 if permission_sovereign is not None
                 else {"enabled": False}
             ),
-            "resource": self.resource_sovereign.live_status(),
-            "data": self.data_sovereign.live_status(),
-            "integration": self.integration_sovereign.live_status(),
-            "language_review": self.language_review_sovereign.live_status(),
-            "third_party": self.third_party_sovereign.live_status(),
+            "resource": self._child_status("resource-dependency-sync-sub-sovereign"),
+            "data": self._child_status("data-governance-sub-sovereign"),
+            "integration": self._child_status("channel-contract-sync-sub-sovereign"),
+            "language_review": self._child_status("language-review-sub-sovereign"),
+            "third_party": self._child_status("dependency-sync-sub-sovereign"),
         }
 
     def live_status(self) -> dict[str, Any]:
         base = self.status()
         base["sub_sovereign_registry"] = {
             name: sov.live_status() if hasattr(sov, "live_status") else {"role": name}
-            for name, sov in self._sub_sovereigns.items()
+            for name, sov in self._all_children().items()
         }
         return base
 
@@ -725,20 +446,38 @@ class DecisionSovereign(SovereignBase):
             "state": "delegated",
             "owner": self.module_id,
             "sub_sovereigns": [
-                self.runtime_sovereign.orchestration_status(),
-                self.resource_sovereign.orchestration_status(),
-                self.data_sovereign.orchestration_status(),
-                self.integration_sovereign.orchestration_status(),
-                self.language_review_sovereign.orchestration_status(),
-                self.third_party_sovereign.orchestration_status(),
+                self._child_status(
+                    "runtime-state-sync-sub-sovereign", "orchestration_status"
+                ),
+                self._child_status(
+                    "resource-dependency-sync-sub-sovereign", "orchestration_status"
+                ),
+                self._child_status(
+                    "data-governance-sub-sovereign", "orchestration_status"
+                ),
+                self._child_status(
+                    "channel-contract-sync-sub-sovereign", "orchestration_status"
+                ),
+                self._child_status(
+                    "language-review-sub-sovereign", "orchestration_status"
+                ),
+                self._child_status(
+                    "dependency-sync-sub-sovereign", "orchestration_status"
+                ),
             ],
             "peer_systems": {
-                "learning": self.learning_system_sovereign.status(),
-                "programming": self.system_programming_sovereign.status(),
+                "learning": self._child_status(
+                    "learning-evidence-sync-sub-sovereign", "status"
+                ),
+                "programming": self._child_status(
+                    "release-update-sync-sub-sovereign", "status"
+                ),
             },
             "health_owner": "health-maintenance-test-sub-sovereign",
             "governance_rules": self.governance_rule_coordination.orchestration_status(),
-            "runtime": self.runtime_sovereign.orchestration_status(),
+            "runtime": self._child_status(
+                "runtime-state-sync-sub-sovereign", "orchestration_status"
+            ),
             "maintenance": (
                 maintenance_sovereign.orchestration_status()
                 if maintenance_sovereign is not None
@@ -749,19 +488,41 @@ class DecisionSovereign(SovereignBase):
                 if permission_sovereign is not None
                 else {"enabled": False}
             ),
-            "resource": self.resource_sovereign.orchestration_status(),
-            "data": self.data_sovereign.orchestration_status(),
-            "integration": self.integration_sovereign.orchestration_status(),
-            "language_review": self.language_review_sovereign.orchestration_status(),
-            "third_party": self.third_party_sovereign.orchestration_status(),
+            "resource": self._child_status(
+                "resource-dependency-sync-sub-sovereign", "orchestration_status"
+            ),
+            "data": self._child_status(
+                "data-governance-sub-sovereign", "orchestration_status"
+            ),
+            "integration": self._child_status(
+                "channel-contract-sync-sub-sovereign", "orchestration_status"
+            ),
+            "language_review": self._child_status(
+                "language-review-sub-sovereign", "orchestration_status"
+            ),
+            "third_party": self._child_status(
+                "dependency-sync-sub-sovereign", "orchestration_status"
+            ),
             "subsystems": [
                 self.governance_rule_coordination.orchestration_status(),
-                self.runtime_sovereign.orchestration_status(),
-                self.resource_sovereign.orchestration_status(),
-                self.data_sovereign.orchestration_status(),
-                self.integration_sovereign.orchestration_status(),
-                self.language_review_sovereign.orchestration_status(),
-                self.third_party_sovereign.orchestration_status(),
+                self._child_status(
+                    "runtime-state-sync-sub-sovereign", "orchestration_status"
+                ),
+                self._child_status(
+                    "resource-dependency-sync-sub-sovereign", "orchestration_status"
+                ),
+                self._child_status(
+                    "data-governance-sub-sovereign", "orchestration_status"
+                ),
+                self._child_status(
+                    "channel-contract-sync-sub-sovereign", "orchestration_status"
+                ),
+                self._child_status(
+                    "language-review-sub-sovereign", "orchestration_status"
+                ),
+                self._child_status(
+                    "dependency-sync-sub-sovereign", "orchestration_status"
+                ),
             ],
         }
 

@@ -178,7 +178,7 @@ export function SovereignDashboard({
 
   const dependencyState = asString(sovereign?.dependency_state, 'UNKNOWN')
   const executor = asString(sovereign?.executor, t.governedExecutorOnly)
-  const healthOwner = asString(sovereign?.health_owner, 'maintenance-sovereign')
+  const healthOwner = asString(sovereign?.health_owner, 'health-maintenance-test-sub-sovereign')
   const ownedBy = asString(sovereign?.owned_by, '')
   const startedAt = asString(sovereign?.started_at, '')
 

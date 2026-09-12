@@ -43,7 +43,7 @@ class SubSovereignBase(SovereignBase, ABC):
         intent = request.intent
 
         if not self._verify_parent_authorization(request):
-            return refusal_outcome("PARENT_AUTHORIZATION_REQUIRED", self.verified_basis("A64", "A284"))
+            return refusal_outcome("PARENT_AUTHORIZATION_REQUIRED", self.verified_basis("A130", "A284"))
 
         if intent == "coordinate":
             return await self._adjudicate_coordinate(request)
@@ -56,10 +56,13 @@ class SubSovereignBase(SovereignBase, ABC):
         if intent == "status":
             return await self._adjudicate_status(request)
 
-        return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A64", "A284"))
+        return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A130", "A284"))
 
     def _verify_parent_authorization(self, request: SovereignRequest) -> bool:
-        return request.requester in (self.parent_sovereign_id, "decision-sovereign", "synchronization-sovereign", "permission-sovereign")
+        """A334: each sub-sovereign has exactly one codex-registered parent."""
+        from ..registries import parent_of
+
+        return request.requester == parent_of(self.sovereign_id)
 
     async def _adjudicate_coordinate(self, request: SovereignRequest) -> SovereignOutcome:
         return accepted_outcome(
@@ -69,7 +72,7 @@ class SubSovereignBase(SovereignBase, ABC):
                 "decision": "none",
                 "execution": "none",
             },
-            self.verified_basis("A64", "A284"),
+            self.verified_basis("A130", "A284"),
         )
 
     async def _adjudicate_assign(self, request: SovereignRequest) -> SovereignOutcome:
@@ -80,7 +83,7 @@ class SubSovereignBase(SovereignBase, ABC):
                 "decision": "none",
                 "execution": "none",
             },
-            self.verified_basis("A64", "A284", "A287"),
+            self.verified_basis("A130", "A284", "A287"),
         )
 
     async def _adjudicate_manage(self, request: SovereignRequest) -> SovereignOutcome:
@@ -100,7 +103,7 @@ class SubSovereignBase(SovereignBase, ABC):
                 "decision": "none",
                 "execution": "delegated-to-governed-executor",
             },
-            self.verified_basis("A64", "A284"),
+            self.verified_basis("A130", "A284"),
         )
 
     async def _adjudicate_sync(self, request: SovereignRequest) -> SovereignOutcome:
@@ -110,7 +113,7 @@ class SubSovereignBase(SovereignBase, ABC):
                 "decision": "none",
                 "execution": "none",
             },
-            self.verified_basis("A64", "A322"),
+            self.verified_basis("A130", "A322"),
         )
 
     async def _adjudicate_status(self, request: SovereignRequest) -> SovereignOutcome:
@@ -120,7 +123,7 @@ class SubSovereignBase(SovereignBase, ABC):
                 "managed_resources": list(self._managed_resources.keys()),
                 "parent": self.parent_sovereign_id,
             },
-            self.verified_basis("A64"),
+            self.verified_basis("A130"),
         )
 
     def live_status(self) -> dict[str, Any]:

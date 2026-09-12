@@ -145,5 +145,6 @@
     "minHeight": 760,
     "title_key": "tool.window_title"
   },
-  "main_system_independent_tool": true
+  "main_system_independent_tool": true,
+  "physical_owner_root": "ai-assistant"
 }

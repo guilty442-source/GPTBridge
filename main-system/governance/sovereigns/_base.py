@@ -68,6 +68,9 @@ class SovereignBase(ABC):
         self._identity = SovereignIdentity.from_codex(self.sovereign_id)
         self._started = False
         self._state: dict[str, Any] = {}
+        # Child registry — populated by the governed executor at activation
+        # (A334: each sub-sovereign is registered under exactly one parent).
+        self._sub_sovereigns: dict[str, Any] = {}
 
     @property
     def identity(self) -> SovereignIdentity:
@@ -135,6 +138,40 @@ class SovereignBase(ABC):
         """验证意图是否在管辖敕令范围内。"""
         allowed = {e["id"] for e in self.edicts()}
         return intent in allowed or intent.startswith("governance.")
+
+    # ------------------------------------------------------------------
+    # Sub-sovereign registry + A334 parent-authority adjudication
+    # ------------------------------------------------------------------
+
+    def register_sub_sovereign(self, name: str, sovereign: Any) -> None:
+        self._sub_sovereigns[name] = sovereign
+
+    def get_sub_sovereign(self, name: str) -> Any | None:
+        return self._sub_sovereigns.get(name)
+
+    def authorize_child_activation(self, child_identity: str) -> SovereignOutcome:
+        """A334: adjudicate whether this sovereign may dispatch a child start.
+
+        Fail-closed: the child must be registered in this sovereign's
+        registry AND the codex ``sovereign_hierarchy_registry`` must declare
+        this sovereign as the child's single parent.
+        """
+        from ..registries import parent_of
+
+        child = self._sub_sovereigns.get(child_identity)
+        if child is None:
+            return refusal_outcome("CHILD_NOT_REGISTERED", ("A334", "A130"))
+        if parent_of(child_identity) != self.sovereign_id:
+            return refusal_outcome("NOT_CODEX_PARENT", ("A334",))
+        return accepted_outcome(
+            {
+                "child": child_identity,
+                "parent": self.sovereign_id,
+                "dispatch": "authorized",
+                "execution": "delegated-to-governed-executor",
+            },
+            verified_basis(("A334", "A130")),
+        )
 
     @abstractmethod
     async def _adjudicate(self, request: SovereignRequest) -> SovereignOutcome:

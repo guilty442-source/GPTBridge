@@ -11,6 +11,7 @@ import {
   getBackendStatus,
   restartBackend,
   startBackend,
+  stopBackend,
 } from './python-backend'
 import { getRuntimeEnv } from './runtime-env'
 import { PRODUCT_VERSION } from './product-version'
@@ -608,17 +609,23 @@ if (process.env.GPTBRIDGE_RENDERER_DEV_URL) {
   })
 }
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
   closeAllSessions()
   stopMainRendererWatch()
+  if (shouldManageBackend) {
+    await stopBackend()
+  }
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   closeAllSessions()
   stopMainRendererWatch()
+  if (shouldManageBackend) {
+    await stopBackend()
+  }
   // The formal UI is a detachable projection. Closing it must not terminate
   // the hidden governed runtime or any independent tool runtime. Full-system
   // shutdown remains an explicit typed runtime intent.

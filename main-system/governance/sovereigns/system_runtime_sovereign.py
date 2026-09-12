@@ -71,7 +71,7 @@ class SystemRuntimeSovereign(SovereignBase):
                 "execution": "delegated-to-runtime-sub-sovereign",
                 "basis": "codex-delegation",
             },
-            self.verified_basis("A28", "A63", "A64"),
+            self.verified_basis("A28", "A128", "A130"),
         )
 
     async def _adjudicate_sub_sovereign_manage(
@@ -88,7 +88,7 @@ class SystemRuntimeSovereign(SovereignBase):
                 "no_decision": True,
                 "no_execution": True,
             },
-            self.verified_basis("A284", "A287", "A64"),
+            self.verified_basis("A284", "A287", "A130"),
         )
 
     async def _adjudicate_health_coordinate(
