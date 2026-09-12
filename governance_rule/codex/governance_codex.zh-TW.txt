@@ -1,5 +1,5 @@
 {
-  "codex_version": "3.71600",
+  "codex_version": "4.01600",
   "tables": {
     "access_actor_classes": [
       {
@@ -832,10 +832,10 @@
         "position": 89,
         "provision_id": "A125",
         "section_index": "6",
-        "subject": "maintenance-sovereign-focused-duty",
-        "rule": "OWNER:maintenance-sovereign; DUTIES:monitor-system-health+preserve-system-health+maintain-system; BASIS:codex; DELEGATE:governed-maintenance-executors",
-        "prohibition": "FORBID:non-maintenance-domain-ownership+direct-ungoverned-execution",
-        "exception": ""
+        "subject": "維護主宰專責職務",
+        "rule": "維護主宰負責監測與維持系統健康、系統維護，以及測試政策、範圍規劃、執行協調、證據驗收、狀態追蹤與缺口閉合。權限主宰仍唯一負責測試流程目錄登錄與權限，各領域主宰仍對所屬測試內容負責。所有測試必須具備登錄代碼、需求追蹤、正反向結果、故障代碼、複測證明、驗收決定及稽核紀錄。",
+        "prohibition": "禁止維護主宰奪取其他領域權責、自行登錄測試目錄、繞過權限、執行未登錄測試、隱藏或偽造結果、無證據驗收、未複測即關閉缺口，或直接交由未受治理的執行者處理。",
+        "exception": "緊急隔離只能停止受影響測試或服務，不得免除後續登錄、證據、複測、驗收與稽核要求。"
       },
       {
         "position": 90,
@@ -2015,6 +2015,24 @@
         "rule": "SCOPE:every sealed codex successor version; EACH-VERSION:seal manifest+revision history head+certification evidence+trust-anchor requirement+timestamp record+sealed-component manifest must exist and share the exact version identity; TRUST:Ed25519 2-of-3 external offline keys never stored in codex; TIMESTAMP:new successors record actual UTC RFC3339+local offset+IANA timezone at sealing while historical missing rows are added only as explicitly retrospective evidence-gap records and never represented as original seal time; COMPONENTS:certification-policy+history+identities+lineage+metadata+provisions+schema+sovereigns+supersessions+version-rules all included in full root; CONSISTENCY:manifest counts equal current provision identity and lineage sets for that version evidence; FAILURE:missing mismatched blank self-signed or retrospectively falsified evidence keeps certification external-signatures-required and blocks verified status; REVIEW:every successor transaction validates the complete per-version evidence bundle before read-only sealing",
         "prohibition": "FORBID:seal-without-trust-anchor/timestamp/component-manifest+retrospective-time-claimed-as-original+self-generated-private-key+private-key-in-codex+component-excluded-from-full-root+version-mismatch+blank-root/history-head+count-without-set-evidence+verified-status-with-open-external-signature-gate",
         "exception": "Retrospective records may close structural evidence presence only; they do not establish original event time or satisfy the external human signature threshold."
+      },
+      {
+        "position": 276,
+        "provision_id": "A276",
+        "section_index": "9",
+        "subject": "main-system 平台核心實體目錄定位條例",
+        "rule": "main-system 實體上是頂層專案目錄；邏輯上同時承載啟動核心、平台編排及部分執行模組。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用，均須將其標記為平台核心實體目錄，不得單純描述為模組執行層的一個工具。此定位不改變其與各獨立工具依 A184 維持的個體及故障隔離。",
+        "prohibition": "禁止把 main-system 分類為模組執行層工具、將平台核心扁平化為獨立工具、藉實體目錄名稱混同邏輯權責，或以此定位規避個體隔離。",
+        "exception": "位於 main-system 內的部分執行模組，仍各自遵循已登錄的邏輯責任者與權限邊界。"
+      },
+      {
+        "position": 277,
+        "provision_id": "A277",
+        "section_index": "9",
+        "subject": "model-dialogue 本地模型頂層資料夾定位條例",
+        "rule": "model-dialogue 實體路徑為 local-model/model-dialogue，邏輯上是本地模型頂層資料夾及本地模型對話能力的正式邊界。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用均須使用此定位。其範圍包含本地模型對話介面、通道、服務及模型互動協調，但不因此成為模型核心或網路權限主體。",
+        "prohibition": "禁止將 model-dialogue 分類為一般附屬模組、把本地模型對話權責放在此正式邊界之外、混同模型核心與網路權限，或繞過治理通道存取外部資源。",
+        "exception": "實體上位於 local-model 之下，不代表 model-dialogue 得承接其他本地模型個體已分配的職責。"
       }
     ],
     "certification_evidence": [
@@ -2251,6 +2269,27 @@
       },
       {
         "version": "3.71600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "3.81600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "3.91600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "4.01600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2531,6 +2570,27 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "complete-seal-evidence-bundle"
+      },
+      {
+        "version": "3.81600",
+        "recorded_at_utc": "2026-09-12T00:25:41Z",
+        "recorded_at_local": "2026-09-12T08:25:41+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "retrospective-evidence-gap-recorded-not-original-seal-time"
+      },
+      {
+        "version": "3.91600",
+        "recorded_at_utc": "2026-09-12T00:25:41Z",
+        "recorded_at_local": "2026-09-12T08:25:41+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "codex-successor-sealed"
+      },
+      {
+        "version": "4.01600",
+        "recorded_at_utc": "2026-09-12T00:31:04Z",
+        "recorded_at_local": "2026-09-12T08:31:04+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "codex-successor-sealed"
       }
     ],
     "command_code_directory": [
@@ -9950,6 +10010,18 @@
         "provision_id": "A275",
         "effective_version": "3.71600",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A276",
+        "effective_version": "4.01600",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A277",
+        "effective_version": "4.01600",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -14756,7 +14828,7 @@
       },
       {
         "key": "codex_version",
-        "value": "3.71600"
+        "value": "4.01600"
       },
       {
         "key": "schema",
@@ -15533,6 +15605,50 @@
         "manual_codes": "GOV_REGISTER_UNKNOWN_FAULT",
         "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
         "introduced_version": "1.41600",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "MAIN_SYSTEM",
+        "canonical_name": "main-system-platform-core",
+        "entity_kind": "platform-core-physical-directory",
+        "owner": "permission-sovereign",
+        "parent_code": "PROJECT_GPTBRIDGE",
+        "physical_root": "E:\\GPTBridge\\main-system",
+        "logical_boundary": "platform core physical directory; not a module-execution-layer tool",
+        "responsibilities": "startup core|platform orchestration|selected execution modules",
+        "dependencies": "governance codex|permission directory|shared layer|registered runtime dependencies",
+        "interfaces": "official startup entry|information layer|governed IPC|platform UI",
+        "data_authority": "domain data remains assigned to registered data authorities",
+        "runtime_boundary": "main-system runtime individual governed by startup and system-runtime sovereigns",
+        "failure_boundary": "separate from every independent tool under A184",
+        "permission_scope": "project architecture registration and platform-core governed operations",
+        "command_codes": "SYS_GPTBRIDGE_START",
+        "fault_codes": "STARTUP_TOTAL_DEADLINE_EXCEEDED",
+        "manual_codes": "STARTUP_TEN_SECOND_DEADLINE",
+        "test_flow_codes": "TF_STARTUP_TEN_SECOND_DEADLINE",
+        "introduced_version": "4.01600",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "MODEL_DIALOGUE",
+        "canonical_name": "model-dialogue",
+        "entity_kind": "local-model-top-level-directory",
+        "owner": "permission-sovereign",
+        "parent_code": "PROJECT_GPTBRIDGE",
+        "physical_root": "E:\\GPTBridge\\local-model\\model-dialogue",
+        "logical_boundary": "top-level local-model directory and canonical local model dialogue boundary",
+        "responsibilities": "local model dialogue UI|channel|service|model interaction coordination",
+        "dependencies": "registered local model runtime|information layer|model core adapters",
+        "interfaces": "local model dialogue UI|governed channel|local model service contract",
+        "data_authority": "dialogue state only; model and project data remain with registered authorities",
+        "runtime_boundary": "local-model dialogue runtime boundary",
+        "failure_boundary": "isolated from main-system and other independent runtime individuals",
+        "permission_scope": "local-model dialogue governed operations",
+        "command_codes": "",
+        "fault_codes": "MODEL_RUNTIME_NOT_READY",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "4.01600",
         "retired_version": null
       }
     ],
@@ -18985,6 +19101,20 @@
         "identity_code": "codex/provision/article/A275",
         "provision_type": "article",
         "provision_id": "A275",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A276",
+        "provision_type": "article",
+        "provision_id": "A276",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A277",
+        "provision_type": "article",
+        "provision_id": "A277",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -22440,6 +22570,20 @@
         "tier": "special-law",
         "law_code": "CODEX_TEST_VALIDATION_EVALUATION_SPECIAL_LAW",
         "authority_basis": "A85|A86|A87|A200|A252|A273"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A276",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A227|A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A277",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A227|A229|A230"
       }
     ],
     "provision_lineage": [
@@ -23977,7 +24121,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "4a9ba9cb6297641bad77c48cbfb5b9b31d16fa09a448f5bf4fa3e8c5f51a4f73"
+        "content_hash": "3b2542c2888c3873baf645c968cd0fa3be06be79afd3b4d934ae70cf3bc36600"
       },
       {
         "provision_type": "article",
@@ -26386,6 +26530,22 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "259065f864ecdf8369eb7c761180e02bf79bba5225bb38e88117e4c9f643edea"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A276",
+        "introduced_by": "H038",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "69cd003fa502dc6259ebd77a22ffd0fe554d6b960e51f1377fd2e43be7119c55"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A277",
+        "introduced_by": "H038",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f25db8b2347d3b4e34e791b3b04421765b5e37ad63c460e52703ad82d2417031"
       }
     ],
     "provision_revisions": [
@@ -30371,6 +30531,30 @@
         "revision_id": "H035",
         "version": "3.71600",
         "content_hash": "259065f864ecdf8369eb7c761180e02bf79bba5225bb38e88117e4c9f643edea",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A125",
+        "revision_id": "H037",
+        "version": "3.91600",
+        "content_hash": "3b2542c2888c3873baf645c968cd0fa3be06be79afd3b4d934ae70cf3bc36600",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A276",
+        "revision_id": "H038",
+        "version": "4.01600",
+        "content_hash": "69cd003fa502dc6259ebd77a22ffd0fe554d6b960e51f1377fd2e43be7119c55",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A277",
+        "revision_id": "H038",
+        "version": "4.01600",
+        "content_hash": "f25db8b2347d3b4e34e791b3b04421765b5e37ad63c460e52703ad82d2417031",
         "certification_status": "external-signatures-required"
       }
     ],
@@ -35436,6 +35620,26 @@
         "summary": "add APP_GET_FAULT_ANALYSIS and XINGCHENG_DIAGNOSE_FAULT",
         "previous_hash": "2a0452ff99dc9048f630453ffe6bcb14f594e832664ec8a96604be8ba5f5edb9",
         "entry_hash": "26b191c409c57b223e0c9e76905b7f98111d71ac29a77bf29d3292543806d156"
+      },
+      {
+        "sequence": 37,
+        "change_id": "H037",
+        "version": "3.91600",
+        "recorded_date": "2026-09-12",
+        "change_scope": "maintenance-sovereign-test-management-duty",
+        "summary": "added governed test management to maintenance-sovereign while preserving permission and domain-owner boundaries",
+        "previous_hash": "26b191c409c57b223e0c9e76905b7f98111d71ac29a77bf29d3292543806d156",
+        "entry_hash": "00a66d2e7c2067e8c32a4c9f2f533a8a7f0f0868ebbc53ade47d3d9c060f87f7"
+      },
+      {
+        "sequence": 38,
+        "change_id": "H038",
+        "version": "4.01600",
+        "recorded_date": "2026-09-12",
+        "change_scope": "top-level-directory-classification",
+        "summary": "classified main-system as the platform-core physical directory and model-dialogue as the local-model top-level directory",
+        "previous_hash": "00a66d2e7c2067e8c32a4c9f2f533a8a7f0f0868ebbc53ade47d3d9c060f87f7",
+        "entry_hash": "bad2ef1ebd18fb29ae54a80760c45e4849bce8e6048d1eb2d53504ed5ff6242e"
       }
     ],
     "savings": [
@@ -35854,6 +36058,28 @@
         "content_root": "3b9a97de65c1c509387d6c3cb829e576cfba1e3e22a0bf0164791613819163c6",
         "identity_root": "98e7de854efa0ea38c7662da18d9b047d6146269382c587fcdc938fb914667b9",
         "full_root": "70a78bac45efd80058a372f0c262b8dbe6c70baf222d6a66b57a62900ad1f1d4"
+      },
+      {
+        "version": "3.91600",
+        "history_head": "H037",
+        "provision_count": 493,
+        "identity_count": 493,
+        "lineage_count": 493,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "12b842428b24ca70bbd25d458df74aa5954193993a5f17c0c29ca7e3c7c69e31",
+        "identity_root": "ca44eb1e60447864aaed2431dc028b6ba30bb43b1b701332fa7d92f5cdca150a",
+        "full_root": "076d70a5e8b8440b942aaf1a73d43b1c2cf7ea9b32c137b38954ffe7b2174de9"
+      },
+      {
+        "version": "4.01600",
+        "history_head": "H038",
+        "provision_count": 495,
+        "identity_count": 495,
+        "lineage_count": 495,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "bfabc3b0be53d16a38dedbb830f5a66e2729eb0d7de2dbf08094ef0d2c548048",
+        "identity_root": "f465411cc3ec0943a250de9fd8bcb6ef9de67e7a85a55af1acf3fcee0fbc85e5",
+        "full_root": "3d54d81b5a7ccd806a97e4043cf3272123c7eab30dfc0b8c83f1480fba2a5246"
       }
     ],
     "sealed_components": [
@@ -37604,6 +37830,156 @@
       },
       {
         "version": "3.71600",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.81600",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.81600",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.81600",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.81600",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.81600",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.81600",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.81600",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.81600",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.81600",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.81600",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.91600",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.91600",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.91600",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.91600",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.91600",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.91600",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.91600",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.91600",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.91600",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "3.91600",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.01600",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.01600",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.01600",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.01600",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.01600",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.01600",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.01600",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.01600",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.01600",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.01600",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -39876,6 +40252,14 @@
       },
       {
         "version": "3.71600",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "4.01600",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
