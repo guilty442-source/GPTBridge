@@ -67,6 +67,8 @@ _MAINTENANCE_SOVEREIGN = next(
 if _MAINTENANCE_SOVEREIGN is None:
     raise RuntimeError("health maintenance test sub-sovereign not found in Governance Codex")
 
+MAINTENANCE_RESPONSIBILITIES = _MAINTENANCE_SOVEREIGN.duties
+
 
 class HealthMaintenanceTestSubSovereign(
     MaintenanceLifecycleMixin,

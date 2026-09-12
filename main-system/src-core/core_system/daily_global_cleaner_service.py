@@ -46,7 +46,7 @@ class DailyGlobalCleanerService:
         permission = getattr(self.app, "permission_sovereign", None)
         if permission is not None:
             return permission
-        decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
+        decision_sovereign = getattr(self.app, "decision_sovereign", None)
         if decision_sovereign is not None:
             return getattr(decision_sovereign, "permission_sovereign", None)
         return None
@@ -88,7 +88,7 @@ class DailyGlobalCleanerService:
         state = self._load_state()
         return {
             "enabled": True,
-            "owner": "maintenance-sovereign",
+            "owner": "health-maintenance-test-sub-sovereign",
             "executor": "global-cleaner",
             "channel": "governance-authenticated-shared-layer",
             "interval_hours": 24,
@@ -421,7 +421,7 @@ class DailyGlobalCleanerService:
                     continue
         report = {
             "operation": "module-self-cleanup-sweep",
-            "authority": "maintenance-sovereign",
+            "authority": "health-maintenance-test-sub-sovereign",
             "execution": "devolved-per-module",
             "command": self.MODULE_CLEANUP_COMMAND,
             "started_at": started_at,

@@ -184,7 +184,7 @@ class RepairDecisionChain:
             }
 
     # ------------------------------------------------------------------
-    # Step 3: Dispatch to system-programming-sovereign (code change)
+    # Step 3: Dispatch to release-update-sync-sub-sovereign (code change)
     # ------------------------------------------------------------------
 
     def _dispatch_to_programming(
@@ -192,12 +192,13 @@ class RepairDecisionChain:
         classified_signal: dict[str, Any],
         decision: dict[str, Any],
     ) -> dict[str, Any]:
-        """Delegate the code change to the system-programming-sovereign.
+        """Delegate the code change to the release-update-sync-sub-sovereign.
 
-        Per E127: ``CODE-ACTION:system-programming``.  The
+        Per E127: ``CODE-ACTION:release-update-sync``.  The
         decision-sovereign makes the repair DECISION only; the
-        actual source mutation is delegated to the programming sovereign
-        which dispatches an approved governed programming tool.
+        actual source mutation is delegated to the release-update
+        synchronization sub-sovereign which dispatches an approved
+        governed programming tool.
         """
         programming_sovereign = getattr(
             self.app, "system_programming_sovereign", None
@@ -205,7 +206,7 @@ class RepairDecisionChain:
         if programming_sovereign is None:
             return {
                 "ok": False,
-                "reason": "system-programming-sovereign-unavailable",
+                "reason": "release-update-sync-sub-sovereign-unavailable",
             }
 
         target_file = str(classified_signal.get("target_file") or "")

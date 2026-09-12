@@ -19,7 +19,7 @@ from governance_rule.execution.codex_repository import (
 )
 from shared_layer.runtime_gateway import InformationChannelGateway
 
-from .permission_sovereign import re_certify_permission_sovereign
+from governance.sovereigns.permission_sovereign import re_certify_permission_sovereign
 
 
 def _restore_read_only(path: Path) -> None:

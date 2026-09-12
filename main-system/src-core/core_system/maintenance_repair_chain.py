@@ -80,7 +80,7 @@ class MaintenanceRepairChainMixin:
         if getattr(self, "_repair_decision_task", None) is None:
             self._repair_decision_task = asyncio.create_task(
                 self._repair_decision_loop(),
-                name="maintenance-sovereign-health-classification",
+                name="health-maintenance-test-sub-sovereign-health-classification",
             )
 
     async def _stop_repair_decision_loop(self) -> None:
@@ -154,7 +154,7 @@ class MaintenanceRepairChainMixin:
         classified = self._classify_health_signal(decision_proof)
 
         # ── Step 2: delegate repair decision to decision-sovereign ──
-        decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
+        decision_sovereign = getattr(self.app, "decision_sovereign", None)
         if decision_sovereign is None:
             coordinator.acknowledge_request(
                 request_id,

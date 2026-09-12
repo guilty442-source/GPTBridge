@@ -20,9 +20,9 @@ from core_system.third_party_types import (
 def verify_third_party_capabilities(
     declared: tuple[str, ...],
 ) -> ThirdPartyCapabilityCheck:
-    """Verify third-party sovereign has at most 3 capabilities (A197/E171).
+    """Verify dependency-sync sub-sovereign has at most 3 capabilities (A197/E171).
 
-    Per A197: ``MAX-CAPABILITIES:3`` and ``FORBID:third-party-sovereign-direct-
+    Per A197: ``MAX-CAPABILITIES:3`` and ``FORBID:dependency-sync-sub-sovereign-direct-
     download/install/uninstall/update/downgrade/replace/delete/execute/activate/
     rollback+manifest/lockfile/source/runtime/data mutation``.
     """

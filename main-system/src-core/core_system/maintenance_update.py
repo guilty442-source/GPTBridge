@@ -10,16 +10,16 @@ read-only health status of those delegated maintenance actions so the
 maintenance sovereign can monitor system health.
 
 Authority boundaries (A152/A154/E127/E128):
-  * update / hot-reload  → runtime action, owned by system-runtime (E127)
+  * update / hot-reload  → runtime action, owned by runtime-sovereign (E127)
   * repair decision       → decision-sovereign (A152)
-  * code change           → system-programming-sovereign (E127)
+  * code change           → release-update-sync-sub-sovereign (E127/A309/A322)
   * backup coordination   → delegated governed executor (E102)
 
-The maintenance sovereign supervises the **health** of these boundaries
-(read-only); it never owns the decision or execution.
+The health-maintenance-test sub-sovereign supervises the **health** of these
+boundaries (read-only); it never owns the decision or execution.
 
-Extracted from ``maintenance_sovereign`` to keep each module focused and
-under 500 lines.
+Extracted from ``maintenance_sovereign`` (retired, A302/A323) to keep each
+module focused and under 500 lines.
 """
 
 from __future__ import annotations
@@ -172,7 +172,7 @@ class MaintenanceUpdateMixin:
         approval_token: str | None = None,
     ) -> Any:
         """Delegate an approved third-party update to the third-party sovereign."""
-        decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
+        decision_sovereign = getattr(self.app, "decision_sovereign", None)
         third_party = getattr(decision_sovereign, "third_party_sovereign", None)
         if third_party is None:
             raise RuntimeError("third-party sovereign is not available")
@@ -188,7 +188,7 @@ class MaintenanceUpdateMixin:
         only_available: bool = True,
     ) -> Any:
         """Delegate approved automatic third-party updates to the third-party sovereign."""
-        decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
+        decision_sovereign = getattr(self.app, "decision_sovereign", None)
         third_party = getattr(decision_sovereign, "third_party_sovereign", None)
         if third_party is None:
             raise RuntimeError("third-party sovereign is not available")
@@ -202,5 +202,5 @@ class MaintenanceUpdateMixin:
     # ------------------------------------------------------------------
 
     def _maintenance_area(self):
-        from .maintenance_sovereign import _MAINTENANCE_SOVEREIGN
+        from governance.sub_sovereigns.health_maintenance_test_sub_sovereign import _MAINTENANCE_SOVEREIGN
         return _MAINTENANCE_SOVEREIGN.area

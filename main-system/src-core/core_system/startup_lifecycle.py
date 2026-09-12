@@ -61,7 +61,7 @@ from core_system.startup_lifecycle_verify import (
     StartupSovereignCapabilityCheck,
     verify_entry_launcher,
     verify_readiness_handoff,
-    verify_startup_sovereign_capabilities,
+    verify_startup_sub_sovereign_capabilities,
 )
 
 __all__ = [
@@ -90,7 +90,7 @@ __all__ = [
     "verify_entry_launcher",
     "verify_projection_sync",
     "verify_readiness_handoff",
-    "verify_startup_sovereign_capabilities",
+    "verify_startup_sub_sovereign_capabilities",
     "verify_window_host_continuity",
     "window_host_signal",
 ]

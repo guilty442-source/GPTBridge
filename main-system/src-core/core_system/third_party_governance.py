@@ -2,7 +2,7 @@
 
 This module implements three provisions from codex v2.81330:
 
-  * **A197/E171** — third-party-sovereign-optimized-responsibility (max 3
+  * **A197/E171** — dependency-sync-sub-sovereign-optimized-responsibility (max 3
     capabilities: identity-inventory-provenance, license-security-compatibility-
     risk, admission-version-lifecycle-decision).
   * **A198/E172** — local-code-and-third-party-dependency-boundary (local

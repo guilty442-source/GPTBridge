@@ -187,7 +187,7 @@ class MainSystemSelfMaintenance:
         return {
             "ok": ok,
             "operation": "main-system-self-maintenance",
-            "authority": "maintenance-sovereign",
+            "authority": "health-maintenance-test-sub-sovereign",
             "version": self.VERSION,
             "started_at": started_at,
             "completed_at": _iso_now(),

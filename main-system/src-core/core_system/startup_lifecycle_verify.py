@@ -33,7 +33,7 @@ class StartupSovereignCapabilityCheck:
         return asdict(self)
 
 
-def verify_startup_sovereign_capabilities(
+def verify_startup_sub_sovereign_capabilities(
     declared: tuple[str, ...],
 ) -> StartupSovereignCapabilityCheck:
     """Verify startup sovereign has at most 3 capabilities (A192/E167).
@@ -138,9 +138,9 @@ def verify_readiness_handoff(
 ) -> HandoffCheck:
     """Verify startup readiness handoff (A194/E169).
 
-    Per A194: ``BEFORE-ACK:startup-sovereign owns-startup-generation only;
-    AFTER-ACK:system-runtime-sovereign owns-running-lifecycle and startup-
-    sovereign cannot issue runtime commands``.
+    Per A194: ``BEFORE-ACK:startup-sub-sovereign owns-startup-generation only;
+    AFTER-ACK:runtime-sovereign owns-running-lifecycle and startup-
+    sub-sovereign cannot issue runtime commands``.
     """
     violations: list[str] = []
     if proof is None:

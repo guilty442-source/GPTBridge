@@ -75,7 +75,7 @@ class StartupSovereignExecutor:
     result is published through the information layer.
     """
 
-    ROLE = "startup-sovereign"
+    ROLE = "startup-sub-sovereign"
 
     def __init__(self, app: Any) -> None:
         self.app = app
@@ -233,7 +233,7 @@ class StartupSovereignExecutor:
 
         result.ok = True
         result.handoff = {
-            "flow": "startup-sovereign>information-layer>system-runtime-sovereign",
+            "flow": "startup-sub-sovereign>information-layer>runtime-sovereign",
             "proof": proof.as_dict(),
             "acknowledged": True,
             "runtime_owner": "system-runtime-sovereign",
@@ -309,7 +309,7 @@ class StartupSovereignExecutor:
         if not directory.approved_tool_ids:
             raise RuntimeError("permission-directory-empty")
         if app.permission_sovereign is None:
-            from core_system.permission_sovereign import PermissionSovereign
+            from governance import PermissionSovereign
 
             app.permission_sovereign = PermissionSovereign(
                 app, governance=app.governance
@@ -396,11 +396,11 @@ class StartupSovereignExecutor:
     async def _phase_activate_core_sovereigns(self, record: PhaseRecord) -> None:
         """PHASE-6: activate core sovereigns with bounded parallelism (E155)."""
         app = self.app
-        started = await app.decision_sovereign_service.start_sovereign_stack()
+        started = await app.decision_sovereign.start_sovereign_stack()
         if not started:
             raise RuntimeError("sovereign-activation-failed")
         self._activated.append(
-            ("sovereign-stack", app.decision_sovereign_service.stop)
+            ("sovereign-stack", app.decision_sovereign.stop)
         )
         self._conditions.update(
             {

@@ -6,7 +6,7 @@ read-only health status of the maintenance sovereign's health-monitoring
 and delegated maintenance actions.  Repair decisions are owned by the
 decision-sovereign (A152); runtime actions by system-runtime (E127).
 
-Extracted from ``maintenance_sovereign`` to keep each module focused and
+Extracted from ``maintenance_sovereign`` (retired, A302/A323) to keep each module focused and
 under 500 lines.
 """
 
@@ -204,9 +204,9 @@ class MaintenanceStatusMixin:
     # ------------------------------------------------------------------
 
     def _maintenance_responsibilities(self):
-        from .maintenance_sovereign import MAINTENANCE_RESPONSIBILITIES
+        from governance.sub_sovereigns.health_maintenance_test_sub_sovereign import MAINTENANCE_RESPONSIBILITIES
         return MAINTENANCE_RESPONSIBILITIES
 
     def _maintenance_area(self):
-        from .maintenance_sovereign import _MAINTENANCE_SOVEREIGN
+        from governance.sub_sovereigns.health_maintenance_test_sub_sovereign import _MAINTENANCE_SOVEREIGN
         return _MAINTENANCE_SOVEREIGN.area

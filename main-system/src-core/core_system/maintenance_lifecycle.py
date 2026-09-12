@@ -1,6 +1,6 @@
 """Maintenance Sovereign — lifecycle mixin (start / stop).
 
-Extracted from ``maintenance_sovereign`` to keep each module focused and
+Extracted from ``maintenance_sovereign`` (retired, A302/A323) to keep each module focused and
 under 500 lines.  Preserves the start() ordering that reloads learning state
 and the stop() behavior that preserves learning state.
 
@@ -88,7 +88,7 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
         if self._capability_task is None:
             self._capability_task = asyncio.create_task(
                 self._capability_check_loop(),
-                name="maintenance-sovereign-capability",
+                name="health-maintenance-test-sub-sovereign-capability",
             )
 
         # A152/A154: start the health-classification loop so the maintenance
@@ -133,5 +133,5 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
         Provided as a method so mixins don't need to import the module-level
         constant directly (avoids circular imports).
         """
-        from .maintenance_sovereign import MAINTENANCE_RESPONSIBILITIES
+        from governance.sub_sovereigns.health_maintenance_test_sub_sovereign import MAINTENANCE_RESPONSIBILITIES
         return MAINTENANCE_RESPONSIBILITIES

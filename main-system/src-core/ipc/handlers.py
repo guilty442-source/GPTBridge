@@ -57,14 +57,14 @@ class CommandRouter:
         self._log_reporter: Any = None
 
     def _get_third_party_sovereign(self) -> Any:
-        """Resolve the third-party sub-sovereign from the decision sovereign."""
-        decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
+        """Resolve the dependency-sync sub-sovereign from the decision sovereign."""
+        decision_sovereign = getattr(self.app, "decision_sovereign", None)
         if decision_sovereign is None:
             return None
         return getattr(decision_sovereign, "third_party_sovereign", None)
 
     def _get_maintenance_sovereign(self) -> Any:
-        """Resolve the system-health owner (maintenance sovereign)."""
+        """Resolve the system-health owner (health-maintenance-test sub-sovereign)."""
         return getattr(self.app, "maintenance_sovereign", None)
 
     async def handle(
@@ -280,7 +280,7 @@ class CommandRouter:
         # hot-update/hot-reload) minted through the governance authorization
         # path is required.
         if command == "app:hot-reload-backend":
-            decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
+            decision_sovereign = getattr(self.app, "decision_sovereign", None)
             runtime_sovereign = (
                 getattr(decision_sovereign, "runtime_sovereign", None)
                 if decision_sovereign is not None

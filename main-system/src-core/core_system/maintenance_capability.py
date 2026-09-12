@@ -1,6 +1,6 @@
 """Maintenance Sovereign — capability / installation detection mixin.
 
-Extracted from ``maintenance_sovereign`` to keep each module focused and
+Extracted from ``maintenance_sovereign`` (retired, A302/A323) to keep each module focused and
 under 500 lines.  Read-only detection only — never installs or remediates.
 Per A125/E102, the maintenance sovereign monitors system health; this mixin
 detects whether maintenance-relevant functions/components are present.

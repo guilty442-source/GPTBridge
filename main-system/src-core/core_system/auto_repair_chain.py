@@ -131,7 +131,7 @@ class RepairExecution:
 
 @dataclass(frozen=True)
 class LearnedRecipe:
-    """Verified repeatable recipe per learning-system-sovereign."""
+    """Verified repeatable recipe per learning-evidence-sync-sub-sovereign."""
     recipe_id: str
     signature_hash: str
     error_class: str
@@ -141,7 +141,7 @@ class LearnedRecipe:
     occurrence_count: int
     verification_proof: dict[str, Any]
     promoted_at: str
-    promoted_by: str = "learning-system-sovereign"
+    promoted_by: str = "learning-evidence-sync-sub-sovereign"
     source: str = "learned"
 
 
@@ -330,7 +330,7 @@ class PermissionSovereign:
         Returns None if permission denied.
         """
         # Verify actor has authority to request this repair
-        if actor not in ("system-runtime-sovereign", "system-programming-sovereign", "maintenance-sovereign"):
+        if actor not in ("runtime-sovereign", "release-update-sync-sub-sovereign", "health-maintenance-test-sub-sovereign"):
             self.audit.record("permission_denied", {
                 "objective_id": objective.objective_id,
                 "actor": actor,
@@ -940,7 +940,7 @@ class AutoRepairOrchestrator:
         actor: str = "information-layer",
     ) -> dict[str, Any]:
         """Process a health signal through the full repair chain."""
-        # Stage 1: Health Classification (maintenance-sovereign)
+        # Stage 1: Health Classification (health-maintenance-test-sub-sovereign)
         classification = self.health_classifier.classify([signal])
 
         # If healthy, no further action

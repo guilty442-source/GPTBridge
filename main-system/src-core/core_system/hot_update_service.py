@@ -28,7 +28,8 @@ PROTECTED_MODULE_PREFIXES: Final[tuple[str, ...]] = (
     "governance_rule.codex.",
     "governance_rule.permission_directory.",
     "core_system.hot_update_service",
-    "core_system.maintenance_sovereign",
+    "governance.sovereigns.",
+    "governance.sub_sovereigns.",
 )
 
 # Methods/attributes that indicate a module holds live resources.
