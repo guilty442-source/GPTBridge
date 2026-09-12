@@ -11180,90 +11180,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A203",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A204",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A206",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A209",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A212",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A213",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A214",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A218",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A254",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A256",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A257",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A258",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "edict",
-        "provision_id": "E177",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "principle",
-        "provision_id": "P114",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A293",
         "effective_version": "1.00000",
         "status": "active"
@@ -11594,12 +11510,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A329",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A330",
         "effective_version": "1.00000",
         "status": "active"
@@ -11674,7 +11584,7 @@
         "certification_state": "sealed-read-only-pending-external-signatures",
         "content_root": "5c9f8c95f345939670ad173dcd9893af70d0a57398508b06c64c703a3fcba999",
         "identity_root": "31973311e13443a75d84c379378ab7714fecdd198a17cc1fa4c4d548b7ea701e",
-        "full_root": "8ea610f8a0ae6f8780fd536e2e00ab6a4551faf3b20c1b7112686dff21555a5c",
+        "full_root": "6ee346cf8e9ba71ccf1331c6adc4e7e959ff28420eec748bdc2847661b243001",
         "legacy_history_head": null
       }
     ],
@@ -34765,7 +34675,7 @@
         "provision_id": "A329",
         "introduced_by": "H045",
         "supersedes_id": "A175",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "555f1bef19bdac132eb46c27a9ed19ed412ab79c7e2be9cc618f97f72c467693"
       },
       {
@@ -47459,9 +47369,9 @@
         "version": "1.00000",
         "recorded_date": "2026-09-12",
         "change_scope": "deep-codex-consistency-repair",
-        "summary": "completed epoch-qualified evidence startup supersession UI shutdown tier routing obligation deadlines architecture states seal canonicalization test-suite mapping and effective lifecycle closure; added anti-jailbreak, unified reliability, Xingcheng audit strengthening and noninterrupting channel anomaly isolation laws; top-level sovereigns restricted to decision authority, sub-sovereigns restricted to module assignment and coordination, execution lowered to modules, Governance Authority renamed Codex, System Decision Sovereign renamed Decision Sovereign, System Runtime Sovereign renamed Runtime Sovereign, Synchronization Sovereign added, Maintenance and Data Sovereigns demoted under Decision Sovereign, Startup Sovereign demoted under Runtime Sovereign; Resource, Integration, Third-Party, System Programming and Learning System Sovereigns demoted under Synchronization Sovereign; Language Review Sovereign demoted under Permission Sovereign; Xingcheng renamed 星澄 and elevated to independent privileged institution; Permission review authority transferred entirely to 星澄; automatic cleanup backup repair and update converged under Synchronization Sovereign; all otherwise unspecified sub-sovereigns reassigned by exact single-parent map; Directory and Identity Group Sub-Sovereigns added under Permission Sovereign; exclusive primary-effect boundaries established for Decision, Runtime and Synchronization Sovereigns; Permission Sovereign and 星澄 established as separate independent privileged institutions; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; Governance Authority canonical identity fully renamed to Codex with former identity historical-only; 星澄 canonical identity fully renamed and all active romanized references retired; synchronization sovereign duties integrated and children split by exclusive convergence domains including automatic logging; decision sovereign children reallocated by exclusive decision-support domains; every sub-sovereign capped at three duties with single-duty preference; all modules reassigned by dominant capability; information layer split between Permission Sovereign permission authority and Synchronization Sovereign channel operation and maintenance with Decision and Runtime Sovereign nonintervention; 星澄 machine-safe directory aliases corrected; machine compatibility selectors separated from canonical names, resource/dependency synchronization split into single-duty children, and 星澄 granted unrestricted confidential read-only entry and exit; Synchronization Sovereign granted narrowly scoped backend-update synchronization execution privilege; Synchronization Sovereign executes certified update sets and global affected-graph convergence; synchronization update gaps closed for singleton fencing, durable idempotent recovery, immutable inventory, deferred targets, compatible schema migration and explicit terminal states; full-Codex integrity and gap-closure requirements established; invalid Unicode machine law-code drift repaired",
+        "summary": "completed epoch-qualified evidence startup supersession UI shutdown tier routing obligation deadlines architecture states seal canonicalization test-suite mapping and effective lifecycle closure; added anti-jailbreak, unified reliability, Xingcheng audit strengthening and noninterrupting channel anomaly isolation laws; top-level sovereigns restricted to decision authority, sub-sovereigns restricted to module assignment and coordination, execution lowered to modules, Governance Authority renamed Codex, System Decision Sovereign renamed Decision Sovereign, System Runtime Sovereign renamed Runtime Sovereign, Synchronization Sovereign added, Maintenance and Data Sovereigns demoted under Decision Sovereign, Startup Sovereign demoted under Runtime Sovereign; Resource, Integration, Third-Party, System Programming and Learning System Sovereigns demoted under Synchronization Sovereign; Language Review Sovereign demoted under Permission Sovereign; Xingcheng renamed 星澄 and elevated to independent privileged institution; Permission review authority transferred entirely to 星澄; automatic cleanup backup repair and update converged under Synchronization Sovereign; all otherwise unspecified sub-sovereigns reassigned by exact single-parent map; Directory and Identity Group Sub-Sovereigns added under Permission Sovereign; exclusive primary-effect boundaries established for Decision, Runtime and Synchronization Sovereigns; Permission Sovereign and 星澄 established as separate independent privileged institutions; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; Governance Authority canonical identity fully renamed to Codex with former identity historical-only; 星澄 canonical identity fully renamed and all active romanized references retired; synchronization sovereign duties integrated and children split by exclusive convergence domains including automatic logging; decision sovereign children reallocated by exclusive decision-support domains; every sub-sovereign capped at three duties with single-duty preference; all modules reassigned by dominant capability; information layer split between Permission Sovereign permission authority and Synchronization Sovereign channel operation and maintenance with Decision and Runtime Sovereign nonintervention; 星澄 machine-safe directory aliases corrected; machine compatibility selectors separated from canonical names, resource/dependency synchronization split into single-duty children, and 星澄 granted unrestricted confidential read-only entry and exit; Synchronization Sovereign granted narrowly scoped backend-update synchronization execution privilege; Synchronization Sovereign executes certified update sets and global affected-graph convergence; synchronization update gaps closed for singleton fencing, durable idempotent recovery, immutable inventory, deferred targets, compatible schema migration and explicit terminal states; full-Codex integrity and gap-closure requirements established; invalid Unicode machine law-code drift repaired; active-effective lifecycle equality restored; A329 superseded by A330; Codex Runtime Synchronization and 星澄 authority contradictions closed",
         "previous_hash": "4f652bc5ac129b289410f07ce2bb3bc4e863b18188b3729d4432219920626734",
-        "entry_hash": "213e7a0d2929c5adcf1fff907731d529a5f1faf2cb3b8abea3d39dd6edc80c48",
+        "entry_hash": "8019c7f0fb02c247931cd4f82b57e8e33821d90db8f26775c80cafb7104564c2",
         "version_epoch": 2
       }
     ],
@@ -48026,7 +47936,7 @@
         "certification_state": "sealed-read-only-pending-external-signatures",
         "content_root": "5c9f8c95f345939670ad173dcd9893af70d0a57398508b06c64c703a3fcba999",
         "identity_root": "31973311e13443a75d84c379378ab7714fecdd198a17cc1fa4c4d548b7ea701e",
-        "full_root": "8ea610f8a0ae6f8780fd536e2e00ab6a4551faf3b20c1b7112686dff21555a5c",
+        "full_root": "6ee346cf8e9ba71ccf1331c6adc4e7e959ff28420eec748bdc2847661b243001",
         "version_epoch": 2
       }
     ],
@@ -50487,21 +50397,6 @@
     ],
     "sovereign_duties": [
       {
-        "sovereign_id": "codex",
-        "position": 1,
-        "value": "guard-codex-immutability"
-      },
-      {
-        "sovereign_id": "codex",
-        "position": 2,
-        "value": "guard-codex-integrity"
-      },
-      {
-        "sovereign_id": "codex",
-        "position": 3,
-        "value": "maintain-highest-rule-layer"
-      },
-      {
         "sovereign_id": "星澄",
         "position": 1,
         "value": "observation"
@@ -50584,7 +50479,7 @@
       {
         "sovereign_id": "system-runtime-sovereign",
         "position": 5,
-        "value": "governed-runtime-dispatch"
+        "value": "runtime-dispatch-decision"
       },
       {
         "sovereign_id": "星澄",
@@ -50740,6 +50635,21 @@
         "sovereign_id": "dependency-sync-sub-sovereign",
         "position": 1,
         "value": "steward-exclusive-domain-modules-under-parent-decision"
+      },
+      {
+        "sovereign_id": "codex",
+        "position": 1,
+        "value": "declare-highest-rules-only"
+      },
+      {
+        "sovereign_id": "codex",
+        "position": 2,
+        "value": "declare-integrity-requirements-only"
+      },
+      {
+        "sovereign_id": "codex",
+        "position": 3,
+        "value": "declare-no-execution-boundary"
       }
     ],
     "sovereign_powers": [
@@ -50821,12 +50731,12 @@
       {
         "sovereign_id": "system-runtime-sovereign",
         "position": 2,
-        "value": "dispatch-governed-runtime-control"
+        "value": "issue-governed-runtime-dispatch-decision"
       },
       {
         "sovereign_id": "system-runtime-sovereign",
         "position": 3,
-        "value": "declare-runtime-state"
+        "value": "issue-runtime-state-decision"
       },
       {
         "sovereign_id": "星澄",
@@ -50891,11 +50801,6 @@
       {
         "sovereign_id": "synchronization-sovereign",
         "position": 2,
-        "value": "execute-bounded-backend-update-synchronization-transaction-under-A329"
-      },
-      {
-        "sovereign_id": "synchronization-sovereign",
-        "position": 3,
         "value": "execute-certified-update-set-and-global-affected-graph-convergence-under-A330"
       }
     ],
@@ -50949,56 +50854,6 @@
         "sovereign_id": "permission-sovereign",
         "position": 8,
         "value": "module-self-issue-permission-id"
-      },
-      {
-        "sovereign_id": "星澄",
-        "position": 1,
-        "value": "enter-system-boundary"
-      },
-      {
-        "sovereign_id": "星澄",
-        "position": 2,
-        "value": "observe-system"
-      },
-      {
-        "sovereign_id": "星澄",
-        "position": 3,
-        "value": "coordinate-system"
-      },
-      {
-        "sovereign_id": "星澄",
-        "position": 4,
-        "value": "decide-system"
-      },
-      {
-        "sovereign_id": "星澄",
-        "position": 5,
-        "value": "authorize-system"
-      },
-      {
-        "sovereign_id": "星澄",
-        "position": 6,
-        "value": "execute-system"
-      },
-      {
-        "sovereign_id": "星澄",
-        "position": 7,
-        "value": "override-system"
-      },
-      {
-        "sovereign_id": "星澄",
-        "position": 8,
-        "value": "access-system-state"
-      },
-      {
-        "sovereign_id": "星澄",
-        "position": 9,
-        "value": "access-system-information"
-      },
-      {
-        "sovereign_id": "星澄",
-        "position": 10,
-        "value": "system-effect"
       },
       {
         "sovereign_id": "startup-sovereign",
@@ -51198,7 +51053,7 @@
       {
         "sovereign_id": "synchronization-sovereign",
         "position": 1,
-        "value": "hold-or-exercise-any-direct-execution-power"
+        "value": "hold-or-exercise-direct-execution-power-outside-A330-certified-update-transaction"
       },
       {
         "sovereign_id": "startup-sub-sovereign",
@@ -51349,6 +51204,31 @@
         "sovereign_id": "dependency-sync-sub-sovereign",
         "position": 1,
         "value": "hold-or-exercise-decision-review-authorization-or-execution-power"
+      },
+      {
+        "sovereign_id": "星澄",
+        "position": 1,
+        "value": "mutate-inspected-system-state"
+      },
+      {
+        "sovereign_id": "星澄",
+        "position": 2,
+        "value": "execute-system-operations-outside-own-domain"
+      },
+      {
+        "sovereign_id": "星澄",
+        "position": 3,
+        "value": "grant-revoke-or-proxy-system-permissions"
+      },
+      {
+        "sovereign_id": "星澄",
+        "position": 4,
+        "value": "disclose-confidential-codex-or-evidence"
+      },
+      {
+        "sovereign_id": "星澄",
+        "position": 5,
+        "value": "convert-review-access-into-operational-control"
       }
     ],
     "sovereigns": [
@@ -51493,7 +51373,7 @@
         "sovereign_id": "synchronization-sovereign",
         "name": "synchronization-sovereign",
         "area": "synchronization-decision",
-        "rank": "specialized-decision-sovereign-no-execution",
+        "rank": "specialized-decision-sovereign-with-A330-certified-update-execution-exception",
         "basis": "A301"
       },
       {
