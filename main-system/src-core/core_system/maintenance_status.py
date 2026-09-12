@@ -4,7 +4,7 @@ Per the amended Governance Codex (A125/E102), the maintenance sovereign
 owns system health (monitor/preserve/maintain).  This mixin surfaces the
 read-only health status of the maintenance sovereign's health-monitoring
 and delegated maintenance actions.  Repair decisions are owned by the
-system-decision-sovereign (A152); runtime actions by system-runtime (E127).
+decision-sovereign (A152); runtime actions by system-runtime (E127).
 
 Extracted from ``maintenance_sovereign`` to keep each module focused and
 under 500 lines.

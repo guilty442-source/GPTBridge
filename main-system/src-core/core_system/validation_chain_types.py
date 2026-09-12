@@ -23,7 +23,7 @@ VALIDATION_CHAIN_STAGES: Final[tuple[str, ...]] = (
 )
 
 VALIDATION_CHAIN_OWNERS: Final[dict[str, str]] = {
-    "task-assignment": "system-decision-sovereign",
+    "task-assignment": "decision-sovereign",
     "permission": "permission-sovereign",
     "execution": "system-runtime-sovereign",
     "governed-executor": "system-runtime-sovereign",
@@ -37,9 +37,9 @@ VALIDATION_CHAIN_OWNERS: Final[dict[str, str]] = {
 
 @dataclass(frozen=True)
 class AssignmentProof:
-    """Immutable task-assignment proof issued by system-decision-sovereign.
+    """Immutable task-assignment proof issued by decision-sovereign.
 
-    Per A187: ``TASK-ASSIGNMENT-VALIDATION:owner=system-decision-sovereign+
+    Per A187: ``TASK-ASSIGNMENT-VALIDATION:owner=decision-sovereign+
     verify-task-identity/purpose/source/one-duty-owner/duty-capability-match/
     scope/dependency/priority/input-output-contract/non-overlap+issue-
     immutable-assignment-proof``.

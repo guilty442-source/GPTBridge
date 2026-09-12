@@ -2,7 +2,7 @@
 
 This module implements the repair responsibility chain per codex:
 SIGNAL > information-layer > maintenance-health-classification >
-system-decision-repair-decision > permission-validation >
+decision-repair-decision > permission-validation >
 system-runtime-or-system-programming-dispatch > governed-executor >
 independent-verification > information-layer > ui
 
@@ -73,16 +73,16 @@ class HealthSignal:
 
 @dataclass(frozen=True)
 class RepairObjective:
-    """Repair objective assigned by system-decision-sovereign."""
+    """Repair objective assigned by decision-sovereign."""
     objective_id: str
     target_component: str
     fault_code: str
     root_cause_evidence: dict[str, Any]
-    decision_proof: dict[str, Any]  # Proof from system-decision-sovereign
+    decision_proof: dict[str, Any]  # Proof from decision-sovereign
     scope: dict[str, Any]  # Exact paths/actions permitted
     max_retries: int = 3
     timeout_seconds: int = 300
-    assigned_by: str = "system-decision-sovereign"
+    assigned_by: str = "decision-sovereign"
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -261,7 +261,7 @@ class SystemDecisionSovereign:
             "fault_code": fault_code,
             "root_cause_evidence": root_cause_evidence,
             "decision_rule": "repair-responsibility-chain",
-            "decided_by": "system-decision-sovereign",
+            "decided_by": "decision-sovereign",
             "decided_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -912,7 +912,7 @@ class AutoRepairOrchestrator:
     """Orchestrates the full governance-compliant repair chain.
 
     CHAIN: SIGNAL > information-layer > maintenance-health-classification >
-           system-decision-repair-decision > permission-validation >
+           decision-repair-decision > permission-validation >
            system-runtime-or-system-programming-dispatch > governed-executor >
            independent-verification > information-layer > ui
     """
@@ -947,7 +947,7 @@ class AutoRepairOrchestrator:
         if classification["overall_state"] == HealthState.HEALTHY:
             return {"stage": "health_classification", "result": "healthy", "classification": classification}
 
-        # Stage 2: Repair Decision (system-decision-sovereign)
+        # Stage 2: Repair Decision (decision-sovereign)
         objective = self.decision_sovereign.assign_repair_objective(
             classification,
             signal.evidence.get("fault_code", "UNKNOWN"),

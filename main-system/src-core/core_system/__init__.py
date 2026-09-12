@@ -15,7 +15,7 @@ from .maintenance_sovereign import MaintenanceSovereign
 from .permission_sovereign import PermissionSovereign
 from .resource_sub_sovereign import ResourceSubSovereign
 from .runtime_sub_sovereign import RuntimeSubSovereign
-from .system_sovereign import SystemSovereignService
+from .decision_sovereign import DecisionSovereignService
 from .third_party_sub_sovereign import ThirdPartySubSovereign
 
 __all__ = [
@@ -26,7 +26,7 @@ __all__ = [
     "PermissionSovereign",
     "ResourceSubSovereign",
     "RuntimeSubSovereign",
-    "SystemSovereignService",
+    "DecisionSovereignService",
     "ThirdPartySubSovereign",
     "codex_edicts",
     "decision_basis",

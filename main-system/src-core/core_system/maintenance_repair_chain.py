@@ -4,17 +4,17 @@ Implements the maintenance sovereign's **health-only** role in the repair
 flow per the amended Governance Codex (A152 supersedes A67, A154 supersedes
 A72, E127 supersedes E48, E128 supersedes E52):
 
-  health-signal > maintenance-classification > system-decision
+  health-signal > maintenance-classification > decision
   > permission > runtime-or-programming > executor > verification
   > information-layer > ui
 
 The maintenance sovereign (A125/E102) owns system HEALTH only
 (monitor-system-health / preserve-system-health / maintain-system).  It
 **classifies** incoming health signals from the information layer and
-delegates the repair **decision** to the system-decision-sovereign
-(A152: ``REPAIR-DECISION:system-decision-sovereign``;
+delegates the repair **decision** to the decision-sovereign
+(A152: ``REPAIR-DECISION:decision-sovereign``;
 ``FORBID:maintenance-owning-non-health-decisions``).  After the
-system-decision-sovereign routes the repair through permission validation
+decision-sovereign routes the repair through permission validation
 and governed execution, the maintenance sovereign records the outcome in
 the learning store (E127: ``LEARNING:learning-system``) and syncs the UI.
 
@@ -22,7 +22,7 @@ This mixin polls ``repair-requests.json`` for pending signals, classifies
 them, delegates the decision, acknowledges the result, audits the outcome,
 and syncs the UI.  The repair decision, permission validation, dispatch
 and independent verification live in ``repair_decision_chain.py`` under the
-system-decision-sovereign.
+decision-sovereign.
 
 Extracted from ``maintenance_update`` to keep each module focused and
 under 500 lines.
@@ -40,7 +40,7 @@ class MaintenanceRepairChainMixin:
     """A152/A154 health-classification chain for the Maintenance Sovereign.
 
     The maintenance sovereign classifies health signals and delegates the
-    repair decision to the system-decision-sovereign.  It never owns the
+    repair decision to the decision-sovereign.  It never owns the
     repair decision, permission validation, or code mutation (A154:
     ``MAINTENANCE-SCOPE:health-only``; ``FORBID:maintenance-code-change``).
 
@@ -66,7 +66,7 @@ class MaintenanceRepairChainMixin:
             "enabled": task is not None and not task.done(),
             "authority": self.ROLE,
             "scope": "health-classification",
-            "decision_authority": "system-decision-sovereign",
+            "decision_authority": "decision-sovereign",
             "chain": "A152/A154",
             "poll_interval_seconds": self._REPAIR_POLL_INTERVAL_SECONDS,
         }
@@ -104,7 +104,7 @@ class MaintenanceRepairChainMixin:
         This is the maintenance sovereign's health-classification entry
         point.  Per A152: the maintenance sovereign classifies health
         signals (health-only scope, A154) and delegates the repair
-        DECISION to the system-decision-sovereign.
+        DECISION to the decision-sovereign.
         """
         while not self._stop_requested():
             try:
@@ -140,11 +140,11 @@ class MaintenanceRepairChainMixin:
     ) -> None:
         """Classify a health signal and delegate the repair decision.
 
-        Per E128: ``health-signal>maintenance-classification>system-decision
+        Per E128: ``health-signal>maintenance-classification>decision
         >permission>runtime-or-programming>executor>verification>
         information-layer>ui``.  The maintenance sovereign classifies the
         health signal (health-only, A154) and delegates the repair DECISION
-        to the system-decision-sovereign (A152).  It then records the
+        to the decision-sovereign (A152).  It then records the
         outcome in the learning store (E127) and syncs the UI.
         """
         request_id = str(request.get("request_id") or "")
@@ -153,25 +153,25 @@ class MaintenanceRepairChainMixin:
         # ── Step 1: health classification (maintenance scope: health-only) ──
         classified = self._classify_health_signal(decision_proof)
 
-        # ── Step 2: delegate repair decision to system-decision-sovereign ──
-        system_sovereign = getattr(self.app, "system_sovereign_service", None)
-        if system_sovereign is None:
+        # ── Step 2: delegate repair decision to decision-sovereign ──
+        decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
+        if decision_sovereign is None:
             coordinator.acknowledge_request(
                 request_id,
-                system_decision="denied-no-system-decision-sovereign",
+                decision="denied-no-decision-sovereign",
                 ok=False,
             )
             self._audit_repair_outcome(request, classified, None, ok=False)
             return
 
-        result = system_sovereign.decide_and_route_repair(classified)
+        result = decision_sovereign.decide_and_route_repair(classified)
         ok = bool(result.get("ok"))
         decision = str(result.get("decision") or "")
 
         # ── Step 3: acknowledge in information layer ──
         coordinator.acknowledge_request(
             request_id,
-            system_decision=decision,
+            decision=decision,
             ok=ok,
         )
 
@@ -194,7 +194,7 @@ class MaintenanceRepairChainMixin:
         sovereign classifies the incoming health signal (identifies the
         error type, target file and diagnosis) without making the repair
         decision.  The repair decision is owned by the
-        system-decision-sovereign (A152).
+        decision-sovereign (A152).
         """
         diagnosis = decision_proof.get("diagnosis") or {}
         return {
@@ -270,7 +270,7 @@ class MaintenanceRepairChainMixin:
                         "decision": str(result.get("decision") or ""),
                         "verification": result.get("verification", {}),
                         "health_authority": self.ROLE,
-                        "decision_authority": "system-decision-sovereign",
+                        "decision_authority": "decision-sovereign",
                     },
                 )
             )

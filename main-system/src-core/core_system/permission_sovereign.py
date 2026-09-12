@@ -109,7 +109,7 @@ class PermissionSovereign:
     basis.
 
     Per A127, this is an ``independent-special-authority-sovereign`` — it is
-    NOT under the system sovereign.
+    NOT under the decision sovereign.
     """
 
     ROLE = _PERMISSION_SOVEREIGN.id

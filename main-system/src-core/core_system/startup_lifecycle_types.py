@@ -31,7 +31,7 @@ OFFICIAL_PLATFORM_ENTRY: Final[str] = "gptbridge-start"
 ENTRY_ROLE: Final[tuple[str, ...]] = (
     "mechanical-process-wake-only",
     "no-governance-decision",
-    "no-system-decision",
+    "no-decision",
     "no-business-decision",
 )
 

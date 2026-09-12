@@ -11,7 +11,7 @@ maintenance sovereign can monitor system health.
 
 Authority boundaries (A152/A154/E127/E128):
   * update / hot-reload  → runtime action, owned by system-runtime (E127)
-  * repair decision       → system-decision-sovereign (A152)
+  * repair decision       → decision-sovereign (A152)
   * code change           → system-programming-sovereign (E127)
   * backup coordination   → delegated governed executor (E102)
 
@@ -93,8 +93,8 @@ class MaintenanceUpdateMixin:
         """Repair-service health — read-only monitoring of the governed
         repair service readiness.
 
-        Per A152 (``REPAIR-DECISION:system-decision-sovereign``), the repair
-        decision is owned by the system-decision-sovereign; the maintenance
+        Per A152 (``REPAIR-DECISION:decision-sovereign``), the repair
+        decision is owned by the decision-sovereign; the maintenance
         sovereign monitors the health/readiness of the repair service only.
         """
 
@@ -103,7 +103,7 @@ class MaintenanceUpdateMixin:
             return {
                 "duty": "repair-health",
                 "enabled": False,
-                "decision_authority": "system-decision-sovereign",
+                "decision_authority": "decision-sovereign",
                 "delegation": "governed-executor-only",
             }
         get_status = getattr(repair, "status", None)
@@ -111,19 +111,19 @@ class MaintenanceUpdateMixin:
             try:
                 return {
                     "duty": "repair-health",
-                    "decision_authority": "system-decision-sovereign",
+                    "decision_authority": "decision-sovereign",
                     **get_status(),
                 }
             except Exception:
                 return {
                     "duty": "repair-health",
                     "enabled": True,
-                    "decision_authority": "system-decision-sovereign",
+                    "decision_authority": "decision-sovereign",
                 }
         return {
             "duty": "repair-health",
             "enabled": True,
-            "decision_authority": "system-decision-sovereign",
+            "decision_authority": "decision-sovereign",
         }
 
     def _fault_determination_status(self) -> dict[str, Any]:
@@ -131,7 +131,7 @@ class MaintenanceUpdateMixin:
         chain readiness.
 
         Per A152/A154, fault determination for repair is owned by the
-        system-decision-sovereign; the maintenance sovereign performs health
+        decision-sovereign; the maintenance sovereign performs health
         classification only.  This surface reports the readiness of that
         chain.
         """
@@ -140,7 +140,7 @@ class MaintenanceUpdateMixin:
         return {
             "duty": "health-classification",
             "enabled": repair is not None,
-            "decision_authority": "system-decision-sovereign",
+            "decision_authority": "decision-sovereign",
             "decision": decision_basis(self._maintenance_area())["edicts"],
         }
 
@@ -172,8 +172,8 @@ class MaintenanceUpdateMixin:
         approval_token: str | None = None,
     ) -> Any:
         """Delegate an approved third-party update to the third-party sovereign."""
-        system_sovereign = getattr(self.app, "system_sovereign_service", None)
-        third_party = getattr(system_sovereign, "third_party_sovereign", None)
+        decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
+        third_party = getattr(decision_sovereign, "third_party_sovereign", None)
         if third_party is None:
             raise RuntimeError("third-party sovereign is not available")
         apply = getattr(third_party, "apply_approved_update")
@@ -188,8 +188,8 @@ class MaintenanceUpdateMixin:
         only_available: bool = True,
     ) -> Any:
         """Delegate approved automatic third-party updates to the third-party sovereign."""
-        system_sovereign = getattr(self.app, "system_sovereign_service", None)
-        third_party = getattr(system_sovereign, "third_party_sovereign", None)
+        decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
+        third_party = getattr(decision_sovereign, "third_party_sovereign", None)
         if third_party is None:
             raise RuntimeError("third-party sovereign is not available")
         apply = getattr(third_party, "apply_approved_auto_updates")

@@ -126,7 +126,7 @@ _FALLBACK: Final[dict[str, Any]] = {
             "official-codex-valid",
             "permission-sovereign-active",
             "normal-information-layer-active",
-            "system-decision-active",
+            "decision-active",
             "system-runtime-active",
             "maintenance-active",
             "all-core-critical-dependencies-ready",

@@ -11,7 +11,7 @@ the backend through two channels:
 Per A128/A130 (supersedes A63/A64), the mother process (GPTBridgeApp) must
 not directly materialize or start sovereigns.  Instead, it delegates the
 sovereign stack startup to this service via
-``SystemSovereignService.start_sovereign_stack``.  This service starts its
+``DecisionSovereignService.start_sovereign_stack``.  This service starts its
 own in-process sub-sovereigns and coordinates with the maintenance and
 permission sovereigns already started by the app:
 
@@ -19,7 +19,7 @@ permission sovereigns already started by the app:
   2. 權限主宰 (Permission Sovereign)   — permission management (read-only surface)
   3. 系統主宰 (System Sovereign)       — this service; starts its own sub-sovereigns
 
-The system-decision-sovereign (this service) also owns the repair DECISION
+The decision-sovereign (this service) also owns the repair DECISION
 chain per A152/A154/E127/E128: the maintenance sovereign classifies health
 signals (health-only scope) and hands them to this sovereign, which makes
 the repair decision, validates permissions, and routes to the
@@ -66,16 +66,16 @@ from .system_programming_sovereign import SystemProgrammingSovereign
 
 
 _SYSTEM_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "system-decision"),
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "decision"),
     None,
 )
 if _SYSTEM_SOVEREIGN is None:
-    raise RuntimeError("system-decision sovereign not found in Governance Codex")
+    raise RuntimeError("decision sovereign not found in Governance Codex")
 
-SYSTEM_SOVEREIGN_RESPONSIBILITIES = _SYSTEM_SOVEREIGN.duties
+DECISION_SOVEREIGN_RESPONSIBILITIES = _SYSTEM_SOVEREIGN.duties
 
 
-class SystemSovereignService:
+class DecisionSovereignService:
     """Sovereign-stack startup dispatcher (A64) and platform sub-sovereign owner.
 
     Responsibilities at startup:
@@ -123,7 +123,7 @@ class SystemSovereignService:
         self.learning_system_sovereign = LearningSystemSovereign(app)
         self.system_programming_sovereign = SystemProgrammingSovereign(app)
         self.governance_rule_coordination = GovernanceRuleCoordination(app)
-        # A152/A154/E127/E128: the system-decision-sovereign owns the repair
+        # A152/A154/E127/E128: the decision-sovereign owns the repair
         # decision chain.  The maintenance sovereign classifies health
         # signals (health-only) and delegates the decision here.
         self._repair_decision_chain = RepairDecisionChain(app)
@@ -266,7 +266,7 @@ class SystemSovereignService:
                 }
             )
         except Exception as error:
-            app._record_startup_failure("system_sovereign", error)
+            app._record_startup_failure("decision_sovereign", error)
         step_timings["system-sovereign-and-subsovereigns_ms"] = int(
             (time.monotonic() - _step_start) * 1000
         )
@@ -437,15 +437,15 @@ class SystemSovereignService:
     # ------------------------------------------------------------------
 
     def decide_and_route_repair(self, classified_signal: dict[str, Any]) -> dict[str, Any]:
-        """A152 repair-decision entry point for the system-decision-sovereign.
+        """A152 repair-decision entry point for the decision-sovereign.
 
-        Per A152 (supersedes A67): ``REPAIR-DECISION:system-decision-sovereign``
+        Per A152 (supersedes A67): ``REPAIR-DECISION:decision-sovereign``
         and ``FORBID:maintenance-owning-non-health-decisions``.  The
         maintenance sovereign classifies the health signal (health-only
         scope, A154) and delegates the repair DECISION here.  This method
         routes the classified signal through permission validation and
         governed execution (E128):
-        ``system-decision > permission > runtime-or-programming > executor
+        ``decision > permission > runtime-or-programming > executor
         > verification``.
         """
         return self._repair_decision_chain.decide_and_route(classified_signal)
@@ -597,4 +597,4 @@ class SystemSovereignService:
         os.replace(temporary, self.runtime_state_path)
 
 
-__all__ = ["SYSTEM_SOVEREIGN_RESPONSIBILITIES", "SystemSovereignService"]
+__all__ = ["DECISION_SOVEREIGN_RESPONSIBILITIES", "DecisionSovereignService"]

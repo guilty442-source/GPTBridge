@@ -45,7 +45,7 @@ interface SovereignSnapshot {
 
 export interface RuntimeStatusPayload {
   maintenance_ready?: boolean
-  system_sovereign?: SovereignSnapshot
+  decision_sovereign?: SovereignSnapshot
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -171,7 +171,7 @@ export function SovereignDashboard({
 }: {
   runtimeStatus: RuntimeStatusPayload
 }) {
-  const sovereign = runtimeStatus.system_sovereign
+  const sovereign = runtimeStatus.decision_sovereign
   const codex = sovereign?.governance_rules
   const permission = sovereign?.permission
   const xingcheng = sovereign?.peer_systems?.xingcheng
@@ -229,7 +229,7 @@ export function SovereignDashboard({
         </div>
         {ownedBy && (
           <div className="sovereign-meta__item">
-            <span>{t.systemSovereignOwnedBy}</span>
+            <span>{t.decisionSovereignOwnedBy}</span>
             <strong>{ownedBy}</strong>
           </div>
         )}

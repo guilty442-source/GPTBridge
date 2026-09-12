@@ -3,7 +3,7 @@
  *
  * Architecture boundary (A60/A61):
  *   啟動入口 (Electron main) 僅啟動頁面；後續交由啟動核心 (boot_core)
- *   去啟動主宰 (system sovereign)。
+ *   去啟動主宰 (decision sovereign)。
  *
  * A60: LAUNCHER:interface-presentation-only; BOOT-OPERATIONS:none.
  * The launcher must NOT generate governance bootstrap material

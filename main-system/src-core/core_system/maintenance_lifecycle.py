@@ -7,7 +7,7 @@ and the stop() behavior that preserves learning state.
 Per A152/A154 (amended codex), the maintenance sovereign owns system health
 only; the health-classification loop (was the A67/A72 repair decision loop)
 is started here but the repair decision is delegated to the
-system-decision-sovereign.
+decision-sovereign.
 """
 
 from __future__ import annotations
@@ -93,7 +93,7 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
 
         # A152/A154: start the health-classification loop so the maintenance
         # sovereign classifies pending health signals and delegates the
-        # repair decision to the system-decision-sovereign.
+        # repair decision to the decision-sovereign.
         self._start_repair_decision_loop()
 
         return {

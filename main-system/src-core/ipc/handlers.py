@@ -57,11 +57,11 @@ class CommandRouter:
         self._log_reporter: Any = None
 
     def _get_third_party_sovereign(self) -> Any:
-        """Resolve the third-party sub-sovereign from the system sovereign."""
-        system_sovereign = getattr(self.app, "system_sovereign_service", None)
-        if system_sovereign is None:
+        """Resolve the third-party sub-sovereign from the decision sovereign."""
+        decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
+        if decision_sovereign is None:
             return None
-        return getattr(system_sovereign, "third_party_sovereign", None)
+        return getattr(decision_sovereign, "third_party_sovereign", None)
 
     def _get_maintenance_sovereign(self) -> Any:
         """Resolve the system-health owner (maintenance sovereign)."""
@@ -276,14 +276,14 @@ class CommandRouter:
         # app:hot-reload-backend — governed system-wide hot-reload trigger.
         # Per E127 (RUNTIME-ACTION:system-runtime), hot-reload is a runtime
         # action owned by the runtime sub-sovereign (under the
-        # system-decision-sovereign).  An approval token (capability
+        # decision-sovereign).  An approval token (capability
         # hot-update/hot-reload) minted through the governance authorization
         # path is required.
         if command == "app:hot-reload-backend":
-            system_sovereign = getattr(self.app, "system_sovereign_service", None)
+            decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
             runtime_sovereign = (
-                getattr(system_sovereign, "runtime_sovereign", None)
-                if system_sovereign is not None
+                getattr(decision_sovereign, "runtime_sovereign", None)
+                if decision_sovereign is not None
                 else None
             )
             if runtime_sovereign is None:

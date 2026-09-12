@@ -29,7 +29,7 @@ Authority boundaries:
   * E19: ``EXEC:none; NO:decision-layer-coordinate`` — the sovereign is
     decision-only; it never executes interface work in-process.
   * E125 (supersedes E20): ``LEGACY-SYSTEM-SOVEREIGN:none`` — the old single
-    system sovereign is gone; specialized sovereigns operate independently.
+    decision sovereign is gone; specialized sovereigns operate independently.
   * E107/A130: ``RETIRE:...integration...sub-sovereigns-after-promotion`` —
     the integration sub-sovereign has been promoted to a full
     specialized-decision-sovereign.  This module retains its class name for
@@ -264,7 +264,7 @@ class IntegrationSubSovereign:
         ``toolbox.request_tool_execution()``.
 
         Each module's lifecycle must be authorized by the permission sovereign
-        (started by the app before the system sovereign).  A permission denial
+        (started by the app before the decision sovereign).  A permission denial
         is recorded but does not block the rest of startup (single-fault
         isolation).
 

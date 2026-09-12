@@ -4,7 +4,7 @@ Per the amended Governance Codex (A152 supersedes A67, A154 supersedes
 A72, E128 supersedes E52), the failure path must follow:
 
   maintenance-classifies-health-signal
-    > system-decision-sovereign-decides-repair
+    > decision-sovereign-decides-repair
     > permission-validation
     > system-runtime-or-system-programming-dispatch
     > governed-executor-repairs
@@ -22,7 +22,7 @@ The coordinator provides:
     time for a given failure domain.
   * A governed repair entry point that records the failure in the learning
     store, consults learned recipes, and delegates to the central repair
-    service — all under the system-decision-sovereign's repair decision
+    service — all under the decision-sovereign's repair decision
     authority (A152).
   * A status query so the frontend can check whether a repair is already
     in progress before attempting its own restart.
@@ -281,13 +281,13 @@ class RepairCoordinator:
 
         * ``decision_proof`` — the governance authorization that permits
           this repair (e.g. governance bootstrap attestation for crash
-          repair, or a system-decision-sovereign decision token for live
+          repair, or a decision-sovereign decision token for live
           repair).
         * ``repair_executor`` — callable that performs the actual repair
           mutation.  Required for crash repair (backend is dead, no
-          system-decision-sovereign is available).  When ``None`` or
+          decision-sovereign is available).  When ``None`` or
           ``signal_only=True``, only a signal is written to the
-          information layer for the system-decision-sovereign to pick up.
+          information layer for the decision-sovereign to pick up.
         * Returns a report dict with the repair outcome or signal record.
 
         This method acquires the coordination lock (FORBID:duplicate-repair-owner),
@@ -351,11 +351,11 @@ class RepairCoordinator:
             self._write_requests(requests)
             report["request_id"] = request_id
             report["ok"] = True
-            report["reason"] = "signal written to information layer; awaiting system-decision-sovereign decision"
+            report["reason"] = "signal written to information layer; awaiting decision-sovereign decision"
             self.release(owner=owner, failure_code=failure_code)
             return report
 
-        # Crash repair: backend is dead, system-decision-sovereign unavailable.
+        # Crash repair: backend is dead, decision-sovereign unavailable.
         # The governance bootstrap attestation IS the decision proof.
         # Execute the repair mutation under the coordination lock.
         request_record["status"] = "executing"
@@ -388,7 +388,7 @@ class RepairCoordinator:
         return report
 
     def pending_requests(self) -> list[dict[str, Any]]:
-        """Return pending repair requests for the system-decision-sovereign to process."""
+        """Return pending repair requests for the decision-sovereign to process."""
         return [
             req for req in self._read_requests()
             if req.get("status") == "pending"
@@ -398,14 +398,14 @@ class RepairCoordinator:
         self,
         request_id: str,
         *,
-        system_decision: str,
+        decision: str,
         ok: bool,
     ) -> None:
-        """Record the system-decision-sovereign's decision on a repair request."""
+        """Record the decision-sovereign's decision on a repair request."""
         requests = self._read_requests()
         for req in requests:
             if req.get("request_id") == request_id:
-                req["status"] = system_decision
+                req["status"] = decision
                 req["sovereign_decided_at"] = _iso_now()
                 req["sovereign_decision_ok"] = ok
                 break

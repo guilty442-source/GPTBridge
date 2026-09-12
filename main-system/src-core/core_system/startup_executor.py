@@ -396,15 +396,15 @@ class StartupSovereignExecutor:
     async def _phase_activate_core_sovereigns(self, record: PhaseRecord) -> None:
         """PHASE-6: activate core sovereigns with bounded parallelism (E155)."""
         app = self.app
-        started = await app.system_sovereign_service.start_sovereign_stack()
+        started = await app.decision_sovereign_service.start_sovereign_stack()
         if not started:
             raise RuntimeError("sovereign-activation-failed")
         self._activated.append(
-            ("sovereign-stack", app.system_sovereign_service.stop)
+            ("sovereign-stack", app.decision_sovereign_service.stop)
         )
         self._conditions.update(
             {
-                "system-decision-active": True,
+                "decision-active": True,
                 "system-runtime-active": True,
                 "maintenance-active": bool(
                     getattr(app, "maintenance_ready", False)

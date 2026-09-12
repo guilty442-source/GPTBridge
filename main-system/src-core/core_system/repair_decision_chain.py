@@ -1,28 +1,28 @@
 """Repair Decision Chain — A152/A154/E127/E128 governed repair decision
-authority for the system-decision-sovereign.
+authority for the decision-sovereign.
 
 Per the amended Governance Codex (H014, v1.73120), the repair decision
 authority was moved from the maintenance sovereign (old A67/A72, now
-superseded) to the system-decision-sovereign:
+superseded) to the decision-sovereign:
 
-  * A152 (supersedes A67): ``REPAIR-DECISION:system-decision-sovereign``;
+  * A152 (supersedes A67): ``REPAIR-DECISION:decision-sovereign``;
     ``FORBID:maintenance-owning-non-health-decisions``.
   * A154 (supersedes A72): ``MAINTENANCE-SCOPE:health-only``;
     ``FORBID:maintenance-code-change+maintenance-permission``.
   * E127 (supersedes E48): ``HEALTH:maintenance;
-    REPAIR-DECISION:system-decision; RUNTIME-ACTION:system-runtime;
+    REPAIR-DECISION:decision; RUNTIME-ACTION:system-runtime;
     CODE-ACTION:system-programming; LEARNING:learning-system``.
   * E128 (supersedes E52): ``ROUTE:health-signal>maintenance-classification
-    >system-decision>permission>runtime-or-programming>executor>
+    >decision>permission>runtime-or-programming>executor>
     verification>information-layer>ui``.
 
 The maintenance sovereign now performs **health classification** only
 (monitor-system-health / preserve-system-health / maintain-system per
 A125/E102).  The classified health signal is handed to the
-system-decision-sovereign, which owns the repair **decision** and routes
+decision-sovereign, which owns the repair **decision** and routes
 it through the governed chain:
 
-  system-decision > permission-validation > system-programming (code
+  decision > permission-validation > system-programming (code
   change) or system-runtime (runtime action) > governed-executor >
   independent-verification
 
@@ -41,9 +41,9 @@ from typing import Any
 
 class RepairDecisionChain:
     """A152/A154 governed repair decision chain for the
-    system-decision-sovereign.
+    decision-sovereign.
 
-    The system-decision-sovereign is the SOLE repair decision authority
+    The decision-sovereign is the SOLE repair decision authority
     (A152).  boot_core, watchdog, UI, and modules are signal-and-request
     only.  This chain receives a *classified* health signal from the
     maintenance sovereign, makes the repair decision, validates
@@ -114,8 +114,8 @@ class RepairDecisionChain:
     ) -> dict[str, Any]:
         """Decide whether the classified fault is repairable under policy.
 
-        Per A152: ``REPAIR-DECISION:system-decision-sovereign``.  The
-        system-decision-sovereign analyses the classified health signal
+        Per A152: ``REPAIR-DECISION:decision-sovereign``.  The
+        decision-sovereign analyses the classified health signal
         and decides whether a governed repair is permitted.
         """
         diagnosis = classified_signal.get("diagnosis") or {}
@@ -153,7 +153,7 @@ class RepairDecisionChain:
     ) -> dict[str, Any]:
         """Validate that the repair is permitted by governance.
 
-        Per E128: ``system-decision>permission``.  The permission sovereign
+        Per E128: ``decision>permission``.  The permission sovereign
         must authorize the repair mutation before execution.
         """
         permission_sovereign = getattr(self.app, "permission_sovereign", None)
@@ -195,7 +195,7 @@ class RepairDecisionChain:
         """Delegate the code change to the system-programming-sovereign.
 
         Per E127: ``CODE-ACTION:system-programming``.  The
-        system-decision-sovereign makes the repair DECISION only; the
+        decision-sovereign makes the repair DECISION only; the
         actual source mutation is delegated to the programming sovereign
         which dispatches an approved governed programming tool.
         """
@@ -213,14 +213,14 @@ class RepairDecisionChain:
 
         try:
             result = programming_sovereign.request_tool_execution(
-                requester_module="system-decision-sovereign",
+                requester_module="decision-sovereign",
                 tool_id="main-system-source-repair",
                 operation="targeted-indentation-repair",
                 payload={
                     "target_file": target_file,
                     "error_type": error_type,
                     "diagnosis": decision.get("diagnosis") or {},
-                    "authority": "system-decision-sovereign",
+                    "authority": "decision-sovereign",
                 },
             )
             return result

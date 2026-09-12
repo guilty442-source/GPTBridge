@@ -128,7 +128,7 @@ def verify_core_ready(
     """Verify all core-ready conditions are met (A192: CORE-READY).
 
     Per A192: ``CORE-READY:official-codex-valid+permission-sovereign-active+
-    normal-information-layer-active+system-decision-active+system-runtime-
+    normal-information-layer-active+decision-active+system-runtime-
     active+maintenance-active+all-core-critical-dependencies-ready``.
     """
     missing: list[str] = []

@@ -27,7 +27,7 @@ from core_system.hot_update_service import HotUpdateService
 from core_system.daily_global_cleaner_service import DailyGlobalCleanerService
 from core_system.maintenance_sovereign import MaintenanceSovereign
 from core_system.permission_sovereign import PermissionSovereign
-from core_system.system_sovereign import SystemSovereignService
+from core_system.decision_sovereign import DecisionSovereignService
 from core_system.main_system_self_maintenance import MainSystemSelfMaintenance
 from core_system.versioning import application_version
 from ipc.server import run_server
@@ -58,12 +58,12 @@ class GPTBridgeApp:
         self.runtime_bootstrap = RuntimeBootstrap(self)
         self.hot_update_service = HotUpdateService(self)
         self.daily_global_cleaner_service = DailyGlobalCleanerService(self)
-        # 維護、權限與系統主宰皆由 SystemSovereignService 統一分派啟動。
+        # 維護、權限與系統主宰皆由 DecisionSovereignService 統一分派啟動。
         # main.py 不再直接 materialize 或啟動任何主宰，只透過
-        # system_sovereign_service.start_sovereign_stack() 發出啟動指令。
+        # decision_sovereign_service.start_sovereign_stack() 發出啟動指令。
         self.maintenance_sovereign = MaintenanceSovereign(self)
         self.permission_sovereign: PermissionSovereign | None = None
-        self.system_sovereign_service = SystemSovereignService(self)
+        self.decision_sovereign_service = DecisionSovereignService(self)
         self.main_system_self_maintenance: MainSystemSelfMaintenance | None = None
         self.hot_reload_watcher: Any | None = None
         self._command_tasks: set[asyncio.Task[Any]] = set()
@@ -134,7 +134,7 @@ class GPTBridgeApp:
                 if self.permission_sovereign is not None
                 else {"enabled": False}
             ),
-            "system_sovereign": self.system_sovereign_service.status(),
+            "decision_sovereign": self.decision_sovereign_service.status(),
             "main_system_self_maintenance": (
                 self.main_system_self_maintenance.status()
                 if self.main_system_self_maintenance is not None
@@ -341,7 +341,7 @@ class GPTBridgeApp:
 
         if self.main_system_self_maintenance is not None:
             await self.main_system_self_maintenance.stop()
-        await self.system_sovereign_service.stop()
+        await self.decision_sovereign_service.stop()
         await self.maintenance_sovereign.stop()
         await self.daily_global_cleaner_service.stop()
         await self.hot_update_service.stop()

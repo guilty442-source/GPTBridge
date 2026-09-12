@@ -32,8 +32,8 @@
 | **A33** | 六 | 邊界劃分：資料完整性查核執行歸資料主宰；健康監控歸維護主宰（僅呈現資料完整性健康狀態）；禁止互相代行 |
 | **A43** | 六 | 熱更新標的僅限受治理可執行碼；版本凍結邊界；排除 codex/data/directory/manifest |
 | **A57** | 六 | 自我健康測試為自我維護健康所必需；歸維護主宰；須可離線收集、不依賴活模型/網路 |
-| **A152** (取代 A67) | 六 | 前後端恢復邊界：HEALTH-OWNER 維護主宰；REPAIR-DECISION 系統決策主宰；RUNTIME-RESTART 系統運行主宰；CODE-CHANGE 系統程式主宰；LEARNING 學習系統主宰；禁止維護主宰擁有非健康決策 |
-| **A154** (取代 A72) | 六 | 修復責任鏈：維護範圍僅限健康；修復決策歸系統決策主宰；禁止維護改碼、維護權限、平行所有者、無證變更 |
+| **A152** (取代 A67) | 六 | 前後端恢復邊界：HEALTH-OWNER 維護主宰；REPAIR-DECISION 決策主宰；RUNTIME-RESTART 系統運行主宰；CODE-CHANGE 系統程式主宰；LEARNING 學習決策主宰；禁止維護主宰擁有非健康決策 |
+| **A154** (取代 A72) | 六 | 修復責任鏈：維護範圍僅限健康；修復決策歸決策主宰；禁止維護改碼、維護權限、平行所有者、無證變更 |
 
 ### 1.3 相關法令（Edict，有效條文）
 
@@ -96,23 +96,23 @@
 | 職權 | 擁有者 | 法典依據 |
 |---|---|---|
 | 系統健康（監控/維護/維持） | **維護主宰** | A125/E102 |
-| 修復決策 | **系統決策主宰** (system-decision-sovereign) | A152/E127 |
+| 修復決策 | **決策主宰** (decision-sovereign) | A152/E127 |
 | 運行動作（熱重載/重啟） | **系統運行主宰** (system-runtime-sovereign) | E127 |
 | 程式碼變更 | **系統程式主宰** (system-programming-sovereign) | E127 |
-| 錯誤學習 | **學習系統主宰** (learning-system-sovereign) | E127 |
+| 錯誤學習 | **學習決策主宰** (learning-system-sovereign) | E127 |
 | 第三方軟體更新 | **第三方主宰** (third-party-sovereign) | dependency-governance |
 | 資料完整性查核 | **資料主宰** (data-sovereign) | A33/E20 |
 
 ### 3.1 修復決策鏈（E128）
 
 ```
-健康信號 > 維護主宰分類(health-classification) > 系統決策主宰(修復決策)
+健康信號 > 維護主宰分類(health-classification) > 決策主宰(修復決策)
 > 權限驗證 > 系統運行或系統程式(派發) > 受治理執行器 > 獨立驗證
 > 資訊層狀態事件審計 > UI 同步
 ```
 
 - 維護主宰：分類健康信號（health-only），不做修復決策
-- 系統決策主宰：做修復決策，路由至權限→運行/程式→執行器→驗證
+- 決策主宰：做修復決策，路由至權限→運行/程式→執行器→驗證
 - 維護主宰：記錄結果至學習庫（E127 learning-system），同步 UI
 
 ---
@@ -148,18 +148,18 @@
 | `orchestration_status()` | 全部 | 編排狀態摘要 |
 | `_health_monitoring()` | 健康監控 | 呼叫 `core.health.check_core_health` + 治理完整性就緒狀態 |
 | `_update_status()` | 維持系統 | 唯讀監督 HotUpdateService 的版本凍結邊界（執行在 system-runtime） |
-| `_automatic_repair_status()` | 維護健康 | 唯讀監控修復服務就緒（決策在 system-decision） |
-| `_fault_determination_status()` | 健康分類 | 呈現修復決策鏈就緒狀態（決策在 system-decision） |
+| `_automatic_repair_status()` | 維護健康 | 唯讀監控修復服務就緒（決策在 decision） |
+| `_fault_determination_status()` | 健康分類 | 呈現修復決策鏈就緒狀態（決策在 decision） |
 | `_backup_status()` | 維護健康 | 唯讀監控受治理備份就緒 |
 | `_module_cleanup_status()` | 維持系統 | 統一監督各模組的自發性清理（執行留在各模組） |
 | `_main_system_self_maintenance_status()` | 維持系統 | 監督 `MainSystemSelfMaintenance` 受治理執行器 |
 | `_run_capability_checks()` | 能力偵測 | 唯讀偵測維護相關功能/元件是否就位（不安裝、不修復） |
 
-### 5.2 修復決策鏈（系統決策主宰）
+### 5.2 修復決策鏈（決策主宰）
 
 **檔案**：`main-system/src-core/core_system/repair_decision_chain.py`
 
-`RepairDecisionChain` 是系統決策主宰（`SystemSovereignService`）的修復決策鏈實作，承擔 A152/A154/E127/E128 所規定的修復決策職責。
+`RepairDecisionChain` 是決策主宰（`DecisionSovereignService`）的修復決策鏈實作，承擔 A152/A154/E127/E128 所規定的修復決策職責。
 
 | 方法 | 說明 |
 |---|---|
@@ -173,13 +173,13 @@
 
 **檔案**：`main-system/src-core/core_system/maintenance_repair_chain.py`
 
-`MaintenanceRepairChainMixin` 是維護主宰的健康分類鏈，承擔 health-only 範圍的健康信號分類，並委派修復決策至系統決策主宰。
+`MaintenanceRepairChainMixin` 是維護主宰的健康分類鏈，承擔 health-only 範圍的健康信號分類，並委派修復決策至決策主宰。
 
 | 方法 | 說明 |
 |---|---|
 | `_repair_decision_loop()` | 輪詢 `repair-requests.json`，分類待處理健康信號 |
 | `_classify_health_signal()` | 健康分類：識別錯誤類型、目標檔案（唯讀，不做決策） |
-| `_handle_repair_request()` | 分類→委派 system-decision→認可→學習審計→UI 同步 |
+| `_handle_repair_request()` | 分類→委派 decision→認可→學習審計→UI 同步 |
 | `_audit_repair_outcome()` | 記錄修復結果至學習庫（E127 learning-system） |
 | `_sync_ui_repair_result()` | 通知 UI 修復結果 |
 
@@ -274,15 +274,15 @@ system-rescue/src, file-sorter/src, vaultly/src, investment-mobile/src
 └─────────────────────────────────────────────────────────────────┘
 
 修復決策鏈（E128）：
-  健康信號 > 維護主宰分類 > 系統決策主宰(決策) > 權限
+  健康信號 > 維護主宰分類 > 決策主宰(決策) > 權限
   > 系統運行/系統程式(派發) > 執行器 > 驗證 > 資訊層 > UI
 
 職權邊界（A152/A154/E127）：
   系統健康          → 維護主宰 (maintenance-sovereign)
-  修復決策          → 系統決策主宰 (system-decision-sovereign)
+  修復決策          → 決策主宰 (decision-sovereign)
   運行動作(熱重載)  → 系統運行主宰 (system-runtime-sovereign)
   程式碼變更        → 系統程式主宰 (system-programming-sovereign)
-  錯誤學習          → 學習系統主宰 (learning-system-sovereign)
+  錯誤學習          → 學習決策主宰 (learning-system-sovereign)
   資料完整性查核    → 資料主宰 (data-sovereign) [A33/E20]
   禁止互相代行
 ```
@@ -305,8 +305,8 @@ system-rescue/src, file-sorter/src, vaultly/src, investment-mobile/src
 | **維護主宰能力偵測** | `main-system/src-core/core_system/maintenance_capability.py` |
 | **維護主宰學習** | `main-system/src-core/core_system/maintenance_learning.py` |
 | **維護主宰健康分類鏈** | `main-system/src-core/core_system/maintenance_repair_chain.py` |
-| **修復決策鏈（系統決策主宰）** | `main-system/src-core/core_system/repair_decision_chain.py` |
-| **系統決策主宰** | `main-system/src-core/core_system/system_sovereign.py` |
+| **修復決策鏈（決策主宰）** | `main-system/src-core/core_system/repair_decision_chain.py` |
+| **決策主宰** | `main-system/src-core/core_system/decision_sovereign.py` |
 | **運行子主宰（熱重載入口）** | `main-system/src-core/core_system/runtime_sub_sovereign.py` |
 | **主系統自維護** | `main-system/src-core/core_system/main_system_self_maintenance.py` |
 | **每日全域清理** | `main-system/src-core/core_system/daily_global_cleaner_service.py` |

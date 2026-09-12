@@ -41,7 +41,7 @@ governance-authority, xingcheng.
 
 It also uses legacy sovereign IDs (e.g. `system-sovereign`,
 `system-resource-sub-sovereign`) that have been superseded by the codex
-sovereign IDs (e.g. `system-decision-sovereign`, `resource-sovereign`).
+sovereign IDs (e.g. `decision-sovereign`, `resource-sovereign`).
 
 ## Retention
 

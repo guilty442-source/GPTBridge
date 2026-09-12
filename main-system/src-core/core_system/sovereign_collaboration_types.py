@@ -38,7 +38,7 @@ TERMINAL_STATES: Final[frozenset[str]] = frozenset({
 # A188: FLOW — the collaboration flow stages
 COLLABORATION_FLOW: Final[tuple[str, ...]] = (
     "information-entry",
-    "system-decision-assignment",
+    "decision-assignment",
     "parallel-domain-verdicts",
     "permission-validation",
     "system-runtime-validation",

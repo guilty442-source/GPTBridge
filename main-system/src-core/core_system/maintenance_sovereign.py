@@ -23,7 +23,7 @@ Its prohibitions:
 
 Authority boundaries (A152/A154/E127/E128): the maintenance sovereign's
 scope is **health-only** (A154).  Repair decisions are owned by the
-system-decision-sovereign (A152); runtime actions (hot-reload) by
+decision-sovereign (A152); runtime actions (hot-reload) by
 system-runtime (E127); code changes by system-programming (E127);
 learning by the learning-system sovereign (E127).  The maintenance
 sovereign classifies health signals and delegates; it never owns the
@@ -84,7 +84,7 @@ class MaintenanceSovereign(
       - preserve-system-health (backup coordination, health restoration)
       - maintain-system (delegated cleanup, update-boundary supervision)
 
-    Repair decisions are delegated to the system-decision-sovereign
+    Repair decisions are delegated to the decision-sovereign
     (A152); runtime actions to system-runtime (E127); code changes to
     system-programming (E127).  The maintenance sovereign classifies
     health signals and monitors system health; it never owns non-health

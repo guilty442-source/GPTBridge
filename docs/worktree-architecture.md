@@ -25,7 +25,7 @@ Stable release branch. All merged, verified code.
 | Governance Codex | `governance_rule/codex/` | governance-authority |
 | Permission Directory | `governance_rule/permission_directory/` | permission-sovereign |
 | Execution Layer | `governance_rule/execution/` | governance-authority |
-| Core System | `main-system/src-core/core_system/` | system-sovereign |
+| Core System | `main-system/src-core/core_system/` | decision-sovereign |
 | IPC | `main-system/src-core/ipc/` | runtime-sub-sovereign |
 | Tasks | `main-system/src-core/tasks/` | maintenance-sovereign |
 | Managers | `main-system/src-core/managers/` | resource-sub-sovereign |

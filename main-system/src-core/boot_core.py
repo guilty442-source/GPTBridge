@@ -32,7 +32,7 @@ The startup source runtime (CAPABILITY 1):
   1. Runs bootstrap gates and the contract-declared dependency DAG (phases 0-5).
   2. Generates the governance bootstrap token in-process.
   3. Writes the orchestrator report to ``launcher/state/orchestrator-report.json``
-     for system_sovereign consumption (stale-safe: always overwritten on boot).
+     for decision_sovereign consumption (stale-safe: always overwritten on boot).
   4. Sets ``GPTBRIDGE_STARTUP_STATE`` in the child env (READY/DEGRADED/FAILED).
   5. Spawns main.py, relays stdout/stderr, and supervises the child lifetime.
 """
@@ -184,7 +184,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
             pass
 
     def _write_orchestrator_report(self, report: dict[str, Any]) -> None:
-        """Write orchestrator report for system_sovereign consumption."""
+        """Write orchestrator report for decision_sovereign consumption."""
         path = (
             self.workspace_root
             / "main-system"

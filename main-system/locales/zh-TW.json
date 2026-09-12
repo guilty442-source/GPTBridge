@@ -152,7 +152,7 @@
     "executor": "執行委派",
     "healthOwner": "健康監管",
     "governedExecutorOnly": "僅受治理執行器",
-    "systemSovereignOwnedBy": "歸屬模組",
+    "decisionSovereignOwnedBy": "歸屬模組",
     "startedAt": "啟動時間",
     "codexTitle": "治理法典",
     "codexSchema": "法典綱要",

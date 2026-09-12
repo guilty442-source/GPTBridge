@@ -4,7 +4,7 @@ Per A187 (separated-sovereign-validation-chain) and E162 (sovereign-
 validation-separation), three validation gates are strictly separated and
 non-skippable, each owned by a different sovereign:
 
-  1. **Task-assignment validation** — owner: system-decision-sovereign
+  1. **Task-assignment validation** — owner: decision-sovereign
      Verifies task identity, purpose, source, one-duty-owner, duty-capability
      match, scope, dependency, priority, input-output-contract, non-overlap.
      Issues immutable assignment-proof.

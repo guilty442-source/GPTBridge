@@ -46,9 +46,9 @@ class DailyGlobalCleanerService:
         permission = getattr(self.app, "permission_sovereign", None)
         if permission is not None:
             return permission
-        system_sovereign = getattr(self.app, "system_sovereign_service", None)
-        if system_sovereign is not None:
-            return getattr(system_sovereign, "permission_sovereign", None)
+        decision_sovereign = getattr(self.app, "decision_sovereign_service", None)
+        if decision_sovereign is not None:
+            return getattr(decision_sovereign, "permission_sovereign", None)
         return None
 
     def _load_state(self) -> dict[str, Any]:

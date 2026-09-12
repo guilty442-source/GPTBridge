@@ -1,4 +1,4 @@
-"""system sovereign — 系統主宰（頂層總裁主宰）。
+"""decision sovereign — 系統主宰（頂層總裁主宰）。
 
 法典依據：P11 / A26 / A27 / E15。
   * 負責平台全生命周期編排與依賴整合；
@@ -31,7 +31,7 @@ ORDINAL_SUB_SOVEREIGNS: tuple[str, ...] = (
 )
 
 
-class SystemSovereign(SovereignBase):
+class DecisionSovereign(SovereignBase):
     sovereign_id = "system"
     codification = ("P11", "A26", "A27", "E15", "A5", "A12")
     required_roles = frozenset({"system-sovereign", "governance-auditor"})
@@ -102,4 +102,4 @@ class SystemSovereign(SovereignBase):
         )
 
 
-__all__ = ["ORDINAL_SUB_SOVEREIGNS", "SystemSovereign"]
+__all__ = ["ORDINAL_SUB_SOVEREIGNS", "DecisionSovereign"]
