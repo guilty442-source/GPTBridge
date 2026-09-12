@@ -1,4 +1,4 @@
-"""Investment Mobile Integration - Channel Client."""
+"""Investment Mobile Integration Layer - External system integrations."""
 
 from __future__ import annotations
 

@@ -235,20 +235,22 @@ class GPTBridgeApp:
 
         self._mark_startup_phase("sovereign_stack_starting")
 
-        # Start permission sovereign (read-only coordination face)
-        await self.permission_sovereign.start()
-
-        # Start system runtime sovereign (will start its sub-sovereigns)
-        await self.system_runtime_sovereign.start()
-
-        # Start synchronization sovereign
-        await self.synchronization_sovereign.start()
-
-        # Start xingcheng sovereign
-        await self.xingcheng_sovereign.start()
-
-        # Start decision sovereign (orchestrates the stack)
-        await self.decision_sovereign.start()
+        # Start the decision-layer sovereigns.  Single-fault isolation: a
+        # sovereign that fails to mark started is recorded as a startup
+        # failure, not a fatal error — the governed executor's activation
+        # path independently materializes and starts the child stack under
+        # each codex-registered parent (A334).
+        for _sovereign_name, _sovereign in (
+            ("permission_sovereign", self.permission_sovereign),
+            ("system_runtime_sovereign", self.system_runtime_sovereign),
+            ("synchronization_sovereign", self.synchronization_sovereign),
+            ("xingcheng_sovereign", self.xingcheng_sovereign),
+            ("decision_sovereign", self.decision_sovereign),
+        ):
+            try:
+                await _sovereign.start()
+            except Exception as error:
+                self._record_startup_failure(_sovereign_name, error)
 
         # Check if boot_core has already completed phases 0-5
         if startup_state in ("READY", "DEGRADED"):
@@ -351,7 +353,22 @@ class GPTBridgeApp:
             return
         self._shutdown_started = True
         try:
-            await self._shutdown_once()
+            # Complete-close bound: a stalled tool/sovereign/service stop must
+            # never keep the backend alive after the UI has closed.  The
+            # deadline sits inside the launcher-side graceful window so the
+            # supervisor observes a clean exit instead of a force-kill.
+            try:
+                await asyncio.wait_for(self._shutdown_once(), timeout=8.0)
+            except asyncio.TimeoutError:
+                self._log(
+                    {
+                        "type": "warning",
+                        "message": (
+                            "shutdown deadline exceeded; abandoning remaining "
+                            "cleanup so the backend can exit"
+                        ),
+                    }
+                )
         finally:
             self._shutdown_complete.set()
 
@@ -398,15 +415,30 @@ class GPTBridgeApp:
             except Exception:
                 pass
 
-        # Stop sovereigns (A63/A64: decision only, execution delegated)
-        await self.synchronization_sovereign.stop()
-        await self.xingcheng_sovereign.stop()
-        await self.system_runtime_sovereign.stop()
-        await self.permission_sovereign.stop()
-        await self.decision_sovereign.stop()
+        # Stop sovereigns (A63/A64: decision only, execution delegated).
+        # Each stop is isolated so one failure cannot skip the rest —
+        # a single faulty sovereign must never leak the remaining
+        # children/tasks through an aborted shutdown sequence.
+        for _sovereign in (
+            self.synchronization_sovereign,
+            self.xingcheng_sovereign,
+            self.system_runtime_sovereign,
+            self.permission_sovereign,
+            self.decision_sovereign,
+        ):
+            try:
+                await _sovereign.stop()
+            except Exception:
+                pass
 
-        await self.daily_global_cleaner_service.stop()
-        await self.hot_update_service.stop()
+        for _service in (
+            self.daily_global_cleaner_service,
+            self.hot_update_service,
+        ):
+            try:
+                await _service.stop()
+            except Exception:
+                pass
         # Stop the tool isolation health monitor.
         try:
             from core_system.tool_isolation import get_isolation_manager

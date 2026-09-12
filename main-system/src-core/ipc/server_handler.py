@@ -98,7 +98,17 @@ async def handler(websocket, app_instance):
             if heartbeat_dead.is_set():
                 break
             try:
-                await ui.send_event("heartbeat_ping", {"t": datetime.now(timezone.utc).isoformat()})
+                # Bound the send: a backpressured or half-dead socket would
+                # otherwise stall this monitor forever without ever marking
+                # the connection dead.  A stalled send is itself a dead
+                # connection signal.
+                await asyncio.wait_for(
+                    ui.send_event(
+                        "heartbeat_ping",
+                        {"t": datetime.now(timezone.utc).isoformat()},
+                    ),
+                    timeout=HEARTBEAT_INTERVAL,
+                )
             except Exception:
                 heartbeat_dead.set()
                 break
@@ -109,7 +119,16 @@ async def handler(websocket, app_instance):
                 # Client has not responded in 20s — close dead connection
                 heartbeat_dead.set()
                 try:
-                    await websocket.close(code=1001, reason="heartbeat_timeout")
+                    app_instance._log(
+                        {"type": "ipc_heartbeat_timeout", "reason": "pong_timeout"}
+                    )
+                except Exception:
+                    pass
+                try:
+                    await asyncio.wait_for(
+                        websocket.close(code=1001, reason="heartbeat_timeout"),
+                        timeout=5.0,
+                    )
                 except Exception:
                     pass
                 break
@@ -145,9 +164,17 @@ async def handler(websocket, app_instance):
         if pending:
             await ui.send_event("task_recovery_required", {"ok": True, "tasks": pending})
 
+    # Reset the liveness clock when the read loop activates: pongs buffered
+    # during the startup wait have not been consumed yet, so a long
+    # initialization must not immediately trip the heartbeat timeout.
+    last_pong_time = time.monotonic()
     read_loop_active = True
     try:
         async for message in websocket:
+            # Any inbound frame proves the client is alive — count every
+            # message as liveness, not only heartbeat_pong responses, so a
+            # busy session is never killed while traffic is flowing.
+            last_pong_time = time.monotonic()
             try:
                 data = json.loads(message)
                 if not isinstance(data, dict):
@@ -217,7 +244,8 @@ async def handler(websocket, app_instance):
                 await ui.send_event("COMMAND_RECEIVED", {"command": command, "status": "processing"})
 
             except Exception as exc:
-                await ui.send_error(str(exc))
+                with contextlib.suppress(Exception):
+                    await ui.send_error(str(exc))
     except websockets.exceptions.ConnectionClosed:
         pass
     finally:

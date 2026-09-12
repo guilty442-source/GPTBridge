@@ -1,7 +1,15 @@
 from __future__ import annotations
+import asyncio
 import json
 from typing import Any, Dict, Protocol
 import websockets
+
+
+# Bound every outbound frame: a backpressured or half-dead socket must not
+# stall the shared push loops (status push, state-change notifier, outbox
+# drain, heartbeat monitor).  The timeout propagates as TimeoutError so
+# callers' dead-shell detection discards the stalled connection.
+SEND_TIMEOUT_SECONDS = 2.0
 
 
 class WebSocketConnection(Protocol):
@@ -13,7 +21,9 @@ class UIShell:
 
     async def _send(self, message: str) -> None:
         try:
-            await self.websocket.send(message)
+            await asyncio.wait_for(
+                self.websocket.send(message), timeout=SEND_TIMEOUT_SECONDS
+            )
         except (websockets.exceptions.ConnectionClosed, RuntimeError):
             return
 

@@ -133,6 +133,15 @@ def _manifest_paths() -> list[Path]:
             or json.loads(path.read_text("utf-8")).get("companion_tool") is True
         )
     )
+    paths.extend(
+        path
+        for path in ROOT.glob("Standalone tools/*/*/*/manifest.json")
+        if (
+            json.loads(path.read_text("utf-8")).get("main_system_independent_tool")
+            is True
+            or json.loads(path.read_text("utf-8")).get("companion_tool") is True
+        )
+    )
     return sorted(paths)
 
 

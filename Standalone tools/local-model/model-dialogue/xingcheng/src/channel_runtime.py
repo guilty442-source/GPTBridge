@@ -7,14 +7,14 @@ from pathlib import Path
 from typing import Any
 
 
-TOOL_ID = "investment-mobile"
+TOOL_ID = "star-chat"
 ROOT = Path(os.environ.get("GPTBRIDGE_GOVERNANCE_PROJECT_ROOT")).resolve()
-TOOL_ROOT = (ROOT / "Standalone tools" / TOOL_ID).resolve()
+TOOL_ROOT = (ROOT / "Standalone tools" / "local-model" / "model-dialogue" / "xingcheng").resolve()
 if not ROOT.is_dir() or not TOOL_ROOT.is_dir():
     raise PermissionError("PERMISSION_DENIED")
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
-sys.path.insert(0, str(TOOL_ROOT / "src" / "backend" / "services"))
+sys.path.insert(0, str(TOOL_ROOT / "src"))
 
 from governance_rule.permission_directory.registries.permissions.tool_routes import (  # noqa: E402
     authorize_ai_target,
@@ -22,7 +22,7 @@ from governance_rule.permission_directory.registries.permissions.tool_routes imp
 from governance_rule.execution.tool_runtime.governed_runtime import GovernedToolRuntime  # noqa: E402
 
 
-class InvestmentMobileService:
+class StarChatService:
     TOOL_ID = TOOL_ID
     VERSION = "1.0.0"
 
@@ -30,19 +30,11 @@ class InvestmentMobileService:
         self.tool_root = tool_root
 
     def owns(self, command: str) -> bool:
-        return command in {
-            "investment-analysis",
-            "investment-manager",
-            "investment-market-search",
-        }
+        return command in {"ai-connections"}
 
     async def handle(self, command: str, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-        if command == "investment-analysis":
-            return "ok", {"analysis": "completed"}
-        if command == "investment-manager":
-            return "ok", {"manager": "running"}
-        if command == "investment-market-search":
-            return "ok", {"search": "completed"}
+        if command == "ai-connections":
+            return "ok", {"connections": "established"}
         raise PermissionError("PERMISSION_DENIED")
 
     async def start(self) -> None:
@@ -52,7 +44,7 @@ class InvestmentMobileService:
         pass
 
 
-service = InvestmentMobileService(TOOL_ROOT)
+service = StarChatService(TOOL_ROOT)
 
 
 async def execute(

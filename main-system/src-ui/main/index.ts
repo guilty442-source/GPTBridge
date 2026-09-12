@@ -609,24 +609,49 @@ if (process.env.GPTBRIDGE_RENDERER_DEV_URL) {
   })
 }
 
-app.on('window-all-closed', () => {
-  closeAllSessions()
-  stopMainRendererWatch()
-  // before-quit handles backend shutdown + app.exit(0).
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
-})
+// Complete-close contract: closing the last window fully terminates the
+// application — embedded sessions, renderer watchers, the managed backend
+// (boot_core + main.py), and the Electron process itself.  The path is
+// idempotent: window-all-closed, before-quit, and repeated quit attempts
+// all converge on a single shared shutdown.
+let shutdownPromise: Promise<void> | null = null
+const SHUTDOWN_DEADLINE_MS = 15_000
 
-app.on('before-quit', (event) => {
-  event.preventDefault()
-  void (async () => {
+function shutdownApplication(): void {
+  if (shutdownPromise) return
+  shutdownPromise = (async () => {
     closeAllSessions()
     stopMainRendererWatch()
     if (shouldManageBackend) {
-      await stopBackend()
+      // Backend shutdown is awaited but bounded — a stalled graceful stop
+      // must never leave the UI running as a detached orphan.
+      await Promise.race([
+        stopBackend(),
+        new Promise<void>((resolve) =>
+          setTimeout(resolve, SHUTDOWN_DEADLINE_MS)
+        ),
+      ])
     }
-    reportRuntimeEvent('main.ui-detached')
-    app.exit(0)
   })()
+    .catch(() => {
+      // Best-effort cleanup; nothing may block the final exit.
+    })
+    .finally(() => {
+      reportRuntimeEvent('main.ui-shutdown')
+      app.exit(0)
+    })
+}
+
+app.on('window-all-closed', () => {
+  // Closing the last window closes the whole application on every
+  // platform — no dock-resident or detached backend remains.
+  shutdownApplication()
+})
+
+app.on('before-quit', (event) => {
+  // Single exit path: hold the quit until the shared shutdown finishes
+  // and calls app.exit(0).  preventDefault is unconditional so re-entrant
+  // quit events can never race the cleanup in flight.
+  event.preventDefault()
+  shutdownApplication()
 })

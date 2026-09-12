@@ -12,22 +12,61 @@ Every sovereign identity must resolve to exactly one current formal
 identity; every sub-sovereign has exactly one parent; decision, permission,
 review and execution stay separated.
 
-This module is read-only and pure: it loads the registries from the sealed
-codex database via ``load_governance_codex`` and exposes validation helpers
-used by the governed executors (e.g. the sovereign-stack executor) to
-enforce the declared hierarchy at materialization and dispatch time.
+This module is read-only and pure: it opens the sealed codex SQLite
+database in read-only mode, reads the authoritative ``*_registry`` tables
+directly (without modifying ``governance_rule`` loaders), and exposes
+validation helpers used by the governed executors (e.g. the sovereign-stack
+executor) to enforce the declared hierarchy at materialization and dispatch
+time.
 """
 
 from __future__ import annotations
 
+import sqlite3
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
-from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.execution.codex_repository import CODEX_DATABASE_PATH
+
+
+@lru_cache(maxsize=1)
+def _registries() -> dict[str, tuple[dict[str, str], ...]]:
+    """Load every ``*_registry`` table from the codex DB, read-only."""
+    if not Path(CODEX_DATABASE_PATH).exists():
+        return {}
+    uri = f"file:{Path(CODEX_DATABASE_PATH).as_posix()}?mode=ro"
+    connection = sqlite3.connect(uri, uri=True)
+    try:
+        tables = [
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master"
+                " WHERE type='table' AND name LIKE '%_registry' ORDER BY name"
+            )
+        ]
+        loaded: dict[str, tuple[dict[str, str], ...]] = {}
+        for table in tables:
+            columns = [
+                column[1]
+                for column in connection.execute(f"PRAGMA table_info({table})")
+            ]
+            rows = tuple(
+                dict(zip(columns, row))
+                for row in connection.execute(
+                    f"SELECT {', '.join(columns)} FROM {table} ORDER BY 1"
+                )
+            )
+            loaded[table] = tuple(
+                {key: str(value) for key, value in row.items()} for row in rows
+            )
+        return loaded
+    finally:
+        connection.close()
 
 
 def _registry(name: str) -> tuple[dict[str, str], ...]:
-    rows = GOVERNANCE_CODEX.registries.get(name, ())
-    return tuple(row.as_dict() for row in rows)
+    return _registries().get(name, ())
 
 
 def sovereign_hierarchy_registry() -> tuple[dict[str, str], ...]:

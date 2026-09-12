@@ -96,27 +96,43 @@ class SovereignStackExecutor:
         """Ensure the other top-level sovereigns exist before child
         materialization (children resolve their parent through the app)."""
         app = self.app
-        if getattr(app, "permission_sovereign", None) is None:
-            from governance.sovereigns.permission_sovereign import (
-                PermissionSovereign,
-            )
-
-            app.permission_sovereign = PermissionSovereign(
-                app,
-                governance=getattr(app, "governance", None),
-            )
-        if getattr(app, "synchronization_sovereign", None) is None:
-            from governance.sovereigns.synchronization_sovereign import (
-                SynchronizationSovereign,
-            )
-
-            app.synchronization_sovereign = SynchronizationSovereign(app)
-        if getattr(app, "system_runtime_sovereign", None) is None:
-            from governance.sovereigns.system_runtime_sovereign import (
-                SystemRuntimeSovereign,
-            )
-
-            app.system_runtime_sovereign = SystemRuntimeSovereign(app)
+        top_specs = (
+            (
+                "permission_sovereign",
+                "governance.sovereigns.permission_sovereign",
+                "PermissionSovereign",
+            ),
+            (
+                "synchronization_sovereign",
+                "governance.sovereigns.synchronization_sovereign",
+                "SynchronizationSovereign",
+            ),
+            (
+                "system_runtime_sovereign",
+                "governance.sovereigns.system_runtime_sovereign",
+                "SystemRuntimeSovereign",
+            ),
+        )
+        for attr_name, module_name, class_name in top_specs:
+            if getattr(app, attr_name, None) is not None:
+                continue
+            try:
+                cls = getattr(import_module(module_name), class_name)
+                if attr_name == "permission_sovereign":
+                    setattr(
+                        app,
+                        attr_name,
+                        cls(app, governance=getattr(app, "governance", None)),
+                    )
+                else:
+                    setattr(app, attr_name, cls(app))
+            except Exception as error:
+                self._startup_failures.append(
+                    {
+                        "sub_sovereign": attr_name,
+                        "error": f"top-sovereign-materialize:{type(error).__name__}: {error}",
+                    }
+                )
 
     async def _start_top_sovereigns(self, sovereign: Any) -> None:
         """Activate the top-level coordination sovereigns (decision-layer
@@ -175,8 +191,16 @@ class SovereignStackExecutor:
             if registry is None:
                 continue
             if child_id not in registry:
-                child_cls = getattr(sub, class_name)
-                registry[child_id] = child_cls(app, parent=parent)
+                try:
+                    child_cls = getattr(sub, class_name)
+                    registry[child_id] = child_cls(app, parent=parent)
+                except Exception as error:
+                    self._startup_failures.append(
+                        {
+                            "sub_sovereign": child_id,
+                            "error": f"materialize:{type(error).__name__}: {error}",
+                        }
+                    )
 
         app_registry = getattr(app, "_sub_sovereigns", None)
         if isinstance(app_registry, dict):
@@ -276,6 +300,12 @@ class SovereignStackExecutor:
         # every subsequent failure and repair can be learned, and every code
         # change has one governed dispatch owner.  The daily cleaner is
         # independent — E155 bounded-independent-parallelism applies.
+        async def _start_cleaner() -> None:
+            try:
+                await app.daily_global_cleaner_service.start()
+            except Exception as error:
+                app._record_startup_failure("daily_global_cleaner", error)
+
         early_starts = [
             self._start_child(
                 sovereign, "learning", "learning-evidence-sync-sub-sovereign"
@@ -283,7 +313,7 @@ class SovereignStackExecutor:
             self._start_child(
                 sovereign, "programming", "release-update-sync-sub-sovereign"
             ),
-            app.daily_global_cleaner_service.start(),
+            _start_cleaner(),
         ]
         await asyncio.gather(*early_starts)
         step_timings["peer-sovereigns-and-cleaner_ms"] = int(
@@ -352,16 +382,22 @@ class SovereignStackExecutor:
         #    It is independent of the health-maintenance sub-sovereign's
         #    start, so both run under E155 bounded-independent-parallelism.
         app._mark_startup_phase("sovereign_initializing")
-        from core_system.main_system_self_maintenance import (
-            MainSystemSelfMaintenance,
-        )
+        try:
+            from core_system.main_system_self_maintenance import (
+                MainSystemSelfMaintenance,
+            )
 
-        app.main_system_self_maintenance = MainSystemSelfMaintenance(
-            sovereign.workspace_root,
-            authentication=getattr(app.governance, "authentication", None),
-        )
+            app.main_system_self_maintenance = MainSystemSelfMaintenance(
+                sovereign.workspace_root,
+                authentication=getattr(app.governance, "authentication", None),
+            )
+        except Exception as error:
+            app.main_system_self_maintenance = None
+            app._record_startup_failure("main_system_self_maintenance", error)
 
         async def _start_self_maintenance() -> None:
+            if app.main_system_self_maintenance is None:
+                return
             try:
                 await app.main_system_self_maintenance.start()
             except Exception as error:

@@ -8,6 +8,16 @@
 - duties: resource-sync|channel-sync|release-sync|learning-sync|runtime-sync|repair-sync|cleanup-sync|log-sync
 - powers: adjudicate-sync-decisions|A330-certified-update-execution
 - prohibitions: FORBID:general-execution (except A330)
+
+A334: this sovereign is the codex-registered single parent of every
+synchronization sub-sovereign.  Child identity -> primary domain and the
+delegation target are resolved from ``sovereign_hierarchy_registry`` at
+adjudication time; nothing here hard-codes the hierarchy.
+
+Lifecycle boundary: the governed executor materializes and starts each
+child ONLY after ``authorize_child_activation`` (or the dispatch wrapper
+``dispatch_child_activation``) returns an accepted outcome.  The sovereign
+adjudicates; the executor executes.
 """
 
 from __future__ import annotations
@@ -17,152 +27,91 @@ from typing import Any
 from ._base import SovereignBase, SovereignOutcome, SovereignRequest
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 
+from ..registries import (
+    parent_of,
+    primary_domain_of,
+    validate_child_parent,
+)
+
+# Sync intent -> codex child identity.  The parent assertion is re-validated
+# against the registry on every adjudication (fail-closed, A334).
+_SYNC_INTENT_CHILDREN: dict[str, str] = {
+    "sync.resource-dependency": "resource-dependency-sync-sub-sovereign",
+    "sync.channel-contract": "channel-contract-sync-sub-sovereign",
+    "sync.release-update": "release-update-sync-sub-sovereign",
+    "sync.learning-evidence": "learning-evidence-sync-sub-sovereign",
+    "sync.runtime-state": "runtime-state-sync-sub-sovereign",
+    "sync.repair-backup": "repair-backup-sync-sub-sovereign",
+    "sync.cleanup-retention": "cleanup-retention-sync-sub-sovereign",
+    "sync.automatic-log": "automatic-log-sync-sub-sovereign",
+    "sync.dependency": "dependency-sync-sub-sovereign",
+}
+
 
 class SynchronizationSovereign(SovereignBase):
     """同步主宰：專門決策，協調各類同步子主宰，A330例外執行。"""
 
     sovereign_id = "synchronization-sovereign"
 
-    def __init__(self, app: Any | None = None) -> None:
-        super().__init__(app)
-        self._sync_sub_sovereigns: dict[str, Any] = {}
-
     async def _adjudicate(self, request: SovereignRequest) -> SovereignOutcome:
         """裁決：同步決策、A330認證更新、子主宰協調。"""
         intent = request.intent
 
-        if intent == "sync.resource-dependency":
-            return await self._adjudicate_resource_sync(request)
-        if intent == "sync.channel-contract":
-            return await self._adjudicate_channel_sync(request)
-        if intent == "sync.release-update":
-            return await self._adjudicate_release_sync(request)
-        if intent == "sync.learning-evidence":
-            return await self._adjudicate_learning_sync(request)
-        if intent == "sync.runtime-state":
-            return await self._adjudicate_runtime_sync(request)
-        if intent == "sync.repair-backup":
-            return await self._adjudicate_repair_sync(request)
-        if intent == "sync.cleanup-retention":
-            return await self._adjudicate_cleanup_sync(request)
-        if intent == "sync.automatic-log":
-            return await self._adjudicate_log_sync(request)
+        child_id = _SYNC_INTENT_CHILDREN.get(intent)
+        if child_id is not None:
+            return self._adjudicate_sync_dispatch(request, child_id)
+
+        if intent == "sub-sovereign.activate":
+            return self._adjudicate_child_activation(request)
         if intent == "A330.certified-update":
             return await self._adjudicate_A330_certified_update(request)
 
         return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A301", "A322"))
 
-    async def _adjudicate_resource_sync(
-        self, request: SovereignRequest
+    # ------------------------------------------------------------------
+    # A334 registry-driven dispatch
+    # ------------------------------------------------------------------
+
+    def _adjudicate_sync_dispatch(
+        self, request: SovereignRequest, child_id: str
     ) -> SovereignOutcome:
-        """A322: 資源分配同步。"""
+        """Adjudicate a sync intent against the A334 hierarchy registry.
+
+        Fail-closed: the child must be a codex-registered child of this
+        sovereign; the returned outcome carries the registered primary
+        domain and the materialization state for the governed executor.
+        """
+        if not validate_child_parent(child_id, self.sovereign_id):
+            return refusal_outcome(
+                "NOT_CODEX_CHILD", self.verified_basis("A322", "A334")
+            )
+        materialized = child_id in self._sub_sovereigns
         return accepted_outcome(
             {
-                "sync_type": "resource-dependency",
-                "delegated_to": "resource-dependency-sync-sub-sovereign",
+                "sync_type": request.intent,
+                "delegated_to": child_id,
+                "primary_domain": primary_domain_of(child_id),
+                "materialized": materialized,
                 "no_decision": True,
                 "no_execution": True,
             },
-            self.verified_basis("A322", "A301"),
+            self.verified_basis("A322", "A301", "A334"),
         )
 
-    async def _adjudicate_channel_sync(
+    def _adjudicate_child_activation(
         self, request: SovereignRequest
     ) -> SovereignOutcome:
-        """A322: 通道契約同步。"""
-        return accepted_outcome(
-            {
-                "sync_type": "channel-contract",
-                "delegated_to": "channel-contract-sync-sub-sovereign",
-                "no_decision": True,
-                "no_execution": True,
-            },
-            self.verified_basis("A322", "A301"),
-        )
+        """A334: authorize activation of a specific registered child."""
+        child_id = str(request.payload.get("sub_sovereign", ""))
+        return self.authorize_child_activation(child_id)
 
-    async def _adjudicate_release_sync(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A322: 發布更新同步。"""
-        return accepted_outcome(
-            {
-                "sync_type": "release-update",
-                "delegated_to": "release-update-sync-sub-sovereign",
-                "no_decision": True,
-                "no_execution": True,
-            },
-            self.verified_basis("A322", "A301"),
-        )
-
-    async def _adjudicate_learning_sync(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A322: 學習證據同步。"""
-        return accepted_outcome(
-            {
-                "sync_type": "learning-evidence",
-                "delegated_to": "learning-evidence-sync-sub-sovereign",
-                "no_decision": True,
-                "no_execution": True,
-            },
-            self.verified_basis("A322", "A301"),
-        )
-
-    async def _adjudicate_runtime_sync(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A322: 運行狀態同步。"""
-        return accepted_outcome(
-            {
-                "sync_type": "runtime-state-checkpoint",
-                "delegated_to": "runtime-state-sync-sub-sovereign",
-                "no_decision": True,
-                "no_execution": True,
-            },
-            self.verified_basis("A322", "A301"),
-        )
-
-    async def _adjudicate_repair_sync(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A322: 維修備份同步。"""
-        return accepted_outcome(
-            {
-                "sync_type": "repair-backup-recovery",
-                "delegated_to": "repair-backup-sync-sub-sovereign",
-                "no_decision": True,
-                "no_execution": True,
-            },
-            self.verified_basis("A322", "A301"),
-        )
-
-    async def _adjudicate_cleanup_sync(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A322: 清理保留同步。"""
-        return accepted_outcome(
-            {
-                "sync_type": "cleanup-retention",
-                "delegated_to": "cleanup-retention-sync-sub-sovereign",
-                "no_decision": True,
-                "no_execution": True,
-            },
-            self.verified_basis("A322", "A301"),
-        )
-
-    async def _adjudicate_log_sync(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A322: 自動日誌審計同步。"""
-        return accepted_outcome(
-            {
-                "sync_type": "automatic-log-audit",
-                "delegated_to": "automatic-log-sync-sub-sovereign",
-                "no_decision": True,
-                "no_execution": True,
-            },
-            self.verified_basis("A322", "A301"),
-        )
+    def dispatch_child_activation(self, child_id: str) -> SovereignOutcome:
+        """Synchronous dispatch adjudication used by the governed executor
+        before starting a child (same fail-closed contract as
+        ``authorize_child_activation`` plus the codex parent assertion)."""
+        if parent_of(child_id) != self.sovereign_id:
+            return refusal_outcome("NOT_CODEX_PARENT", ("A334",))
+        return self.authorize_child_activation(child_id)
 
     async def _adjudicate_A330_certified_update(
         self, request: SovereignRequest
@@ -182,19 +131,49 @@ class SynchronizationSovereign(SovereignBase):
             self.verified_basis("A330", "A87", "A88"),
         )
 
+    # ------------------------------------------------------------------
+    # Child registry (unified with SovereignBase._sub_sovereigns, A334)
+    # ------------------------------------------------------------------
+
+    @property
+    def _sync_sub_sovereigns(self) -> dict[str, Any]:
+        """Alias for the unified child registry populated by the governed
+        executor (kept for existing callers)."""
+        return self._sub_sovereigns
+
     def register_sync_sub_sovereign(self, name: str, sovereign: Any) -> None:
-        self._sync_sub_sovereigns[name] = sovereign
+        self.register_sub_sovereign(name, sovereign)
 
     def get_sync_sub_sovereign(self, name: str) -> Any | None:
-        return self._sync_sub_sovereigns.get(name)
+        return self.get_sub_sovereign(name)
+
+    # ------------------------------------------------------------------
+    # Status surfaces
+    # ------------------------------------------------------------------
 
     def live_status(self) -> dict[str, Any]:
         base = super().live_status()
         base["sync_sub_sovereigns"] = {
             name: sov.live_status() if hasattr(sov, "live_status") else {"role": name}
-            for name, sov in self._sync_sub_sovereigns.items()
+            for name, sov in self._sub_sovereigns.items()
         }
         return base
+
+    def orchestration_status(self) -> dict[str, Any]:
+        children = {
+            name: {
+                "primary_domain": primary_domain_of(name),
+                "started": bool(getattr(sov, "_started", False)),
+            }
+            for name, sov in self._sub_sovereigns.items()
+        }
+        return {
+            "state": "active" if self._started else "stopped",
+            "owner": self.role,
+            "authority": "codex-A334",
+            "children": children,
+            "delegation": "governed-executor-only",
+        }
 
 
 __all__ = ["SynchronizationSovereign"]

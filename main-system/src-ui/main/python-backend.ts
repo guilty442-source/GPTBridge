@@ -150,6 +150,13 @@ function spawnBootCore(
   paths: ReturnType<typeof getRuntimePathLibrary>,
   autoKillBackendPort = false
 ): void {
+  // Shutdown-in-progress guard: a startBackend() call still awaiting its
+  // probe/fs checks when the UI closed must not spawn an orphan backend.
+  if (manualShutdown) {
+    backendStatus = 'idle'
+    backendMessage = 'backend start cancelled by shutdown'
+    return
+  }
   backendMessage = 'spawning boot_core (startup core)'
   backendLastError = ''
   console.log('[Python Backend Manager] Spawning boot_core...')
@@ -309,6 +316,12 @@ export async function startBackend(forceReplacement = false) {
     return
   }
 
+  if (manualShutdown) {
+    backendStatus = 'idle'
+    backendMessage = 'backend start cancelled by shutdown'
+    return
+  }
+
   backendStatus = 'starting'
   backendStartedAt = Date.now()
   backendReadyAt = null
@@ -346,6 +359,11 @@ export async function stopBackend() {
   const processToStop = pythonProcess
   const processId = processToStop.pid
   await requestGracefulBackendShutdown()
+  // Graceful shutdown window: a full backend shutdown stops every tool
+  // backend, the sovereign stack, services, and flushes state — that takes
+  // longer than a bare socket close.  Give it a bounded window well above
+  // the internal task deadline before falling back to force-kill.
+  const GRACEFUL_EXIT_MS = 10_000
   const exitedGracefully = await new Promise<boolean>((resolve) => {
     if (processToStop.exitCode !== null || processToStop.signalCode !== null) {
       resolve(true)
@@ -359,57 +377,75 @@ export async function stopBackend() {
       resolve(value)
     }
     processToStop.once('exit', () => finish(true))
-    const timer = setTimeout(() => finish(false), 1_500)
+    const timer = setTimeout(() => finish(false), GRACEFUL_EXIT_MS)
   })
 
-  if (!exitedGracefully) {
-    if (process.platform === 'win32' && processId) {
-      await new Promise<void>((resolve) => {
-        const terminator = spawn(
-          'taskkill.exe',
-          ['/PID', String(processId), '/F'],
-          { windowsHide: true, stdio: 'ignore' }
-        )
-        terminator.once('exit', () => resolve())
-        terminator.once('error', () => resolve())
-      })
+  const taskkillPid = (pid: number): Promise<void> =>
+    new Promise<void>((resolve) => {
+      const terminator = spawn(
+        'taskkill.exe',
+        ['/PID', String(pid), '/F'],
+        { windowsHide: true, stdio: 'ignore' }
+      )
+      const done = () => resolve()
+      terminator.once('exit', done)
+      terminator.once('error', done)
+      // taskkill that never reports must not block the quit path.
+      setTimeout(done, 5_000)
+    })
 
-      // Stop the main backend process (main.py) by PID without /T so that
-      // independent tool processes (detached in their own process group) are
-      // not cascade-killed when the main-system shuts down.
-      try {
-        const paths = getRuntimePathLibrary()
-        const statePath = path.join(
-          paths.workspaceRoot,
-          'main-system',
-          'runtime',
-          'state',
-          'boot-core.json'
-        )
-        if (fs.existsSync(statePath)) {
-          const state = JSON.parse(fs.readFileSync(statePath, 'utf8')) as {
-            backend_pid?: number
+  const killBackendPid = async (): Promise<void> => {
+    // Stop the main backend process (main.py) by PID without /T so that
+    // independent tool processes (detached in their own process group) are
+    // not cascade-killed when the main-system shuts down.
+    try {
+      const paths = getRuntimePathLibrary()
+      const statePath = path.join(
+        paths.workspaceRoot,
+        'main-system',
+        'runtime',
+        'state',
+        'boot-core.json'
+      )
+      if (fs.existsSync(statePath)) {
+        const state = JSON.parse(fs.readFileSync(statePath, 'utf8')) as {
+          backend_pid?: number
+        }
+        const backendPid = Number(state.backend_pid)
+        if (backendPid > 0 && backendPid !== processId) {
+          // Skip if the backend already exited on its own.
+          try {
+            process.kill(backendPid, 0)
+          } catch {
+            return
           }
-          const backendPid = Number(state.backend_pid)
-          if (backendPid > 0 && backendPid !== processId) {
-            await new Promise<void>((resolve) => {
-              const terminator2 = spawn(
-                'taskkill.exe',
-                ['/PID', String(backendPid), '/F'],
-                { windowsHide: true, stdio: 'ignore' }
-              )
-              terminator2.once('exit', () => resolve())
-              terminator2.once('error', () => resolve())
-            })
+          if (process.platform === 'win32') {
+            await taskkillPid(backendPid)
+          } else {
+            try {
+              process.kill(backendPid, 'SIGTERM')
+            } catch {
+              // already gone
+            }
           }
         }
-      } catch {
-        // Best-effort main backend termination; its absence must not block the
-        // UI from quitting or independent tools from continuing.
       }
-    } else {
-      processToStop.kill('SIGTERM')
+    } catch {
+      // Best-effort main backend termination; its absence must not block the
+      // UI from quitting or independent tools from continuing.
     }
+  }
+
+  if (!exitedGracefully && process.platform === 'win32' && processId) {
+    await taskkillPid(processId)
+  } else if (!exitedGracefully) {
+    processToStop.kill('SIGTERM')
+  }
+  // Complete-close guarantee: even when boot_core exited first, a still-
+  // running backend_pid would survive as an orphan — always verify and
+  // terminate it, not only on the force-kill path.
+  if (!exitedGracefully) {
+    await killBackendPid()
   }
 
   if (pythonProcess === processToStop) pythonProcess = null

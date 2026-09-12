@@ -1,1 +1,7 @@
-"""Domain compatibility layer; canonical code is owned by AI Assistant."""
+"""Investment Mobile Domain Layer - Core business logic."""
+
+from __future__ import annotations
+
+from .entities import InvestmentPortfolio, MarketData
+
+__all__ = ["InvestmentPortfolio", "MarketData"]
