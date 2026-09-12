@@ -53,8 +53,15 @@ class LaunchMixin:
             if not 1024 <= runtime_port <= 65535:
                 return False
             try:
-                with urllib.request.urlopen(
-                    f"http://127.0.0.1:{runtime_port}/health", timeout=0.75
+                _opener = urllib.request.build_opener(
+                    urllib.request.ProxyHandler({})
+                )
+                with _opener.open(
+                    urllib.request.Request(
+                        f"http://127.0.0.1:{runtime_port}/health",
+                        headers={"Connection": "close"},
+                    ),
+                    timeout=0.75,
                 ) as response:
                     payload = json.loads(response.read(65_537).decode("utf-8"))
                 return bool(

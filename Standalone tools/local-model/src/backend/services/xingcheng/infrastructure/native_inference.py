@@ -207,6 +207,29 @@ class StarNativeInferenceMixin:
         fault_diagnostics = payload.get("fault_diagnostics")
         if isinstance(fault_diagnostics, Mapping) and fault_diagnostics.get("ok") is True:
             diagnostic_lines: list[str] = []
+            localization = fault_diagnostics.get("localization")
+            if isinstance(localization, Mapping):
+                primary = localization.get("primary_suspect")
+                if isinstance(primary, Mapping) and primary.get("entity"):
+                    diagnostic_lines.append(
+                        f"故障定位：主要嫌疑位置 {primary['entity']}"
+                        f"（信心 {primary.get('confidence', 'unknown')}）"
+                    )
+                    for suspect in (
+                        localization.get("suspect_locations") or []
+                    )[:3]:
+                        if not isinstance(suspect, Mapping):
+                            continue
+                        signals = [
+                            str(ev.get("signal"))
+                            for ev in suspect.get("evidence") or []
+                            if isinstance(ev, Mapping) and ev.get("signal")
+                        ][:2]
+                        if signals:
+                            diagnostic_lines.append(
+                                f"定位證據 {suspect.get('entity')}: "
+                                + "；".join(signals)
+                            )
             matched_codes = [
                 str(code)
                 for code in fault_diagnostics.get("matched_fault_code_ids") or []

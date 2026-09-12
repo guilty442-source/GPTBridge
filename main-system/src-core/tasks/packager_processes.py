@@ -13,6 +13,9 @@ from typing import Any
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 
+# Loopback HTTP probes must bypass any system proxy.
+_loopback_opener = urllib_request.build_opener(urllib_request.ProxyHandler({}))
+
 from packager_base import (
     DEFAULT_BACKEND_PORT,
     PACKAGE_METADATA_NAME,
@@ -454,8 +457,11 @@ def stop_verified_packaged_backend(tool_id: str, live_app_dir: Path) -> bool:
         shutdown_token = str(candidate["shutdown_token"])
         health_unavailable = False
         try:
-            with urllib_request.urlopen(
-                f"http://127.0.0.1:{backend_port}/health",
+            with _loopback_opener.open(
+                urllib_request.Request(
+                    f"http://127.0.0.1:{backend_port}/health",
+                    headers={"Connection": "close"},
+                ),
                 timeout=1.5,
             ) as response:
                 health = json.loads(response.read().decode("utf-8"))
@@ -489,7 +495,7 @@ def stop_verified_packaged_backend(tool_id: str, live_app_dir: Path) -> bool:
             headers={"X-GPTBridge-Shutdown-Token": shutdown_token},
         )
         try:
-            with urllib_request.urlopen(shutdown_request, timeout=3) as response:
+            with _loopback_opener.open(shutdown_request, timeout=3) as response:
                 if int(getattr(response, "status", 0)) != 200:
                     continue
         except (OSError, urllib_error.URLError):
@@ -498,8 +504,11 @@ def stop_verified_packaged_backend(tool_id: str, live_app_dir: Path) -> bool:
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             try:
-                urllib_request.urlopen(
-                    f"http://127.0.0.1:{backend_port}/health",
+                _loopback_opener.open(
+                    urllib_request.Request(
+                        f"http://127.0.0.1:{backend_port}/health",
+                        headers={"Connection": "close"},
+                    ),
                     timeout=0.3,
                 ).close()
             except (OSError, urllib_error.URLError):

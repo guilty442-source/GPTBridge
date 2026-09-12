@@ -129,6 +129,12 @@ class ConnectionWatchdog:
         self._learning_store: Any = None
         self._repair_callback: Any = None
         self._repair_triggered = False
+        # Loopback HTTP probes must bypass any system proxy — a PAC file or
+        # registry proxy would otherwise route 127.0.0.1 traffic through an
+        # external proxy and fail with WinError 10061.
+        self._http_opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({})
+        )
 
     def set_repair_callback(self, callback: Any) -> None:
         """Set a callback to invoke when connection repair is needed.
@@ -173,7 +179,7 @@ class ConnectionWatchdog:
                 headers={"Connection": "close"},
             )
             try:
-                response_ctx = urllib.request.urlopen(
+                response_ctx = self._http_opener.open(
                     request, timeout=self.probe_timeout
                 )
             except urllib.error.HTTPError as http_error:

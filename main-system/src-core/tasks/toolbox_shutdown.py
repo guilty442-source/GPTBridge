@@ -250,7 +250,10 @@ class ShutdownMixin:
                 method="POST",
             )
             try:
-                with urllib.request.urlopen(request, timeout=5):
+                _opener = urllib.request.build_opener(
+                    urllib.request.ProxyHandler({})
+                )
+                with _opener.open(request, timeout=5):
                     pass
             except (OSError, urllib.error.URLError):
                 pass

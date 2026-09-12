@@ -1,6 +1,0 @@
-{
-  "tool.name": "投資管家手機版",
-  "tool.window_title": "投資管家手機版",
-  "tool.description": "與 投資管家共用專屬程式碼與權限設定、並保有獨立啟停生命週期的手機介面。",
-  "errors.permission_denied": "權限不足"
-}

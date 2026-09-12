@@ -101,6 +101,12 @@ class BootCore(PhaseMixin, GovernanceMixin):
         # Rolling buffer of recent child stdout lines for crash diagnosis.
         self._child_output: list[str] = []
         self._child_output_lock = threading.Lock()
+        # Loopback HTTP probes must bypass any system proxy — a PAC file or
+        # registry proxy would otherwise route 127.0.0.1 traffic through an
+        # external proxy and fail with WinError 10061.
+        self._http_opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({})
+        )
         # Startup authority is diagnosis-and-signal only. Repair mutation is
         # owned by the governed maintenance/decision/execution chain.
         self._crash_diagnoser = CrashDiagnoser()
@@ -284,7 +290,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 headers={"Connection": "close"},
             )
             try:
-                response_ctx = urllib.request.urlopen(
+                response_ctx = self._http_opener.open(
                     request, timeout=HEALTH_PROBE_TIMEOUT
                 )
             except urllib.error.HTTPError as http_error:

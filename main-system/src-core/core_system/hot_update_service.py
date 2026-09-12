@@ -339,7 +339,8 @@ class HotUpdateService:
             import urllib.request
             url = f"http://127.0.0.1:{health_port}/health?level=brief"
             request = urllib.request.Request(url, headers={"Connection": "close"})
-            with urllib.request.urlopen(request, timeout=_POST_RELOAD_HEALTH_TIMEOUT) as resp:
+            _opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with _opener.open(request, timeout=_POST_RELOAD_HEALTH_TIMEOUT) as resp:
                 import json as _json
                 payload = _json.loads(resp.read().decode("utf-8"))
                 return bool(payload.get("ok") is True or payload.get("runtime_state") in ("ready", "degraded"))
