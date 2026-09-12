@@ -1,0 +1,96 @@
+{
+  "id": "star-chat",
+  "name_key": "tool.name",
+  "description_key": "tool.description",
+  "version": "1.0.0",
+  "display_version": "1.0",
+  "status": "stopped",
+  "enabled": true,
+  "companion_tool": true,
+  "host_tool_id": "xingcheng",
+  "canonical_source_root": "local-model/model-dialogue/xingcheng",
+  "physical_owner_root": "local-model",
+  "lifecycle": {
+    "startup": "on-demand",
+    "directLoad": false,
+    "encapsulated": true,
+    "optional": true,
+    "stoppable": true,
+    "disableable": true,
+    "unloadable": true
+  },
+  "shared_permission_owner": "xingcheng",
+  "shared_permission_profile": "local-model-platform-v1",
+  "shared_cache_owner": "xingcheng",
+  "cache_storage": "xingcheng/runtime/cache/companions/star-chat",
+  "backup_owner": "xingcheng",
+  "backup_storage": "global-cleaner/data/business/backups/xingcheng",
+  "permissions": {
+    "profile": "local-model-platform-v1",
+    "business_permission_owner": "xingcheng",
+    "settings_owner": "xingcheng",
+    "code_scope": "xingcheng-internal",
+    "database_scope": "xingcheng-internal",
+    "canonical_database_scope": "xingcheng-shared-repository",
+    "allow_modify": [
+      "xingcheng-excluding-permissions"
+    ],
+    "deny": [
+      "main-program",
+      "other-tools",
+      "direct-database-write",
+      "separate-business-database",
+      "separate-settings-layer"
+    ]
+  },
+  "runtime": {
+    "type": "python",
+    "entry": "src/channel_runtime.py",
+    "workingDirectory": "."
+  },
+  "distribution": {
+    "mode": "special-unpackaged",
+    "package": false
+  },
+  "request_channel": {
+    "model": "governance-authenticated-shared-layer",
+    "runtime_entry": "src/channel_runtime.py",
+    "direct_instruction": "PERMISSION_DENIED"
+  },
+  "launch": {
+    "primary": "governed-source-channel",
+    "background": "governed-source-channel"
+  },
+  "capabilities": {
+    "ai-connections": {
+      "entry_gateway": "xingcheng",
+      "direct_model_access": false,
+      "model_selection": "automatic-only",
+      "source_owner": "xingcheng",
+      "runtime_independence": true,
+      "business_layer_owner": "xingcheng",
+      "settings_owner": "xingcheng",
+      "permission_profile": "local-model-platform-v1",
+      "separate_business_layer": false,
+      "separate_settings_layer": false
+    }
+  },
+  "environment": {
+    "allow": [
+      "GPTBRIDGE_STAR_CHAT_ENABLED",
+      "GPTBRIDGE_STAR_CHAT_ALLOW_LAN",
+      "GPTBRIDGE_STAR_CHAT_PORT"
+    ]
+  },
+  "has_custom_ui": false,
+  "window": {
+    "width": 900,
+    "height": 720,
+    "minWidth": 720,
+    "minHeight": 560,
+    "title_key": "tool.window_title"
+  },
+  "test_targets": [
+    "tests/test_star_chat_reexport.py"
+  ]
+}

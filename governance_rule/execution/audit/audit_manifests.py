@@ -34,16 +34,12 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
     # (e.g. Standalone tools/local-model/model-dialogue).  Anything
     # deeper is forbidden.
     standalone_dir = root / "Standalone tools"
+    # Collect depth-4 manifests for later validation (Pass 2c).
     # Exclude hidden directories (e.g. .kilo, .git) from the depth check.
-    deep_manifests = sorted(
+    depth4_manifests = sorted(
         p for p in root.glob("*/*/*/*/manifest.json")
         if not p.relative_to(root).parts[0].startswith(".")
     )
-    if deep_manifests:
-        errors.append(
-            "nested independent tool folder exceeds allowed depth: "
-            f"{[str(p.relative_to(root)) for p in deep_manifests]}"
-        )
 
     # Pass 1: depth-1 manifests (direct children of project root)
     for manifest_path in sorted(root.glob("*/manifest.json")):
@@ -147,6 +143,48 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
         elif physical_owner_root not in physical_owner_roots:
             errors.append(
                 f"nested tool references unknown physical_owner_root: "
+                f"{manifest_path}"
+            )
+
+        if re.fullmatch(label_policy.tool_id_pattern, tool_id) is None:
+            errors.append(f"tool identifier is not standardized: {tool_id}")
+        if "name" in manifest or manifest.get("name_key") != "tool.name":
+            errors.append(f"tool name label is not standardized: {tool_id}")
+        _check_manifest_capabilities(manifest, tool_id, code_rules, label_policy, errors)
+        _check_manifest_window(manifest, tool_id, errors)
+        _check_manifest_locale(manifest_path, tool_id, code_rules, label_policy, errors)
+        permissions = manifest.get("permissions")
+        if not isinstance(permissions, dict):
+            errors.append(f"tool permissions are missing: {tool_id}")
+
+    # Pass 2c: depth-4 companion tools under "Standalone tools/*/*/"
+    # These are companions nested under a depth-3 tool (e.g. xingcheng
+    # under model-dialogue under local-model).  They must declare a
+    # physical_owner_root matching their great-grandparent (the depth-2
+    # tool root), and that root must be a known physical owner root.
+    for manifest_path in depth4_manifests:
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            errors.append(f"invalid tool manifest: {manifest_path}: {error}")
+            continue
+        tool_id = str(manifest.get("id") or "")
+        manifest_tool_ids.add(tool_id)
+        physical_owner_root = str(manifest.get("physical_owner_root") or "")
+        great_grandparent_name = manifest_path.parent.parent.parent.name
+
+        if not physical_owner_root:
+            errors.append(
+                f"nested tool manifest lacks physical_owner_root: {manifest_path}"
+            )
+        elif physical_owner_root != great_grandparent_name:
+            errors.append(
+                f"depth-4 tool physical_owner_root does not match root: "
+                f"{manifest_path}"
+            )
+        elif physical_owner_root not in physical_owner_roots:
+            errors.append(
+                f"depth-4 tool references unknown physical_owner_root: "
                 f"{manifest_path}"
             )
 

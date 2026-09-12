@@ -609,25 +609,24 @@ if (process.env.GPTBRIDGE_RENDERER_DEV_URL) {
   })
 }
 
-app.on('window-all-closed', async () => {
+app.on('window-all-closed', () => {
   closeAllSessions()
   stopMainRendererWatch()
-  if (shouldManageBackend) {
-    await stopBackend()
-  }
+  // before-quit handles backend shutdown + app.exit(0).
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
-app.on('before-quit', async () => {
-  closeAllSessions()
-  stopMainRendererWatch()
-  if (shouldManageBackend) {
-    await stopBackend()
-  }
-  // The formal UI is a detachable projection. Closing it must not terminate
-  // the hidden governed runtime or any independent tool runtime. Full-system
-  // shutdown remains an explicit typed runtime intent.
-  reportRuntimeEvent('main.ui-detached')
+app.on('before-quit', (event) => {
+  event.preventDefault()
+  void (async () => {
+    closeAllSessions()
+    stopMainRendererWatch()
+    if (shouldManageBackend) {
+      await stopBackend()
+    }
+    reportRuntimeEvent('main.ui-detached')
+    app.exit(0)
+  })()
 })
