@@ -81,6 +81,7 @@ class ThirdPartySubSovereign:
         self._started_at: str | None = None
         self._stopped_at: str | None = None
         self._supervision_task: asyncio.Task[Any] | None = None
+        self._initial_probe_task: asyncio.Task[Any] | None = None
         self._supervision_interval_seconds = 600.0
         self._tool_inventory: dict[str, Any] | None = None
         self._inventory_path: Path | None = None
@@ -112,11 +113,20 @@ class ThirdPartySubSovereign:
         self._started_at = _iso_now()
         self._started = True
 
-        # Perform an initial version probe on startup
-        try:
-            self._manager.probe_all_versions()
-        except Exception:
-            pass
+        # E167/E173: the initial version probe is duty work (N sequential
+        # subprocess probes), not activation — run it off the startup
+        # critical path so phase-6 is not consumed by version detection.
+        async def _initial_probe() -> None:
+            try:
+                await asyncio.to_thread(self._manager.probe_all_versions)
+            except Exception:
+                pass
+
+        if self._initial_probe_task is None:
+            self._initial_probe_task = asyncio.create_task(
+                _initial_probe(),
+                name="system-third-party-initial-probe",
+            )
 
         if self._supervision_task is None:
             self._supervision_task = asyncio.create_task(
@@ -135,6 +145,11 @@ class ThirdPartySubSovereign:
         }
 
     async def stop(self) -> None:
+        if self._initial_probe_task is not None:
+            self._initial_probe_task.cancel()
+            with _suppress(asyncio.CancelledError):
+                await self._initial_probe_task
+            self._initial_probe_task = None
         if self._supervision_task is not None:
             self._supervision_task.cancel()
             with _suppress(asyncio.CancelledError):

@@ -1,17 +1,17 @@
 """Startup-sovereign source runtime and main-backend supervisor.
 
-Entry responsibility boundary (per architecture decision):
+Entry responsibility boundary (per architecture decision A192/A193):
 
   * 啟動入口 (Electron main) — only wakes the screen; it spawns this
     startup core and does not manage the backend directly.
-  * This process hosts the startup sovereign. It validates bootstrap
-    readiness, activates the certified dependency DAG, and hands verified
-    readiness to the system-runtime sovereign.
-    It then spawns the main backend (``main.py --serve``).  After spawning,
-    boot_core waits for the backend's own ``governance-system-start`` to
-    complete by probing ``/health`` until ``governance_ready`` is true
-    (A67 — a live socket alone is not ready).  Only then is the backend
-    considered healthy and supervised for its whole lifetime.
+  * This process (boot_core) hosts the startup sovereign CAPABILITY 1:
+    bootstrap-and-authority-readiness-orchestration (phases 0-5).
+    It validates bootstrap readiness, activates the certified dependency DAG,
+    and hands verified readiness to CAPABILITY 2 (startup_executor) via
+    the information layer state file.
+  * CAPABILITY 2 (startup_executor in main.py) owns phase 6 + readiness handoff.
+  * After phase 6 completes, boot_core spawns main.py --serve with
+    GPTBRIDGE_STARTUP_STATE=READY and the generation ID.
   * Crash recovery — when the backend crashes with a non-zero exit code
     during startup (uptime < 30s), the startup core diagnoses the crash
     traceback and writes a repair signal to the information layer
@@ -28,8 +28,8 @@ Entry responsibility boundary (per architecture decision):
     backoff; if THIS process dies, the launcher's own recovery respawns it
     while the backend (if still alive) keeps serving.
 
-The startup source runtime:
-  1. Runs bootstrap gates and the contract-declared dependency DAG.
+The startup source runtime (CAPABILITY 1):
+  1. Runs bootstrap gates and the contract-declared dependency DAG (phases 0-5).
   2. Generates the governance bootstrap token in-process.
   3. Writes the orchestrator report to ``launcher/state/orchestrator-report.json``
      for system_sovereign consumption (stale-safe: always overwritten on boot).
@@ -54,6 +54,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
 from startup_core.phases import PhaseMixin
 from startup_core.governance import GovernanceMixin
 from startup_core.startup_config import port as _cfg_port, supervisor_constant as _cfg_supervisor
@@ -103,6 +104,12 @@ class BootCore(PhaseMixin, GovernanceMixin):
         # Startup authority is diagnosis-and-signal only. Repair mutation is
         # owned by the governed maintenance/decision/execution chain.
         self._crash_diagnoser = CrashDiagnoser()
+        # Phase handlers come from PhaseMixin._PHASE_HANDLERS (wired at the
+        # bottom of startup_core/phases.py): environment-check,
+        # governance-audit, postgresql-start, qdrant-start, ollama-start.
+        # The governed phase-0..6 names belong to core_system's
+        # StartupSovereignExecutor — overriding _PHASE_HANDLERS here would
+        # break the bootstrap gate's handler lookup.
 
     # --------------------------------------------------------------
     # runtime paths (shared by governance bootstrap + phase imports)
@@ -115,11 +122,39 @@ class BootCore(PhaseMixin, GovernanceMixin):
         for p in (workspace, src_core, shared):
             if p not in sys.path:
                 sys.path.insert(0, p)
+        os.environ["GPTBRIDGE_PROJECT_ROOT"] = workspace
 
     # --------------------------------------------------------------
     # governance bootstrap
     # --------------------------------------------------------------
 
+    def _generate_governance_bootstrap(self) -> str:
+        """Generate a fresh governance bootstrap token for the backend."""
+        self._ensure_runtime_paths()
+        from governance_rule.execution.authentication import sign_launcher_attestation
+        from governance_rule.execution.integrity import build_integrity_manifest
+
+        workspace = str(self.workspace_root)
+        launcher_key = secrets.token_bytes(32)
+        issued_at = int(time.time())
+        key_id = secrets.token_hex(16)
+        integrity = build_integrity_manifest(workspace, launcher_key, issued_at=issued_at, key_id=key_id)
+        attestation = sign_launcher_attestation(
+            launcher_key,
+            actor="governance/main-system",
+            bound_tool_id="main-system",
+            caller_path="main-system/src-core/main.py",
+            process_id=os.getpid(),
+            issued_at=issued_at,
+            key_id=key_id,
+        )
+        payload = {
+            "format_version": 1,
+            "launcher_key": base64.b64encode(launcher_key).decode("ascii"),
+            "integrity_manifest": {k: v for k, v in integrity.__dict__.items()},
+            "identity_attestation": {k: v for k, v in attestation.__dict__.items()},
+        }
+        return base64.b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")).decode("ascii")
 
     # --------------------------------------------------------------
     # state
@@ -147,13 +182,6 @@ class BootCore(PhaseMixin, GovernanceMixin):
             os.replace(temporary, self.state_path)
         except OSError:
             pass
-
-    # --------------------------------------------------------------
-    # six-phase startup orchestrator (A61/E47/P26)
-    # --------------------------------------------------------------
-
-
-
 
     def _write_orchestrator_report(self, report: dict[str, Any]) -> None:
         """Write orchestrator report for system_sovereign consumption."""
@@ -188,13 +216,14 @@ class BootCore(PhaseMixin, GovernanceMixin):
         return os.fspath(exe)
 
     def _spawn_backend(
-        self, args: list[str], startup_state: str = ""
+        self, args: list[str], startup_state: str = "", generation_id: str = ""
     ) -> subprocess.Popen[bytes]:
         command = [
             self._python_executable(),
             "-u",
             "-B",
             os.fspath(self.backend_entry),
+            "--serve",
             *args,
         ]
         creationflags = (
@@ -218,8 +247,11 @@ class BootCore(PhaseMixin, GovernanceMixin):
             self._write_state()
             raise
         env["GPTBRIDGE_PROJECT_ROOT"] = str(self.workspace_root)
+        env["GPTBRIDGE_WORKSPACE_ROOT"] = str(self.workspace_root)
         if startup_state:
             env["GPTBRIDGE_STARTUP_STATE"] = startup_state
+        if generation_id:
+            env["GPTBRIDGE_STARTUP_GENERATION"] = generation_id
         return subprocess.Popen(  # noqa: S603 - governed local spawn
             command,
             cwd=os.fspath(self.project_root),
@@ -233,24 +265,58 @@ class BootCore(PhaseMixin, GovernanceMixin):
         """Probe the backend HTTP /health endpoint.
 
         A67: a live socket alone is NOT "ready".  The backend is only healthy
-        for boot_core purposes once ok=True, runtime_state=ready,
-        governance_ready=True and startup_dead is not True.
+        for boot_core purposes once the core runtime is ready:
+        governance_ready=True, backend_runtime_ready=True, dependencies
+        reachable, and startup_dead is not True.  The authenticated-IPC
+        condition (frontend WebSocket) is a user-facing readiness concern,
+        not a supervision-health concern — the supervisor must not kill a
+        fully-started backend merely because the Electron app has not
+        connected yet.
+
+        The health endpoint returns HTTP 503 while the runtime is still
+        starting (or when the frontend has not connected).  A 503 response
+        still carries the full JSON payload, so we must read it rather than
+        treating it as a connection failure.
         """
         try:
             request = urllib.request.Request(
                 f"http://127.0.0.1:{HEALTH_PROBE_PORT}/health?brief=1",
                 headers={"Connection": "close"},
             )
-            with urllib.request.urlopen(
-                request, timeout=HEALTH_PROBE_TIMEOUT
-            ) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-                return bool(
-                    payload.get("ok") is True
-                    and payload.get("runtime_state") == "ready"
-                    and payload.get("governance_ready") is True
-                    and payload.get("startup_dead") is not True
+            try:
+                response_ctx = urllib.request.urlopen(
+                    request, timeout=HEALTH_PROBE_TIMEOUT
                 )
+            except urllib.error.HTTPError as http_error:
+                # 503 STARTING is expected while the backend is coming up
+                # or when the frontend has not connected.  Read the body
+                # and evaluate the payload — do not treat it as a probe
+                # failure.
+                if http_error.code != 503:
+                    return False
+                body = http_error.read().decode("utf-8")
+                payload = json.loads(body)
+            else:
+                with response_ctx as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+            if payload.get("startup_dead") is True:
+                return False
+            # Full readiness (frontend connected) is the strongest signal.
+            if (
+                payload.get("ok") is True
+                and payload.get("runtime_state") == "ready"
+                and payload.get("governance_ready") is True
+            ):
+                return True
+            # Core-ready without frontend: governance + backend runtime
+            # + dependencies are up, but authenticated IPC is not yet
+            # connected.  This is a healthy backend awaiting a user
+            # session, not a dead generation.
+            return bool(
+                payload.get("governance_ready") is True
+                and payload.get("backend_runtime_ready") is True
+                and payload.get("dependencies_ready") is True
+            )
         except (OSError, urllib.error.URLError, ValueError, UnicodeDecodeError):
             return False
 
@@ -511,7 +577,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
         self._install_signals()
         self._write_state()
         while not self._stop.is_set():
-            # --- five pre-spawn dependency gates (A61/E47/P26) ---
+            # --- five pre-spawn dependency gates (phases 0-5) ---
             startup = self._run_startup_phases()
             self._write_orchestrator_report(startup)
 
@@ -541,11 +607,22 @@ class BootCore(PhaseMixin, GovernanceMixin):
                     return 0
                 continue
 
-            # --- all required pre-spawn gates verified — spawn backend ---
+            # --- all required pre-spawn gates verified — CAPABILITY 2 takes over ---
+            # boot_core writes the generation ID and state for startup_executor to consume.
+            generation_id = startup.get("generation_id", "")
+            startup_state = startup.get("state", "")
+            self._status = "handoff-to-capability-2"
+            self._write_state(
+                startup_state=startup_state,
+                generation_id=generation_id,
+            )
+
+            # Spawn main.py --serve which will run startup_executor (phase 6 + handoff)
             try:
                 self._child = self._spawn_backend(
                     args,
-                    startup_state=startup.get("state", ""),
+                    startup_state=startup_state,
+                    generation_id=generation_id,
                 )
             except OSError as error:
                 self._status = "spawn-failed"
@@ -579,9 +656,25 @@ class BootCore(PhaseMixin, GovernanceMixin):
             )
             self._health_thread.start()
             self._start_connection_watchdog()
+            dead_grace_seconds = float(
+                _cfg_supervisor("startup_dead_grace_seconds") or 45.0
+            )
+            dead_generation = False
             while not self._stop.is_set():
                 code = self._child.poll()
                 if code is not None:
+                    break
+                # P105/E155: a generation that stays unready (startup_dead,
+                # readiness gate failed) beyond the bounded grace window is
+                # a dead generation.  The supervisor terminates it and
+                # recovers with a fresh bounded generation — it must not
+                # leave a zombie backend serving degraded 503s forever.
+                if (
+                    not self._backend_healthy
+                    and time.monotonic() - child_started_at > dead_grace_seconds
+                ):
+                    dead_generation = True
+                    self._terminate_child()
                     break
                 time.sleep(0.5)
             if self._stop.is_set():
@@ -591,7 +684,15 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 self._write_state()
                 return 0
             code = int(self._child.returncode or 0)
-            self._last_exit = {"code": code, "at": _iso_now()}
+            self._last_exit = {
+                "code": code,
+                "at": _iso_now(),
+                **(
+                    {"reason": "startup-generation-dead-grace-exceeded"}
+                    if dead_generation
+                    else {}
+                ),
+            }
             if code == 0:
                 self._stop_connection_watchdog()
                 self._status = "backend-stopped-clean"
@@ -624,6 +725,8 @@ class BootCore(PhaseMixin, GovernanceMixin):
 
 
 # Wire up phase handlers (avoids forward-reference issues in class body).
+# Handlers are now wired in __init__ as instance attributes.
+# PhaseMixin methods are accessed via self._PHASE_HANDLERS dictionary.
 
 
 def main() -> int:

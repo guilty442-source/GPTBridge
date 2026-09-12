@@ -69,6 +69,13 @@ def resolve_entry(tool_dir: Path, manifest: dict[str, Any]) -> Path:
     entry_path = PROJECT_ROOT / raw_entry
     if entry_path.suffix == "":
         entry_path = entry_path.with_suffix(".py")
+    # If the entry is relative to the tool directory, resolve from there
+    if not (PROJECT_ROOT / raw_entry).exists():
+        candidate = tool_dir / raw_entry
+        if candidate.exists():
+            entry_path = candidate
+            if entry_path.suffix == "":
+                entry_path = entry_path.with_suffix(".py")
     return entry_path.resolve()
 
 

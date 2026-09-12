@@ -12,7 +12,6 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_INVESTMENT_MOBILE,
     IDENTITY_GROUP_MAIN_SYSTEM,
     IDENTITY_GROUP_SHARED_LAYER,
-    IDENTITY_GROUP_STAR_CHAT,
     IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
@@ -101,7 +100,7 @@ GLOBAL_CLEANER_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
     bound_roots=("global-cleaner",),
     manifest_binding=ManifestBinding(
         required=True,
-        path_template="global-cleaner/manifest.json",
+        path_template="Standalone tools/global-cleaner/manifest.json",
         tool_id_field="id",
         maximum_bytes=1_048_576,
         required_capabilities=(
@@ -182,17 +181,6 @@ AI_COLLABORATION_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     language_name="ai_collaboration",
     codename="ENVOY",
 )
-STAR_CHAT_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
-    "star-chat",
-    group_id=IDENTITY_GROUP_STAR_CHAT,
-    identity_code="D00001",
-    language_name="star_chat",
-    codename="DIALOGUE",
-    physical_root="local-model/model-dialogue",
-    database_scope=(
-        "all-project-databases-via-xingcheng-excluding-governance-rule"
-    ),
-)
 FILE_SORTER_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     "file-sorter",
     group_id=IDENTITY_GROUP_FILE_SORTER,
@@ -235,7 +223,7 @@ SYSTEM_RESCUE_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
     bound_roots=("system-rescue",),
     manifest_binding=ManifestBinding(
         required=True,
-        path_template="system-rescue/manifest.json",
+        path_template="Standalone tools/system-rescue/manifest.json",
         tool_id_field="id",
         maximum_bytes=1_048_576,
         required_capabilities=(
@@ -259,7 +247,6 @@ CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     SHARED_LAYER_IDENTITY,
     AI_ASSISTANT_IDENTITY,
     AI_COLLABORATION_IDENTITY,
-    STAR_CHAT_IDENTITY,
     FILE_SORTER_IDENTITY,
     GLOBAL_CLEANER_IDENTITY,
     INVESTMENT_MOBILE_IDENTITY,

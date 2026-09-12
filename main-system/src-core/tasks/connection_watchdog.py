@@ -150,22 +150,57 @@ class ConnectionWatchdog:
             return list(self._events)
 
     def _probe_backend_http(self) -> bool:
-        """Probe the backend HTTP /health endpoint."""
+        """Probe the backend HTTP /health endpoint.
+
+        The backend is considered HTTP-healthy when the core runtime is
+        ready (governance + backend runtime + dependencies) and startup_dead
+        is not True.  Full readiness (runtime_state=ready, including
+        authenticated IPC) is the strongest signal, but the backend is also
+        healthy when it is fully started and merely awaiting a frontend
+        session.
+
+        The health endpoint returns HTTP 503 while the runtime is still
+        starting or when the frontend has not connected.  A 503 response
+        still carries the full JSON payload, so we must read it rather than
+        treating it as a connection failure.
+        """
         try:
             request = urllib.request.Request(
                 f"http://127.0.0.1:{self.health_port}/health?brief=1",
                 headers={"Connection": "close"},
             )
-            with urllib.request.urlopen(request, timeout=self.probe_timeout) as response:
-                if not (200 <= response.status < 300):
-                    return False
-                payload = json.loads(response.read().decode("utf-8"))
-                return bool(
-                    payload.get("ok") is True
-                    and payload.get("runtime_state") == "ready"
-                    and payload.get("governance_ready") is True
-                    and payload.get("startup_dead") is not True
+            try:
+                response_ctx = urllib.request.urlopen(
+                    request, timeout=self.probe_timeout
                 )
+            except urllib.error.HTTPError as http_error:
+                if http_error.code != 503:
+                    return False
+                body = http_error.read().decode("utf-8")
+                payload = json.loads(body)
+            else:
+                with response_ctx as response:
+                    if not (200 <= response.status < 300):
+                        return False
+                    payload = json.loads(response.read().decode("utf-8"))
+            if payload.get("startup_dead") is True:
+                return False
+            # Full readiness (frontend connected) is the strongest signal.
+            if (
+                payload.get("ok") is True
+                and payload.get("runtime_state") == "ready"
+                and payload.get("governance_ready") is True
+            ):
+                return True
+            # Core-ready without frontend: governance + backend runtime
+            # + dependencies are up, but authenticated IPC is not yet
+            # connected.  This is a healthy backend awaiting a user
+            # session.
+            return bool(
+                payload.get("governance_ready") is True
+                and payload.get("backend_runtime_ready") is True
+                and payload.get("dependencies_ready") is True
+            )
         except (OSError, ValueError, UnicodeDecodeError, urllib.error.URLError):
             return False
 

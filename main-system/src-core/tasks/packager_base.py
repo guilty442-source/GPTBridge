@@ -31,7 +31,7 @@ from governance_rule.execution.integrity.package_integrity import (  # noqa: E40
 )
 
 
-PLATFORM_TOOLS_DIR = PROJECT_ROOT
+PLATFORM_TOOLS_DIR = PROJECT_ROOT / "Standalone tools"
 ELECTRON_DIST_DIR = MAIN_SYSTEM_ROOT / "node_modules" / "electron" / "dist"
 PLATFORM_RENDERER_ROOT = MAIN_SYSTEM_ROOT / "dist-ui" / "independent-tools"
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "platform-tool-app"

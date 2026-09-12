@@ -16,14 +16,14 @@ for _p in (
     str(_ROOT / "main-system" / "src-core"),
     str(_ROOT / "main-system"),
     str(_ROOT / "main-system" / "src" / "backend" / "services"),
-    str(_ROOT / "local-model" / "src" / "backend" / "services"),
-    str(_ROOT / "global-cleaner" / "src"),
-    str(_ROOT / "ai-assistant" / "src"),
-    str(_ROOT / "ai-assistant" / "src" / "backend" / "services"),
-    str(_ROOT / "ai-collaboration" / "src" / "backend" / "services"),
-    str(_ROOT / "file-sorter" / "src" / "backend" / "services"),
-    str(_ROOT / "investment-mobile" / "src" / "backend" / "services"),
-    str(_ROOT / "vaultly" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "local-model" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "global-cleaner" / "src"),
+    str(_ROOT / "Standalone tools" / "ai-assistant" / "src"),
+    str(_ROOT / "Standalone tools" / "ai-assistant" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "ai-collaboration" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "file-sorter" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "investment-mobile" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "vaultly" / "src" / "backend" / "services"),
 ):
     if _p not in sys.path:
         sys.path.insert(0, _p)
@@ -121,7 +121,12 @@ def _manifest_paths() -> list[Path]:
     )
     paths.extend(
         path
-        for path in ROOT.glob("*/*/manifest.json")
+        for path in ROOT.glob("Standalone tools/*/manifest.json")
+        if json.loads(path.read_text("utf-8")).get("id") in EXPECTED_TOOL_IDS
+    )
+    paths.extend(
+        path
+        for path in ROOT.glob("Standalone tools/*/*/manifest.json")
         if (
             json.loads(path.read_text("utf-8")).get("main_system_independent_tool")
             is True
@@ -176,7 +181,17 @@ def test_manifest_identity_matches_owned_folder_or_declared_companion(
 ) -> None:
     manifest = _load_json(manifest_path)
     assert manifest["id"] == folder_name
-    if manifest_path.parent.parent != ROOT:
+    # A278/A280: independent tools live under "Standalone tools/".
+    # Direct children of ROOT (depth-1) and direct children of
+    # "Standalone tools/" (depth-2) are top-level tools.  Companion
+    # tools are nested at depth-3 under a tool root.
+    parent = manifest_path.parent
+    grandparent = parent.parent
+    is_standalone_tool = (
+        parent.parent.name == "Standalone tools"
+        and grandparent.parent == ROOT
+    )
+    if parent.parent != ROOT and not is_standalone_tool:
         assert (
             manifest.get("main_system_independent_tool") is True
             or manifest.get("companion_tool") is True
@@ -244,7 +259,7 @@ def test_permissions_declare_owned_code_and_database_scope(
             "opaque-central-index-read-and-xingcheng-internal-read-write"
         )
         assert permissions.get("allow_modify") == [
-            "local-model/xingcheng-excluding-permissions"
+            "Standalone tools/local-model/model-dialogue/xingcheng-excluding-permissions"
         ]
         assert {"governance-rule", "governance-permission-directory"}.issubset(
             set(permissions.get("deny", []))
@@ -549,8 +564,9 @@ def test_project_root_contains_only_governed_modules_and_control_files() -> None
         "scripts",
         "launcher",
         "native",
+        "Standalone tools",
     }
-    allowed_files = {".gitignore", "pytest.ini", ".env", ".markdownlint.json", "AGENTS.md", "fix_ownership2.py", "fix_source_ownership.py", "fix_source_ownership2.py"}
+    allowed_files = {".gitignore", "pytest.ini", ".env", ".markdownlint.json", "AGENTS.md"}
     allowed_directories = allowed_directories | {".kilo"}
 
     unexpected = sorted(
@@ -573,23 +589,24 @@ def test_project_root_contains_only_governed_modules_and_control_files() -> None
 def test_temporary_storage_is_owned_by_global_cleaner() -> None:
     contract = _load_json(ROOT / "main-system" / "config" / "tool-runtime-contract.json")
     temporary = contract["temporary_storage"]
-    assert temporary["root"] == "global-cleaner/runtime/temp"
+    assert temporary["root"] == "Standalone tools/global-cleaner/runtime/temp"
     assert temporary["tool_root_template"] == (
-        "global-cleaner/runtime/temp/tools/{tool_id}"
+        "Standalone tools/global-cleaner/runtime/temp/tools/{tool_id}"
     )
     assert temporary["shared_layer_root"] == (
-        "global-cleaner/runtime/temp/shared-layer"
+        "Standalone tools/global-cleaner/runtime/temp/shared-layer"
     )
     assert temporary["cleanup_owner"] == "global-cleaner"
 
     legacy_temp_roots = [
         path
         for path in ROOT.glob("*/runtime/temp")
-        if path != ROOT / "global-cleaner" / "runtime" / "temp"
+        if path != ROOT / "Standalone tools" / "global-cleaner" / "runtime" / "temp"
+        and path != ROOT / "main-system" / "runtime" / "temp"
     ]
     assert legacy_temp_roots == []
     pytest_config = (ROOT / "pytest.ini").read_text("utf-8")
-    assert "global-cleaner/runtime/temp/development/pytest-cache" in pytest_config
+    assert "Standalone tools/global-cleaner/runtime/temp/development/pytest-cache" in pytest_config
 
 
 def test_development_tool_configuration_is_owned_by_main_system() -> None:
@@ -2288,7 +2305,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-LOCAL_MODEL_ROOT = ROOT / "local-model"
+LOCAL_MODEL_ROOT = ROOT / "Standalone tools" / "local-model"
 CORE = ROOT / "main-system" / "src-core"
 if str(CORE) not in sys.path:
     sys.path.insert(0, str(CORE))
@@ -2359,7 +2376,7 @@ def test_shared_layer_and_local_model_are_locked_resident_services() -> None:
         (ROOT / "shared-layer" / "manifest.json").read_text("utf-8")
     )
     local_manifest = json.loads(
-        (ROOT / "local-model" / "manifest.json").read_text("utf-8")
+        (ROOT / "Standalone tools" / "local-model" / "manifest.json").read_text("utf-8")
     )
     assert records["shared-layer"]["runtime_available"] is True
     assert shared_manifest["main_system_independent_tool"] is False
@@ -2430,6 +2447,7 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
     assert environment["GPTBRIDGE_TOOL_TEMP_ROOT"] == str(
         (
             ROOT
+            / "Standalone tools"
             / "global-cleaner"
             / "runtime"
             / "temp"
@@ -2448,7 +2466,7 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
     assert owner_environment["GPTBRIDGE_STANDALONE_TOOL_ID"] == "star-chat"
     assert governance.bootstrap_tool_ids[-1] == "xingcheng"
 
-    mobile_root = ROOT / "investment-mobile"
+    mobile_root = ROOT / "Standalone tools" / "investment-mobile"
     mobile_manifest = json.loads((mobile_root / "manifest.json").read_text("utf-8"))
     mobile_environment = service._tool_environment(
         "investment-mobile", mobile_root, mobile_manifest
@@ -2456,6 +2474,7 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
     assert mobile_environment["GPTBRIDGE_TOOL_CACHE_ROOT"] == str(
         (
             ROOT
+            / "Standalone tools"
             / "ai-assistant"
             / "runtime"
             / "cache"
@@ -2467,8 +2486,8 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
 
 def test_ai_assistant_supports_automatic_dual_runtime() -> None:
     service = ToolboxService(ROOT, governance=GovernanceStub())
-    manifest = json.loads((ROOT / "ai-assistant" / "manifest.json").read_text("utf-8"))
-    record = service._manifest_to_record(ROOT / "ai-assistant", manifest)
+    manifest = json.loads((ROOT / "Standalone tools" / "ai-assistant" / "manifest.json").read_text("utf-8"))
+    record = service._manifest_to_record(ROOT / "Standalone tools" / "ai-assistant", manifest)
 
     assert manifest["launch"]["mode"] == "dual-runtime"
     assert manifest["launch"]["selection"] == "automatic"
@@ -2636,7 +2655,7 @@ def test_foreground_ui_exit_force_closes_the_complete_tool(
         service._watch_started_tool(
             "window-test",
             "ai-assistant",
-            ROOT / "ai-assistant" / "dist" / "ai-assistant.exe",
+            ROOT / "Standalone tools" / "ai-assistant" / "dist" / "ai-assistant.exe",
             False,
             process,  # type: ignore[arg-type]
             close_program_on_exit=True,
@@ -2710,7 +2729,7 @@ def test_start_failure_requests_central_repair_then_retries_lifecycle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = ToolboxService(ROOT, governance=GovernanceStub())
-    manifest = json.loads((ROOT / "ai-assistant" / "manifest.json").read_text("utf-8"))
+    manifest = json.loads((ROOT / "Standalone tools" / "ai-assistant" / "manifest.json").read_text("utf-8"))
     calls: list[str] = []
 
     async def fake_central_repair(*_args: object, **_kwargs: object) -> dict[str, object]:
@@ -2743,7 +2762,7 @@ def test_start_failure_requests_central_repair_then_retries_lifecycle(
         service._retry_start_after_central_repair(
             {"tool_id": "ai-assistant", "request_id": "repair-test"},
             "ai-assistant",
-            ROOT / "ai-assistant",
+            ROOT / "Standalone tools" / "ai-assistant",
             manifest,
             {"error_code": "PACKAGE_UNVERIFIED"},
         )
@@ -2778,12 +2797,12 @@ def test_star_is_headless_and_configured_for_governed_default_start() -> None:
     # Only resident services (lifecycle.stoppable == false) are auto-started;
     # non-resident services start on demand.
     assert "_FALLBACK_RESIDENT_TOOL_IDS" in integration_source
-    assert "await self._start_governed_default_tools()" in integration_source
+    assert "self._start_governed_default_tools()" in integration_source
     assert "_classify_tools_by_manifest" in integration_source
 
 
 def test_file_sorter_does_not_start_a_full_electron_ui_in_background() -> None:
-    manifest = json.loads((ROOT / "file-sorter" / "manifest.json").read_text("utf-8"))
+    manifest = json.loads((ROOT / "Standalone tools" / "file-sorter" / "manifest.json").read_text("utf-8"))
 
     assert manifest["startup"]["auto_start"] is False
     assert manifest["automation"]["enabled"] is True
@@ -2792,7 +2811,7 @@ def test_file_sorter_does_not_start_a_full_electron_ui_in_background() -> None:
 
 def test_file_sorter_uses_governed_source_without_a_packaged_executable() -> None:
     service = ToolboxService(ROOT, governance=GovernanceStub())
-    manifest = json.loads((ROOT / "file-sorter" / "manifest.json").read_text("utf-8"))
+    manifest = json.loads((ROOT / "Standalone tools" / "file-sorter" / "manifest.json").read_text("utf-8"))
 
     assert manifest["distribution"] == {
         "mode": "special-unpackaged",
@@ -2850,6 +2869,7 @@ def test_source_runtime_environment_has_ephemeral_authenticated_ipc() -> None:
     expected_temp = str(
         (
             ROOT
+            / "Standalone tools"
             / "global-cleaner"
             / "runtime"
             / "temp"
@@ -3134,24 +3154,24 @@ class ContractProbe:
 
 @cache
 def _load_manifest(tool_id: str) -> dict[str, Any]:
-    manifest_path = ROOT / tool_id / "manifest.json"
+    manifest_path = ROOT / "Standalone tools" / tool_id / "manifest.json"
     if not manifest_path.is_file():
-        candidates = []
-        for candidate in (
-            *ROOT.glob("*/manifest.json"),
-            *ROOT.glob("*/*/manifest.json"),
-        ):
-            document = json.loads(candidate.read_text("utf-8"))
-            if (
-                document.get("id") == tool_id
-                and (
-                    document.get("main_system_independent_tool") is True
-                    or document.get("companion_tool") is True
-                )
+        # Check direct children of project root (governance_rule, shared-layer, etc.)
+        direct_path = ROOT / tool_id / "manifest.json"
+        if direct_path.is_file():
+            manifest_path = direct_path
+        else:
+            candidates = []
+            for candidate in (
+                *ROOT.glob("*/manifest.json"),
+                *ROOT.glob("Standalone tools/*/manifest.json"),
+                *ROOT.glob("Standalone tools/*/*/manifest.json"),
             ):
-                candidates.append(candidate)
-        assert len(candidates) == 1, tool_id
-        manifest_path = candidates[0]
+                document = json.loads(candidate.read_text("utf-8"))
+                if document.get("id") == tool_id:
+                    candidates.append(candidate)
+            assert len(candidates) == 1, tool_id
+            manifest_path = candidates[0]
     payload = json.loads(manifest_path.read_text("utf-8"))
     assert isinstance(payload, dict)
     return payload

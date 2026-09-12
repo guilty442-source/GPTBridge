@@ -81,18 +81,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "ai-channel-request-process",
         ),
     ),
-    IdentityPermissionBinding(
-        group_id=IDENTITY_GROUP_STAR_CHAT,
-        actor="governance/tool/star-chat",
-        capabilities=(
-            "independent-tool-business-logic",
-            "independent-tool-user-settings",
-            "independent-tool-business-storage",
-            "system-channel-request-submit",
-            "system-channel-request-process",
-            "ai-channel-request-submit",
-        ),
-    ),
+
     IdentityPermissionBinding(
         group_id=IDENTITY_GROUP_FILE_SORTER,
         actor="governance/tool/file-sorter",
@@ -145,6 +134,8 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "system-channel-request-process",
             "ai-channel-request-submit",
             "ai-channel-request-process",
+            "xingcheng-governance-source-read",
+            "xingcheng-fault-analysis-read",
         ),
     ),
     IdentityPermissionBinding(

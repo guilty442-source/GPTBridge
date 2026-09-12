@@ -46,6 +46,7 @@
     "postgres_probe_attempts": 3,
     "postgres_probe_delay": 0.5,
     "qdrant_probe_timeout": 0.5,
+    "dependency_probe_timeout": 0.75,
     "startup_gate_deadline_seconds": 8.0
   },
 
@@ -63,10 +64,21 @@
     "health_probe_timeout": 2.0,
     "health_probe_interval": 5.0,
     "startup_health_probe_interval": 0.5,
-    "crash_repair_uptime_threshold": 30.0
+    "crash_repair_uptime_threshold": 30.0,
+    "startup_dead_grace_seconds": 45.0
   },
 
   "governed_startup": {
+    "startup_deadline_ms": 30000,
+    "phase_budget_ms": {
+      "phase-0-local-preflight": 500,
+      "phase-1-minimal-information-bootstrap": 500,
+      "phase-2-read-official-codex": 1000,
+      "phase-3-load-permission-directory": 500,
+      "phase-4-switch-normal-information-mode": 500,
+      "phase-5-classify-dependency-dag": 1000,
+      "phase-6-activate-core-sovereigns": 25000
+    },
     "startup_phases": [
       "phase-0-local-preflight",
       "phase-1-minimal-information-bootstrap",

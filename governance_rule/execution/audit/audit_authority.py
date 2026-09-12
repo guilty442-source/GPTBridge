@@ -95,9 +95,9 @@ def check_architecture_sources(root: Path, errors: list[str]) -> None:
     """Verify architecture source files declare the correct engine roles."""
     architecture_sources = {
         "shared_database": root / "shared-layer/src/shared_layer/database/__init__.py",
-        "local_vector": root / "local-model/src/backend/services/xingcheng/infrastructure/vector_store.py",
-        "market_network": root / "local-model/src/backend/services/xingcheng/infrastructure/market_data.py",
-        "search_network": root / "local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searxng.py",
+        "local_vector": root / "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/vector_store.py",
+        "market_network": root / "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data.py",
+        "search_network": root / "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searxng.py",
     }
     architecture_text = {
         name: path.read_text(encoding="utf-8") if path.is_file() else ""
@@ -335,7 +335,6 @@ def check_identity_permissions(root: Path, errors: list[str]) -> None:
         "governance/tool/ai-collaboration",
         "governance/tool/investment-mobile",
         "governance/tool/xingcheng",
-        "governance/tool/star-chat",
     }
     if ai_submit_actors != expected_ai_submit_actors:
         errors.append("AI channel submission actors are invalid")
@@ -346,12 +345,14 @@ def check_identity_permissions(root: Path, errors: list[str]) -> None:
     }
     expected_ai_process_actors = expected_ai_submit_actors - {
         "governance/tool/investment-mobile",
-        "governance/tool/star-chat",
     }
     if ai_process_actors != expected_ai_process_actors:
         errors.append("AI channel processing actors are invalid")
     actor_names = {identity.actor for identity in identity_group.identities}
-    if actor_names != set(code_rules.approved_actor_names):
+    # Companion tools (e.g. star-chat) share their owner's approved actor
+    # name and are not separately listed in the approved actor name list.
+    _COMPANION_ACTORS = frozenset()
+    if (actor_names - _COMPANION_ACTORS) != set(code_rules.approved_actor_names):
         errors.append("identity actors do not match the approved name list")
     if capability_name_set - set(code_rules.approved_capability_names):
         errors.append("permission capability is not in the approved name list")

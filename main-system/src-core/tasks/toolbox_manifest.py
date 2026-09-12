@@ -248,10 +248,16 @@ class ManifestMixin:
         if self._tool_dir_index is not None:
             return self._tool_dir_index
         index: dict[str, str] = {}
-        if self.tools_dir.exists():
-            for candidate in self.tools_dir.iterdir():
+        scan_dirs = [self.tools_dir]
+        if self.project_root != self.tools_dir and self.project_root.is_dir():
+            scan_dirs.append(self.project_root)
+        for scan_dir in scan_dirs:
+            for candidate in scan_dir.iterdir():
                 manifest_path = candidate / "manifest.json"
                 if not candidate.is_dir() or not manifest_path.is_file():
+                    continue
+                # Skip the Standalone tools directory itself when scanning root
+                if scan_dir == self.project_root and candidate == self.tools_dir:
                     continue
                 try:
                     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -268,6 +274,11 @@ class ManifestMixin:
         direct = self.tools_dir / tool_id
         if (direct / "manifest.json").is_file():
             return self._validated_tool_directory(direct)
+        # A278/A280: resident services (governance_rule, shared-layer)
+        # remain at the project root, not under "Standalone tools/".
+        root_direct = self.project_root / tool_id
+        if (root_direct / "manifest.json").is_file():
+            return self._validated_tool_directory(root_direct)
         # Use the cached index instead of scanning every directory each time.
         index = self._build_tool_dir_index()
         for dir_name, tid in index.items():
@@ -290,18 +301,29 @@ class ManifestMixin:
         if not self.tools_dir.exists():
             return records
 
-        for tool_dir in sorted(self.tools_dir.iterdir(), key=lambda item: item.name.lower()):
-            manifest_path = tool_dir / "manifest.json"
-            if not tool_dir.is_dir() or not manifest_path.exists():
-                continue
-            try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            try:
-                records.append(self._manifest_to_record(tool_dir, manifest))
-            except (OSError, ValueError):
-                continue
+        # A278/A280: independent tools live under "Standalone tools/".
+        # Resident services (shared-layer, governance_rule) remain at
+        # the project root.  Scan both locations.
+        scan_dirs = [self.tools_dir]
+        if self.project_root != self.tools_dir and self.project_root.is_dir():
+            scan_dirs.append(self.project_root)
+
+        for scan_dir in scan_dirs:
+            for tool_dir in sorted(scan_dir.iterdir(), key=lambda item: item.name.lower()):
+                manifest_path = tool_dir / "manifest.json"
+                if not tool_dir.is_dir() or not manifest_path.exists():
+                    continue
+                # Skip the Standalone tools directory itself when scanning root
+                if scan_dir == self.project_root and tool_dir == self.tools_dir:
+                    continue
+                try:
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                try:
+                    records.append(self._manifest_to_record(tool_dir, manifest))
+                except (OSError, ValueError):
+                    continue
         known_ids = {str(record.get("id") or "") for record in records}
         for tool_dir in self._declared_companion_tool_directories():
             try:

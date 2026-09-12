@@ -79,7 +79,9 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
         self._ensure_learning_store()
         if self._learner is not None:
             try:
-                self._learning_analysis = self._learner.analyze_history()
+                self._learning_analysis = await asyncio.to_thread(
+                    self._learner.analyze_history
+                )
             except Exception:
                 self._learning_analysis = None
 

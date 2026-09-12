@@ -120,6 +120,7 @@ class IntegrationSubSovereign:
         # Idle module management
         self._tool_last_activity: dict[str, float] = {}
         self._idle_monitor_task: asyncio.Task[Any] | None = None
+        self._default_tools_task: asyncio.Task[Any] | None = None
         self._idle_stopped_tools: set[str] = set()
         # Resident / non-resident classification
         self._resident_tool_ids: set[str] = set()
@@ -152,7 +153,14 @@ class IntegrationSubSovereign:
         # Auto-start the governed default modules through the toolbox service.
         # The permission sovereign (started by the app before the system
         # sovereign) authorizes each module's lifecycle before start.
-        await self._start_governed_default_tools()
+        # E167/E173: resident-tool spawns are runtime duty, not activation —
+        # they run post-activation so the startup phase budget is not
+        # consumed by tool process spawn/readiness latency.
+        if self._default_tools_task is None:
+            self._default_tools_task = asyncio.create_task(
+                self._start_governed_default_tools(),
+                name="integration-sovereign-default-tools",
+            )
 
         # Register the activity callback so the toolbox notifies us on every
         # tool execution request, resetting the idle timer.
@@ -175,6 +183,11 @@ class IntegrationSubSovereign:
         }
 
     async def stop(self) -> None:
+        if self._default_tools_task is not None:
+            self._default_tools_task.cancel()
+            with _suppress(asyncio.CancelledError):
+                await self._default_tools_task
+            self._default_tools_task = None
         if self._idle_monitor_task is not None:
             self._idle_monitor_task.cancel()
             with _suppress(asyncio.CancelledError):
@@ -210,7 +223,17 @@ class IntegrationSubSovereign:
         self._resident_tool_ids.clear()
         self._non_resident_tool_ids.clear()
 
-        for tool_dir in project_root.iterdir():
+        manifest_dirs = [
+            path.parent
+            for path in project_root.glob("*/manifest.json")
+        ]
+        standalone_root = project_root / "Standalone tools"
+        if standalone_root.is_dir():
+            manifest_dirs.extend(
+                path.parent
+                for path in standalone_root.glob("*/manifest.json")
+            )
+        for tool_dir in manifest_dirs:
             manifest_path = tool_dir / "manifest.json"
             if not manifest_path.is_file():
                 continue

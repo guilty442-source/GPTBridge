@@ -46,6 +46,13 @@ from typing import Any, Final
 from uuid import uuid4
 
 from core_system.versioning import component_version
+from core_system.auto_repair_chain import (
+    AutoRepairOrchestrator,
+    HealthSignal,
+    HealthState,
+    create_auto_repair_orchestrator,
+)
+from governance_rule.execution.authentication import GovernanceAuthenticationService
 
 REPAIR_COORDINATOR_VERSION: Final[str] = component_version("repair-coordinator")
 
@@ -90,7 +97,7 @@ class RepairCoordinator:
 
     VERSION = REPAIR_COORDINATOR_VERSION
 
-    def __init__(self, project_root: Path) -> None:
+    def __init__(self, project_root: Path, auth_service: GovernanceAuthenticationService | None = None) -> None:
         self.project_root = project_root.resolve()
         self._lock = threading.Lock()
         self._held_lock: RepairLock | None = None
@@ -101,6 +108,10 @@ class RepairCoordinator:
             / "state"
             / "repair-coordination.json"
         )
+        # A257-A261: Auto-repair orchestrator for governance-compliant repair chain
+        self._orchestrator: AutoRepairOrchestrator | None = None
+        if auth_service is not None:
+            self._orchestrator = create_auto_repair_orchestrator(project_root, auth_service)
 
     def _now_ts(self) -> float:
         return time.time()
@@ -281,9 +292,8 @@ class RepairCoordinator:
 
         This method acquires the coordination lock (FORBID:duplicate-repair-owner),
         records the request + decision proof to the information layer, and
-        either executes the repair (crash case) or leaves a pending signal
-        (backend-alive case) for the system-decision-sovereign repair
-        decision chain.
+        either executes the repair (crash case) or processes through the
+        governance-compliant auto-repair chain (A257-A261).
         """
         report: dict[str, Any] = {
             "governed": True,
@@ -310,6 +320,29 @@ class RepairCoordinator:
             "signal_only": signal_only or repair_executor is None,
         }
 
+        # Use the governance-compliant auto-repair chain (A257-A261)
+        if self._orchestrator is not None:
+            # Create health signal from the failure
+            signal = HealthSignal(
+                component_id=decision_proof.get("component_id", "unknown"),
+                dimension=decision_proof.get("dimension", "runtime-readiness"),
+                state=HealthState(decision_proof.get("state", "critical")),
+                severity=decision_proof.get("severity", 5),
+                evidence={
+                    "failure_code": failure_code,
+                    "owner": owner,
+                    "decision_proof": decision_proof,
+                    **decision_proof.get("evidence", {}),
+                },
+            )
+            # Process through the full repair chain
+            chain_result = self._orchestrator.process_health_signal(signal, actor=owner)
+            report.update(chain_result)
+            report["ok"] = chain_result.get("stage") == "complete"
+            self.release(owner=owner, failure_code=failure_code)
+            return report
+
+        # Fallback: signal-only path for crash repair when orchestrator unavailable
         if signal_only or repair_executor is None:
             # Signal-only: write to information layer, maintenance sovereign
             # will pick up and make the repair decision.

@@ -167,16 +167,54 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                 if readiness is None:
                     # Full and deep levels: evaluate the readiness gate off the
                     # event loop so TCP dependency probes do not stall the IPC
-                    # server or heartbeat traffic.
-                    readiness = await asyncio.to_thread(_readiness)
+                    # server or heartbeat traffic.  A health endpoint must
+                    # never block indefinitely — bound the evaluation and
+                    # fall back to the notifier's last verified snapshot
+                    # (itself a full gate evaluation) before failing closed.
+                    try:
+                        readiness = await asyncio.wait_for(
+                            asyncio.to_thread(_readiness),
+                            timeout=5.0,
+                        )
+                    except Exception:
+                        readiness = (
+                            notifier.current_snapshot()
+                            if notifier is not None
+                            else None
+                        )
+                        if readiness is None:
+                            return http_response(
+                                503,
+                                "STARTING",
+                                json.dumps(
+                                    {
+                                        "ok": False,
+                                        "runtime_state": "health-eval-timeout",
+                                        "runtime_scope": "main",
+                                        "health_level": health_level,
+                                    },
+                                    ensure_ascii=False,
+                                ).encode("utf-8"),
+                                "application/json",
+                            )
 
                 startup_status: dict[str, Any] = {}
                 iso_status: Any = None
                 if health_level != "brief":
-                    startup_status, iso_status = await asyncio.gather(
-                        asyncio.to_thread(_startup_status),
-                        asyncio.to_thread(_tool_isolation_status),
-                    )
+                    try:
+                        startup_status, iso_status = await asyncio.wait_for(
+                            asyncio.gather(
+                                asyncio.to_thread(_startup_status),
+                                asyncio.to_thread(_tool_isolation_status),
+                            ),
+                            timeout=5.0,
+                        )
+                    except Exception:
+                        # Partial report beats a hung health endpoint: keep the
+                        # gate result truthful and mark the status section as
+                        # unavailable instead of stalling the response.
+                        startup_status = {"startup_status_timeout": True}
+                        iso_status = None
 
                 ready = readiness.overall_ready
                 runtime_state = readiness.runtime_state

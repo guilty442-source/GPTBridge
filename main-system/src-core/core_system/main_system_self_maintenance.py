@@ -73,6 +73,7 @@ class MainSystemSelfMaintenance:
         )
         self.interval_seconds = max(float(chosen), MIN_INTERVAL_SECONDS)
         self._loop_task: asyncio.Task[Any] | None = None
+        self._startup_task: asyncio.Task[Any] | None = None
         self._last_report: dict[str, Any] | None = None
         self._running = False
 
@@ -81,29 +82,52 @@ class MainSystemSelfMaintenance:
     # ------------------------------------------------------------------
 
     async def start(self) -> dict[str, Any]:
-        """Run the startup pass and schedule the periodic loop."""
+        """Activate the service and schedule its loops.
+
+        Activation is the startup-critical work (A192/E167: the startup
+        sovereign *activates* sovereigns — it does not perform their
+        maintenance duties inline).  The full startup duty pass is
+        maintenance-owned work; it runs as a bounded background task so
+        the E173 startup deadline is not consumed by duty execution,
+        while its result still lands in ``_last_report`` and health
+        monitoring once complete.
+        """
 
         if self._running:
             return self.status()
         self._running = True
-        # Startup pass — fail-safe, never aborts the loop on a duty error.
-        # The startup pass explicitly runs version compatibility and source
-        # stability repair; runtime status changes stay deferred until it ends.
-        self._last_report = await self._run_all_duties(startup=True)
         self._loop_task = asyncio.create_task(
             self._periodic_loop(),
             name="main-system-self-maintenance",
+        )
+        self._startup_task = asyncio.create_task(
+            self._startup_pass(),
+            name="main-system-self-maintenance-startup",
         )
         return {
             "ok": True,
             "role": "main-system-self-maintenance",
             "started_at": _iso_now(),
             "interval_seconds": self.interval_seconds,
-            "startup_report": self._last_report,
+            "startup_pass": "deferred-post-activation",
         }
+
+    async def _startup_pass(self) -> None:
+        """Startup duty pass — fail-safe, never aborts the periodic loop."""
+        try:
+            self._last_report = await self._run_all_duties(startup=True)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
 
     async def stop(self) -> None:
         self._running = False
+        if self._startup_task is not None:
+            self._startup_task.cancel()
+            with _suppress(asyncio.CancelledError):
+                await self._startup_task
+            self._startup_task = None
         if self._loop_task is not None:
             self._loop_task.cancel()
             with _suppress(asyncio.CancelledError):

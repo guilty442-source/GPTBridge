@@ -71,8 +71,8 @@
   },
   "git_policy": {
     "repository_scope": "E:/GPTBridge",
-    "platform_root": "local-model",
-    "xingcheng_data_root": "local-model/xingcheng",
+    "platform_root": "Standalone tools/local-model",
+    "xingcheng_data_root": "Standalone tools/local-model/model-dialogue/xingcheng",
     "remote_contact_default": false,
     "write_requires_governance_approval": true,
     "xingcheng_write": false,

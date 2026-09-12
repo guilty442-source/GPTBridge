@@ -24,18 +24,68 @@ from datetime import datetime, timezone
 
 from shared_layer.service_probe import probe_registered_local_service
 
+from startup_core.startup_config import (
+    dependency_manifest as _cfg_dependency_manifest,
+)
+from startup_core.startup_config import (
+    port as _cfg_port,
+)
+from startup_core.startup_config import (
+    probe_constant as _cfg_probe,
+)
+
 from core_system.versioning import component_version
 
 READINESS_GATE_VERSION: Final[str] = component_version("readiness-gate")
 
-# Required dependency services and their default local probe ports.
-REQUIRED_DEPENDENCIES: Final[tuple[tuple[str, int], ...]] = (
-    ("postgresql", 5432),
-    ("qdrant", 6333),
-    ("ollama", 11434),
-)
 
-DEPENDENCY_PROBE_TIMEOUT: Final[float] = 0.75
+def _required_dependencies() -> tuple[tuple[str, int], ...]:
+    """Required dependencies from the certified startup manifest (A191/E166).
+
+    Readiness is evaluated against the *current* certified declarations —
+    core-critical and capability-critical entries are required, optional
+    entries degrade their capability only.  Ports resolve through the
+    manifest port table; unregistered identities fall back to the
+    information-layer service registry endpoint.
+    """
+    required: list[tuple[str, int]] = []
+    capability: list[tuple[str, int]] = []
+    for entry in _cfg_dependency_manifest():
+        # E166: only core-critical dependencies block core readiness;
+        # capability-critical entries block their owner capability only
+        # and optional entries degrade silently — neither gates ready.
+        criticality = str(entry.get("criticality") or "")
+        if criticality == "optional":
+            continue
+        identity = str(entry.get("identity") or "").strip()
+        if not identity:
+            continue
+        try:
+            port = int(_cfg_port(identity))
+        except (KeyError, TypeError, ValueError):
+            from shared_layer.service_probe import REGISTERED_LOCAL_SERVICES
+
+            endpoint = REGISTERED_LOCAL_SERVICES.get(identity.casefold())
+            if endpoint is None:
+                continue
+            port = int(endpoint[1])
+        if criticality == "core-critical":
+            required.append((identity, port))
+        else:
+            capability.append((identity, port))
+    return tuple(required), tuple(capability)
+
+
+# Required (core-critical, readiness-gating) and capability-critical
+# (non-gating, capability-degrading) dependencies — both declared in the
+# certified startup manifest, not source-hardcoded (A191/E166).
+REQUIRED_DEPENDENCIES: Final[tuple[tuple[str, int], ...]]
+CAPABILITY_DEPENDENCIES: Final[tuple[tuple[str, int], ...]]
+REQUIRED_DEPENDENCIES, CAPABILITY_DEPENDENCIES = _required_dependencies()
+
+DEPENDENCY_PROBE_TIMEOUT: Final[float] = float(
+    _cfg_probe("dependency_probe_timeout")
+)
 
 
 def _iso_now() -> str:
@@ -118,6 +168,14 @@ class ReadinessGate:
             statuses.append(DependencyStatus(name=name, port=port, reachable=reachable))
             if not reachable:
                 all_reachable = False
+        # E166: capability-critical dependencies are probed for status
+        # reporting but never gate overall readiness — their failure
+        # degrades the owning capability only.
+        for name, port in CAPABILITY_DEPENDENCIES:
+            reachable = probe_registered_local_service(
+                name, timeout=DEPENDENCY_PROBE_TIMEOUT
+            ).reachable
+            statuses.append(DependencyStatus(name=name, port=port, reachable=reachable))
         return all_reachable, statuses
 
     def _check_authenticated_ipc(self) -> bool:
@@ -182,6 +240,7 @@ class ReadinessGate:
 
 
 __all__ = [
+    "CAPABILITY_DEPENDENCIES",
     "DEPENDENCY_PROBE_TIMEOUT",
     "DependencyStatus",
     "REQUIRED_DEPENDENCIES",

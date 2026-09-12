@@ -67,7 +67,7 @@ class ToolboxService(
         permission_sovereign: Any = None,
     ):
         self.project_root = project_root
-        self.tools_dir = self.project_root
+        self.tools_dir = self.project_root / "Standalone tools"
         self.governance = governance
         self.permission_sovereign = (
             permission_sovereign

@@ -236,7 +236,7 @@ def check_node_environment(project_root: Path) -> dict[str, Any]:
         "npm_available": npm_available,
         "node_modules_exists": (project_root / "node_modules").exists(),
         "package_json_exists": (
-            project_root / "main-system" / "package.json"
+            project_root / "package.json"
         ).exists(),
         "package_lock_exists": (project_root / "package-lock.json").exists(),
         "electron_runtime_ready": bool(electron["ok"]),

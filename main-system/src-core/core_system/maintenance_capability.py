@@ -80,7 +80,7 @@ class MaintenanceCapabilityMixin:
             },
             "qdrant": {
                 "installed": (
-                    root / "local-model" / "runtime" / "qdrant"
+                    root / "Standalone tools" / "local-model" / "runtime" / "qdrant"
                 ).is_dir(),
                 "reachable": self._probe_service("qdrant"),
             },

@@ -26,8 +26,19 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
     manifest_tool_ids: set[str] = set()
     physical_owner_roots: set[str] = set()
 
-    # Enforce nested_independent_tool_folder=False: no manifests at depth 3+
-    deep_manifests = sorted(root.glob("*/*/*/manifest.json"))
+    # A278/A280: independent tools live under "Standalone tools/".
+    # Depth-1 manifests are direct children of the project root (e.g.
+    # governance_rule, main-system).  Depth-2 manifests are direct
+    # children of "Standalone tools/" (the independent-tools container).
+    # Depth-3 manifests are companion tools nested under a tool root
+    # (e.g. Standalone tools/local-model/model-dialogue).  Anything
+    # deeper is forbidden.
+    standalone_dir = root / "Standalone tools"
+    # Exclude hidden directories (e.g. .kilo, .git) from the depth check.
+    deep_manifests = sorted(
+        p for p in root.glob("*/*/*/*/manifest.json")
+        if not p.relative_to(root).parts[0].startswith(".")
+    )
     if deep_manifests:
         errors.append(
             "nested independent tool folder exceeds allowed depth: "
@@ -76,11 +87,41 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
         _check_manifest_locale(manifest_path, tool_id, code_rules, label_policy, errors)
         _check_manifest_permissions(manifest, tool_id, errors)
 
-    # Pass 2: depth-2 manifests (companion tools nested under a
-    # physical_owner_root).  These tools share their owner's permission
-    # profile, so the standard code_scope/database_scope checks are not
-    # applied — only identity, locale, capability and window checks.
-    for manifest_path in sorted(root.glob("*/*/manifest.json")):
+    # Pass 2: depth-2 manifests under "Standalone tools/" (independent
+    # tools) and depth-3 companion tools nested under a tool root.
+    # Independent tools at depth-2 under "Standalone tools/" are treated
+    # as top-level tools (they have their own owner, lifecycle, and
+    # failure boundary per A184/A278).  Companion tools at depth-3
+    # share their owner's permission profile.
+    for manifest_path in sorted(standalone_dir.glob("*/manifest.json")):
+        # These are independent tools — re-run the depth-1 checks
+        # (they are top-level tools, not companions).
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            errors.append(f"invalid tool manifest: {manifest_path}: {error}")
+            continue
+        tool_id = str(manifest.get("id") or "")
+        manifest_tool_ids.add(tool_id)
+        physical_owner_root = str(manifest.get("physical_owner_root") or "")
+        if physical_owner_root:
+            physical_owner_roots.add(physical_owner_root)
+        if (
+            tool_id != manifest_path.parent.name
+            and physical_owner_root != manifest_path.parent.name
+        ):
+            errors.append(f"tool identity mismatch: {manifest_path}")
+        if re.fullmatch(label_policy.tool_id_pattern, tool_id) is None:
+            errors.append(f"tool identifier is not standardized: {tool_id}")
+        if "name" in manifest or manifest.get("name_key") != "tool.name":
+            errors.append(f"tool name label is not standardized: {tool_id}")
+        _check_manifest_capabilities(manifest, tool_id, code_rules, label_policy, errors)
+        _check_manifest_window(manifest, tool_id, errors)
+        _check_manifest_locale(manifest_path, tool_id, code_rules, label_policy, errors)
+        _check_manifest_permissions(manifest, tool_id, errors)
+
+    # Pass 2b: depth-3 companion tools under "Standalone tools/*/"
+    for manifest_path in sorted(standalone_dir.glob("*/*/manifest.json")):
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
@@ -223,12 +264,24 @@ def check_tool_identity_registration(
     code_rules = code_rule_directory_snapshot()
     identity_group = identity_group_snapshot()
 
+    # Infrastructure tools (governance_rule, shared-layer) are resident
+    # services, not independent tools — they have identities but no
+    # main_system_independent_tool manifest flag.  Companion tools
+    # (e.g. star-chat) are nested under an independent tool and share
+    # their owner's permission profile.  Exclude both classes from the
+    # independent-tool identity parity check.
+    _NON_INDEPENDENT_TOOL_IDS = frozenset({
+        "governance_rule", "shared-layer", "star-chat",
+    })
     registered_tool_ids = {
         identity.bound_tool_id
         for identity in identity_group.identities
         if identity.bound_tool_id != "main-system"
+        and identity.bound_tool_id not in _NON_INDEPENDENT_TOOL_IDS
     }
-    if registered_tool_ids != manifest_tool_ids:
+    manifest_independent_ids = manifest_tool_ids - _NON_INDEPENDENT_TOOL_IDS
+    if registered_tool_ids != manifest_independent_ids:
         errors.append("each independent tool must have exactly one enabled identity")
-    if manifest_tool_ids != set(code_rules.approved_tool_ids):
+    approved_independent_ids = set(code_rules.approved_tool_ids) - _NON_INDEPENDENT_TOOL_IDS
+    if manifest_independent_ids != approved_independent_ids:
         errors.append("tool identifiers do not match the approved name list")

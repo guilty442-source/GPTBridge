@@ -12,10 +12,10 @@
     "runtime_logs": "system-rescue"
   },
   "managed_storage": {
-    "root": "system-rescue/data",
-    "backups": "global-cleaner/data/business/backups/{owner_id}",
-    "audit": "system-rescue/data/audit",
-    "logs": "system-rescue/data/logs",
+    "root": "Standalone tools/system-rescue/data",
+    "backups": "Standalone tools/global-cleaner/data/business/backups/{owner_id}",
+    "audit": "Standalone tools/system-rescue/data/audit",
+    "logs": "Standalone tools/system-rescue/data/logs",
     "layout": "owner-scoped-flat",
     "categories": true,
     "write_authority": "global-cleaner-only",
@@ -26,14 +26,14 @@
     "automatic_repair_extract": "governed-shared-layer-request-only"
   },
   "tool_settings": {
-    "root_template": "{tool_id}/runtime/settings",
+    "root_template": "Standalone tools/{tool_id}/runtime/settings",
     "scope": "tool-private",
     "shared": false
   },
   "temporary_storage": {
-    "root": "global-cleaner/runtime/temp",
-    "tool_root_template": "global-cleaner/runtime/temp/tools/{tool_id}",
-    "shared_layer_root": "global-cleaner/runtime/temp/shared-layer",
+    "root": "Standalone tools/global-cleaner/runtime/temp",
+    "tool_root_template": "Standalone tools/global-cleaner/runtime/temp/tools/{tool_id}",
+    "shared_layer_root": "Standalone tools/global-cleaner/runtime/temp/shared-layer",
     "scope": "ephemeral-only",
     "business_data": false,
     "cross_tool_sharing": false,

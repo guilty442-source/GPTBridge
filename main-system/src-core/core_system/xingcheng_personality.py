@@ -132,7 +132,7 @@ class XingchengPersonality:
         if self._manifest_cache is not None:
             return self._manifest_cache
         project_root = Path(getattr(self.app, "project_root", Path.cwd()))
-        manifest_path = project_root / "local-model" / "manifest.json"
+        manifest_path = project_root / "Standalone tools" / "local-model" / "manifest.json"
         try:
             self._manifest_cache = json.loads(
                 manifest_path.read_text(encoding="utf-8")

@@ -27,6 +27,53 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         ), False, False,
     ),
     CapabilityAuthority(
+        "xingcheng-fault-analysis-read", "xingcheng",
+        "read-only-fault-evidence-and-repair-knowledge-for-global-review",
+        "none",
+        (
+            CapabilityGrant(
+                "read", "automatic-repair-knowledge", "none",
+                path_match="within",
+                path_roots=("main-system/data/automatic-repair/knowledge",),
+            ),
+            CapabilityGrant(
+                "read", "automatic-repair-runs", "none",
+                path_match="within",
+                path_roots=("main-system/data/automatic-repair/runs",),
+            ),
+            CapabilityGrant(
+                "read", "crash-diagnosis-records", "none",
+                path_match="within",
+                path_roots=("main-system/runtime/state",),
+            ),
+            CapabilityGrant(
+                "read", "repair-requests", "none",
+                path_match="within",
+                path_roots=("main-system/runtime/state",),
+            ),
+            CapabilityGrant(
+                "read", "system-health-snapshot", "none",
+                path_match="within",
+                path_roots=("main-system/runtime/state",),
+            ),
+            CapabilityGrant(
+                "read", "tool-crash-quarantine", "none",
+                path_match="within",
+                path_roots=("main-system/runtime/state/tool-crash-quarantine",),
+            ),
+            CapabilityGrant(
+                "read", "audit-records", "none",
+                path_match="within",
+                path_roots=("Standalone tools/system-rescue/data/audit",),
+            ),
+            CapabilityGrant(
+                "read", "runtime-logs", "none",
+                path_match="within",
+                path_roots=("Standalone tools/system-rescue/data/logs",),
+            ),
+        ), False, False,
+    ),
+    CapabilityAuthority(
         "governance-authority-read-execute", "tool:governance_rule",
         "own-authority-snapshot-read-and-declared-entry-execute-only", "none",
         (
@@ -202,8 +249,8 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         tuple(
             CapabilityGrant(
                 action, "star-internal-data", "xingcheng-internal-data",
-                path_match="within", path_roots=("local-model/xingcheng",),
-                excluded_path_roots=("local-model/xingcheng/permissions",),
+                path_match="within", path_roots=("Standalone tools/local-model/model-dialogue/xingcheng",),
+                excluded_path_roots=("Standalone tools/local-model/model-dialogue/xingcheng/permissions",),
             )
             for action in (
                 "read",
@@ -333,18 +380,18 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
             CapabilityGrant(
                 "create-backup", "managed-backup-root", "owner-scoped-backup",
                 path_match="within",
-                path_roots=("global-cleaner/data/business/backups",),
+                path_roots=("Standalone tools/global-cleaner/data/business/backups",),
             ),
             CapabilityGrant(
                 "delete-excess", "managed-backup-root", "owner-scoped-backup",
                 path_match="within",
-                path_roots=("global-cleaner/data/business/backups",),
+                path_roots=("Standalone tools/global-cleaner/data/business/backups",),
             ),
             CapabilityGrant(
                 "extract-backup", "backup-extract-staging", "backup-extract",
                 path_match="within",
                 path_roots=(
-                    "global-cleaner/runtime/temp/shared-layer/backup-extract",
+                    "Standalone tools/global-cleaner/runtime/temp/shared-layer/backup-extract",
                 ),
             ),
         ), False, False,

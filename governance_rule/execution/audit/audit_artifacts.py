@@ -155,9 +155,9 @@ def check_sqlite_template(root: Path, errors: list[str]) -> None:
 def check_embedded_browser(root: Path, errors: list[str]) -> None:
     """Verify embedded browser enforcement: no Playwright, modules exist."""
     for module_path in (
-        "ai-collaboration/src/backend/services/ai_collaboration/integration/browser_automation.py",
-        "ai-collaboration/src/backend/services/ai_collaboration/integration/provider_session.py",
-        "vaultly/src/backend/services/vaultly/integration/browser_session.py",
+        "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/browser_automation.py",
+        "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/provider_session.py",
+        "Standalone tools/vaultly/src/backend/services/vaultly/integration/browser_session.py",
     ):
         full_path = root / module_path
         if full_path.is_file():

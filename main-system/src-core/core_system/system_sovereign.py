@@ -43,6 +43,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -141,53 +142,68 @@ class SystemSovereignService:
         sovereigns in order and then starts the System Sovereign's own
         sub-sovereigns.  All work remains delegated to governed executors.
 
-        Order:
-          1. Maintenance Sovereign
-          2. Permission Sovereign
-          3. Main-system self-maintenance (governed executor)
+        Order (E155 bounded-independent-parallelism within each step):
+          1. Peer decision sovereigns + daily cleaner (learning,
+             programming, cleaner — independent, started in parallel)
+          2. Permission Sovereign (read-only coordination surface)
+          3. Maintenance Sovereign + main-system self-maintenance
+             (independent — started in parallel)
           4. System Sovereign and its six sub-sovereigns
 
         Returns the maintenance_ready flag for the final readiness log.
         """
 
         app = self.app
+        # Step timings feed the startup executor's phase evidence so a
+        # deadline breach reports the exact bottleneck (E173).
+        step_timings: dict[str, int] = {}
+        _step_start = time.monotonic()
 
         # Learning and programming are peer decision sovereigns. They start
         # before maintenance so every subsequent failure and repair can be
         # learned, and every code change has one governed dispatch owner.
+        # The daily cleaner is independent — E155 bounded-independent-
+        # parallelism applies to these three starts.
         app.learning_system_sovereign = self.learning_system_sovereign
         app.system_programming_sovereign = self.system_programming_sovereign
-        await self.learning_system_sovereign.start()
-        await self.system_programming_sovereign.start()
+        await asyncio.gather(
+            self.learning_system_sovereign.start(),
+            self.system_programming_sovereign.start(),
+            app.daily_global_cleaner_service.start(),
+        )
+        step_timings["peer-sovereigns-and-cleaner_ms"] = int(
+            (time.monotonic() - _step_start) * 1000
+        )
+        _step_start = time.monotonic()
 
         # 1. Maintenance Sovereign — periodic maintenance, health, repair
         app._mark_startup_phase("maintenance_sovereign_starting")
-        try:
-            from .resource_maintenance import release_unused_memory
 
-            app.resource_release = release_unused_memory
-            toolbox = app.toolbox_service
-            central_repair = None
-            if toolbox is not None and hasattr(toolbox, "central_repair"):
-                try:
-                    central_repair = toolbox.central_repair
-                except Exception:
-                    central_repair = None
-            await app.daily_global_cleaner_service.start()
-            maintenance_report = await app.maintenance_sovereign.start(
-                daily_cleaner=app.daily_global_cleaner_service,
-                hot_update=app.hot_update_service,
-                repair_service=central_repair,
-            )
-            app._log(
-                {
-                    "type": "maintenance_sovereign_startup",
-                    "role": maintenance_report.get("role", ""),
-                }
-            )
-        except Exception as error:
-            app._record_startup_failure("maintenance_sovereign", error)
-        app._mark_startup_phase("maintenance_sovereign_started")
+        async def _start_maintenance() -> None:
+            try:
+                from .resource_maintenance import release_unused_memory
+
+                app.resource_release = release_unused_memory
+                toolbox = app.toolbox_service
+                central_repair = None
+                if toolbox is not None and hasattr(toolbox, "central_repair"):
+                    try:
+                        central_repair = toolbox.central_repair
+                    except Exception:
+                        central_repair = None
+                maintenance_report = await app.maintenance_sovereign.start(
+                    daily_cleaner=app.daily_global_cleaner_service,
+                    hot_update=app.hot_update_service,
+                    repair_service=central_repair,
+                )
+                app._log(
+                    {
+                        "type": "maintenance_sovereign_startup",
+                        "role": maintenance_report.get("role", ""),
+                    }
+                )
+            except Exception as error:
+                app._record_startup_failure("maintenance_sovereign", error)
 
         # 2. Permission Sovereign — read-only permission coordination
         app._mark_startup_phase("permission_sovereign_starting")
@@ -210,6 +226,8 @@ class SystemSovereignService:
         # 3. Main-system self-maintenance runs before the System Sovereign
         #    so that maintenance_ready is already true when resident tools
         #    try to start.  No global lock; the boolean flag is the only gate.
+        #    It is independent of the maintenance sovereign's start, so both
+        #    run under E155 bounded-independent-parallelism.
         app._mark_startup_phase("sovereign_initializing")
         app.main_system_self_maintenance = MainSystemSelfMaintenance(
             self.workspace_root,
@@ -222,9 +240,18 @@ class SystemSovereignService:
             except Exception as error:
                 app._record_startup_failure("main_system_self_maintenance", error)
 
-        await _start_self_maintenance()
-        startup_report = getattr(app.main_system_self_maintenance, "_last_report", None)
-        startup_ok = startup_report is not None and bool(startup_report.get("ok"))
+        await asyncio.gather(_start_maintenance(), _start_self_maintenance())
+        step_timings["maintenance-and-self-maintenance_ms"] = int(
+            (time.monotonic() - _step_start) * 1000
+        )
+        _step_start = time.monotonic()
+        # CORE-READY condition "maintenance-active" means the maintenance
+        # services are activated and running their loops — the deferred
+        # startup duty pass reports through _last_report/health monitoring
+        # once it completes; it is not an activation gate.
+        startup_ok = bool(
+            getattr(app.main_system_self_maintenance, "_running", False)
+        )
         app.maintenance_ready = startup_ok
         if app.governance is not None:
             app.governance.maintenance_ready = startup_ok
@@ -240,6 +267,10 @@ class SystemSovereignService:
             )
         except Exception as error:
             app._record_startup_failure("system_sovereign", error)
+        step_timings["system-sovereign-and-subsovereigns_ms"] = int(
+            (time.monotonic() - _step_start) * 1000
+        )
+        app._startup_step_timings = step_timings
         app._mark_startup_phase("sovereign_initialized")
         return startup_ok
 
@@ -347,11 +378,11 @@ class SystemSovereignService:
             if result
         ]
 
-        # Coordinate (read-only) the maintenance and permission sovereigns
-        # already started by the app.
-        maintenance_sovereign = getattr(self.app, "maintenance_sovereign", None)
-        permission_sovereign = getattr(self.app, "permission_sovereign", None)
-
+        # E173: the startup report is an activation receipt — role names,
+        # failures, and dependency state only.  Full status trees
+        # (orchestration_status/live_status) are served on demand by
+        # status()/orchestration_status(); composing them inline here would
+        # burn the phase budget on reporting, not activation.
         report = {
             "ok": len(self._startup_failures) == 0,
             "sovereign": "system-sovereign",
@@ -360,25 +391,15 @@ class SystemSovereignService:
             "execution_delegation": "governed-executor-only",
             "sub_sovereigns": sub_sovereign_roles,
             "startup_failures": list(self._startup_failures),
-            "peer_systems": {},
+            "peer_systems": {
+                "learning": getattr(
+                    self.learning_system_sovereign, "_started", False
+                ),
+                "programming": getattr(
+                    self.system_programming_sovereign, "_started", False
+                ),
+            },
             "health_owner": "maintenance-sovereign",
-            "governance_rules": self.governance_rule_coordination.orchestration_status(),
-            "runtime": self.runtime_sovereign.orchestration_status(),
-            "maintenance": (
-                maintenance_sovereign.live_status()
-                if maintenance_sovereign is not None
-                else {"enabled": False}
-            ),
-            "permission": (
-                permission_sovereign.orchestration_status()
-                if permission_sovereign is not None
-                else {"enabled": False}
-            ),
-            "resource": self.resource_sovereign.orchestration_status(),
-            "data": self.data_sovereign.orchestration_status(),
-            "integration": self.integration_sovereign.orchestration_status(),
-            "language_review": self.language_review_sovereign.orchestration_status(),
-            "third_party": self.third_party_sovereign.orchestration_status(),
             "sources": [
                 {"kind": "env", "name": "GPTBRIDGE_STARTUP_STATE"},
                 {

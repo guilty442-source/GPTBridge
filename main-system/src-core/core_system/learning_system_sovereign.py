@@ -36,7 +36,16 @@ class LearningSystemSovereign:
         self._store = RepairLearningStore(root / "main-system" / "data" / "automatic-repair")
         self._learner = RepairLearner(self._store)
         self._started = True
-        return self.status()
+        # E173: activation returns a light receipt — analyze_history()
+        # runs on demand in status(), not on the startup critical path.
+        return {
+            "ok": True,
+            "role": self.ROLE,
+            "started": self._started,
+            "duties": list(_DECLARATION.duties),
+            "execution": "governed-executor-only",
+            "persistence": "repair-learning-sqlite",
+        }
 
     async def stop(self) -> None:
         self._started = False

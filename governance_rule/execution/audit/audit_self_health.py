@@ -18,23 +18,21 @@ SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
         # ── shared-layer (central SQL index + channel) ────────────────
         "shared-layer/tests/test_shared_layer.py",
         # ── local-model / xingcheng (native model platform) ──────────
-        "local-model/tests/test_xingcheng.py",
-        # ── local-model / model-dialogue / star-chat ─────────────────
-        "local-model/model-dialogue/tests/test_star_chat.py",
+        "Standalone tools/local-model/tests/test_xingcheng.py",
         # ── global-cleaner (backup + cleanup infrastructure) ─────────
-        "global-cleaner/tests/test_global_cleaner.py",
+        "Standalone tools/global-cleaner/tests/test_global_cleaner.py",
         # ── ai-collaboration (governed browser automation) ───────────
-        "ai-collaboration/tests/test_ai_collaboration.py",
+        "Standalone tools/ai-collaboration/tests/test_ai_collaboration.py",
         # ── ai-assistant (investment + assistant UI) ─────────────────
-        "ai-assistant/tests/test_ai_assistant.py",
+        "Standalone tools/ai-assistant/tests/test_ai_assistant.py",
         # ── vaultly (encryption + vault) ─────────────────────────────
-        "vaultly/tests/test_vaultly.py",
+        "Standalone tools/vaultly/tests/test_vaultly.py",
         # ── file-sorter (governed file sorting) ──────────────────────
-        "file-sorter/tests/test_file_sorter.py",
+        "Standalone tools/file-sorter/tests/test_file_sorter.py",
         # ── system-rescue (central repair + packaging) ───────────────
-        "system-rescue/tests/test_system_rescue.py",
+        "Standalone tools/system-rescue/tests/test_system_rescue.py",
         # ── investment-mobile (mobile channel) ───────────────────────
-        "investment-mobile/tests/test_investment_mobile.py",
+        "Standalone tools/investment-mobile/tests/test_investment_mobile.py",
     }
 )
 
@@ -46,7 +44,8 @@ def _declared_self_health_test_files(
     declared_files = {"main-system/tests/test_main_system.py"}
     manifest_paths = [
         *root.glob("*/manifest.json"),
-        *root.glob("*/*/manifest.json"),
+        *root.glob("Standalone tools/*/manifest.json"),
+        *root.glob("Standalone tools/*/*/manifest.json"),
     ]
     for manifest_path in sorted(set(manifest_paths)):
         try:

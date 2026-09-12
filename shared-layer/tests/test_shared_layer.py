@@ -16,14 +16,14 @@ for _p in (
     str(_ROOT / "main-system" / "src-core"),
     str(_ROOT / "main-system"),
     str(_ROOT / "main-system" / "src" / "backend" / "services"),
-    str(_ROOT / "local-model" / "src" / "backend" / "services"),
-    str(_ROOT / "global-cleaner" / "src"),
-    str(_ROOT / "ai-assistant" / "src"),
-    str(_ROOT / "ai-assistant" / "src" / "backend" / "services"),
-    str(_ROOT / "ai-collaboration" / "src" / "backend" / "services"),
-    str(_ROOT / "file-sorter" / "src" / "backend" / "services"),
-    str(_ROOT / "investment-mobile" / "src" / "backend" / "services"),
-    str(_ROOT / "vaultly" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "local-model" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "global-cleaner" / "src"),
+    str(_ROOT / "Standalone tools" / "ai-assistant" / "src"),
+    str(_ROOT / "Standalone tools" / "ai-assistant" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "ai-collaboration" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "file-sorter" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "investment-mobile" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "vaultly" / "src" / "backend" / "services"),
 ):
     if _p not in sys.path:
         sys.path.insert(0, _p)
@@ -99,6 +99,7 @@ def test_local_rag_runtime_is_fixed_location(tmp_path: Path) -> None:
         0,
         str(
             ROOT.parent
+            / "Standalone tools"
             / "local-model"
             / "src"
             / "backend"
@@ -122,6 +123,7 @@ def test_local_hits_require_authorization_and_no_content_payload() -> None:
         0,
         str(
             ROOT.parent
+            / "Standalone tools"
             / "local-model"
             / "src"
             / "backend"
@@ -157,7 +159,7 @@ def test_no_installer_or_docker_dependency_in_python_core() -> None:
 
 
 def test_xingcheng_self_database_write_is_executor_only() -> None:
-    manifest = json.loads((ROOT.parent / "local-model" / "manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads((ROOT.parent / "Standalone tools" / "local-model" / "manifest.json").read_text(encoding="utf-8"))
     star = manifest["capabilities"]["xingcheng"]["star_native_model_permissions"]
     assert star["database_write"] is True
     assert star["database_write_scope"] == "xingcheng-model-internal-unrestricted-excluding-permission-data"

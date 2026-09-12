@@ -150,7 +150,7 @@ class PhaseMixin:
             # Search known locations for the Qdrant binary.
             workspace = getattr(self, "workspace_root", None) or Path.cwd()
             candidates = [
-                workspace / "local-model" / "runtime" / "qdrant" / "bin" / "qdrant.exe",
+                workspace / "Standalone tools" / "local-model" / "runtime" / "qdrant" / "bin" / "qdrant.exe",
                 Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "qdrant" / "qdrant.exe",
             ]
             qdrant_exe = next((c for c in candidates if c.is_file()), None)

@@ -171,41 +171,80 @@ class GPTBridgeApp:
         self._log({"type": "startup_failure", **failure})
 
     async def initialize(self) -> None:
-        """Initialize the mother process with lifecycle and update capabilities only."""
+        """Initialize the mother process via the certified startup DAG.
 
-        project_root = self.project_root
+        A192/E167: the backend startup sequence is owned by the startup
+        sovereign executor — the certified manifest declares the phase
+        order, per-phase budgets, and the single monotonic deadline
+        (P110/E173).  Required-phase failure aborts the generation and
+        reverse-cleans activated nodes; core-ready produces a
+        proof-bound handoff to the system-runtime sovereign (A194/E169).
+
+        Phase architecture (A192 - 3 capabilities):
+        - CAPABILITY 1 (boot_core): phases 0-5 (bootstrap + dependency DAG)
+        - CAPABILITY 2 (startup_executor): phase 6 + readiness handoff
+        - CAPABILITY 3 (startup_executor): reverse cleanup on failure
+
+        If GPTBRIDGE_STARTUP_STATE is set by boot_core, phases 0-5 are
+        already complete; we only run CAPABILITY 2 (startup_executor).
+        Otherwise (standalone mode), we run the full sequence.
+        """
+
+        # A40/E26: the launcher attestation is consumed at first valid load —
+        # the governance authority bootstrap precedes the certified phase DAG.
         if self.governance is None:
-            self.governance = MainSystemGovernance.from_environment(project_root)
-        if self.task_queue is None:
-            self.task_queue = TaskQueue(project_root, self.core_logger)
-        if self.permission_sovereign is None:
-            self.permission_sovereign = PermissionSovereign(
-                self,
-                governance=self.governance,
-            )
-        if self.toolbox_service is None:
-            self.toolbox_service = ToolboxService(
-                project_root,
-                governance=self.governance,
-                permission_sovereign=self.permission_sovereign,
-            )
-        if self.runtime_status_service is None:
-            self.runtime_status_service = RuntimeStatusService(self)
+            self.governance = MainSystemGovernance.from_environment(self.project_root)
 
-        # A67: initialize the repair coordinator to prevent duplicate repair
-        # owners (boot_core watchdog + frontend restart).
-        from tasks.repair_coordinator import init_repair_coordinator
-        init_repair_coordinator(project_root)
+        # Check if boot_core has already completed phases 0-5
+        startup_state = os.environ.get("GPTBRIDGE_STARTUP_STATE", "")
+        generation_id = os.environ.get("GPTBRIDGE_STARTUP_GENERATION", "")
 
-        try:
-            await self.runtime_bootstrap.initialize_main()
-        except Exception as error:
-            self._record_startup_failure("runtime_bootstrap", error)
+        if startup_state in ("READY", "DEGRADED"):
+            # CAPABILITY 1 already complete — run CAPABILITY 2 only
+            self._mark_startup_phase("capability-2-startup-executor")
+            from core_system.startup_executor import StartupSovereignExecutor
 
-        # A63/A64: GPTBridgeApp 不再直接 materialize 主宰，而是把整個
-        # 主宰啟動序列分派給 SystemSovereignService 執行。該服務依序啟動
-        # 維護主宰、權限主宰、主系統自我維護，最後啟動系統主宰與其子主宰。
-        startup_ok = await self.system_sovereign_service.start_sovereign_stack()
+            executor = StartupSovereignExecutor(self)
+            # Inject the generation ID from boot_core for continuity
+            result = await executor.run(generation_id=generation_id)
+            startup_ok = result.ok
+            if not startup_ok:
+                self._record_startup_failure(
+                    result.failure_phase or "startup-generation",
+                    RuntimeError(
+                        ";".join(result.violations)
+                        or next(
+                            (p.error for p in result.phases if p.error),
+                            "startup-generation-failed",
+                        )
+                    ),
+                )
+                # E155 PARTIAL-READY:none — a failed generation must not start
+                # post-handoff runtime duties (watchers, hot-update, isolation
+                # monitor).  The listener stays up in degraded mode via
+                # run_server; the executor already ran reverse cleanup and set
+                # startup_dead.
+                return
+        else:
+            # Standalone mode — run full startup sequence (CAPABILITY 1 + 2)
+            self._mark_startup_phase("full-startup-sequence")
+            from core_system.startup_executor import StartupSovereignExecutor
+
+            executor = StartupSovereignExecutor(self)
+            result = await executor.run()
+            startup_ok = result.ok
+            if not startup_ok:
+                self._record_startup_failure(
+                    result.failure_phase or "startup-generation",
+                    RuntimeError(
+                        ";".join(result.violations)
+                        or next(
+                            (p.error for p in result.phases if p.error),
+                            "startup-generation-failed",
+                        )
+                    ),
+                )
+                return
 
         # Automated hot-reload watcher — requests a governed, module-scoped
         # reload through the maintenance sovereign when backend source changes

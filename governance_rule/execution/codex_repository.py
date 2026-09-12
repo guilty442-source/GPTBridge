@@ -169,7 +169,34 @@ def _load_codex_directories(
     return directories
 
 
+_codex_cache: dict[tuple[str, int, int], GovernanceCodex] = {}
+
+
 def load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
+    """Load the authoritative codex, cached on the database file's mtime.
+
+    Status surfaces rebuild the sovereign tree per request and each
+    ``decision_basis`` call re-reads all codex tables; caching keyed on
+    ``st_mtime_ns`` keeps dynamic amendments visible (a codex write changes
+    the mtime) while collapsing repeated full loads within one report.
+    """
+    try:
+        stat_result = Path(path).stat()
+        key = (str(Path(path).resolve()), stat_result.st_mtime_ns, stat_result.st_size)
+    except OSError:
+        key = None
+    if key is not None:
+        cached = _codex_cache.get(key)
+        if cached is not None:
+            return cached
+    codex = _load_governance_codex(path)
+    if key is not None:
+        _codex_cache.clear()
+        _codex_cache[key] = codex
+    return codex
+
+
+def _load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
     connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro&immutable=1", uri=True)
     connection.row_factory = sqlite3.Row
     try:

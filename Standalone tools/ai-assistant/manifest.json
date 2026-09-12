@@ -1,0 +1,149 @@
+{
+  "id": "ai-assistant",
+  "name_key": "tool.name",
+  "description_key": "tool.description",
+  "version": "1.0.0",
+  "display_version": "1.0",
+  "shared_permission_profile": "ai-investment-manager-v1",
+  "shared_code_root": "Standalone tools/ai-assistant",
+  "managed_backup_storage": "global-cleaner/data/business/backups/ai-assistant",
+  "status": "stopped",
+  "enabled": true,
+  "has_custom_ui": true,
+  "permissions": {
+    "profile": "ai-investment-manager-v1",
+    "business_permission_owner": "ai-assistant",
+    "code_scope": "tool-root-only",
+    "database_scope": "tool-database-only",
+    "allow_modify": [
+      "own-data"
+    ],
+    "deny": [
+      "main-program",
+      "other-tools"
+    ]
+  },
+  "entry": "Standalone tools/ai-assistant/src/main",
+  "runtime": {
+    "type": "python",
+    "entry": "src/main.py",
+    "workingDirectory": "."
+  },
+  "request_channel": {
+    "model": "governance-authenticated-shared-layer",
+    "runtime_entry": "src/channel_runtime.py",
+    "direct_instruction": "PERMISSION_DENIED"
+  },
+  "executable": {
+    "path": "build/ai-assistant.exe"
+  },
+  "distribution": {
+    "mode": "dual-runtime",
+    "package": true
+  },
+  "launch": {
+    "mode": "dual-runtime",
+    "selection": "automatic",
+    "runtimes": [
+      "governed-source-ui",
+      "executable"
+    ],
+    "primary": "governed-source-channel",
+    "background": "governed-source-channel",
+    "close_program_on_window_exit": true
+  },
+  "capabilities": {
+    "investment-manager": {
+      "shared_mobile_source_root": "investment-mobile",
+      "shared_mobile_permission_profile": "ai-investment-manager-v1",
+      "mobile_runtime_independent": true,
+      "mobile_independent_only_in": "main-system",
+      "mobile_business_layer_owner": "ai-assistant",
+      "mobile_settings_owner": "ai-assistant",
+      "separate_mobile_business_layer": false,
+      "separate_mobile_settings_layer": false,
+      "authority": "portfolio-state-and-tool-settings-only",
+      "data_scope": "tool-database-only",
+      "conversation_entry": "ai-assistant-window-only",
+      "conversation_isolated_from": "star-chat",
+      "context_isolation": "independent-investment-session",
+      "model_selection": "automatic-only-no-manual-picker",
+      "primary_business_models": [
+        "ibm/granite4.2:30b-q4_K_M"
+      ],
+      "dynamic_escalation_models": [
+        "qwen3:30b-a3b-instruct-2507-q4_K_M",
+        "deepseek-r1:8b-0528-qwen3-q4_K_M",
+        "qwen3.8:27b-q4_K_M"
+      ],
+      "model_dispatch_owner": "ai-assistant",
+      "entry_gateway": "ai-assistant",
+      "parameter_scope": "investment-manager-only",
+      "market_search_owner": "embedded-browser",
+      "market_search_owner_label": "內建瀏覽器",
+      "realtime_information_search_owner": "embedded-browser",
+      "realtime_information_search_owner_label": "內建瀏覽器",
+      "realtime_information_search_scope": [
+        "dividends",
+        "prices",
+        "net-asset-values",
+        "other-current-market-information"
+      ],
+      "investment_analysis_owner": "ollama",
+      "accounting_owner": "ai-assistant",
+      "accounting_mode": "browser-autonomous-decision-ai-assistant-validated-write",
+      "computation_service_owner": "xingcheng-via-information-layer",
+      "statistics_service_owner": "xingcheng-via-information-layer",
+      "net_asset_value_update_owner": "ollama-via-information-layer",
+      "stock_price_update_owner": "ollama-via-information-layer",
+      "dividend_update_owner": "ollama-via-information-layer",
+      "symbol_resolution_owner": "ollama-via-information-layer",
+      "network_search_service_owner": "embedded-browser",
+      "backend_service_provider": "ai-assistant",
+      "discussion_path": "ai-assistant-to-ai-collaboration-to-ai-assistant",
+      "discussion_response_recipient": "ai-assistant",
+      "network_access": "embedded-browser-view",
+      "service_provider": "embedded-browser-view",
+      "external_ai_role": "ai-collaboration",
+      "ai_authority": "ai-assistant-under-governance-rule"
+    },
+    "ai-connections": {
+      "transport": "governance-authenticated-ai-channel",
+      "channel": "shared-layer/ai-channel",
+      "peers": [
+        "ai-collaboration"
+      ],
+      "allowed_target": "ai-collaboration",
+      "external_ai": "ai-collaboration",
+      "queue_when_offline": false,
+      "share_database": false,
+      "external_ai_api": false,
+      "direct_cross_tool_connection": false,
+      "browser_inference": true,
+      "embedded_browser": {
+        "owner_module": "ai-assistant",
+        "product": "embedded-browser-view",
+        "mode": "in-app-browser",
+        "purpose": "investment-network-search-and-external-ai",
+        "network_access": "embedded-browser-view"
+      }
+    }
+  },
+  "environment": {
+    "allow": [
+      "GPTBRIDGE_AI_ASSISTANT_DATA_ROOT",
+      "GPTBRIDGE_AI_ASSISTANT_PROFILE"
+    ]
+  },
+  "test_targets": [
+    "tests/test_ai_assistant.py"
+  ],
+  "window": {
+    "width": 1440,
+    "height": 920,
+    "minWidth": 1120,
+    "minHeight": 760,
+    "title_key": "tool.window_title"
+  },
+  "main_system_independent_tool": true
+}

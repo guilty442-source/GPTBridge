@@ -7,7 +7,7 @@ from typing import Final
 
 SHARED_LAYER_ROOT: Final[str] = "shared-layer/src/shared_layer"
 AI_ASSISTANT_PACKAGE_ROOT: Final[str] = (
-    "ai-assistant/src/backend/services/ai_nexus"
+    "Standalone tools/ai-assistant/src/backend/services/ai_nexus"
 )
 AI_ASSISTANT_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application", "domain", "infrastructure", "integration"}
@@ -19,46 +19,46 @@ AI_ASSISTANT_FORBIDDEN_NETWORK_PATTERNS: Final[dict[str, re.Pattern[str]]] = {
     "smtp": re.compile(r"^\s*(?:from|import)\s+smtplib(?:\.|\s|$)", re.MULTILINE),
     "urllib-request": re.compile(r"urllib\.request|\burlopen\s*\(", re.MULTILINE),
 }
-XINGCHENG_PACKAGE_ROOT: Final[str] = "local-model/src/backend/services/xingcheng"
+XINGCHENG_PACKAGE_ROOT: Final[str] = "Standalone tools/local-model/src/backend/services/xingcheng"
 XINGCHENG_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application", "domain", "infrastructure", "integration"}
 )
 AI_COLLABORATION_PACKAGE_ROOT: Final[str] = (
-    "ai-collaboration/src/backend/services/ai_collaboration"
+    "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration"
 )
 AI_COLLABORATION_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application", "domain", "infrastructure", "integration"}
 )
 INVESTMENT_MOBILE_PACKAGE_ROOT: Final[str] = (
-    "investment-mobile/src/backend/services/investment_mobile"
+    "Standalone tools/investment-mobile/src/backend/services/investment_mobile"
 )
 INVESTMENT_MOBILE_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application", "domain", "infrastructure", "integration", "presentation"}
 )
 FILE_SORTER_PACKAGE_ROOT: Final[str] = (
-    "file-sorter/src/backend/services/file_sorter"
+    "Standalone tools/file-sorter/src/backend/services/file_sorter"
 )
 FILE_SORTER_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application", "domain", "infrastructure"}
 )
 GLOBAL_CLEANER_PACKAGE_ROOT: Final[str] = (
-    "global-cleaner/src/backend/services/project_cleaner"
+    "Standalone tools/global-cleaner/src/backend/services/project_cleaner"
 )
 GLOBAL_CLEANER_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application", "domain", "infrastructure"}
 )
-VAULTLY_PACKAGE_ROOT: Final[str] = "vaultly/src/backend/services/vaultly"
+VAULTLY_PACKAGE_ROOT: Final[str] = "Standalone tools/vaultly/src/backend/services/vaultly"
 VAULTLY_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application", "domain", "infrastructure", "integration"}
 )
 STAR_CHAT_PACKAGE_ROOT: Final[str] = (
-    "local-model/model-dialogue/src/backend/services/star_chat"
+    "Standalone tools/local-model/model-dialogue/src/backend/services/star_chat"
 )
 STAR_CHAT_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application"}
 )
 SYSTEM_RESCUE_PACKAGE_ROOT: Final[str] = (
-    "system-rescue/src/backend/services/system_rescue"
+    "Standalone tools/system-rescue/src/backend/services/system_rescue"
 )
 SYSTEM_RESCUE_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"integration"}
@@ -81,6 +81,9 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "service_probe.py",
         "resilient_store.py",
         "tool_codenames.py",
+        "auto_repair_chain.py",
+        "channel_runtime.py",
+        "architecture_boundary.py",
     }
 )
 SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (
@@ -129,13 +132,13 @@ REQUIRED_OWNED_SOURCES: Final[dict[str, frozenset[str]]] = {
     ),
     "ai-collaboration": frozenset(
         {
-            "ai-collaboration/src/backend/services/ai_collaboration/integration/provider_gateway.py",
-            "ai-collaboration/src/backend/services/ai_collaboration/domain/task_protocol.py",
+            "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/provider_gateway.py",
+            "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/domain/task_protocol.py",
         }
     ),
     "investment-mobile": frozenset(
         {
-            "investment-mobile/src/backend/services/investment_mobile/integration/channel_client.py",
+            "Standalone tools/investment-mobile/src/backend/services/investment_mobile/integration/channel_client.py",
         }
     ),
 }
@@ -152,15 +155,15 @@ FORBIDDEN_LEGACY_BUSINESS_SOURCES: Final[frozenset[str]] = frozenset(
     }
 )
 OWNED_IMPORT_PREFIXES: Final[dict[str, str]] = {
-    "ai_collaboration": "ai-collaboration",
-    "ai_nexus": "ai-assistant",
-    "file_sorter": "file-sorter",
-    "investment_mobile": "investment-mobile",
-    "xingcheng": "local-model",
-    "project_cleaner": "global-cleaner",
-    "vaultly": "vaultly",
-    "star_chat": "local-model",
-    "system_rescue": "system-rescue",
+    "ai_collaboration": "Standalone tools/ai-collaboration",
+    "ai_nexus": "Standalone tools/ai-assistant",
+    "file_sorter": "Standalone tools/file-sorter",
+    "investment_mobile": "Standalone tools/investment-mobile",
+    "xingcheng": "Standalone tools/local-model",
+    "project_cleaner": "Standalone tools/global-cleaner",
+    "vaultly": "Standalone tools/vaultly",
+    "star_chat": "Standalone tools/local-model",
+    "system_rescue": "Standalone tools/system-rescue",
 }
 
 
@@ -208,7 +211,9 @@ def source_ownership_errors(project_root: Path) -> list[str]:
         )
         for prefix in OWNED_IMPORT_PREFIXES
     }
-    for source in root.glob("*/src/**/*.py"):
+    sources_to_scan = list(root.glob("*/src/**/*.py"))
+    sources_to_scan.extend(root.glob("Standalone tools/*/src/**/*.py"))
+    for source in sources_to_scan:
         relative = source.relative_to(root).as_posix()
         try:
             content = source.read_text(encoding="utf-8")
@@ -295,9 +300,9 @@ def source_ownership_errors(project_root: Path) -> list[str]:
                 f"{source.relative_to(root).as_posix()}"
             )
     legacy_file_sorter_sources = (
-        "file-sorter/src/cleanup.py",
-        "file-sorter/src/sorter_v2.py",
-        "file-sorter/src/backend/automation_service.py",
+        "Standalone tools/file-sorter/src/cleanup.py",
+        "Standalone tools/file-sorter/src/sorter_v2.py",
+        "Standalone tools/file-sorter/src/backend/automation_service.py",
     )
     for relative in legacy_file_sorter_sources:
         if (root / relative).exists():
@@ -314,16 +319,16 @@ def source_ownership_errors(project_root: Path) -> list[str]:
                 f"{source.relative_to(root).as_posix()}"
             )
     legacy_cleaner_sources = (
-        "global-cleaner/src/backend/cleanup_engine.py",
-        "global-cleaner/src/backend/business_history.py",
-        "global-cleaner/src/backend/cleanup_service.py",
+        "Standalone tools/global-cleaner/src/backend/cleanup_engine.py",
+        "Standalone tools/global-cleaner/src/backend/business_history.py",
+        "Standalone tools/global-cleaner/src/backend/cleanup_service.py",
     )
     for relative in legacy_cleaner_sources:
         if (root / relative).exists():
             errors.append(f"legacy global-cleaner source remains: {relative}")
 
     cleaner_owned_sources = list(cleaner_package.rglob("*.py"))
-    cleaner_rules = root / "global-cleaner/src/backend/services/project_cleaner/domain/cleanup_rules.json"
+    cleaner_rules = root / "Standalone tools/global-cleaner/src/backend/services/project_cleaner/domain/cleanup_rules.json"
     if cleaner_rules.is_file():
         cleaner_owned_sources.append(cleaner_rules)
     for source in cleaner_owned_sources:
@@ -392,7 +397,7 @@ def source_ownership_errors(project_root: Path) -> list[str]:
     for relative in legacy_main_business_sources:
         if (root / relative).exists():
             errors.append(f"main system contains tool-owned source: {relative}")
-    if not (root / "ai-assistant/scripts/visual_smoke.py").is_file():
+    if not (root / "Standalone tools/ai-assistant/scripts/visual_smoke.py").is_file():
         errors.append("AI assistant visual smoke source is missing from its owner")
     for source in (root / "main-system/src-core").rglob("*.py"):
         relative = source.relative_to(root).as_posix()
