@@ -321,6 +321,9 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
                 if snapshot is not None:
                     status_payload = snapshot.as_dict()
                     status_payload["systemReady"] = snapshot.overall_ready
+                    status_payload["maintenance_ready"] = bool(
+                        getattr(app_instance, "maintenance_ready", False)
+                    )
                     status_payload["push"] = True
                     dead: list[UIShell] = []
                     for ui in list(shells):
