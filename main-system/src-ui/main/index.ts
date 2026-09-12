@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from './electron-shim'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'

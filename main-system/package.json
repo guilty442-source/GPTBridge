@@ -4,7 +4,7 @@
   "description": "GPTBridge Windows 11 Stable Baseline",
   "private": true,
   "author": "GPTBridge Development Team",
-  "main": "dist-ui/main/index.js",
+  "main": "electron-wrapper.js",
   "scripts": {
     "start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1",
     "dev": "node scripts/dev.mjs",
@@ -53,7 +53,8 @@
     "madge": "^8.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "vite": "^7.3.3"
+    "vite": "^7.3.3",
+    "vite-plugin-electron": "^1.1.2"
   },
   "build": {
     "appId": "com.gptbridge.auto-agent-ide",
