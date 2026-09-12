@@ -1,5 +1,5 @@
 {
-  "codex_version": "4.11600",
+  "codex_version": "4.21600",
   "tables": {
     "access_actor_classes": [
       {
@@ -2042,6 +2042,15 @@
         "rule": "Standalone tools 是位於 E:\\GPTBridge\\Standalone tools 的獨立工具頂層資料夾。它是獨立工具的正式架構容器，本身不是單一工具、共用執行個體或監督程序。其下每個已登錄工具仍是不同個體，分別擁有責任者、生命週期、執行環境、故障、資料、維修、更新及關閉邊界。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用均須使用此正式定位與路徑。",
         "prohibition": "禁止把 Standalone tools 視為單一工具、共用執行個體、共用監督者、共用故障域或 main-system 子模組；禁止合併子工具身份或跨工具控制生命週期、資料、維修、更新與關閉。",
         "exception": "只有透過已登錄治理介面的唯讀共用基礎設施得共用；不得因此合併各工具的所有權、狀態、生命週期或故障邊界。"
+      },
+      {
+        "position": 279,
+        "provision_id": "A279",
+        "section_index": "9",
+        "subject": "Governance Codex 法典資料夾定位條例",
+        "rule": "Governance Codex 是位於 E:\\GPTBridge\\governance_rule\\codex 的法典資料夾，正式名稱為 governance-codex。其範圍包含官方機器法典、僅供星澄查閱的機密中文法典及法典存取邊界，由治理權威唯一主宰。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用均須使用此定位與精確路徑。",
+        "prohibition": "禁止把 Governance Codex 視為一般文件資料夾、建立替代權威法典、未授權寫入或由執行期自行修法；中文法典除星澄外不得被引用、鏡像、匯出或透露。",
+        "exception": "已認證工具得透過受治理的法典儲存庫介面讀取官方機器法典，但不因此取得直接修改檔案的權限。"
       }
     ],
     "certification_evidence": [
@@ -2306,6 +2315,13 @@
       },
       {
         "version": "4.11600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "4.21600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2612,6 +2628,13 @@
         "version": "4.11600",
         "recorded_at_utc": "2026-09-12T00:34:34Z",
         "recorded_at_local": "2026-09-12T08:34:34+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "codex-successor-sealed"
+      },
+      {
+        "version": "4.21600",
+        "recorded_at_utc": "2026-09-12T00:37:35Z",
+        "recorded_at_local": "2026-09-12T08:37:35+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed"
       }
@@ -10051,6 +10074,12 @@
         "provision_id": "A278",
         "effective_version": "4.11600",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A279",
+        "effective_version": "4.21600",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -14857,7 +14886,7 @@
       },
       {
         "key": "codex_version",
-        "value": "4.11600"
+        "value": "4.21600"
       },
       {
         "key": "schema",
@@ -15700,6 +15729,28 @@
         "manual_codes": "",
         "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
         "introduced_version": "4.11600",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "GOVERNANCE_CODEX",
+        "canonical_name": "governance-codex",
+        "entity_kind": "codex-directory",
+        "owner": "permission-sovereign",
+        "parent_code": "PROJECT_GPTBRIDGE",
+        "physical_root": "E:\\GPTBridge\\governance_rule\\codex",
+        "logical_boundary": "official governance codex directory and protected authority boundary",
+        "responsibilities": "store and expose the official machine codex plus confidential Xingcheng-only Chinese codex through governed access",
+        "dependencies": "governance authority|permission directory|governed codex repository",
+        "interfaces": "governance-codex://official|governed repository read interface",
+        "data_authority": "codex database is authoritative; Chinese codex is confidential to Xingcheng",
+        "runtime_boundary": "non-runtime protected governance directory",
+        "failure_boundary": "tamper failure is isolated and fails governance closed",
+        "permission_scope": "governance-codex-read|human-governor-amendment-only",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "GOVERNANCE_CODEX_TAMPER",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "4.21600",
         "retired_version": null
       }
     ],
@@ -19173,6 +19224,13 @@
         "identity_code": "ARTICLE_A278",
         "provision_type": "article",
         "provision_id": "A278",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A279",
+        "provision_type": "article",
+        "provision_id": "A279",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -22649,6 +22707,13 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A184|A227|A266"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A279",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A1|A227|A253"
       }
     ],
     "provision_lineage": [
@@ -26619,6 +26684,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "70b00ae2608aa6b5c9468dab51fd16acab03cbc7298b14122d74ece0a5e010e9"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A279",
+        "introduced_by": "H040",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "cccaa112870b2508ae8e30db59474cba4dd60b60a0cf129701f51dd312ce60d8"
       }
     ],
     "provision_revisions": [
@@ -30644,6 +30717,14 @@
         "revision_id": "H039",
         "version": "4.11600",
         "content_hash": "cf2c27f391d38abb4d87ed012589a8664d05cd03b6759ea8d65aeb4c7fb12a10",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A279",
+        "revision_id": "H040",
+        "version": "4.21600",
+        "content_hash": "cccaa112870b2508ae8e30db59474cba4dd60b60a0cf129701f51dd312ce60d8",
         "certification_status": "external-signatures-required"
       }
     ],
@@ -35739,6 +35820,16 @@
         "summary": "registered E:\\GPTBridge\\Standalone tools as the independent-tools top-level directory and fixed the main-system physical path as E:\\GPTBridge\\main-system",
         "previous_hash": "bad2ef1ebd18fb29ae54a80760c45e4849bce8e6048d1eb2d53504ed5ff6242e",
         "entry_hash": "a70d525b2ec541bb72a6b057fdb8e054ddcac6b6a3ecca408b4a35a78f41ca5a"
+      },
+      {
+        "sequence": 40,
+        "change_id": "H040",
+        "version": "4.21600",
+        "recorded_date": "2026-09-12",
+        "change_scope": "governance-codex-directory-classification",
+        "summary": "registered Governance Codex as the codex directory at E:\\GPTBridge\\governance_rule\\codex",
+        "previous_hash": "a70d525b2ec541bb72a6b057fdb8e054ddcac6b6a3ecca408b4a35a78f41ca5a",
+        "entry_hash": "868bc902322acffe2e46e3bb3f09d1692812bf031dbe2da43e9e501f6c4e7eb1"
       }
     ],
     "savings": [
@@ -36190,6 +36281,17 @@
         "content_root": "3cedf2eada57c9ee5508aa9a853961cac23698efe6c29bb467e3c02e15bbe46a",
         "identity_root": "c053cf9c06821a0337893132a300da251dc02790c1ef6f31d439fc672d926534",
         "full_root": "c2eabb90521547a4fb38edebc6fa991ab175cee896c28b7467d91b196a065c24"
+      },
+      {
+        "version": "4.21600",
+        "history_head": "H040",
+        "provision_count": 497,
+        "identity_count": 497,
+        "lineage_count": 497,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "4e1b724193ea5dbaa0ae2ca5f4423a9435b34ef55dd8044bb1b60d5617db83e6",
+        "identity_root": "c8c46c9460def7db5a509343d9d65aea82d8b72172938e84e8ce433525e49b83",
+        "full_root": "4ea171580253c701d094057e91b93329b526220b5ad4b0f4b3df64449d8b24c9"
       }
     ],
     "sealed_components": [
@@ -38140,6 +38242,56 @@
       },
       {
         "version": "4.11600",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.21600",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.21600",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.21600",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.21600",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.21600",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.21600",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.21600",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.21600",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.21600",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.21600",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -40428,6 +40580,14 @@
       },
       {
         "version": "4.11600",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "4.21600",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
