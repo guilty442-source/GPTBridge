@@ -1,1 +1,0 @@
-{"identity":"system-runtime-sovereign","name":"system-runtime-sovereign","owner_folder":"system-runtime-sovereign","codex_entry":"governance-codex://official","duties_source":"sovereign_duties:system-runtime-sovereign","implementation_entries":["../../runtime_sub_sovereign.py"],"state":"active"}

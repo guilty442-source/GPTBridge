@@ -1,1 +1,0 @@
-{"identity":"permission-sovereign","name":"system-permission-sovereign","owner_folder":"system-permission-sovereign","codex_entry":"governance-codex://official","duties_source":"sovereign_duties:permission-sovereign","implementation_entries":["../../permission_sovereign.py"],"special_status":"independent","state":"active"}
