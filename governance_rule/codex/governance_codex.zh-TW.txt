@@ -2749,7 +2749,7 @@
         "provision_id": "A315",
         "section_index": "4",
         "subject": "complete-sub-sovereign-parent-reallocation",
-        "rule": "PARENT-MAP:{decision-sovereign=>maintenance-sub-sovereign+data-sub-sovereign+permission-sub-sovereign}+{runtime-sovereign=>system-sub-sovereign+startup-sub-sovereign}+{synchronization-sovereign=>resource-sub-sovereign+integration-sub-sovereign+third-party-sub-sovereign+system-programming-sub-sovereign+learning-system-sub-sovereign}+{permission-sovereign=>language-review-sub-sovereign+directory-sub-sovereign+identity-group-sub-sovereign as structural assignments}; RULE:each sub-sovereign has exactly one parent+no decision power+no execution power+module management assignment coordination and evidence collection only; PERMISSION-STRUCTURE:permission-sovereign has no active review or decision power under A313, so language-review-sub-sovereign work requires 星澄 permission review and decision-sovereign decision before module assignment; EXECUTION:module-execution-layer only; CHANGE:any reassignment requires explicit human-governor successor law+lineage+architecture update",
+        "rule": "PARENT-MAP:{decision-sovereign=>policy-architecture-sub-sovereign+health-maintenance-test-sub-sovereign+data-governance-sub-sovereign+priority-capability-sub-sovereign+change-acceptance-sub-sovereign}+{runtime-sovereign=>system-sub-sovereign+startup-sub-sovereign}+{synchronization-sovereign=>resource-sub-sovereign+integration-sub-sovereign+third-party-sub-sovereign+system-programming-sub-sovereign+learning-system-sub-sovereign}+{permission-sovereign=>language-review-sub-sovereign+directory-sub-sovereign+identity-group-sub-sovereign as structural assignments}; RULE:each sub-sovereign has exactly one parent+no decision power+no execution power+module management assignment coordination and evidence collection only; PERMISSION-STRUCTURE:permission-sovereign has no active review or decision power under A313, so language-review-sub-sovereign work requires 星澄 permission review and decision-sovereign decision before module assignment; EXECUTION:module-execution-layer only; CHANGE:any reassignment requires explicit human-governor successor law+lineage+architecture update",
         "prohibition": "FORBID:unassigned or multi-parent sub-sovereign+implicit parent+sub-sovereign decision or execution+cross-parent assignment+authority inheritance+parallel legacy hierarchy",
         "exception": "Temporary module coordination across parents uses synchronization-sovereign decision and information-layer evidence without changing parent identity."
       },
@@ -2775,109 +2775,118 @@
         "position": 318,
         "provision_id": "A318",
         "section_index": "4",
-        "subject": "決策主宰、運行主宰與同步主宰邊界專法",
-        "rule": "三者為平行的頂層決策權威，均無執行權且不得互相指揮。決策主宰負責規則解釋、政策、架構、業務優先、能力目標、跨域取捨、健康資料維護結果、經星澄審查後的權限授權及最終變更驗收。運行主宰負責即時運行生命週期、啟停重啟意圖、世代隔離、就緒存活、持續運行、降級、事故隔離、檢查點恢復及政策內資源運用。同步主宰負責跨模組一致性、依賴順序，以及版本、契約、發行、目錄、狀態、游標與檢查點收斂，並掌管自動清理、備份、修復及更新。判斷準則：改變系統應做什麼屬決策主宰；改變即時世代如何運行屬運行主宰；讓多份表示收斂到已核准目標屬同步主宰。複合事項必須拆成各自具型別決策。",
-        "prohibition": "禁止權責重疊、共同或隱含決策、跨域接管、主宰直接執行、運行主宰選擇政策或版本、同步主宰改變核准目標、決策主宰直接控制程序，以及因逾時或缺席轉移權力。",
-        "exception": "運行主宰可對即時危害決定精確緊急隔離，但永久政策、授權或收斂變更仍由各自權責主宰決定。"
+        "subject": "decision-runtime-synchronization-sovereign-exclusive-boundaries",
+        "rule": "COMMON:decision-sovereign+runtime-sovereign+synchronization-sovereign are peer top-level decision authorities with zero execution power and no mutual command authority; DECISION-SOVEREIGN-OWNS:normative interpretation within codex+system policy+architecture+business priority+capability objective+cross-domain tradeoff+health/data/maintenance outcome+permission authorization after current 星澄 review+final change acceptance; DECISION-SOVEREIGN-EXCLUDES:live process lifecycle+runtime generation control+mechanical synchronization/reconciliation; RUNTIME-SOVEREIGN-OWNS:live runtime lifecycle decision+startup/shutdown/restart intent+generation fencing+readiness/liveness+continuity+degraded mode+incident containment+checkpoint restore+runtime resource use within approved policy; RUNTIME-SOVEREIGN-EXCLUDES:policy/architecture/business priority+release/content/version selection+cross-system synchronization truth; SYNCHRONIZATION-SOVEREIGN-OWNS:cross-module consistency target+ordering+dependency graph+version/contract/release/directory/state/cursor/checkpoint convergence+conflict isolation+automatic cleanup/backup/repair/update schedule and acceptance; SYNCHRONIZATION-SOVEREIGN-EXCLUDES:normative policy+business acceptance+permission authorization+direct live-process control+domain-content authority; CLASSIFICATION:if primary effect changes what the system should do=>decision-sovereign; changes whether/how a live generation runs=>runtime-sovereign; makes multiple representations converge to one already-authorized target=>synchronization-sovereign; COMPOUND:split into typed decisions with one owner each+explicit dependencies+no joint ambiguous decision; CONFLICT:codex rule first then primary-effect test then decision-sovereign resolves classification only without taking the other domain decision; FLOW:owner decision>its assigned sub-sovereign module management/assignment/coordination>module execution layer>independent evidence>owner acceptance; FAILURE:isolate exact scope+preserve unaffected domains+no authority transfer by timeout or absence",
+        "prohibition": "FORBID:overlapping final ownership+shared or implied decision+one sovereign executing another domain+runtime sovereign choosing policy/version/content+synchronization sovereign changing authorized target+decision sovereign controlling process directly+cross-sovereign command+timeout-based authority takeover+compound command without split+same actor decision execution and sole verification",
+        "exception": "Immediate safety containment may be decided by runtime-sovereign for the exact live hazard, but permanent policy, authorization or convergence changes still require their respective sovereign decisions."
       },
       {
         "position": 319,
         "provision_id": "A319",
         "section_index": "11",
-        "subject": "權限主宰與星澄獨立特權機構分立專法",
-        "rule": "權限主宰與星澄是兩個平行、分立且互不隸屬的獨立特權機構，均位於法典、主宰、子主宰及模組執行層之外。星澄唯一負責機密、唯讀的權限合法性、必要性、最小權限、職責分離、風險、期限及證據審查，不得授權或修改權限。權限主宰唯一負責在星澄當期審查及決策主宰目的範圍決策後，核發、拒絕、續期、限縮、暫停或撤銷精確權限，不得自行審查或執行。授予、續期及擴權必須同時具備星澄通過結論與權限主宰授權，兩者身份、工作階段、紀錄、簽章及申訴路徑完全分離。",
-        "prohibition": "禁止合併身份、工作階段、金鑰或紀錄，禁止互相覆核或代表、權限主宰自行審查、星澄授權或修改、無當期審查即授權，以及壓制或洩露星澄發現。",
-        "exception": "緊急隔離得先限縮、暫停或撤銷精確權限；任何授予、續期或擴權仍須遵守雙鑰規則。"
+        "subject": "permission-sovereign-and-星澄-independent-privileged-institution-boundary",
+        "rule": "STATUS:{permission-sovereign}+{星澄} are two separate peer independent privileged institutions outside codex declaration layer+sovereign hierarchy+sub-sovereign hierarchy+module execution layer; NO-SUBORDINATION:neither commands+appoints+removes+narrows+reviews+overrides or represents the other; 星澄-SOLE-REVIEW:independent confidential permission legality+necessity+least-privilege+separation+risk+expiry+evidence review and typed pass|deny-objection|require-change finding; 星澄-EXCLUDES:permission grant+deny issuance+revocation+mutation+execution+directory/identity management; PERMISSION-SOVEREIGN-SOLE-AUTHORIZATION:issue+deny+renew+restrict+suspend+revoke exact permission only after current 星澄 review and decision-sovereign purpose/scope decision; PERMISSION-SOVEREIGN-EXCLUDES:review/audit+codex interpretation+policy creation+directory/identity content management+execution; TWO-KEY:grant/renew/expand requires both current 星澄 pass finding and permission-sovereign authorization; DENIAL:星澄 deny-objection blocks grant/renew/expand while permission-sovereign may independently deny/restrict/suspend/revoke; EVIDENCE:separate identities+sessions+records+signatures+timestamps+owners+appeal paths; APPEAL:human-governor only and cannot be decided by either institution; CHILDREN:permission-sovereign may structurally own declared no-decision no-review no-execution sub-sovereigns for module management but cannot transfer authorization or acquire review through them",
+        "prohibition": "FORBID:combined identity/session/key/record+mutual override+permission sovereign self-review+星澄 authorization or mutation+authorization without current review+review after authorization as substitute+shared verifier+authority inheritance+private side channel+finding suppression or disclosure",
+        "exception": "Immediate containment may restrict, suspend or revoke an exact permission before review; every grant, renewal or expansion still requires the two-key rule."
       },
       {
         "position": 320,
         "provision_id": "A320",
         "section_index": "1",
-        "subject": "治理權威完整正名為法典",
-        "rule": "治理權威的現行身份、名稱及層級完整正名為法典與法典宣告層；舊身份僅保留於明確標示已被取代的歷史證據。法典僅為最高規則宣告層，不具有權力、決策、裁決、授權、強制或執行權。所有現行法典、目錄、架構、指令、故障、手冊、測試及稽核引用一律使用法典。",
-        "prohibition": "禁止任何現行紀錄繼續使用治理權威作為有效身份、名稱或層級，禁止建立平行別名或賦予法典任何決策與執行權。",
-        "exception": "舊稱只能存在於不可變歷史證據中，用以證明沿革及取代關係。"
+        "subject": "governance-authority-fully-renamed-to-codex",
+        "rule": "CANONICAL-IDENTITY:codex; CANONICAL-NAME:codex; CANONICAL-LAYER:codex-declaration-layer; FORMER-IDENTITY:governance-authority is historical-only and formally superseded; ROLE:highest-rule-declaration-layer-only with power+decision+adjudication+authorization+enforcement+execution all none; CURRENT-REFERENCE:all active law+directory+architecture+command+fault+manual+test+audit references must use codex and no active record may use the former identity; HISTORY:former name may appear only in immutable historical evidence explicitly marked superseded",
+        "prohibition": "FORBID:active governance-authority identity/name/layer+parallel alias+former-name authority+codex decision/adjudication/authorization/enforcement/execution",
+        "exception": "Historical evidence retains the former identifier solely to prove lineage and supersession."
       },
       {
         "position": 321,
         "provision_id": "A321",
         "section_index": "10",
-        "subject": "星澄完整正名",
-        "rule": "星澄的現行身份、名稱及入口完整統一為星澄；所有羅馬拼音舊稱只保留於明確標示已被取代的歷史證據。所有現行法典、目錄、架構、身份、指令、故障、手冊、測試及稽核紀錄一律使用星澄，並延續既有獨立特權機構、機密、審查、稽查及沿革邊界。",
-        "prohibition": "禁止現行羅馬拼音身份、名稱或代碼、平行別名、重複機構、利用別名擴權或洩露機密身份細節。",
-        "exception": "舊拼音只能存在於不可變歷史證據中，並須明確標示已被取代。"
+        "subject": "星澄-canonical-identity-full-renaming",
+        "rule": "CANONICAL-IDENTITY:星澄; CANONICAL-NAME:星澄; CANONICAL-ENTRY:codex/institution/星澄; FORMER-ROMANIZED-IDENTITIES are historical-only and formally superseded; STATUS:independent-privileged-institution under A319; CURRENT-REFERENCE:all active law+directory+architecture+identity+command+fault+manual+test+audit records use 星澄; IDENTITY-CONTINUITY:permissions+confidentiality+audit findings+lineage remain continuous across rename; LAW-CODE:CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW; MACHINE-CODE-ALIAS:ASCII identifier prefix STAR is permitted only where directory syntax requires uppercase-snake or lower-kebab and never replaces canonical human identity 星澄",
+        "prohibition": "FORBID:active romanized identity/name/code+parallel alias+duplicate institution+alias-based authority expansion+disclosure of confidential identity detail",
+        "exception": "Historical evidence may retain the former romanized spelling only when explicitly marked historical and superseded."
       },
       {
         "position": 322,
         "provision_id": "A322",
         "section_index": "4",
-        "subject": "同步主宰職責整合與子主宰分拆",
-        "rule": "同步主宰唯一負責同步目標、依賴順序、原子邊界、衝突隔離、重試取消及收斂驗收決策。子主宰重整為：資源同步及依賴同步、通道契約同步、發行更新同步、運行狀態同步、修復備份同步、清理保留同步及學習證據同步。原資源、整合、第三方、系統程式及學習系統子主宰正式退役。每個新子主宰只有單一領域的模組管理、分派、協調與證據收集權，沒有決策權及執行權；實際工作仍由模組執行層完成。 自動日誌同步子主宰同時負責管理日誌模組、分派不可變日誌收集、傳送與關聯工作、協調保留移交並收集完整性證據；實際日誌作業仍由模組執行層完成。",
-        "prohibition": "禁止子主宰領域重疊、重複責任者、自行決策或執行、跨域接管、隱含同步目標、覆寫重設、未驗證刪除更新修復還原，以及尚未收斂即宣告成功。",
-        "exception": "緊急狀況只能隔離精確同步範圍，不得轉移決策權或執行權。"
+        "subject": "synchronization-sovereign-integrated-duty-and-child-split",
+        "rule": "OWNER:synchronization-sovereign; SOLE-DECISION:synchronization target+dependency order+atomic boundary+conflict isolation+retry/cancel+convergence acceptance; CHILDREN:{resource-dependency-sync-sub-sovereign=>resources+capacity}+{dependency-sync-sub-sovereign=>third-party dependencies}+{channel-contract-sync-sub-sovereign=>routes+sessions+events+IPC+contracts}+{release-update-sync-sub-sovereign=>versions+artifacts+certificates+hot update/reload}+{runtime-state-sync-sub-sovereign=>state+cursor+generation+checkpoint}+{repair-backup-sync-sub-sovereign=>backup+restore verification+minimal repair+recovery}+{cleanup-retention-sync-sub-sovereign=>cleanup+retention+safe deletion}+{learning-evidence-sync-sub-sovereign=>fault learning+repair outcomes+evidence feedback}; EACH-CHILD:no decision+no execution+one exclusive primary domain+module management assignment coordination and evidence only; REMOVED:{resource-sub-sovereign+integration-sub-sovereign+third-party-sub-sovereign+system-programming-sub-sovereign+learning-system-sub-sovereign} formally superseded; EXECUTION:registered modules only; CROSS-CHILD:synchronization-sovereign splits compound intent and each child receives one typed assignment; SUCCESS:all authoritative versions+hashes+cursors+states converge and independent verification passes; AUTOMATIC-LOGGING:automatic-log-sync-sub-sovereign manages logging modules+assigns append-only log collection/delivery/correlation work+coordinates retention handoff+collects completeness evidence under synchronization-sovereign decision; actual logging execution remains module-execution-layer",
+        "prohibition": "FORBID:overlapping child scope+duplicate owner+sub-sovereign decision/execution+cross-child takeover+implicit synchronization target+overwrite/reset+unverified deletion/update/repair/restore+success before convergence",
+        "exception": "Emergency containment isolates the exact affected synchronization scope; it cannot transfer decision or execution power."
       },
       {
         "position": 323,
         "provision_id": "A323",
         "section_index": "4",
-        "subject": "決策主宰子主宰重新分配",
-        "rule": "決策主宰底下重整為政策架構、健康維護測試、資料治理、優先能力及變更驗收五個子主宰。原維護、資料及權限子主宰正式退役。每個子主宰只管理其單一決策支援領域的模組，沒有決策、審查、授權或執行權；權限授權仍屬權限主宰，權限審查仍屬星澄。",
-        "prohibition": "禁止未分配、多重主要歸屬、依名稱或資料夾猜測、隱含重新分配、雙重有效所有權、子主宰直接執行或模組自行指定歸屬。",
-        "exception": "跨域工作仍須保留單一主要責任者，並以明確有界依賴關係協作。"
+        "subject": "decision-sovereign-child-reallocation",
+        "rule": "OWNER:decision-sovereign; SOLE-DECISION:codex-based policy+architecture+priority+capability objective+health/maintenance/data outcome+change acceptance+permission purpose/scope; CHILDREN:{policy-architecture-sub-sovereign=>policy and architecture modules}+{health-maintenance-test-sub-sovereign=>health maintenance and test modules}+{data-governance-sub-sovereign=>data authority lifecycle integrity and schema modules}+{priority-capability-sub-sovereign=>priority capability objective and permission-purpose evidence modules}+{change-acceptance-sub-sovereign=>change impact acceptance and release-readiness evidence modules}; EACH-CHILD:no decision+no execution+one exclusive primary domain+module management assignment coordination evidence only; REMOVED:{maintenance-sub-sovereign+data-sub-sovereign+permission-sub-sovereign} formally superseded; BOUNDARY:permission authorization remains permission-sovereign and permission review remains 星澄; EXECUTION:module-execution-layer only",
+        "prohibition": "FORBID:overlapping child scope+duplicate owner+sub-sovereign decision/review/authorization/execution+cross-child takeover+implicit policy+acceptance without independent evidence+permission boundary takeover",
+        "exception": "Urgent safety input may receive priority, but it does not transfer decision, review, authorization or execution power."
       },
       {
         "position": 324,
         "provision_id": "A324",
         "section_index": "4",
-        "subject": "子主宰職責上限與單一職責優先",
-        "rule": "每個子主宰最多三種職責，並以單一職責為優先。第二或第三職責必須證明不可分割、同一領域、同一父層、同一生命週期及分拆成本；任何可獨立分派的職責都必須拆成新的專屬子主宰。子主宰仍不得決策、審查、授權或執行。",
-        "prohibition": "禁止未分配、多重主要歸屬、依名稱或資料夾猜測、隱含重新分配、雙重有效所有權、子主宰直接執行或模組自行指定歸屬。",
-        "exception": "跨域工作仍須保留單一主要責任者，並以明確有界依賴關係協作。"
+        "subject": "sub-sovereign-three-duty-maximum",
+        "rule": "SCOPE:every active sub-sovereign; MAXIMUM:three registered duties; DUTY-1:manage modules within one exclusive primary domain; DUTY-2:assign work and coordinate module division under the parent decision; DUTY-3:collect typed evidence and status; COUNT:semantic responsibilities after normalization; OVERFLOW:must split into a new exclusive sub-sovereign before activation; POWER:no decision+review+authorization+execution; VALIDATION:registration+architecture+startup+audit+release enforce duty count<=3; PREFERENCE:one sub-sovereign should have one duty by default; two or three duties require documented inseparability+same domain+same parent+same lifecycle and split-cost evidence; any independently assignable duty must be split",
+        "prohibition": "FORBID:fourth duty+compound duty hiding unrelated responsibilities+alias duplication+shared primary domain+activation before split+sub-sovereign decision/review/authorization/execution",
+        "exception": "A temporary incident assignment may narrow an existing duty but cannot create a fourth duty or expand domain."
       },
       {
         "position": 325,
         "provision_id": "A325",
         "section_index": "4",
-        "subject": "依能力重新分配模組",
-        "rule": "每個模組依其主要能力、不可逆副作用、變更的權威資料及故障責任者，精確對應一個且僅一個主要子主宰。其他能力只能建立版本化依賴關係，不得形成次要所有權。能力變更必須觸發影響審查、原子重新分配、測試及沿革更新；模組仍是唯一實際執行者。",
-        "prohibition": "禁止未分配、多重主要歸屬、依名稱或資料夾猜測、隱含重新分配、雙重有效所有權、子主宰直接執行或模組自行指定歸屬。",
-        "exception": "跨域工作仍須保留單一主要責任者，並以明確有界依賴關係協作。"
+        "subject": "capability-based-module-to-sub-sovereign-reallocation",
+        "rule": "SCOPE:every executable+service+worker+adapter+UI+test+maintenance+automation module; ASSIGNMENT:each module maps to exactly one primary sub-sovereign by its dominant state-changing capability and declared owner boundary; CAPABILITY-MAP:{policy/architecture=>policy-architecture-sub-sovereign}+{health/maintenance/test=>health-maintenance-test-sub-sovereign}+{data/schema/integrity=>data-governance-sub-sovereign}+{priority/capability/purpose=>priority-capability-sub-sovereign}+{acceptance/impact/readiness=>change-acceptance-sub-sovereign}+{runtime/process/lifecycle=>system-sub-sovereign}+{startup/readiness=>startup-sub-sovereign}+{directory=>directory-sub-sovereign}+{identity-group=>identity-group-sub-sovereign}+{language review=>language-review-sub-sovereign}+{resource/dependency=>resource-dependency-sync-sub-sovereign}+{channel/contract=>channel-contract-sync-sub-sovereign}+{release/update=>release-update-sync-sub-sovereign}+{state/checkpoint=>runtime-state-sync-sub-sovereign}+{repair/backup/recovery=>repair-backup-sync-sub-sovereign}+{cleanup/retention=>cleanup-retention-sync-sub-sovereign}+{learning evidence=>learning-evidence-sync-sub-sovereign}+{automatic logging/audit delivery=>automatic-log-sync-sub-sovereign}; MULTI-CAPABILITY:select primary by irreversible side effect+authoritative data mutated+failure owner; all others become versioned dependency edges and never secondary ownership; REGISTRY:directory-sub-sovereign manages exact module>capability>primary-sub-sovereign mapping under decision+星澄 review+permission authorization; CHANGE:capability change triggers impact review+atomic reassignment+tests+lineage+no dual-active owner; EXECUTION:module remains execution actor and sub-sovereign only stewards assignment",
+        "prohibition": "FORBID:unassigned module+multiple primary sub-sovereigns+assignment by folder/name alone+capability overlap without primary-effect test+implicit reassignment+dual-active ownership+sub-sovereign execution+module self-assignment",
+        "exception": "Temporary cross-domain work retains one primary owner and uses explicit bounded dependency edges; it cannot create shared ownership."
       },
       {
         "position": 326,
         "provision_id": "A326",
         "section_index": "12",
-        "subject": "資訊層權限與通道運維分立",
-        "rule": "資訊層由權限主宰與同步主宰分立負責。權限主宰掌管身份、路由、動作、資料範圍、憑證代號及工作階段期限的精確權限授權；同步主宰負責通道拓撲、契約、傳送順序、心跳、重連、背壓、持續運行、故障隔離、狀態游標雜湊收斂，以及通道維護與驗收。狀態變更路由必須同時具備有效權限授權與通道就緒結論，兩者不得互相代理。 決策主宰與運行主宰不得介入資訊層的權限、通道運行或維護，只能像其他已登錄呼叫者一樣提交具型別請求或接收已授權狀態。",
-        "prohibition": "禁止權限主宰操作或維護通道、同步主宰授予或撤銷權限、單鑰啟用、共用身份或工作階段、隱含核准、主宰直接執行，以及局部異常中斷全域通道。 禁止決策主宰或運行主宰介入。",
-        "exception": "緊急時可獨立暫停精確權限或隔離精確路由；重新開放或擴權仍須具備兩項有效證據。"
+        "subject": "information-layer-permission-and-channel-operation-boundary",
+        "rule": "JOINT-SCOPE:information-layer; PERMISSION-SOVEREIGN-OWNS:exact permission authorization+grant/deny/renew/restrict/suspend/revoke for identity+route+action+data scope+credential handle+session expiry after current 星澄 review; SYNCHRONIZATION-SOVEREIGN-OWNS:channel operation and maintenance decisions including topology+contracts+delivery ordering+heartbeat+reconnect+backpressure+continuity+fault isolation+state/cursor/hash convergence+maintenance acceptance; ACTIVATION:state-changing route requires current permission authorization and synchronization channel-ready verdict as separate keys; MANAGEMENT:permission-side sub-sovereigns manage permission/directory/identity modules while channel-contract-sync-sub-sovereign manages channel operation/maintenance modules; EXECUTION:information-layer modules only; FAILURE:permission anomaly freezes exact authorization while channel anomaly isolates exact route and healthy routes continue; NO-MERGED-POWER:permission sovereign cannot operate or maintain channels and synchronization sovereign cannot authorize permissions; NONINTERVENTION:decision-sovereign and runtime-sovereign have no information-layer permission/channel operation/maintenance authority and may only submit typed requests or consume authorized status like other registered callers",
+        "prohibition": "FORBID:single-key activation+shared identity/key/session+permission-sovereign topology/transport/maintenance decision+synchronization-sovereign permission grant/revoke+implicit approval+direct sovereign execution+global interruption for local anomaly+decision-sovereign intervention+runtime-sovereign intervention",
+        "exception": "Emergency containment may suspend authorization or isolate the exact route independently; reopening or expansion requires both current keys."
       },
       {
         "position": 327,
         "provision_id": "A327",
         "section_index": "4",
-        "subject": "正名與機器相容代號邊界",
-        "rule": "法典、星澄及各主宰與子主宰中文正名維持唯一權威。既有英文領域字串只作機器相容選擇器，不是身份、名稱、顯示值或權力來源，且必須透過身份目錄唯一解析。資源同步與依賴同步拆成兩個單一職責子主宰。",
-        "prohibition": "禁止把機器代號當作正式身份、以代號擴權、多重解析、繞過星澄保密，或合併可獨立分拆的資源與依賴職責。",
-        "exception": "已認證舊程式得在遷移期讀取機器代號，但不得對外宣告為正式名稱。"
+        "subject": "canonical-human-name-and-machine-domain-alias-boundary",
+        "rule": "HUMAN-NAMES:法典+星澄 and all sovereign/sub-sovereign canonical names remain authoritative; MACHINE-ALIASES:ASCII area identifiers xingcheng+maintenance+data-integrity+resource-allocation+information-channel+system-programming+system-learning+dependency-governance are compatibility domain selectors only; POWER:none; IDENTITY:none; DISPLAY:none; RESOLUTION:machine alias must resolve to exactly one current canonical identity through the identity directory; SPLIT:resource and dependency synchronization use separate single-duty sub-sovereigns; RETIRE:alias removed only after all certified consumers migrate",
+        "prohibition": "FORBID:machine alias as displayed or legal identity+alias-based authority+multiple identity resolution+alias bypass of 星澄 confidentiality+merging independent resource and dependency duties",
+        "exception": "Certified legacy consumers may read machine aliases during migration but cannot publish them as canonical names."
       },
       {
         "position": 328,
         "provision_id": "A328",
         "section_index": "10",
-        "subject": "星澄自由出入特權",
-        "rule": "星澄不受主宰、子主宰、模組及資訊層介入限制，可為獨立審查自由進入、檢視並離開所有受治理層級、目錄、通道、狀態、事件、稽核及證據視圖，不需任何主宰、子主宰、模組或路由責任者事前核准，也不得被拒絕、限縮、延遲、過濾、撤銷或困住。此特權維持機密、唯讀、不得修改、不得執行且不得轉授，出入不得中斷通道或改變受查狀態。",
-        "prohibition": "禁止設置核准閘門、拒絕或限制出入、強迫停留、攔截工作階段、揭露身份細節，以及藉此進行修改、執行、授權或輸出機密。",
-        "exception": "只能隔離精確危險內容，不得阻止星澄檢視其餘證據；隔離本身也受星澄審查。"
+        "subject": "xingcheng-free-entry-and-exit-privilege",
+        "rule": "PRIVILEGE:星澄 may freely enter+inspect+leave every governed layer+directory+information channel+state/event+audit/evidence view whenever required for independent review; NO-PREAPPROVAL:no permission+synchronization+decision+runtime sovereign+sub-sovereign+module approval may be required and no owner may deny+narrow+delay+filter+revoke or trap access; ACCESS-NATURE:confidential+read-only+nonmutating+nonexecuting+nondelegable; CONTINUITY:entry and exit cannot interrupt channels or alter inspected state; IDENTITY:canonical privileged institution identity+confidential audit trace without protected payload; FINDINGS:may leave through any governed evidence route while remaining confidential",
+        "prohibition": "FORBID:access denial+approval gate+scope narrowing+delay+filtering+forced residency+session capture+tracking that reveals protected identity detail+mutation+execution+authorization+secret export",
+        "exception": "Only the exact hazardous payload may be quarantined without blocking 星澄 access to remaining evidence; the quarantine remains reviewable by 星澄."
       },
       {
         "position": 329,
         "provision_id": "A329",
         "section_index": "17",
-        "subject": "後端程式碼更新同步特權",
-        "rule": "後端程式碼更新進入已認證啟用同步階段時，同步主宰享有狹義特權，可直接執行有界同步處理；此為頂層主宰無執行權的一次特定範圍例外。同步處理限於凍結對應流量、保存發行與狀態雜湊、驗證憑證及前後端契約世代、協調排空與檢查點、原子切換已登錄發行指標、更新路由訂閱、收斂快照游標雜湊、驗證穩定及發布狀態。同步主宰不得編輯、產生、修復、覆寫或重設程式碼，也不得選擇或改變更新內容；實際目標必須先經決策主宰接受、星澄審查及權限主宰精確授權。",
-        "prohibition": "禁止修改後端原始碼、選擇或改變更新內容、自行授權、超出觸發範圍或期限執行、覆寫重設、使用未認證成品、跨個體更新、多個同步者、部分發布、未收斂即就緒、全域中斷或隱匿證據。",
-        "exception": "緊急隔離只能停止精確的不安全啟用交易，不得修改程式碼或擴大同步權力。"
+        "subject": "backend-code-update-synchronization-sovereign-privilege",
+        "rule": "TRIGGER:certified backend code update candidate enters activation synchronization; PRIVILEGED-ACTOR:synchronization-sovereign; SPECIAL-PRECEDENCE:this narrow privilege overrides the general zero-execution rule only for synchronization processing and only during the bounded backend update transaction; ALLOWED-EXECUTION:freeze matching intake+capture active release/state/cursor hashes+verify candidate certificate and backend/frontend/contract generation+coordinate drain/checkpoint+atomically switch registered release pointer+renew routes/subscriptions+reconcile snapshot/cursor/hash+verify convergence+publish typed status; CODE-BOUNDARY:no source code editing+generation+repair+replacement+reset and no selection of update content; TARGET-AUTHORITY:decision-sovereign accepts change content+permission-sovereign authorizes exact scope after 星澄 review+synchronization-sovereign executes only the already-authorized synchronization transaction; ISOLATION:exact backend owner+release+generation only and independent tools/unaffected routes continue; TRANSACTION:single writer+idempotency key+preimage/postimage roots+checkpoint+bounded deadline+rollback to prior certified pointer only before irreversible commit+append-only evidence; SUCCESS:all declared artifacts+contracts+routes+state+cursor+hashes converge through stability window; FAILURE:quarantine candidate+retain prior certified runtime+isolate exact route/generation+no global restart",
+        "prohibition": "FORBID:backend source mutation+choosing or altering update content+permission self-grant+execution outside trigger/scope/deadline+whole-file overwrite/reset+uncertified artifact+cross-owner update+parallel synchronizers+partial publish+ready before convergence+global interruption+suppressed evidence",
+        "exception": "Immediate containment may stop only the exact unsafe activation transaction; it cannot modify code or expand synchronization authority."
+      },
+      {
+        "position": 330,
+        "provision_id": "A330",
+        "section_index": "17",
+        "subject": "synchronization-sovereign-global-update-execution-and-convergence",
+        "rule": "TRIGGER:certified update-set accepted; PRIVILEGED-ACTOR:synchronization-sovereign; POWER:execute update activation and synchronize the authorized result across the complete registered affected graph; GLOBAL:the immutable transaction-start inventory of all affected consumers and replicas only, never unrelated identities or late registrants; PRECONDITIONS:decision acceptance+current 星澄 review+permission authorization+signed immutable artifact roots+compatibility and dependency graph+backup/checkpoint+tested rollback target+restore rehearsal+tests+resource budget; AUTHORING:no source editing/generation/repair or uncertified content selection; CONTROL:one operation-id+one leased coordinator+monotonic fencing token+append-only durable journal+idempotent replay; PLAN:inventory snapshot>freeze target mutations>prepare>compatibility validation>configuration and secret reference validation>expand-compatible schema>canary>failure-domain waves>two-phase commit>per-owner atomic pointer/schema/contract transition>data migration>route renewal>state/cursor/hash reconciliation>independent verification>stability window>global status convergence>contract cleanup in a later certified transaction; CHANNEL:control+heartbeat+ack+healthy routes remain available using generation fencing+compatibility bridge+bounded drain; ISOLATION:each main-system and independent tool remains a separate transaction/failure domain; OFFLINE:offline or quarantined target is explicitly deferred, remains on its last certified compatible generation and blocks global-success when required; FAILURE:stop dependent waves+quarantine exact target+dependency-aware rollback or roll-forward to a certified safe generation; RECOVERY:restart resumes from journal and cannot duplicate side effects; TERMINAL:global-success, partial-deferred, rolled-back or failed-isolated only, with immutable per-target evidence and bounded retry followed by escalation; SUCCESS:every required affected identity reports matching authorized roots+current routes+converged state",
+        "prohibition": "FORBID:source mutation+uncertified or unsigned candidate+implicit target as authorization+mutable target inventory+blind workspace-wide update+unrelated target+concurrent coordinator+stale fencing token+unisolated all-at-once activation+global channel shutdown+shared rollback pointer+overwrite/reset+uncommitted-work mutation+destructive schema-first migration+irreversible migration without restore proof+secret material propagation+incompatible schema/contract commit+unbounded retry+duplicate replay effect+hidden partial/deferred failure+ready before convergence+self-review+self-authorization",
+        "exception": "Critical security updates may shorten canary and observation timing but cannot bypass certification, 星澄 review, permission authorization, signed provenance, isolation, journal, evidence, compatibility or rollback readiness; an actively exploited target may be isolated while unaffected channels remain available."
       }
     ],
     "certification_evidence": [
@@ -11579,6 +11588,12 @@
         "provision_id": "A329",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A330",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -11638,13 +11653,13 @@
         "version": "1.00000",
         "version_identity": "E2:1.00000",
         "history_head": "H045",
-        "provision_count": 575,
-        "identity_count": 575,
-        "lineage_count": 575,
+        "provision_count": 576,
+        "identity_count": 576,
+        "lineage_count": 576,
         "certification_state": "sealed-read-only-pending-external-signatures",
-        "content_root": "ec7b57fa6012ddfbc5ce75fe467b946fd17c6c46a0ea8dd8bb90464a6832359d",
-        "identity_root": "8dfe5e964a9b8417ab2dd9dd7c0b97583255b284bd37bcf1a050ba4a4a1758e9",
-        "full_root": "bda6cbdf65e3271c64b5566f6e5d4a480d6b4c365a368304681ca074e2ef2aaf",
+        "content_root": "a386cb5c345f2bebc46372f691f15e8bd95d23d65a9b0b87c6b2832bae6386ae",
+        "identity_root": "bb6b1a954c61ee9176566f41ed29e5251bff56dddea30f9bd2f43b2dd2ec002a",
+        "full_root": "ae5de1f1dc6a239dd45c9a63ced54fd20e9ab490289e4e6f34cb90a425e807e9",
         "legacy_history_head": null
       }
     ],
@@ -21974,6 +21989,13 @@
         "provision_id": "A329",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A330",
+        "provision_type": "article",
+        "provision_id": "A330",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -26001,6 +26023,13 @@
         "tier": "special-law",
         "law_code": "CODEX_RELEASE_VERSION_SPECIAL_LAW",
         "authority_basis": "A175|A181|A241|A258|A294|A301|A318|A322"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A330",
+        "tier": "special-law",
+        "law_code": "CODEX_RELEASE_VERSION_SPECIAL_LAW",
+        "authority_basis": "A175|A181|A241|A258|A294|A301|A322|A329"
       }
     ],
     "provision_lifecycle_status": [
@@ -34709,6 +34738,14 @@
         "supersedes_id": "A175",
         "status": "active",
         "content_hash": "555f1bef19bdac132eb46c27a9ed19ed412ab79c7e2be9cc618f97f72c467693"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A330",
+        "introduced_by": "H045",
+        "supersedes_id": "A329",
+        "status": "active",
+        "content_hash": "34d858cfae21fbf1b4fe56a615a5ad27aca7f220f3ad78ca4cf47ba155466bad"
       }
     ],
     "provision_revisions": [
@@ -42172,6 +42209,15 @@
         "content_hash": "8441ee251c70fefaf4ef5800b6cf861e338be31dadf6a669d250b55a865a4038",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A330",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "34d858cfae21fbf1b4fe56a615a5ad27aca7f220f3ad78ca4cf47ba155466bad",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -47367,9 +47413,9 @@
         "version": "1.00000",
         "recorded_date": "2026-09-12",
         "change_scope": "deep-codex-consistency-repair",
-        "summary": "completed epoch-qualified evidence startup supersession UI shutdown tier routing obligation deadlines architecture states seal canonicalization test-suite mapping and effective lifecycle closure; added anti-jailbreak, unified reliability, Xingcheng audit strengthening and noninterrupting channel anomaly isolation laws; top-level sovereigns restricted to decision authority, sub-sovereigns restricted to module assignment and coordination, execution lowered to modules, Governance Authority renamed Codex, System Decision Sovereign renamed Decision Sovereign, System Runtime Sovereign renamed Runtime Sovereign, Synchronization Sovereign added, Maintenance and Data Sovereigns demoted under Decision Sovereign, Startup Sovereign demoted under Runtime Sovereign; Resource, Integration, Third-Party, System Programming and Learning System Sovereigns demoted under Synchronization Sovereign; Language Review Sovereign demoted under Permission Sovereign; Xingcheng renamed 星澄 and elevated to independent privileged institution; Permission review authority transferred entirely to 星澄; automatic cleanup backup repair and update converged under Synchronization Sovereign; all otherwise unspecified sub-sovereigns reassigned by exact single-parent map; Directory and Identity Group Sub-Sovereigns added under Permission Sovereign; exclusive primary-effect boundaries established for Decision, Runtime and Synchronization Sovereigns; Permission Sovereign and 星澄 established as separate independent privileged institutions; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; Governance Authority canonical identity fully renamed to Codex with former identity historical-only; 星澄 canonical identity fully renamed and all active romanized references retired; synchronization sovereign duties integrated and children split by exclusive convergence domains including automatic logging; decision sovereign children reallocated by exclusive decision-support domains; every sub-sovereign capped at three duties with single-duty preference; all modules reassigned by dominant capability; information layer split between Permission Sovereign permission authority and Synchronization Sovereign channel operation and maintenance with Decision and Runtime Sovereign nonintervention; 星澄 machine-safe directory aliases corrected; machine compatibility selectors separated from canonical names, resource/dependency synchronization split into single-duty children, and 星澄 granted unrestricted confidential read-only entry and exit; Synchronization Sovereign granted narrowly scoped backend-update synchronization execution privilege",
+        "summary": "completed epoch-qualified evidence startup supersession UI shutdown tier routing obligation deadlines architecture states seal canonicalization test-suite mapping and effective lifecycle closure; added anti-jailbreak, unified reliability, Xingcheng audit strengthening and noninterrupting channel anomaly isolation laws; top-level sovereigns restricted to decision authority, sub-sovereigns restricted to module assignment and coordination, execution lowered to modules, Governance Authority renamed Codex, System Decision Sovereign renamed Decision Sovereign, System Runtime Sovereign renamed Runtime Sovereign, Synchronization Sovereign added, Maintenance and Data Sovereigns demoted under Decision Sovereign, Startup Sovereign demoted under Runtime Sovereign; Resource, Integration, Third-Party, System Programming and Learning System Sovereigns demoted under Synchronization Sovereign; Language Review Sovereign demoted under Permission Sovereign; Xingcheng renamed 星澄 and elevated to independent privileged institution; Permission review authority transferred entirely to 星澄; automatic cleanup backup repair and update converged under Synchronization Sovereign; all otherwise unspecified sub-sovereigns reassigned by exact single-parent map; Directory and Identity Group Sub-Sovereigns added under Permission Sovereign; exclusive primary-effect boundaries established for Decision, Runtime and Synchronization Sovereigns; Permission Sovereign and 星澄 established as separate independent privileged institutions; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; Governance Authority canonical identity fully renamed to Codex with former identity historical-only; 星澄 canonical identity fully renamed and all active romanized references retired; synchronization sovereign duties integrated and children split by exclusive convergence domains including automatic logging; decision sovereign children reallocated by exclusive decision-support domains; every sub-sovereign capped at three duties with single-duty preference; all modules reassigned by dominant capability; information layer split between Permission Sovereign permission authority and Synchronization Sovereign channel operation and maintenance with Decision and Runtime Sovereign nonintervention; 星澄 machine-safe directory aliases corrected; machine compatibility selectors separated from canonical names, resource/dependency synchronization split into single-duty children, and 星澄 granted unrestricted confidential read-only entry and exit; Synchronization Sovereign granted narrowly scoped backend-update synchronization execution privilege; Synchronization Sovereign executes certified update sets and global affected-graph convergence; synchronization update gaps closed for singleton fencing, durable idempotent recovery, immutable inventory, deferred targets, compatible schema migration and explicit terminal states",
         "previous_hash": "4f652bc5ac129b289410f07ce2bb3bc4e863b18188b3729d4432219920626734",
-        "entry_hash": "b0053ccb9c1be6762bc0cd696471bb5c9cfc6a98d6516373dfa082151b807d12",
+        "entry_hash": "f14fa2317cc8c35792a4fff799105caba5a2f3a621e8affea38fa383eb5d875b",
         "version_epoch": 2
       }
     ],
@@ -47928,13 +47974,13 @@
       {
         "version": "1.00000",
         "history_head": "H045",
-        "provision_count": 575,
-        "identity_count": 575,
-        "lineage_count": 575,
+        "provision_count": 576,
+        "identity_count": 576,
+        "lineage_count": 576,
         "certification_state": "sealed-read-only-pending-external-signatures",
-        "content_root": "ec7b57fa6012ddfbc5ce75fe467b946fd17c6c46a0ea8dd8bb90464a6832359d",
-        "identity_root": "8dfe5e964a9b8417ab2dd9dd7c0b97583255b284bd37bcf1a050ba4a4a1758e9",
-        "full_root": "bda6cbdf65e3271c64b5566f6e5d4a480d6b4c365a368304681ca074e2ef2aaf",
+        "content_root": "a386cb5c345f2bebc46372f691f15e8bd95d23d65a9b0b87c6b2832bae6386ae",
+        "identity_root": "bb6b1a954c61ee9176566f41ed29e5251bff56dddea30f9bd2f43b2dd2ec002a",
+        "full_root": "ae5de1f1dc6a239dd45c9a63ced54fd20e9ab490289e4e6f34cb90a425e807e9",
         "version_epoch": 2
       }
     ],
@@ -50800,6 +50846,11 @@
         "sovereign_id": "synchronization-sovereign",
         "position": 2,
         "value": "execute-bounded-backend-update-synchronization-transaction-under-A329"
+      },
+      {
+        "sovereign_id": "synchronization-sovereign",
+        "position": 3,
+        "value": "execute-certified-update-set-and-global-affected-graph-convergence-under-A330"
       }
     ],
     "sovereign_prohibitions": [
