@@ -1,5 +1,5 @@
 {
-  "codex_version": "4.01600",
+  "codex_version": "4.11600",
   "tables": {
     "access_actor_classes": [
       {
@@ -2021,7 +2021,7 @@
         "provision_id": "A276",
         "section_index": "9",
         "subject": "main-system 平台核心實體目錄定位條例",
-        "rule": "main-system 實體上是頂層專案目錄；邏輯上同時承載啟動核心、平台編排及部分執行模組。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用，均須將其標記為平台核心實體目錄，不得單純描述為模組執行層的一個工具。此定位不改變其與各獨立工具依 A184 維持的個體及故障隔離。",
+        "rule": "main-system 的實體路徑為 E:\\GPTBridge\\main-system，定位為平台核心實體目錄；邏輯上同時承載啟動核心、平台編排及部分執行模組。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用，均須將其標記為平台核心實體目錄，不得單純描述為模組執行層的一個工具。此定位不改變其與各獨立工具依 A184 維持的個體及故障隔離。",
         "prohibition": "禁止把 main-system 分類為模組執行層工具、將平台核心扁平化為獨立工具、藉實體目錄名稱混同邏輯權責，或以此定位規避個體隔離。",
         "exception": "位於 main-system 內的部分執行模組，仍各自遵循已登錄的邏輯責任者與權限邊界。"
       },
@@ -2033,6 +2033,15 @@
         "rule": "model-dialogue 實體路徑為 local-model/model-dialogue，邏輯上是本地模型頂層資料夾及本地模型對話能力的正式邊界。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用均須使用此定位。其範圍包含本地模型對話介面、通道、服務及模型互動協調，但不因此成為模型核心或網路權限主體。",
         "prohibition": "禁止將 model-dialogue 分類為一般附屬模組、把本地模型對話權責放在此正式邊界之外、混同模型核心與網路權限，或繞過治理通道存取外部資源。",
         "exception": "實體上位於 local-model 之下，不代表 model-dialogue 得承接其他本地模型個體已分配的職責。"
+      },
+      {
+        "position": 278,
+        "provision_id": "A278",
+        "section_index": "9",
+        "subject": "Standalone tools 獨立工具頂層資料夾定位條例",
+        "rule": "Standalone tools 是位於 E:\\GPTBridge\\Standalone tools 的獨立工具頂層資料夾。它是獨立工具的正式架構容器，本身不是單一工具、共用執行個體或監督程序。其下每個已登錄工具仍是不同個體，分別擁有責任者、生命週期、執行環境、故障、資料、維修、更新及關閉邊界。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用均須使用此正式定位與路徑。",
+        "prohibition": "禁止把 Standalone tools 視為單一工具、共用執行個體、共用監督者、共用故障域或 main-system 子模組；禁止合併子工具身份或跨工具控制生命週期、資料、維修、更新與關閉。",
+        "exception": "只有透過已登錄治理介面的唯讀共用基礎設施得共用；不得因此合併各工具的所有權、狀態、生命週期或故障邊界。"
       }
     ],
     "certification_evidence": [
@@ -2290,6 +2299,13 @@
       },
       {
         "version": "4.01600",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required"
+      },
+      {
+        "version": "4.11600",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -2589,6 +2605,13 @@
         "version": "4.01600",
         "recorded_at_utc": "2026-09-12T00:31:04Z",
         "recorded_at_local": "2026-09-12T08:31:04+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "codex-successor-sealed"
+      },
+      {
+        "version": "4.11600",
+        "recorded_at_utc": "2026-09-12T00:34:34Z",
+        "recorded_at_local": "2026-09-12T08:34:34+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed"
       }
@@ -10022,6 +10045,12 @@
         "provision_id": "A277",
         "effective_version": "4.01600",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A278",
+        "effective_version": "4.11600",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -14828,7 +14857,7 @@
       },
       {
         "key": "codex_version",
-        "value": "4.01600"
+        "value": "4.11600"
       },
       {
         "key": "schema",
@@ -15649,6 +15678,28 @@
         "manual_codes": "",
         "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
         "introduced_version": "4.01600",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "STANDALONE_TOOLS",
+        "canonical_name": "standalone-tools",
+        "entity_kind": "independent-tools-top-level-directory",
+        "owner": "permission-sovereign",
+        "parent_code": "PROJECT_GPTBRIDGE",
+        "physical_root": "E:\\GPTBridge\\Standalone tools",
+        "logical_boundary": "canonical architecture container for independent tools; not itself a runtime individual",
+        "responsibilities": "contain registered independent tool roots while preserving one identity and owner per tool",
+        "dependencies": "governance codex|permission directory|information layer|registered shared interfaces",
+        "interfaces": "registered per-tool interfaces through information layer",
+        "data_authority": "each child tool owns its data; container owns no domain data",
+        "runtime_boundary": "each child is a separate runtime individual; container has no shared runtime",
+        "failure_boundary": "each child has an isolated failure boundary under A184 and A266",
+        "permission_scope": "architecture registration for independent-tool roots",
+        "command_codes": "",
+        "fault_codes": "TOOL_START_FAILED",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "4.11600",
         "retired_version": null
       }
     ],
@@ -19115,6 +19166,13 @@
         "identity_code": "ARTICLE_A277",
         "provision_type": "article",
         "provision_id": "A277",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A278",
+        "provision_type": "article",
+        "provision_id": "A278",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -22584,6 +22642,13 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A227|A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A278",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A184|A227|A266"
       }
     ],
     "provision_lineage": [
@@ -26537,7 +26602,7 @@
         "introduced_by": "H038",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "69cd003fa502dc6259ebd77a22ffd0fe554d6b960e51f1377fd2e43be7119c55"
+        "content_hash": "cf2c27f391d38abb4d87ed012589a8664d05cd03b6759ea8d65aeb4c7fb12a10"
       },
       {
         "provision_type": "article",
@@ -26546,6 +26611,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "f25db8b2347d3b4e34e791b3b04421765b5e37ad63c460e52703ad82d2417031"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A278",
+        "introduced_by": "H039",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "70b00ae2608aa6b5c9468dab51fd16acab03cbc7298b14122d74ece0a5e010e9"
       }
     ],
     "provision_revisions": [
@@ -30555,6 +30628,22 @@
         "revision_id": "H038",
         "version": "4.01600",
         "content_hash": "f25db8b2347d3b4e34e791b3b04421765b5e37ad63c460e52703ad82d2417031",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A278",
+        "revision_id": "H039",
+        "version": "4.11600",
+        "content_hash": "70b00ae2608aa6b5c9468dab51fd16acab03cbc7298b14122d74ece0a5e010e9",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A276",
+        "revision_id": "H039",
+        "version": "4.11600",
+        "content_hash": "cf2c27f391d38abb4d87ed012589a8664d05cd03b6759ea8d65aeb4c7fb12a10",
         "certification_status": "external-signatures-required"
       }
     ],
@@ -35640,6 +35729,16 @@
         "summary": "classified main-system as the platform-core physical directory and model-dialogue as the local-model top-level directory",
         "previous_hash": "00a66d2e7c2067e8c32a4c9f2f533a8a7f0f0868ebbc53ade47d3d9c060f87f7",
         "entry_hash": "bad2ef1ebd18fb29ae54a80760c45e4849bce8e6048d1eb2d53504ed5ff6242e"
+      },
+      {
+        "sequence": 39,
+        "change_id": "H039",
+        "version": "4.11600",
+        "recorded_date": "2026-09-12",
+        "change_scope": "standalone-tools-top-level-directory",
+        "summary": "registered E:\\GPTBridge\\Standalone tools as the independent-tools top-level directory and fixed the main-system physical path as E:\\GPTBridge\\main-system",
+        "previous_hash": "bad2ef1ebd18fb29ae54a80760c45e4849bce8e6048d1eb2d53504ed5ff6242e",
+        "entry_hash": "a70d525b2ec541bb72a6b057fdb8e054ddcac6b6a3ecca408b4a35a78f41ca5a"
       }
     ],
     "savings": [
@@ -36080,6 +36179,17 @@
         "content_root": "bfabc3b0be53d16a38dedbb830f5a66e2729eb0d7de2dbf08094ef0d2c548048",
         "identity_root": "f465411cc3ec0943a250de9fd8bcb6ef9de67e7a85a55af1acf3fcee0fbc85e5",
         "full_root": "3d54d81b5a7ccd806a97e4043cf3272123c7eab30dfc0b8c83f1480fba2a5246"
+      },
+      {
+        "version": "4.11600",
+        "history_head": "H039",
+        "provision_count": 496,
+        "identity_count": 496,
+        "lineage_count": 496,
+        "certification_state": "sealed-read-only-pending-external-signatures",
+        "content_root": "3cedf2eada57c9ee5508aa9a853961cac23698efe6c29bb467e3c02e15bbe46a",
+        "identity_root": "c053cf9c06821a0337893132a300da251dc02790c1ef6f31d439fc672d926534",
+        "full_root": "c2eabb90521547a4fb38edebc6fa991ab175cee896c28b7467d91b196a065c24"
       }
     ],
     "sealed_components": [
@@ -37980,6 +38090,56 @@
       },
       {
         "version": "4.01600",
+        "component": "version-rules",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.11600",
+        "component": "certification-policy",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.11600",
+        "component": "history",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.11600",
+        "component": "identities",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.11600",
+        "component": "lineage",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.11600",
+        "component": "metadata",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.11600",
+        "component": "provisions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.11600",
+        "component": "schema",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.11600",
+        "component": "sovereigns",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.11600",
+        "component": "supersessions",
+        "included_in_full_root": 1
+      },
+      {
+        "version": "4.11600",
         "component": "version-rules",
         "included_in_full_root": 1
       }
@@ -40260,6 +40420,14 @@
       },
       {
         "version": "4.01600",
+        "algorithm": "Ed25519",
+        "threshold": 2,
+        "key_count": 3,
+        "detached_signatures_required": 1,
+        "private_key_storage": "external-offline-never-in-codex"
+      },
+      {
+        "version": "4.11600",
         "algorithm": "Ed25519",
         "threshold": 2,
         "key_count": 3,
