@@ -832,10 +832,10 @@
         "position": 89,
         "provision_id": "A125",
         "section_index": "6",
-        "subject": "維護主宰專責職務",
-        "rule": "維護主宰負責監測與維持系統健康、系統維護，以及測試政策、範圍規劃、執行協調、證據驗收、狀態追蹤與缺口閉合。權限主宰仍唯一負責測試流程目錄登錄與權限，各領域主宰仍對所屬測試內容負責。所有測試必須具備登錄代碼、需求追蹤、正反向結果、故障代碼、複測證明、驗收決定及稽核紀錄。",
-        "prohibition": "禁止維護主宰奪取其他領域權責、自行登錄測試目錄、繞過權限、執行未登錄測試、隱藏或偽造結果、無證據驗收、未複測即關閉缺口，或直接交由未受治理的執行者處理。",
-        "exception": "緊急隔離只能停止受影響測試或服務，不得免除後續登錄、證據、複測、驗收與稽核要求。"
+        "subject": "maintenance-sovereign-focused-duty",
+        "rule": "OWNER:maintenance-sovereign; DUTIES:monitor-system-health+preserve-system-health+maintain-system+manage-test-governance+plan-test-scope+coordinate-test-execution+validate-test-evidence+track-test-status+close-test-gaps; TEST-BOUNDARY:maintenance-sovereign owns test policy/planning/coordination/acceptance/status while permission-sovereign exclusively owns test-flow-directory registration+permission and each domain owner remains accountable for domain-specific test content; BASIS:codex; DELEGATE:governed-maintenance-executors; EVIDENCE:registered-test-flow-code+requirements-trace+positive-and-negative-results+failure-code+retest-proof+acceptance-decision+audit-record",
+        "prohibition": "FORBID:non-maintenance-domain-ownership+direct-ungoverned-execution+test-directory-self-registration+permission-bypass+unregistered-test+hidden-failure+result-falsification+acceptance-without-evidence+closing-gap-without-retest+cross-domain-test-content-takeover",
+        "exception": ""
       },
       {
         "position": 90,
@@ -1274,7 +1274,7 @@
         "provision_id": "A193",
         "section_index": "4",
         "subject": "official-startup-entry-and-ui-launcher",
-        "rule": "OFFICIAL-PLATFORM-ENTRY:gptbridge-start as-single-user-facing-native-source-entry; ENTRY-ROLE:mechanical-process-wake-only+no-governance/system/business-decision; DUAL-WAKE:start-or-attach exactly-one-hidden-startup-sovereign-source-runtime generation and exactly-one-formal-UI-launcher/window; ORDER:UI-shell-visible-immediately+startup-runtime-wake-nonblocking+status-attach-when-bootstrap-information-route-ready; LAUNCHER-DUTY:show/restore/focus/reload-formal-UI+display-last-confirmed-state-as-stale-until-live-snapshot+subscribe-to-startup-events+submit-typed-user-start/cancel/shutdown-intent; LAUNCHER-SYSTEM-POWER:none; PROCESS-VISIBILITY:python/node/powershell/background-host no-console-window; SINGLE-INSTANCE:duplicate-entry focuses-existing-UI+attaches-current-generation+does-not-spawn-duplicate-backend; UI-FAILURE:restart-renderer-only+startup/runtime-continue; STARTUP-RUNTIME-FAILURE:UI-remains-open+shows-failure+new-bounded-start-intent through-information-layer; UI-CLOSE:detach-view-only+does-not-stop-main-system-or-independent-tools; F5/RELOAD:renderer-only+resubscribe+snapshot-reconcile+no-backend/process/release reset; SHUTDOWN:explicit-user-intent>information-layer>permission-validation>system-runtime-owned-shutdown; SOURCE:governed-native-source-only+no-internal-EXE-fallback 啟動入口只能帶出 UI，不得直接喚醒或附接後端、啟動核心或系統執行環境。UI 顯示後，僅能透過資訊層送出具型別的啟動意圖，由啟動核心獨立驗證並啟動受治理世代。",
+        "rule": "OFFICIAL-PLATFORM-ENTRY:gptbridge-start as-single-user-facing-native-source-entry; ENTRY-ROLE:UI-only+no-direct-process/backend wake+no-governance/system/business-decision; UI-ONLY:entry starts-or-focuses exactly-one formal UI launcher/window and no backend/startup-core/runtime process; ORDER:UI-shell-visible-immediately>attach information route when available>submit typed user startup intent>startup-core independently validates and starts governed generation; LAUNCHER-DUTY:show/restore/focus/reload-formal-UI+display-last-confirmed-state-as-stale-until-live-snapshot+subscribe-to-startup-events+submit-typed-user-start/cancel/shutdown-intent; LAUNCHER-SYSTEM-POWER:none; PROCESS-VISIBILITY:python/node/powershell/background-host no-console-window; SINGLE-INSTANCE:duplicate-entry focuses-existing-UI+attaches-current-generation+does-not-spawn-duplicate-backend; UI-FAILURE:restart-renderer-only+startup/runtime-continue; STARTUP-RUNTIME-FAILURE:UI-remains-open+shows-failure+new-bounded-start-intent through-information-layer; UI-CLOSE:detach-view-only+does-not-stop-main-system-or-independent-tools; F5/RELOAD:renderer-only+resubscribe+snapshot-reconcile+no-backend/process/release reset; SHUTDOWN:explicit-user-intent>information-layer>permission-validation>system-runtime-owned-shutdown; SOURCE:governed-native-source-only+no-internal-EXE-fallback 關閉應用程式 UI 必須送出具型別的關閉意圖，其對應後端必須完成有界關閉並驗證程序樹退出；其他獨立個體不受影響。",
         "prohibition": "FORBID:launcher-environment/governance/dependency checks+launcher-direct-backend/database/model/tool-start+launcher-owning-startup-state+blocking-UI-until-backend-ready+visible-console+duplicate-runtime+UI-close-as-system-kill+F5-as-backend-restart+stale-status-as-live+direct-socket/private-channel+executable-fallback",
         "exception": "Distribution packaging may invoke the same governed source entry contract but cannot become the internal runtime authority"
       },
@@ -1597,19 +1597,19 @@
         "position": 229,
         "provision_id": "A229",
         "section_index": "7",
-        "subject": "codex-three-tier-consolidation-framework",
-        "rule": "STRUCTURE:本典=大綱+子法=條例+專法=特定領域完整規範; 本典:only highest-level principles+authority boundaries+rights+duties+prohibitions+law hierarchy+amendment basis and avoids operational detail; 子法:ordinances derive from exact main-codex authorization and define reusable procedures+schemas+validation+execution constraints without exceeding delegation; 專法:closed-domain comprehensive law created for a precisely declared scope and prevails over main-codex general outline and subordinate ordinances only within that scope; AUTHORITY:all three tiers remain inside one governance-codex authority+one version+one seal+one official entry; CLASSIFICATION:every provision has exactly-one tier+law-code+scope+owner+parent-basis; CONSOLIDATION:duplicates merge into one effective provision with permanent lineage and explicit supersession; OWNERSHIP:permission-sovereign owns law and directory registration while human-governor alone seals codex amendment; CHANGE:classify>impact-analyze>preserve-identities>update-links>validate-no-gap/no-conflict>atomically-reseal>publish synchronized mirror",
-        "prohibition": "FORBID:unclassified-provision+outline-containing-procedure-detail+ordinance-without-main-basis+special-law-without-closed-scope+parallel-authority+implicit-precedence+duplicate-effective-rule+cross-tier-conflict+scope-overreach+independent-version-or-seal",
-        "exception": "Non-authoritative views may render each tier separately but cannot split authority storage version or seal"
+        "subject": "法典三級法律結構",
+        "rule": "法典分為本典大綱、子法條例及封閉領域專法。本典只保留最高原則及不可委派邊界；子法依明確授權規定共通程序；專法只在明定領域優先。所有層級共用同一權威、世代化版本身份、封印及正式入口。",
+        "prohibition": "禁止未分類條款、本典混入操作細節、無授權子法、無封閉範圍專法、平行權威、隱性優先或重複有效規則。",
+        "exception": "只有條文明定且保留完整治理證據的例外得適用。"
       },
       {
         "position": 230,
         "provision_id": "A230",
         "section_index": "1",
-        "subject": "main-codex-outline-boundary",
-        "rule": "MAIN-CODEX:本典; FORM:大綱; CONTENT:constitutional-purpose+highest-principles+authority-separation+sovereign boundaries+permission basis+rights+duties+absolute prohibitions+law-tier hierarchy+amendment and conflict rules; DETAIL-ROUTING:repeatable operational procedure+field schema+implementation workflow+test sequence+maintenance steps route-to 子法-條例 or exact-scope 專法; INTERPRETATION:本典 controls all tiers and supplies validity basis; COMPLETENESS:本典 states every nondelegable boundary and delegates every permitted detailed domain explicitly",
-        "prohibition": "FORBID:implementation-specific duplication+temporary runtime detail+vendor-specific procedure+directory row body+test fixture+repair step inside main-codex outline",
-        "exception": "A concise invariant may remain in 本典 when removing it would permit a subordinate or special law to alter a nondelegable boundary"
+        "subject": "本典大綱邊界",
+        "rule": "本典只規定目的、最高原則、權力分立、主宰邊界、權限基礎、權利義務、絕對禁止、法律層級及修法與衝突基礎。路徑、欄位、程序、遷移、逾時、測試、維修及廠商細節一律交由子法或專法。",
+        "prohibition": "禁止在本典放入實作路徑、欄位、流程、測試、維修、廠商或暫時執行細節。",
+        "exception": "只有條文明定且保留完整治理證據的例外得適用。"
       },
       {
         "position": 231,
@@ -1922,7 +1922,7 @@
         "provision_id": "A265",
         "section_index": "28",
         "subject": "startup-control-special-law",
-        "rule": "STARTUP:first official intent through authenticated UI authoritative-state convergence uses one monotonic hard deadline 10000ms inclusive; every child inherits remaining budget; healthy resident attach+critical-path first+parallel independent gates+event-driven readiness+verified cache+bounded payloads+blocking work off control channel; ready requires all current conditions; deadline fences generation and preserves UI/user work/independent tools; retry uses fresh nonoverlapping generation; every cold/warm/reconnect/fault start <=10000ms",
+        "rule": "STARTUP:first official intent through authenticated UI authoritative-state convergence uses one monotonic hard deadline 10000ms inclusive; every child inherits remaining budget; healthy resident attach+critical-path first+parallel independent gates+event-driven readiness+verified cache+bounded payloads+blocking work off control channel; ready requires all current conditions; deadline fences generation and preserves UI/user work/independent tools; retry uses fresh nonoverlapping generation; every cold/warm/reconnect/fault start <=10000ms A265 是唯一主導啟動專法；A199 只提供驗收要求，A255 只提供不衝突的執行連續性要求。",
         "prohibition": "FORBID:average-only-pass+deadline-reset+socket-only-ready+fixed-sleep+serial-independent-gates+optional-evasion+late-success+overlapping-generation+deadline-used-to-authorize-code-overwrite/reset",
         "exception": "Certified nonessential excluded capabilities may defer and cannot count as core ready."
       },
@@ -2020,100 +2020,145 @@
         "position": 276,
         "provision_id": "A276",
         "section_index": "9",
-        "subject": "main-system 平台核心實體目錄定位條例",
-        "rule": "main-system 的實體路徑為 E:\\GPTBridge\\main-system，定位為平台核心實體目錄；邏輯上同時承載啟動核心、平台編排及部分執行模組。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用，均須將其標記為平台核心實體目錄，不得單純描述為模組執行層的一個工具。此定位不改變其與各獨立工具依 A184 維持的個體及故障隔離。 所有由 main-system 擁有的平台核心元件，其有效正式實體根目錄都必須收斂於 E:\\GPTBridge\\main-system 之下；外部舊路徑只能作為不可啟動且唯讀的遷移證據，完成後必須退役。",
-        "prohibition": "禁止把 main-system 分類為模組執行層工具、將平台核心扁平化為獨立工具、藉實體目錄名稱混同邏輯權責，或以此定位規避個體隔離。",
-        "exception": "位於 main-system 內的部分執行模組，仍各自遵循已登錄的邏輯責任者與權限邊界。"
+        "subject": "main-system-platform-core-physical-directory-classification",
+        "rule": "PHYSICAL-IDENTITY:main-system is the platform-core physical directory at E:\\GPTBridge\\main-system; LOGICAL-IDENTITY:platform-core physical directory carrying startup-core+platform-orchestration+selected execution modules; CANONICAL-CLASSIFICATION:platform-core-physical-directory; DOCUMENTATION:all architecture catalogs+manuals+test flows+faults+commands+diagrams and references must use this classification and must not describe main-system as merely one tool in the module execution layer; RUNTIME-BOUNDARY:this classification does not merge main-system with independent tools and A184 reciprocal isolation remains mandatory; OWNERSHIP:project-architecture registration remains permission-sovereign-owned while startup/runtime/execution responsibilities remain with their declared sovereigns; CONVERGENCE:every main-system-owned platform-core component active canonical physical root is a descendant of E:\\GPTBridge\\main-system and legacy roots outside it become nonlaunchable read-only migration evidence until retired",
+        "prohibition": "FORBID:classify-main-system-as-module-execution-tool+flatten-platform-core-into-independent-tool+directory-name-used-to-collapse-logical-roles+classification-used-to-bypass-A184+architecture-reference-without-canonical-code",
+        "exception": "A selected execution module physically located under main-system retains its own declared logical owner and authority boundary."
       },
       {
         "position": 277,
         "provision_id": "A277",
         "section_index": "9",
-        "subject": "model-dialogue 本地模型頂層資料夾定位條例",
-        "rule": "model-dialogue 實體路徑為 local-model/model-dialogue，邏輯上是本地模型頂層資料夾及本地模型對話能力的正式邊界。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用均須使用此定位。其範圍包含本地模型對話介面、通道、服務及模型互動協調，但不因此成為模型核心或網路權限主體。",
-        "prohibition": "禁止將 model-dialogue 分類為一般附屬模組、把本地模型對話權責放在此正式邊界之外、混同模型核心與網路權限，或繞過治理通道存取外部資源。",
-        "exception": "實體上位於 local-model 之下，不代表 model-dialogue 得承接其他本地模型個體已分配的職責。"
+        "subject": "model-dialogue-local-model-top-level-directory-classification",
+        "rule": "PHYSICAL-IDENTITY:model-dialogue is located at local-model/model-dialogue; LOGICAL-IDENTITY:top-level local-model directory and canonical boundary for local model dialogue capability; CANONICAL-CLASSIFICATION:local-model-top-level-directory; DOCUMENTATION:all architecture catalogs+manuals+test flows+faults+commands+diagrams and references must use this classification; SCOPE:local model dialogue UI+channel+service+model interaction coordination; BOUNDARY:does not become the model core or network authority and all external access remains governed",
+        "prohibition": "FORBID:classify-model-dialogue-as-generic-submodule+place-local-model-dialogue-authority-outside-canonical-boundary+merge-model-core-with-network-authority+ungoverned-external-access",
+        "exception": "Physical nesting under local-model does not authorize model-dialogue to assume responsibilities assigned to other local-model entities."
       },
       {
         "position": 278,
         "provision_id": "A278",
         "section_index": "9",
-        "subject": "Standalone tools 獨立工具頂層資料夾定位條例",
-        "rule": "Standalone tools 是位於 E:\\GPTBridge\\Standalone tools 的獨立工具頂層資料夾。它是獨立工具的正式架構容器，本身不是單一工具、共用執行個體或監督程序。其下每個已登錄工具仍是不同個體，分別擁有責任者、生命週期、執行環境、故障、資料、維修、更新及關閉邊界。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用均須使用此正式定位與路徑。 所有獨立工具的有效正式實體根目錄都必須收斂於 E:\\GPTBridge\\Standalone tools 之下；外部舊路徑只能作為不可啟動且唯讀的遷移證據，完成後必須退役。",
-        "prohibition": "禁止把 Standalone tools 視為單一工具、共用執行個體、共用監督者、共用故障域或 main-system 子模組；禁止合併子工具身份或跨工具控制生命週期、資料、維修、更新與關閉。",
-        "exception": "只有透過已登錄治理介面的唯讀共用基礎設施得共用；不得因此合併各工具的所有權、狀態、生命週期或故障邊界。"
+        "subject": "standalone-tools-top-level-directory-classification",
+        "rule": "PHYSICAL-IDENTITY:Standalone tools is the top-level directory at E:\\GPTBridge\\Standalone tools; LOGICAL-IDENTITY:canonical top-level directory for independent tools; CANONICAL-CLASSIFICATION:independent-tools-top-level-directory; CHILD-IDENTITY:each direct registered tool remains a separate independent individual with its own owner+lifecycle+runtime+failure+data+repair+update+shutdown boundaries under A184+A266; CONTAINER-NONRUNTIME:the directory is an architecture container and never a shared runtime individual or supervisor; DOCUMENTATION:all architecture catalogs+manuals+test flows+faults+commands+diagrams and references must use this exact classification and path; OWNERSHIP:permission-sovereign owns directory registration while each child tool owner retains tool-domain decisions; CONVERGENCE:every independent-tool active canonical physical root is a descendant of E:\\GPTBridge\\Standalone tools and legacy roots outside it become nonlaunchable read-only migration evidence until retired",
+        "prohibition": "FORBID:classify-Standalone-tools-as-one-tool+shared-runtime-individual+shared-supervisor+shared-failure-domain+main-system-submodule+merge-child-identities+cross-tool-lifecycle/data/repair/update/shutdown+hardcode-alternate-root+unregistered-child-tool",
+        "exception": "Shared read-only infrastructure is allowed only through a registered governed interface and cannot merge child ownership, state, lifecycle, or failure boundaries."
       },
       {
         "position": 279,
         "provision_id": "A279",
         "section_index": "9",
-        "subject": "Governance Codex 法典資料夾定位條例",
-        "rule": "Governance Codex 是位於 E:\\GPTBridge\\governance_rule\\codex 的法典資料夾，正式名稱為 governance-codex。其範圍包含官方機器法典、僅供星澄查閱的機密中文法典及法典存取邊界，由治理權威唯一主宰。所有架構目錄、手冊、測試流程、故障代碼、指令、圖表及引用均須使用此定位與精確路徑。",
-        "prohibition": "禁止把 Governance Codex 視為一般文件資料夾、建立替代權威法典、未授權寫入或由執行期自行修法；中文法典除星澄外不得被引用、鏡像、匯出或透露。",
-        "exception": "已認證工具得透過受治理的法典儲存庫介面讀取官方機器法典，但不因此取得直接修改檔案的權限。"
+        "subject": "governance-codex-codex-directory-classification",
+        "rule": "PHYSICAL-IDENTITY:Governance Codex is the codex directory at E:\\GPTBridge\\governance_rule\\codex; CANONICAL-NAME:governance-codex; CANONICAL-CLASSIFICATION:codex-directory; SCOPE:official codex database+confidential Xingcheng-only Chinese codex+codex access boundary; AUTHORITY:governance-authority only; DOCUMENTATION:all architecture catalogs+manuals+test flows+faults+commands+diagrams and references use this classification and exact path; PROTECTION:official codex artifacts remain read-only outside an explicit human-governor amendment transaction; NON-MIRROR:Chinese codex cannot be referenced mirrored exported or disclosed except to Xingcheng under its confidentiality boundary 治理權威唯一決定法典內容、解釋與修訂；權限主宰唯一管理目錄身份及存取登錄，雙方不得互相取代。",
+        "prohibition": "FORBID:classify-governance-codex-as-general-documentation+alternate-authoritative-codex-directory+unauthorized-write+runtime-generated-amendment+Chinese-codex-reference/mirror/export/disclosure-to-non-Xingcheng",
+        "exception": "Certified tooling may read the official machine codex through the governed repository interface; this does not grant direct file mutation authority."
       },
       {
         "position": 280,
         "provision_id": "A280",
         "section_index": "9",
-        "subject": "法典目錄整合與主系統、獨立工具收斂條例",
-        "rule": "法典統一登錄四個正式目錄：E:\\GPTBridge\\main-system 為平台核心實體目錄；E:\\GPTBridge\\local-model\\model-dialogue 為本地模型頂層資料夾；E:\\GPTBridge\\Standalone tools 為獨立工具頂層資料夾；E:\\GPTBridge\\governance_rule\\codex 為法典資料夾。所有主系統平台核心元件的正式實體根目錄必須收斂於 main-system 之下；所有獨立工具的正式實體根目錄必須收斂於 Standalone tools 之下，雙方均不得在外部保留有效正式根目錄。任何所屬原始碼、設定、清單、執行狀態、資料、快取、日誌、暫存檔、產物、啟動器及生成輸出，在環境代號展開、正規化及解析符號連結、接合點與重新解析點後，都不得超出各自登錄的頂層資料夾。每個元件或工具仍保有唯一身份、責任者、生命週期、執行環境、故障、資料、維修、更新與關閉邊界。",
-        "prohibition": "禁止任何所屬路徑超出登錄頂層資料夾，禁止利用絕對路徑、相對穿越、符號連結、接合點、重新解析點或環境代號逃逸；禁止主系統元件在 main-system 外保留有效根目錄、獨立工具在 Standalone tools 外保留有效根目錄、同一個體多重根目錄、硬編碼舊路徑、未登錄搬移、合併個體邊界，或把 model-dialogue、Governance Codex 誤列為獨立工具。",
-        "exception": "遷移期間舊路徑只能唯讀保留作證據，不得啟動、接收寫入、由有效執行環境解析，或在新根啟用後繼續作為正式路徑。"
+        "subject": "canonical-top-level-directory-integration-and-system-tool-convergence",
+        "rule": "INTEGRATION-ROOT:PROJECT_GPTBRIDGE=E:\\GPTBridge; CANONICAL-TOP-LEVEL:{MAIN_SYSTEM=E:\\GPTBridge\\main-system as platform-core-physical-directory}+{MODEL_DIALOGUE=E:\\GPTBridge\\local-model\\model-dialogue as local-model-top-level-directory}+{STANDALONE_TOOLS=E:\\GPTBridge\\Standalone tools as independent-tools-top-level-directory}+{GOVERNANCE_CODEX=E:\\GPTBridge\\governance_rule\\codex as codex-directory}; STRICT-BOUNDARY:no owned source+configuration+manifest+runtime state+data+cache+log+temporary file+artifact+launcher or generated output may resolve outside its registered top-level directory; RESOLUTION:canonical absolute path after environment-code expansion+normalization+symlink/junction/reparse resolution must remain a descendant of the registered root; MAIN-SYSTEM-CONVERGENCE:every platform-core component owned by main-system must have its active canonical physical root inside MAIN_SYSTEM and no main-system component may retain an active canonical root outside it; INDEPENDENT-TOOL-CONVERGENCE:every independent-tool canonical physical root must be a direct or governed descendant of STANDALONE_TOOLS and no independent tool may retain an active canonical root outside it; ONE-ENTITY-ONE-ROOT:each component or tool has exactly one registered root+identity+owner+lifecycle+runtime+failure+data+repair+update+shutdown boundary; MIGRATION:architecture-first versioned move preserves history+state+configuration+permissions+command/fault/manual/test references and activates new root only after validation; DIRECTORY-AUTHORITY:permission-sovereign owns canonical directory registration while declared domain sovereigns retain decisions; CONSISTENCY:architecture directory+filesystem+manifests+launchers+environment aliases+tests+release artifacts must resolve the same registered codes; CHINESE-CODEX:confidential Xingcheng-only and never a public mirror; ACCEPTANCE:no orphan+duplicate+alternate root+hardcoded legacy path+cross-owner boundary+broken reference+path escape; LAUNCHER-CONVERGENCE:E:\\GPTBridge\\main-system\\launcher is startup-core-top-level-directory-within-main-system and no active external launcher root remains; SHARED-LAYER-CONVERGENCE:shared-layer active canonical root must be inside E:\\GPTBridge\\main-system and no external active root remains 路徑分為所屬本機檔案、受治理外部權威及唯讀遷移舊根；PostgreSQL、Qdrant 等外部權威以端點、租戶、權限及故障邊界登錄，不視為本機路徑逃逸。",
+        "prohibition": "FORBID:any-owned-path-outside-registered-top-level-directory+absolute/relative-traversal-escape+symlink/junction/reparse-escape+environment-alias-escape+main-system-component-active-root-outside-main-system+independent-tool-active-root-outside-Standalone-tools+duplicate-entity-root+tool-at-project-root+implicit-path-alias+hardcoded-legacy-root+move-before-architecture-registration+shared-tool-runtime/failure/data/repair/update/shutdown+main-system/model-dialogue/governance-codex-reclassified-as-independent-tool+Chinese-codex-disclosure",
+        "exception": "A legacy component or tool path may remain read-only during an explicitly registered migration window only; it cannot launch, receive writes, resolve through the active runtime, or remain canonical after activation of the new root."
       },
       {
         "position": 281,
         "provision_id": "A281",
         "section_index": "9",
-        "subject": "Git 頂層資料夾定位條例",
-        "rule": "Git 的頂層資料夾固定為 E:\\GPTBridge，並與專案根目錄共址。儲存庫中繼資料、索引、參照、物件、掛鉤、設定、受追蹤工作樹及版本控制執行產物，經正規化及重新解析點解析後均不得超出此根目錄。所有工作樹必須是已登錄的內部子路徑，並維持分支、索引與所有權隔離。提交、合併、同步、稽核與推送均須由此正式 Git 根目錄及指定協調者控制。",
-        "prohibition": "禁止在 E:\\GPTBridge 外保留有效 Git 根目錄或工作樹、替代 .git 權威、gitdir 指標逃逸、符號連結或接合點逃逸、未登錄工作樹、跨工作樹修改索引、工作者直接推送，以及未經治理核准的強制推送、刪除參照或非快轉。",
-        "exception": "外部舊工作樹只能在已登錄遷移期間唯讀保留，不得接收提交、同步或執行期寫入，內部後繼工作樹驗證後必須退役。"
+        "subject": "git-top-level-directory-classification",
+        "rule": "PHYSICAL-IDENTITY:Git top-level directory is E:\\GPTBridge; CANONICAL-CLASSIFICATION:git-top-level-directory co-located with PROJECT_GPTBRIDGE project root; AUTHORITY:the repository metadata+index+references+objects+hooks+configuration+tracked working trees and version-control runtime artifacts must resolve inside E:\\GPTBridge after canonical path and reparse-point resolution; SINGLE-ROOT:no alternate active Git top-level or worktree root outside E:\\GPTBridge; WORKTREE:each governed worktree must be a registered descendant path and preserve branch+index+ownership isolation; OPERATIONS:commit+merge+sync+audit+push originate from the registered Git root and follow coordinator authority; MIGRATION:legacy external worktrees become nonlaunchable read-only migration evidence until moved+validated+retired",
+        "prohibition": "FORBID:Git-active-root-outside-E:\\GPTBridge+external-active-worktree+alternate-dot-git-authority+gitdir-pointer-escape+symlink/junction/reparse-escape+unregistered-worktree+cross-worktree-index-mutation+worker-direct-push+force-push/ref-delete/non-fast-forward-without-explicit-governance-approval",
+        "exception": "A legacy external worktree may remain read-only during a registered migration window; it cannot receive commits, synchronization, runtime writes, or remain active after the internal successor is validated."
       },
       {
         "position": 282,
         "provision_id": "A282",
         "section_index": "9",
-        "subject": "launcher 收斂至 main-system 條例",
-        "rule": "launcher 必須收斂至 E:\\GPTBridge\\main-system\\launcher，作為 main-system 內的啟動核心頂層資料夾。啟用後不得在 E:\\GPTBridge\\launcher 或 main-system 外保留有效正式根目錄。遷移必須先更新架構登錄，再原子更新入口、清單、環境代號、建置、測試、捷徑及發行產物並保留歷史。launcher 只負責機械式喚醒與呈現；啟動決策仍由啟動主宰負責。所有 launcher 所屬檔案與產物均不得超出新根目錄。 launcher 作為啟動入口只能帶出 UI，不得直接啟動或附接後端、啟動核心或系統執行環境；UI 必須經資訊層提交啟動意圖。",
-        "prohibition": "禁止 launcher 在 main-system 外保留有效根目錄、繼續使用 E:\\GPTBridge\\launcher 作為有效路徑、多重根目錄、未驗證搬移、直接控制後端或工具、使用私有通道，以及路徑或環境代號逃逸。",
-        "exception": "舊 E:\\GPTBridge\\launcher 只能在已登錄遷移期間唯讀保留，不得啟動、接收寫入或在新根啟用後繼續作為正式路徑。"
+        "subject": "launcher-convergence-into-main-system",
+        "rule": "PHYSICAL-IDENTITY:launcher converges into E:\\GPTBridge\\main-system\\launcher as the startup-core top-level directory inside main-system; CANONICAL-CLASSIFICATION:startup-core-top-level-directory-within-main-system; NO-EXTERNAL-ROOT:after activation no active canonical launcher root remains at E:\\GPTBridge\\launcher or anywhere outside main-system; SCOPE:official native startup entry+launcher shell+startup intent handoff+single-instance attachment+startup status presentation; BOUNDARY:launcher performs mechanical wake and presentation only while startup-sovereign owns startup decisions and main-system owns platform orchestration plus selected internal startup execution modules; MIGRATION:architecture-first versioned move updates entrypoints+manifests+environment aliases+build+tests+shortcuts+release artifacts atomically and preserves history; STRICT-ROOT:all launcher-owned source+configuration+manifest+runtime state+cache+logs+temporary files+artifacts and generated output resolve inside target after canonical and reparse resolution; INTERFACE:all control crosses registered information-layer and typed startup contracts; ENTRY-UI-ONLY:launcher brings out UI only and cannot directly start or attach backend/startup-core/system runtime; START-REQUEST:UI submits typed intent through information-layer and startup-core owns all subsequent governance and system-core activation",
+        "prohibition": "FORBID:active-launcher-root-outside-main-system+legacy-E:\\GPTBridge\\launcher-as-active+duplicate-launcher-root+launcher-as-system-decision-authority+launcher-owning-main-system-runtime+direct-backend/database/model/tool-control+private-channel+path/reparse/environment-alias-escape+migration-without-tests/rollback/evidence",
+        "exception": "The legacy E:\\GPTBridge\\launcher path may remain read-only during a registered migration window only; it cannot launch, receive writes, or remain canonical after target activation."
       },
       {
         "position": 283,
         "provision_id": "A283",
         "section_index": "9",
-        "subject": "shared-layer 收斂至 main-system 條例",
-        "rule": "shared-layer 必須收斂至 E:\\GPTBridge\\main-system 內，成為已登錄的內部共用服務邊界。啟用後不得在 E:\\GPTBridge\\shared-layer 或 main-system 外保留有效正式根目錄。遷移必須先更新架構登錄，再原子更新匯入、清單、環境代號、建置、測試、啟動器及發行產物並保留歷史。所有 shared-layer 所屬檔案與產物不得超出 main-system。獨立工具只能透過已登錄介面使用共用能力。",
-        "prohibition": "禁止 shared-layer 在 main-system 外保留有效根目錄、多重根目錄、舊匯入或路徑、連結與環境代號逃逸、獨立工具直接寫入，或未具測試、回復與證據即搬移。",
-        "exception": "舊 E:\\GPTBridge\\shared-layer 只能在已登錄遷移期間唯讀保留，不得被匯入、啟動、寫入或在新根啟用後繼續作為正式路徑。"
+        "subject": "shared-layer-convergence-into-main-system",
+        "rule": "TARGET:shared-layer converges into E:\\GPTBridge\\main-system as a registered internal shared-services boundary; NO-TOP-LEVEL:after activation no active canonical shared-layer root remains at E:\\GPTBridge\\shared-layer or anywhere outside main-system; SCOPE:shared contracts+common adapters+approved reusable infrastructure used by main-system; OWNERSHIP:each shared component retains one declared logical owner while its physical root remains inside main-system; MIGRATION:architecture-first versioned move updates imports+manifests+environment aliases+build+tests+launchers+release artifacts atomically and preserves history; STRICT-ROOT:all shared-layer-owned source+configuration+runtime state+data+cache+logs+temporary files+artifacts and generated output resolve inside main-system; TOOL-BOUNDARY:independent tools consume shared capability only through registered interfaces and cannot directly own or mutate main-system shared-layer files",
+        "prohibition": "FORBID:active-shared-layer-root-outside-main-system+duplicate-shared-root+legacy-import/path+symlink/junction/reparse/environment-escape+independent-tool-direct-write+shared-layer-as-independent-runtime-individual+move-without-tests/rollback/evidence",
+        "exception": "The legacy E:\\GPTBridge\\shared-layer path may remain read-only during a registered migration window only and cannot be imported, launched, written, or remain canonical after activation."
       },
       {
         "position": 284,
         "provision_id": "A284",
         "section_index": "4",
-        "subject": "GPTBridge 正式分層專案架構條例",
-        "rule": "GPTBridge 依序分為：只帶出 UI 的啟動入口；負責啟動治理與系統核心的啟動核心；Governance Authority 治理權威層；由系統主宰、維護主宰、權限主宰組成的決策主宰層；由 System、Maintenance、Permission Sub-Sovereigns 組成的執行控制與派工子主宰層；由收斂於 main-system 的 Shared Layer、PostgreSQL、Qdrant、狀態、事件與 IPC 組成的跨層資訊層；以及模組執行層。模組執行層包含本地模型及其模型對話、星澄專屬資料夾，投資管家及投資管家手機版專屬資料夾，外部協作、自動化檔案管理與自動化影音下載。治理流程固定為治理權威、主宰決策、子主宰控制派工、受治理執行；跨層資訊一律經資訊層。",
-        "prohibition": "禁止啟動入口直接喚醒後端或作決策、跨層越權、子主宰取代最終政策決策、模組取得主宰權、使用私有跨層通道、繞過資訊層直接存取 PostgreSQL 或 Qdrant、洩露星澄專屬資料夾，或合併模組資料、執行與故障邊界。",
-        "exception": "啟動 UI 得顯示明確標示為過期的快取狀態並提交具型別的啟動意圖；只有啟動核心得開始受治理的系統啟動。"
-      },
-      {
-        "position": 284,
-        "provision_id": "A284",
-        "section_index": "4",
-        "subject": "GPTBridge 正式分層專案架構條例",
-        "rule": "GPTBridge 依序分為：只帶出 UI 的啟動入口；負責啟動治理與系統核心的啟動核心；Governance Authority 治理權威層；由系統主宰、維護主宰、權限主宰組成的決策主宰層；由 System、Maintenance、Permission Sub-Sovereigns 組成的執行控制與派工子主宰層；由收斂於 main-system 的 Shared Layer、PostgreSQL、Qdrant、狀態、事件與 IPC 組成的跨層資訊層；以及模組執行層。模組執行層包含本地模型及其模型對話、星澄專屬資料夾，投資管家及投資管家手機版專屬資料夾，外部協作、自動化檔案管理與自動化影音下載。治理流程固定為治理權威、主宰決策、子主宰控制派工、受治理執行；跨層資訊一律經資訊層。",
-        "prohibition": "禁止啟動入口直接喚醒後端或作決策、跨層越權、子主宰取代最終政策決策、模組取得主宰權、使用私有跨層通道、繞過資訊層直接存取 PostgreSQL 或 Qdrant、洩露星澄專屬資料夾，或合併模組資料、執行與故障邊界。",
-        "exception": "啟動 UI 得顯示明確標示為過期的快取狀態並提交具型別的啟動意圖；只有啟動核心得開始受治理的系統啟動。"
+        "subject": "gptbridge-canonical-layered-project-architecture",
+        "rule": "ROOT:GPTBridge; LAYER-1:startup-entry=UI-only at E:\\GPTBridge\\main-system\\launcher and has-no system/runtime/business decision or direct backend wake authority; LAYER-2:startup-core=startup-governance+system-core inside main-system and begins only from typed UI startup intent; LAYER-3:governance-authority-layer=Governance Authority and codex; LAYER-4:sovereign-decision-layer={system-sovereign+maintenance-sovereign+permission-sovereign}; LAYER-5:sub-sovereign-execution-control-and-dispatch-layer={System Sub-Sovereigns+Maintenance Sub-Sovereigns+Permission Sub-Sovereigns}; LAYER-6:cross-layer-information-layer={Shared Layer converged inside main-system+PostgreSQL+Qdrant+state+events+IPC}; LAYER-7:module-execution-layer={local-model/model-dialogue with Xingcheng-exclusive directory}+{investment-assistant with investment-mobile exclusive directory}+{external-collaboration}+{automatic-file-management}+{automatic-video-download}; AUTHORITY-FLOW:governance-authority>sovereign-decision>sub-sovereign-control/delegation>governed-executor; INFORMATION-FLOW:all cross-layer state/event/data/IPC through information-layer; MODULE-BOUNDARY:modules execute only and cannot assume governance or sovereign decisions; DIRECTORY:main-system-owned layers remain inside main-system+independent tools inside Standalone tools+model-dialogue remains registered local-model top-level; ISOLATION:each module and exclusive directory retains declared owner+permission+data+runtime+failure boundaries",
+        "prohibition": "FORBID:startup-entry-waking-backend-directly+startup-entry-decision+layer-skip+sub-sovereign-final-policy-decision+module-sovereign-authority+private-cross-layer-channel+direct-PostgreSQL/Qdrant-access-outside-information-layer+shared-layer-outside-main-system+independent-tool-outside-Standalone-tools+Xingcheng-directory-disclosure+cross-module-data/runtime/failure-boundary-merge",
+        "exception": "The UI startup entry may render cached status marked stale and submit a typed startup intent; only the startup core may initiate governed system startup."
       },
       {
         "position": 285,
         "provision_id": "A285",
         "section_index": "1",
-        "subject": "人工法典版本基準重設條例",
-        "rule": "依人類治理者明確指示，本次將完整整合法典版本手動重設為 1.00000，並保存重設前版本、歷史鏈頭及各項根雜湊。所有修訂歷史、條款身份、沿革及取代證據均保留。後續版本自 1.00000 依最高適用變更程度重新自然演化，任何自動程序均不得再次重設版本。",
-        "prohibition": "禁止自動或靜默重設版本、刪除歷史或身份證據、未記錄前任根雜湊、由執行期、修復、更新或工具變更版本，以及外部簽章未完成即宣告驗證。",
-        "exception": "本次重設僅由 H045 記錄的人類治理者明確指示授權，不產生常設自動重設權。"
+        "subject": "human-governor-manual-version-baseline-reset",
+        "rule": "AUTHORITY:explicit human-governor amendment; ACTION:set current codex version manually to 1.00000 as a new natural-evolution baseline; PRESERVATION:record previous version+history head+content root+identity root+full root before reset and retain all revision history+provision identities+lineage+supersession evidence; CURRENT-SEAL:1.00000 seal is regenerated for the complete integrated current codex and supersedes the former baseline seal without deleting its recorded predecessor roots; FUTURE:every successor after this reset derives naturally from 1.00000 under the highest applicable change degree and cannot be manually changed again without another explicit human-governor amendment; CERTIFICATION:external offline signatures remain required 本次版本重設源自使用者的一次性合法命令，已由 H045 消耗，不得重播、複製或轉為常設重設權。",
+        "prohibition": "FORBID:automatic-version-reset+silent-reset+history/identity/lineage-deletion+unrecorded-predecessor-root+version-change-by-runtime/repair/update/tool+verified-status-without-external-signatures",
+        "exception": "This one reset is authorized only by the explicit human-governor instruction recorded in H045; it creates no standing automatic reset power."
+      },
+      {
+        "position": 286,
+        "provision_id": "A286",
+        "section_index": "1",
+        "subject": "法典世代版本身份與自然演化專法",
+        "rule": "版本身份由世代及顯示版本共同組成。目前版本為 E2:1.00000。相同顯示版本只能存在於不同且不可變的世代；歷史、封印、修訂及簽章均須解析完整身份。人工重設必須建立新世代並保存前任版本、歷史鏈頭及所有根雜湊；後續在 E2 內依最高變更程度自然演化。 H045 已合法消耗一次性使用者重設命令並建立 E2；該命令不再具有執行效力。",
+        "prohibition": "禁止未帶世代的版本身份、兩個現行世代、覆寫前任證據、自動或靜默重設及刪除歷史。",
+        "exception": "只有條文明定且保留完整治理證據的例外得適用。"
+      },
+      {
+        "position": 287,
+        "provision_id": "A287",
+        "section_index": "4",
+        "subject": "主宰決策與子主宰派工邊界",
+        "rule": "系統決策主宰、維護主宰及權限主宰負責各自領域最終決策；三個同名領域子主宰只負責執行控制、具型別派工及證據回報。執行者只能執行有界工作，跨層狀態一律經資訊層。所有法典與目錄只能使用正式登錄身份。",
+        "prohibition": "禁止使用未登錄的泛稱系統主宰、子主宰作最終政策決策、跨領域派工、執行者自行授權、合併角色或使用私有狀態通道。",
+        "exception": "只有條文明定且保留完整治理證據的例外得適用。"
+      },
+      {
+        "position": 288,
+        "provision_id": "A288",
+        "section_index": "4",
+        "subject": "架構目錄狀態與邊界專法",
+        "rule": "每個邏輯層、子層、模組及專屬資料夾都必須具有唯一架構代碼、父層、目標根目錄、責任者、職責、介面及資料、執行與故障邊界。啟用狀態依序為法定、規劃遷移、遷移中、已驗證、有效、已退役。法典登錄不得被視為實體完成。所屬本機檔案不得超出根目錄；外部資料權威必須以受治理端點登錄。",
+        "prohibition": "禁止遺漏架構項目、未驗證即啟用、雙重有效根目錄、把外部服務視為本機路徑逃逸、舊根寫入或啟動，以及無證據宣告完成。",
+        "exception": "只有條文明定且保留完整治理證據的例外得適用。"
+      },
+      {
+        "position": 289,
+        "provision_id": "A289",
+        "section_index": "4",
+        "subject": "一模組一測試套件架構目錄專法",
+        "rule": "權限主宰唯一擁有並登錄測試套件架構目錄；每個有效模組只能對應一個有效測試套件，每個套件也只能服務一個模組。維護主宰集中管理測試規劃、層級覆蓋、執行協調、證據驗收、失敗追蹤、複測與缺口閉合；模組責任者只負責領域斷言及測試資料。",
+        "prohibition": "禁止模組沒有套件或具有多個套件、套件跨模組共用、私有平行套件、權限主宰管理測試結果、維護主宰自行登錄目錄、未登錄測試、無證據通過或未複測即關閉缺口。",
+        "exception": "只有條文明定且保留完整治理證據的例外得適用。"
+      },
+      {
+        "position": 290,
+        "provision_id": "A290",
+        "section_index": "31",
+        "subject": "頂層資料夾路徑專法",
+        "rule": "所有專案、Git、主系統、啟動核心、法典、本地模型、獨立工具及模組根目錄，均由權限主宰以唯一代碼、正式名稱、絕對路徑、父層、責任者及啟用狀態登錄。環境變數與設定只能引用代碼；解析器完成正規化及連結解析後，所屬本機檔案不得逃逸根目錄。外部資料服務只能使用已登錄端點，不得冒充本機路徑例外。新架構只有在新根驗證、引用切換、回復期關閉、資料核對、舊根安全刪除並記錄刪除證據後才算完成；有效命名空間不得留下舊資料夾、接合點、符號連結、轉址、副本或備份。宣告與實作義務均具有強制性。",
+        "prohibition": "禁止硬編碼未登錄路徑、多重有效根目錄、路徑穿越、連結或環境代號逃逸、未驗證啟用、遷移後舊根寫入或啟動、舊根未刪除即宣告完成，以及在有效命名空間保留舊根、接合點、連結、轉址、副本或備份。",
+        "exception": "只有條文明定且保留完整治理證據的例外得適用。"
+      },
+      {
+        "position": 291,
+        "provision_id": "A291",
+        "section_index": "1",
+        "subject": "宣告與實作強制效力條例",
+        "rule": "每一項生效法典宣告都必須建立強制實作義務，除非條文明定只具宣告性；預設不得視為建議。宣告得先於實作，但實作不得被省略、靜默豁免或降為選用。義務必須記錄來源條款、責任者、目標與現況、期限規則、驗收證據、不合規效果及豁免規則。未完成時必須阻止啟用及已驗證完成宣告。",
+        "prohibition": "禁止宣告後不建立義務、預設實作可選、靜默延後、無責任者或永久無期限待辦、無證據完成、用無關測試冒充證明、自動豁免或執行期自行排除。",
+        "exception": "只有條文明定且保留完整治理證據的例外得適用。"
       }
     ],
     "certification_evidence": [
@@ -2759,10 +2804,10 @@
       },
       {
         "version": "1.00000",
-        "recorded_at_utc": "2026-09-12T00:52:09Z",
-        "recorded_at_local": "2026-09-12T08:52:09+08:00",
+        "recorded_at_utc": "2026-09-12T01:17:07Z",
+        "recorded_at_local": "2026-09-12T09:17:07+08:00",
         "timezone": "Asia/Taipei",
-        "event": "human-governor-manual-version-baseline-reset"
+        "event": "human-governor-manual-epoch-baseline-integrated-repair"
       }
     ],
     "command_code_directory": [
@@ -5687,6 +5732,20 @@
         "owner": "permission-sovereign",
         "introduced_version": "3.21600",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_TEST_SUITE_ARCHITECTURE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "module-architecture-code|management-owner|suite-root|test-levels|required-evidence",
+        "required_field_order": "common-envelope>module-identity>suite-identity>authority>root>coverage>lifecycle>evidence",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>one-to-one-cardinality>relationships>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -5974,6 +6033,19 @@
         "coverage_rule": "every ordered pair of main-system and independent-tool individuals",
         "implementation_state": "mandated-pending-implementation",
         "introduced_version": "3.21600",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_TEST_SUITE_ARCHITECTURE",
+        "canonical_name": "test-suite-architecture-directory",
+        "owner": "permission-sovereign",
+        "scope": "all registered executable modules",
+        "authority_kind": "module-to-suite-architecture",
+        "required_fields": "suite-code|canonical-name|module-architecture-code|owner|management-owner|suite-root|test-levels|required-evidence|status|introduced-version|retired-version",
+        "relationships": "project-architecture-directory|test-flow-directory",
+        "coverage_rule": "exactly one active suite per active executable module",
+        "implementation_state": "active",
+        "introduced_version": "1.00000",
         "retired_version": null
       }
     ],
@@ -10242,6 +10314,60 @@
         "provision_id": "A285",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "system-sub-sovereign",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "maintenance-sub-sovereign",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "permission-sub-sovereign",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A286",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A287",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A288",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A289",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A290",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A291",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -14480,6 +14606,19 @@
         "official_entry": "governance-codex://official",
         "introduced_version": "2.91600",
         "retired_version": null
+      },
+      {
+        "law_code": "CODEX_TOP_LEVEL_DIRECTORY_PATH_SPECIAL_LAW",
+        "canonical_name": "top-level-directory-path-special-law",
+        "tier": "special-law",
+        "owner": "permission-sovereign",
+        "parent_law_code": "CODEX_MAIN",
+        "scope": "all registered top-level and module-root path identities",
+        "authority_basis": "A227|A229|A230|A280|A288|A291",
+        "precedence": "special-over-general-within-declared-scope",
+        "official_entry": "governance-codex://official",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "maintenance_manual_directory": [
@@ -14736,7 +14875,7 @@
       },
       {
         "key": "version_derivation",
-        "value": "highest-applicable-change-degree-once-per-successor"
+        "value": "epoch-qualified-version-identity+highest-applicable-change-degree-once-per-successor"
       },
       {
         "key": "allowed_viewer_ids",
@@ -14908,7 +15047,7 @@
       },
       {
         "key": "version_reset_after_genesis",
-        "value": "forbidden"
+        "value": "human-governor-explicit-new-epoch-only"
       },
       {
         "key": "startup_authoritative_article",
@@ -15121,6 +15260,22 @@
       {
         "key": "version_evolution_mode",
         "value": "natural-highest-degree-after-manual-baseline-reset"
+      },
+      {
+        "key": "current_version_epoch",
+        "value": "2"
+      },
+      {
+        "key": "current_version_identity",
+        "value": "E2:1.00000"
+      },
+      {
+        "key": "manual_reset_command_kind",
+        "value": "explicit-user-command"
+      },
+      {
+        "key": "manual_reset_command_status",
+        "value": "consumed-one-time-lawful"
       }
     ],
     "preamble": [
@@ -15875,7 +16030,7 @@
         "entity_kind": "local-model-top-level-directory",
         "owner": "permission-sovereign",
         "parent_code": "PROJECT_GPTBRIDGE",
-        "physical_root": "E:\\GPTBridge\\local-model\\model-dialogue",
+        "physical_root": "E:\\\\GPTBridge\\\\Standalone tools\\\\local-model\\\\model-dialogue",
         "logical_boundary": "top-level local-model directory and canonical local model dialogue boundary",
         "responsibilities": "local model dialogue UI|channel|service|model interaction coordination",
         "dependencies": "registered local model runtime|information layer|model core adapters",
@@ -15955,6 +16110,424 @@
         "manual_codes": "",
         "test_flow_codes": "TF_STARTUP_TEN_SECOND_DEADLINE",
         "introduced_version": "4.51600",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "AI_ASSISTANT",
+        "canonical_name": "ai-assistant",
+        "entity_kind": "independent-tool",
+        "owner": "permission-sovereign",
+        "parent_code": "STANDALONE_TOOLS",
+        "physical_root": "E:\\GPTBridge\\Standalone tools\\ai-assistant",
+        "logical_boundary": "canonical independent tool boundary for ai-assistant",
+        "responsibilities": "investment assistant module",
+        "dependencies": "governance codex|permission directory|information layer|shared layer|registered runtime dependencies",
+        "interfaces": "governance-authenticated-shared-layer|ai-channel-process",
+        "data_authority": "ai-assistant-owned application state|investment-mobile cache authority",
+        "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+        "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+        "permission_scope": "ai-assistant-domain",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "AI_COLLABORATION",
+        "canonical_name": "ai-collaboration",
+        "entity_kind": "independent-tool",
+        "owner": "permission-sovereign",
+        "parent_code": "STANDALONE_TOOLS",
+        "physical_root": "E:\\GPTBridge\\Standalone tools\\ai-collaboration",
+        "logical_boundary": "canonical independent tool boundary for ai-collaboration",
+        "responsibilities": "external collaboration module",
+        "dependencies": "governance codex|permission directory|information layer|shared layer|registered runtime dependencies",
+        "interfaces": "governance-authenticated-shared-layer|ai-channel-process",
+        "data_authority": "ai-collaboration-owned application state",
+        "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+        "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+        "permission_scope": "ai-collaboration-domain",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "FILE_SORTER",
+        "canonical_name": "file-sorter",
+        "entity_kind": "independent-tool",
+        "owner": "permission-sovereign",
+        "parent_code": "STANDALONE_TOOLS",
+        "physical_root": "E:\\GPTBridge\\Standalone tools\\file-sorter",
+        "logical_boundary": "canonical independent tool boundary for file-sorter",
+        "responsibilities": "automatic file management module",
+        "dependencies": "governance codex|permission directory|information layer|shared layer|registered runtime dependencies",
+        "interfaces": "governance-authenticated-shared-layer|system-channel",
+        "data_authority": "file-sorter-owned application state",
+        "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+        "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+        "permission_scope": "file-sorter-domain",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "GLOBAL_CLEANER",
+        "canonical_name": "global-cleaner",
+        "entity_kind": "independent-tool",
+        "owner": "permission-sovereign",
+        "parent_code": "STANDALONE_TOOLS",
+        "physical_root": "E:\\\\GPTBridge\\\\Standalone tools\\\\global-cleaner",
+        "logical_boundary": "canonical independent tool boundary for global-cleaner",
+        "responsibilities": "global cleanup|cli execution|temporary storage owner|backup authority",
+        "dependencies": "governance codex|permission directory|information layer|shared layer|registered runtime dependencies",
+        "interfaces": "governance-authenticated-shared-layer|system-channel",
+        "data_authority": "global-cleaner-owned application state|temporary storage authority|backup storage authority",
+        "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+        "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+        "permission_scope": "global-cleaner-domain",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "INVESTMENT_MOBILE",
+        "canonical_name": "investment-mobile",
+        "entity_kind": "independent-tool",
+        "owner": "permission-sovereign",
+        "parent_code": "AI_ASSISTANT",
+        "physical_root": "E:\\GPTBridge\\Standalone tools\\ai-assistant\\investment-mobile",
+        "logical_boundary": "canonical independent tool boundary for investment-mobile",
+        "responsibilities": "investment assistant mobile exclusive directory",
+        "dependencies": "governance codex|permission directory|information layer|shared layer|registered runtime dependencies",
+        "interfaces": "governance-authenticated-shared-layer|ai-channel-submit",
+        "data_authority": "ai-assistant-owned business settings|investment-mobile runtime state",
+        "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+        "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+        "permission_scope": "investment-mobile-domain",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "LOCAL_MODEL",
+        "canonical_name": "local-model",
+        "entity_kind": "independent-tool",
+        "owner": "permission-sovereign",
+        "parent_code": "STANDALONE_TOOLS",
+        "physical_root": "E:\\\\GPTBridge\\\\Standalone tools\\\\local-model",
+        "logical_boundary": "canonical independent tool boundary for local-model (xingcheng)",
+        "responsibilities": "local ai inference|rag|xingcheng automatic workflow|model runtime coordination",
+        "dependencies": "governance codex|permission directory|information layer|shared layer|registered runtime dependencies",
+        "interfaces": "governance-authenticated-shared-layer|ai-channel-process",
+        "data_authority": "local-model-owned application state|xingcheng data authority|model runtime authority",
+        "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+        "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+        "permission_scope": "local-model-domain",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "SYSTEM_RESCUE",
+        "canonical_name": "system-rescue",
+        "entity_kind": "independent-tool",
+        "owner": "permission-sovereign",
+        "parent_code": "STANDALONE_TOOLS",
+        "physical_root": "E:\\\\GPTBridge\\\\Standalone tools\\\\system-rescue",
+        "logical_boundary": "canonical independent tool boundary for system-rescue",
+        "responsibilities": "audit records authority|runtime logs authority|platform packaging integration|system health check",
+        "dependencies": "governance codex|permission directory|information layer|shared layer|registered runtime dependencies",
+        "interfaces": "governance-authenticated-shared-layer|system-channel",
+        "data_authority": "system-rescue-owned audit records|system-rescue-owned runtime logs",
+        "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+        "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+        "permission_scope": "system-rescue-domain",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "VAULTLY",
+        "canonical_name": "vaultly",
+        "entity_kind": "independent-tool",
+        "owner": "permission-sovereign",
+        "parent_code": "STANDALONE_TOOLS",
+        "physical_root": "E:\\GPTBridge\\Standalone tools\\vaultly",
+        "logical_boundary": "canonical independent tool boundary for vaultly",
+        "responsibilities": "automatic video download module",
+        "dependencies": "governance codex|permission directory|information layer|shared layer|registered runtime dependencies",
+        "interfaces": "governance-authenticated-shared-layer|system-channel",
+        "data_authority": "vaultly-owned application state|credential storage authority",
+        "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+        "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+        "permission_scope": "vaultly-domain",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "GOVERNANCE_AUTHORITY_LAYER",
+        "canonical_name": "governance-authority-layer",
+        "entity_kind": "governance-layer",
+        "owner": "permission-sovereign",
+        "parent_code": "PROJECT_GPTBRIDGE",
+        "physical_root": "E:\\GPTBridge\\governance_rule",
+        "logical_boundary": "declared canonical architecture boundary",
+        "responsibilities": "codex interpretation and amendment authority",
+        "dependencies": "registered parent and information-layer interfaces",
+        "interfaces": "information-layer://official",
+        "data_authority": "registered authority only",
+        "runtime_boundary": "separate registered runtime or adapter boundary",
+        "failure_boundary": "owner-isolated failure boundary",
+        "permission_scope": "registered-scope",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "SOVEREIGN_DECISION_LAYER",
+        "canonical_name": "sovereign-decision-layer",
+        "entity_kind": "decision-layer",
+        "owner": "permission-sovereign",
+        "parent_code": "MAIN_SYSTEM",
+        "physical_root": "E:\\GPTBridge\\main-system\\governance\\sovereigns",
+        "logical_boundary": "declared canonical architecture boundary",
+        "responsibilities": "system maintenance and permission sovereign decisions",
+        "dependencies": "registered parent and information-layer interfaces",
+        "interfaces": "information-layer://official",
+        "data_authority": "registered authority only",
+        "runtime_boundary": "separate registered runtime or adapter boundary",
+        "failure_boundary": "owner-isolated failure boundary",
+        "permission_scope": "registered-scope",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "SUB_SOVEREIGN_LAYER",
+        "canonical_name": "sub-sovereign-layer",
+        "entity_kind": "execution-control-dispatch-layer",
+        "owner": "permission-sovereign",
+        "parent_code": "SOVEREIGN_DECISION_LAYER",
+        "physical_root": "E:\\GPTBridge\\main-system\\governance\\sub-sovereigns",
+        "logical_boundary": "declared canonical architecture boundary",
+        "responsibilities": "typed control delegation and evidence return",
+        "dependencies": "registered parent and information-layer interfaces",
+        "interfaces": "information-layer://official",
+        "data_authority": "registered authority only",
+        "runtime_boundary": "separate registered runtime or adapter boundary",
+        "failure_boundary": "owner-isolated failure boundary",
+        "permission_scope": "registered-scope",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "INFORMATION_LAYER",
+        "canonical_name": "information-layer",
+        "entity_kind": "cross-layer-information-layer",
+        "owner": "permission-sovereign",
+        "parent_code": "MAIN_SYSTEM",
+        "physical_root": "E:\\GPTBridge\\main-system\\information-layer",
+        "logical_boundary": "declared canonical architecture boundary",
+        "responsibilities": "shared services state events IPC and governed data adapters",
+        "dependencies": "registered parent and information-layer interfaces",
+        "interfaces": "information-layer://official",
+        "data_authority": "registered authority only",
+        "runtime_boundary": "separate registered runtime or adapter boundary",
+        "failure_boundary": "owner-isolated failure boundary",
+        "permission_scope": "registered-scope",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "SHARED_LAYER",
+        "canonical_name": "shared-layer",
+        "entity_kind": "internal-shared-services-boundary",
+        "owner": "permission-sovereign",
+        "parent_code": "INFORMATION_LAYER",
+        "physical_root": "E:\\GPTBridge\\main-system\\shared-layer",
+        "logical_boundary": "declared canonical architecture boundary",
+        "responsibilities": "shared contracts and approved reusable infrastructure",
+        "dependencies": "registered parent and information-layer interfaces",
+        "interfaces": "information-layer://official",
+        "data_authority": "registered authority only",
+        "runtime_boundary": "separate registered runtime or adapter boundary",
+        "failure_boundary": "owner-isolated failure boundary",
+        "permission_scope": "registered-scope",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "POSTGRESQL_AUTHORITY",
+        "canonical_name": "postgresql",
+        "entity_kind": "external-data-authority-adapter",
+        "owner": "permission-sovereign",
+        "parent_code": "INFORMATION_LAYER",
+        "physical_root": "E:\\GPTBridge\\main-system\\information-layer\\postgresql",
+        "logical_boundary": "declared canonical architecture boundary",
+        "responsibilities": "official mutable data adapter",
+        "dependencies": "registered parent and information-layer interfaces",
+        "interfaces": "information-layer://official",
+        "data_authority": "registered authority only",
+        "runtime_boundary": "separate registered runtime or adapter boundary",
+        "failure_boundary": "owner-isolated failure boundary",
+        "permission_scope": "registered-scope",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "QDRANT_AUTHORITY",
+        "canonical_name": "qdrant",
+        "entity_kind": "external-semantic-candidate-adapter",
+        "owner": "permission-sovereign",
+        "parent_code": "INFORMATION_LAYER",
+        "physical_root": "E:\\GPTBridge\\main-system\\information-layer\\qdrant",
+        "logical_boundary": "declared canonical architecture boundary",
+        "responsibilities": "semantic candidate data adapter",
+        "dependencies": "registered parent and information-layer interfaces",
+        "interfaces": "information-layer://official",
+        "data_authority": "registered authority only",
+        "runtime_boundary": "separate registered runtime or adapter boundary",
+        "failure_boundary": "owner-isolated failure boundary",
+        "permission_scope": "registered-scope",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "STATE_SERVICE",
+        "canonical_name": "state-service",
+        "entity_kind": "information-state-boundary",
+        "owner": "permission-sovereign",
+        "parent_code": "INFORMATION_LAYER",
+        "physical_root": "E:\\GPTBridge\\main-system\\information-layer\\state",
+        "logical_boundary": "declared canonical architecture boundary",
+        "responsibilities": "authoritative state projection routing",
+        "dependencies": "registered parent and information-layer interfaces",
+        "interfaces": "information-layer://official",
+        "data_authority": "registered authority only",
+        "runtime_boundary": "separate registered runtime or adapter boundary",
+        "failure_boundary": "owner-isolated failure boundary",
+        "permission_scope": "registered-scope",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "EVENT_SERVICE",
+        "canonical_name": "event-service",
+        "entity_kind": "information-event-boundary",
+        "owner": "permission-sovereign",
+        "parent_code": "INFORMATION_LAYER",
+        "physical_root": "E:\\GPTBridge\\main-system\\information-layer\\events",
+        "logical_boundary": "declared canonical architecture boundary",
+        "responsibilities": "governed event routing and replay",
+        "dependencies": "registered parent and information-layer interfaces",
+        "interfaces": "information-layer://official",
+        "data_authority": "registered authority only",
+        "runtime_boundary": "separate registered runtime or adapter boundary",
+        "failure_boundary": "owner-isolated failure boundary",
+        "permission_scope": "registered-scope",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "IPC_SERVICE",
+        "canonical_name": "ipc-service",
+        "entity_kind": "information-ipc-boundary",
+        "owner": "permission-sovereign",
+        "parent_code": "INFORMATION_LAYER",
+        "physical_root": "E:\\GPTBridge\\main-system\\information-layer\\ipc",
+        "logical_boundary": "declared canonical architecture boundary",
+        "responsibilities": "typed authenticated IPC",
+        "dependencies": "registered parent and information-layer interfaces",
+        "interfaces": "information-layer://official",
+        "data_authority": "registered authority only",
+        "runtime_boundary": "separate registered runtime or adapter boundary",
+        "failure_boundary": "owner-isolated failure boundary",
+        "permission_scope": "registered-scope",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "architecture_code": "XINGCHENG_DIRECTORY",
+        "canonical_name": "xingcheng-directory",
+        "entity_kind": "owner-exclusive-directory",
+        "owner": "permission-sovereign",
+        "parent_code": "MODEL_DIALOGUE",
+        "physical_root": "E:\\GPTBridge\\local-model\\model-dialogue\\xingcheng",
+        "logical_boundary": "declared canonical architecture boundary",
+        "responsibilities": "Xingcheng exclusive confidential state",
+        "dependencies": "registered parent and information-layer interfaces",
+        "interfaces": "information-layer://official",
+        "data_authority": "registered authority only",
+        "runtime_boundary": "separate registered runtime or adapter boundary",
+        "failure_boundary": "owner-isolated failure boundary",
+        "permission_scope": "registered-scope",
+        "command_codes": "",
+        "fault_codes": "",
+        "manual_codes": "",
+        "test_flow_codes": "GOV_CODEX_DIRECTORY_AUDIT",
+        "introduced_version": "1.00000",
         "retired_version": null
       }
     ],
@@ -19479,6 +20052,69 @@
         "provision_id": "A285",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "SOVEREIGN_SYSTEM_SUB_SOVEREIGN",
+        "provision_type": "sovereign",
+        "provision_id": "system-sub-sovereign",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "SOVEREIGN_MAINTENANCE_SUB_SOVEREIGN",
+        "provision_type": "sovereign",
+        "provision_id": "maintenance-sub-sovereign",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "SOVEREIGN_PERMISSION_SUB_SOVEREIGN",
+        "provision_type": "sovereign",
+        "provision_id": "permission-sub-sovereign",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A286",
+        "provision_type": "article",
+        "provision_id": "A286",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A287",
+        "provision_type": "article",
+        "provision_id": "A287",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A288",
+        "provision_type": "article",
+        "provision_id": "A288",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A289",
+        "provision_type": "article",
+        "provision_id": "A289",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A290",
+        "provision_type": "article",
+        "provision_id": "A290",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A291",
+        "provision_type": "article",
+        "provision_id": "A291",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -22936,58 +23572,58 @@
       {
         "provision_type": "article",
         "provision_id": "A276",
-        "tier": "main-codex",
-        "law_code": "CODEX_MAIN",
-        "authority_basis": "A227|A229|A230"
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
         "provision_id": "A277",
-        "tier": "main-codex",
-        "law_code": "CODEX_MAIN",
-        "authority_basis": "A227|A229|A230"
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
         "provision_id": "A278",
-        "tier": "main-codex",
-        "law_code": "CODEX_MAIN",
-        "authority_basis": "A184|A227|A266"
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
         "provision_id": "A279",
-        "tier": "main-codex",
-        "law_code": "CODEX_MAIN",
-        "authority_basis": "A1|A227|A253"
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
         "provision_id": "A280",
-        "tier": "main-codex",
-        "law_code": "CODEX_MAIN",
-        "authority_basis": "A184|A227|A266|A276|A277|A278|A279"
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
         "provision_id": "A281",
-        "tier": "main-codex",
-        "law_code": "CODEX_MAIN",
-        "authority_basis": "A227|A280"
+        "tier": "special-law",
+        "law_code": "CODEX_GIT_WORKTREE_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
         "provision_id": "A282",
-        "tier": "main-codex",
-        "law_code": "CODEX_MAIN",
-        "authority_basis": "A193|A227|A265|A276|A280"
+        "tier": "special-law",
+        "law_code": "CODEX_STARTUP_CONTROL_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
         "provision_id": "A283",
-        "tier": "main-codex",
-        "law_code": "CODEX_MAIN",
-        "authority_basis": "A193|A227|A265|A276|A280"
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
@@ -22999,9 +23635,72 @@
       {
         "provision_type": "article",
         "provision_id": "A285",
+        "tier": "special-law",
+        "law_code": "CODEX_RELEASE_VERSION_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "system-sub-sovereign",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A1|A274|A275"
+        "authority_basis": "A284|A287"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "maintenance-sub-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A284|A287"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "permission-sub-sovereign",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A284|A287"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A286",
+        "tier": "special-law",
+        "law_code": "CODEX_RELEASE_VERSION_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A287",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A288",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A289",
+        "tier": "special-law",
+        "law_code": "CODEX_TEST_VALIDATION_EVALUATION_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A290",
+        "tier": "special-law",
+        "law_code": "CODEX_TOP_LEVEL_DIRECTORY_PATH_SPECIAL_LAW",
+        "authority_basis": "A229|A230"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A291",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A229|A230"
       }
     ],
     "provision_lineage": [
@@ -24931,7 +25630,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "910ebaba4a126eb8f4682e13d2c0c68941b9840f2440ae90d6af2bced3767c7d"
+        "content_hash": "2d3eb002c331cef569a545a51cacd04857a49889e5836e810fe617188a372239"
       },
       {
         "provision_type": "article",
@@ -26579,7 +27278,7 @@
         "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "bdd22ea5613989e5e4041cf1ee28653cd62ec33df69ea1b5d06c668ddbf121a9"
+        "content_hash": "2e9fc4c5ec019e5d1303e7d2bbb996ae36135ce8aa8811cd5f1d69a4f6ae6265"
       },
       {
         "provision_type": "article",
@@ -26587,7 +27286,7 @@
         "introduced_by": "H015",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "b1940d871042aa347a17e1aa95776576eee63bb857672c1a93561d49ee097a38"
+        "content_hash": "8cbf49bdeccb02895a65f6f6366b8d9045869f80ead98d1b7196d97bab89d14a"
       },
       {
         "provision_type": "article",
@@ -26867,7 +27566,7 @@
         "introduced_by": "H026",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "0f60201af31afaaea1333bc3105347511dab72957fffa476c3b37e6ba16aa592"
+        "content_hash": "b35f7c7327111ee78f2cb2ae89a623f74f7f2f4dc65e0de6c79984e69c14d129"
       },
       {
         "provision_type": "article",
@@ -26979,7 +27678,7 @@
         "introduced_by": "H040",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "cccaa112870b2508ae8e30db59474cba4dd60b60a0cf129701f51dd312ce60d8"
+        "content_hash": "902ad2fc568aa25583a7417f51a925c2e0f5da29a226a5ab4d04a6a06a3679a1"
       },
       {
         "provision_type": "article",
@@ -26987,7 +27686,7 @@
         "introduced_by": "H041",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "e6b655842e098ee29960c161373e119a5b1916cd94c09290f7ab68b397a26a25"
+        "content_hash": "fb9c5b98032ca0896b8da5958dd5ff4619ff83c3c4bc22d1446182b1556967ab"
       },
       {
         "provision_type": "article",
@@ -27027,7 +27726,79 @@
         "introduced_by": "H045",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "c45ff897780903a2f9d4b0ed713079ccb4be4b2aaa218b6a714bd45b8d316cf4"
+        "content_hash": "3e82d16503a8dc4a171b82a2d94e9177cddcd1262d8fc41179a871a93dbcbbbb"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "system-sub-sovereign",
+        "introduced_by": "H045",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "9158b6bd24666eeeb15d27c025f01289dc3926f1cf3cc1c80fbadb7edecf400e"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "maintenance-sub-sovereign",
+        "introduced_by": "H045",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "4e3697f6450c7444305a6cd769c655080a983a74a42ca9c8ffae3d154193797d"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "permission-sub-sovereign",
+        "introduced_by": "H045",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "655fed6a1fbb0c8b9d3b6fe027f835ecb1f7db799b940d26b238ea28f8dfa878"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A286",
+        "introduced_by": "H045",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "0a65b76c99bbdf83bec8304c8e1805d5b5db6b4a20330397a7573eb132037560"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A287",
+        "introduced_by": "H045",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "07411379d229b7771969934f3b8c0f7c0bb44e5a9eaa41b58d229660a9de9b1e"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A288",
+        "introduced_by": "H045",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "6bef63c5b02d0cef06c04cf236ee001dac14c3e579f15afc47435d26a197c203"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A289",
+        "introduced_by": "H045",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "d97fe2078626cad225a9bcc4de1f8dfdf8ea10cc0162cec322903f0c8bbf4370"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A290",
+        "introduced_by": "H045",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "ad48fc788aa50167319741a5aa6b8316a57500481b5f905791d34c3b369b2cdf"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A291",
+        "introduced_by": "H045",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f8be0ca03246e69ea33379872901c0476fbc312e36b422438598138de22f669e"
       }
     ],
     "provision_revisions": [
@@ -31145,10 +31916,74 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A285",
+        "provision_id": "A282",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "c45ff897780903a2f9d4b0ed713079ccb4be4b2aaa218b6a714bd45b8d316cf4",
+        "content_hash": "8ac3e20b972f2ff21da2eea6188102503540c95ad2352b770bf4739f2a1e8a83",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "system-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "9158b6bd24666eeeb15d27c025f01289dc3926f1cf3cc1c80fbadb7edecf400e",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "maintenance-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "4e3697f6450c7444305a6cd769c655080a983a74a42ca9c8ffae3d154193797d",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "permission-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "655fed6a1fbb0c8b9d3b6fe027f835ecb1f7db799b940d26b238ea28f8dfa878",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A287",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "07411379d229b7771969934f3b8c0f7c0bb44e5a9eaa41b58d229660a9de9b1e",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A288",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "6bef63c5b02d0cef06c04cf236ee001dac14c3e579f15afc47435d26a197c203",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A289",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "d97fe2078626cad225a9bcc4de1f8dfdf8ea10cc0162cec322903f0c8bbf4370",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A290",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "ad48fc788aa50167319741a5aa6b8316a57500481b5f905791d34c3b369b2cdf",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A291",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "f8be0ca03246e69ea33379872901c0476fbc312e36b422438598138de22f669e",
         "certification_status": "external-signatures-required"
       },
       {
@@ -31156,15 +31991,63 @@
         "provision_id": "A193",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "910ebaba4a126eb8f4682e13d2c0c68941b9840f2440ae90d6af2bced3767c7d",
+        "content_hash": "2d3eb002c331cef569a545a51cacd04857a49889e5836e810fe617188a372239",
         "certification_status": "external-signatures-required"
       },
       {
         "provision_type": "article",
-        "provision_id": "A282",
+        "provision_id": "A229",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "8ac3e20b972f2ff21da2eea6188102503540c95ad2352b770bf4739f2a1e8a83",
+        "content_hash": "2e9fc4c5ec019e5d1303e7d2bbb996ae36135ce8aa8811cd5f1d69a4f6ae6265",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A230",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "8cbf49bdeccb02895a65f6f6366b8d9045869f80ead98d1b7196d97bab89d14a",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A265",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "b35f7c7327111ee78f2cb2ae89a623f74f7f2f4dc65e0de6c79984e69c14d129",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A279",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "902ad2fc568aa25583a7417f51a925c2e0f5da29a226a5ab4d04a6a06a3679a1",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A280",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "fb9c5b98032ca0896b8da5958dd5ff4619ff83c3c4bc22d1446182b1556967ab",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A285",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "3e82d16503a8dc4a171b82a2d94e9177cddcd1262d8fc41179a871a93dbcbbbb",
+        "certification_status": "external-signatures-required"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A286",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "0a65b76c99bbdf83bec8304c8e1805d5b5db6b4a20330397a7573eb132037560",
         "certification_status": "external-signatures-required"
       }
     ],
@@ -36316,10 +37199,10 @@
         "change_id": "H045",
         "version": "1.00000",
         "recorded_date": "2026-09-12",
-        "change_scope": "integrated-architecture-and-manual-version-baseline-reset",
-        "summary": "integrated the canonical GPTBridge layer architecture and manually reset the codex baseline from 4.61600 to 1.00000 for renewed natural evolution",
+        "change_scope": "full-codex-logic-repair-and-epoch-baseline",
+        "summary": "integrated full codex logic repair under epoch-qualified E2:1.00000 baseline: legal one-time user reset, tiers, UI-close backend shutdown, sovereign names, architecture states, path classes, authority separation and one-module-one-suite governance",
         "previous_hash": "4f652bc5ac129b289410f07ce2bb3bc4e863b18188b3729d4432219920626734",
-        "entry_hash": "21954817317b5edf53921f2106185372cb1ba0f78aed10a086e23de90267872b"
+        "entry_hash": "6ce2ee8669af3d08d0dee9599c70e53df48faa4ac5cc254d32a3ebf5451545be"
       }
     ],
     "savings": [
@@ -36819,13 +37702,13 @@
       {
         "version": "1.00000",
         "history_head": "H045",
-        "provision_count": 503,
-        "identity_count": 503,
-        "lineage_count": 503,
+        "provision_count": 512,
+        "identity_count": 512,
+        "lineage_count": 512,
         "certification_state": "sealed-read-only-pending-external-signatures",
-        "content_root": "6eb08ecb3cb5f58f906d9256601608e17376ed3f002fca46409e9e80668044b0",
-        "identity_root": "db784682d646fe24ee6fa26c338a8e6c71bfe8cae21bf86ca608750c0c3ca8b2",
-        "full_root": "d063ca49e8286201b6cc14475217d0db0808a4b15080442265475ce1ea85fac5"
+        "content_root": "efc279a8c76c270d737ac4836fdfc62f7a996e619939ac666c26f1874c31436a",
+        "identity_root": "533f44dffb60fea06050eb542d36201ce4e48bdebac6357ea9e4409610bdafa7",
+        "full_root": "93a6c552841c6efd7ec627ec3d4d65c7f693107ae2a905ee98b903ca723fb78d"
       }
     ],
     "sealed_components": [
@@ -39574,6 +40457,36 @@
         "sovereign_id": "third-party-sovereign",
         "position": 3,
         "value": "dependency-admission-version-and-lifecycle-decision"
+      },
+      {
+        "sovereign_id": "system-sub-sovereign",
+        "position": 1,
+        "value": "translate-parent-sovereign-decision-into-typed-bounded-work-order"
+      },
+      {
+        "sovereign_id": "system-sub-sovereign",
+        "position": 2,
+        "value": "delegate-only-to-governed-executor-and-report-evidence"
+      },
+      {
+        "sovereign_id": "maintenance-sub-sovereign",
+        "position": 1,
+        "value": "translate-parent-sovereign-decision-into-typed-bounded-work-order"
+      },
+      {
+        "sovereign_id": "maintenance-sub-sovereign",
+        "position": 2,
+        "value": "delegate-only-to-governed-executor-and-report-evidence"
+      },
+      {
+        "sovereign_id": "permission-sub-sovereign",
+        "position": 1,
+        "value": "translate-parent-sovereign-decision-into-typed-bounded-work-order"
+      },
+      {
+        "sovereign_id": "permission-sub-sovereign",
+        "position": 2,
+        "value": "delegate-only-to-governed-executor-and-report-evidence"
       }
     ],
     "sovereign_powers": [
@@ -40098,6 +41011,21 @@
         "sovereign_id": "third-party-sovereign",
         "position": 3,
         "value": "direct-network-subprocess-database-or-information-layer-bypass"
+      },
+      {
+        "sovereign_id": "system-sub-sovereign",
+        "position": 1,
+        "value": "make-final-policy-or-cross-domain-decision"
+      },
+      {
+        "sovereign_id": "maintenance-sub-sovereign",
+        "position": 1,
+        "value": "make-final-policy-or-cross-domain-decision"
+      },
+      {
+        "sovereign_id": "permission-sub-sovereign",
+        "position": 1,
+        "value": "make-final-policy-or-cross-domain-decision"
       }
     ],
     "sovereigns": [
@@ -40212,6 +41140,30 @@
         "area": "code-language-review",
         "rank": "specialized-decision-sovereign",
         "basis": "codex"
+      },
+      {
+        "position": 15,
+        "sovereign_id": "system-sub-sovereign",
+        "name": "system-sub-sovereign",
+        "area": "system-execution-control-dispatch",
+        "rank": "sub-sovereign-execution-control-dispatch",
+        "basis": "A284|A287"
+      },
+      {
+        "position": 16,
+        "sovereign_id": "maintenance-sub-sovereign",
+        "name": "maintenance-sub-sovereign",
+        "area": "maintenance-execution-control-dispatch",
+        "rank": "sub-sovereign-execution-control-dispatch",
+        "basis": "A284|A287"
+      },
+      {
+        "position": 17,
+        "sovereign_id": "permission-sub-sovereign",
+        "name": "permission-sub-sovereign",
+        "area": "permission-execution-control-dispatch",
+        "rank": "sub-sovereign-execution-control-dispatch",
+        "basis": "A284|A287"
       }
     ],
     "special_law_conflict_matrix": [
@@ -40681,6 +41633,19 @@
         "precedence": "special-over-general-within-declared-scope",
         "authority_boundary": "remains inside the single governance codex and creates no separate authority",
         "introduced_version": "2.91600",
+        "retired_version": null
+      },
+      {
+        "special_law_code": "CODEX_TOP_LEVEL_DIRECTORY_PATH_SPECIAL_LAW",
+        "canonical_name": "top-level-directory-path-special-law",
+        "owner": "permission-sovereign",
+        "codex_section": "31",
+        "scope": "all registered top-level and module-root path identities",
+        "general_provision_links": "A227|A229|A230|A280|A288|A291",
+        "special_provision_links": "A290",
+        "precedence": "special-over-general only within declared path scope",
+        "authority_boundary": "permission-sovereign registers; domain owners implement; maintenance-sovereign verifies",
+        "introduced_version": "1.00000",
         "retired_version": null
       }
     ],
@@ -41420,6 +42385,304 @@
         "criterion": "complete-codex-reconstitution-or-incompatible-generation-change",
         "precedence": 6
       }
+    ],
+    "codex_version_epochs": [
+      {
+        "epoch": 1,
+        "baseline_version": "1.00000",
+        "version_identity": "E1:1.00000",
+        "history_head": "H001",
+        "predecessor_epoch": null,
+        "predecessor_version": null,
+        "predecessor_full_root": null,
+        "status": "historical-preserved",
+        "reset_authority": "genesis"
+      },
+      {
+        "epoch": 2,
+        "baseline_version": "1.00000",
+        "version_identity": "E2:1.00000",
+        "history_head": "H045",
+        "predecessor_epoch": 1,
+        "predecessor_version": "4.61600",
+        "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
+        "status": "active-natural-evolution-baseline",
+        "reset_authority": "explicit-human-governor-H045"
+      }
+    ],
+    "architecture_activation_states": [
+      {
+        "architecture_code": "GOVERNANCE_AUTHORITY_LAYER",
+        "target_root": "E:\\GPTBridge\\governance_rule",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "SOVEREIGN_DECISION_LAYER",
+        "target_root": "E:\\GPTBridge\\main-system\\governance\\sovereigns",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "SUB_SOVEREIGN_LAYER",
+        "target_root": "E:\\GPTBridge\\main-system\\governance\\sub-sovereigns",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "INFORMATION_LAYER",
+        "target_root": "E:\\GPTBridge\\main-system\\information-layer",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "SHARED_LAYER",
+        "target_root": "E:\\GPTBridge\\main-system\\shared-layer",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "POSTGRESQL_AUTHORITY",
+        "target_root": "E:\\GPTBridge\\main-system\\information-layer\\postgresql",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "QDRANT_AUTHORITY",
+        "target_root": "E:\\GPTBridge\\main-system\\information-layer\\qdrant",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "STATE_SERVICE",
+        "target_root": "E:\\GPTBridge\\main-system\\information-layer\\state",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "EVENT_SERVICE",
+        "target_root": "E:\\GPTBridge\\main-system\\information-layer\\events",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "IPC_SERVICE",
+        "target_root": "E:\\GPTBridge\\main-system\\information-layer\\ipc",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "XINGCHENG_DIRECTORY",
+        "target_root": "E:\\GPTBridge\\local-model\\model-dialogue\\xingcheng",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "PROJECT_GPTBRIDGE",
+        "target_root": "E:\\GPTBridge",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "MAIN_SYSTEM",
+        "target_root": "E:\\GPTBridge\\main-system",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "MODEL_DIALOGUE",
+        "target_root": "E:\\\\GPTBridge\\\\Standalone tools\\\\local-model\\\\model-dialogue",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "STANDALONE_TOOLS",
+        "target_root": "E:\\GPTBridge\\Standalone tools",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "GOVERNANCE_CODEX",
+        "target_root": "E:\\GPTBridge\\governance_rule\\codex",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "LAUNCHER",
+        "target_root": "E:\\GPTBridge\\main-system\\launcher",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "AI_ASSISTANT",
+        "target_root": "E:\\GPTBridge\\Standalone tools\\ai-assistant",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "AI_COLLABORATION",
+        "target_root": "E:\\GPTBridge\\Standalone tools\\ai-collaboration",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "FILE_SORTER",
+        "target_root": "E:\\GPTBridge\\Standalone tools\\file-sorter",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "GLOBAL_CLEANER",
+        "target_root": "E:\\\\GPTBridge\\\\Standalone tools\\\\global-cleaner",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "INVESTMENT_MOBILE",
+        "target_root": "E:\\GPTBridge\\Standalone tools\\ai-assistant\\investment-mobile",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "LOCAL_MODEL",
+        "target_root": "E:\\\\GPTBridge\\\\Standalone tools\\\\local-model",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "SYSTEM_RESCUE",
+        "target_root": "E:\\\\GPTBridge\\\\Standalone tools\\\\system-rescue",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      },
+      {
+        "architecture_code": "VAULTLY",
+        "target_root": "E:\\GPTBridge\\Standalone tools\\vaultly",
+        "current_state": "mandated",
+        "required_state": "active",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence"
+      }
+    ],
+    "directory_boundary_classes": [
+      {
+        "boundary_code": "OWNED_LOCAL_ARTIFACT",
+        "meaning": "source configuration local state cache log temp artifact",
+        "location_rule": "canonical path must remain beneath registered owner root",
+        "escape_rule": "deny traversal symlink junction reparse and environment alias escape"
+      },
+      {
+        "boundary_code": "REGISTERED_EXTERNAL_AUTHORITY",
+        "meaning": "PostgreSQL Qdrant or other governed external service",
+        "location_rule": "represented by opaque registered endpoint and never by owner-local path",
+        "escape_rule": "require authority tenancy permission redaction and failure isolation"
+      },
+      {
+        "boundary_code": "LEGACY_MIGRATION_ROOT",
+        "meaning": "former canonical path retained temporarily until verified deletion",
+        "location_rule": "read-only nonlaunchable nonimportable before deletion",
+        "escape_rule": "deny writes execution synchronization active resolution and completed status until exact old root is deleted"
+      }
+    ],
+    "test_suite_architecture_directory": [],
+    "implementation_obligations": [
+      {
+        "obligation_code": "OBL_ARCHITECTURE_CATALOG",
+        "declaration_provision": "A288",
+        "implementation_owner": "permission-sovereign",
+        "target_state": "all declared architecture entries validated and active",
+        "current_state": "mandated",
+        "deadline_rule": "bounded plan required before activation",
+        "acceptance_evidence": "registered tests+audit+rollback+acceptance verdict",
+        "noncompliance_effect": "verified release blocked and noncompliance remains visible",
+        "waiver_rule": "explicit human-governor successor law only",
+        "introduced_version": "1.00000"
+      },
+      {
+        "obligation_code": "OBL_TEST_SUITE_DIRECTORY",
+        "declaration_provision": "A289",
+        "implementation_owner": "maintenance-sovereign",
+        "target_state": "one active governed test suite per active module",
+        "current_state": "mandated",
+        "deadline_rule": "bounded plan required before activation",
+        "acceptance_evidence": "registered tests+audit+rollback+acceptance verdict",
+        "noncompliance_effect": "verified release blocked and noncompliance remains visible",
+        "waiver_rule": "explicit human-governor successor law only",
+        "introduced_version": "1.00000"
+      },
+      {
+        "obligation_code": "OBL_TOP_LEVEL_PATHS",
+        "declaration_provision": "A290",
+        "implementation_owner": "permission-sovereign",
+        "target_state": "all canonical roots resolved by path code with zero escape",
+        "current_state": "mandated",
+        "deadline_rule": "bounded plan required before activation",
+        "acceptance_evidence": "registered tests+audit+rollback+acceptance verdict",
+        "noncompliance_effect": "verified release blocked and noncompliance remains visible",
+        "waiver_rule": "explicit human-governor successor law only",
+        "introduced_version": "1.00000"
+      },
+      {
+        "obligation_code": "OBL_LAYERED_ARCHITECTURE",
+        "declaration_provision": "A284",
+        "implementation_owner": "system-decision-sovereign",
+        "target_state": "all declared GPTBridge layers mapped and validated",
+        "current_state": "mandated",
+        "deadline_rule": "bounded plan required before activation",
+        "acceptance_evidence": "registered tests+audit+rollback+acceptance verdict",
+        "noncompliance_effect": "verified release blocked and noncompliance remains visible",
+        "waiver_rule": "explicit human-governor successor law only",
+        "introduced_version": "1.00000"
+      }
     ]
-  }
+  },
+  "version_identity": "E2:1.00000"
 }
