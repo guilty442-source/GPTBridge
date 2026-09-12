@@ -588,8 +588,8 @@
         "position": 20,
         "provision_id": "A29",
         "section_index": "8",
-        "subject": "governance-authority",
-        "rule": "GOVERNANCE-AUTHORITY:operational-authority; BASIS:codex-only; DUTY:guard-immutable+integrity; CODEX-POWER:none",
+        "subject": "codex",
+        "rule": "CODEX:operational-authority; BASIS:codex-only; DUTY:guard-immutable+integrity; CODEX-POWER:none",
         "prohibition": "FORBID:alternate-governance-rule/attribute-operational-power-to-codex",
         "exception": ""
       },
@@ -661,7 +661,7 @@
         "provision_id": "A40",
         "section_index": "3",
         "subject": "bootstrap",
-        "rule": "BOOTSTRAP:initial-allowlist; AUTHORITY:governance-authority-one-time; TIMING:first-valid-load; EFFECT:directory-driven-thereafter",
+        "rule": "BOOTSTRAP:initial-allowlist; AUTHORITY:codex-one-time; TIMING:first-valid-load; EFFECT:directory-driven-thereafter",
         "prohibition": "FORBID:post-bootstrap-seed/privilege-escalation-path",
         "exception": ""
       },
@@ -670,7 +670,7 @@
         "provision_id": "A41",
         "section_index": "7",
         "subject": "governor-and-seal",
-        "rule": "GOVERNOR:human-operator; OFFICE:governance-authority; AMEND:deliberate-act; SEAL:versioned-digest-manifest; VERIFY:before-every-load",
+        "rule": "GOVERNOR:human-operator; OFFICE:codex; AMEND:deliberate-act; SEAL:versioned-digest-manifest; VERIFY:before-every-load",
         "prohibition": "FORBID:non-governor-seal/forged-manifest/verify-skip",
         "exception": ""
       },
@@ -706,7 +706,7 @@
         "provision_id": "A46",
         "section_index": "2",
         "subject": "audit-ledger",
-        "rule": "AUDIT:ledger-per-managed-action; WRITE:governed-executor; STORE:system-data-sub-sovereign-declared; RETENTION:by-governance-policy; READ:governance-authority+maintenance-analysis",
+        "rule": "AUDIT:ledger-per-managed-action; WRITE:governed-executor; STORE:system-data-sub-sovereign-declared; RETENTION:by-governance-policy; READ:codex+maintenance-analysis",
         "prohibition": "FORBID:audit-mutation/audit-suppression/unauthorized-audit-read",
         "exception": ""
       },
@@ -715,7 +715,7 @@
         "provision_id": "A47",
         "section_index": "2",
         "subject": "violation-closure",
-        "rule": "VIOLATION:stop-record-adjudicate; DETECT:maintenance-monitoring; STOP:deny-fail-closed; RECORD:fault-determination+audit-ledger; ADJUDICATE:governance-authority-final",
+        "rule": "VIOLATION:stop-record-adjudicate; DETECT:maintenance-monitoring; STOP:deny-fail-closed; RECORD:fault-determination+audit-ledger; ADJUDICATE:codex-final",
         "prohibition": "FORBID:violation-without-record/self-adjudication/continued-execution-after-violation",
         "exception": ""
       },
@@ -760,8 +760,8 @@
         "provision_id": "A53",
         "section_index": "4",
         "subject": "git-operation-tiers",
-        "rule": "GIT-OPS-TIERS:3-level; TIER-1:read-only+high-frequency+direct-exec; TIER-1-OPS:status/log/diff/show/branch/remote/blame/ls-files/cat-file/rev-parse/describe/tag-l/for-each-ref/stash-list/config-get; TIER-2:general-write+requires-confirmation; TIER-2-OPS:add/commit/stash/branch-create/checkout/switch/merge/tag-create/fetch/push/rebase-local/cherry-pick/revert/worktree-add/worktree-remove; TIER-3:high-risk+strictly-restricted+requires-governance-authority-approval; TIER-3-OPS:push-force/push-force-with-lease/commit-amend-pushed/reset-hard/reset-soft-distant/branch-D/filter-branch/filter-repo/rebase-interactive/rebase-root/gc-prune/reflog-expire/update-ref-d/clean-fd/stash-drop/stash-clear; ENFORCEMENT:hook+governance-gate+audit-ledger; BASIS:codex+A46-audit",
-        "prohibition": "FORBID:tier-3-without-governance-authority-approval; FORBID:tier-2-without-confirmation; FORBID:bypass-tier-enforcement",
+        "rule": "GIT-OPS-TIERS:3-level; TIER-1:read-only+high-frequency+direct-exec; TIER-1-OPS:status/log/diff/show/branch/remote/blame/ls-files/cat-file/rev-parse/describe/tag-l/for-each-ref/stash-list/config-get; TIER-2:general-write+requires-confirmation; TIER-2-OPS:add/commit/stash/branch-create/checkout/switch/merge/tag-create/fetch/push/rebase-local/cherry-pick/revert/worktree-add/worktree-remove; TIER-3:high-risk+strictly-restricted+requires-codex-approval; TIER-3-OPS:push-force/push-force-with-lease/commit-amend-pushed/reset-hard/reset-soft-distant/branch-D/filter-branch/filter-repo/rebase-interactive/rebase-root/gc-prune/reflog-expire/update-ref-d/clean-fd/stash-drop/stash-clear; ENFORCEMENT:hook+governance-gate+audit-ledger; BASIS:codex+A46-audit",
+        "prohibition": "FORBID:tier-3-without-codex-approval; FORBID:tier-2-without-confirmation; FORBID:bypass-tier-enforcement",
         "exception": ""
       },
       {
@@ -805,7 +805,7 @@
         "provision_id": "A65",
         "section_index": "4",
         "subject": "cross-layer-information-layer",
-        "rule": "INFORMATION-LAYER:cross-layer-peer-authority; AUTHORITY-RANK:equal-to-sovereign-layer; COMPONENTS:shared-layer+postgresql+qdrant+status+events+ipc; EXCLUSIVE-AUTHORITY:information-channel+transport+state+structured-data+semantic-index; CONTENT-OWNERSHIP:source-and-authorized-consumer; GOVERNANCE:directly-bound-by-codex+governance-authority",
+        "rule": "INFORMATION-LAYER:cross-layer-peer-authority; AUTHORITY-RANK:equal-to-sovereign-layer; COMPONENTS:shared-layer+postgresql+qdrant+status+events+ipc; EXCLUSIVE-AUTHORITY:information-channel+transport+state+structured-data+semantic-index; CONTENT-OWNERSHIP:source-and-authorized-consumer; GOVERNANCE:directly-bound-by-codex+codex",
         "prohibition": "FORBID:sovereign-or-sub-sovereign-override-information-layer-authority; FORBID:information-layer-own-sovereign-business-decision-or-module-execution; FORBID:component-duty-substitution; FORBID:alter-message-or-authoritative-data-outside-governed-operation",
         "exception": ""
       },
@@ -959,16 +959,16 @@
         "section_index": "1",
         "subject": "sovereign-only-codex-use",
         "rule": "CODEX-USE:adjudication-basis-only; VIEWER:registered-sovereign-identity-only; ENTRY:governance-codex://official; MODE:read-only",
-        "prohibition": "FORBID:governance-authority/sub-sovereign/executor/module/ui/database/tool/anonymous/direct/proxy/delegated-access",
+        "prohibition": "FORBID:codex/sub-sovereign/executor/module/ui/database/tool/anonymous/direct/proxy/delegated-access",
         "exception": ""
       },
       {
         "position": 62,
         "provision_id": "A94",
         "section_index": "7",
-        "subject": "governance-authority-without-codex-view",
-        "rule": "GOVERNANCE-AUTHORITY:cannot-view-or-cite-codex-content; RECEIVE:signed-opaque-adjudication-result+provision-identities+verification-status-without-rule-text; ACTION:verify-envelope+identity+freshness+audit+coordinate-authorized-outcome",
-        "prohibition": "FORBID:governance-authority-direct-codex-read+rule-text-disclosure+independent-codex-interpretation+business-execution",
+        "subject": "codex-without-codex-view",
+        "rule": "CODEX:cannot-view-or-cite-codex-content; RECEIVE:signed-opaque-adjudication-result+provision-identities+verification-status-without-rule-text; ACTION:verify-envelope+identity+freshness+audit+coordinate-authorized-outcome",
+        "prohibition": "FORBID:codex-direct-codex-read+rule-text-disclosure+independent-codex-interpretation+business-execution",
         "exception": ""
       },
       {
@@ -976,8 +976,8 @@
         "provision_id": "A95",
         "section_index": "7",
         "subject": "highest-authority-application-boundary",
-        "rule": "CODEX:highest-normative-authority+adjudication-basis-only; ELIGIBLE-SOVEREIGN:applies-codex-to-adjudication; GOVERNANCE-AUTHORITY:does-not-view-codex+verifies-opaque-proof-only; CODEX-OPERATIONAL-POWER:none",
-        "prohibition": "FORBID:governance-authority-apply-or-interpret-codex-content+derive-operational-power-from-codex-rank",
+        "rule": "CODEX:highest-normative-authority+adjudication-basis-only; ELIGIBLE-SOVEREIGN:applies-codex-to-adjudication; CODEX:does-not-view-codex+verifies-opaque-proof-only; CODEX-OPERATIONAL-POWER:none",
+        "prohibition": "FORBID:codex-apply-or-interpret-codex-content+derive-operational-power-from-codex-rank",
         "exception": ""
       },
       {
@@ -985,7 +985,7 @@
         "provision_id": "A96",
         "section_index": "7",
         "subject": "codex-reference-normalization",
-        "rule": "EVERY-ACTIVE-LEGACY-PHRASE:basis-codex/reference-codex/enforce-codex means only eligible-sovereign-adjudication-basis+opaque-result-downstream; NO-DIRECT-CODEX-CONSUMER:governance-authority/sub-sovereign/executor/module/service",
+        "rule": "EVERY-ACTIVE-LEGACY-PHRASE:basis-codex/reference-codex/enforce-codex means only eligible-sovereign-adjudication-basis+opaque-result-downstream; NO-DIRECT-CODEX-CONSUMER:codex/sub-sovereign/executor/module/service",
         "prohibition": "FORBID:interpret-legacy-wording-as-direct-access+decision+authorization+execution+enforcement+runtime-configuration",
         "exception": ""
       },
@@ -1030,7 +1030,7 @@
         "provision_id": "A102",
         "section_index": "4",
         "subject": "loaded-governed-backend-module-runtime-reexecution",
-        "rule": "SUBJECT:already-loaded-governed-backend-module; CLASSIFICATION:in-process-runtime-reexecution-not-source-version-change; AUTHORIZATION:governance-authority-path; SCOPE:main-system-governed-source-roots-only; EXCLUDE:codex+data+directory+manifest+independent-tools; AUTOMATION:observe+debounce+rate-limit; VERSION-FREEZE:equivalent-protection; VERSION-IDENTITY:unchanged; CONDITION:current-governed-version-identity+integrity-boundary-remain-valid",
+        "rule": "SUBJECT:already-loaded-governed-backend-module; CLASSIFICATION:in-process-runtime-reexecution-not-source-version-change; AUTHORIZATION:codex-path; SCOPE:main-system-governed-source-roots-only; EXCLUDE:codex+data+directory+manifest+independent-tools; AUTOMATION:observe+debounce+rate-limit; VERSION-FREEZE:equivalent-protection; VERSION-IDENTITY:unchanged; CONDITION:current-governed-version-identity+integrity-boundary-remain-valid",
         "prohibition": "FORBID:classify-authorized-in-process-reexecution-as-unregulated-runtime-source-change; FORBID:source-write+version-identity-change+excluded-scope-reload+authorization-bypass+unbounded-watch-loop+debounce-bypass+rate-limit-bypass",
         "exception": ""
       },
@@ -1049,7 +1049,7 @@
         "section_index": "7",
         "subject": "candidate-build-review-and-human-seal",
         "rule": "CANDIDATE:built-through-governed-tooling+complete-diff+identity+lineage+version-classification+integrity-evidence; REVIEW:required-before-seal; SEAL-ACTOR:human-governor-only; ACTIVATION:after-human-seal+deterministic-verification",
-        "prohibition": "FORBID:proxy/tool/sovereign/governance-authority/executor/database/self-seal+unreviewed-seal+candidate-as-effective-law",
+        "prohibition": "FORBID:proxy/tool/sovereign/codex/executor/database/self-seal+unreviewed-seal+candidate-as-effective-law",
         "exception": ""
       },
       {
@@ -1084,7 +1084,7 @@
         "provision_id": "A111",
         "section_index": "7",
         "subject": "explicit-sovereign-powers",
-        "rule": "SYSTEM/MAINTENANCE/PERMISSION-SOVEREIGN+GOVERNANCE-AUTHORITY:operational-powers=none-explicit; XINGCHENG:owned-isolated-domain-powers-explicit",
+        "rule": "SYSTEM/MAINTENANCE/PERMISSION-SOVEREIGN+CODEX:operational-powers=none-explicit; XINGCHENG:owned-isolated-domain-powers-explicit",
         "prohibition": "FORBID:empty-power-field+infer-power-from-absence",
         "exception": ""
       },
@@ -1157,7 +1157,7 @@
         "section_index": "7",
         "subject": "codex-conflict-procedure",
         "rule": "ORDER:effective-supersession-first>explicit-exception>more-specific-scope>general-provision; SAME-RANK-CONFLICT:no-discretionary-selection+deny-adjudication+submit-reviewed-candidate; HISTORICAL-VERSION:interpretation-only+no-current-effect; DECIDER:eligible-sovereign",
-        "prohibition": "FORBID:latest-timestamp-without-effective-identity+governance-authority-interpretation+revive-superseded-law+silent-conflict-resolution",
+        "prohibition": "FORBID:latest-timestamp-without-effective-identity+codex-interpretation+revive-superseded-law+silent-conflict-resolution",
         "exception": ""
       },
       {
@@ -1183,8 +1183,8 @@
         "provision_id": "A122",
         "section_index": "8",
         "subject": "codex-interpretation-hierarchy",
-        "rule": "INTERPRETATION-AUTHORITY:eligible-sovereign-only; HIERARCHY:effective-successor>explicit-exception>specific-scope>general-provision; GOVERNANCE-AUTHORITY:opaque-proof-verification-only+no-interpretation; AMBIGUITY:deny+human-candidate; BASIS:codex+A16+A119",
-        "prohibition": "FORBID:governance-authority-interpretation+subordinate-rule-override+superseded-law-revival+discretionary-selection",
+        "rule": "INTERPRETATION-AUTHORITY:eligible-sovereign-only; HIERARCHY:effective-successor>explicit-exception>specific-scope>general-provision; CODEX:opaque-proof-verification-only+no-interpretation; AMBIGUITY:deny+human-candidate; BASIS:codex+A16+A119",
+        "prohibition": "FORBID:codex-interpretation+subordinate-rule-override+superseded-law-revival+discretionary-selection",
         "exception": ""
       },
       {
@@ -1462,8 +1462,8 @@
         "provision_id": "A161",
         "section_index": "6",
         "subject": "entity-classification-authority",
-        "rule": "ENTITY-CLASSIFICATION:entity_classification-is-authoritative-for-sovereign-membership; sovereigns-table:role-record-container-only; GOVERNANCE-AUTHORITY:is_sovereign=false+supreme-rule-layer; XINGCHENG:is_sovereign=false+auxiliary-system-exception; SYSTEM-SOVEREIGNS:is_sovereign=true",
-        "prohibition": "FORBID:infer-sovereign-class-from-table-name+classify-governance-authority-or-星澄-as-system-sovereign",
+        "rule": "ENTITY-CLASSIFICATION:entity_classification-is-authoritative-for-sovereign-membership; sovereigns-table:role-record-container-only; CODEX:is_sovereign=false+supreme-rule-layer; XINGCHENG:is_sovereign=false+auxiliary-system-exception; SYSTEM-SOVEREIGNS:is_sovereign=true",
+        "prohibition": "FORBID:infer-sovereign-class-from-table-name+classify-codex-or-星澄-as-system-sovereign",
         "exception": ""
       },
       {
@@ -1589,7 +1589,7 @@
         "section_index": "4",
         "subject": "source-size-and-permission-managed-directory-control",
         "rule": "DEFAULT-LIMITS:each-handwritten-source-module<=500-effective-lines+each-function/method<=50-effective-lines+each-class<=300-effective-lines+public-entrypoints<=3+authored-functions-or-classes<=12; WARNING:80-percent-of-any-limit; BLOCK:exceed-limit-before-merge+release+startup-activation-of-changed-module; EFFECTIVE-LINE:nonblank+noncomment physical-line including-decorator+signature+control-flow+embedded-template/JSX/SQL; FILE-TYPES:py+pyi+ts+tsx+js+jsx+c+h+cpp+hpp+inl+cs+sql and-other-declared-source; RESPONSIBILITY:one-primary-domain-per-module+split-by-cohesive-duty+no-size-evasion-through-minified-lines+generated-wrappers+partial-classes+include-chains; SIZE-CHECK:changed-files+dependency-affected-files at-precommit+integrated-main+release; DIRECTORY-OWNER:permission-sovereign exclusively-manages operational source-structure-directories; MANAGED-DIRECTORIES:module-registry+source-owner-registry+canonical-folder/layer-registry+top-level-root-allowlist+tool-source-root-registry+test-source-registry+generated-artifact-registry+source-size-exception-registry; ENTRY:permission-directory://source-structure through-information-layer-only; WRITE:permission-sovereign-decision>governed-executor>transactional-directory-update>independent-verification>audit; READ:typed-request+least-scope+permission-review; CODEX-RELATION:directory implements-this-codex+cannot-create-governance-rule+cannot-relax-default-limit except-explicit-codex-allowed-exception-category; EXCEPTION-CATEGORIES:auto-generated+pure-data-table+registry+language-required-generated-interface+single-atomic-migration/schema; EACH-EXCEPTION:file-identity+canonical-path+owner+category+reason+generated-or-data-proof+permitted-limit-or-unbounded-generated-marker+reviewer+decision-proof+issued-at+expiry-or-permanent-reason+content-hash; EXCEPTION-CONSTRAINT:no-domain-orchestration+no-mixed-business-duties+no-hidden-executable-logic+generated-files-not-hand-edited+registry-entries-declarative-only+atomic-migration-not-reusable-runtime-module; CHANGE:path/owner/category/content-role change requires-new-permission-review; REMOVAL:automatic-when-file-split/retired/no-longer-qualifies; REPORT:file+measured-lines+limit+largest-callables+owner+directory-entry+recommended-split; PRIORITY:split-over-exception",
-        "prohibition": "FORBID:module>500+function/method>50+class>300 without-valid-directory-exception+hardcoded-limit-outside-codex+local-exception-list+manifest-self-exemption+module-owner-self-approval+permission-sovereign-direct-file-write+other-sovereign-directory-management+directory-governance-authority+directory-overriding-codex+blank/comment-padding+multiple-statements-per-line-to-evade+minification-evasion+generated-label-on-handwritten-code+registry-containing-business-workflow+pure-data-file-containing-execution+permanent-exception-without-reason+path-glob-exception+folder-wide-exemption+stale-exception+cross-owner-directory-write+information-layer-bypass",
+        "prohibition": "FORBID:module>500+function/method>50+class>300 without-valid-directory-exception+hardcoded-limit-outside-codex+local-exception-list+manifest-self-exemption+module-owner-self-approval+permission-sovereign-direct-file-write+other-sovereign-directory-management+directory-codex+directory-overriding-codex+blank/comment-padding+multiple-statements-per-line-to-evade+minification-evasion+generated-label-on-handwritten-code+registry-containing-business-workflow+pure-data-file-containing-execution+permanent-exception-without-reason+path-glob-exception+folder-wide-exemption+stale-exception+cross-owner-directory-write+information-layer-bypass",
         "exception": "Only individually registered files in the declared exception categories may exceed the applicable size limit; responsibility and ownership boundaries never receive an exception"
       },
       {
@@ -1615,7 +1615,7 @@
         "provision_id": "A188",
         "section_index": "6",
         "subject": "sovereign-collaboration-and-information-layer-handoff",
-        "rule": "COLLABORATION-UNIT:task-envelope{task-id,request-id,origin,objective,scope,priority,deadline,dependency-set,input-contract,expected-output,assigned-owner,participant-list,runtime-generation,release-id,state-sequence,correlation-id}; ENTRY:all-sovereign-requests/events/results/decisions/proofs through-information-layer-official-entry; ORCHESTRATION:decision-sovereign decomposes-task+selects-one-accountable-domain-owner+declares-participants/dependencies/acceptance-criteria+validates-assignment; DOMAIN-VERDICT:each-specialized-sovereign decides-only-its-declared-domain and returns typed approve/deny/defer-with-reason/evidence/constraints/expiry; PERMISSION:permission-sovereign independently validates-identity/action/target/scope/purpose and denial-is-not-overridable-by-other-sovereign; CHANNEL:integration-sovereign governs-topology/routing/contracts/delivery-health but cannot-read-beyond-grant/change-content/choose-business-outcome; EXECUTION:runtime-sovereign validates-complete-proof-set/runtime-readiness then dispatches-to-governed-executor and verifies-result; STARTUP:startup-sovereign coordinates-boot-only and hands-verified-readiness-to-runtime-sovereign; HEALTH:maintenance-sovereign observes-health+opens-bounded-maintenance-request; repair/code-change requires-decision-assignment+permission-proof+system-programming-review-and-dispatch+runtime-validation; LEARNING:learning-system-sovereign receives-redacted-outcomes+proposes-candidates-only and cannot-change-routing/policy/code/runtime; RESOURCE/DATA/THIRD-PARTY/LANGUAGE:each supplies-own-domain-verdict and never performs-another-domain-duty; XINGCHENG:may-observe/review/report under-codex-exception through-official-information-entry but remains-outside-command/assignment/execution-chain; GOVERNANCE-AUTHORITY:protects-codex-integrity only and is-not-operational-workflow-coordinator; STATE-MACHINE:received>assignment-validated>domain-checks-pending>permission-validated>execution-validated>dispatched>result-verified>completed|denied|failed|expired; CONCURRENCY:independent-domain-checks parallel-after-assignment+dependent-gates serial+result-join requires-all-mandatory-current proofs; DELIVERY:at-least-once-transport+idempotency-key+deduplication+monotonic-per-task-sequence+acknowledgement; FAILURE:timeout/disconnect/stale-generation/schema-failure/missing-proof=>typed-fail-closed-state+bounded-retry-with-jitter+resume-from-last-verified-checkpoint+audit; RECOVERY:reconnect reauthenticates+renews-subscription+replays-from-last-acknowledged-sequence+reconciles-snapshot-before-new-command; OBSERVABILITY:one-correlation-chain+owner/participant/timestamps/decision/proof/state-transition/latency/retry visible-at-authorized-level; FINALITY:accountable-owner accepts-domain-result+decision-sovereign accepts-cross-domain-task-completion without-overriding-domain-or-permission-denial",
+        "rule": "COLLABORATION-UNIT:task-envelope{task-id,request-id,origin,objective,scope,priority,deadline,dependency-set,input-contract,expected-output,assigned-owner,participant-list,runtime-generation,release-id,state-sequence,correlation-id}; ENTRY:all-sovereign-requests/events/results/decisions/proofs through-information-layer-official-entry; ORCHESTRATION:decision-sovereign decomposes-task+selects-one-accountable-domain-owner+declares-participants/dependencies/acceptance-criteria+validates-assignment; DOMAIN-VERDICT:each-specialized-sovereign decides-only-its-declared-domain and returns typed approve/deny/defer-with-reason/evidence/constraints/expiry; PERMISSION:permission-sovereign independently validates-identity/action/target/scope/purpose and denial-is-not-overridable-by-other-sovereign; CHANNEL:integration-sovereign governs-topology/routing/contracts/delivery-health but cannot-read-beyond-grant/change-content/choose-business-outcome; EXECUTION:runtime-sovereign validates-complete-proof-set/runtime-readiness then dispatches-to-governed-executor and verifies-result; STARTUP:startup-sovereign coordinates-boot-only and hands-verified-readiness-to-runtime-sovereign; HEALTH:maintenance-sovereign observes-health+opens-bounded-maintenance-request; repair/code-change requires-decision-assignment+permission-proof+system-programming-review-and-dispatch+runtime-validation; LEARNING:learning-system-sovereign receives-redacted-outcomes+proposes-candidates-only and cannot-change-routing/policy/code/runtime; RESOURCE/DATA/THIRD-PARTY/LANGUAGE:each supplies-own-domain-verdict and never performs-another-domain-duty; XINGCHENG:may-observe/review/report under-codex-exception through-official-information-entry but remains-outside-command/assignment/execution-chain; CODEX:protects-codex-integrity only and is-not-operational-workflow-coordinator; STATE-MACHINE:received>assignment-validated>domain-checks-pending>permission-validated>execution-validated>dispatched>result-verified>completed|denied|failed|expired; CONCURRENCY:independent-domain-checks parallel-after-assignment+dependent-gates serial+result-join requires-all-mandatory-current proofs; DELIVERY:at-least-once-transport+idempotency-key+deduplication+monotonic-per-task-sequence+acknowledgement; FAILURE:timeout/disconnect/stale-generation/schema-failure/missing-proof=>typed-fail-closed-state+bounded-retry-with-jitter+resume-from-last-verified-checkpoint+audit; RECOVERY:reconnect reauthenticates+renews-subscription+replays-from-last-acknowledged-sequence+reconciles-snapshot-before-new-command; OBSERVABILITY:one-correlation-chain+owner/participant/timestamps/decision/proof/state-transition/latency/retry visible-at-authorized-level; FINALITY:accountable-owner accepts-domain-result+decision-sovereign accepts-cross-domain-task-completion without-overriding-domain-or-permission-denial",
         "prohibition": "FORBID:direct-sovereign-link+private-bus+direct-socket/database/file-drop-as-communication+shared-mutable-command-state+implicit-participant+multiple-accountable-owners+authority-combination+permission-bypass+domain-verdict-override+integration-layer-business-decision+runtime-self-authorization+startup-retaining-runtime-control+learning-candidate-auto-enactment+星澄-commanding-system+busy-polling-when-event-subscription-exists+unbounded-retry+out-of-order-state-regression+duplicate-side-effect+stale-proof/release/generation+success-before-result-verification",
         "exception": "Immediate safety containment may publish a stop-only event before normal collaboration completes; it must target one exact runtime identity, remain auditable, and cannot authorize restart repair mutation or broader action"
       },
@@ -2182,7 +2182,7 @@
         "provision_id": "A252",
         "section_index": "7",
         "subject": "codex-consolidation-conflict-normalization-and-confidentiality-closure",
-        "rule": "SCOPE:all legacy provisions+all special laws+all directory schemas+all Chinese-codex handling; OWNER:governance-authority protects codex integrity+permission-sovereign owns registries+human-governor seals; IDENTITY:A252+H018; AUTHORITY:A1+A3+A228+A229+A230+A233+A234; INPUT:complete provision inventory+special-law scopes+directory formats+relationship graph+mirror exposure evidence; RULE:legacy provisions map-to one controlling law and explicit retain|special-governs|superseded status; every overlapping special-law pair has directional precedence+shared-boundary+joint-proof rule; every directory migrates to A233 common envelope plus typed domain payload; all relationships become normalized rows; pending directory implementations remain non-active and block dependent verified release; plaintext Chinese mirror is forbidden and 星澄 exception requires owner-isolated encrypted non-exportable storage with nondisclosure; RELATIONSHIPS:provision-migration-map+special-law-conflict-matrix+directory-format-contract+directory-normalization-plan; LIFECYCLE:inventory>map>detect-conflict>normalize>verify>atomically-activate>retire legacy projection; VALIDATION:zero orphan+zero duplicate authority+zero unresolved conflict+zero delimiter relation+zero active pending entry+zero plaintext Chinese mirror; FAILURE:retain prior verified state+deny affected activation; EVIDENCE:machine-readable gap reports+content hashes+external signature",
+        "rule": "SCOPE:all legacy provisions+all special laws+all directory schemas+all Chinese-codex handling; OWNER:codex protects codex integrity+permission-sovereign owns registries+human-governor seals; IDENTITY:A252+H018; AUTHORITY:A1+A3+A228+A229+A230+A233+A234; INPUT:complete provision inventory+special-law scopes+directory formats+relationship graph+mirror exposure evidence; RULE:legacy provisions map-to one controlling law and explicit retain|special-governs|superseded status; every overlapping special-law pair has directional precedence+shared-boundary+joint-proof rule; every directory migrates to A233 common envelope plus typed domain payload; all relationships become normalized rows; pending directory implementations remain non-active and block dependent verified release; plaintext Chinese mirror is forbidden and 星澄 exception requires owner-isolated encrypted non-exportable storage with nondisclosure; RELATIONSHIPS:provision-migration-map+special-law-conflict-matrix+directory-format-contract+directory-normalization-plan; LIFECYCLE:inventory>map>detect-conflict>normalize>verify>atomically-activate>retire legacy projection; VALIDATION:zero orphan+zero duplicate authority+zero unresolved conflict+zero delimiter relation+zero active pending entry+zero plaintext Chinese mirror; FAILURE:retain prior verified state+deny affected activation; EVIDENCE:machine-readable gap reports+content hashes+external signature",
         "prohibition": "FORBID:implicit-supersession+unresolved-overlap+legacy-format-left-active+delimiter-packed-link+pending-as-active+plaintext-Chinese-mirror+verified-status-before-zero-gap-and-signature",
         "exception": "Implementation may follow separately, but no affected feature or release may claim compliance before every closure gate passes"
       },
@@ -2191,7 +2191,7 @@
         "provision_id": "A253",
         "section_index": "7",
         "subject": "special-law-lifecycle-activation-and-external-closure",
-        "rule": "SCOPE:all special laws+all permission-sovereign-owned directories+all domain-owner proposals+external signatures+Chinese mirror artifacts; OWNER:governance-authority protects codex integrity+permission-sovereign decides directory lifecycle+domain-sovereign decides only domain content+human-governor seals; IDENTITY:A253+H019; AUTHORITY:A228+A229+A230+A231+A233+A234+A252; INPUT:scope overlap report+usage graph+replacement mapping+directory coverage+tests+domain verdict+permission verdict+external signature+plaintext scan; RULE:special law create|merge|split|supersede|retire uses objective thresholds and permanent lineage; directory pending-to-active requires complete inventory+format parity+normalized links+owner approval+runtime consumer proof+failure injection+rollback+zero-gap audit; domain owner may submit typed candidate and supporting evidence but permission-sovereign alone registers+activates+retires directory identity and cannot alter domain truth; external closure remains pending until valid offline signature and zero plaintext Chinese mirror outside 星澄 owner-isolated encrypted storage; RELATIONSHIPS:special-law-lifecycle-policy+directory-activation-acceptance+domain-directory-decision-boundary+codex-external-closure-requirements; LIFECYCLE:propose>domain-verdict>conflict-review>permission-decision>test>seal>activate>observe>merge-or-retire; VALIDATION:no duplicate scope+no orphan identity+no active pending entry+no unsigned verified version+no plaintext Chinese mirror; FAILURE:retain prior verified state and deny affected activation; EVIDENCE:all gate results content-addressed+timestamped+externally signed",
+        "rule": "SCOPE:all special laws+all permission-sovereign-owned directories+all domain-owner proposals+external signatures+Chinese mirror artifacts; OWNER:codex protects codex integrity+permission-sovereign decides directory lifecycle+domain-sovereign decides only domain content+human-governor seals; IDENTITY:A253+H019; AUTHORITY:A228+A229+A230+A231+A233+A234+A252; INPUT:scope overlap report+usage graph+replacement mapping+directory coverage+tests+domain verdict+permission verdict+external signature+plaintext scan; RULE:special law create|merge|split|supersede|retire uses objective thresholds and permanent lineage; directory pending-to-active requires complete inventory+format parity+normalized links+owner approval+runtime consumer proof+failure injection+rollback+zero-gap audit; domain owner may submit typed candidate and supporting evidence but permission-sovereign alone registers+activates+retires directory identity and cannot alter domain truth; external closure remains pending until valid offline signature and zero plaintext Chinese mirror outside 星澄 owner-isolated encrypted storage; RELATIONSHIPS:special-law-lifecycle-policy+directory-activation-acceptance+domain-directory-decision-boundary+codex-external-closure-requirements; LIFECYCLE:propose>domain-verdict>conflict-review>permission-decision>test>seal>activate>observe>merge-or-retire; VALIDATION:no duplicate scope+no orphan identity+no active pending entry+no unsigned verified version+no plaintext Chinese mirror; FAILURE:retain prior verified state and deny affected activation; EVIDENCE:all gate results content-addressed+timestamped+externally signed",
         "prohibition": "FORBID:special-law-growth-without-threshold+merge-losing-identity+split-creating-overlap+retire-with-live-consumer+pending-as-active+domain-self-registration+permission-sovereign-changing-domain-content+signature-self-assertion+plaintext-Chinese-mirror+verified-release-with-open-gate",
         "exception": "No emergency administrator debug development performance or convenience condition may bypass an activation external-signature or Chinese-confidentiality gate"
       },
@@ -2425,7 +2425,7 @@
         "provision_id": "A279",
         "section_index": "9",
         "subject": "governance-codex-codex-directory-classification",
-        "rule": "PHYSICAL-IDENTITY:Governance Codex is the codex directory at E:\\GPTBridge\\governance_rule\\codex; CANONICAL-NAME:governance-codex; CANONICAL-CLASSIFICATION:codex-directory; SCOPE:official codex database+confidential 星澄-only Chinese codex+codex access boundary; AUTHORITY:governance-authority only; DOCUMENTATION:all architecture catalogs+manuals+test flows+faults+commands+diagrams and references use this classification and exact path; PROTECTION:official codex artifacts remain read-only outside an explicit human-governor amendment transaction; NON-MIRROR:Chinese codex cannot be referenced mirrored exported or disclosed except to 星澄 under its confidentiality boundary; AUTHORITY-SPLIT:governance-authority exclusively decides codex content+interpretation+amendment while permission-sovereign exclusively registers directory identity+access and neither may assume the other role",
+        "rule": "PHYSICAL-IDENTITY:Governance Codex is the codex directory at E:\\GPTBridge\\governance_rule\\codex; CANONICAL-NAME:governance-codex; CANONICAL-CLASSIFICATION:codex-directory; SCOPE:official codex database+confidential 星澄-only Chinese codex+codex access boundary; AUTHORITY:codex only; DOCUMENTATION:all architecture catalogs+manuals+test flows+faults+commands+diagrams and references use this classification and exact path; PROTECTION:official codex artifacts remain read-only outside an explicit human-governor amendment transaction; NON-MIRROR:Chinese codex cannot be referenced mirrored exported or disclosed except to 星澄 under its confidentiality boundary; AUTHORITY-SPLIT:codex exclusively decides codex content+interpretation+amendment while permission-sovereign exclusively registers directory identity+access and neither may assume the other role",
         "prohibition": "FORBID:classify-governance-codex-as-general-documentation+alternate-authoritative-codex-directory+unauthorized-write+runtime-generated-amendment+Chinese-codex-reference/mirror/export/disclosure-to-non-星澄",
         "exception": "Certified tooling may read the official machine codex through the governed repository interface; this does not grant direct file mutation authority."
       },
@@ -2470,7 +2470,7 @@
         "provision_id": "A284",
         "section_index": "4",
         "subject": "gptbridge-canonical-layered-project-architecture",
-        "rule": "ROOT:GPTBridge; LAYER-1:startup-entry=UI-only at E:\\GPTBridge\\main-system\\launcher and has-no system/runtime/business decision or direct backend wake authority; LAYER-2:startup-core=startup-governance+system-core inside main-system and begins only from typed UI startup intent; LAYER-3:codex-layer=codex; LAYER-4:sovereign-decision-layer={system-sovereign+maintenance-sovereign+permission-sovereign}; LAYER-5:sub-sovereign-module-management-assignment-coordination-layer={System Sub-Sovereigns+Maintenance Sub-Sovereigns+Permission Sub-Sovereigns}; LAYER-5-POWER:no-execution-power+module-assignment-and-coordination-only; LAYER-6:cross-layer-information-layer={Shared Layer converged inside main-system+PostgreSQL+Qdrant+state+events+IPC}; LAYER-6:module-execution-layer={local-model/model-dialogue with 星澄-exclusive directory}+{investment-assistant with investment-mobile exclusive directory}+{external-collaboration}+{automatic-file-management}+{automatic-video-download}; AUTHORITY-FLOW:governance-authority>sovereign-decision>sub-sovereign-control/delegation>governed-executor; INFORMATION-FLOW:all cross-layer state/event/data/IPC through information-layer; MODULE-BOUNDARY:modules execute only and cannot assume governance or sovereign decisions; DIRECTORY:main-system-owned layers remain inside main-system+independent tools inside Standalone tools+model-dialogue remains registered local-model top-level; ISOLATION:each module and exclusive directory retains declared owner+permission+data+runtime+failure boundaries",
+        "rule": "ROOT:GPTBridge; LAYER-1:startup-entry=UI-only at E:\\GPTBridge\\main-system\\launcher and has-no system/runtime/business decision or direct backend wake authority; LAYER-2:startup-core=startup-governance+system-core inside main-system and begins only from typed UI startup intent; LAYER-3:codex-layer=codex; LAYER-4:sovereign-decision-layer={system-sovereign+maintenance-sovereign+permission-sovereign}; LAYER-5:sub-sovereign-module-management-assignment-coordination-layer={System Sub-Sovereigns+Maintenance Sub-Sovereigns+Permission Sub-Sovereigns}; LAYER-5-POWER:no-execution-power+module-assignment-and-coordination-only; LAYER-6:cross-layer-information-layer={Shared Layer converged inside main-system+PostgreSQL+Qdrant+state+events+IPC}; LAYER-6:module-execution-layer={local-model/model-dialogue with 星澄-exclusive directory}+{investment-assistant with investment-mobile exclusive directory}+{external-collaboration}+{automatic-file-management}+{automatic-video-download}; AUTHORITY-FLOW:codex>sovereign-decision>sub-sovereign-control/delegation>governed-executor; INFORMATION-FLOW:all cross-layer state/event/data/IPC through information-layer; MODULE-BOUNDARY:modules execute only and cannot assume governance or sovereign decisions; DIRECTORY:main-system-owned layers remain inside main-system+independent tools inside Standalone tools+model-dialogue remains registered local-model top-level; ISOLATION:each module and exclusive directory retains declared owner+permission+data+runtime+failure boundaries",
         "prohibition": "FORBID:startup-entry-waking-backend-directly+startup-entry-decision+layer-skip+sub-sovereign-final-policy-decision+module-sovereign-authority+private-cross-layer-channel+direct-PostgreSQL/Qdrant-access-outside-information-layer+shared-layer-outside-main-system+independent-tool-outside-Standalone-tools+星澄-directory-disclosure+cross-module-data/runtime/failure-boundary-merge",
         "exception": "The UI startup entry may render cached status marked stale and submit a typed startup intent; only the startup core may initiate governed system startup."
       },
@@ -2788,6 +2788,15 @@
         "rule": "權限主宰與星澄是兩個平行、分立且互不隸屬的獨立特權機構，均位於法典、主宰、子主宰及模組執行層之外。星澄唯一負責機密、唯讀的權限合法性、必要性、最小權限、職責分離、風險、期限及證據審查，不得授權或修改權限。權限主宰唯一負責在星澄當期審查及決策主宰目的範圍決策後，核發、拒絕、續期、限縮、暫停或撤銷精確權限，不得自行審查或執行。授予、續期及擴權必須同時具備星澄通過結論與權限主宰授權，兩者身份、工作階段、紀錄、簽章及申訴路徑完全分離。",
         "prohibition": "禁止合併身份、工作階段、金鑰或紀錄，禁止互相覆核或代表、權限主宰自行審查、星澄授權或修改、無當期審查即授權，以及壓制或洩露星澄發現。",
         "exception": "緊急隔離得先限縮、暫停或撤銷精確權限；任何授予、續期或擴權仍須遵守雙鑰規則。"
+      },
+      {
+        "position": 320,
+        "provision_id": "A320",
+        "section_index": "1",
+        "subject": "治理權威完整正名為法典",
+        "rule": "治理權威的現行身份、名稱及層級完整正名為法典與法典宣告層；舊身份僅保留於明確標示已被取代的歷史證據。法典僅為最高規則宣告層，不具有權力、決策、裁決、授權、強制或執行權。所有現行法典、目錄、架構、指令、故障、手冊、測試及稽核引用一律使用法典。",
+        "prohibition": "禁止任何現行紀錄繼續使用治理權威作為有效身份、名稱或層級，禁止建立平行別名或賦予法典任何決策與執行權。",
+        "exception": "舊稱只能存在於不可變歷史證據中，用以證明沿革及取代關係。"
       }
     ],
     "certification_evidence": [
@@ -10922,7 +10931,7 @@
       },
       {
         "provision_type": "sovereign",
-        "provision_id": "governance-authority",
+        "provision_id": "codex",
         "effective_version": "3.61600",
         "status": "active"
       },
@@ -11393,6 +11402,12 @@
         "provision_id": "A319",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A320",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -11452,13 +11467,13 @@
         "version": "1.00000",
         "version_identity": "E2:1.00000",
         "history_head": "H045",
-        "provision_count": 551,
-        "identity_count": 551,
-        "lineage_count": 551,
+        "provision_count": 552,
+        "identity_count": 552,
+        "lineage_count": 552,
         "certification_state": "sealed-read-only-pending-external-signatures",
-        "content_root": "2df08daef0a712ca751c0d8e76ef6cb16a48f8ad2f5673da02ffe6ac983065bf",
-        "identity_root": "43e70491f7e8ece66d05cf1133d8c09f17d3f801a035418d0abb6a053ad78ee2",
-        "full_root": "7fdc702002f5be6b4d07f8e0111650046ba24f675b7bc90c3ec5e284e6ad3644",
+        "content_root": "784710b9438eed774a668e4864a7cc4960980139a07c61dd2d2c96a97a3b8ce6",
+        "identity_root": "971692251a7a056b43d028acdd05a9511f1d930050dd5d22c4dbfd2bb27a16ca",
+        "full_root": "009d80654e9a56537f808373c3fb1c356b8543822dee311315b4b91bb082fe61",
         "legacy_history_head": null
       }
     ],
@@ -20425,9 +20440,9 @@
         "identity_status": "permanent"
       },
       {
-        "identity_code": "codex/sovereign/governance-authority",
+        "identity_code": "codex/declaration-layer/codex",
         "provision_type": "sovereign",
-        "provision_id": "governance-authority",
+        "provision_id": "codex",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       },
@@ -21618,6 +21633,13 @@
         "identity_code": "ARTICLE_A319",
         "provision_type": "article",
         "provision_id": "A319",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A320",
+        "provision_type": "article",
+        "provision_id": "A320",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
       }
@@ -24670,7 +24692,7 @@
       },
       {
         "provision_type": "sovereign",
-        "provision_id": "governance-authority",
+        "provision_id": "codex",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A229|A230"
@@ -25479,6 +25501,13 @@
         "tier": "special-law",
         "law_code": "CODEX_PERMISSION_IDENTITY_SPECIAL_LAW",
         "authority_basis": "A260|A295|A311|A312|A313"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A320",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A1|A2|A89|A284|A298"
       }
     ],
     "provision_lifecycle_status": [
@@ -30570,7 +30599,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "b490ddc136022d787c8aed06f7714f4b6170938f66e491cbaedc6884b8bf65c4"
+        "content_hash": "2ac299cd2a6feeaaece6ba1be1c90aa77021045560bfc7ee32cfc794a445da34"
       },
       {
         "provision_type": "article",
@@ -30634,7 +30663,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "c808dd2da063b3bce13a5623ea492552532e16615f43603650a74856457a0817"
+        "content_hash": "68fd02741bf2dad797d67503d13567f68ea4c5dc9cf3901d96eea5300b5f2ced"
       },
       {
         "provision_type": "article",
@@ -30642,7 +30671,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "1c75f617cca2dade8173417fcbabfff316bb8de713338891bb000442abb90eac"
+        "content_hash": "df4a5aa46ef8538e560216f40979c2db4bd25b6c90cae680ae61b2d4556487d2"
       },
       {
         "provision_type": "article",
@@ -30674,7 +30703,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "2fe40e229fa405f060487550f9b8a011d33065f47d05205fec27d32838623b05"
+        "content_hash": "1f7292a8490e50aa929976bf5698bc3a1534b3f9b9bb217b056339a59d6343fe"
       },
       {
         "provision_type": "article",
@@ -30682,7 +30711,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "86d241ffac579d21b92c9c6a3ce0c1801f8d4085c4057b364959e61a630d005e"
+        "content_hash": "d3c345b347ee6e6604cf8bdb7f7f59c5e66ac84a7d58fdfd83df97bbe5fc1239"
       },
       {
         "provision_type": "article",
@@ -30722,7 +30751,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "c796ebf9d661876db0b684ebcb526f4a51aea28413063d367e55241347781b44"
+        "content_hash": "e217f59c017deac11b309addfed9b32ee70d061beb070c27774e2bd912e48c90"
       },
       {
         "provision_type": "article",
@@ -30762,7 +30791,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "3d59f0841cd9ed1d59e711e4809244331fa16f95751fb9f2da34b84e881bd166"
+        "content_hash": "ddabf5d68d3bc2b656d9286ccae4dec741e1208bb2c4541ff093cb519b10c648"
       },
       {
         "provision_type": "article",
@@ -30898,7 +30927,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "7f1b3e0aa2fae6817ce07e0e3f9bc283513524fe98bb06b494686aa855c00d1e"
+        "content_hash": "06fb6f186f95c155e1f2cfa4b7dc1841891a2b29e70954adfa20ce307765b88a"
       },
       {
         "provision_type": "article",
@@ -30906,7 +30935,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "7aa18590ee168e678f80561a9338c06427cab18ed4927855461c6bc6ca951b29"
+        "content_hash": "064b78ef090327c8321216ba644b821b8266019bc87d44bbe94e2e4c8b14f89d"
       },
       {
         "provision_type": "article",
@@ -30914,7 +30943,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "92c285b501d374d7a693e0f7e0c4b90f3c5355871ef7c5740b743b29d906dbf1"
+        "content_hash": "06178f5d6589c77af94432513deff6b63c824fd0c2e84689340125f316567a4c"
       },
       {
         "provision_type": "article",
@@ -30922,7 +30951,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "b90cc2d73241bc134f17227b051c7b2f2b796b61bb049dbc64afbe098a7a4a8b"
+        "content_hash": "6a93a2a21136d259f4127d6f4669e4a4d86584b1fc1fa7931af141366d28257a"
       },
       {
         "provision_type": "article",
@@ -30962,7 +30991,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "3cf30f39226c6f0672023ca84bc0929717e470ea79686da2bc9cfb76b984ead7"
+        "content_hash": "7682ed8453ba1f6172ca1e1ce11bf58b84848872615052405e770b6449c9a7e0"
       },
       {
         "provision_type": "article",
@@ -30978,7 +31007,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "30b34b1890763ad5e9bf9f731a9c1d9c5729cf15cdc5491ac8e9f9884a10e189"
+        "content_hash": "e23c25d31e7c5fcca7c9aceb9f4d409c671dd6cc1156f1f03d47870439b322c9"
       },
       {
         "provision_type": "article",
@@ -31010,7 +31039,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "e5488b18c400cb0548c50b3fa63a5adf3408da0e0e6f015d3c04cffb3d610b91"
+        "content_hash": "f8e89e3f67b7238fd9269c45192ec23f620043d00b08027fc727910950a309c7"
       },
       {
         "provision_type": "article",
@@ -31074,7 +31103,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "124af2d5824cdc7fe8953b6653fa334620837e98c9fb26f4f2ae34163cdf0ba6"
+        "content_hash": "5149ecacd6ae8512bd2ea2d5ec14011fe67f2b78d87a65569c6cbd47f0176294"
       },
       {
         "provision_type": "article",
@@ -31098,7 +31127,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "78b6c20b31b0f736aaea0ce5542c7b8f64fb0f89b36d0b6bcc5940a56abe0b30"
+        "content_hash": "2504ff0d9c699efeabfd92240a06c557767ee8beafafd4b985bb3cf456ada80b"
       },
       {
         "provision_type": "article",
@@ -31346,7 +31375,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "54e0da67b69b3dca192b7aa8023fcf41ebabd797f97a75a126729da0e8bcf3d3"
+        "content_hash": "bedf515f191609ec9679f223b1cd671d9f59cdfd89d8304ad01d13d54dd45153"
       },
       {
         "provision_type": "article",
@@ -31458,7 +31487,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "1aa3d70e5eb87d76e0eb56758353444bab9a7eb6d2cba9d38ad59051ed8d7bd8"
+        "content_hash": "dcc0d85a6739b07f68fd0689a39a6be1df1969960da62e66a209cf2327fc834f"
       },
       {
         "provision_type": "article",
@@ -31482,7 +31511,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "570965fa9fbfc471fe89bb78c7cd7bd6e53f5f209dcd785651b63208d38f048f"
+        "content_hash": "70380af7b5e60508729d00925e7059c5c7154be6d8d7d65a064e18e401d6298b"
       },
       {
         "provision_type": "article",
@@ -32630,11 +32659,11 @@
       },
       {
         "provision_type": "sovereign",
-        "provision_id": "governance-authority",
+        "provision_id": "codex",
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "ec3d2221a1272e7d9566960a11e81f7de30de6c8c13f464765a2436fb988b56f"
+        "content_hash": "bd248db7e119b96422fa4de9142e440727cd88f5e9cc6366b3f4f951ccfb64ed"
       },
       {
         "provision_type": "sovereign",
@@ -33346,7 +33375,7 @@
         "introduced_by": "H018",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "28596b6686c779f5c88045840116f2e64a526da29442cafa55aa9f75ed4242d0"
+        "content_hash": "bda320dc618944c5debd7b2750445113faba85f8cf6ef96e228efd84895df242"
       },
       {
         "provision_type": "article",
@@ -33354,7 +33383,7 @@
         "introduced_by": "H019",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "90d69123291ba68d058ee8ed548f5c03727e2ce5de1836c18c13a84f85d16cc6"
+        "content_hash": "40dd9dc8ddc4a6b4a6e3353414c091ad3113509ce08000ddae040729455b9300"
       },
       {
         "provision_type": "article",
@@ -33562,7 +33591,7 @@
         "introduced_by": "H040",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "b493e8a49e402fa006adb534463bb9973369680fedfe56a2c660ef56ec5efadb"
+        "content_hash": "5d0b0b1d1b66a9a0aeb0d404ceaad698d123e64dfb8137b8315fd258d878d878"
       },
       {
         "provision_type": "article",
@@ -33602,7 +33631,7 @@
         "introduced_by": "H045",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "3d9f8974daeda7e5c5bf50e7f7601ad9784c394abccce7ab1cfddac8530277de"
+        "content_hash": "a84011dc20e37779625671844beac45ae2c3e0f43e0da68d7961760c4c1f28eb"
       },
       {
         "provision_type": "article",
@@ -33650,7 +33679,7 @@
         "introduced_by": "H045",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "d1ce0cecab58f833a8915d1eb3f5aeb9e19af62deac306fc1ac54fe1d1a086aa"
+        "content_hash": "8861bca4c77980f1d036cb2eb34864729863616b2fb1eae399a601d07acb5e0d"
       },
       {
         "provision_type": "article",
@@ -33995,6 +34024,14 @@
         "supersedes_id": "A313",
         "status": "active",
         "content_hash": "bc10efe2d6260b2361fed507e59610805ab414b209cd28a4b8f1c4ccc362a7d9"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A320",
+        "introduced_by": "H045",
+        "supersedes_id": "A298",
+        "status": "active",
+        "content_hash": "2ded6a35a58282af7f562adca547ab010adf718dd76fd943b52fcd49f85c9326"
       }
     ],
     "provision_revisions": [
@@ -37420,7 +37457,7 @@
       },
       {
         "provision_type": "sovereign",
-        "provision_id": "governance-authority",
+        "provision_id": "codex",
         "revision_id": "H001",
         "version": "1.00000",
         "content_hash": "9c0e46bb5ba4f7c85bd20f44858cfb494e30d366f8f8a6c2345809e62375615b",
@@ -38616,6 +38653,249 @@
         "version_epoch": 1
       },
       {
+        "provision_type": "sovereign",
+        "provision_id": "decision-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "e205c875012f00d9890c0513efa09bc9824481e16fda8d2958f869fadf215d72",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "maintenance-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "31a7b99a854bb744fb7ffcddf96f5e33436d3e3bfbd3c24d57575c8a05e024bb",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "permission-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "9f156477fbcfb22d520713114aadf407480cf1463b08d7fc7049955d01585824",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "xingcheng",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "93fb7b767db544cd96e149d4c764436759507975246d6ad4ab4b3ec3fb9222ea",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "learning-system-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "caf0572339f63525901c7a9749edf5e391e1a980df8b062ff3aecde2e9fb470e",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "system-programming-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "d24f4285ca88889857f6faf25d8fa3a693b6be809a7bffc86dcbf31df1b1eb47",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "startup-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "f7d95381da7e6a5e570e3aa6bc362f8e556b0a64693758edb37d11008e1a809f",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "system-runtime-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "4c44a1be5630cf47676347f516ab39d3b8a8ae52860e4c05cf57b69810764c9a",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "resource-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "092af8748b87bc0490c5a276e825037ef44a894ab24b73ed29b98e7f067e1535",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "data-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "178159f8154b0880defda7e9232a1efa06539b5f5425a9364099fde86091744c",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "integration-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "2ff0020509cfcb6216a3c330ee63c0323a1d99d091088e645080a6c86062f39c",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "third-party-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "306776307944f1ff6e4bfd69458d68955f2ae1bc1d2c7d08526e596e4e18a77f",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "language-review-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "df2ec8c3fb09f00c681aa2ce4c6b1130c96d59a317bd990a4db812a0ba115015",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "system-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "4ab3c4f3a4450958cf31409c8d5e2dc995b63b8b55ffde1a17f6910cca18bea5",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "maintenance-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "3a2fb2a89942bd0eec5161bc1f7cf1c437325c92d0d0f853568fadaf60f48cc7",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "permission-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "c15906a97f0b5633413d076f086bf2731c7988852e40a64d7f5d7067fbed377b",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "synchronization-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "ae1bd580d55cf49630684a8dfbd2fec7cb1f19c93bc6fa14f8872a540b733765",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "startup-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "89e0c7892e8f4afde44ac07dbe19af655750df24236f51595904bfc3fbef1694",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "data-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "46976d2dd0d82eddf61496dceed5cf83866024b27fa5bd12eb6dcf8151dc1c35",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "resource-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "31acbd145f7561b2f4e9f10c41ef478913746cf832511db0e65ea24b94a58a7b",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "integration-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "391a386e70842f59624659c9ce7850af8436bb65ba1149bf6bd91c5c2202af6d",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "third-party-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "ebf51c4289861643cb9b4c276a5eb4fc602f6c4e6e78ec7335a70639828e88e0",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "language-review-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "588836da5a020edf30d72db7852f3ed02491bdae4dea80ec7071bf41ec3684db",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "system-programming-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "de2227ef62aced5ebe45b72444de9c7772fdfc1f0ab89068d79bea6856e69773",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "learning-system-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "2d8de9b8e075be8400858a6ea391ae97ab461752308850db01c3eacecfdfda4f",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "directory-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "235fc321208bc051f542d1bcd61e183aa1742f08b89eb2091278aee0d659d39d",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "sovereign",
+        "provision_id": "identity-group-sub-sovereign",
+        "revision_id": "H045",
+        "version": "1.00000",
+        "content_hash": "e30d9438d5bbbfb0866640130cc6a7c81733daab7a22c88f3e77e17d7c1b7ee6",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
         "provision_type": "article",
         "provision_id": "A1",
         "revision_id": "H045",
@@ -38791,7 +39071,7 @@
         "provision_id": "A29",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "b490ddc136022d787c8aed06f7714f4b6170938f66e491cbaedc6884b8bf65c4",
+        "content_hash": "2ac299cd2a6feeaaece6ba1be1c90aa77021045560bfc7ee32cfc794a445da34",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -38863,7 +39143,7 @@
         "provision_id": "A40",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "c808dd2da063b3bce13a5623ea492552532e16615f43603650a74856457a0817",
+        "content_hash": "68fd02741bf2dad797d67503d13567f68ea4c5dc9cf3901d96eea5300b5f2ced",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -38872,7 +39152,7 @@
         "provision_id": "A41",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "1c75f617cca2dade8173417fcbabfff316bb8de713338891bb000442abb90eac",
+        "content_hash": "df4a5aa46ef8538e560216f40979c2db4bd25b6c90cae680ae61b2d4556487d2",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -38908,7 +39188,7 @@
         "provision_id": "A46",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "2fe40e229fa405f060487550f9b8a011d33065f47d05205fec27d32838623b05",
+        "content_hash": "1f7292a8490e50aa929976bf5698bc3a1534b3f9b9bb217b056339a59d6343fe",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -38917,7 +39197,7 @@
         "provision_id": "A47",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "86d241ffac579d21b92c9c6a3ce0c1801f8d4085c4057b364959e61a630d005e",
+        "content_hash": "d3c345b347ee6e6604cf8bdb7f7f59c5e66ac84a7d58fdfd83df97bbe5fc1239",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -38962,7 +39242,7 @@
         "provision_id": "A53",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "c796ebf9d661876db0b684ebcb526f4a51aea28413063d367e55241347781b44",
+        "content_hash": "e217f59c017deac11b309addfed9b32ee70d061beb070c27774e2bd912e48c90",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39007,7 +39287,7 @@
         "provision_id": "A65",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "3d59f0841cd9ed1d59e711e4809244331fa16f95751fb9f2da34b84e881bd166",
+        "content_hash": "ddabf5d68d3bc2b656d9286ccae4dec741e1208bb2c4541ff093cb519b10c648",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39160,7 +39440,7 @@
         "provision_id": "A91",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "7f1b3e0aa2fae6817ce07e0e3f9bc283513524fe98bb06b494686aa855c00d1e",
+        "content_hash": "06fb6f186f95c155e1f2cfa4b7dc1841891a2b29e70954adfa20ce307765b88a",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39169,7 +39449,7 @@
         "provision_id": "A94",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "7aa18590ee168e678f80561a9338c06427cab18ed4927855461c6bc6ca951b29",
+        "content_hash": "064b78ef090327c8321216ba644b821b8266019bc87d44bbe94e2e4c8b14f89d",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39178,7 +39458,7 @@
         "provision_id": "A95",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "92c285b501d374d7a693e0f7e0c4b90f3c5355871ef7c5740b743b29d906dbf1",
+        "content_hash": "06178f5d6589c77af94432513deff6b63c824fd0c2e84689340125f316567a4c",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39187,7 +39467,7 @@
         "provision_id": "A96",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "b90cc2d73241bc134f17227b051c7b2f2b796b61bb049dbc64afbe098a7a4a8b",
+        "content_hash": "6a93a2a21136d259f4127d6f4669e4a4d86584b1fc1fa7931af141366d28257a",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39232,7 +39512,7 @@
         "provision_id": "A102",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "3cf30f39226c6f0672023ca84bc0929717e470ea79686da2bc9cfb76b984ead7",
+        "content_hash": "7682ed8453ba1f6172ca1e1ce11bf58b84848872615052405e770b6449c9a7e0",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39250,7 +39530,7 @@
         "provision_id": "A104",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "30b34b1890763ad5e9bf9f731a9c1d9c5729cf15cdc5491ac8e9f9884a10e189",
+        "content_hash": "e23c25d31e7c5fcca7c9aceb9f4d409c671dd6cc1156f1f03d47870439b322c9",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39286,7 +39566,7 @@
         "provision_id": "A111",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "e5488b18c400cb0548c50b3fa63a5adf3408da0e0e6f015d3c04cffb3d610b91",
+        "content_hash": "f8e89e3f67b7238fd9269c45192ec23f620043d00b08027fc727910950a309c7",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39358,7 +39638,7 @@
         "provision_id": "A119",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "124af2d5824cdc7fe8953b6653fa334620837e98c9fb26f4f2ae34163cdf0ba6",
+        "content_hash": "5149ecacd6ae8512bd2ea2d5ec14011fe67f2b78d87a65569c6cbd47f0176294",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39385,7 +39665,7 @@
         "provision_id": "A122",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "78b6c20b31b0f736aaea0ce5542c7b8f64fb0f89b36d0b6bcc5940a56abe0b30",
+        "content_hash": "2504ff0d9c699efeabfd92240a06c557767ee8beafafd4b985bb3cf456ada80b",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39664,7 +39944,7 @@
         "provision_id": "A161",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "54e0da67b69b3dca192b7aa8023fcf41ebabd797f97a75a126729da0e8bcf3d3",
+        "content_hash": "bedf515f191609ec9679f223b1cd671d9f59cdfd89d8304ad01d13d54dd45153",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39790,7 +40070,7 @@
         "provision_id": "A185",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "1aa3d70e5eb87d76e0eb56758353444bab9a7eb6d2cba9d38ad59051ed8d7bd8",
+        "content_hash": "dcc0d85a6739b07f68fd0689a39a6be1df1969960da62e66a209cf2327fc834f",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -39817,7 +40097,7 @@
         "provision_id": "A188",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "570965fa9fbfc471fe89bb78c7cd7bd6e53f5f209dcd785651b63208d38f048f",
+        "content_hash": "70380af7b5e60508729d00925e7059c5c7154be6d8d7d65a064e18e401d6298b",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -40384,7 +40664,7 @@
         "provision_id": "A252",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "28596b6686c779f5c88045840116f2e64a526da29442cafa55aa9f75ed4242d0",
+        "content_hash": "bda320dc618944c5debd7b2750445113faba85f8cf6ef96e228efd84895df242",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -40393,7 +40673,7 @@
         "provision_id": "A253",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "90d69123291ba68d058ee8ed548f5c03727e2ce5de1836c18c13a84f85d16cc6",
+        "content_hash": "40dd9dc8ddc4a6b4a6e3353414c091ad3113509ce08000ddae040729455b9300",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -40627,7 +40907,7 @@
         "provision_id": "A279",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "b493e8a49e402fa006adb534463bb9973369680fedfe56a2c660ef56ec5efadb",
+        "content_hash": "5d0b0b1d1b66a9a0aeb0d404ceaad698d123e64dfb8137b8315fd258d878d878",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -40672,7 +40952,7 @@
         "provision_id": "A284",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "3d9f8974daeda7e5c5bf50e7f7601ad9784c394abccce7ab1cfddac8530277de",
+        "content_hash": "a84011dc20e37779625671844beac45ae2c3e0f43e0da68d7961760c4c1f28eb",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -40699,7 +40979,7 @@
         "provision_id": "A287",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "d1ce0cecab58f833a8915d1eb3f5aeb9e19af62deac306fc1ac54fe1d1a086aa",
+        "content_hash": "8861bca4c77980f1d036cb2eb34864729863616b2fb1eae399a601d07acb5e0d",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
@@ -40992,254 +41272,20 @@
         "version_epoch": 2
       },
       {
-        "provision_type": "sovereign",
-        "provision_id": "governance-authority",
+        "provision_type": "article",
+        "provision_id": "A320",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "ec3d2221a1272e7d9566960a11e81f7de30de6c8c13f464765a2436fb988b56f",
+        "content_hash": "2ded6a35a58282af7f562adca547ab010adf718dd76fd943b52fcd49f85c9326",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       },
       {
         "provision_type": "sovereign",
-        "provision_id": "decision-sovereign",
+        "provision_id": "codex",
         "revision_id": "H045",
         "version": "1.00000",
-        "content_hash": "e205c875012f00d9890c0513efa09bc9824481e16fda8d2958f869fadf215d72",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "maintenance-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "31a7b99a854bb744fb7ffcddf96f5e33436d3e3bfbd3c24d57575c8a05e024bb",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "permission-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "9f156477fbcfb22d520713114aadf407480cf1463b08d7fc7049955d01585824",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "xingcheng",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "93fb7b767db544cd96e149d4c764436759507975246d6ad4ab4b3ec3fb9222ea",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "learning-system-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "caf0572339f63525901c7a9749edf5e391e1a980df8b062ff3aecde2e9fb470e",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "system-programming-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "d24f4285ca88889857f6faf25d8fa3a693b6be809a7bffc86dcbf31df1b1eb47",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "startup-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "f7d95381da7e6a5e570e3aa6bc362f8e556b0a64693758edb37d11008e1a809f",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "system-runtime-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "4c44a1be5630cf47676347f516ab39d3b8a8ae52860e4c05cf57b69810764c9a",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "resource-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "092af8748b87bc0490c5a276e825037ef44a894ab24b73ed29b98e7f067e1535",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "data-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "178159f8154b0880defda7e9232a1efa06539b5f5425a9364099fde86091744c",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "integration-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "2ff0020509cfcb6216a3c330ee63c0323a1d99d091088e645080a6c86062f39c",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "third-party-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "306776307944f1ff6e4bfd69458d68955f2ae1bc1d2c7d08526e596e4e18a77f",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "language-review-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "df2ec8c3fb09f00c681aa2ce4c6b1130c96d59a317bd990a4db812a0ba115015",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "system-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "4ab3c4f3a4450958cf31409c8d5e2dc995b63b8b55ffde1a17f6910cca18bea5",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "maintenance-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "3a2fb2a89942bd0eec5161bc1f7cf1c437325c92d0d0f853568fadaf60f48cc7",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "permission-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "c15906a97f0b5633413d076f086bf2731c7988852e40a64d7f5d7067fbed377b",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "synchronization-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "ae1bd580d55cf49630684a8dfbd2fec7cb1f19c93bc6fa14f8872a540b733765",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "startup-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "89e0c7892e8f4afde44ac07dbe19af655750df24236f51595904bfc3fbef1694",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "data-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "46976d2dd0d82eddf61496dceed5cf83866024b27fa5bd12eb6dcf8151dc1c35",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "resource-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "31acbd145f7561b2f4e9f10c41ef478913746cf832511db0e65ea24b94a58a7b",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "integration-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "391a386e70842f59624659c9ce7850af8436bb65ba1149bf6bd91c5c2202af6d",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "third-party-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "ebf51c4289861643cb9b4c276a5eb4fc602f6c4e6e78ec7335a70639828e88e0",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "language-review-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "588836da5a020edf30d72db7852f3ed02491bdae4dea80ec7071bf41ec3684db",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "system-programming-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "de2227ef62aced5ebe45b72444de9c7772fdfc1f0ab89068d79bea6856e69773",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "learning-system-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "2d8de9b8e075be8400858a6ea391ae97ab461752308850db01c3eacecfdfda4f",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "directory-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "235fc321208bc051f542d1bcd61e183aa1742f08b89eb2091278aee0d659d39d",
-        "certification_status": "external-signatures-required",
-        "version_epoch": 2
-      },
-      {
-        "provision_type": "sovereign",
-        "provision_id": "identity-group-sub-sovereign",
-        "revision_id": "H045",
-        "version": "1.00000",
-        "content_hash": "e30d9438d5bbbfb0866640130cc6a7c81733daab7a22c88f3e77e17d7c1b7ee6",
+        "content_hash": "bd248db7e119b96422fa4de9142e440727cd88f5e9cc6366b3f4f951ccfb64ed",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
       }
@@ -46437,9 +46483,9 @@
         "version": "1.00000",
         "recorded_date": "2026-09-12",
         "change_scope": "deep-codex-consistency-repair",
-        "summary": "completed epoch-qualified evidence startup supersession UI shutdown tier routing obligation deadlines architecture states seal canonicalization test-suite mapping and effective lifecycle closure; added anti-jailbreak, unified reliability, Xingcheng audit strengthening and noninterrupting channel anomaly isolation laws; top-level sovereigns restricted to decision authority, sub-sovereigns restricted to module assignment and coordination, execution lowered to modules, Governance Authority renamed Codex, System Decision Sovereign renamed Decision Sovereign, System Runtime Sovereign renamed Runtime Sovereign, Synchronization Sovereign added, Maintenance and Data Sovereigns demoted under Decision Sovereign, Startup Sovereign demoted under Runtime Sovereign; Resource, Integration, Third-Party, System Programming and Learning System Sovereigns demoted under Synchronization Sovereign; Language Review Sovereign demoted under Permission Sovereign; Xingcheng renamed 星澄 and elevated to independent privileged institution; Permission review authority transferred entirely to 星澄; automatic cleanup backup repair and update converged under Synchronization Sovereign; all otherwise unspecified sub-sovereigns reassigned by exact single-parent map; Directory and Identity Group Sub-Sovereigns added under Permission Sovereign; exclusive primary-effect boundaries established for Decision, Runtime and Synchronization Sovereigns; Permission Sovereign and 星澄 established as separate independent privileged institutions; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power",
+        "summary": "completed epoch-qualified evidence startup supersession UI shutdown tier routing obligation deadlines architecture states seal canonicalization test-suite mapping and effective lifecycle closure; added anti-jailbreak, unified reliability, Xingcheng audit strengthening and noninterrupting channel anomaly isolation laws; top-level sovereigns restricted to decision authority, sub-sovereigns restricted to module assignment and coordination, execution lowered to modules, Governance Authority renamed Codex, System Decision Sovereign renamed Decision Sovereign, System Runtime Sovereign renamed Runtime Sovereign, Synchronization Sovereign added, Maintenance and Data Sovereigns demoted under Decision Sovereign, Startup Sovereign demoted under Runtime Sovereign; Resource, Integration, Third-Party, System Programming and Learning System Sovereigns demoted under Synchronization Sovereign; Language Review Sovereign demoted under Permission Sovereign; Xingcheng renamed 星澄 and elevated to independent privileged institution; Permission review authority transferred entirely to 星澄; automatic cleanup backup repair and update converged under Synchronization Sovereign; all otherwise unspecified sub-sovereigns reassigned by exact single-parent map; Directory and Identity Group Sub-Sovereigns added under Permission Sovereign; exclusive primary-effect boundaries established for Decision, Runtime and Synchronization Sovereigns; Permission Sovereign and 星澄 established as separate independent privileged institutions; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; Governance Authority canonical identity fully renamed to Codex with former identity historical-only",
         "previous_hash": "4f652bc5ac129b289410f07ce2bb3bc4e863b18188b3729d4432219920626734",
-        "entry_hash": "a5fc094df53a5df99d59131e8dfa4c43575999df26bec5ef7ab284245a89474c",
+        "entry_hash": "00aa5c1ecd9161f0b5130c876aba72af73e3ae00d0a0aeb1be3a4e7f9e80d53f",
         "version_epoch": 2
       }
     ],
@@ -46998,13 +47044,13 @@
       {
         "version": "1.00000",
         "history_head": "H045",
-        "provision_count": 551,
-        "identity_count": 551,
-        "lineage_count": 551,
+        "provision_count": 552,
+        "identity_count": 552,
+        "lineage_count": 552,
         "certification_state": "sealed-read-only-pending-external-signatures",
-        "content_root": "2df08daef0a712ca751c0d8e76ef6cb16a48f8ad2f5673da02ffe6ac983065bf",
-        "identity_root": "43e70491f7e8ece66d05cf1133d8c09f17d3f801a035418d0abb6a053ad78ee2",
-        "full_root": "7fdc702002f5be6b4d07f8e0111650046ba24f675b7bc90c3ec5e284e6ad3644",
+        "content_root": "784710b9438eed774a668e4864a7cc4960980139a07c61dd2d2c96a97a3b8ce6",
+        "identity_root": "971692251a7a056b43d028acdd05a9511f1d930050dd5d22c4dbfd2bb27a16ca",
+        "full_root": "009d80654e9a56537f808373c3fb1c356b8543822dee311315b4b91bb082fe61",
         "version_epoch": 2
       }
     ],
@@ -49465,17 +49511,17 @@
     ],
     "sovereign_duties": [
       {
-        "sovereign_id": "governance-authority",
+        "sovereign_id": "codex",
         "position": 1,
         "value": "guard-codex-immutability"
       },
       {
-        "sovereign_id": "governance-authority",
+        "sovereign_id": "codex",
         "position": 2,
         "value": "guard-codex-integrity"
       },
       {
-        "sovereign_id": "governance-authority",
+        "sovereign_id": "codex",
         "position": 3,
         "value": "maintain-highest-rule-layer"
       },
@@ -49838,6 +49884,11 @@
         "sovereign_id": "identity-group-sub-sovereign",
         "position": 1,
         "value": "manage-assign-coordinate-identity-group-modules"
+      },
+      {
+        "sovereign_id": "permission-sovereign",
+        "position": 1,
+        "value": "preserve-independent-two-key-permission-authorization-boundary"
       }
     ],
     "sovereign_powers": [
@@ -49892,7 +49943,7 @@
         "value": "configure-own-domain"
       },
       {
-        "sovereign_id": "governance-authority",
+        "sovereign_id": "codex",
         "position": 1,
         "value": "none"
       },
@@ -49980,16 +50031,21 @@
         "sovereign_id": "xingcheng",
         "position": 20,
         "value": "independent-confidential-permission-review"
+      },
+      {
+        "sovereign_id": "permission-sovereign",
+        "position": 1,
+        "value": "issue-deny-renew-restrict-suspend-revoke-exact-permission-after-current-xingcheng-review"
       }
     ],
     "sovereign_prohibitions": [
       {
-        "sovereign_id": "governance-authority",
+        "sovereign_id": "codex",
         "position": 1,
         "value": "subordinate-proxy-governance"
       },
       {
-        "sovereign_id": "governance-authority",
+        "sovereign_id": "codex",
         "position": 2,
         "value": "override-governance-codex"
       },
@@ -50367,7 +50423,7 @@
     "sovereigns": [
       {
         "position": 1,
-        "sovereign_id": "governance-authority",
+        "sovereign_id": "codex",
         "name": "codex",
         "area": "rule-declaration",
         "rank": "highest-rule-declaration-layer-only-no-power",
@@ -51337,6 +51393,12 @@
       {
         "predecessor_identity": "codex/sovereign/learning-system-sovereign",
         "successor_identity": "SOVEREIGN_LEARNING_SYSTEM_SUB_SOVEREIGN",
+        "effective_version": "1.00000",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "codex/sovereign/governance-authority",
+        "successor_identity": "codex/declaration-layer/codex",
         "effective_version": "1.00000",
         "status": "effective"
       }
