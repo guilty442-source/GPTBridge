@@ -10,6 +10,7 @@ full governance surface so callers can simply use::
 from __future__ import annotations
 
 from importlib import import_module as _import_module
+from pathlib import Path as _Path
 
 from .sovereigns import (
     DecisionSovereign,
@@ -21,7 +22,19 @@ from .sovereigns import (
     XingchengSovereign,
 )
 
-_sub_sovereigns = _import_module("governance.sub_sovereigns")
+import importlib.util as _importlib_util
+_sub_sovereigns = _importlib_util.module_from_spec(
+    _importlib_util.spec_from_file_location(
+        "governance.sub_sovereigns",
+        str(_Path(__file__).parent / "sub-sovereigns" / "__init__.py"),
+        submodule_search_locations=[
+            str(_Path(__file__).parent / "sub-sovereigns")
+        ],
+    )
+)
+import sys as _sys
+_sys.modules["governance.sub_sovereigns"] = _sub_sovereigns
+_sub_sovereigns.__loader__.exec_module(_sub_sovereigns)
 
 SubSovereignBase = _sub_sovereigns.SubSovereignBase
 AutomaticLogSyncSubSovereign = _sub_sovereigns.AutomaticLogSyncSubSovereign

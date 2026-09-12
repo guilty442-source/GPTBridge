@@ -1,0 +1,113 @@
+{
+  "id": "investment-mobile",
+  "name_key": "tool.name",
+  "description_key": "tool.description",
+  "version": "1.0.0",
+  "display_version": "1.0",
+  "status": "stopped",
+  "enabled": true,
+  "independent_tool": true,
+  "main_system_independent_tool": true,
+  "canonical_source_root": "ai-assistant/investment-mobile",
+  "physical_owner_root": "ai-assistant",
+  "lifecycle": {
+    "startup": "on-demand",
+    "directLoad": false,
+    "encapsulated": true,
+    "optional": true,
+    "stoppable": true,
+    "disableable": true,
+    "unloadable": true
+  },
+  "shared_permission_owner": "ai-assistant",
+  "shared_permission_profile": "ai-investment-manager-v1",
+  "shared_cache_owner": "ai-assistant",
+  "cache_storage": "ai-assistant/runtime/cache/companions/investment-mobile",
+  "backup_owner": "ai-assistant",
+  "backup_storage": "global-cleaner/data/business/backups/ai-assistant",
+  "permissions": {
+    "profile": "ai-investment-manager-v1",
+    "business_permission_owner": "ai-assistant",
+    "settings_owner": "ai-assistant",
+    "code_scope": "tool-root-only",
+    "database_scope": "tool-database-only",
+    "canonical_database_scope": "xingcheng-shared-repository",
+    "allow_modify": [
+      "mobile-interface-via-ai-assistant-owner"
+    ],
+    "deny": [
+      "main-program",
+      "other-tools",
+      "direct-database-write",
+      "separate-business-database",
+      "separate-settings-layer"
+    ]
+  },
+  "entry": "Standalone tools/investment-mobile/src/channel_runtime",
+  "runtime": {
+    "type": "python",
+    "entry": "src/channel_runtime.py",
+    "workingDirectory": "."
+  },
+  "distribution": {
+    "mode": "special-unpackaged",
+    "package": false
+  },
+  "request_channel": {
+    "model": "governance-authenticated-shared-layer",
+    "runtime_entry": "src/channel_runtime.py",
+    "direct_instruction": "PERMISSION_DENIED"
+  },
+  "launch": {
+    "primary": "governed-source-channel",
+    "background": "governed-source-channel"
+  },
+  "capabilities": {
+    "ai-connections": {
+      "entry_gateway": "xingcheng",
+      "direct_model_access": false,
+      "model_selection": "automatic-only",
+      "source_owner": "ai-assistant",
+      "runtime_independence": true,
+      "main_system_independent_tool": true,
+      "business_layer_owner": "ai-assistant",
+      "settings_owner": "ai-assistant",
+      "permission_profile": "ai-investment-manager-v1",
+      "separate_business_layer": false,
+      "separate_settings_layer": false
+    },
+    "investment-analysis": {
+      "entry_gateway": "ai-assistant",
+      "source_owner": "ai-assistant",
+      "runtime_independence": true
+    },
+    "investment-manager": {
+      "entry_gateway": "ai-assistant",
+      "source_owner": "ai-assistant",
+      "runtime_independence": true
+    },
+    "investment-market-search": {
+      "entry_gateway": "ai-assistant",
+      "source_owner": "ai-assistant",
+      "runtime_independence": true
+    }
+  },
+  "environment": {
+    "allow": [
+      "GPTBRIDGE_INVESTMENT_MOBILE_ENABLED",
+      "GPTBRIDGE_INVESTMENT_MOBILE_ALLOW_LAN",
+      "GPTBRIDGE_INVESTMENT_MOBILE_PORT"
+    ]
+  },
+  "has_custom_ui": false,
+  "window": {
+    "width": 900,
+    "height": 720,
+    "minWidth": 720,
+    "minHeight": 560,
+    "title_key": "tool.window_title"
+  },
+  "test_targets": [
+    "tests/test_investment_mobile_reexport.py"
+  ]
+}
