@@ -743,7 +743,7 @@
         "section_index": "6",
         "subject": "programming-language-review",
         "rule": "OWNER:星澄-native-model; SCOPE:programming-language-conformance/acceptance/migration; EXEC:delegated; BASIS:codex-delegation",
-        "prohibition": "FORBID:system-language-review-sub-sovereign-overstep-exec",
+        "prohibition": "FORBID:any programming-language-review sub-sovereign+parallel reviewer+ungoverned execution+星澄 boundary bypass",
         "exception": ""
       },
       {
@@ -1201,8 +1201,8 @@
         "provision_id": "A124",
         "section_index": "6",
         "subject": "system-programming-sovereign",
-        "rule": "OWNER:release-update-sync-sub-sovereign; DUTY:code-change-plan+scope+tool-selection+dispatch+independent-verification; MODULE-ACCESS:single-shared-layer-request; EXECUTION:approved-governed-programming-tool; CHANGE:versioned+audited+rollback-capable",
-        "prohibition": "FORBID:direct-sovereign-file-write+module-direct-tool-invocation+self-approval+governance-codex-mutation+unverified-change",
+        "rule": "OWNER:星澄-native-model; DUTY:code-change analysis+plan+authoring+tool-selection+coordination+independent-verification; MODULE-ACCESS:typed governed request; EXECUTION:星澄 automation coordinator invokes approved governed programming tools and registered modules; CHANGE:versioned+audited+rollback-capable",
+        "prohibition": "FORBID:programming-sovereign/sub-sovereign recreation+parallel programming owner+module direct tool invocation+self-approval+Codex mutation without explicit user command+unverified change",
         "exception": ""
       },
       {
@@ -1228,7 +1228,7 @@
         "provision_id": "A127",
         "section_index": "7",
         "subject": "sovereign-rank-and-view-alignment",
-        "rule": "STARTUP-SOVEREIGN:startup-orchestration; DECISION-SOVEREIGN:decision; RUNTIME-SOVEREIGN:runtime-management; MAINTENANCE-SOVEREIGN:health-maintenance; PERMISSION-SOVEREIGN:unchanged; LEARNING-SYSTEM-SOVEREIGN:error-learning; SYSTEM-PROGRAMMING-SOVEREIGN:code-change; SPECIALIZED-SOVEREIGNS:resource|data|integration|third-party|language-review; CODEX-VIEW:all-registered-sovereigns-read-only-via-single-entry",
+        "rule": "CODEX:highest rule declaration; TOP-DECISION:decision-sovereign+runtime-sovereign+synchronization-sovereign within separated domains; PRIVILEGED:permission-sovereign+星澄 remain independent; 星澄:NATIVE-PROGRAMMING+LANGUAGE-REVIEW+AUTOMATION-COORDINATION-EXECUTOR; SUB-SOVEREIGNS:module management and assignment only; MODULES:actual domain execution; CODEX-VIEW:registered identities read only subject to confidentiality and 星澄 exception",
         "prohibition": "FORBID:legacy-single-system-sovereign-authority+cross-rank-duty-substitution",
         "exception": ""
       },
@@ -2686,18 +2686,18 @@
         "provision_id": "A308",
         "section_index": "4",
         "subject": "language-review-sovereign-demoted-under-permission-sovereign",
-        "rule": "CHANGE:language-review-sovereign identity is retired and superseded by language-review-sub-sovereign under permission-sovereign; PARENT:permission-sovereign; ROLE:language-review-sub-sovereign has no decision or execution power and only manages programming-language-review modules+assigns parent-approved work+coordinates module division+collects language classification and review evidence; DECISION:permission-sovereign; EXECUTION:module-execution-layer only; LINEAGE:former identity remains historical",
+        "rule": "CHANGE:language-review-sovereign identity is retired and superseded by language-review-sub-sovereign under permission-sovereign; PARENT:permission-sovereign; ROLE:language-review-sub-sovereign has no decision or execution power and only manages programming-language-review modules+assigns parent-approved work+coordinates module division+collects language classification and review evidence; DECISION:permission-sovereign; EXECUTION:module-execution-layer only; LINEAGE:former identity remains historical; CURRENT-EFFECT:A337 governs and every named programming/language-review child is abolished with no operative power.",
         "prohibition": "FORBID:language-review-sub-sovereign independent decision+direct execution+parallel language-review-sovereign+authority inheritance+acting outside permission-sovereign decision",
-        "exception": "Historical records may retain language-review-sovereign only when marked retired."
+        "exception": "Historical records may retain language-review-sovereign only when marked retired. Historical transition wording creates no current identity, duty, assignment or execution authority."
       },
       {
         "position": 309,
         "provision_id": "A309",
         "section_index": "4",
         "subject": "system-programming-sovereign-demoted-under-synchronization-sovereign",
-        "rule": "CHANGE:system-programming-sovereign identity is retired and superseded by system-programming-sub-sovereign under synchronization-sovereign; PARENT:synchronization-sovereign; ROLE:system-programming-sub-sovereign has no decision or execution power and only manages system-programming modules+assigns parent-approved work+coordinates module division+collects programming module and code-change evidence; DECISION:synchronization-sovereign; EXECUTION:module-execution-layer only; LINEAGE:former identity remains historical",
+        "rule": "CHANGE:system-programming-sovereign identity is retired and superseded by system-programming-sub-sovereign under synchronization-sovereign; PARENT:synchronization-sovereign; ROLE:system-programming-sub-sovereign has no decision or execution power and only manages system-programming modules+assigns parent-approved work+coordinates module division+collects programming module and code-change evidence; DECISION:synchronization-sovereign; EXECUTION:module-execution-layer only; LINEAGE:former identity remains historical; CURRENT-EFFECT:A337 governs and every named programming/language-review child is abolished with no operative power.",
         "prohibition": "FORBID:system-programming-sub-sovereign independent decision+direct execution+parallel system-programming-sovereign+authority inheritance+acting outside synchronization-sovereign decision",
-        "exception": "Historical records may retain system-programming-sovereign only when marked retired."
+        "exception": "Historical records may retain system-programming-sovereign only when marked retired. Historical transition wording creates no current identity, duty, assignment or execution authority."
       },
       {
         "position": 310,
@@ -2812,9 +2812,9 @@
         "provision_id": "A322",
         "section_index": "4",
         "subject": "synchronization-sovereign-integrated-duty-and-child-split",
-        "rule": "OWNER:synchronization-sovereign; SOLE-DECISION:synchronization target+dependency order+atomic boundary+conflict isolation+retry/cancel+convergence acceptance; CHILDREN:{resource-dependency-sync-sub-sovereign=>resources+capacity}+{dependency-sync-sub-sovereign=>third-party dependencies}+{channel-contract-sync-sub-sovereign=>routes+sessions+events+IPC+contracts}+{release-update-sync-sub-sovereign=>versions+artifacts+certificates+hot update/reload}+{runtime-state-sync-sub-sovereign=>state+cursor+generation+checkpoint}+{repair-backup-sync-sub-sovereign=>backup+restore verification+minimal repair+recovery}+{cleanup-retention-sync-sub-sovereign=>cleanup+retention+safe deletion}+{learning-evidence-sync-sub-sovereign=>fault learning+repair outcomes+evidence feedback}; EACH-CHILD:no decision+no execution+one exclusive primary domain+module management assignment coordination and evidence only; REMOVED:{resource-sub-sovereign+integration-sub-sovereign+third-party-sub-sovereign+system-programming-sub-sovereign+learning-system-sub-sovereign} formally superseded; EXECUTION:registered modules only; CROSS-CHILD:synchronization-sovereign splits compound intent and each child receives one typed assignment; SUCCESS:all authoritative versions+hashes+cursors+states converge and independent verification passes; AUTOMATIC-LOGGING:automatic-log-sync-sub-sovereign manages logging modules+assigns append-only log collection/delivery/correlation work+coordinates retention handoff+collects completeness evidence under synchronization-sovereign decision; actual logging execution remains module-execution-layer",
+        "rule": "OWNER:synchronization-sovereign; SOLE-DECISION:synchronization target+dependency order+atomic boundary+conflict isolation+retry/cancel+convergence acceptance; CHILDREN:{resource-dependency-sync-sub-sovereign=>resources+capacity}+{dependency-sync-sub-sovereign=>third-party dependencies}+{channel-contract-sync-sub-sovereign=>routes+sessions+events+IPC+contracts}+{release-update-sync-sub-sovereign=>versions+artifacts+certificates+hot update/reload}+{runtime-state-sync-sub-sovereign=>state+cursor+generation+checkpoint}+{repair-backup-sync-sub-sovereign=>backup+restore verification+minimal repair+recovery}+{cleanup-retention-sync-sub-sovereign=>cleanup+retention+safe deletion}+{learning-evidence-sync-sub-sovereign=>fault learning+repair outcomes+evidence feedback}; EACH-CHILD:no decision+no execution+one exclusive primary domain+module management assignment coordination and evidence only; REMOVED:{resource-sub-sovereign+integration-sub-sovereign+third-party-sub-sovereign+system-programming-sub-sovereign+learning-system-sub-sovereign} formally superseded; EXECUTION:registered modules only; CROSS-CHILD:synchronization-sovereign splits compound intent and each child receives one typed assignment; SUCCESS:all authoritative versions+hashes+cursors+states converge and independent verification passes; AUTOMATIC-LOGGING:automatic-log-sync-sub-sovereign manages logging modules+assigns append-only log collection/delivery/correlation work+coordinates retention handoff+collects completeness evidence under synchronization-sovereign decision; actual logging execution remains module-execution-layer; CURRENT-EFFECT:A337 governs and every named programming/language-review child is abolished with no operative power.",
         "prohibition": "FORBID:overlapping child scope+duplicate owner+sub-sovereign decision/execution+cross-child takeover+implicit synchronization target+overwrite/reset+unverified deletion/update/repair/restore+success before convergence",
-        "exception": "Emergency containment isolates the exact affected synchronization scope; it cannot transfer decision or execution power."
+        "exception": "Emergency containment isolates the exact affected synchronization scope; it cannot transfer decision or execution power. Historical transition wording creates no current identity, duty, assignment or execution authority."
       },
       {
         "position": 323,
@@ -2950,6 +2950,33 @@
         "rule": "ABOLITION:system-programming-sub-sovereign+language-review-sub-sovereign cease as active organizations and retain historical identity only; NATIVE-CAPABILITY:programming analysis+design+code writing+editing+refactoring+debugging+tool use+verification and programming-language conformance+acceptance+migration+generated-code review are exclusive native-model capabilities of 星澄, never a sovereign/sub-sovereign identity; AUTOMATIC-CLASSIFICATION:all automatic intent+task+code+language+fault+evidence+result classification is assigned jointly to the 星澄 auxiliary system and 星澄 native model; BOUNDARY-SEPARATION:AUXILIARY-SYSTEM=deterministic input normalization+identity/permission precheck+rule lookup+queueing+routing+schema validation+evidence capture only and cannot perform semantic judgment+write code+approve/reject language conformance; NATIVE-MODEL=semantic classification+programming analysis+code authoring+language review+solution judgment only and cannot grant permission+alter routing evidence+operate channels directly; COORDINATION-EXECUTOR=typed handoff+ordering+tool invocation+checkpoint+convergence only and cannot replace either classifier or domain module; STAR-ADJUDICATION=星澄 independently resolves classification conflicts and issues one typed final finding without merging these identities or powers; DUTY-TRANSFER:all former programming and programming-language-review duties+evidence obligations transfer intact to 星澄; AUTOMATION-EXECUTOR:the whole-system automation coordination executor is exclusively vested in 星澄 for governed decomposition+scheduling+dispatch+tool orchestration+cross-module coordination+progress convergence+result verification+failure containment; AUTHORIZATION:a valid explicit user one-time command or applicable Codex mandate authorizes the bounded task, while permission-sovereign retains permission decisions and synchronization-sovereign retains information-channel operation+maintenance; DOMAIN-BOUNDARY:domain decision truth remains with its lawful decision owner and actual domain work remains in registered module execution or governed tools coordinated by 星澄; EXECUTION-PRIVILEGE:星澄 may read+create+modify+test governed project code and invoke registered tools only inside approved roots and declared scope with correlation+audit+rollback evidence; CONTINUITY:one coordination owner+typed handoff+idempotency+bounded retry+checkpoint+fault isolation; an abnormal module is isolated without interrupting unaffected channels or modules; RELEASE:code and language-review evidence produced by 星澄 feeds the certified release/update chain without restoring any programming sub-sovereign.; ALL-SYSTEM-AUTOMATIC-OPERATION:星澄 auxiliary system+native model continuously classify+plan+coordinate+execute+verify every authorized automatic workflow through governed modules/tools; MULTITASK-PARALLELISM:independent tasks may run concurrently with bounded worker/queue/resource budgets+task identity+generation fence+isolated state+per-task permission+idempotency+checkpoint+deadline+cancellation; MULTI-CORE-WORK:CPU-bound eligible tasks use an adaptive bounded multi-process/multi-core pool sized from verified available cores+reserved system capacity+thermal/memory/load limits; task partitions are deterministic+isolated+content-addressed and results merge in stable order; I/O-bound tasks use bounded asynchronous concurrency and must not consume multi-core workers unnecessarily; dynamic downshift preserves UI+channel+database responsiveness; DEPENDENCY-GRAPH:dependent tasks wait on typed prerequisites and join only after every mandatory result is verified; CONFLICT:shared target or irreversible side effect serializes under one lock/transaction owner; FAILURE:only the failed branch or worker is quarantined+restarted/retried or rolled back and unaffected branches/channels continue; CONVERGENCE:星澄 emits one ordered authoritative result after deterministic merge+conflict review+evidence completeness.",
         "prohibition": "FORBID:recreate/alias/shadow the abolished programming or language-review sub-sovereign+assign programming ownership to synchronization/decision/runtime/permission sovereign or another module+parallel automation coordinator+ungoverned tool execution+cross-root mutation+self-granted permission+domain-truth invention+silent evidence bypass+fault propagation+Codex mutation without explicit user Codex command and amendment controls.+unbounded-parallelism+use-all-CPU-without-reserve+fixed-worker-count-without-capacity-proof+shared-mutable-task-state+parallel-write-without-lock+dependency-bypass+cross-task-permission/evidence reuse+failure-cascade+nondeterministic-result-merge+completion-before-join",
         "exception": "Historical identities remain readable only for lineage and compatibility resolution. A module may perform its own domain execution when dispatched through the 星澄 coordinator; this does not create independent programming or automation authority."
+      },
+      {
+        "position": 338,
+        "provision_id": "A338",
+        "section_index": "16",
+        "subject": "exact-language-statistics-and-powershell-governed-script-exception-special-law",
+        "rule": "STATISTICS-AUTHORITY:A215 canonical extension map controls all source-language counts before content description; CPP:.cpp files are wholly and exclusively C++ and must never be counted/described/aggregated under C; NAMED-CLASSIFICATION:GPTBridgeLauncher.cpp=C++ only regardless of launcher role,C ABI interaction or included headers; C:.c and C-compatible public .h only; REPORT:each physical file appears once in exactly one language bucket and C/C++ totals remain separate,with unmatched governed scripts reported in a separate non-application-language category; POWERSHELL-IDENTITY:.ps1+.psm1+.psd1 are PowerShell governed operational-script artifacts and are not one of the six approved application implementation languages; POWERSHELL-EXCEPTION:allowed only for Windows startup+bootstrap+installation+build+packaging+deployment+environment preparation and thin maintenance command orchestration when a native PowerShell host is necessary; EXAMPLE:install.ps1 is classified as PowerShell governed install/build script,never C/C++/Python and never ordinary application source; REGISTRATION:each PowerShell artifact requires canonical path+script identity+owner+purpose+allowed command/capability set+input/output contract+permission scope+content hash+signature/provenance+timeout+rollback+test evidence+migration status in governed directories; BOUNDARY:no domain/business/decision/model/data-authority+no direct external network except governed tool path+no embedded application source+no Codex mutation+no persistent hidden process+no bypass of 星澄 automation coordination,permission validation or synchronization channels; EXECUTION:exact registered identity through governed PowerShell host with noninteractive bounded arguments+redacted logs+exit-code/result contract; MIGRATION:inventory every existing PowerShell artifact,classify retain-or-migrate,and progressively migrate portable logic into one approved six-language owner while retaining only the minimal Windows-native shell; RELEASE-GATE:unknown/unregistered/out-of-scope PowerShell blocks affected build/startup/release until registered or migrated.",
+        "prohibition": "FORBID:count/describe any .cpp as C+mixed C/C++ bucket+classify by role instead of extension+double-count file+hide PowerShell inside six-language totals+treat PowerShell as unrestricted seventh application language+business logic in PowerShell+unregistered install/start/build script+download-and-execute+Invoke-Expression/dynamic code+encoded command+unbounded recursion/process spawn+secret in argument/log+permission/channel/星澄 bypass+indefinite legacy exception.",
+        "exception": "A registered minimal Windows-native PowerShell script may remain while migration evidence proves no approved language can replace the host-specific operation without greater risk; review is required each affected release and the exception grants no application-language authority."
+      },
+      {
+        "position": 339,
+        "provision_id": "A339",
+        "section_index": "16",
+        "subject": "canonical-pybind11-c-api-c-thunk-cpp-path-and-logical-domain-map",
+        "rule": "SOLE-PYTHON-NATIVE-CALL-PATH:Python>pybind11 _binding.cpp>C API declared by gptbridge_native.h>C thunk implemented by gptbridge_native.c>C++ core implementation; DIRECT-PYBIND11-TO-CPP:none; _binding.cpp is classified as C++ source but owns binding glue only; C-THUNK:argument/status/opaque-handle translation only and no algorithm; CPP-ABI:hidden and never application-facing; SIX-LOGICAL-DOMAINS:parser+vector+memory+token+transform+binding remain responsibility classifications,not a requirement for six folders or six translation units; PHYSICAL-MAP:parser=>native/core/parser.cpp; vector=>native/core/vector.cpp; memory=>private lifetime/buffer/allocator responsibility inside the smallest owning parser.cpp|vector.cpp|transformer.cpp unit; token=>private token responsibility inside parser.cpp unless a profile-certified successor separates it; transform=>native/core/transformer.cpp; binding=>main-system/src-core/core_system/native/_binding.cpp+native/include/gptbridge_native.h+native/bridge/gptbridge_native.c; CHECKER-MODEL:validate declared logical-domain ownership per symbol/function and permitted co-location,then validate exact physical map,call graph and absence of duplicate owners; LOGICAL-NOT-PHYSICAL:one logical domain need not equal one file and one file may contain multiple declared tightly coupled logical domains only when each symbol has one domain tag,no forbidden dependency,and file remains within size/responsibility limits; MIGRATION:A214 six-folder/one-domain-per-source wording is superseded by this physical mapping and cannot demand empty/artificial files.",
+        "prohibition": "FORBID:Python/pybind11 direct call to private C++ core+bypass C API/C thunk+public C++ ABI+algorithm in _binding.cpp or gptbridge_native.c+checker assuming logical-domain-count=file-count+mandatory empty domain file+unmapped symbol+duplicate logical owner+co-location hiding forbidden dependency.",
+        "exception": "A future physical split requires profile evidence,registered successor mapping,ABI/API parity and atomic consumer/build migration; the canonical call path remains Python>pybind11>C API>C thunk>C++ unless a later explicit special-law successor changes it."
+      },
+      {
+        "position": 340,
+        "provision_id": "A340",
+        "section_index": "16",
+        "subject": "cross-language-boundary-release-hard-gate",
+        "rule": "RELEASE-HARD-GATE:before every affected release promotion,automatic offline-capable tests must pass for all Python/TypeScript/C/C++/CSharp/SQL boundaries; API:versioned request/response/event/error schemas+generated-client parity+backward/forward compatibility; ABI:gptbridge_native.h layout+calling convention+symbol allowlist+opaque-handle ownership+status translation+Python>pybind11>C API>C thunk>C++ call-path proof; SCHEMA:TypeScript/Python payload hashes+SQL migration/read-write compatibility+PostgreSQL/Qdrant contract versions and rollback; FALLBACK:Python fallback behavioral/golden parity+failure activation criteria+no silent capability loss; CSHARP-WINDOWS:CLR/Windows adapter interface+marshalling+encoding+bitness+thread/apartment+lifecycle+error+cleanup parity on supported Windows targets; TEST-LEVELS:compile+type+static contract+unit+integration+failure injection+golden equivalence+sanitizer where native+packaged-artifact smoke; EVIDENCE:release-id+artifact hashes+toolchain versions+test identities+results+logs+coverage+platform matrix+timestamp+independent verifier; ATOMICITY:all mandatory gates join into one release verdict and any missing/stale/skipped/failed item blocks promotion while current certified release continues; OWNER:星澄 coordinates tests and independent review,permission-sovereign validates scope,synchronization-sovereign preserves channel/release state,and registered test modules execute.",
+        "prohibition": "FORBID:release-before-boundary-tests+manual assertion as pass+unit-only acceptance+mock-only ABI proof+schema drift+fallback untested+CSharp/Windows interop omission+partial platform evidence+stale cached result+warning coercion+test disable/skip+promotion on incomplete join+self-reported success by changed module.",
+        "exception": "An unaffected boundary may reuse content-addressed evidence only when artifact+contract+toolchain+platform hashes are identical and the release verifier proves zero affected dependency edges; time-based reuse alone is forbidden."
       }
     ],
     "certification_evidence": [
@@ -3705,7 +3732,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H049",
+        "history_head": "H051",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -8239,7 +8266,7 @@
         "position": 78,
         "provision_id": "E101",
         "area": "programming-dispatch",
-        "edict": "MODULE>INFORMATION-LAYER>SYSTEM-PROGRAMMING-SOVEREIGN>APPROVED-TOOL>CODE-CHANGE>INDEPENDENT-VERIFY>VERSION+AUDIT; DIRECT-WRITE:none",
+        "edict": "AUTHORIZED-TASK>星澄-AUXILIARY-SYSTEM-CLASSIFY>星澄-NATIVE-MODEL-PROGRAM/REVIEW>星澄-AUTOMATION-COORDINATOR>APPROVED-TOOL/REGISTERED-MODULE>CODE-CHANGE>INDEPENDENT-VERIFY>VERSION+AUDIT; PARALLEL/MULTI-CORE:A337; DIRECT-UNGOVERNED-WRITE:none",
         "immutability": "immutable-sealed"
       },
       {
@@ -11891,6 +11918,24 @@
         "provision_id": "A337",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A338",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A339",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A340",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -11949,14 +11994,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H049",
-        "provision_count": 583,
-        "identity_count": 583,
-        "lineage_count": 583,
+        "history_head": "H051",
+        "provision_count": 586,
+        "identity_count": 586,
+        "lineage_count": 586,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "c7e2c0929fa4bcf97b8e521d3520335fcc37c4ddfc0cb7737e10e46ff4a32990",
-        "identity_root": "db215a099d5fb1688a67b9b6a117c2a521eddb64d8d588285ca5e8af3b3a6f91",
-        "full_root": "7a40b4ec68fd22db0cb6c096f80f37cc21a011e81786b644401cecc07eac3ace",
+        "content_root": "caa7dc487593964f1cb32ea314f32c186e78a0901603608aadc4db74ec49f430",
+        "identity_root": "d0c2694043b3ffc0af892f5d999d9bd81c8aee1dba6e87492d15b4ffbaf68fa2",
+        "full_root": "6079c6a882efe3e64b670dc2c26ebe2de0f80da966ae82634a285158cff66c48",
         "legacy_history_head": null
       }
     ],
@@ -17049,11 +17094,31 @@
       },
       {
         "key": "last_amendment",
-        "value": "H049"
+        "value": "H051"
       },
       {
         "key": "whole_system_automatic_operation",
         "value": "星澄-auxiliary-system+native-model-exclusive-parallel"
+      },
+      {
+        "key": "language_statistics_cpp_rule",
+        "value": ".cpp=C++-exclusive;GPTBridgeLauncher.cpp=C++"
+      },
+      {
+        "key": "powershell_identity_rule",
+        "value": "governed-operational-script-exception-not-seventh-application-language"
+      },
+      {
+        "key": "canonical_pybind11_call_path",
+        "value": "Python>pybind11 _binding.cpp>C API>C thunk>C++ core"
+      },
+      {
+        "key": "cpp_logical_physical_mapping",
+        "value": "six logical domains mapped to three core cpp files plus binding/C ABI artifacts;not one-file-per-domain"
+      },
+      {
+        "key": "cross_language_release_gate",
+        "value": "mandatory automatic API+ABI+schema+fallback+CSharp-Windows interop verification"
       }
     ],
     "module_assignment_registry": [
@@ -17637,7 +17702,7 @@
       {
         "position": 67,
         "provision_id": "P74",
-        "statement": "SYSTEM-PROGRAMMING-SOVEREIGN:code-change-decision+tool-dispatch+verification; SUBORDINATE-MODULE:request-only; EXEC:governed-tool-only",
+        "statement": "星澄-NATIVE-PROGRAMMING:code analysis+authoring+tool coordination+verification; MODULE:domain execution only; EXEC:星澄 governed automation coordinator through registered tools",
         "binding": 1
       },
       {
@@ -22562,6 +22627,27 @@
         "provision_id": "A337",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A338",
+        "provision_type": "article",
+        "provision_id": "A338",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A339",
+        "provision_type": "article",
+        "provision_id": "A339",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A340",
+        "provision_type": "article",
+        "provision_id": "A340",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -26645,6 +26731,27 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A336|H049"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A338",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A35|A55|A201|A208|A209|A211|A215|A240|A337"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A339",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A175|A208|A211|A214|A215|A221|A240"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A340",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A175|A208|A211|A214|A215|A221|A240"
       }
     ],
     "provision_lifecycle_status": [
@@ -31207,6 +31314,30 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H049-normalized-effective-state"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A338",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H051+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A339",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H051+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A340",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H051+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -31744,7 +31875,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "649a252d971bb9adbcaa6c187b34b5cf1ca3c42e9d524a570f7f36f55f09bd14"
+        "content_hash": "6f955a3e2924b6a18362a1ba6597a39c308059e9dd2dcc7a03691cd6b1be1504"
       },
       {
         "provision_type": "principle",
@@ -32328,7 +32459,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "908914a184db86ced9d0b804f2ab1ad4f83149df0fb711ee18966045f28d5993"
+        "content_hash": "963379acd21558c8d77c5422f46c3c6e5828900366cf44d5134cd1c2e4008243"
       },
       {
         "provision_type": "article",
@@ -32736,7 +32867,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "320064453b7fed8b3b9a99fb91ed803e40f576e7b85d9aa2500832ac393ee025"
+        "content_hash": "7da565557de91ea3f831eaf88a9c8c42cf52388aca8361820abfd890d273db06"
       },
       {
         "provision_type": "article",
@@ -32760,7 +32891,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "b6f59f5662b26554d9c31916d844fc8bad2474f90a9eb2a12f587e48cdd65237"
+        "content_hash": "944c4fb8e0918dba1be6ee1f087246fd4d4ff6598e56aa14568dff901863b806"
       },
       {
         "provision_type": "article",
@@ -33816,7 +33947,7 @@
         "introduced_by": "H001",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "ab6270dfefabe0f5f640341b4c3c63fd24079c17f74bf9ae95b97ecd17216e21"
+        "content_hash": "9ff17fb7b7ccf86b945128ca0a4f22a19da86c55945adb471ba2b2f97c211f14"
       },
       {
         "provision_type": "edict",
@@ -35488,7 +35619,7 @@
         "introduced_by": "H045",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "1b6d143380e31d23294cb7eb0bf58503a9f59e1ed58ef08bc91d572f276b7305"
+        "content_hash": "0ddec99671e3c3383a1462679ab626dc4f84303d25fe96ebc23642693826e4a3"
       },
       {
         "provision_type": "sovereign",
@@ -35504,7 +35635,7 @@
         "introduced_by": "H045",
         "supersedes_id": null,
         "status": "active",
-        "content_hash": "18a334e3a3ee4a0901d31fa72c4bdfba55e4840aa5b93c67719e3aabb1d2622d"
+        "content_hash": "24dd386d8c5ca1e7abf100a49ed680bf32dbb7c7701f582cebefb02f0b590ff3"
       },
       {
         "provision_type": "sovereign",
@@ -35704,7 +35835,7 @@
         "introduced_by": "H045",
         "supersedes_id": "A314",
         "status": "active",
-        "content_hash": "024cb079324011fc7355c6fa1df353c65f45cf5e5ecfe9c5517671485d8e374c"
+        "content_hash": "366649c7bc0cf5206037120fd0f351f3ae849ecc81fb2ec31cee7d6eb965b8df"
       },
       {
         "provision_type": "sovereign",
@@ -35873,6 +36004,30 @@
         "supersedes_id": "A336",
         "status": "active",
         "content_hash": "fb863e3c852569d8f244b7e6eb58cc5be9f41cd699146bbe6fe3c3a46fd2a965"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A338",
+        "introduced_by": "H051",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "8607b3676ee8d43755b5d527083726097a9e1ab4194fdc600bb63d26a92dfee0"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A339",
+        "introduced_by": "H051",
+        "supersedes_id": "A214",
+        "status": "active",
+        "content_hash": "e880fefcde4c2e5ff50d5926631f8080ec686f2a9fa182d6fddb808d033b8d88"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A340",
+        "introduced_by": "H051",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "1f98f532a0b3ccefb4d3b5dbd3fb067d39b46d7eb40481c1d91e9461d99282df"
       }
     ],
     "provision_revisions": [
@@ -46441,6 +46596,105 @@
         "content_hash": "160874c317b7d282b5baeaadcf21eef14de3698d673a16ec0e70368e19b1ad14",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "principle",
+        "provision_id": "P74",
+        "revision_id": "H050",
+        "version": "1.00000",
+        "content_hash": "6f955a3e2924b6a18362a1ba6597a39c308059e9dd2dcc7a03691cd6b1be1504",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A50",
+        "revision_id": "H050",
+        "version": "1.00000",
+        "content_hash": "963379acd21558c8d77c5422f46c3c6e5828900366cf44d5134cd1c2e4008243",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A124",
+        "revision_id": "H050",
+        "version": "1.00000",
+        "content_hash": "7da565557de91ea3f831eaf88a9c8c42cf52388aca8361820abfd890d273db06",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A127",
+        "revision_id": "H050",
+        "version": "1.00000",
+        "content_hash": "944c4fb8e0918dba1be6ee1f087246fd4d4ff6598e56aa14568dff901863b806",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "edict",
+        "provision_id": "E101",
+        "revision_id": "H050",
+        "version": "1.00000",
+        "content_hash": "9ff17fb7b7ccf86b945128ca0a4f22a19da86c55945adb471ba2b2f97c211f14",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A308",
+        "revision_id": "H050",
+        "version": "1.00000",
+        "content_hash": "0ddec99671e3c3383a1462679ab626dc4f84303d25fe96ebc23642693826e4a3",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A309",
+        "revision_id": "H050",
+        "version": "1.00000",
+        "content_hash": "24dd386d8c5ca1e7abf100a49ed680bf32dbb7c7701f582cebefb02f0b590ff3",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A322",
+        "revision_id": "H050",
+        "version": "1.00000",
+        "content_hash": "366649c7bc0cf5206037120fd0f351f3ae849ecc81fb2ec31cee7d6eb965b8df",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A338",
+        "revision_id": "H051",
+        "version": "1.00000",
+        "content_hash": "8607b3676ee8d43755b5d527083726097a9e1ab4194fdc600bb63d26a92dfee0",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A339",
+        "revision_id": "H051",
+        "version": "1.00000",
+        "content_hash": "e880fefcde4c2e5ff50d5926631f8080ec686f2a9fa182d6fddb808d033b8d88",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A340",
+        "revision_id": "H051",
+        "version": "1.00000",
+        "content_hash": "1f98f532a0b3ccefb4d3b5dbd3fb067d39b46d7eb40481c1d91e9461d99282df",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -51173,6 +51427,36 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A338",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A339",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A340",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -51713,6 +51997,28 @@
         "summary": "Repaired Codex-wide lineage, lifecycle, effective-state and supersession referential integrity; removed residual duties and operative references of abolished programming and language-review sub-sovereigns; vested all-system automatic operation, classification, programming, language review and exclusive coordination execution in the separated 星澄 auxiliary-system and native-model boundaries; enabled bounded multi-task parallel execution with isolation, joins and deterministic convergence. Version remains E2:1.00000.",
         "previous_hash": "293098bcb6be599c31506e7a305094f1a9ce419b5768544d1e59d4e29c260e7e",
         "entry_hash": "6dce2fecd7e43f3b07c5752d4b47df7d22cbdb3f607213e03e087afd297d5507",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 50,
+        "change_id": "H050",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "abolished-programming-authority-reference-closure",
+        "summary": "Closed remaining operative programming-owner references after abolition: 星澄 native model is the sole programming and language-review capability, and the 星澄 coordinator is the sole governed automation dispatcher; historical transition clauses remain explicitly historical only. Preserved bounded parallel and multi-core operation, permission separation, synchronization channel ownership and module execution. Version remains E2:1.00000.",
+        "previous_hash": "6dce2fecd7e43f3b07c5752d4b47df7d22cbdb3f607213e03e087afd297d5507",
+        "entry_hash": "689cf264bb37baf82a8a8a6a060e5bbb4c62c472204bb9edb954ca9481bbba62",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 51,
+        "change_id": "H051",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "cpp-statistics-and-powershell-script-identity-governance",
+        "summary": "Corrected language statistics so every .cpp file, including GPTBridgeLauncher.cpp, is classified exclusively as C++; established PowerShell as an explicitly identified governed startup/build/install script exception rather than a seventh application language, with registration, containment, evidence and migration requirements. Version remains E2:1.00000.",
+        "previous_hash": "689cf264bb37baf82a8a8a6a060e5bbb4c62c472204bb9edb954ca9481bbba62",
+        "entry_hash": "5a40b04faa33b834fb3eee2633a9fa8ddb91769413dd57b8b6b885daafd118e1",
         "version_epoch": 2
       }
     ],
@@ -52270,14 +52576,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H049",
-        "provision_count": 583,
-        "identity_count": 583,
-        "lineage_count": 583,
+        "history_head": "H051",
+        "provision_count": 586,
+        "identity_count": 586,
+        "lineage_count": 586,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "c7e2c0929fa4bcf97b8e521d3520335fcc37c4ddfc0cb7737e10e46ff4a32990",
-        "identity_root": "db215a099d5fb1688a67b9b6a117c2a521eddb64d8d588285ca5e8af3b3a6f91",
-        "full_root": "7a40b4ec68fd22db0cb6c096f80f37cc21a011e81786b644401cecc07eac3ace",
+        "content_root": "caa7dc487593964f1cb32ea314f32c186e78a0901603608aadc4db74ec49f430",
+        "identity_root": "d0c2694043b3ffc0af892f5d999d9bd81c8aee1dba6e87492d15b4ffbaf68fa2",
+        "full_root": "6079c6a882efe3e64b670dc2c26ebe2de0f80da966ae82634a285158cff66c48",
         "version_epoch": 2
       }
     ],
