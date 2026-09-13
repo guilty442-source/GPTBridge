@@ -181,15 +181,6 @@ export default function App() {
       return () => undefined
     }
 
-    // Send one initial status request; subsequent updates arrive via
-    // real-time runtime_status_push events from the backend (no polling).
-    const sent = sendCommand('app:get-runtime-status', {
-      source: 'product_readiness_gate',
-    })
-    if (!sent.ok) {
-      setMaintenanceReady(false)
-    }
-
     // Subscribe to real-time status pushes
     const onStatusPush = (event: Event) => {
       if (disposed) return
@@ -208,6 +199,16 @@ export default function App() {
       setRuntimeStatus(payload as RuntimeStatusPayload)
     }
     window.addEventListener('ipc_event', onStatusPush)
+
+    // Register the listener before requesting the initial snapshot. A local
+    // backend can answer in the same event-loop turn; requesting first could
+    // lose that response and leave the UI showing a false channel anomaly.
+    const sent = sendCommand('app:get-runtime-status', {
+      source: 'product_readiness_gate',
+    })
+    if (!sent.ok) {
+      setMaintenanceReady(false)
+    }
 
     return () => {
       disposed = true
@@ -253,11 +254,14 @@ export default function App() {
     }
     return { tone: 'ok' as const, state: xr.normal, detail: xr.normalDetail, issues: [] }
   }, [backendSocket.status, connected, maintenanceReady, toolboxTools])
-  const connection = xingchengReview.tone === 'ok'
-    ? { label: xr.systemNormal, detail: xingchengReview.detail, tone: 'online' as const }
-    : xingchengReview.state === xr.reviewing
-      ? { label: xr.systemReviewing, detail: xingchengReview.detail, tone: 'pending' as const }
-      : { label: xr.systemAnomaly, detail: xingchengReview.detail, tone: 'offline' as const }
+  // The header indicator reports transport state only. Tool or maintenance
+  // findings remain in the review panel and must not falsely mark a healthy
+  // frontend/backend channel as offline.
+  const connection = connected
+    ? { label: xr.systemNormal, detail: xr.normalDetail, tone: 'online' as const }
+    : backendSocket.status === 'Connecting' || backendSocket.status === 'Repairing' || backendSocket.status === 'Synchronizing'
+      ? { label: xr.systemReviewing, detail: xr.reviewingDetail, tone: 'pending' as const }
+      : { label: xr.systemAnomaly, detail: xr.connectionDetail, tone: 'offline' as const }
   const diskUsedBytes =
     typeof systemMetrics.diskTotalBytes === 'number' &&
     typeof systemMetrics.diskFreeBytes === 'number'
