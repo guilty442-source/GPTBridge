@@ -474,9 +474,9 @@ def test_runtime_channel_databases_are_ignored_and_untracked() -> None:
         text=True,
         input="\n".join(sorted(runtime_files)) + "\n",
     )
-    # git check-ignore --no-index outputs quoted paths with \r\n on Windows
+    # git check-ignore --no-index outputs quoted paths with literal \r on Windows
     ignored_lines = {
-        line.strip().strip('"').rstrip('\r')
+        line.strip().strip('"').removesuffix('\\r')
         for line in ignored.stdout.splitlines()
     }
     not_ignored = sorted(
