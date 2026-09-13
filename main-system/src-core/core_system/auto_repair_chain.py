@@ -312,8 +312,16 @@ class SystemDecisionSovereign:
         return scope
 
 
-class PermissionSovereign:
-    """Permission-sovereign: validates and grants exact repair scope."""
+class RepairPermissionValidator:
+    """Repair-specific permission validator.
+
+    This is NOT the governance-layer ``permission-sovereign`` (A6/E4).
+    It is a repair-chain-internal validator that checks the repair
+    objective's actor and scope before the governance-layer permission
+    sovereign's ``authorize()`` master-entry is called.  The governance-
+    layer sovereign remains the sole authority for permission matters
+    (A6); this class only pre-validates the repair-specific scope.
+    """
 
     def __init__(self, project_root: Path, auth_service: GovernanceAuthenticationService, audit: _GovernanceAudit):
         self.project_root = project_root
@@ -929,7 +937,7 @@ class AutoRepairOrchestrator:
         self.audit = _GovernanceAudit(self.repair_root / "audit")
         self.health_classifier = MaintenanceHealthClassifier(project_root, self.audit)
         self.decision_sovereign = SystemDecisionSovereign(project_root, self.audit)
-        self.permission_sovereign = PermissionSovereign(project_root, auth_service, self.audit)
+        self.permission_sovereign = RepairPermissionValidator(project_root, auth_service, self.audit)
         self.executor = GovernedExecutor(project_root, self.audit)
         self.verifier = IndependentVerifier(project_root, self.audit)
         self.learning_store = RepairLearningStore(self.repair_root, self.audit)
@@ -1104,7 +1112,7 @@ __all__ = [
     "LearnedRecipe",
     "MaintenanceHealthClassifier",
     "SystemDecisionSovereign",
-    "PermissionSovereign",
+    "RepairPermissionValidator",
     "GovernedExecutor",
     "IndependentVerifier",
     "RepairLearningStore",

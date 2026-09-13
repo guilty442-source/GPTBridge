@@ -122,10 +122,45 @@ class PermissionSovereign(SovereignBase):
 
     ROLE = _PERMISSION_SOVEREIGN.id
 
+    # A10/A11 explicit intent allowlist — the base-class ``_verify_intent``
+    # checks edict IDs (article tokens like E4, E111), not the kebab-case
+    # intent strings used by callers.  List every intent this sovereign
+    # adjudicates explicitly (fail-closed, A10/A11).
+    _INTENT_ALLOWLIST: frozenset[str] = frozenset({
+        # Permission queries and termination (A6/A10/A22)
+        "permission.query",
+        "permission.terminate",
+        "permission.renew",
+        "permission.restrict",
+        "permission.suspend",
+        "permission.revoke",
+        # Directory verification (A7)
+        "directory.verify",
+        # Identity verification (A39)
+        "identity.verify",
+        # Execution compliance supervision (A6)
+        "permission.supervise",
+        # Authorization routing (A10/E4)
+        "permission.authorize",
+    })
+
     def __init__(self, app: Any | None = None, governance: Any | None = None) -> None:
         super().__init__(app)
         self._governance_ref: Any = governance
         self._directory = None  # 由 governance 注入
+        # A6 supervision: record of execution-compliance violations.
+        self._compliance_violations: list[dict[str, Any]] = []
+        # A10/A22: record of issued permission grants (read-only surface).
+        self._issued_grants: dict[str, dict[str, Any]] = {}
+
+    # ------------------------------------------------------------------
+    # Intent gate (A10/A11 explicit allowlist)
+    # ------------------------------------------------------------------
+
+    def _verify_intent(self, intent: str) -> bool:
+        """Override the base-class edict-ID check with this sovereign's
+        explicit intent allowlist (A10/A11 fail-closed)."""
+        return intent in self._INTENT_ALLOWLIST
 
     def re_certify(self) -> None:
         """Re-certify the permission sovereign after a codex amendment."""
@@ -146,29 +181,77 @@ class PermissionSovereign(SovereignBase):
             return await self._adjudicate_permission_query(request)
         if intent == "permission.terminate":
             return await self._adjudicate_permission_terminate(request)
+        if intent == "permission.renew":
+            return await self._adjudicate_permission_renew(request)
+        if intent == "permission.restrict":
+            return await self._adjudicate_permission_restrict(request)
+        if intent == "permission.suspend":
+            return await self._adjudicate_permission_suspend(request)
+        if intent == "permission.revoke":
+            return await self._adjudicate_permission_revoke(request)
         if intent == "directory.verify":
             return await self._adjudicate_directory_verify(request)
         if intent == "identity.verify":
             return await self._adjudicate_identity_verify(request)
+        if intent == "permission.supervise":
+            return await self._adjudicate_permission_supervise(request)
+        if intent == "permission.authorize":
+            return await self._adjudicate_permission_authorize(request)
 
         return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A6", "A7", "A10"))
 
     async def _adjudicate_permission_query(
         self, request: SovereignRequest
     ) -> SovereignOutcome:
-        """A10: 顯式允許清單，無顯式授權即拒絕。"""
+        """A10: 顯式允許清單，無顯式授權即拒絕。
+
+        Validates the actor/capability/target against the sealed directory
+        snapshot.  Returns the directory-driven verdict — accepted only
+        when every component is in the approved allowlist.
+        """
         actor = request.payload.get("actor")
         capability = request.payload.get("capability")
         target = request.payload.get("target")
+        data_scope = request.payload.get("data_scope")
 
         if not all([actor, capability, target]):
             return refusal_outcome("MISSING_PARAMETERS", self.verified_basis("A10", "A7"))
 
+        # A7: directory-driven verification against the sealed snapshot.
+        directory = code_rule_directory_snapshot()
+        actor_ok = actor in directory.approved_actor_names
+        capability_ok = capability in directory.approved_capability_names
+        target_ok = target in directory.approved_target_names
+        data_scope_ok = (
+            data_scope is None
+            or data_scope in directory.approved_data_scope_names
+        )
+        if not (actor_ok and capability_ok and target_ok and data_scope_ok):
+            failures = []
+            if not actor_ok:
+                failures.append(f"actor:{actor}")
+            if not capability_ok:
+                failures.append(f"capability:{capability}")
+            if not target_ok:
+                failures.append(f"target:{target}")
+            if not data_scope_ok:
+                failures.append(f"data_scope:{data_scope}")
+            return refusal_outcome(
+                "NOT_IN_ALLOWLIST",
+                self.verified_basis("A10", "A7"),
+            )
+
         return accepted_outcome(
             {
-                "query": {"actor": actor, "capability": capability, "target": target},
+                "query": {
+                    "actor": actor,
+                    "capability": capability,
+                    "target": target,
+                    "data_scope": data_scope,
+                },
                 "mode": "explicit-allowlist",
                 "source": "permission-directory",
+                "verified": True,
                 "note": "permission-sovereign does not execute, only adjudicates",
             },
             self.verified_basis("A10", "A7", "A6"),
@@ -182,11 +265,77 @@ class PermissionSovereign(SovereignBase):
         if not permission_id:
             return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A22"))
 
+        # A22: only the permission sovereign may terminate; record the
+        # termination in the issued-grants ledger.
+        grant = self._issued_grants.pop(permission_id, None)
         return accepted_outcome(
             {
                 "terminated": permission_id,
+                "had_active_grant": grant is not None,
                 "authority": "permission-sovereign",
                 "basis": "codex+directory",
+            },
+            self.verified_basis("A22", "A6"),
+        )
+
+    async def _adjudicate_permission_renew(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """A6: 權限更新。"""
+        permission_id = request.payload.get("permission_id")
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A6"))
+        return accepted_outcome(
+            {
+                "renewed": permission_id,
+                "authority": "permission-sovereign",
+            },
+            self.verified_basis("A6", "A10"),
+        )
+
+    async def _adjudicate_permission_restrict(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """A6: 權限限制。"""
+        permission_id = request.payload.get("permission_id")
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A6"))
+        return accepted_outcome(
+            {
+                "restricted": permission_id,
+                "authority": "permission-sovereign",
+            },
+            self.verified_basis("A6", "A10"),
+        )
+
+    async def _adjudicate_permission_suspend(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """A6: 權限暫停。"""
+        permission_id = request.payload.get("permission_id")
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A6"))
+        return accepted_outcome(
+            {
+                "suspended": permission_id,
+                "authority": "permission-sovereign",
+            },
+            self.verified_basis("A6", "A10"),
+        )
+
+    async def _adjudicate_permission_revoke(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """A22: 權限撤銷（永久終止）。"""
+        permission_id = request.payload.get("permission_id")
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A22"))
+        grant = self._issued_grants.pop(permission_id, None)
+        return accepted_outcome(
+            {
+                "revoked": permission_id,
+                "had_active_grant": grant is not None,
+                "authority": "permission-sovereign",
             },
             self.verified_basis("A22", "A6"),
         )
@@ -194,9 +343,34 @@ class PermissionSovereign(SovereignBase):
     async def _adjudicate_directory_verify(
         self, request: SovereignRequest
     ) -> SovereignOutcome:
-        """A7: 目錄驅動模式。"""
+        """A7: 目錄驅動模式 — 驗證 entry_type/entry_id 在目錄中。"""
         entry_type = request.payload.get("entry_type")
         entry_id = request.payload.get("entry_id")
+
+        if not entry_type or not entry_id:
+            return refusal_outcome("MISSING_PARAMETERS", self.verified_basis("A7"))
+
+        # A7: verify against the sealed directory snapshot.
+        directory = code_rule_directory_snapshot()
+        type_to_set = {
+            "tool_id": directory.approved_tool_ids,
+            "actor": directory.approved_actor_names,
+            "capability": directory.approved_capability_names,
+            "action": directory.approved_action_names,
+            "target": directory.approved_target_names,
+            "data_scope": directory.approved_data_scope_names,
+        }
+        approved_set = type_to_set.get(entry_type)
+        if approved_set is None:
+            return refusal_outcome(
+                "UNKNOWN_ENTRY_TYPE",
+                self.verified_basis("A7"),
+            )
+        if entry_id not in approved_set:
+            return refusal_outcome(
+                "NOT_IN_DIRECTORY",
+                self.verified_basis("A7", "A42"),
+            )
 
         return accepted_outcome(
             {
@@ -211,16 +385,108 @@ class PermissionSovereign(SovereignBase):
     async def _adjudicate_identity_verify(
         self, request: SovereignRequest
     ) -> SovereignOutcome:
-        """A39: 行為者身份驗證。"""
+        """A39: 行為者身份驗證。
+
+        Validates the actor_class against the codex-declared set and
+        checks the identity against the identity-group registry.
+        """
         actor_class = request.payload.get("actor_class")
         identity = request.payload.get("identity")
+
+        if not actor_class or not identity:
+            return refusal_outcome("MISSING_PARAMETERS", self.verified_basis("A39"))
 
         if actor_class not in {"human-operator", "governed-app", "sovereign", "星澄"}:
             return refusal_outcome("INVALID_ACTOR_CLASS", self.verified_basis("A39"))
 
+        # A39: verify identity against the identity-group registry.
+        identities = identity_group_snapshot()
+        identity_ok = any(
+            ident.identity_code == identity or ident.actor == identity
+            for ident in identities.identities
+        )
+        if not identity_ok:
+            return refusal_outcome(
+                "IDENTITY_NOT_REGISTERED",
+                self.verified_basis("A39", "A10"),
+            )
+
         return accepted_outcome(
             {"verified": True, "actor_class": actor_class, "identity": identity},
             self.verified_basis("A39", "A10"),
+        )
+
+    async def _adjudicate_permission_supervise(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """A6: 監督執行合規 — 記錄違規並回報。"""
+        violation = request.payload.get("violation")
+        if not violation:
+            return refusal_outcome("MISSING_VIOLATION", self.verified_basis("A6"))
+        # Record the compliance violation for supervision (A6).
+        record = {
+            "violation": violation,
+            "actor": request.payload.get("actor", ""),
+            "capability": request.payload.get("capability", ""),
+            "target": request.payload.get("target", ""),
+            "recorded_at": self._iso_now(),
+        }
+        self._compliance_violations.append(record)
+        # Keep only the last 100 violations.
+        if len(self._compliance_violations) > 100:
+            self._compliance_violations = self._compliance_violations[-100:]
+        return accepted_outcome(
+            {
+                "supervised": True,
+                "violation_recorded": True,
+                "total_violations": len(self._compliance_violations),
+            },
+            self.verified_basis("A6"),
+        )
+
+    async def _adjudicate_permission_authorize(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """A10/E4: 授權路由 — 驗證授權請求並記錄授予。
+
+        This is the sovereign-gate counterpart of the master-entry
+        ``authorize()`` method.  It validates the request against the
+        sealed directory, records the grant in the ledger, and returns
+        the authorization decision.  Actual execution is delegated to
+        the governed executor.
+        """
+        actor = request.payload.get("actor")
+        capability = request.payload.get("capability")
+        target = request.payload.get("target")
+        data_scope = request.payload.get("data_scope")
+        if not all([actor, capability, target]):
+            return refusal_outcome("MISSING_PARAMETERS", self.verified_basis("A10"))
+        # A7: directory-driven verification.
+        directory = code_rule_directory_snapshot()
+        if actor not in directory.approved_actor_names:
+            return refusal_outcome("ACTOR_NOT_APPROVED", self.verified_basis("A10", "A7"))
+        if capability not in directory.approved_capability_names:
+            return refusal_outcome("CAPABILITY_NOT_APPROVED", self.verified_basis("A10", "A7"))
+        if target not in directory.approved_target_names:
+            return refusal_outcome("TARGET_NOT_APPROVED", self.verified_basis("A10", "A7"))
+        if data_scope and data_scope not in directory.approved_data_scope_names:
+            return refusal_outcome("DATA_SCOPE_NOT_APPROVED", self.verified_basis("A10", "A7"))
+        # Record the grant.
+        grant_id = f"grant-{actor}-{capability}-{target}"
+        self._issued_grants[grant_id] = {
+            "actor": actor,
+            "capability": capability,
+            "target": target,
+            "data_scope": data_scope,
+            "issued_at": self._iso_now(),
+        }
+        return accepted_outcome(
+            {
+                "authorized": True,
+                "grant_id": grant_id,
+                "execution": "delegated-to-governed-executor",
+            },
+            self.verified_basis("A10", "E4", "A6"),
         )
 
     def set_directory(self, directory: Any) -> None:
@@ -404,6 +670,7 @@ class PermissionSovereign(SovereignBase):
             "delegation": "governed-executor-only",
             "directory_registry": self.directory_registry_status(),
             "version_registry": self.version_registry_status(),
+            "supervision_status": self.supervision_status(),
             "decision": decision_basis(_PERMISSION_SOVEREIGN.area),
         }
 
@@ -441,7 +708,8 @@ class PermissionSovereign(SovereignBase):
 
         References the Codex permission decision basis, then delegates the
         directory-driven adjudication to the governed executor.  Raises
-        PermissionError if not delegable.
+        PermissionError if not delegable.  Records the grant in the
+        sovereign's ledger for supervision (A6).
         """
 
         decision = decision_basis(_PERMISSION_SOVEREIGN.area)
@@ -450,7 +718,7 @@ class PermissionSovereign(SovereignBase):
             from governance_rule.permission_directory.execution.path_guard import permission_denied
 
             raise permission_denied()
-        return governance.authorize(
+        result = governance.authorize(
             capability=capability,
             action=action,
             target=target,
@@ -459,6 +727,20 @@ class PermissionSovereign(SovereignBase):
             target_version=target_version,
             resource_path=resource_path,
         )
+        # A6: record the grant for supervision.
+        grant_id = f"grant-{capability}-{action}-{target}"
+        self._issued_grants[grant_id] = {
+            "capability": capability,
+            "action": action,
+            "target": target,
+            "data_scope": data_scope,
+            "target_tool_id": target_tool_id,
+            "target_version": target_version,
+            "resource_path": resource_path,
+            "issued_at": self._iso_now(),
+            "via": "master-entry",
+        }
+        return result
 
     def authorize_tool_lifecycle(self, tool_id: str, action: str) -> None:
         """Master-entry for a tool-lifecycle permission decision.
@@ -607,6 +889,53 @@ class PermissionSovereign(SovereignBase):
             ],
             "decision": decision_basis(_PERMISSION_SOVEREIGN.area),
         }
+
+    # ------------------------------------------------------------------
+    # A6 supervision surface
+    # ------------------------------------------------------------------
+
+    def supervision_status(self) -> dict[str, Any]:
+        """A6: execution-compliance supervision status.
+
+        Reports recorded compliance violations and the issued-grants
+        ledger.  Read-only — the sovereign supervises but does not
+        execute or enforce.
+        """
+        return {
+            "authority": "permission-sovereign",
+            "basis": "A6",
+            "compliance_violations": list(self._compliance_violations),
+            "violation_count": len(self._compliance_violations),
+            "issued_grants": dict(self._issued_grants),
+            "active_grant_count": len(self._issued_grants),
+            "supervision": "supervises-execution-compliance",
+            "execution": False,
+        }
+
+    def record_compliance_violation(
+        self,
+        violation: str,
+        *,
+        actor: str = "",
+        capability: str = "",
+        target: str = "",
+    ) -> None:
+        """A6: record an execution-compliance violation.
+
+        Called by the governed executor or other sovereigns when a
+        compliance violation is detected.  The sovereign records it
+        for supervision; it does not enforce or execute.
+        """
+        record = {
+            "violation": violation,
+            "actor": actor,
+            "capability": capability,
+            "target": target,
+            "recorded_at": self._iso_now(),
+        }
+        self._compliance_violations.append(record)
+        if len(self._compliance_violations) > 100:
+            self._compliance_violations = self._compliance_violations[-100:]
 
 
 __all__ = [
