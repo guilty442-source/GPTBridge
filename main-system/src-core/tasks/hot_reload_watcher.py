@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from core_system.hot_update_service import PROTECTED_MODULE_PREFIXES
 from core_system.sovereign_utils import _iso_now
 
-POLL_INTERVAL_SECONDS: Final[float] = 1.0
+POLL_INTERVAL_SECONDS: Final[float] = 3.0
 QUIET_WINDOW_SECONDS: Final[float] = 1.2
 MIN_RELOAD_INTERVAL_SECONDS: Final[float] = 5.0
 MAX_RELOADS_PER_MINUTE: Final[int] = 6
@@ -190,7 +190,7 @@ class HotReloadWatcher:
                         stat = path.stat()
                     except OSError:
                         continue
-                    found[str(path.resolve())] = stat.st_mtime
+                    found[str(path)] = stat.st_mtime
             except OSError:
                 continue
         return found

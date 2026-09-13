@@ -276,6 +276,7 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                 logger=websocket_logger,
                 ping_interval=None,
                 ping_timeout=None,
+                compression=None,
             ):
                 print(f"IPC Server running at ws://127.0.0.1:{ipc_port}")
                 if hasattr(app_instance, "_mark_startup_phase"):
