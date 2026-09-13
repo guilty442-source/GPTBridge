@@ -3193,6 +3193,24 @@
         "rule": "PURPOSE:freeze the program-language governance architecture,not GPTBridge feature development. VERSION:Language Governance Schema v1.0.0 governs allowed six languages,canonical roles/extensions,dependency DAG,C ABI,native path,Python fallback,test ownership,Governance IR,GateEvidence and Final Decision model; change to any core structure is a governance-schema change. FROZEN-ROLES:Python=control+semantic+business;TypeScript=presentation+client+build-time;C=stable native ABI;C++=private native performance;CSharp=Windows/.NET adapter;SQL=relational data operations. FROZEN-PATHS:Python>binding/C-ABI>C++;Python>SQL;TypeScript>canonical information layer>Python;Python/C-ABI>CSharp>Windows/.NET. These roles/edges cannot change without Codex-authorized schema version evolution. PUBLIC-API:stable public governance interface is scan()+analyze()+validate()+getEvidence()+getDecision(); parser/cache/graph/AST adapters/incremental resolver/checker implementations are internal and replaceable only with behavior parity. IR-V1:fixed core models SourceUnit,Symbol,CallableSymbol,Dependency,Capability,Contract,NativeBoundary,BuildArtifact,TestEvidence,GateEvidence; optional additive compatible fields require MINOR,removal/rename/type or semantic change requires MAJOR; compatible correction requires PATCH. REGRESSION-CORPUS:retain authored six-language valid fixtures and invalid fixtures for ts-direct-python,public-cpp-abi,duplicate-owner,missing-fallback,abi-break,dependency-cycle,forbidden-extension plus every corrected regression. GOLDEN-DECISIONS:each critical fixture binds immutable input hashes,expected evidence,rule ids,severity and final decision; parser/graph/cache/checker refactor must reproduce them,otherwise human review plus authorized schema change is required. CONVERGENCE:stable path is exclusively SourceIndex>GovernanceIR>LanguageGraph>Checkers; checker filesystem walks,private language classification and private dependency maps are duplicate infrastructure and must transition ACTIVE>DEPRECATED>REMOVED. DEPRECATION:deprecated public APIs remain compatible with explicit warning through at least one MINOR line and may be removed only in MAJOR; registry records state,introduced version,replacement,deprecation version,removal version and consumers. POLICY-INTEGRITY:checker reads Codex-derived policy+IR and emits evidence; checker source cannot invent hidden language rules,waivers or enforcement. BOUNDARY:stable/ is release-blocking only after Codex authorization,complete regression and promotion evidence; experimental/ may observe and emit non-blocking evidence but cannot alter stable evidence,decision or release. FREEZE-GATE:v1 becomes FROZEN/STABLE only after six-language mapping,DAG,IR v1,Evidence v1,Final Decision schema,full/incremental parity,regression corpus,golden decisions,API/ABI compatibility,release pipeline all PASS;zero duplicate filesystem scanners,stale-evidence defects and unresolved CRITICAL findings. Until proven, lifecycle is FREEZE-PENDING and no claim of STABLE is allowed.",
         "prohibition": "FORBID:changing frozen language role/edge without schema evolution+public consumers depending on internal parser/cache/graph types+unversioned IR/evidence/final-decision break+checker-authored hidden policy+multiple authoritative scan paths+immediate deprecated API removal+experimental checker blocking release+declaring STABLE with missing evidence+golden decision drift accepted automatically.",
         "exception": "Internal implementation and optional additive schema fields may evolve under PATCH/MINOR compatibility evidence without changing frozen semantics; urgent security containment may disable a component but cannot silently redefine the schema."
+      },
+      {
+        "position": 365,
+        "provision_id": "A365",
+        "section_index": "12",
+        "subject": "cross-store-reconciliation-global-resource-id-transport-audit-and-recovery-priority",
+        "rule": "AUTHORITY:PostgreSQL is central official mutable structured-data authority;SQLite is module-private bounded state and bounded degradation;Qdrant is rebuildable semantic projection. A SQLite outage may buffer locally but never promotes SQLite to central authority. PRIORITY-1-RECONCILIATION:every PostgreSQL<->SQLite governed record uses resource_id,revision,content_hash,sync_status,last_synced_at;sync_status enum is pending|syncing|synced|conflict|failed|stale. Compare revision+hash+authority provenance before mutation; conflict is isolated and evidence-preserved,never last-write-wins;retry is idempotent;successful reconciliation records both endpoints and correlation_id. PRIORITY-2-GLOBAL-ID:PostgreSQL,SQLite,Qdrant share one immutable resource_id and version contract;RAG additionally records chunk_id,qdrant_point_id,version,source_revision,content_hash,embedding_model/version and pipeline revision. Identifier mappings are centrally recoverable and cannot be synthesized independently by projections. PRIORITY-3-POSTGRES-INDEX:optimize measured canonical query families only:module_id+classification+status;logical_key+module_id;resource_relation source/target;tool_request status/target;central audit module/time. Every index requires query-plan evidence,write/storage budget and ownership;blanket per-column indexing is forbidden. PRIORITY-4-TRANSPORT:durable request queue envelope includes request_id,idempotency_key,status,target,lease_owner,lease_expires_at,retry_count,next_retry_at,timeout/deadline,correlation_id,last_error_class and dead-letter state. Processing requires atomic lease acquisition/renewal;expired lease is reclaimable without duplicate committed side effects;bounded backoff and retry budget terminate in dead-letter with evidence;crash cannot leave permanent processing. PRIORITY-5-AUDIT:gptbridge_audit.event is append-only for runtime identities;runtime UPDATE/DELETE is denied. Each event records monotonic sequence,event_id,module_id,occurred_at,correlation_id,actor/action,target,result,previous_event_hash and event_hash or an approved batch digest with equivalent tamper evidence. Corrections append successor events. SQLite audit remains local module-operation evidence and never replaces central audit. PRIORITY-6-QDRANT:Qdrant contains no unique business truth. PostgreSQL retains resource/chunk source text or canonical locator,ordering,metadata,ACL/classification,content hashes,embedding model/version and pipeline state sufficient to recreate every point and mapping after total loss. Snapshot restore and clean rebuild must be verified against manifest counts/hashes and retrieval parity. PRIORITY-7-SQLITE-FLEET:every governed SQLite database declares schema_version,module_id,database_role,created_at,last_migrated_at,integrity_hash,reconcile_state plus owner,path code and retention;registry covers every database,prevents role drift and runs integrity/migration/reconciliation evidence without treating file count as failure. PRIORITY-8-RECOVERY:PostgreSQL uses logical backup plus WAL/point-in-time consistency verification;SQLite uses transaction-consistent file snapshot plus integrity_check and restore test;Qdrant uses snapshot or deterministic rebuild verification. Recovery manifests bind revision,resource range,hash,encryption/retention,RPO/RTO,restore result and cross-store reconciliation. ORDER:priorities are binding sequencing;backup does not compensate for unresolved identity or reconciliation defects. FAILURE-ISOLATION:a failed store/channel is isolated;unaffected stores continue;pending durable work remains bounded and observable;no repair may overwrite/reset canonical source or code.",
+        "prohibition": "FORBID:SQLite automatic authority promotion+independent store IDs+silent revision/hash divergence+last-write-wins conflict+unbounded processing lease/retry+permanent processing after crash+runtime mutation/deletion of central audit+unique truth only in Qdrant+unregistered SQLite+blanket indexing without plan evidence+backup declared successful without restore/reconcile proof+recovery overwriting newer canonical data.",
+        "exception": "A user-issued one-time manual reset remains lawful only for its explicit scope; it must preserve audit evidence,validate authority and revision boundaries,and cannot redefine persistent ownership. Emergency buffering may accept pending local records within a declared bound and must reconcile before central publication."
+      },
+      {
+        "position": 366,
+        "provision_id": "A366",
+        "section_index": "11",
+        "subject": "xingcheng-auxiliary-repair-update-user-switch-confirmation-and-fault-cardinality",
+        "rule": "CONTROL-SURFACE:星澄 auxiliary system owns the user-facing control surface for automatic repair and automatic update. It exposes two independent explicit switches:automatic_repair_enabled and automatic_update_enabled; default and persisted state must be visible,attributable to the user and never inferred from model intent. DETECTION:health observation,fault classification,evidence collection,isolation and non-mutating diagnosis may continue regardless of execution switch so faults remain observable. EXECUTION-GATE:a repair/update mutation may execute only when its corresponding switch is enabled AND the user confirms the concrete pending action. Confirmation binds action_id,fault_id or update_id,scope,target,proposed method,risk,rollback/fallback,evidence digest and expiry; it is one-time,non-transferable and invalid after material plan/evidence change. A switch alone is not confirmation;confirmation alone cannot bypass a disabled switch. Existing lawful one-time manual commands remain valid only for their explicit scope. CARDINALITY:the detector assigns one incident snapshot as SINGLE_FAULT when exactly one independently actionable fault exists,or MULTI_FAULT when two or more exist; correlated symptoms may share a root_cause_group but each distinct fault keeps its own fault_id,evidence,severity,impact,isolation state,proposed action and confirmation state. PRESENTATION:SINGLE_FAULT displays one complete fault item. MULTI_FAULT displays every fault individually in deterministic severity/time/fault_id order,shows total and unresolved counts,and provides per-fault confirmation;bulk confirmation is forbidden unless every included action is expanded,individually selectable and explicitly confirmed in the same user act. SEQUENCING:multi-fault execution is one action at a time;after each action re-detect and refresh remaining evidence because one repair may invalidate another diagnosis. Failure of one item is isolated and cannot hide,cancel or auto-authorize others. UPDATE:automatic update follows the same switch+confirmation rule and must show version/source/hash/affected scope,compatibility evidence and rollback;backend synchronization privilege does not waive user confirmation. AUDIT:record switch changes,prompt,decision,actor,time,action result and refreshed fault set without secrets. UI close/cancel/expiry means no mutation.",
+        "prohibition": "FORBID:hidden or combined switch+switch enabling itself+model/repair engine impersonating user confirmation+execute-on-detection+confirmation reused across actions+silent bulk repair/update+multi-fault collapsed into one generic message+showing only first fault+repair failure suppressing other faults+changed plan using stale confirmation+disabled switch bypass+confirmation dialog defaulting to approval+code overwrite/reset as repair.",
+        "exception": "Immediate reversible isolation may occur without confirmation solely to stop active damage while preserving unaffected operation; it cannot modify source code,apply an update,erase evidence or become a repair, and must be displayed as an isolated fault action for subsequent user decision."
       }
     ],
     "certification_evidence": [
@@ -3948,7 +3966,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H070",
+        "history_head": "H072",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -6732,6 +6750,24 @@
         "release_gate": "deny stable promotion or release on missing/drifting golden result",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "cross_store_reconciliation_directory",
+        "required_scope": "all PostgreSQL/SQLite/Qdrant resources,SQLite databases,transport requests,audit chains and recovery manifests",
+        "completion_rule": "zero unknown identities,illegal states,unbounded leases,mutable audit events or unrebuildable Qdrant-only truth",
+        "acceptance_evidence": "reconciliation fault injection+queue crash recovery+audit tamper proof+Qdrant total rebuild+three-store restore test",
+        "release_gate": "deny release on unresolved authority conflict,stale central state or unverified recovery",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "xingcheng_fault_decision_directory",
+        "required_scope": "all repair/update switches,single and multiple faults,user decisions and execution results",
+        "completion_rule": "zero hidden fault,implicit confirmation,reused approval or unaudited mutation",
+        "acceptance_evidence": "single/multi fault UI contract+switch matrix+confirmation expiry+sequential re-detection+failure isolation",
+        "release_gate": "deny repair/update execution on any missing switch,confirmation or individual fault evidence",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_format_contract": [
@@ -7280,6 +7316,34 @@
         "owner": "permission-sovereign",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_CROSS_STORE_RECONCILIATION",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "resource_id|store_kind|store_revision|sync_status|last_synced_at|correlation_id|conflict_evidence|recovery_manifest|lineage",
+        "required_field_order": "envelope>resource identity>store revisions/hashes>sync state>conflict evidence>recovery>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-not-applicable-proven",
+        "identity_format": "identity=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "identity>authority>revision/hash>state transition>evidence>lineage",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_XINGCHENG_FAULT_DECISION",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "incident_id|fault_id|root_cause_group|fault_cardinality|severity|evidence_hash|proposed_action|switch_state|confirmation_state|action_result|lineage",
+        "required_field_order": "envelope>incident>fault cardinality>fault items>switches>confirmations>actions>results>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-not-applicable-proven",
+        "identity_format": "identity=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "identity>evidence>classification>presentation>switch>confirmation>execution>result>lineage",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -7789,6 +7853,32 @@
         "implementation_state": "mandated-pending-implementation",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_CROSS_STORE_RECONCILIATION",
+        "canonical_name": "cross-store-reconciliation-directory",
+        "owner": "permission-sovereign",
+        "scope": "PostgreSQL,SQLite,Qdrant identity mappings,reconciliation state,conflicts and recovery manifests",
+        "authority_kind": "central-derived-reconciliation-control",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|resource_id|store_kind|store_revision|sync_status|last_synced_at|correlation_id|conflict_evidence|recovery_manifest|lineage",
+        "relationships": "resource|postgres-record|sqlite-record|qdrant-point|chunk|queue-request|audit-event|backup-manifest",
+        "coverage_rule": "every registered cross-store resource has one ID,verifiable revision/hash and bounded reconciliation state",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_XINGCHENG_FAULT_DECISION",
+        "canonical_name": "xingcheng-fault-decision-directory",
+        "owner": "permission-sovereign",
+        "scope": "星澄 auxiliary repair/update switches,fault items,confirmations and results",
+        "authority_kind": "privileged-user-decision-evidence",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|incident_id|fault_id|root_cause_group|fault_cardinality|severity|evidence_hash|proposed_action|switch_state|confirmation_state|action_result|lineage",
+        "relationships": "incident|fault|root-cause-group|switch|confirmation|repair-action|update-action|audit-event",
+        "coverage_rule": "every detected fault is individually visible and every mutation maps to one valid switch and confirmation",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_normalization_plan": [
@@ -8097,6 +8187,28 @@
         "normalized_relationship_status": "required",
         "plaintext_secret_status": "forbidden",
         "activation_gate": "deny-stable-until-complete-golden-corpus-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_code": "DIR_CROSS_STORE_RECONCILIATION",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-central-publication-until-reconciled-or-isolated-conflict",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_code": "DIR_XINGCHENG_FAULT_DECISION",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-mutation-until-switch-and-confirmation-proof",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
       }
@@ -12566,6 +12678,18 @@
         "provision_id": "A364",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A365",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A366",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12624,14 +12748,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H070",
-        "provision_count": 610,
-        "identity_count": 610,
-        "lineage_count": 610,
+        "history_head": "H072",
+        "provision_count": 612,
+        "identity_count": 612,
+        "lineage_count": 612,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "c0594589a622c622e9074e8455be621b0562eb4aa9b1ca48f012d47e429e67bd",
-        "identity_root": "ec97e608497c69970d8ca77295d3f2dfe64ef1553ecb8175f7bfc677104e2497",
-        "full_root": "c1f1f7bbeb75e5bd6efb0e710664201e0a90df453f665d44f84b8661c94bd8f6",
+        "content_root": "d50ae850f243283a7c33ef2c016dcec47c98620183407b8a03042233a88b19d0",
+        "identity_root": "f8e2e6ed108d4dd457bdfbae0125f6a2aecb546e91165e0467ac0cba2235f463",
+        "full_root": "f416315aed9ea31937daedf5da55b431ce5c0eca875e561eae7776d5a1730791",
         "legacy_history_head": null
       }
     ],
@@ -17758,7 +17882,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H070"
+        "value": "H072"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17939,6 +18063,30 @@
       {
         "key": "language_governance_ir_version",
         "value": "1"
+      },
+      {
+        "key": "cross_store_reconciliation_contract",
+        "value": "A365"
+      },
+      {
+        "key": "cross_store_sync_statuses",
+        "value": "pending|syncing|synced|conflict|failed|stale"
+      },
+      {
+        "key": "global_resource_identity_contract",
+        "value": "resource_id|revision|content_hash"
+      },
+      {
+        "key": "xingcheng_repair_update_control",
+        "value": "A366"
+      },
+      {
+        "key": "xingcheng_repair_update_switches",
+        "value": "automatic_repair_enabled|automatic_update_enabled"
+      },
+      {
+        "key": "fault_cardinality_states",
+        "value": "SINGLE_FAULT|MULTI_FAULT"
       }
     ],
     "module_assignment_registry": [
@@ -23636,6 +23784,20 @@
         "provision_id": "A364",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A365",
+        "provision_type": "article",
+        "provision_id": "A365",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A366",
+        "provision_type": "article",
+        "provision_id": "A366",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -27908,6 +28070,20 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A208|A211|A215|A353|A354|A355|A361|A362|A363"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A365",
+        "tier": "special-law",
+        "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "authority_basis": "A42|A46|A75|A200|A205|A243"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A366",
+        "tier": "special-law",
+        "law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "authority_basis": "A87|A91|A92|A93|A242|A296"
       }
     ],
     "provision_lifecycle_status": [
@@ -32686,6 +32862,22 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H070+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A365",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H071+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A366",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H072+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -37568,6 +37760,22 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "019ed2c52336cbd09c96803867c11c963d0d19d9019139cb4eb8a6542f8ae5f5"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A365",
+        "introduced_by": "H071",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "935d721ac7e0ce6e16118a9516a5b80361e6bf79efee97a219ec8eeb76778103"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A366",
+        "introduced_by": "H072",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "5dfd52d16cf8f2aa504c3dcaeab54946a0c65c2e62eb14d1dcd26f6df0e09d5f"
       }
     ],
     "provision_revisions": [
@@ -48451,6 +48659,24 @@
         "content_hash": "019ed2c52336cbd09c96803867c11c963d0d19d9019139cb4eb8a6542f8ae5f5",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A365",
+        "revision_id": "H071",
+        "version": "1.00000",
+        "content_hash": "935d721ac7e0ce6e16118a9516a5b80361e6bf79efee97a219ec8eeb76778103",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A366",
+        "revision_id": "H072",
+        "version": "1.00000",
+        "content_hash": "5dfd52d16cf8f2aa504c3dcaeab54946a0c65c2e62eb14d1dcd26f6df0e09d5f",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -53453,6 +53679,26 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A365",
+        "controlling_law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A366",
+        "controlling_law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -54225,6 +54471,28 @@
         "previous_hash": "f76e4cf8ce77120522e980b50a00fe13f1326618b2179c3c8311efe6dfb9b9a9",
         "entry_hash": "1bbbccb28a49e061da7844964801d4bf5872b3b1a9491bfe811806ce7c93ba94",
         "version_epoch": 2
+      },
+      {
+        "sequence": 71,
+        "change_id": "H071",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "cross-store-reconciliation-global-id-queue-audit-and-recovery",
+        "summary": "Formalized prioritized PostgreSQL-SQLite reconciliation, global resource identity/version contracts, selective central indexes, durable transport leases, append-only audit chains, rebuildable Qdrant, SQLite fleet governance, and tiered disaster recovery. Version remains E2:1.00000.",
+        "previous_hash": "1bbbccb28a49e061da7844964801d4bf5872b3b1a9491bfe811806ce7c93ba94",
+        "entry_hash": "d0ac34658b93c20b97dcfdfe82f05295d246c6f090123e56e2dc7161678b5511",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 72,
+        "change_id": "H072",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "xingcheng-user-confirmed-repair-update-switch-and-multi-fault-presentation",
+        "summary": "Required Xingcheng auxiliary-system user-controlled switches and explicit confirmation for automatic repair/update execution, with single-fault and multi-fault classification and individually displayed fault decisions. Version remains E2:1.00000.",
+        "previous_hash": "d0ac34658b93c20b97dcfdfe82f05295d246c6f090123e56e2dc7161678b5511",
+        "entry_hash": "210925702f32fa713f13f4ede575c7e2f1686f3fe64a104eb35ecdb91cfd7c11",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -54781,14 +55049,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H070",
-        "provision_count": 610,
-        "identity_count": 610,
-        "lineage_count": 610,
+        "history_head": "H072",
+        "provision_count": 612,
+        "identity_count": 612,
+        "lineage_count": 612,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "c0594589a622c622e9074e8455be621b0562eb4aa9b1ca48f012d47e429e67bd",
-        "identity_root": "ec97e608497c69970d8ca77295d3f2dfe64ef1553ecb8175f7bfc677104e2497",
-        "full_root": "c1f1f7bbeb75e5bd6efb0e710664201e0a90df453f665d44f84b8661c94bd8f6",
+        "content_root": "d50ae850f243283a7c33ef2c016dcec47c98620183407b8a03042233a88b19d0",
+        "identity_root": "f8e2e6ed108d4dd457bdfbae0125f6a2aecb546e91165e0467ac0cba2235f463",
+        "full_root": "f416315aed9ea31937daedf5da55b431ce5c0eca875e561eae7776d5a1730791",
         "version_epoch": 2
       }
     ],
@@ -59544,6 +59812,42 @@
         "cleanup": "remove generated cache only;retain corpus and decisions",
         "isolation_policy": "isolated immutable fixtures and derived evidence",
         "timeout": "2400s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_CROSS_STORE_RECONCILIATION_AND_RECOVERY",
+        "canonical_name": "cross-store-reconciliation-queue-audit-rebuild-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "PostgreSQL+SQLite+Qdrant+transport+audit+backup",
+        "requirement_ids": "A42|A46|A75|A200|A205|A243|A365",
+        "test_level": "contract+integration+failure-injection+recovery+performance",
+        "preconditions": "registered identities,representative conflicting revisions,leased requests,audit chain and rebuild dataset",
+        "fixtures": "synced/conflict/stale records;SQLite outage buffer;lease expiry/crash/dead-letter;illegal audit update/delete;Qdrant total loss;PostgreSQL WAL,SQLite snapshot and Qdrant restore/rebuild;indexed query workloads",
+        "ordered_steps": "verify IDs/revisions/hashes;inject failures;reconcile without promotion;recover leases idempotently;verify audit chain;destroy/rebuild Qdrant;restore each tier;compare manifests and query plans",
+        "expected_results": "all state transitions legal;no duplicate side effect;runtime audit immutable;Qdrant fully rebuildable;restore reconciles;indexes improve approved query plans within budget",
+        "evidence": "resource manifests+state transitions+lease history+audit hashes+rebuild parity+restore evidence+query plans",
+        "cleanup": "remove fixtures/restored copies only;retain audit and recovery evidence",
+        "isolation_policy": "isolated stores,generation-fenced recovery and no canonical overwrite",
+        "timeout": "3600s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_XINGCHENG_USER_CONFIRMED_REPAIR_UPDATE",
+        "canonical_name": "xingcheng-user-confirmed-repair-update-and-multi-fault-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "星澄 auxiliary system repair/update control surface",
+        "requirement_ids": "A87|A91|A242|A296|A366",
+        "test_level": "unit+contract+UI-integration+failure-injection",
+        "preconditions": "independent switches,one fault,multiple correlated/unrelated faults,changed plan and expiring confirmation",
+        "fixtures": "both switches off/on matrix;confirm/cancel/close/expire;single item;multiple individually ordered items;one repair changes remaining faults;one action fails;bulk selection;emergency isolation",
+        "ordered_steps": "detect without mutation;verify display;bind one-time confirmation;execute sequentially;re-detect after each;inject failure;verify audit and unaffected continuity",
+        "expected_results": "no mutation without both conditions;all faults visible;each action individually confirmed;stale confirmation rejected;failure isolated;emergency isolation non-mutating",
+        "evidence": "fault snapshots+UI events+switch history+confirmation envelopes+action/audit results",
+        "cleanup": "remove fixtures only;retain decision evidence",
+        "isolation_policy": "isolated fault actions and no source overwrite/reset",
+        "timeout": "1800s",
         "introduced_version": "1.00000",
         "retired_version": null
       }
