@@ -3,98 +3,27 @@ import { BootLogger } from '../BootLogger'
 import { eventBus } from '../RuntimeEventBus'
 import { getAuthenticatedBackendWebSocketUrl } from '../services/backendSession'
 import { resetBackendRecovery } from '../services/backendRecovery'
-type BackendSocketState = {
-  status: string
-  lastStatusAt: number | null
-  lastError: string
-  reconnectAttempt: number
-  queuedCommands: number
-}
+import { mainSystemLocale } from '@/locales/main-system'
+import {
+  type BackendSocketState,
+  type SendCommandResult,
+  type OutboxStateEvent,
+  INITIAL_STATE,
+  WS_RECONNECT_BASE_DELAY_MS,
+  WS_RECONNECT_MAX_DELAY_MS,
+  WS_CONNECT_TIMEOUT_MS,
+  WS_READINESS_RETRY_MS,
+  WS_COMMAND_QUEUE_MAX,
+  WS_COMMAND_QUEUE_TTL_MS,
+  WS_STALE_CONNECTION_MS,
+  OUTBOX_CURSOR_KEY,
+  OUTBOX_GENERATION_KEY,
+  OUTBOX_BUFFER_MAX,
+  updateBackendConnectionSnapshot,
+} from './useBackendSocketTypes'
+import { handleOutboxSession, handleOutboxStateEvent } from './useBackendSocketOutbox'
 
-type SendCommandResult = {
-  ok: boolean
-  queued: boolean
-  message?: string
-}
-
-type BackendConnectionSnapshot = {
-  status: string
-  connected: boolean
-  updatedAt: number | null
-}
-
-const INITIAL_STATE: BackendSocketState = {
-  status: 'Disconnected',
-  lastStatusAt: null,
-  lastError: '',
-  reconnectAttempt: 0,
-  queuedCommands: 0,
-}
-
-const WS_RECONNECT_BASE_DELAY_MS = 500
-const WS_RECONNECT_MAX_DELAY_MS = 16000
-const WS_CONNECT_TIMEOUT_MS = 8000
-const WS_READINESS_RETRY_MS = 1500
-const WS_COMMAND_QUEUE_MAX = 50
-const WS_COMMAND_QUEUE_TTL_MS = 60_000
-// Stale-connection threshold: the backend sends heartbeat_ping every 5s
-// and closes silent sockets at 20s; we tolerate ~2 missed pings before
-// treating the connection as dead.
-const WS_STALE_CONNECTION_MS = 25_000
-const OUTBOX_CURSOR_KEY = 'gptbridge.outbox.cursor'
-const OUTBOX_GENERATION_KEY = 'gptbridge.outbox.generation'
-const OUTBOX_BUFFER_MAX = 500
-const openBackendSockets = new Set<WebSocket>()
-
-type OutboxStateEvent = {
-  sequence: number
-  entity_id: string
-  entity_type: string
-  operation: string
-  authoritative_revision: number
-  previous_revision: number
-  changed_field_allowlist: string[]
-  invalidation_keys: string[]
-  state_hash: string
-  backend_generation: string
-  release_id: string
-  contract_version: string
-  correlation_id: string
-  committed_at: string
-  idempotency_key?: string
-  session_id?: string
-}
-
-let backendConnectionSnapshot: BackendConnectionSnapshot = {
-  status: INITIAL_STATE.status,
-  connected: false,
-  updatedAt: null,
-}
-
-function updateBackendConnectionSnapshot(
-  status: string,
-  socket?: WebSocket,
-  connected?: boolean
-): BackendConnectionSnapshot {
-  if (socket && connected === true) {
-    openBackendSockets.add(socket)
-  } else if (socket && connected === false) {
-    openBackendSockets.delete(socket)
-  }
-
-  const hasOpenSocket = openBackendSockets.size > 0
-  backendConnectionSnapshot = {
-    status: hasOpenSocket ? 'Connected' : status,
-    connected: hasOpenSocket,
-    updatedAt: Date.now(),
-  }
-
-  return backendConnectionSnapshot
-}
-
-export function getBackendConnectionSnapshot(): BackendConnectionSnapshot {
-  return { ...backendConnectionSnapshot }
-}
+export { getBackendConnectionSnapshot } from './useBackendSocketTypes'
 
 export const useBackendSocket = () => {
   const [state, setState] = useState<BackendSocketState>(INITIAL_STATE)
@@ -121,6 +50,8 @@ export const useBackendSocket = () => {
   // storm and exhaust the command rate limit.
   const sessionGenerationRef = useRef<string | null>(null)
   const lastRuntimeStatusRequestAtRef = useRef(0)
+
+  const ws = mainSystemLocale.websocket
 
   const flushCommandQueue = useCallback(() => {
     const queue = commandQueueRef.current
@@ -161,10 +92,10 @@ export const useBackendSocket = () => {
               queueSize: queue.length,
             })
             setState((prev) => ({ ...prev, queuedCommands: queue.length }))
-            return { ok: false, queued: true, message: '指令已排隊，連線恢復後自動送出。' }
+            return { ok: false, queued: true, message: ws.autoFlush }
           }
         }
-        const errorMsg = '後端連線尚未就緒，指令未送出，請稍後再試。'
+        const errorMsg = ws.notReady
         setLastError(errorMsg)
         BootLogger.log('WebSocket', 'SEND_REJECTED_OFFLINE', { command }, 'warn')
         return { ok: false, queued: false, message: errorMsg }
@@ -299,7 +230,14 @@ export const useBackendSocket = () => {
 
       const requestRuntimeStatus = () => {
         if (disposed || socket.readyState !== WebSocket.OPEN) return
-        socket.send(JSON.stringify({ command: 'app:get-runtime-status', payload: {} }))
+        // Compact projection: readiness + switches + counters only.  The
+        // full sovereign snapshot is fetched on demand by the UI.
+        socket.send(
+          JSON.stringify({
+            command: 'app:get-runtime-status',
+            payload: { compact: true },
+          })
+        )
       }
 
       // Coalesce convergence requests: an outbox replay can deliver many
@@ -408,137 +346,32 @@ export const useBackendSocket = () => {
           // backend restarted; invalidate the projection and resume the
           // stream from sequence 0 instead of trusting the stale cursor.
           if (payload.event === 'state_event_session') {
-            const sess = payload.payload as
-              | {
-                  backend_generation?: string
-                  cursor?: number
-                  reset?: boolean
-                }
-              | undefined
-            const storedGeneration = window.sessionStorage.getItem(
-              OUTBOX_GENERATION_KEY
-            )
-            if (sess?.backend_generation) {
-              sessionGenerationRef.current = sess.backend_generation
-              const resetCursor =
-                typeof sess.cursor === 'number' && Number.isFinite(sess.cursor)
-                  ? Math.max(0, sess.cursor)
-                  : null
-              const generationChanged =
-                storedGeneration !== sess.backend_generation
-              // A fresh or superseded session starts from the backend's
-              // authoritative cursor (latest commit) instead of replaying
-              // the full durable history.
-              if (sess.reset === true || generationChanged) {
-                if (resetCursor !== null) {
-                  outboxAppliedRef.current = resetCursor
-                  window.sessionStorage.setItem(
-                    OUTBOX_CURSOR_KEY,
-                    String(resetCursor)
-                  )
-                }
-                outboxBufferRef.current.clear()
-                if (generationChanged) {
-                  eventBus.emit('state_event_invalidate', {
-                    reason: 'backend-generation-change',
-                  })
-                }
-              }
-              window.sessionStorage.setItem(
-                OUTBOX_GENERATION_KEY,
-                sess.backend_generation
-              )
-            }
+            handleOutboxSession(payload.payload, {
+              outboxAppliedRef,
+              outboxBufferRef,
+              sessionGenerationRef,
+            })
           }
 
           // A195: transactional outbox state event — validate sequence,
           // apply once, acknowledge the contiguous cursor.
           if (payload.event === 'state_event') {
-            const ev = payload.payload as OutboxStateEvent | undefined
-            const sessionGeneration = sessionGenerationRef.current
-            const staleBacklog =
-              ev !== undefined &&
-              typeof ev.sequence === 'number' &&
-              sessionGeneration !== null &&
-              ev.backend_generation !== sessionGeneration
-            if (staleBacklog) {
-              // Superseded-generation backlog replay: ignored entirely so a
-              // fresh session cannot replay days-old events and storm the
-              // governed command channel.
-            } else if (ev && typeof ev.sequence === 'number') {
-              const storedGeneration = window.sessionStorage.getItem(
-                OUTBOX_GENERATION_KEY
-              )
-              if (
-                storedGeneration !== null &&
-                ev.backend_generation !== storedGeneration
-              ) {
-                // Backend-generation change → invalidate the projection and
-                // restart the stream from the authoritative cursor (A195 GAP).
-                outboxAppliedRef.current = 0
-                outboxBufferRef.current.clear()
-                eventBus.emit('state_event_invalidate', {
-                  reason: 'backend-generation-change',
-                })
-              }
-              window.sessionStorage.setItem(
-                OUTBOX_GENERATION_KEY,
-                ev.backend_generation
-              )
-
-              if (ev.sequence <= outboxAppliedRef.current) {
-                // Duplicate delivery (at-least-once) — dedupe via sequence.
-              } else if (ev.sequence === outboxAppliedRef.current + 1) {
-                outboxBufferRef.current.set(ev.sequence, ev)
-                while (outboxBufferRef.current.has(outboxAppliedRef.current + 1)) {
-                  const next = outboxBufferRef.current.get(
-                    outboxAppliedRef.current + 1
-                  )!
-                  outboxBufferRef.current.delete(next.sequence)
-                  outboxAppliedRef.current = next.sequence
-                  window.sessionStorage.setItem(
-                    OUTBOX_CURSOR_KEY,
-                    String(next.sequence)
-                  )
-                  eventBus.emit('state_event', next)
-                  eventBus.emit(`state_event:${next.entity_type}`, next)
-                  if (next.entity_type === 'runtime-status') {
-                    // Scoped snapshot convergence for the readiness entity.
-                    requestRuntimeStatusThrottled()
-                  }
-                }
+            handleOutboxStateEvent(
+              payload.payload,
+              {
+                outboxAppliedRef,
+                outboxBufferRef,
+                sessionGenerationRef,
+              },
+              (command, p) => {
                 try {
-                  socket.send(
-                    JSON.stringify({
-                      command: 'state_event_ack',
-                      payload: { cursor: outboxAppliedRef.current },
-                    })
-                  )
+                  socket.send(JSON.stringify({ command, payload: p }))
                 } catch {
-                  // ack is retried by the next delivered event
+                  // retried by the next delivered event
                 }
-              } else {
-                // Sequence gap → buffer bounded, invalidate, request resync.
-                if (outboxBufferRef.current.size < OUTBOX_BUFFER_MAX) {
-                  outboxBufferRef.current.set(ev.sequence, ev)
-                }
-                eventBus.emit('state_event_invalidate', {
-                  reason: 'sequence-gap',
-                  expected: outboxAppliedRef.current + 1,
-                  received: ev.sequence,
-                })
-                try {
-                  socket.send(
-                    JSON.stringify({
-                      command: 'state_event_resync',
-                      payload: { cursor: outboxAppliedRef.current },
-                    })
-                  )
-                } catch {
-                  // resync is retried on next event
-                }
-              }
-            }
+              },
+              requestRuntimeStatusThrottled
+            )
           }
 
           // Respond to heartbeat ping immediately
@@ -575,7 +408,7 @@ export const useBackendSocket = () => {
       }
 
       socket.onerror = () => {
-        const errorMsg = '後端連線中斷，系統正在自動修復。'
+        const errorMsg = ws.autoRepairing
         setLastError(errorMsg)
         updateBackendConnectionSnapshot('Error')
         setState((prev) => ({
@@ -597,7 +430,7 @@ export const useBackendSocket = () => {
         setState((prev) => ({
           ...prev,
           status: 'Disconnected',
-          lastError: '後端連線中斷，系統正在自動重新連線。',
+          lastError: ws.autoReconnecting,
         }))
         BootLogger.log('WebSocket', 'CLOSED')
         eventBus.emit('socket_connected', { connected: snapshot.connected })
