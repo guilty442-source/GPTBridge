@@ -3148,6 +3148,15 @@
         "rule": "GATE:BUILD ABI REPRO GATE answers only:approved toolchain used? artifact conforms to approved ABI/API baseline? same input yields acceptably equivalent artifact? FLOW:source>toolchain verification>canonical build configuration>native/.NET/build>symbol+ABI inspection>artifact fingerprint>reproducibility comparison>PASS|WARN|FAIL. STRUCTURE:code/checkers/BuildAbiReproChecker.ts+code/policy/BuildAbiPolicy.ts+code/registry/ToolchainRegistry.ts+code/registry/AbiBaselineRegistry.ts+code/evidence/build-abi/; policy and registries are immutable governance data only,checker verifies and never repairs. TOOLCHAINS:Python native records Python+pybind11+setuptools/build config;C/C++ records MSVC/clang/gcc family+version+target_arch+runtime_library+language_standard+optimization_level+exception_policy+rtti_policy+calling_convention+symbol_visibility+CMake;CSharp records compiler+.NET runtime+target_framework+PlatformTarget+RID;TypeScript records Node+TypeScript+Vite/build tool;SQL records migration version/order+schema baseline. CPP-LOCK:C++20+x64+public ABI C only+C++ symbols hidden unless explicit successor; /MD versus /MT,architecture,standard,flags,exception/RTTI/calling/visibility differences are distinct ABI build identities. ABI-BASELINE:abi_major+abi_minor+exported_symbols+struct_sizes+struct_alignments+field widths/signedness+calling_convention+architecture+runtime; permit compatible minor additive change; FAIL removed symbol+changed width/layout/calling convention+breaking semantics without major bump. EXPORT-GATE:public allowlist only registered gptbridge_* symbols; std/internal classes/vector/parser/mangled C++ symbols private. PYD:_sovereign_native.pyd is formal artifact and records name+hash+architecture+python_abi+compiler+runtime+build_config_hash+source_revision; existence alone never passes. CSHARP:x64 required when consuming x64 native unless registered multi-arch strategy; verify target framework+RID+interop signature+DllImport calling convention+CharSet/encoding+width. REPRO-V1:semantic reproducibility is mandatory:ABI+exports+behavior+config equivalent; binary hash difference caused by timestamp/debug path/PDB/link metadata is WARN with explained normalized diff; bit reproducibility is recorded aspirational level until promoted by successor. MANIFEST:each artifact stores artifact+source_revision+source_hash+compiler+compiler_version+language_standard+target_arch+runtime+flags+dependency_versions+contract_hash+abi_version+build_timestamp+artifact_hash+configuration. CANONICAL-BUILD-POLICY:BuildAbiPolicy is sole value source consumed by CMakeLists.txt+build_native.py+csproj+package.json; checker rejects duplicate/conflicting version/flag definitions. CONFIGURATION:DEBUG and RELEASE have different identities; production accepts RELEASE artifact only and rejects debug CRT+assert/iterator-debug/different optimization contamination. VERDICT:PASS=approved toolchain+arch+compatible ABI+exact exports+complete manifest+semantic reproducibility;WARN=semantic reproducible but unexplained binary hash variance remains bounded;FAIL=unapproved compiler/version+arch/runtime/standard mismatch+public C++ export+removed ABI symbol without major bump+layout change+incomplete manifest+debug artifact in release.",
         "prohibition": "FORBID:build existence as proof+unregistered toolchain+mixed /MD /MT identity+x86/x64 or Debug/Release mixing+public C++ symbols+ABI baseline overwrite+removed/changed ABI without major version+independent version/flag truth in build files+missing manifest+byte-identical V1 requirement that ignores semantic normalization+WARN promoted to PASS without evidence+checker changing build config.",
         "exception": "Registered multi-architecture or bit-reproducible profiles require separate artifact identities and evidence; neither may weaken semantic reproducibility or release configuration isolation."
+      },
+      {
+        "position": 360,
+        "provision_id": "A360",
+        "section_index": "16",
+        "subject": "release-compatibility-evidence-aggregation-and-upgrade-gate",
+        "rule": "GATE:RELEASE_COMPATIBILITY returns exactly PASS|WARN|FAIL and answers:language boundaries intact? API/ABI intact? old consumers work? migrations safely upgrade? native failure falls back? every required gate passed? AGGREGATION:consume immutable evidence only from Language Boundary+Dependency DAG+Contract Parity+Ownership Uniqueness+Native Promotion+Resource and Concurrency+Build ABI Reproducibility Gates; never reimplement their checks; any required FAIL=>release FAIL; WARN blocking is explicit immutable ReleaseCompatibilityPolicy per category and cannot be improvised. STRUCTURE:code/checkers/ReleaseCompatibilityChecker.ts+code/policy/ReleaseCompatibilityPolicy.ts+code/registry/SupportedVersionRegistry.ts+code/evidence/release-compatibility/; policy/registry data only; registry fields release+supported_api_range+supported_abi_range+supported_schema_range+supported_previous_releases. MATRIX:compare current release with every previous supported release for TypeScript/Python API,Python/native parity+fallback,C ABI major/minor+symbols,CSharp/native interop,SQL schema+migration,Python public package entry,native artifact architecture/runtime/toolchain; prove prior API/ABI ranges and schema upgrade path remain supported. CHANGE-CLASS:PATCH permits bug fix/internal optimization/performance/implementation only and denies contract/ABI/schema break;MINOR permits optional field,new operation/capability/ABI symbol only while old consumer works;MAJOR alone permits removal/required rename/operation or ABI symbol removal/layout/incompatible semantics with explicit migration. CONSUMERS:test old TypeScript client>new Python backend and new client>supported old backend when bidirectional window declared; old supported native consumer>new C ABI load+behavior. SQL-UPGRADE:old schema>ordered transactional migration>new schema>new application; verify rollback policy+data preservation+indexes+constraints and activation order before Python requires new field. NATIVE-DUAL:every approved accelerated capability runs identical integration suite native-enabled and native-disabled Python fallback; either failure=>release FAIL. UPGRADE-PATH:at least N-1>N with existing config+DB+native state; verify startup+API+DB+native+CSharp+UI contract. MANIFEST:release_version+source_revision+api_version+abi_version+schema_version+python_version+typescript_version+cpp_toolchain+c_toolchain+dotnet_version+native_artifact_hash+contract_hash+schema_hash+supported_previous_versions+all gate_results+ReleaseCompatibility verdict; content-addressed and immutable. OUTPUT:RELEASE_COMPATIBILITY+verdict; failures include category+change/operation/symbol/capability+old+new+rule+reason+required_action. READONLY:checker only aggregates,compares,judges and reports; no repair.",
+        "prohibition": "FORBID:new-new pair only+required gate FAIL overridden+WARN policy invented at runtime+PATCH contract/ABI/schema change+MINOR breaking old consumer+major break without migration+SQL migration execution-only test+new field used before migration+native-only integration test+fallback failure accepted+missing N-1 upgrade+incomplete manifest+automatic major bump+contract/ABI/migration/fallback mutation+lowered standard+self-repair.",
+        "exception": "A project declaring no backward compatibility window must still test N-1 migration to a typed unsupported-version outcome that preserves data and supports rollback; silent breakage is never allowed."
       }
     ],
     "certification_evidence": [
@@ -3903,7 +3912,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H065",
+        "history_head": "H066",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -12303,6 +12312,12 @@
         "provision_id": "A359",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A360",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12361,14 +12376,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H065",
-        "provision_count": 605,
-        "identity_count": 605,
-        "lineage_count": 605,
+        "history_head": "H066",
+        "provision_count": 606,
+        "identity_count": 606,
+        "lineage_count": 606,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "0b944a2b68c30998b26505eb6662076991105a2981c454e9f02eb0b1cdea0b5e",
-        "identity_root": "a65e5af8878b698a5e5a0bfb0311e5fb18ed72f16e933b9baced68df6103127d",
-        "full_root": "f701d0949d923332a60a8e20feeb7830a449ad7942cb2a5b8c0d68eb194bf361",
+        "content_root": "f25b97dca6076c1d56d65ba60738cca11a75d991381049fc1a15faebe03570ac",
+        "identity_root": "5e71d71ae5a958603e97a2a749654a73337265209fd50be1cab3916ae632468b",
+        "full_root": "5f428dd9de686b2633000850b61d383498ad766b31e4a2690fd91a0f0ac7b974",
         "legacy_history_head": null
       }
     ],
@@ -17495,7 +17510,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H065"
+        "value": "H066"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17628,6 +17643,14 @@
       {
         "key": "build_reproducibility_v1",
         "value": "semantic-required;bit-difference-WARN"
+      },
+      {
+        "key": "release_compatibility_gate",
+        "value": "A360"
+      },
+      {
+        "key": "release_compatibility_required_gates",
+        "value": "language|dependency|contract|ownership|native-promotion|resource-concurrency|build-abi"
       }
     ],
     "module_assignment_registry": [
@@ -23290,6 +23313,13 @@
         "provision_id": "A359",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A360",
+        "provision_type": "article",
+        "provision_id": "A360",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -26980,14 +27010,14 @@
         "provision_id": "startup-sub-sovereign",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A229|A230|A287|A303"
+        "authority_basis": "A303|A304"
       },
       {
         "provision_type": "sovereign",
         "provision_id": "data-sub-sovereign",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A229|A230|A287|A304"
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
@@ -27001,7 +27031,7 @@
         "provision_id": "resource-sub-sovereign",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A229|A230|A287|A305"
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
@@ -27015,7 +27045,7 @@
         "provision_id": "integration-sub-sovereign",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A229|A230|A287|A306"
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
@@ -27029,7 +27059,7 @@
         "provision_id": "third-party-sub-sovereign",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A229|A230|A287|A307"
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
@@ -27043,7 +27073,7 @@
         "provision_id": "language-review-sub-sovereign",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A229|A230|A287|A308"
+        "authority_basis": "A308"
       },
       {
         "provision_type": "article",
@@ -27057,7 +27087,7 @@
         "provision_id": "system-programming-sub-sovereign",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A229|A230|A287|A309"
+        "authority_basis": "A229|A230"
       },
       {
         "provision_type": "article",
@@ -27071,7 +27101,7 @@
         "provision_id": "learning-system-sub-sovereign",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A229|A230|A287|A310"
+        "authority_basis": "A284|A287"
       },
       {
         "provision_type": "article",
@@ -27120,7 +27150,7 @@
         "provision_id": "directory-sub-sovereign",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A313|A315|A316"
+        "authority_basis": "A316"
       },
       {
         "provision_type": "article",
@@ -27134,7 +27164,7 @@
         "provision_id": "identity-group-sub-sovereign",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A313|A315|A317"
+        "authority_basis": "A317"
       },
       {
         "provision_type": "article",
@@ -27527,6 +27557,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A175|A205|A340|A344|A345|A348|A353|A355|A357|A358"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A360",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A175|A200|A204|A205|A219|A340|A348|A354|A355|A356|A357|A358|A359"
       }
     ],
     "provision_lifecycle_status": [
@@ -32265,6 +32302,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H065+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A360",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H066+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -37107,6 +37152,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "d8799a730b6de08b3b126c4d836cf308114c62dd79bcd2891972ced57e38307b"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A360",
+        "introduced_by": "H066",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "93b8111a55b7b220524f4fb05d393f0b1ea4e9cdcee3640460b5e61212916363"
       }
     ],
     "provision_revisions": [
@@ -47945,6 +47998,15 @@
         "content_hash": "d8799a730b6de08b3b126c4d836cf308114c62dd79bcd2891972ced57e38307b",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A360",
+        "revision_id": "H066",
+        "version": "1.00000",
+        "content_hash": "93b8111a55b7b220524f4fb05d393f0b1ea4e9cdcee3640460b5e61212916363",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -52897,6 +52959,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A360",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -53614,6 +53686,17 @@
         "previous_hash": "f7e2c6e83118a00dac8ab9f6cded8e84b9f2afdb3b65821b63772e5de9eb3fd9",
         "entry_hash": "808cb57f995b0cfb6db042c19b28369c713e36fd47b5149ca6d61a92425be563",
         "version_epoch": 2
+      },
+      {
+        "sequence": 66,
+        "change_id": "H066",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "release-compatibility-evidence-aggregation-and-upgrade-gate",
+        "summary": "Established the evidence-aggregating Release Compatibility Gate with compatibility matrix, change classification, old/new consumer tests, SQL migration and N-1 upgrade paths, native/fallback dual-mode testing and release language manifest. Version remains E2:1.00000.",
+        "previous_hash": "808cb57f995b0cfb6db042c19b28369c713e36fd47b5149ca6d61a92425be563",
+        "entry_hash": "4144adf37e4cbe621258ca48fcd1185ebfa289fd2a2331005c2fe3526ed7d5ce",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -54170,14 +54253,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H065",
-        "provision_count": 605,
-        "identity_count": 605,
-        "lineage_count": 605,
+        "history_head": "H066",
+        "provision_count": 606,
+        "identity_count": 606,
+        "lineage_count": 606,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "0b944a2b68c30998b26505eb6662076991105a2981c454e9f02eb0b1cdea0b5e",
-        "identity_root": "a65e5af8878b698a5e5a0bfb0311e5fb18ed72f16e933b9baced68df6103127d",
-        "full_root": "f701d0949d923332a60a8e20feeb7830a449ad7942cb2a5b8c0d68eb194bf361",
+        "content_root": "f25b97dca6076c1d56d65ba60738cca11a75d991381049fc1a15faebe03570ac",
+        "identity_root": "5e71d71ae5a958603e97a2a749654a73337265209fd50be1cab3916ae632468b",
+        "full_root": "5f428dd9de686b2633000850b61d383498ad766b31e4a2690fd91a0f0ac7b974",
         "version_epoch": 2
       }
     ],
@@ -58843,6 +58926,24 @@
         "cleanup": "remove fixture outputs only;retain evidence",
         "isolation_policy": "isolated reproducible build roots+bounded resources",
         "timeout": "1200s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_RELEASE_COMPATIBILITY_GATE",
+        "canonical_name": "release-compatibility-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "ReleaseCompatibilityChecker",
+        "requirement_ids": "A175|A200|A204|A205|A219|A340|A355|A357|A359|A360",
+        "test_level": "contract+integration+upgrade+failure-injection",
+        "preconditions": "current+N-1 releases,old/new clients,schemas,native/fallback,gate evidence and manifests",
+        "fixtures": "PASS all required gates+old consumers+N-1+dual-mode;FAIL any required gate|required field/ABI symbol removal no major|old client break|migration order/transaction/data/index/constraint|native pass fallback fail|debug/incompatible artifact|incomplete manifest;WARN only policy-listed evidence",
+        "ordered_steps": "aggregate evidence>classify change>run compatibility matrix>old/new consumers>SQL migration>N-1 upgrade>native/fallback suites>manifest>verdict",
+        "expected_results": "exact deterministic verdict and diagnostics;zero mutation;every FAIL blocks release",
+        "evidence": "all upstream evidence+matrix+upgrade logs+manifest+verdict",
+        "cleanup": "remove fixtures only;retain immutable evidence",
+        "isolation_policy": "isolated versioned release fixtures+no production mutation",
+        "timeout": "1800s",
         "introduced_version": "1.00000",
         "retired_version": null
       }
