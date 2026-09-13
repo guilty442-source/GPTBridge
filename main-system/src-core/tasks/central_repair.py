@@ -462,6 +462,7 @@ class CentralRepairService:
         remedy: str,
         ok: bool,
         run_id: str = "",
+        record_error: bool = True,
     ) -> None:
         """Record a connection/sync failure outcome with a consistent signature.
 
@@ -469,6 +470,10 @@ class CentralRepairService:
         "ipc/connection") so that record and lookup use the same components.
         This closes the learning loop for connection failures: the same
         signature used to record an outcome is used to look up suggestions.
+
+        ``record_error=False`` records only the outcome (used for recovery
+        events that close an already-registered fault signature, so normal
+        reconnections are not re-counted as new errors).
         """
         try:
             message = f"{from_state}->{to_state}"
@@ -489,7 +494,10 @@ class CentralRepairService:
                 ok=ok,
                 detail={"from_state": from_state, "to_state": to_state},
             )
-            self.learner.learn_from_outcome(sig, outcome)
+            if record_error:
+                self.learner.learn_from_outcome(sig, outcome)
+            else:
+                self.learner.store.record_outcome(outcome)
         except Exception:
             pass  # Learning is best-effort.
 

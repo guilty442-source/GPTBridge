@@ -129,6 +129,9 @@ class ConnectionWatchdog:
         self._learning_store: Any = None
         self._repair_callback: Any = None
         self._repair_triggered = False
+        # Most recent genuine fault transition, used to attach the matching
+        # recovery outcome instead of inventing "CONNECTION_CONNECTED" errors.
+        self._last_fault: tuple[str, str, str] | None = None
         # Loopback HTTP probes must bypass any system proxy — a PAC file or
         # registry proxy would otherwise route 127.0.0.1 traffic through an
         # external proxy and fail with WinError 10061.
@@ -303,62 +306,108 @@ class ConnectionWatchdog:
             # Keep only the last 100 events.
             if len(self._events) > 100:
                 self._events = self._events[-100:]
-        # Record in learning store using the consistent connection signature
-        # (failure_code, from_state->to_state, "ipc/connection") so that
-        # record and lookup use the same components — closing the loop.
+        # Learning: only genuine fault transitions create error signatures.
+        # Recovery transitions close the matching fault with a successful
+        # outcome instead of masquerading as "CONNECTION_CONNECTED" errors,
+        # which otherwise flood the learning store and auto-promote recipes
+        # for normal connection behaviour.
         if self._learning_store is not None:
-            try:
-                from .repair_learning import ErrorSignature, _normalize_error_signature
+            is_fault = (
+                to_state == "disconnected"
+                or (
+                    to_state in ("degraded", "starting")
+                    and from_state == "connected"
+                )
+            )
+            is_recovery = to_state == "connected" and from_state != "connected"
+            if is_fault:
                 failure_code = (
                     "FRONTEND_BACKEND_DISCONNECTED"
                     if to_state == "disconnected"
                     else f"CONNECTION_{to_state.upper()}"
                 )
-                message = f"{from_state}->{to_state}"
-                sig = ErrorSignature(
-                    signature_hash=_normalize_error_signature(
-                        failure_code,
-                        message,
-                        file_path="ipc/connection",
-                    ),
-                    error_class=failure_code,
-                    message_pattern=message,
-                    failure_code=failure_code,
-                    file_context="ipc/connection",
-                    target_tool_id="main-system",
+                self._last_fault = (failure_code, from_state, to_state)
+                self._record_learning(
+                    failure_code,
+                    from_state,
+                    to_state,
+                    ok=False,
+                    run_id=event.event_id,
                 )
-                # Use the CentralRepairService's connection learning methods
-                # if available (they close the loop with consistent signatures).
-                try:
-                    from .central_repair import CentralRepairService
-                    repair_root = (
-                        self.project_root / "main-system" / "data" / "automatic-repair"
-                    )
-                    repair_root.mkdir(parents=True, exist_ok=True)
-                    service = CentralRepairService(self.project_root, repair_root)
-                    service.record_connection_outcome(
-                        failure_code,
-                        from_state,
-                        to_state,
-                        remedy="connection-watchdog",
-                        ok=to_state == "connected",
-                        run_id=event.event_id,
-                    )
-                except Exception:
-                    # Fallback: record directly in the learning store.
-                    from .repair_learning import RepairOutcome
-                    outcome = RepairOutcome(
-                        run_id=event.event_id,
-                        signature_hash=sig.signature_hash,
-                        remedy="connection-watchdog",
-                        ok=to_state == "connected",
-                        detail=event.as_dict(),
-                    )
-                    self._learning_store.record_error(sig)
-                    self._learning_store.record_outcome(outcome)
-            except Exception:
-                pass  # Learning is best-effort.
+            elif is_recovery and self._last_fault is not None:
+                failure_code, fault_from, fault_to = self._last_fault
+                self._last_fault = None
+                self._record_learning(
+                    failure_code,
+                    fault_from,
+                    fault_to,
+                    ok=True,
+                    run_id=event.event_id,
+                )
         return event
+
+    def _record_learning(
+        self,
+        failure_code: str,
+        from_state: str,
+        to_state: str,
+        *,
+        ok: bool,
+        run_id: str,
+    ) -> None:
+        """Record one fault occurrence or its recovery in the learning store."""
+        try:
+            from .repair_learning import (
+                ErrorSignature,
+                RepairOutcome,
+                _normalize_error_signature,
+            )
+            message = f"{from_state}->{to_state}"
+            sig = ErrorSignature(
+                signature_hash=_normalize_error_signature(
+                    failure_code,
+                    message,
+                    file_path="ipc/connection",
+                ),
+                error_class=failure_code,
+                message_pattern=message,
+                failure_code=failure_code,
+                file_context="ipc/connection",
+                target_tool_id="main-system",
+            )
+            # Use the CentralRepairService's connection learning methods if
+            # available (they close the loop with consistent signatures).
+            try:
+                from .central_repair import CentralRepairService
+                repair_root = (
+                    self.project_root / "main-system" / "data" / "automatic-repair"
+                )
+                repair_root.mkdir(parents=True, exist_ok=True)
+                service = CentralRepairService(self.project_root, repair_root)
+                service.record_connection_outcome(
+                    failure_code,
+                    from_state,
+                    to_state,
+                    remedy="connection-watchdog",
+                    ok=ok,
+                    run_id=run_id,
+                    record_error=not ok,
+                )
+            except Exception:
+                # Fallback: record directly in the learning store.  A
+                # recovery outcome must not re-register the fault signature.
+                outcome = RepairOutcome(
+                    run_id=run_id,
+                    signature_hash=sig.signature_hash,
+                    remedy="connection-watchdog",
+                    ok=ok,
+                    detail={"from_state": from_state, "to_state": to_state},
+                )
+                if not ok:
+                    self._learning_store.record_error(sig)
+                self._learning_store.record_outcome(outcome)
+        except Exception:
+            pass  # Learning is best-effort.
 
     def _write_state(self) -> None:
         """Write connection state to the state file for observability."""

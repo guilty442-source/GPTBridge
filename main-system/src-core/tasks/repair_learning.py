@@ -448,6 +448,14 @@ class RepairLearner:
         sig = signatures.get(signature_hash)
         if not sig:
             return {"promoted": False, "reason": "signature not found"}
+        # Recovery pseudo-classes (successful reconnections) are not faults.
+        # Promoting them would fill the knowledge base with non-actionable
+        # automatic recipes, so they are never promoted.
+        if str(sig.get("error_class", "")).endswith("_CONNECTED"):
+            return {
+                "promoted": False,
+                "reason": "recovery signature is not a promotable fault",
+            }
         recipe_id = f"learned-{signature_hash}"
         recipe = LearnedRecipe(
             recipe_id=recipe_id,

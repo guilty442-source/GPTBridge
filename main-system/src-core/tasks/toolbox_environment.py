@@ -204,36 +204,39 @@ class EnvironmentMixin:
             if isinstance(manifest, dict)
             else ""
         ).strip()
-        if shared_cache_owner:
-            permissions = (
-                manifest.get("permissions") if isinstance(manifest, dict) else None
-            )
-            permission_owner = (
-                str(permissions.get("business_permission_owner") or "").strip()
-                if isinstance(permissions, dict)
-                else ""
-            )
-            host_owner = str(manifest.get("host_tool_id") or "").strip()
-            manifest_tool_id = str(manifest.get("id") or "").strip()
-            if shared_cache_owner not in {
-                permission_owner,
-                host_owner,
-                manifest_tool_id,
-            }:
-                raise ValueError("Shared cache owner is not the declared business owner")
-            cache_owner_root = self._tool_directory_for_id(shared_cache_owner)
-            cache_root = (
-                cache_owner_root
-                / "runtime"
-                / "cache"
-                / "companions"
-                / tool_id
-            )
-            cache_root = self._validated_tool_path(
-                cache_owner_root,
-                cache_root,
-                label="Shared tool cache storage",
-            )
+        host_owner = str(manifest.get("host_tool_id") or "").strip()
+        manifest_tool_id = str(manifest.get("id") or "").strip()
+        # Companion tool: use declaring host's cache storage
+        # Non-companion tool: use own runtime/cache/companions/tool_id
+        if host_owner:
+            # Companion tool: find declaring host and use its cache storage
+            declaring_host_id = None
+            if tool_dir.name == "model-dialogue":
+                declaring_host_id = "local-model"
+            elif tool_dir.parent.name == "local-model":
+                declaring_host_id = "local-model"
+            if declaring_host_id:
+                try:
+                    host_dir = self._tool_directory_for_id(declaring_host_id)
+                    host_manifest_path = host_dir / "manifest.json"
+                    if host_manifest_path.is_file():
+                        import json
+                        host_manifest = json.loads(host_manifest_path.read_text(encoding="utf-8"))
+                        host_cache_storage = str(host_manifest.get("cache_storage") or "").strip()
+                        if declaring_host_id == "local-model":
+                            host_cache_storage = "runtime/cache"
+                        if host_cache_storage:
+                            cache_root = (host_dir / host_cache_storage / "companions" / tool_id).resolve()
+                            cache_root = self._validated_tool_path(
+                                host_dir,
+                                cache_root,
+                                label="Companion tool cache storage",
+                            )
+                except (OSError, json.JSONDecodeError, ValueError):
+                    pass  # Fall back to default
+        else:
+            # Non-companion tool: use own runtime/cache/companions/tool_id
+            cache_root = (isolated_tool_root / "runtime" / "cache" / "companions" / tool_id).resolve()
         cache_root.mkdir(parents=True, exist_ok=True)
         cleaner_root = self._validated_tool_directory(
             self.tools_dir / "global-cleaner"

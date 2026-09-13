@@ -55,7 +55,17 @@ class BackendGateway:
             return
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # On Windows SO_REUSEADDR lets a second process bind the same
+            # address, producing duplicate gateways that split frontend
+            # traffic.  Prefer SO_EXCLUSIVEADDRUSE so a competing supervisor
+            # fails fast and an existing gateway is replaced only through the
+            # governed kill-and-rebind path.
+            if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                listener.setsockopt(
+                    socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1
+                )
+            else:
+                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             listener.bind((self.host, self.public_port))
         except OSError:
             listener.close()
