@@ -2,6 +2,8 @@
 
 Provides process spawning, existing-process handling, post-spawn
 validation, and registration phases for the tool start lifecycle.
+
+Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 """
 
 from __future__ import annotations

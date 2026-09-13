@@ -1,235 +1,45 @@
-"""Tool isolation manager — process-level isolation for independent tools.
+"""Tool isolation manager — facade.
 
-Provides:
-  * **Resource limits** via Windows Job Objects (memory ceiling, kill-on-close).
-  * **Health monitoring** via psutil (CPU, memory, process status).
-  * **Crash containment** — tool crash triggers isolation event, never
-    propagates to the main system.
-  * **Automatic restart** with bounded backoff.
-  * **Graceful shutdown** — coordinated signal escalation
-    (SIGTERM → SIGTERM → SIGKILL) with state-flush timeout.
-  * **Network policy** enforcement (loopback-only / offline / unrestricted).
-  * **Filesystem policy** — tool-scoped access with deny patterns.
-  * **Runtime generation isolation** — each tool has distinct runtime generation.
-  * **Data authority isolation** — each tool owns its data, no cross-tool access.
-  * **Configuration isolation** — per-tool config scope.
-  * **Channel route isolation** — per-tool channel routing.
-  * **Repair isolation** — tool repair doesn't affect other tools.
-  * **NO implicit autostart/autostop** — tools only start/stop on explicit request.
+This module provides the ToolIsolationManager class.  Implementation
+details live in submodules:
 
-The manager is thread-safe and designed to be called from the async
-toolbox service via ``asyncio.to_thread``.
+  * :mod:`core_system.tool_isolation_job` — Windows Job Object API.
+  * :mod:`core_system.tool_isolation_types` — data structures.
+  * :mod:`core_system.tool_isolation_health` — health monitoring mixin.
 
-A266 compliance: each independent tool has stable identity, one accountable
-owner, own source boundary, process tree isolation, window host isolation,
-runtime generation isolation, data authority isolation, configuration
-isolation, logs/cache isolation, channel route isolation, repair isolation.
-NO main-system failure terminating tool. NO tool failure affecting main-system.
-NO shared mutable state. NO cross-tool source/data/repair. NO global reset.
-NO implicit autostart/autostop.
+Provides process-level isolation for independent tools (A266 compliance).
 """
 
 from __future__ import annotations
 
-import ctypes
 import json
 import logging
-import os
-import signal
-import subprocess
-import sys
 import threading
-import time
 import uuid
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
-import psutil
+from core_system.tool_isolation_job import (
+    _KERNEL32,
+    _PROCESS_SET_QUOTA,
+    _PROCESS_TERMINATE,
+    _assign_process_to_job,
+    _create_job_object,
+)
+from core_system.tool_isolation_types import (
+    IsolationPolicy,
+    ToolIsolationEntry,
+)
+from core_system.tool_isolation_health import ToolIsolationHealthMixin
 
 _logger = logging.getLogger("gptbridge.tool_isolation")
-
-# ------------------------------------------------------------------
-# Windows Job Object API (ctypes)
-# ------------------------------------------------------------------
-
-_KERNEL32 = ctypes.WinDLL("kernel32", use_last_error=True) if os.name == "nt" else None
-
-_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
-_JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0x0400
-_JOB_OBJECT_LIMIT_PROCESS_MEMORY = 0x0100
-_JOB_OBJECT_LIMIT_JOB_MEMORY = 0x0200
-
-_JOB_OBJECT_CPU_RATE_CONTROL = 0x0004
-_JOB_OBJECT_CPU_RATE_CONTROL_ENABLE = 0x0001
-_JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP = 0x0002
-
-
-class _IO_COUNTERS(ctypes.Structure):
-    _fields_ = [
-        ("ReadOperationCount", ctypes.c_ulonglong),
-        ("WriteOperationCount", ctypes.c_ulonglong),
-        ("OtherOperationCount", ctypes.c_ulonglong),
-        ("ReadTransferCount", ctypes.c_ulonglong),
-        ("WriteTransferCount", ctypes.c_ulonglong),
-        ("OtherTransferCount", ctypes.c_ulonglong),
-    ]
-
-
-class _JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):
-    _fields_ = [
-        ("PerProcessUserTimeLimit", ctypes.c_int64),
-        ("PerJobUserTimeLimit", ctypes.c_int64),
-        ("LimitFlags", ctypes.c_uint32),
-        ("MinimumWorkingSetSize", ctypes.c_size_t),
-        ("MaximumWorkingSetSize", ctypes.c_size_t),
-        ("ActiveProcessLimit", ctypes.c_uint32),
-        ("Affinity", ctypes.c_void_p),
-        ("PriorityClass", ctypes.c_uint32),
-        ("SchedulingClass", ctypes.c_uint32),
-    ]
-
-
-class _JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
-    _fields_ = [
-        ("BasicLimitInformation", _JOBOBJECT_BASIC_LIMIT_INFORMATION),
-        ("IoInfo", _IO_COUNTERS),
-        ("ProcessMemoryLimit", ctypes.c_size_t),
-        ("JobMemoryLimit", ctypes.c_size_t),
-        ("PeakProcessMemoryUsed", ctypes.c_size_t),
-        ("PeakJobMemoryUsed", ctypes.c_size_t),
-    ]
-
-
-class _JOBOBJECT_CPU_RATE_CONTROL_INFORMATION(ctypes.Structure):
-    _fields_ = [
-        ("ControlFlags", ctypes.c_uint32),
-        ("CpuRate", ctypes.c_uint32),
-    ]
-
-
-_JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
-_JOB_OBJECT_CPU_RATE_CONTROL_INFORMATION = 15
-_PROCESS_SET_QUOTA = 0x0100
-_PROCESS_TERMINATE = 0x0001
-
-
-def _create_job_object(memory_limit_mb: int, cpu_percent: int, kill_on_close: bool) -> Any:
-    """Create a Windows Job Object with resource limits. Returns handle or None."""
-    if _KERNEL32 is None:
-        return None
-    handle = _KERNEL32.CreateJobObjectW(None, None)
-    if not handle:
-        return None
-
-    # Extended limits: memory ceiling + kill-on-close.
-    limits = _JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
-    limits.BasicLimitInformation.LimitFlags = 0
-    if kill_on_close:
-        limits.BasicLimitInformation.LimitFlags |= _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-    if memory_limit_mb > 0:
-        limits.BasicLimitInformation.LimitFlags |= _JOB_OBJECT_LIMIT_PROCESS_MEMORY
-        limits.ProcessMemoryLimit = memory_limit_mb * 1024 * 1024
-
-    _KERNEL32.SetInformationJobObject(
-        handle,
-        _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
-        ctypes.byref(limits),
-        ctypes.sizeof(limits),
-    )
-
-    # CPU rate control (hard cap).
-    if cpu_percent > 0 and cpu_percent < 100:
-        cpu_info = _JOBOBJECT_CPU_RATE_CONTROL_INFORMATION()
-        cpu_info.ControlFlags = (
-            _JOB_OBJECT_CPU_RATE_CONTROL_ENABLE | _JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP
-        )
-        # CPU rate is in 1/10000 of a percent (e.g. 50% = 5000).
-        cpu_info.CpuRate = cpu_percent * 100
-        _KERNEL32.SetInformationJobObject(
-            handle,
-            _JOB_OBJECT_CPU_RATE_CONTROL_INFORMATION,
-            ctypes.byref(cpu_info),
-            ctypes.sizeof(cpu_info),
-        )
-
-    return handle
-
-
-def _assign_process_to_job(job_handle: Any, process_handle: Any) -> bool:
-    """Assign a process to a Job Object."""
-    if _KERNEL32 is None or job_handle is None:
-        return False
-    return bool(_KERNEL32.AssignProcessToJobObject(job_handle, process_handle))
-
-
-# ------------------------------------------------------------------
-# Data structures
-# ------------------------------------------------------------------
-
-@dataclass
-class ToolIsolationEntry:
-    """Tracks one isolated tool process."""
-    tool_id: str
-    pid: int
-    process: subprocess.Popen
-    job_handle: Any = None
-    memory_limit_mb: int = 0
-    cpu_percent_limit: int = 0
-    restart_count: int = 0
-    last_restart_time: float = 0.0
-    last_health_check: float = 0.0
-    last_cpu_percent: float = 0.0
-    last_memory_mb: float = 0.0
-    crashed: bool = False
-    quarantined: bool = False
-    # A266: Runtime generation isolation
-    runtime_generation: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
-    # A266: Data authority isolation - tool owns its data directories
-    data_root: str = ""
-    # A266: Configuration isolation - per-tool config
-    config_root: str = ""
-    # A266: Logs/cache isolation
-    log_root: str = ""
-    cache_root: str = ""
-    # A266: Channel route isolation
-    channel_id: str = ""
-    # A266: Repair isolation
-    repair_root: str = ""
-    # A266: Window host isolation (for Electron tools)
-    window_host_pid: int = 0
-
-
-@dataclass
-class IsolationPolicy:
-    """Resolved isolation policy for a tool."""
-    memory_limit_mb: int = 512
-    cpu_percent_limit: int = 50
-    health_check_interval_seconds: float = 5.0
-    restart_on_crash: bool = True
-    max_restart_attempts: int = 3
-    restart_backoff_seconds: list[int] = field(default_factory=lambda: [2, 5, 15])
-    graceful_shutdown_timeout_seconds: float = 10.0
-    kill_on_job_close: bool = True
-    network_policy: str = "loopback-only"
-    filesystem_policy: str = "tool-scoped"
-    state_isolation: bool = True
-    # A266: Explicit start/stop only - no implicit autostart
-    implicit_autostart: bool = False
-    # A266: Repair isolation - tool repairs don't affect other tools
-    repair_isolation: bool = True
-
-
-# ------------------------------------------------------------------
-# Isolation manager
-# ------------------------------------------------------------------
 
 _CONFIG_RELATIVE: Final[tuple[str, ...]] = (
     "..", "..", "config", "tool-isolation-policy.json",
 )
 
 
-class ToolIsolationManager:
+class ToolIsolationManager(ToolIsolationHealthMixin):
     """Manages process-level isolation for all independent tools.
 
     Thread-safe.  Designed to be called from async code via
@@ -240,16 +50,12 @@ class ToolIsolationManager:
         self.project_root = Path(project_root).resolve()
         self._config_path = Path(__file__).resolve().parents[0].joinpath(*_CONFIG_RELATIVE)
         self._lock = threading.Lock()
-        self._entries: dict[str, ToolIsolationEntry] = {}  # tool_id → entry
+        self._entries: dict[str, ToolIsolationEntry] = {}
         self._policy_cache: dict[str, Any] | None = None
         self._policy_mtime: float = 0.0
         self._monitor_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._crash_callbacks: list = []
-
-    # ------------------------------------------------------------------
-    # Policy loading
-    # ------------------------------------------------------------------
 
     def _load_policy_config(self) -> dict[str, Any]:
         """Load the isolation policy JSON, with mtime-based caching."""
@@ -286,36 +92,24 @@ class ToolIsolationManager:
             repair_isolation=bool(merged.get("repair_isolation", True)),
         )
 
-    # ------------------------------------------------------------------
-    # Process registration (called after tool spawn)
-    # ------------------------------------------------------------------
-
     def register_tool(
         self,
         tool_id: str,
-        process: subprocess.Popen,
+        process: Any,
         policy: IsolationPolicy | None = None,
         tool_dir: Path | None = None,
     ) -> ToolIsolationEntry:
-        """Register a spawned tool process for isolation management.
-
-        A266: Sets up process tree, window host, runtime generation,
-        data authority, configuration, logs/cache, channel route,
-        and repair isolation.
-        """
+        """Register a spawned tool process for isolation management."""
         if policy is None:
             policy = self.resolve_policy(tool_id)
 
-        # Create Job Object with resource limits.
         job_handle = _create_job_object(
             memory_limit_mb=policy.memory_limit_mb,
             cpu_percent=policy.cpu_percent_limit,
             kill_on_close=policy.kill_on_job_close,
         )
 
-        # Assign the process to the Job Object.
         if job_handle is not None:
-            # Get process handle from Popen.
             proc_handle = _KERNEL32.OpenProcess(
                 _PROCESS_SET_QUOTA | _PROCESS_TERMINATE,
                 False,
@@ -325,7 +119,6 @@ class ToolIsolationManager:
                 _assign_process_to_job(job_handle, proc_handle)
                 _KERNEL32.CloseHandle(proc_handle)
 
-        # A266: Set up isolation roots
         runtime_generation = uuid.uuid4().hex[:12]
         project_root = self.project_root
         if tool_dir is None:
@@ -338,7 +131,6 @@ class ToolIsolationManager:
         channel_id = f"tool-{tool_id}"
         repair_root = str(project_root / "main-system" / "data" / "automatic-repair" / "tools" / tool_id)
 
-        # Create isolation directories
         for path in (data_root, config_root, log_root, cache_root, repair_root):
             Path(path).mkdir(parents=True, exist_ok=True)
 
@@ -359,7 +151,6 @@ class ToolIsolationManager:
         )
 
         with self._lock:
-            # If there's an existing entry, clean up its job handle first.
             old = self._entries.get(tool_id)
             if old and old.job_handle and _KERNEL32:
                 _KERNEL32.CloseHandle(old.job_handle)
@@ -381,345 +172,6 @@ class ToolIsolationManager:
         if entry and entry.job_handle and _KERNEL32:
             _KERNEL32.CloseHandle(entry.job_handle)
 
-    # ------------------------------------------------------------------
-    # Health monitoring
-    # ------------------------------------------------------------------
-
-    def check_tool_health(self, tool_id: str) -> dict[str, Any]:
-        """Check the health of a single tool. Returns a status dict."""
-        with self._lock:
-            entry = self._entries.get(tool_id)
-            limits = (
-                (entry.memory_limit_mb, entry.cpu_percent_limit, entry.restart_count)
-                if entry is not None
-                else None
-            )
-        if entry is None or limits is None:
-            return {"tool_id": tool_id, "status": "not_registered"}
-
-        memory_limit_mb, cpu_limit_percent, restart_count = limits
-        try:
-            proc = psutil.Process(entry.pid)
-            if not proc.is_running():
-                return {
-                    "tool_id": tool_id,
-                    "status": "crashed",
-                    "pid": entry.pid,
-                    "exit_code": entry.process.returncode,
-                    "restart_count": restart_count,
-                }
-            # cpu_percent(interval=None) returns the instantaneous CPU
-            # since the last call without blocking.  This avoids a 100ms
-            # stall per tool that would block the monitor thread and,
-            # if called from the event loop, the IPC channel.
-            cpu = proc.cpu_percent(interval=None)
-            mem_info = proc.memory_info()
-            mem_mb = mem_info.rss / (1024 * 1024)
-            over_memory = memory_limit_mb > 0 and mem_mb > memory_limit_mb
-            over_cpu = cpu_limit_percent > 0 and cpu > cpu_limit_percent * 1.5  # allow brief spikes
-
-            with self._lock:
-                # Only write metrics back if this entry is still the active one.
-                if self._entries.get(tool_id) is entry:
-                    entry.last_health_check = time.monotonic()
-                    entry.last_cpu_percent = cpu
-                    entry.last_memory_mb = mem_mb
-
-            return {
-                "tool_id": tool_id,
-                "status": "healthy" if not (over_memory or over_cpu) else "warning",
-                "pid": entry.pid,
-                "cpu_percent": round(cpu, 1),
-                "memory_mb": round(mem_mb, 1),
-                "memory_limit_mb": memory_limit_mb,
-                "cpu_limit_percent": cpu_limit_percent,
-                "over_memory": over_memory,
-                "over_cpu": over_cpu,
-                "restart_count": restart_count,
-            }
-        except psutil.NoSuchProcess:
-            return {
-                "tool_id": tool_id,
-                "status": "crashed",
-                "pid": entry.pid,
-                "restart_count": restart_count,
-            }
-        except Exception as exc:
-            return {
-                "tool_id": tool_id,
-                "status": "error",
-                "error": str(exc),
-            }
-
-    def check_all_health(self) -> list[dict[str, Any]]:
-        """Check health of all registered tools."""
-        with self._lock:
-            tool_ids = list(self._entries.keys())
-        return [self.check_tool_health(tid) for tid in tool_ids]
-
-    # ------------------------------------------------------------------
-    # Crash containment & restart
-    # ------------------------------------------------------------------
-
-    def register_crash_callback(self, callback) -> None:
-        """Register a callback called when a tool crashes.
-
-        Callback signature: ``callback(tool_id: str, entry: ToolIsolationEntry)``
-        """
-        self._crash_callbacks.append(callback)
-
-    def handle_crash(self, tool_id: str) -> dict[str, Any]:
-        """Handle a tool crash: quarantine, notify, and optionally restart."""
-        with self._lock:
-            entry = self._entries.get(tool_id)
-        if entry is None:
-            return {"tool_id": tool_id, "action": "not_registered"}
-
-        policy = self.resolve_policy(tool_id)
-
-        # Quarantine: record crash info.
-        config = self._load_policy_config()
-        crash_config = config.get("crash_containment", {})
-        if crash_config.get("isolate_on_crash", True):
-            self._quarantine_crash(tool_id, entry)
-
-        # Notify callbacks (outside the lock so callbacks cannot deadlock).
-        for cb in self._crash_callbacks:
-            try:
-                cb(tool_id, entry)
-            except Exception:
-                pass
-
-        # Restart logic — entry mutation is protected by the manager lock.
-        if not policy.restart_on_crash:
-            with self._lock:
-                entry.crashed = True
-            return {"tool_id": tool_id, "action": "quarantined", "restarted": False}
-
-        with self._lock:
-            entry.crashed = True
-            if entry.restart_count >= policy.max_restart_attempts:
-                _logger.warning(
-                    "tool_crash_max_restarts tool_id=%s restarts=%d — giving up",
-                    tool_id, entry.restart_count,
-                )
-                entry.quarantined = True
-                return {
-                    "tool_id": tool_id,
-                    "action": "quarantined",
-                    "restarted": False,
-                    "reason": "max_restarts_exceeded",
-                }
-
-            backoff_idx = min(entry.restart_count, len(policy.restart_backoff_seconds) - 1)
-            delay = policy.restart_backoff_seconds[backoff_idx]
-            entry.restart_count += 1
-            entry.last_restart_time = time.monotonic()
-            attempt = entry.restart_count
-
-        _logger.info(
-            "tool_crash_restart tool_id=%s attempt=%d delay=%ds",
-            tool_id, attempt, delay,
-        )
-        return {
-            "tool_id": tool_id,
-            "action": "restart_scheduled",
-            "restarted": True,
-            "delay_seconds": delay,
-            "attempt": attempt,
-        }
-
-    def _quarantine_crash(self, tool_id: str, entry: ToolIsolationEntry) -> None:
-        """Record crash info in the quarantine directory."""
-        config = self._load_policy_config()
-        crash_config = config.get("crash_containment", {})
-        quarantine_dir = self.project_root / crash_config.get(
-            "quarantine_dir",
-            "main-system/runtime/state/tool-crash-quarantine",
-        )
-        try:
-            quarantine_dir.mkdir(parents=True, exist_ok=True)
-            record = {
-                "tool_id": tool_id,
-                "pid": entry.pid,
-                "restart_count": entry.restart_count,
-                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "exit_code": entry.process.returncode,
-            }
-            path = quarantine_dir / f"{tool_id}-{int(time.time())}.json"
-            path.write_text(
-                json.dumps(record, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
-            )
-            # Prune old entries.
-            max_entries = int(crash_config.get("max_quarantine_entries", 20))
-            entries = sorted(quarantine_dir.glob(f"{tool_id}-*.json"))
-            for old_path in entries[:-max_entries]:
-                old_path.unlink(missing_ok=True)
-        except OSError:
-            pass
-
-    # ------------------------------------------------------------------
-    # Graceful shutdown
-    # ------------------------------------------------------------------
-
-    def shutdown_tool(self, tool_id: str, timeout: float | None = None) -> dict[str, Any]:
-        """Gracefully shut down a tool with signal escalation.
-
-        Signal order: SIGTERM → wait → SIGTERM → wait → SIGKILL.
-        """
-        with self._lock:
-            entry = self._entries.get(tool_id)
-        if entry is None:
-            return {"tool_id": tool_id, "action": "not_registered"}
-
-        policy = self.resolve_policy(tool_id)
-        shutdown_timeout = timeout or policy.graceful_shutdown_timeout_seconds
-
-        # Phase 1: graceful SIGTERM.
-        try:
-            entry.process.terminate()
-        except Exception:
-            pass
-
-        try:
-            entry.process.wait(timeout=shutdown_timeout / 2)
-            self.unregister_tool(tool_id)
-            return {"tool_id": tool_id, "action": "terminated", "method": "SIGTERM"}
-        except subprocess.TimeoutExpired:
-            pass
-
-        # Phase 2: second SIGTERM with shorter timeout.
-        try:
-            entry.process.terminate()
-        except Exception:
-            pass
-        try:
-            entry.process.wait(timeout=shutdown_timeout / 3)
-            self.unregister_tool(tool_id)
-            return {"tool_id": tool_id, "action": "terminated", "method": "SIGTERM_2"}
-        except subprocess.TimeoutExpired:
-            pass
-
-        # Phase 3: SIGKILL.
-        try:
-            entry.process.kill()
-            entry.process.wait(timeout=2.0)
-        except Exception:
-            pass
-        self.unregister_tool(tool_id)
-        return {"tool_id": tool_id, "action": "terminated", "method": "SIGKILL"}
-
-    def shutdown_all(self, timeout: float | None = None) -> list[dict[str, Any]]:
-        """Gracefully shut down all registered tools."""
-        with self._lock:
-            tool_ids = list(self._entries.keys())
-        return [self.shutdown_tool(tid, timeout) for tid in tool_ids]
-
-    # ------------------------------------------------------------------
-    # Health monitoring loop
-    # ------------------------------------------------------------------
-
-    def start_monitor(self, interval: float = 5.0) -> None:
-        """Start a background thread that periodically checks tool health.
-
-        When a tool crash is detected, the crash callback is invoked and
-        a crash event is recorded.  The monitor runs until ``stop_monitor``
-        is called or the process exits.
-        """
-        if self._monitor_thread is not None and self._monitor_thread.is_alive():
-            return
-        self._stop_event.clear()
-        self._monitor_thread = threading.Thread(
-            target=self._monitor_loop,
-            args=(interval,),
-            name="tool-isolation-monitor",
-            daemon=True,
-        )
-        self._monitor_thread.start()
-        _logger.info("tool_isolation_monitor_started interval=%.1fs", interval)
-
-    def stop_monitor(self) -> None:
-        """Stop the health monitoring background thread."""
-        self._stop_event.set()
-        if self._monitor_thread is not None:
-            self._monitor_thread.join(timeout=5.0)
-            self._monitor_thread = None
-
-    def _superseded_by_newer_generation(self) -> bool:
-        """True when this backend generation has been replaced by a newer one.
-
-        During a governed generation handover the successor backend owns the
-        toolbox and force-replaces this generation's tool runtimes.  Every
-        exit this generation observes in that window is a governed
-        replacement, not a crash — recording it would only produce false
-        quarantine entries and spurious restart scheduling.
-        """
-        generation = os.environ.get("GPTBRIDGE_STARTUP_GENERATION", "").strip()
-        if not generation:
-            return False
-        try:
-            state = json.loads(
-                (
-                    self.project_root
-                    / "main-system"
-                    / "runtime"
-                    / "state"
-                    / "boot-core.json"
-                ).read_text(encoding="utf-8")
-            )
-        except (OSError, json.JSONDecodeError):
-            return False
-        active = str(state.get("active_generation") or "").strip()
-        return bool(active) and active != generation
-
-    def _monitor_loop(self, interval: float) -> None:
-        """Background health check loop — detects crashes and notifies."""
-        while not self._stop_event.is_set():
-            try:
-                with self._lock:
-                    tool_ids = list(self._entries.keys())
-                for tid in tool_ids:
-                    if self._stop_event.is_set():
-                        break
-                    # Skip entries already marked as crashed or quarantined
-                    # so the monitor does not repeatedly detect the same
-                    # dead process and spam "giving up" every cycle.
-                    with self._lock:
-                        entry = self._entries.get(tid)
-                    if entry is not None and (entry.crashed or entry.quarantined):
-                        continue
-                    health = self.check_tool_health(tid)
-                    if health.get("status") == "crashed":
-                        if self._superseded_by_newer_generation():
-                            # A newer governed backend generation owns the
-                            # toolbox now; this exit is a replacement, not a
-                            # crash.  Mark it silently so the loop does not
-                            # re-check it every interval.
-                            with self._lock:
-                                replaced = self._entries.get(tid)
-                                if replaced is not None:
-                                    replaced.crashed = True
-                            continue
-                        _logger.warning(
-                            "tool_isolation_crash_detected tool_id=%s pid=%s",
-                            tid, health.get("pid"),
-                        )
-                        self.handle_crash(tid)
-                        # Notify crash event listeners.
-                        for cb in self._crash_callbacks:
-                            try:
-                                cb(tid, self._entries.get(tid))
-                            except Exception:
-                                pass
-            except Exception:
-                pass  # Monitor must never die.
-            self._stop_event.wait(timeout=interval)
-
-    # ------------------------------------------------------------------
-    # Status
-    # ------------------------------------------------------------------
-
     def status(self) -> dict[str, Any]:
         """Return isolation manager status for health checks."""
         with self._lock:
@@ -732,7 +184,6 @@ class ToolIsolationManager:
                 "restart_count": e.restart_count,
                 "crashed": e.crashed,
                 "quarantined": e.quarantined,
-                # A266: Runtime generation isolation
                 "runtime_generation": e.runtime_generation,
                 "data_root": e.data_root,
                 "config_root": e.config_root,
@@ -751,15 +202,8 @@ class ToolIsolationManager:
             ),
         }
 
-    # ------------------------------------------------------------------
-    # A266: Explicit start/stop - no implicit autostart
-    # ------------------------------------------------------------------
-
     def explicit_start(self, tool_id: str) -> dict[str, Any]:
-        """Explicitly start a tool - called only on user request (A266).
-
-        Returns status indicating whether start was initiated.
-        """
+        """Explicitly start a tool - called only on user request (A266)."""
         with self._lock:
             entry = self._entries.get(tool_id)
         if entry is None:
@@ -769,27 +213,15 @@ class ToolIsolationManager:
         return {"tool_id": tool_id, "action": "already_running", "started": True}
 
     def explicit_stop(self, tool_id: str, timeout: float | None = None) -> dict[str, Any]:
-        """Explicitly stop a tool - called only on user request (A266).
-
-        This is the ONLY way to stop a tool - no implicit autostop.
-        """
+        """Explicitly stop a tool - called only on user request (A266)."""
         return self.shutdown_tool(tool_id, timeout)
 
-    # ------------------------------------------------------------------
-    # A266: Repair isolation
-    # ------------------------------------------------------------------
-
     def isolate_repair(self, tool_id: str) -> dict[str, Any]:
-        """Isolate repair for a specific tool (A266 repair isolation).
-
-        Creates a repair scope that doesn't affect other tools.
-        """
+        """Isolate repair for a specific tool (A266 repair isolation)."""
         with self._lock:
             entry = self._entries.get(tool_id)
         if entry is None:
             return {"tool_id": tool_id, "action": "not_registered", "isolated": False}
-
-        # A266: Repair isolation - tool repairs don't affect other tools
         repair_scope = {
             "tool_id": tool_id,
             "repair_root": entry.repair_root,
@@ -813,10 +245,6 @@ class ToolIsolationManager:
             "channel_id": entry.channel_id,
         }
 
-
-# ------------------------------------------------------------------
-# Singleton
-# ------------------------------------------------------------------
 
 _manager: ToolIsolationManager | None = None
 _manager_lock = threading.Lock()
