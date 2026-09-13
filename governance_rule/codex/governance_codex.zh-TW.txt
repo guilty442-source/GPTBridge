@@ -3004,6 +3004,15 @@
         "rule": "CORE-ORDER:correctness-first>Python authoritative implementation>representative reproducible profile>bottleneck confirmed>C++ optimization candidate>API/behavior/performance comparison>independent acceptance>certified promotion; NEW-FEATURE:begins in Python and cannot begin directly in C++; ADMISSION:C++ native path requires measured CPU hotspot or other declared native necessity with workload+environment+profiler+trace+baseline and expected benefit; RECORD:checker must create and preserve one immutable native-promotion-record before native code admission with required fields capability+python_owner+native_owner+reason+baseline+native_result+fallback+api_parity plus record-id+profile-evidence-hash+workload+environment/toolchain+correctness-oracle+performance-threshold+decision+reviewer+release-id+rollback+timestamps+lineage; EXAMPLE:{capability:vector_similarity,python_owner:vector_service.py,native_owner:vector.cpp,reason:cpu_hotspot,baseline:measured,native_result:measured,fallback:available,api_parity:pass}; CHECKER:not merely profile-present; verifies profile authenticity+representative input+confirmed bottleneck+owner uniqueness+A339 call path+A340 boundary tests+result improvement+fallback viability+API parity+record directory identity; FALLBACK:Python remains correctness oracle and tested available fallback unless an explicit successor proves impossibility; PROMOTION:native becomes performance implementation only and does not acquire business semantics/orchestration; REGRESSION:missing/stale/nonrepresentative evidence,parity failure,benefit below threshold or unsupported platform restores Python path and blocks affected release; RETENTION:record+raw evidence+decision+supersession remain content-addressed and auditable for the lifetime of the native owner.",
         "prohibition": "FORBID:new feature directly in C+++C++ because faster assertion+profile-exists-only check+synthetic/nonrepresentative profile+missing Python owner+native promotion without bottleneck proof+business semantics migration+API drift+fallback removal without successor proof+benchmark cherry-picking+record overwrite/deletion+release with missing/stale/failed promotion evidence.",
         "exception": "A capability impossible to implement correctly in Python may enter C++ only through an explicit human-governor successor law containing impossibility proof,interface oracle,fallback/containment plan and all remaining A343 evidence; convenience or anticipated speed is insufficient."
+      },
+      {
+        "position": 344,
+        "provision_id": "A344",
+        "section_index": "16",
+        "subject": "single-c-abi-contract-and-pybind11-purpose-separation-special-law",
+        "rule": "SOLE-NATIVE-CONTRACT:gptbridge_native.h C ABI is the only public/versioned native capability contract for every consumer; PURPOSE-C-ABI:language-neutral ABI identity+function signatures+opaque handles+layout+calling convention+ownership+lifetime+status/error+version negotiation and compatibility; PURPOSE-PYBIND11:Python-only adapter that converts Python objects/exceptions/lifetimes/GIL into calls to the same C ABI and owns no independent native capability API; CANONICAL-FLOW:Python>pybind11 _binding.cpp>gptbridge_native.h C ABI>gptbridge_native.c C thunk>C++ implementation; OTHER-CONSUMER-FLOW:CSharp/other-approved-native-consumer>the same gptbridge_native.h C ABI>C thunk>C++ implementation; CONTRACT-TOPOLOGY:C-ABI-contract has Python/pybind11 and CSharp/other-native-consumer branches and both converge before C++ implementation; API-UNITY:one capability name+version+semantics+status+ownership rule+test vector across all consumers; PYBIND11-SURFACE:may expose Pythonic names/types only as a mechanically traceable projection of one C ABI symbol and cannot add capability absent from C ABI; EVOLUTION:C ABI successor first>all projections regenerate/update atomically>API/ABI/schema/fallback/interop hard gates A340>single release; CHECKER:rejects direct pybind11-to-C+++pybind11-only symbol+consumer-specific semantic drift+duplicate native contract+unmapped wrapper+different lifecycle/error behavior; IMPLEMENTATION:C++ remains hidden implementation and C thunk remains validation/translation only; A339 is superseded wherever it could be read as permitting direct pybind11>C++ invocation.",
+        "prohibition": "FORBID:Python>pybind11>C++ direct path+pybind11 API A beside C ABI API B+public/versioned pybind11-native contract independent of C ABI+consumer-specific native capability+wrapper-only feature+separate semantic/version evolution+direct CSharp>C+++public C++ ABI+duplicate implementation in binding/thunk+promotion or release with contract parity failure.",
+        "exception": "A Python convenience function may compose multiple existing C ABI calls only in ordinary Python application/domain code above the binding boundary; it is not a native contract capability and cannot be implemented as hidden pybind11-only native behavior."
       }
     ],
     "certification_evidence": [
@@ -3759,7 +3768,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H053",
+        "history_head": "H054",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -12001,12 +12010,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A339",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A340",
         "effective_version": "1.00000",
         "status": "active"
@@ -12026,6 +12029,12 @@
       {
         "provision_type": "article",
         "provision_id": "A343",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A344",
         "effective_version": "1.00000",
         "status": "active"
       }
@@ -12086,14 +12095,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H053",
-        "provision_count": 589,
-        "identity_count": 589,
-        "lineage_count": 589,
+        "history_head": "H054",
+        "provision_count": 590,
+        "identity_count": 590,
+        "lineage_count": 590,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "b521283694a04f6264ede90f4437f8eaa9538dd544c377a32f13997bf63a5967",
-        "identity_root": "45702103602bc1b899d25644bca6ebd0f53136e4763f4fa12a7a24d558ee6f5b",
-        "full_root": "8243efb7cf3bf6945c527b9e7ac451a42e17d586ec177e9fd0bab15bf513fa04",
+        "content_root": "31c7408feef2d2efa1bdb642727032066846de88fedee13820254e7800bef7f8",
+        "identity_root": "d002be44c4b3e5371e13956fb8fb2a07b4a3cfa64fe29be553953dbf301a212a",
+        "full_root": "c9944c50476e270a3a920172234acb4df7dcd9f00f766b4e0a3bab1c128bd9e0",
         "legacy_history_head": null
       }
     ],
@@ -17203,7 +17212,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H053"
+        "value": "H054"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17219,7 +17228,7 @@
       },
       {
         "key": "canonical_pybind11_call_path",
-        "value": "Python>pybind11 _binding.cpp>C API>C thunk>C++ core"
+        "value": "Python>pybind11 _binding.cpp>gptbridge_native.h C ABI>gptbridge_native.c C thunk>C++ implementation"
       },
       {
         "key": "cpp_logical_physical_mapping",
@@ -17244,6 +17253,10 @@
       {
         "key": "native_promotion_record_directory",
         "value": "DIR_NATIVE_PROMOTION_RECORD"
+      },
+      {
+        "key": "sole_native_contract",
+        "value": "gptbridge_native.h C ABI;pybind11 is Python adapter only"
       }
     ],
     "module_assignment_registry": [
@@ -22794,6 +22807,13 @@
         "provision_id": "A343",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A344",
+        "provision_type": "article",
+        "provision_id": "A344",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -26919,6 +26939,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A208|A211|A218|A339|A340|A341"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A344",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A211|A215|A221|A339|A340|A341|A343"
       }
     ],
     "provision_lifecycle_status": [
@@ -31493,10 +31520,10 @@
       {
         "provision_type": "article",
         "provision_id": "A339",
-        "lifecycle_state": "active",
+        "lifecycle_state": "superseded",
         "effective_version": "1.00000",
-        "successor_identity": null,
-        "evidence": "H051+explicit-user-command"
+        "successor_identity": "ARTICLE_A344",
+        "evidence": "H054"
       },
       {
         "provision_type": "article",
@@ -31529,6 +31556,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H053+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A344",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H054+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36209,7 +36244,7 @@
         "provision_id": "A339",
         "introduced_by": "H051",
         "supersedes_id": "A214",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "e880fefcde4c2e5ff50d5926631f8080ec686f2a9fa182d6fddb808d033b8d88"
       },
       {
@@ -36243,6 +36278,14 @@
         "supersedes_id": "A218",
         "status": "active",
         "content_hash": "6dc3787698b42753f88563cff1b06714b127363951f4b5e257201bab6e1670c4"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A344",
+        "introduced_by": "H054",
+        "supersedes_id": "A339",
+        "status": "active",
+        "content_hash": "9c8455d65b9a7b5eebd72069b9060ad1e1a15c00b1f24e4802315c7530a6215f"
       }
     ],
     "provision_revisions": [
@@ -46937,6 +46980,15 @@
         "content_hash": "6dc3787698b42753f88563cff1b06714b127363951f4b5e257201bab6e1670c4",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A344",
+        "revision_id": "H054",
+        "version": "1.00000",
+        "content_hash": "9c8455d65b9a7b5eebd72069b9060ad1e1a15c00b1f24e4802315c7530a6215f",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -51729,6 +51781,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A344",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -52314,6 +52376,17 @@
         "previous_hash": "08527b626094b3d3e1e896bdca06a2fc031cbafe7471795dfaa46eb320aabb75",
         "entry_hash": "78ee088c51c69cdeca0eff4f0c143032eefa38e798b0de489593666dc0c66504",
         "version_epoch": 2
+      },
+      {
+        "sequence": 54,
+        "change_id": "H054",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "single-c-abi-contract-and-pybind11-purpose-separation",
+        "summary": "Separated pybind11 binding-adapter duty from the sole C ABI native-contract duty; fixed Python and CSharp/other native consumers on one gptbridge_native.h contract and prohibited independent pybind11 API evolution. A344 supersedes A339. Version remains E2:1.00000.",
+        "previous_hash": "78ee088c51c69cdeca0eff4f0c143032eefa38e798b0de489593666dc0c66504",
+        "entry_hash": "70ef5d581b807019bdb9a808c7b844fc4b2a4b1ed453df0133077728fce9c23b",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -52870,14 +52943,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H053",
-        "provision_count": 589,
-        "identity_count": 589,
-        "lineage_count": 589,
+        "history_head": "H054",
+        "provision_count": 590,
+        "identity_count": 590,
+        "lineage_count": 590,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "b521283694a04f6264ede90f4437f8eaa9538dd544c377a32f13997bf63a5967",
-        "identity_root": "45702103602bc1b899d25644bca6ebd0f53136e4763f4fa12a7a24d558ee6f5b",
-        "full_root": "8243efb7cf3bf6945c527b9e7ac451a42e17d586ec177e9fd0bab15bf513fa04",
+        "content_root": "31c7408feef2d2efa1bdb642727032066846de88fedee13820254e7800bef7f8",
+        "identity_root": "d002be44c4b3e5371e13956fb8fb2a07b4a3cfa64fe29be553953dbf301a212a",
+        "full_root": "c9944c50476e270a3a920172234acb4df7dcd9f00f766b4e0a3bab1c128bd9e0",
         "version_epoch": 2
       }
     ],
@@ -57259,6 +57332,12 @@
       {
         "predecessor_identity": "ARTICLE_A336",
         "successor_identity": "ARTICLE_A337",
+        "effective_version": "1.00000",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "ARTICLE_A339",
+        "successor_identity": "ARTICLE_A344",
         "effective_version": "1.00000",
         "status": "effective"
       }
