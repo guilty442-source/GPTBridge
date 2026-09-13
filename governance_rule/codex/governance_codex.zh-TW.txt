@@ -3454,6 +3454,33 @@
         "rule": "NO-VAGUE-FINDING:every fault,implementation issue and Codex issue is displayed as a concrete individually addressable record;generic labels such as system error,unknown failure,compliance problem or something went wrong cannot be the final finding. IDENTITY:display CODE[FAULT_CODE] or CODE[COMPLIANCE_FINDING_CODE] plus CODE[CANONICAL_CODENAME],human title and classification. DETAIL:the required governed detail schema contains finding_id,incident_id,parent/root_cause_group,classification_code,fault_or_rule_code,canonical_codename,title,summary,full_detail,severity,certainty,status,source_revision,CodeX_generation,affected_module_code,owner_code,exact_file_code,resolved_file_path,repository_root_code,line_start,line_end,symbol_or_entry,artifact_or_process,contract_or_operation,rule/provision references,expected,observed,reproduction_or_detection_steps,root_cause,impact,affected_scope,isolation_state,proposed_action_code,action_detail,risk,rollback_or_fallback,retest_condition,evidence hashes,correlation_id and formal timestamps. FILE-PRECISION:implementation findings must resolve to the narrowest authored source/config/build/migration/test file responsible and include line range plus symbol/entry when parse evidence permits. Multiple responsible files are separate linked targets,not one directory-level accusation. Runtime/generated artifact faults identify the artifact/process and trace to its owning authored file or explicitly state which mapping evidence is missing under CODE[FINDING_INCOMPLETE_EVIDENCE]. Codex issues identify exact provision_id/table/row/field or missing provision slot and the conflicting higher/current rule;CODEX database filename alone is insufficient. DISPLAY:single fault shows one full record;multiple faults show every record separately in deterministic severity,time,code order with total/unresolved counts. Collapsed summaries may accompany but never replace details. Paths are rendered from CODE[DIRECTORY_REFERENCE].field and are derived display values,not new hardcoding. REDACTION:secrets/personal/confidential Codex content is redacted by field policy while preserving code,location class,hash and actionable reason;redaction cannot make the finding vague. VALIDATION:CODE[ROLE_PERMISSION_SOVEREIGN] rejects any audit finding lacking required identity,exact target,expected/observed,evidence or retest fields.",
         "prohibition": "FORBID:vague final error+missing code or codename+directory-only implementation target when file is knowable+missing line/symbol without parser reason+multiple files/faults collapsed into one target+Codex issue without exact provision/table/field+details replaced by summary+unknown used without enumerating missing evidence+hardcoded path instead of directory code+redaction hiding actionable classification+formal validation of incomplete detail.",
         "exception": "When a crash prevents immediate file resolution,the preliminary record may use CODE[FINDING_INCOMPLETE_EVIDENCE] with exact artifact/process,stack/evidence and missing mapping;it must be enriched before repair approval or final classification. Line numbers may be omitted for binary artifacts when symbol/build/source mapping is provided."
+      },
+      {
+        "position": 394,
+        "provision_id": "A394",
+        "section_index": "1",
+        "subject": "code-reference-and-hardcoding-separation-successor",
+        "rule": "SUCCESSOR:A389 is superseded. GENERAL-RULE:operational values are resolved from typed canonical code registries or governed environment bindings and are not duplicated across law or implementation. SEPARATION:this article governs only literal/reference placement;it does not define timestamp representation or version-number semantics. Timestamp fields,format,clock evidence and correction are governed exclusively by A391. Version namespaces,format,authority,evolution and comparison are governed exclusively by A395 together with their cited version provisions. A timestamp value and a version number are distinct typed identities and neither may substitute for,derive from,or encode the other. DEFINITION:authoritative registry declarations,legal schema definitions,code identities and immutable evidence values are canonical definitions rather than duplicated operational hardcoding;their consumers still reference registered identities. CHECKING:a finding must name the literal,its semantic class,the expected registry/environment/timestamp/version authority and the exact file or Codex field.",
+        "prohibition": "FORBID:combining timestamp-format and version-format into one rule+timestamp used as version+version used as time+duplicated operational literal+checker treating canonical registry definition as consumer hardcoding+checker inventing exemptions+copying historical literal into a new operational consumer.",
+        "exception": "Test fixtures may use registered synthetic fixture data. Third-party/generated artifacts remain classified evidence and cannot become configuration authority."
+      },
+      {
+        "position": 395,
+        "provision_id": "A395",
+        "section_index": "1",
+        "subject": "canonical-version-number-contract",
+        "rule": "VERSION-ONLY:this article governs version numbers and never timestamp fields or clock evidence. NAMESPACES:Codex version,application version,tool version,release identity,contract version,schema version,ABI version,governance-schema version and runtime generation are typed non-interchangeable identities with one registered authority each. CODEX-FORMAT:the current Epoch 2 Codex version is the exact five-fractional-digit decimal identity 1.00000 until an explicit user amendment authorizes natural evolution;revision history may advance while this version remains unchanged. EVOLUTION:version changes follow the registered version-evolution policy and immutable successor history;automatic repair,automatic update,models,checkers and runtime processes cannot infer,bump,normalize,downgrade or rewrite a version. COMPARISON:compare only within the same namespace using its registered parser and authority;floating-point arithmetic,filesystem time,Git time,build time and event timestamps are never version authority. DISPLAY:a timestamp may accompany a version record only as separate metadata and cannot be embedded into or parsed as the version number.",
+        "prohibition": "FORBID:timestamp-derived version+version-derived timestamp+date-version substitution+cross-namespace comparison+floating-point version arithmetic+automatic bump/reset/downgrade+filename/path/mtime/Git/package/cache as version authority+silent normalization+combining version and timestamp fields.",
+        "exception": "A legacy externally defined semantic version may retain its native registered syntax inside its own namespace;it cannot redefine the Codex version format or be compared across namespaces."
+      },
+      {
+        "position": 396,
+        "provision_id": "A396",
+        "section_index": "23",
+        "subject": "automatic-repair-and-update-command-code-registration",
+        "rule": "REGISTRATION:automatic repair and automatic update use only the registered command codes XINGCHENG_SET_REPAIR_RELEASE,XINGCHENG_SET_UPDATE_RELEASE,SYNC_EXECUTE_APPROVED_AUTOMATIC_REPAIR and SYNC_EXECUTE_APPROVED_AUTOMATIC_UPDATE. CONTROL:the first two commands record the user's independent auxiliary-system switch choice and never execute mutation. EXECUTION:the latter two accept only a current one-time user confirmation bound to action identity,target,scope,method,risk,evidence digest,expiry and rollback/fallback under A366 and A380;dispatch remains through the governed synchronization execution chain. DISABLED/MISSING:disabled switch,missing confirmation,expired confirmation,identity mismatch or unregistered command fails closed without suppressing detection,diagnosis or isolated reporting. EVIDENCE:every request/result records command code,request identity,user actor,decision,correlation,formal timestamp and affected target;retry follows the command directory idempotency contract and cannot broaden scope.",
+        "prohibition": "FORBID:unregistered repair/update command+one command controlling both switches+switch command executing mutation+execution command without one-time user confirmation+model/system toggling user switch+alias bypass+confirmation reuse+scope expansion+command directory inventing implementation behavior.",
+        "exception": "A user may issue a separate explicit one-time manual repair or update command under the existing user-command exception;it does not enable either automatic switch or create standing authority."
       }
     ],
     "certification_evidence": [
@@ -6504,6 +6531,70 @@
         "idempotency_policy": "idempotent",
         "timeout_policy": "default",
         "introduced_version": "3.71600",
+        "retired_version": null
+      },
+      {
+        "command_code": "XINGCHENG_SET_REPAIR_RELEASE",
+        "canonical_command_id": "xingcheng-set-repair-release",
+        "canonical_name": "xingcheng-set-repair-release",
+        "owner": "permission-sovereign",
+        "domain": "xingcheng-auxiliary",
+        "action": "set-user-switch",
+        "target": "automatic-repair-release",
+        "input_contract": "xingcheng-set-repair-release-request-v1",
+        "output_contract": "xingcheng-set-repair-release-result-v1",
+        "permission_action": "set-user-switch:automatic-repair-release",
+        "idempotency_policy": "idempotent-by-user-choice-revision",
+        "timeout_policy": "interactive-decision",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "command_code": "XINGCHENG_SET_UPDATE_RELEASE",
+        "canonical_command_id": "xingcheng-set-update-release",
+        "canonical_name": "xingcheng-set-update-release",
+        "owner": "permission-sovereign",
+        "domain": "xingcheng-auxiliary",
+        "action": "set-user-switch",
+        "target": "automatic-update-release",
+        "input_contract": "xingcheng-set-update-release-request-v1",
+        "output_contract": "xingcheng-set-update-release-result-v1",
+        "permission_action": "set-user-switch:automatic-update-release",
+        "idempotency_policy": "idempotent-by-user-choice-revision",
+        "timeout_policy": "interactive-decision",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "command_code": "SYNC_EXECUTE_APPROVED_AUTOMATIC_REPAIR",
+        "canonical_command_id": "sync-execute-approved-automatic-repair",
+        "canonical_name": "sync-execute-approved-automatic-repair",
+        "owner": "permission-sovereign",
+        "domain": "synchronization",
+        "action": "execute-approved-action",
+        "target": "automatic-repair",
+        "input_contract": "sync-execute-approved-automatic-repair-request-v1",
+        "output_contract": "sync-execute-approved-automatic-repair-result-v1",
+        "permission_action": "execute-approved-action:automatic-repair",
+        "idempotency_policy": "idempotent-by-action-and-confirmation",
+        "timeout_policy": "bounded-by-approved-action",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "command_code": "SYNC_EXECUTE_APPROVED_AUTOMATIC_UPDATE",
+        "canonical_command_id": "sync-execute-approved-automatic-update",
+        "canonical_name": "sync-execute-approved-automatic-update",
+        "owner": "permission-sovereign",
+        "domain": "synchronization",
+        "action": "execute-approved-action",
+        "target": "automatic-update",
+        "input_contract": "sync-execute-approved-automatic-update-request-v1",
+        "output_contract": "sync-execute-approved-automatic-update-result-v1",
+        "permission_action": "execute-approved-action:automatic-update",
+        "idempotency_policy": "idempotent-by-action-and-confirmation",
+        "timeout_policy": "bounded-by-approved-action",
+        "introduced_version": "1.00000",
         "retired_version": null
       }
     ],
@@ -13279,12 +13370,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A389",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A390",
         "effective_version": "1.00000",
         "status": "active"
@@ -13304,6 +13389,24 @@
       {
         "provision_type": "article",
         "provision_id": "A393",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A394",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A395",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A396",
         "effective_version": "1.00000",
         "status": "active"
       }
@@ -24883,6 +24986,27 @@
         "provision_id": "A393",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A394",
+        "provision_type": "article",
+        "provision_id": "A394",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A395",
+        "provision_type": "article",
+        "provision_id": "A395",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A396",
+        "provision_type": "article",
+        "provision_id": "A396",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -29358,6 +29482,27 @@
         "tier": "special-law",
         "law_code": "CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
         "authority_basis": "A223|A274|A295|A366|A378|A386|A387|A390|A392"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A394",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A182|A274|A387|A388|A389|A391|A395"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A395",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A100|A181|A182|A274|A391|A394"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A396",
+        "tier": "special-law",
+        "law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "authority_basis": "A247|A258|A261|A314|A366|A380|A394"
       }
     ],
     "provision_lifecycle_status": [
@@ -34332,10 +34477,10 @@
       {
         "provision_type": "article",
         "provision_id": "A389",
-        "lifecycle_state": "active",
+        "lifecycle_state": "superseded",
         "effective_version": "1.00000",
-        "successor_identity": null,
-        "evidence": "H088+explicit-user-command"
+        "successor_identity": "ARTICLE_A394",
+        "evidence": "H090+separation-successor"
       },
       {
         "provision_type": "article",
@@ -34368,6 +34513,30 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H089+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A394",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H090+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A395",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H090+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A396",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H090+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -39448,7 +39617,7 @@
         "provision_id": "A389",
         "introduced_by": "H088",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "bde78afe78132c0e637f2f69022c4dd947c4d284bcb6ae78c780866afabf4c46"
       },
       {
@@ -39482,6 +39651,30 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "0f998c4b43453dd7e17487468018316467d22dfdb0b8dc055a0abb7985ff4fdf"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A394",
+        "introduced_by": "H090",
+        "supersedes_id": "A389",
+        "status": "active",
+        "content_hash": "06319dc022b5a5e70b9d614565baf9308b287244ae9d877d3ab72ea5805349fb"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A395",
+        "introduced_by": "H090",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "650f448b103d39884e94b880816a1d76b62082fe5a807a00f9febab1d949be07"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A396",
+        "introduced_by": "H090",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "13b794aa66088cf1084004ece684f1832d81bed93ee9be311e76f7b14f7e1766"
       }
     ],
     "provision_revisions": [
@@ -50626,6 +50819,33 @@
         "content_hash": "0f998c4b43453dd7e17487468018316467d22dfdb0b8dc055a0abb7985ff4fdf",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A394",
+        "revision_id": "H090",
+        "version": "1.00000",
+        "content_hash": "06319dc022b5a5e70b9d614565baf9308b287244ae9d877d3ab72ea5805349fb",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A395",
+        "revision_id": "H090",
+        "version": "1.00000",
+        "content_hash": "650f448b103d39884e94b880816a1d76b62082fe5a807a00f9febab1d949be07",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A396",
+        "revision_id": "H090",
+        "version": "1.00000",
+        "content_hash": "13b794aa66088cf1084004ece684f1832d81bed93ee9be311e76f7b14f7e1766",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -55918,6 +56138,36 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A394",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A395",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A396",
+        "controlling_law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -56899,6 +57149,17 @@
         "previous_hash": "83768b8e615196170d8e19076b7a5aff31cc498d9c65eb251d7463e26164f750",
         "entry_hash": "90bbd0cd52ddd024e315fece97827a9aaec5fa516e8c497503b8061805078986",
         "version_epoch": 2
+      },
+      {
+        "sequence": 90,
+        "change_id": "H090",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "timestamp-version-separation-and-automatic-action-command-registration",
+        "summary": "Separated timestamp and version-number governance into independent provisions, superseded the combined hardcoding rule, and registered user-switch plus approved automatic repair/update execution commands. Version remains E2:1.00000.",
+        "previous_hash": "90bbd0cd52ddd024e315fece97827a9aaec5fa516e8c497503b8061805078986",
+        "entry_hash": "13bf0516c004057fe2e723ad82aebe62010512efcd3552f85b4fae89ef2eded6",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -57455,14 +57716,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H089",
-        "provision_count": 639,
-        "identity_count": 639,
-        "lineage_count": 639,
+        "history_head": "H090",
+        "provision_count": 642,
+        "identity_count": 642,
+        "lineage_count": 642,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "905ada951acf7f76c870db7049eb9d8d5c5f5c6db764b178e8b8ac2a1e7fd85b",
-        "identity_root": "b5d302e6f92617472a7eca6cb51a038bb699498571cc002d35a62e2e79b28f8b",
-        "full_root": "fefa0a14ae77f6d27527b7c8b0d02d56bf034ebffd6268adcd8d3cbbf3530a45",
+        "content_root": "22917a51fedbf41cc69b851764b3192f8662693189a48f0193720ddeb6406fd9",
+        "identity_root": "eb7eaa9a7e7612221da144859807cdeddceb2fd7223cc5acc9ff61427cbc74ae",
+        "full_root": "799ef8b2f27ea21494cc45ca0bee257b32c00443876aa76cba58276adcf84d65",
         "version_epoch": 2
       }
     ],
