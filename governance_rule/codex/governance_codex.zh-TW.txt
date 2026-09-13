@@ -3094,6 +3094,51 @@
         "rule": "CHECKER-SCOPE:not import-only and not text-search-only; MINIMUM-EVIDENCE-CLASSES:{Python=>import+from-import resolved by Python AST/module resolution}|{TypeScript=>static import+export-from+require where permitted+dynamic import resolved by TypeScript compiler/module resolution}|{C/C++=>preprocessor include+generated include+compile_commands/CMake include path+link target+symbol dependency}|{CSharp=>using+namespace/type resolution+ProjectReference+PackageReference+assembly/PInvoke reference resolved by Roslyn/MSBuild}|{Build=>CMake target/source/include/link/add_subdirectory+csproj project/compile/reference/native items+tsconfig extends/references/paths/files/include/exclude and effective configuration}; GRAPH:normalize each source,target,resolved canonical path,edge kind,condition,toolchain/configuration/platform and provenance into one typed dependency graph; CONDITIONAL:an inactive platform/configuration edge remains recorded and is tested in its applicable matrix rather than ignored; GENERATED:generated dependency edges trace to generator+input+output identity; API-IPC:A205 canonical information layer compliance requires positive structural proof,not keyword occurrence:registered endpoint/route+typed versioned contract+authorized producer/consumer+gateway/information-layer adapter identity+session/generation fencing+event/command correlation+schema hash+test evidence and absence of direct transport/database/file-drop/private-bus path; TRACE:checker follows caller>adapter>route registry>information-layer handler>authorized target and fails on unresolved or bypassed hop; TEXT-SEARCH:may discover candidates only and can never establish PASS or FAIL without parser/resolver/registry evidence; RESULT:each edge reports evidence class+resolver+source location+resolved target+contract/route id+A205 status+rule and confidence; UNRESOLVED:mandatory edge or API/IPC route that cannot be resolved is FAIL,not ignored; CACHE:keyed by source+toolchain+build config+contract registry+path map hashes and invalidated on any change; RELEASE:A340+A348 require all applicable configurations and A352 forbidden edges remain hard FAIL.",
         "prohibition": "FORBID:import-only scan+regex/text-search as final verdict+ignoring dynamic import/include/project/build reference+unresolved alias as absent edge+single build configuration proof+API/IPC accepted because a string mentions information layer+A205 route without registration/contract/authorization/session evidence+direct socket/database/file-drop/private bus hidden behind adapter+stale dependency cache+generated edge without provenance.",
         "exception": "A text-only prefilter may reduce parser workload, but every reported or cleared boundary must be confirmed by the authoritative language/build resolver and A205 registry evidence before a gate verdict."
+      },
+      {
+        "position": 354,
+        "provision_id": "A354",
+        "section_index": "16",
+        "subject": "typescript-governance-checker-structure-and-dependency-dag-evidence-special-law",
+        "rule": "ROOT:governance checker TypeScript subtree uses code/; STRUCTURE:code/checkers/LanguageBoundaryChecker.ts+code/checkers/DependencyDagChecker.ts;code/policy/LanguagePolicy.ts+code/policy/DependencyPolicy.ts;code/registry/GovernanceCheckerRegistry.ts; DIRECTORY-EXCEPTION:A347 TypeScript directory allowlist is extended only for this registered governance checker subtree with policy and registry roles below; CHECKERS:LanguageBoundaryChecker performs A348 language/origin/owner/directory/ABI/API/size gate and DependencyDagChecker performs A353 resolved edge graph+DAG+cycle verification; POLICY:LanguagePolicy and DependencyPolicy contain immutable declarative data only,no scanning/resolution/filesystem/network/process/evidence/verdict/repair side effects; REGISTRY:GovernanceCheckerRegistry registers exact checker id+policy id+trigger+input/output schema+rule set+version and performs no scan,decision or repair; DEPENDENCY-POLICY-DAG:{python=>sql|native|csharp_adapter}+{typescript=>information_layer}+{c=>cpp}+{binding=>parser|vector|token|transform|memory}+{parser=>token|memory}+{vector=>memory}+{token=>memory}+{transform=>memory}+{memory=>none}; CANONICAL-QUALIFICATION:python>native expands to A344 pybind11>C-ABI>C-thunk>C++ and typescript>information_layer expands to A205 canonical contract>Python; graph uses canonical node/edge ids and denies every undeclared edge; CYCLE:any directed cycle is FAIL even when each edge appears locally allowed; DIAGNOSTIC:never only FAIL dependency violation; output FAIL plus source:<canonical path>,target:<canonical path>,edge:<source-role>-><target-role>,rule:<exact ids>,reason:<typed human-readable boundary>,expected:<canonical path>; example TypeScript direct Python uses edge=typescript->python-direct,rule=A205/A264,expected=typescript->information-layer->python; READONLY-V1:scan+resolve+classify+compare+evidence+PASS/WARN/FAIL only; decision remains existing governance chain.",
+        "prohibition": "FORBID:checker automatic import/include/build/path rewrite+file move+automatic CMake/csproj/tsconfig mutation+checker-created exception/allowlist+policy executable scan logic+registry authority+generic dependency failure without exact source,target,edge,rule,reason,expected+cycle accepted because component edges are locally allowed+undeclared DAG edge+text-only dependency proof.",
+        "exception": "None for mutation or exception creation. Owner-neutral remediation context may name the expected edge but cannot contain or execute a patch."
+      },
+      {
+        "position": 355,
+        "provision_id": "A355",
+        "section_index": "16",
+        "subject": "contract-parity-gate",
+        "rule": "GATE:CONTRACT PARITY GATE verifies TypeScript<->Python,Python<->Native,C ABI<->C++ implementation and Python/C ABI<->CSharp WindowsAdapter; STRUCTURE:add code/checkers/ContractParityChecker.ts+code/policy/ContractPolicy.ts and register in GovernanceCheckerRegistry; ContractPolicy is immutable data only:canonical contract source+supported major/minor range+required envelope fields+compatibility rules+native parity rules+error taxonomy; checker verifies only and never mutates. TS-PYTHON:operation-id exact; request/response field name,type,required,nullable; error taxonomy; negotiable contract major/minor; unknown-field policy; timeout/deadline semantics; request-id+correlation-id preservation; idempotency; A200 sequence; semantic aliases or optional/required drift FAIL. PYTHON-NATIVE:signature+validation+return type+error class+edge cases+timeout+cancellation+idempotency+fallback presence; semantic result parity,not bit identity,and declared numeric tolerance allowed. C-ABI:header symbol=exported symbol=implemented C++ target; verify ABI version+struct size/layout+field signedness/width+calling convention+visibility+status codes+buffer ownership. CSHARP:method/type/error mapping+lifetime+handle ownership+encoding+timeout+UTF8/UTF16+IntPtr/SafeHandle+32/64-bit width. OUTPUT:CONTRACT PARITY GATE+PASS|WARN|FAIL+boundary+operation+field/symbol+both-side declarations+rule+reason+expected; no generic failure.",
+        "prohibition": "FORBID:text-only parity+compile-success-as-parity+lost request/correlation id+breaking change without major bump+missing fallback+unbounded float tolerance+header/export/implementation drift+C++ type exposure+unsafe handle lifetime+checker repair or exception creation.",
+        "exception": "Minor additive optional field may PASS only when both sides share unknown-field policy and supported version negotiation proves compatibility."
+      },
+      {
+        "position": 356,
+        "provision_id": "A356",
+        "section_index": "16",
+        "subject": "unique-capability-registry-and-ownership-role-model",
+        "rule": "REGISTRY:code/registry/CapabilityRegistry.ts is the single explicit capability authority and contains governance data only; add code/checkers/OwnershipUniquenessChecker.ts+code/policy/OwnershipPolicy.ts; each capability has exactly one owner plus zero-or-more executors,adapters,callers and at most one declared fallback role; ROLE:owner=unique semantic/canonical responsibility;executor=actual implementation including optimized;adapter=cross-language/platform translation;fallback=equivalent degraded implementation;caller=consumer; OWNER-NOT-EXECUTOR. BASELINE:{system.orchestration=>python}|{domain.business=>python}|{rag.orchestration=>python}|{ui.rendering=>typescript}|{ui.client_state=>typescript}|{native.abi=>c}|{native.vector=>cpp}|{native.parser=>cpp}|{native.transform=>cpp}|{windows.dotnet=>csharp}|{data.relational_query=>sql}; CAPABILITY-INSTANCE vector.similarity={semantic_owner:python,optimized_executor:cpp,fallback_executor:python,contract_owner:Python API,adapters:c+pybind11}; Windows CLR={owner:csharp,executor:csharp,adapter:C ABI/information-layer,caller:python}; relational filtering={owner:sql,caller:python}; A219 Python fallback is not duplicate ownership. CHECKER:registry is primary truth; directory ownership+exports+class/function symbols+operation IDs+contract registration+native capability IDs+dependencies+registered adapters+explicit metadata are corroborating evidence,never filename-only guessing; clear duplicate owner=FAIL; unresolved evidence=WARN and checker cannot select owner or edit registry. OUTPUT:capability+canonical_owner+duplicate_candidate+language+rule+reason+expected or PASS role map+parity.",
+        "prohibition": "FORBID:multiple canonical owners+executor treated as owner+fallback treated as duplicate+filename-only verdict+TypeScript/CSharp duplicate Python domain policy+checker assigning owner+automatic registry edit/delete/move+ambiguous case forced to FAIL without explicit rule evidence.",
+        "exception": "Python semantic fallback beside a C++ optimized executor is valid only with A357 promotion and A355 parity evidence."
+      },
+      {
+        "position": 357,
+        "provision_id": "A357",
+        "section_index": "16",
+        "subject": "native-promotion-gate",
+        "rule": "QUESTION:does an existing Python-owned capability have sufficient evidence to add a C++ optimized executor,not can new code be written in C++; FLOW:Python implementation>reproducible profiling>no bottleneck keeps Python|confirmed CPU/latency/memory bottleneck>C++ optimized executor>A355 contract parity>performance benchmark>resource budget>fallback/failure tests>NATIVE PROMOTION GATE; VERDICT:PASS enables certified production path,WARN experimental only and unreachable from production,FAIL prohibits production. PASS-REQUIREMENTS:unique canonical owner+Python path exists+reproducible bottleneck profile+C++ executor exists+only A344 pybind11/C ABI boundary+API parity+semantic correctness+capability-specific meaningful benefit+memory budget+deadline preserved+cancellation parity+Python fallback on native unavailable+no uncommitted side effect before fallback+circuit breaker prevents retry storm+.pyd/native environment compatibility+unit/parity/integration pass; RECORD:A343 native-promotion record captures every item,benchmarks,budgets,artifacts and verdict; NEW-FEATURE:direct C++ remains forbidden; FAILURE:isolate native,open circuit,discard/rollback uncommitted effects,continue Python fallback with same request/idempotency identity.",
+        "prohibition": "FORBID:production on WARN/FAIL+global fixed speed multiplier+promotion because C++ may be faster+missing Python implementation/profile/parity/fallback+side effect before safe fallback+retry storm+memory/deadline/cancellation regression+incompatible native artifact+benchmark without representative workload+new feature directly in C++.",
+        "exception": "None except an explicit human-governor successor with impossibility proof under A343."
+      },
+      {
+        "position": 358,
+        "provision_id": "A358",
+        "section_index": "16",
+        "subject": "native-promotion-budget-benchmark-evidence-and-lifecycle",
+        "rule": "POLICY:code/policy/NativePromotionPolicy.ts is immutable data only and stores per-capability latency_budget+cpu_budget+memory_budget+throughput_target+minimum_meaningful_improvement; no global 2x or shared multiplier. RECORD-REQUIRED:capability_id+benchmark_id+dataset_id+python_revision+native_revision+machine_profile+input_size+warmup_count+sample_count+python_metrics+native_metrics+resource_budget+parity_result+fallback_result+record_timestamp; MACHINE-PROFILE:CPU/GPU/memory/OS/toolchain/power/thermal/runtime identity required for reproduction. COMPARABILITY:same input+semantic scope+warmup+iteration+correctness verification; otherwise FAIL benchmark_not_comparable; measure end-to-end Python call>conversion>pybind11>C ABI>C++>result conversion>Python return,not compute-only. COPY-METRICS:input_bytes+output_bytes+copy_count+allocation_count+peak_native_memory; excessive boundary copy=WARN unless it violates budget,then FAIL. GIL:long-running CPU call+no Python object access+GIL retained=>WARN with evidence; release is not universally required. FALLBACK-INJECTION:native load failure+ABI incompatible+capability unavailable+initialization failure+circuit breaker open must preserve Python API+semantic contract+controlled fallback/error+zero duplicate side effect. STRUCTURE:add code/checkers/NativePromotionChecker.ts+code/policy/NativePromotionPolicy.ts+code/registry/NativePromotionRegistry.ts+code/evidence/native-promotion/; registry data fields capability+owner+native_executor+profile_evidence+benchmark_evidence+parity_evidence+fallback_evidence+status and no implementation logic. STATES:PYTHON_ONLY>EXPERIMENTAL_NATIVE only after profile bottleneck; EXPERIMENTAL_NATIVE>APPROVED_NATIVE only after parity+benchmark+budget+fallback all pass; regression causes APPROVED_NATIVE>SUSPENDED_NATIVE>Python fallback; no automatic C++ deletion. CHECKER:read-only evidence+verdict only.",
+        "prohibition": "FORBID:fixed universal speedup ratio+compute-only timing+different input/scope/cache/warmup/iterations+missing machine profile+ignored conversion/copy/allocation cost+automatic GIL rule+fallback tested only by missing .pyd+APPROVED without all gates+production EXPERIMENTAL+deleting suspended native code+checker mutation.",
+        "exception": "None for benchmark comparability or production approval; capability-specific budgets may differ only through registered evidence and owner-approved policy data."
       }
     ],
     "certification_evidence": [
@@ -3849,7 +3894,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H062",
+        "history_head": "H064",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -6588,6 +6633,15 @@
         "release_gate": "deny-native-admission-and-affected-release-on-gap",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "capability_registry_directory",
+        "required_scope": "every governed capability,executor,adapter,caller and fallback",
+        "completion_rule": "zero unregistered capability and exactly one canonical owner per capability",
+        "acceptance_evidence": "inventory diff+static evidence+contract parity+duplicate-owner failure injection",
+        "release_gate": "deny affected integration/release on gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_format_contract": [
@@ -7066,6 +7120,20 @@
         "owner": "permission-sovereign",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_CAPABILITY_REGISTRY",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "capability_id|canonical_owner|contract_owner|executors|adapters|callers|fallback|parity_state|evidence|lineage",
+        "required_field_order": "common-envelope>capability>owner>roles>contracts>parity>evidence>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "envelope>schema>unique-owner>roles>relationships>evidence>hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -7510,6 +7578,19 @@
         "implementation_state": "mandated-pending-implementation",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_CAPABILITY_REGISTRY",
+        "canonical_name": "capability-registry-directory",
+        "owner": "permission-sovereign",
+        "scope": "all governed capabilities and language/platform roles",
+        "authority_kind": "single-capability-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|capability_id|canonical_owner|contract_owner|executors|adapters|callers|fallback|parity_state|evidence|lineage",
+        "relationships": "module-assignment|contract|native-promotion|language-owner",
+        "coverage_rule": "every implemented capability resolves to exactly one record",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_normalization_plan": [
@@ -7757,6 +7838,17 @@
       },
       {
         "directory_code": "DIR_NATIVE_PROMOTION_RECORD",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-until-zero-gap-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_code": "DIR_CAPABILITY_REGISTRY",
         "target_format_version": "directory-format-v1",
         "common_envelope_status": "required",
         "typed_domain_status": "required",
@@ -12166,6 +12258,36 @@
         "provision_id": "A353",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A354",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A355",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A356",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A357",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A358",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12224,14 +12346,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H062",
-        "provision_count": 599,
-        "identity_count": 599,
-        "lineage_count": 599,
+        "history_head": "H064",
+        "provision_count": 604,
+        "identity_count": 604,
+        "lineage_count": 604,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "9f78b2faf01153588301c06d2e3ec2dc46525b861dffe49bd591fe18bd72e049",
-        "identity_root": "45d3da6e8011282ca0f3f4b87a68ef7ceac36d98ce1ebbbb78aed05cb0ce4d23",
-        "full_root": "f04c32acd0e5271349645cfece2e4f1c897282d513c5c3f08dbd1abf31457991",
+        "content_root": "8150424f06b86b75daef1aa24ed7ab563fab29744135778e8815238afd0acf56",
+        "identity_root": "d1d46c943ee8438cbe858b8763c6fb0e7756775b66918dc08470818c2f7244ed",
+        "full_root": "3401d64a87158d222eb4888aa556d5d52880fe46aa905285d4e65297324f26ff",
         "legacy_history_head": null
       }
     ],
@@ -16275,6 +16397,23 @@
         "previous_state": "declared",
         "verification_owner": "星澄",
         "escalation_rule": "at due-at set escalated and block native admission plus affected verified release"
+      },
+      {
+        "obligation_code": "OBL_LANGUAGE_DEPENDENCY_DAG_GATE",
+        "declaration_provision": "A354",
+        "implementation_owner": "module-execution-layer",
+        "target_state": "registered read-only TypeScript language and dependency DAG checkers with exact evidence and mandatory cycle tests",
+        "current_state": "mandated",
+        "deadline_rule": "complete before 2026-10-12T15:59:59Z and before next affected verified release, whichever occurs first",
+        "acceptance_evidence": "TF_LANGUAGE_DEPENDENCY_DAG_GATE+all required PASS/FAIL cases+zero-mutation proof+integration/release gate evidence",
+        "noncompliance_effect": "affected integration and verified release blocked",
+        "waiver_rule": "explicit human-governor successor law only",
+        "introduced_version": "1.00000",
+        "created_at_utc": "2026-09-13T00:00:00Z",
+        "due_at_utc": "2026-10-12T15:59:59Z",
+        "previous_state": "declared",
+        "verification_owner": "星澄",
+        "escalation_rule": "at due-at set escalated and block affected integration plus verified release"
       }
     ],
     "law_structure_directory": [
@@ -17341,7 +17480,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H062"
+        "value": "H064"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17438,6 +17577,34 @@
       {
         "key": "api_ipc_information_layer_proof",
         "value": "A205-positive-route-contract-registry-proof;no-text-only-pass"
+      },
+      {
+        "key": "governance_checker_structure",
+        "value": "code/checkers|code/policy|code/registry;A354"
+      },
+      {
+        "key": "dependency_policy_role",
+        "value": "immutable-DAG-data-only"
+      },
+      {
+        "key": "dependency_diagnostic_fields",
+        "value": "source|target|edge|rule|reason|expected"
+      },
+      {
+        "key": "contract_parity_gate",
+        "value": "A355"
+      },
+      {
+        "key": "capability_registry",
+        "value": "DIR_CAPABILITY_REGISTRY+A356"
+      },
+      {
+        "key": "native_promotion_gate",
+        "value": "A357|A358;capability-specific-budgets"
+      },
+      {
+        "key": "native_promotion_states",
+        "value": "PYTHON_ONLY|EXPERIMENTAL_NATIVE|APPROVED_NATIVE|SUSPENDED_NATIVE"
       }
     ],
     "module_assignment_registry": [
@@ -23058,6 +23225,41 @@
         "provision_id": "A353",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A354",
+        "provision_type": "article",
+        "provision_id": "A354",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A355",
+        "provision_type": "article",
+        "provision_id": "A355",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A356",
+        "provision_type": "article",
+        "provision_id": "A356",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A357",
+        "provision_type": "article",
+        "provision_id": "A357",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A358",
+        "provision_type": "article",
+        "provision_id": "A358",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -27253,6 +27455,41 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A205|A208|A340|A348|A350|A351|A352"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A354",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A205|A264|A346|A348|A352|A353"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A355",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A205|A211|A218|A219|A220|A264|A340|A343|A344|A354"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A356",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A205|A211|A218|A219|A220|A264|A340|A343|A344|A354"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A357",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A205|A211|A218|A219|A220|A264|A340|A343|A344|A354"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A358",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A205|A211|A218|A219|A220|A264|A340|A343|A344|A354"
       }
     ],
     "provision_lifecycle_status": [
@@ -31943,6 +32180,46 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H062+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A354",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H063+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A355",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H064+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A356",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H064+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A357",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H064+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A358",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H064+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36737,6 +37014,46 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "530e58c15a12607f3018182cb4e28fcf6b583bac74ac1cc7f481995d8733e7fd"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A354",
+        "introduced_by": "H063",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "85ebb91b34b66a6e99a1389156b547bdcbfc7dc7682e9b1adcba308c7810fcf0"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A355",
+        "introduced_by": "H064",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "b026b814d8a31637488e5bc5d788165095f2fe68427a535f3212978e1c529bab"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A356",
+        "introduced_by": "H064",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "c906104f2253451082671ccf855d8431b42cb6982bbd02f5af45978e46837521"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A357",
+        "introduced_by": "H064",
+        "supersedes_id": "A343",
+        "status": "active",
+        "content_hash": "9174c496efa990b8aa63e44eeff2abc297b4931fda202f8f6753c31812e44b83"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A358",
+        "introduced_by": "H064",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "a80a60ec900fba89021d6e688d16d881bc4c82f11b1f3441a6dd5b918de726fb"
       }
     ],
     "provision_revisions": [
@@ -47521,6 +47838,51 @@
         "content_hash": "530e58c15a12607f3018182cb4e28fcf6b583bac74ac1cc7f481995d8733e7fd",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A354",
+        "revision_id": "H063",
+        "version": "1.00000",
+        "content_hash": "85ebb91b34b66a6e99a1389156b547bdcbfc7dc7682e9b1adcba308c7810fcf0",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A355",
+        "revision_id": "H064",
+        "version": "1.00000",
+        "content_hash": "b026b814d8a31637488e5bc5d788165095f2fe68427a535f3212978e1c529bab",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A356",
+        "revision_id": "H064",
+        "version": "1.00000",
+        "content_hash": "c906104f2253451082671ccf855d8431b42cb6982bbd02f5af45978e46837521",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A357",
+        "revision_id": "H064",
+        "version": "1.00000",
+        "content_hash": "9174c496efa990b8aa63e44eeff2abc297b4931fda202f8f6753c31812e44b83",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A358",
+        "revision_id": "H064",
+        "version": "1.00000",
+        "content_hash": "a80a60ec900fba89021d6e688d16d881bc4c82f11b1f3441a6dd5b918de726fb",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -52413,6 +52775,56 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A354",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A355",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A356",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A357",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A358",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -53097,6 +53509,28 @@
         "previous_hash": "8507a0cb6d178c75b8cc2240704cd123e64ac08ab2e6f9818cd8814303b0f41e",
         "entry_hash": "a9b27998264314ff0464948294ceb4eef6d042760e62b04a0ea60df0e5c88555",
         "version_epoch": 2
+      },
+      {
+        "sequence": 63,
+        "change_id": "H063",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "governance-checker-structure-dependency-policy-and-dag-tests",
+        "summary": "Defined the TypeScript governance checker code/checkers, code/policy and code/registry structure; made dependency policy data-only, mandated edge-specific diagnostics, readonly v1 behavior and complete positive/negative/cycle tests. Version remains E2:1.00000.",
+        "previous_hash": "a9b27998264314ff0464948294ceb4eef6d042760e62b04a0ea60df0e5c88555",
+        "entry_hash": "8efec7b1e679e4d4914a7bb326836b83a8305ef161d63c926f8b9ba2871c3f09",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 64,
+        "change_id": "H064",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "contract-parity-capability-ownership-and-native-promotion-gates",
+        "summary": "Established Contract Parity Gate, the unique Capability Registry with owner/executor/adapter/fallback separation, Ownership Uniqueness Gate and the evidence-driven Native Promotion Gate; added data-only policies, read-only checkers and mandatory parity/ownership/promotion tests. Version remains E2:1.00000.",
+        "previous_hash": "8efec7b1e679e4d4914a7bb326836b83a8305ef161d63c926f8b9ba2871c3f09",
+        "entry_hash": "f7e2c6e83118a00dac8ab9f6cded8e84b9f2afdb3b65821b63772e5de9eb3fd9",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -53653,14 +54087,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H062",
-        "provision_count": 599,
-        "identity_count": 599,
-        "lineage_count": 599,
+        "history_head": "H064",
+        "provision_count": 604,
+        "identity_count": 604,
+        "lineage_count": 604,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "9f78b2faf01153588301c06d2e3ec2dc46525b861dffe49bd591fe18bd72e049",
-        "identity_root": "45d3da6e8011282ca0f3f4b87a68ef7ceac36d98ce1ebbbb78aed05cb0ce4d23",
-        "full_root": "f04c32acd0e5271349645cfece2e4f1c897282d513c5c3f08dbd1abf31457991",
+        "content_root": "8150424f06b86b75daef1aa24ed7ab563fab29744135778e8815238afd0acf56",
+        "identity_root": "d1d46c943ee8438cbe858b8763c6fb0e7756775b66918dc08470818c2f7244ed",
+        "full_root": "3401d64a87158d222eb4888aa556d5d52880fe46aa905285d4e65297324f26ff",
         "version_epoch": 2
       }
     ],
@@ -58235,6 +58669,78 @@
         "evidence": "content-addressed profiles+record+checker output+release verdict",
         "cleanup": "remove test artifacts only;retain signed evidence",
         "isolation_policy": "isolated workload+bounded resources+no production mutation",
+        "timeout": "900s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_LANGUAGE_DEPENDENCY_DAG_GATE",
+        "canonical_name": "language-dependency-dag-gate-mandatory-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "LanguageBoundaryChecker+DependencyDagChecker",
+        "requirement_ids": "A205|A264|A346|A348|A352|A353|A354",
+        "test_level": "unit+contract+integration+failure-injection",
+        "preconditions": "immutable policy fixtures+resolved path/contract/build graph fixtures",
+        "fixtures": "PASS TypeScript->canonical transport;FAIL TypeScript->direct Python;PASS Python->native adapter;PASS Python->SQL repository;PASS C->C++ implementation boundary;FAIL C->business module;PASS vector->memory;FAIL memory->vector;PASS parser->token;FAIL token->parser;PASS CSharp->Windows API;FAIL CSharp->domain business logic;FAIL parser->token->parser cycle",
+        "ordered_steps": "run both checkers through registry for every fixture>validate resolver evidence>validate exact verdict and diagnostic fields>validate no mutation>validate cycle over complete graph",
+        "expected_results": "all PASS fixtures pass;all forbidden fixtures fail with source,target,edge,rule,reason,expected;cycle always fails;workspace byte hashes unchanged",
+        "evidence": "content-addressed policies+graphs+diagnostics+before/after filesystem hash",
+        "cleanup": "remove test artifacts only and retain evidence",
+        "isolation_policy": "isolated read-only fixture tree+no production mutation",
+        "timeout": "600s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_CONTRACT_PARITY_GATE",
+        "canonical_name": "contract-parity-gate-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "ContractParityChecker",
+        "requirement_ids": "A355",
+        "test_level": "unit+contract+integration+failure-injection",
+        "preconditions": "immutable registered fixtures",
+        "fixtures": "PASS exact TS/Python;FAIL type|requiredness|nullable|missing operation|unknown breaking field;PASS minor additive optional;FAIL breaking no major bump;PASS native same result+tolerance;FAIL error class|fallback signature|fallback missing;PASS ABI header/export;FAIL missing export|major|struct size|C++ type;PASS CSharp mapping;FAIL width|lifetime|error mapping",
+        "ordered_steps": "run checker through registry>verify evidence+verdict+zero mutation",
+        "expected_results": "every declared case returns exact verdict and diagnostic",
+        "evidence": "content-addressed inputs+outputs+environment",
+        "cleanup": "remove fixtures only;retain evidence",
+        "isolation_policy": "isolated read-only fixtures",
+        "timeout": "900s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_CAPABILITY_OWNERSHIP_GATE",
+        "canonical_name": "capability-ownership-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "OwnershipUniquenessChecker",
+        "requirement_ids": "A356",
+        "test_level": "unit+contract+integration+failure-injection",
+        "preconditions": "immutable registered fixtures",
+        "fixtures": "PASS vector owner python executor cpp fallback python;FAIL TypeScript duplicate rag routing;FAIL CSharp duplicate model selection;WARN unresolved ownership",
+        "ordered_steps": "run checker through registry>verify evidence+verdict+zero mutation",
+        "expected_results": "every declared case returns exact verdict and diagnostic",
+        "evidence": "content-addressed inputs+outputs+environment",
+        "cleanup": "remove fixtures only;retain evidence",
+        "isolation_policy": "isolated read-only fixtures",
+        "timeout": "900s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_NATIVE_PROMOTION_GATE",
+        "canonical_name": "native-promotion-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "NativePromotionGate",
+        "requirement_ids": "A357|A358",
+        "test_level": "unit+contract+integration+failure-injection",
+        "preconditions": "immutable registered fixtures",
+        "fixtures": "PASS capability-specific budgets;WARN excessive copy;WARN retained GIL eligible call;FAIL benchmark_not_comparable|no machine profile|compute-only timing|no bottleneck|parity|performance|memory|timeout|cancellation|fallback|side-effect|circuit-breaker|artifact|tests;inject load|ABI|capability|initialization|open-circuit failures;verify four lifecycle states",
+        "ordered_steps": "run checker through registry>verify evidence+verdict+zero mutation",
+        "expected_results": "every declared case returns exact verdict and diagnostic",
+        "evidence": "content-addressed inputs+outputs+environment",
+        "cleanup": "remove fixtures only;retain evidence",
+        "isolation_policy": "isolated read-only fixtures",
         "timeout": "900s",
         "introduced_version": "1.00000",
         "retired_version": null
