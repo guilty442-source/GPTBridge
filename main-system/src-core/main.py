@@ -31,7 +31,7 @@ from tasks.queue import TaskQueue
 from tasks.toolbox_service import ToolboxService
 from tasks.runtime_status_service import RuntimeStatusService
 
-# Import new governance architecture sovereigns
+from core_system.update_manager import UpdateManager
 from governance.sovereigns import (
     DecisionSovereign,
     PermissionSovereign,
@@ -227,7 +227,7 @@ class GPTBridgeApp:
         startup_state = os.environ.get("GPTBRIDGE_STARTUP_STATE", "")
         generation_id = os.environ.get("GPTBRIDGE_STARTUP_GENERATION", "")
 
-        # A128/A130: Sovereign stack startup sequence
+        # A128/A130: Sovereign stack startup sequence (parallel where possible)
         # 1. Peer sovereigns (learning, programming, cleaner) — parallel
         # 2. Permission sovereign (read-only)
         # 3. Maintenance sovereign + self-maintenance — parallel
@@ -235,22 +235,24 @@ class GPTBridgeApp:
 
         self._mark_startup_phase("sovereign_stack_starting")
 
-        # Start the decision-layer sovereigns.  Single-fault isolation: a
-        # sovereign that fails to mark started is recorded as a startup
-        # failure, not a fatal error — the governed executor's activation
-        # path independently materializes and starts the child stack under
-        # each codex-registered parent (A334).
-        for _sovereign_name, _sovereign in (
-            ("permission_sovereign", self.permission_sovereign),
-            ("system_runtime_sovereign", self.system_runtime_sovereign),
-            ("synchronization_sovereign", self.synchronization_sovereign),
-            ("xingcheng_sovereign", self.xingcheng_sovereign),
-            ("decision_sovereign", self.decision_sovereign),
-        ):
-            try:
-                await _sovereign.start()
-            except Exception as error:
-                self._record_startup_failure(_sovereign_name, error)
+        # Start the decision-layer sovereigns in parallel
+        # Note: decision_sovereign must start last as it orchestrates the stack
+        sovereign_tasks = [
+            self.permission_sovereign.start(),
+            self.system_runtime_sovereign.start(),
+            self.synchronization_sovereign.start(),
+            self.xingcheng_sovereign.start(),
+        ]
+        try:
+            await asyncio.gather(*sovereign_tasks, return_exceptions=True)
+        except Exception as error:
+            self._record_startup_failure("sovereign_stack_start", error)
+
+        # Start decision sovereign last (orchestrates the stack)
+        try:
+            await self.decision_sovereign.start()
+        except Exception as error:
+            self._record_startup_failure("decision_sovereign", error)
 
         # Check if boot_core has already completed phases 0-5
         if startup_state in ("READY", "DEGRADED"):
@@ -319,6 +321,15 @@ class GPTBridgeApp:
             await self.hot_update_service.start()
         except Exception as error:
             self._record_startup_failure("hot_update_service", error)
+
+        # Initialize UpdateManager for enhanced self-update capability
+        try:
+            from core_system.update_manager import UpdateManager
+            self.update_manager = UpdateManager(self, self.hot_update_service, self.project_root)
+            await self.update_manager.start_auto_update()
+            self._log({"type": "status", "message": "UpdateManager started"})
+        except Exception as error:
+            self._record_startup_failure("update_manager", error)
         # Start the tool isolation health monitor and wire crash events to
         # the state change notifier so the UI sees tool crashes immediately.
         try:
@@ -434,6 +445,7 @@ class GPTBridgeApp:
         for _service in (
             self.daily_global_cleaner_service,
             self.hot_update_service,
+            self.update_manager,
         ):
             try:
                 await _service.stop()

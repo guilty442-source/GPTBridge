@@ -2662,6 +2662,19 @@ def test_backend_gateway_and_watcher_use_atomic_ab_handover() -> None:
     assert "runtime_sovereign.execute_hot_reload" not in handlers
 
 
+def test_backend_entry_keeps_sovereign_runtime_imports_for_next_generation() -> None:
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "src-core" / "main.py").read_text("utf-8")
+    for runtime_name in (
+        "DecisionSovereign",
+        "PermissionSovereign",
+        "SystemRuntimeSovereign",
+        "SynchronizationSovereign",
+        "XingchengSovereign",
+    ):
+        assert runtime_name in source
+
+
 def test_foreground_ui_exit_force_closes_the_complete_tool(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
