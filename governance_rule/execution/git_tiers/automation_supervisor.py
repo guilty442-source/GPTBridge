@@ -510,6 +510,21 @@ def cli_main(argv: list[str] | None = None) -> int:
 TASK_NAME = "GPTBridge-GitAutomation"
 
 
+def _supervisor_launch_arguments(root: Path) -> str:
+    """CWD-independent supervisor launch (wrapper script, not ``-m``).
+
+    Task Scheduler and the logon ``Run`` key start processes with an
+    unrelated working directory, so ``-m governance_rule...`` cannot
+    resolve its package; the wrapper script inserts the project root into
+    ``sys.path`` itself.
+    """
+    wrapper = root / "scripts" / "git-supervisor.py"
+    return (
+        f'"{wrapper}" --root "{root}" --foreground --sync-interval 60 '
+        f'--health-interval 20 --watch-interval 30 --debounce 60'
+    )
+
+
 def _install_task(root: Path) -> int:
     """Register a logon Task Scheduler job that keeps the supervisor alive."""
     import tempfile
@@ -519,11 +534,7 @@ def _install_task(root: Path) -> int:
         if (root / "main-system" / ".venv" / "Scripts" / "pythonw.exe").is_file()
         else sys.executable
     )
-    command = (
-        f'"{target}" -m governance_rule.execution.git_tiers.automation_supervisor '
-        f'--root "{root}" --foreground --sync-interval 60 --health-interval 20 '
-        f'--watch-interval 30 --debounce 60'
-    )
+    arguments = _supervisor_launch_arguments(root)
     xml = f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <Triggers>
@@ -534,7 +545,7 @@ def _install_task(root: Path) -> int:
   <Principals>
     <Principal id="InteractiveUser">
       <LogonType>InteractiveToken</LogonType>
-      <RunLevel>LeastPrivilege</RunLevel>
+      <RunLevel>HighestAvailable</RunLevel>
     </Principal>
   </Principals>
   <Settings>
@@ -544,6 +555,7 @@ def _install_task(root: Path) -> int:
     <AllowHardTerminate>true</AllowHardTerminate>
     <StartWhenAvailable>true</StartWhenAvailable>
     <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
     <Enabled>true</Enabled>
     <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
     <RestartOnFailure>
@@ -554,7 +566,8 @@ def _install_task(root: Path) -> int:
   <Actions Context="InteractiveUser">
     <Exec>
       <Command>{target}</Command>
-      <Arguments>-m governance_rule.execution.git_tiers.automation_supervisor --root "{root}" --foreground --sync-interval 60 --health-interval 20 --watch-interval 30 --debounce 60</Arguments>
+      <Arguments>{arguments}</Arguments>
+      <WorkingDirectory>{root}</WorkingDirectory>
     </Exec>
   </Actions>
 </Task>"""
@@ -616,11 +629,7 @@ def _install_logon(root: Path) -> int:
     import winreg
 
     pythonw = _installed_pythonw(root)
-    arguments = (
-        f'-m governance_rule.execution.git_tiers.automation_supervisor '
-        f'--root "{root}" --foreground --sync-interval 60 '
-        f'--health-interval 20 --watch-interval 30 --debounce 60'
-    )
+    arguments = _supervisor_launch_arguments(root)
     value = f'"{pythonw}" {arguments}'
     try:
         with winreg.OpenKey(
