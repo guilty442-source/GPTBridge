@@ -3364,6 +3364,15 @@
         "rule": "Codex filesystem read-only state is a Codex protection control,not a prerequisite for inspecting or auditing unrelated system/runtime/module health. If a Codex artifact is unexpectedly writable,the reviewer records CODEX_PROTECTION_DEGRADED,verifies content hash/history/seal and isolates Codex mutation/publication;the condition does not stop,fail,skip or contaminate independent system review and does not make the running system unhealthy by itself. System review must continue and report its own findings. Writable state never grants amendment authority and never makes changed content effective. After an authorized amendment transaction,read-only protection is restored and separately verified. If content integrity also changed without authority,the last sealed generation remains authoritative while the incident is isolated and audited;unaffected runtime continues.",
         "prohibition": "FORBID:using writable attribute alone to abort unrelated system review+reporting whole system failed solely because Codex is writable+trusting writable content as effective+silently ignoring writable state+automatic reset/overwrite to repair attributes+mixing Codex-protection finding into unrelated module verdict.",
         "exception": "A review specifically scoped to Codex protection may fail or block Codex publication on writable state;that scoped verdict still cannot replace the independent system review result."
+      },
+      {
+        "position": 384,
+        "provision_id": "A384",
+        "section_index": "1",
+        "subject": "test-management-roster-and-historical-correction-closure",
+        "rule": "TEST-OWNERSHIP:owner=permission-sovereign in test_flow_directory and test_suite_architecture_directory means directory identity,schema,access and lifecycle authority only. management_owner=health-maintenance-test-sub-sovereign is the centralized operational manager for one-module-one-suite inventory,test planning,scheduling,fixtures,execution coordination,evidence collection,retest and status reporting;it has no policy decision or direct module execution power and dispatches governed module test executors. A test flow lacking a physical management_owner field inherits this exact manager through this provision and its linked suite/module registry;future schema may add the field additively. Domain owners define expected domain truth and acceptance evidence but cannot self-register or suppress results. ROSTERS:top-level current institution roster is separately identified from active sub-sovereign roster. TOP={decision-sovereign,system-runtime-sovereign,synchronization-sovereign,permission-sovereign,星澄};Codex is excluded and remains rule declaration. SUB={system-sub-sovereign,startup-sub-sovereign,directory-sub-sovereign,identity-group-sub-sovereign,resource-dependency-sync-sub-sovereign,channel-contract-sync-sub-sovereign,release-update-sync-sub-sovereign,learning-evidence-sync-sub-sovereign,runtime-state-sync-sub-sovereign,repair-backup-sync-sub-sovereign,cleanup-retention-sync-sub-sovereign,automatic-log-sync-sub-sovereign,policy-architecture-sub-sovereign,health-maintenance-test-sub-sovereign,data-governance-sub-sovereign,priority-capability-sub-sovereign,change-acceptance-sub-sovereign,dependency-sync-sub-sovereign}. Each sub-sovereign keeps one parent and no execution power. Generic active lineage queries cannot be presented as the top-level roster. HISTORICAL-CORRECTION:H045 summary contains damaged display text confidential ?? audit. History remains immutable;the authoritative correction annotation is confidential 星澄 audit. This annotation corrects display/interpretation only and does not replace H045 entry_hash,content,sequence or authority. Consumers displaying H045 must show the annotation and preserve original hash evidence. PENDING-TRUTH:35 mandated-pending-implementation directories,external signature requirements,Epoch-2 human signature and Language Governance FREEZE-PENDING remain genuine blockers. Normalization cannot mark them active/signed/stable;each closes only through its required evidence and a later immutable record.",
+        "prohibition": "FORBID:permission-sovereign treated as test execution manager+maintenance manager making policy/permission decisions+domain owner self-registering or suppressing tests+top roster mixed with sub-sovereigns+Codex in either active roster+alias replacing canonical sovereign ID+rewriting H045 history to fix display+annotation changing historical hash+pending/signature/freeze state closed without evidence.",
+        "exception": "A module may execute its own unit tests under centralized management and report evidence;this does not transfer suite ownership or management. Historical raw export may retain the damaged H045 bytes when accompanied by the correction annotation."
       }
     ],
     "certification_evidence": [
@@ -4119,7 +4128,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H085",
+        "history_head": "H086",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -13068,6 +13077,12 @@
         "provision_id": "A383",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A384",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -13126,14 +13141,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H085",
-        "provision_count": 629,
-        "identity_count": 629,
-        "lineage_count": 629,
+        "history_head": "H086",
+        "provision_count": 630,
+        "identity_count": 630,
+        "lineage_count": 630,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "508a02ff2c0bf4135872ee08e0ec493a14722b48903a23da64e64788e103f620",
-        "identity_root": "bf2337ce5277f738a1b46f48d41cb296767de999b8d61d8109ad91c329ef2043",
-        "full_root": "b666b3880f15d6af8fe56403142c0dcbb4ff5269f18cf06f9a260e6ad1cac745",
+        "content_root": "5fd4e7ba19600fb8b0b1e195c7a517c523e1948ba7b888cd2fd2c85865cbf813",
+        "identity_root": "46f47f1ba293a476d24e4d32477f1000a9d5a6a16116aaf732e0bdbcae40d0d6",
+        "full_root": "1f134417acc90382be967a85d14474da4433ff4dfb7a9aafac49b688f67c633a",
         "legacy_history_head": null
       }
     ],
@@ -18260,7 +18275,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H085"
+        "value": "H086"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -18637,6 +18652,26 @@
       {
         "key": "codex_readonly_review_effect",
         "value": "codex-protection-only-system-review-continues"
+      },
+      {
+        "key": "active_top_institution_roster",
+        "value": "decision-sovereign|system-runtime-sovereign|synchronization-sovereign|permission-sovereign|星澄"
+      },
+      {
+        "key": "active_sub_sovereign_roster",
+        "value": "system-sub-sovereign|startup-sub-sovereign|directory-sub-sovereign|identity-group-sub-sovereign|resource-dependency-sync-sub-sovereign|channel-contract-sync-sub-sovereign|release-update-sync-sub-sovereign|learning-evidence-sync-sub-sovereign|runtime-state-sync-sub-sovereign|repair-backup-sync-sub-sovereign|cleanup-retention-sync-sub-sovereign|automatic-log-sync-sub-sovereign|policy-architecture-sub-sovereign|health-maintenance-test-sub-sovereign|data-governance-sub-sovereign|priority-capability-sub-sovereign|change-acceptance-sub-sovereign|dependency-sync-sub-sovereign"
+      },
+      {
+        "key": "test_flow_directory_owner_semantics",
+        "value": "permission-sovereign-directory-authority"
+      },
+      {
+        "key": "test_flow_management_owner",
+        "value": "health-maintenance-test-sub-sovereign"
+      },
+      {
+        "key": "historical_revision_correction_H045",
+        "value": "damaged=confidential ?? audit;corrected=confidential 星澄 audit;history-hash-unchanged"
       }
     ],
     "module_assignment_registry": [
@@ -24467,6 +24502,13 @@
         "provision_id": "A383",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A384",
+        "provision_type": "article",
+        "provision_id": "A384",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -28872,6 +28914,13 @@
         "tier": "subordinate-ordinance",
         "law_code": "CODEX_SUBORDINATE_ORDINANCES",
         "authority_basis": "A87|A274|A294|A377|A379|A382"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A384",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A226|A274|A284|A295|A323|A335|A377|A379|A381"
       }
     ],
     "provision_lifecycle_status": [
@@ -33802,6 +33851,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H085+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A384",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H086+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -38836,6 +38893,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "f62c60c7a0f4231df73a1013e859e77841a58ca4e93bbb0bc742acebfbaf01b5"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A384",
+        "introduced_by": "H086",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "bb12b52be499af1cf787c017b5121f17daa887b1e545831a3c3964d8e42bf36b"
       }
     ],
     "provision_revisions": [
@@ -49890,6 +49955,15 @@
         "content_hash": "f62c60c7a0f4231df73a1013e859e77841a58ca4e93bbb0bc742acebfbaf01b5",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A384",
+        "revision_id": "H086",
+        "version": "1.00000",
+        "content_hash": "bb12b52be499af1cf787c017b5121f17daa887b1e545831a3c3964d8e42bf36b",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -55082,6 +55156,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A384",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -56019,6 +56103,17 @@
         "previous_hash": "888bbfd759afdc1bbfdb84b68d5cab4d295d712bdc7cc9b2618a2ff02ec5cb74",
         "entry_hash": "0177000cbae776ad09624beb83f462666bfa71b438e581b32d658c788a530531",
         "version_epoch": 2
+      },
+      {
+        "sequence": 86,
+        "change_id": "H086",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "test-management-roster-and-historical-correction-closure",
+        "summary": "Closed remaining provable Codex review gaps by separating test directory ownership from centralized test management, splitting top-institution and sub-sovereign rosters, and adding an immutable correction annotation for H045 while preserving genuine pending gates. Version remains E2:1.00000.",
+        "previous_hash": "0177000cbae776ad09624beb83f462666bfa71b438e581b32d658c788a530531",
+        "entry_hash": "9e251a72ee32e187b105617684ae0d5a6acbe912c808b08ac48cf388150566a5",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -56575,14 +56670,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H085",
-        "provision_count": 629,
-        "identity_count": 629,
-        "lineage_count": 629,
+        "history_head": "H086",
+        "provision_count": 630,
+        "identity_count": 630,
+        "lineage_count": 630,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "508a02ff2c0bf4135872ee08e0ec493a14722b48903a23da64e64788e103f620",
-        "identity_root": "bf2337ce5277f738a1b46f48d41cb296767de999b8d61d8109ad91c329ef2043",
-        "full_root": "b666b3880f15d6af8fe56403142c0dcbb4ff5269f18cf06f9a260e6ad1cac745",
+        "content_root": "5fd4e7ba19600fb8b0b1e195c7a517c523e1948ba7b888cd2fd2c85865cbf813",
+        "identity_root": "46f47f1ba293a476d24e4d32477f1000a9d5a6a16116aaf732e0bdbcae40d0d6",
+        "full_root": "1f134417acc90382be967a85d14474da4433ff4dfb7a9aafac49b688f67c633a",
         "version_epoch": 2
       }
     ],
@@ -59231,6 +59326,11 @@
         "sovereign_id": "星澄",
         "position": 3,
         "value": "whole-system automatic classification decomposition scheduling dispatch coordination convergence evidence and fault isolation through the 星澄 auxiliary system and native model"
+      },
+      {
+        "sovereign_id": "health-maintenance-test-sub-sovereign",
+        "position": 2,
+        "value": "central-test-suite-and-test-flow-management"
       }
     ],
     "sovereign_hierarchy_registry": [
@@ -61728,6 +61828,24 @@
         "cleanup": "delete rejected staging copies only;retain immutable evidence",
         "isolation_policy": "isolated staging,review domains,serialized amendment lock and generation fence",
         "timeout": "2400s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_TEST_MANAGEMENT_AND_ROSTER_CLOSURE",
+        "canonical_name": "test-management-roster-and-historical-correction-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "test ownership/management,active rosters and H045 annotation",
+        "requirement_ids": "A226|A274|A284|A323|A377|A381|A384",
+        "test_level": "schema+contract+integration+audit",
+        "preconditions": "all test-flow/suite rows,sovereign hierarchy/lineage,H045 raw summary and pending gates",
+        "fixtures": "permission owner versus maintenance manager;module test execution;top/sub roster queries;Codex exclusion;retired identity;raw/corrected H045 display;attempt pending closure",
+        "ordered_steps": "resolve each test to suite/module manager;compare roster registries to hierarchy;display immutable annotation;verify hashes and pending truth",
+        "expected_results": "all tests have directory owner and management owner;top/sub rosters disjoint and complete;Codex excluded;H045 hash unchanged with correction visible;no pending state falsely closed",
+        "evidence": "ownership/management mapping+roster parity+history/annotation hashes+pending gate report+audit",
+        "cleanup": "remove derived fixtures only;retain correction and closure evidence",
+        "isolation_policy": "read-only history and and non-authoritative display annotation",
+        "timeout": "1800s",
         "introduced_version": "1.00000",
         "retired_version": null
       }
