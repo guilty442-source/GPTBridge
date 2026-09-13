@@ -189,17 +189,17 @@
       {
         "architecture_code": "STAR_DIRECTORY",
         "target_root": "E:\\GPTBridge\\Standalone tools\\local-model\\model-dialogue\\xingcheng",
-        "current_state": "mandated",
+        "current_state": "active",
         "required_state": "active",
         "legacy_root": null,
         "activation_evidence": "filesystem+manifest+reference+test+rollback evidence",
         "previous_state": "mandated",
-        "changed_at_utc": "2026-09-12T00:00:00Z",
+        "changed_at_utc": "2026-09-13T04:30:00Z",
         "decision_owner": "permission-sovereign",
         "verification_owner": "星澄",
-        "evidence_id": "pending-required-evidence",
+        "evidence_id": "filesystem-manifest-reference-test-20260913",
         "old_root_deletion_state": "not-applicable",
-        "failure_state": "target-root-missing"
+        "failure_state": "none-recorded"
       },
       {
         "architecture_code": "PROJECT_GPTBRIDGE",
@@ -2923,6 +2923,15 @@
         "rule": "AUTHORITATIVE-REGISTRIES:sovereign_hierarchy_registry is the machine authority for every active sub-sovereign single parent and primary domain; module_assignment_registry is the machine authority for each executable module's one managing sub-sovereign+decision authority+permission authority+review authority+exact registered module execution identity; VALIDATION:every child+parent+manager+authority must resolve to one active canonical sovereign identity and every execution identity must equal its registered module architecture code, every child has one parent, every executable module has exactly one assignment+one test suite, no sub-sovereign exceeds three duties, decision/permission/review/execution identities remain separated, and assignments follow dominant capability; PRECEDENCE:these registries operationalize A322+A323+A327 and override ambiguous legacy prose without changing history; CHANGE:requires explicit Codex amendment+updated mirror+lineage+seal; SIGNATURE:seal state remains pending-human-governor-signature until the human governor supplies an external signature over the current full_root; no sovereign, 星澄, module or automated process may synthesize+infer+self-issue or mark that signature complete",
         "prohibition": "FORBID:free-text-only-topology+multiple-parent+multiple-manager+retired-identity-target+sub-sovereign-decision-or-execution+sovereign-module-execution-outside-A330+module-self-assignment+self-review+self-permission+unregistered-module-activation+forged+placeholder+automated-or-inferred-human-signature",
         "exception": "A module with multiple capabilities is assigned by its dominant capability; other sub-sovereigns may coordinate through typed assignments but cannot become an additional manager. Human signature remains an external completion condition and is not waived by technical audit success."
+      },
+      {
+        "position": 335,
+        "provision_id": "A335",
+        "section_index": "17",
+        "subject": "codex-directory-closure-certification-and-non-indexing-special-law",
+        "rule": "AUTHORITY:Codex is the highest normative declaration layer above every sovereign+privileged institution+sub-sovereign+module and is a normalized SQLite Codex, never an ordinary mutable configuration database; DIRECTORY:permission-sovereign exclusively decides directory registration+schema+identity+lifecycle and may not invent domain truth, while domain sovereigns may propose content+evidence but may not self-register; STAR_DIRECTORY:the canonical registered root E:\\GPTBridge\\Standalone tools\\local-model\\model-dialogue\\xingcheng exists and is accepted active with permission-sovereign lifecycle decision+?? verification evidence; PENDING-DIRECTORIES:mandated-pending-implementation is an explicit uncovered obligation, never active, and blocks every dependent verified release until complete coverage+tests+acceptance evidence; EPOCH-2-SEAL:remains sealed-read-only-pending-human-governor-signature and only a real offline human-governor signature may close it; EXTERNAL-GATES:external signature and Chinese-mirror confidentiality remain pending until their declared cryptographic+storage+access evidence passes and must never be inferred closed; OBLIGATIONS:all eight implementation obligations remain mandated and due no later than 2026-10-12T15:59:59Z and before the next affected verified release; AMENDMENT:all provision changes are immutable successor records with lineage+canonical hashes+certification+seal and no in-place historical rewrite; NON-INDEXING:the Codex database+Chinese mirror+all Codex content+metadata+structure+hashes+summaries+derivatives are excluded from every RAG+embedding+semantic/vector/full-text/training/search index.",
+        "prohibition": "FORBID:treat-Codex-as-config+sovereign-over-Codex+permission-sovereign-invent-domain-truth+domain-self-registration+pending-directory-as-active+fabricated-coverage-evidence+automated-or-inferred-human-signature+premature-external-gate-closure+obligation-waiver-by-runtime+in-place-provision-rewrite+Codex-or-derived-content-in-any-RAG/index/embedding/training corpus",
+        "exception": "No machine actor may satisfy the human signature condition. A directory may become active only through a new evidenced acceptance record. ?? Chinese-mirror handling remains governed exclusively by the stricter confidential Chinese Codex special law."
       }
     ],
     "certification_evidence": [
@@ -3273,7 +3282,7 @@
       {
         "version": "1.00000",
         "signed_payload_fields": "version-epoch|version-identity|version|content-root|history-head|identity-root",
-        "evidence_location": "external-offline-signature-bundle-reseal-H046",
+        "evidence_location": "external-offline-signature-bundle-reseal-H047",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
         "status": "external-signatures-required",
         "version_epoch": 2
@@ -11864,6 +11873,12 @@
         "provision_id": "A334",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A335",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -11922,14 +11937,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H046",
-        "provision_count": 580,
-        "identity_count": 580,
-        "lineage_count": 580,
+        "history_head": "H047",
+        "provision_count": 581,
+        "identity_count": 581,
+        "lineage_count": 581,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "08f861e643b801f0dedddad5cf724d0bac7139ffd0895fe6324212ded9aaa634",
-        "identity_root": "b74a94a41f933de23cad61fbfa06cd0e87443b509a84e0912a5d040d7522d842",
-        "full_root": "14a27466c410573b81522c44c26170e3217b3e2518943d2e1d052143ac869980",
+        "content_root": "30ef908e4d91b7354e1c5026f6c2cf06faebb1c74283302cbdee03e44881bdbb",
+        "identity_root": "5da6cc02bc520dfd78887b1c14bb5a8db484697d7955d80a1c18c83fe971ebee",
+        "full_root": "6589a2ebb49490c09482dbdd25f62fd960509bf6f91cfc90ea7f010b9b9b3f1c",
         "legacy_history_head": null
       }
     ],
@@ -16934,11 +16949,11 @@
       },
       {
         "key": "codex_recorded_at_utc",
-        "value": "2026-09-13T04:19:09Z"
+        "value": "2026-09-13T04:30:00Z"
       },
       {
         "key": "codex_recorded_at_local",
-        "value": "2026-09-13T12:19:09+08:00"
+        "value": "2026-09-13T12:30:00+08:00"
       },
       {
         "key": "manual_reset_previous_version",
@@ -16979,6 +16994,30 @@
       {
         "key": "manual_reset_command_status",
         "value": "consumed-one-time-lawful"
+      },
+      {
+        "key": "codex_storage_class",
+        "value": "normalized-authoritative-sqlite-declaration-layer-not-mutable-configuration"
+      },
+      {
+        "key": "codex_rag_indexing",
+        "value": "forbidden-including-content-metadata-hashes-summaries-and-derivatives"
+      },
+      {
+        "key": "directory_domain_truth_boundary",
+        "value": "permission-sovereign-registers;domain-sovereign-proposes-evidence;no-self-registration"
+      },
+      {
+        "key": "epoch_2_signature_state",
+        "value": "sealed-read-only-pending-human-governor-signature"
+      },
+      {
+        "key": "implementation_obligation_count",
+        "value": "8"
+      },
+      {
+        "key": "implementation_obligation_due_at_utc",
+        "value": "2026-10-12T15:59:59Z"
       }
     ],
     "module_assignment_registry": [
@@ -22466,6 +22505,13 @@
         "provision_id": "A334",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A335",
+        "provision_type": "article",
+        "provision_id": "A335",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -26528,6 +26574,13 @@
         "tier": "special-law",
         "law_code": "CODEX_IDENTITY_GROUP_SPECIAL_LAW",
         "authority_basis": "A301|A315|A322|A323|A327|A331|A332"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A335",
+        "tier": "special-law",
+        "law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "authority_basis": "A1|A3|A228|A229|A230|A233|A234|A301|A334"
       }
     ],
     "provision_lifecycle_status": [
@@ -30634,6 +30687,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "effective_provisions+supersession_registry+identity-lineage"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A335",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H047+directory-acceptance+seal"
       }
     ],
     "provision_lineage": [
@@ -35276,6 +35337,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "f8c5f664d6c08a543b7ed619466dc82bb932546b3a865db36c08efa4ff3eb066"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A335",
+        "introduced_by": "H047",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "b2d170d403fb9e07749376147786fd684512084645c817f7fe13c89ec8cf1d57"
       }
     ],
     "provision_revisions": [
@@ -43369,6 +43438,15 @@
         "content_hash": "cf4b1d553feed1d3423ccc4f59bcde7bc66b85f29012a3728fcd11e89c40c852",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A335",
+        "revision_id": "H047",
+        "version": "1.00000",
+        "content_hash": "b2d170d403fb9e07749376147786fd684512084645c817f7fe13c89ec8cf1d57",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -48071,6 +48149,16 @@
         "normalization_status": "pending-A233-normalization",
         "owner": "permission-sovereign",
         "introduced_version": "2.01600"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A335",
+        "controlling_law_code": "CODEX_DIRECTORY_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -48578,6 +48666,17 @@
         "summary": "Internal-consistency repair for retained legacy sovereign references with all required active-owner retention: 65 provisions previously named retired sovereign identities as active domain owners. Each retired identity now resolves to its current bounded successor per the supersession registry and the complete parent reallocation; domain-decision authority was assigned to the current accountable decision parent and module management to the successor sub-sovereign, so no active sub-sovereign claims decision or execution power. Retirement records, superseded lists and legacy-only guards remain marked historical. Seal roots recomputed under SEAL_CANONICAL_V1 canonicalization as documented in the sealed schema: content root is the canonical object of sections, principles, articles, edicts, preamble and savings tables; identity root is the canonical object of the provision identities table; full root is the canonical object of the ten declared seal components (certification-policy|history|identities|lineage|metadata|provisions|schema|sovereigns|supersessions|version-rules). Note: the regenerated lineage's pre-repair seal roots (content f66eac9c..., identity 30cf61..., full 01902b...) were not reproducible under the documented canonicalization; H046 recomputes all roots canonically, restoring full verifiability. Provision content hashes recomputed as canonical row objects; revision entry appended under H046 with the existing epoch-qualified version identity E2:1.00000 unchanged.",
         "previous_hash": "9aee8844af778dfeb24c51c995a483d152b20c50044313519d2f39aac417bd21",
         "entry_hash": "85dfb55cc8ad7f9116c35943449c8795b96c1f49384bb23e6f8a7965f891ef9f",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 47,
+        "change_id": "H047",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "codex-directory-closure-and-non-indexing-repair",
+        "summary": "Closed the STAR_DIRECTORY activation record from verified filesystem and manifest evidence; consolidated Codex supremacy, normalized SQLite declaration-only status, permission/domain directory boundaries, pending-directory release blocking, eight mandated implementation obligations and deadline, Epoch 2 human offline signature boundary, external signature and Chinese confidentiality open gates, immutable successor lineage and total Codex RAG/index exclusion. Version remains E2:1.00000.",
+        "previous_hash": "85dfb55cc8ad7f9116c35943449c8795b96c1f49384bb23e6f8a7965f891ef9f",
+        "entry_hash": "109947a583f4e50c75751539dc775e9fc7b87a632b805de17df046de61504c22",
         "version_epoch": 2
       }
     ],
@@ -49135,14 +49234,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H046",
-        "provision_count": 580,
-        "identity_count": 580,
-        "lineage_count": 580,
+        "history_head": "H047",
+        "provision_count": 581,
+        "identity_count": 581,
+        "lineage_count": 581,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "08f861e643b801f0dedddad5cf724d0bac7139ffd0895fe6324212ded9aaa634",
-        "identity_root": "b74a94a41f933de23cad61fbfa06cd0e87443b509a84e0912a5d040d7522d842",
-        "full_root": "14a27466c410573b81522c44c26170e3217b3e2518943d2e1d052143ac869980",
+        "content_root": "30ef908e4d91b7354e1c5026f6c2cf06faebb1c74283302cbdee03e44881bdbb",
+        "identity_root": "5da6cc02bc520dfd78887b1c14bb5a8db484697d7955d80a1c18c83fe971ebee",
+        "full_root": "6589a2ebb49490c09482dbdd25f62fd960509bf6f91cfc90ea7f010b9b9b3f1c",
         "version_epoch": 2
       }
     ],
