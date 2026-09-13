@@ -172,21 +172,52 @@ class MaintenanceRepairChainMixin:
             try:
                 project_root = getattr(coordinator, "project_root", None)
                 if project_root is not None:
+                    from datetime import datetime, timedelta, timezone
+
+                    from core_system.auto_action_policy import (
+                        CONFIRMATION_TTL_SECONDS,
+                    )
+
+                    expires_at = (
+                        datetime.now(timezone.utc)
+                        + timedelta(seconds=CONFIRMATION_TTL_SECONDS)
+                    ).isoformat()
+                    failure_code = str(request.get("failure_code") or "")
+                    target_file = str(classified.get("target_file") or "")
                     record_pending_action(
                         project_root,
                         kind="repair",
                         summary=(
-                            f"{request.get('failure_code') or 'fault'}"
+                            f"{failure_code or 'fault'}"
                             f" ({classified.get('error_type') or 'unknown'})"
                         ),
                         detail={
                             "request_id": request_id,
-                            "failure_code": str(request.get("failure_code") or ""),
+                            "failure_code": failure_code,
                             "owner": str(request.get("owner") or ""),
                             "classified": classified,
                             "requested_at": str(request.get("requested_at") or ""),
                         },
                         action_id=f"repair-{request_id}",
+                        binding={
+                            "fault_id": request_id,
+                            "scope": target_file or failure_code or "main-system",
+                            "target": target_file or failure_code or "main-system",
+                            "proposed_method": (
+                                str(classified.get("action") or "")
+                                or "targeted-source-repair"
+                            ),
+                            "risk": str(
+                                decision_proof.get("severity")
+                                or decision_proof.get("risk")
+                                or "unclassified"
+                            ),
+                            "rollback": (
+                                "governed repair backup + independent verification; "
+                                "failed verification rolls back"
+                            ),
+                            "expires_at": expires_at,
+                        },
                     )
             except Exception:
                 pass

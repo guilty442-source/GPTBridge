@@ -51,13 +51,38 @@ export interface PendingActionApproval {
   status?: string
   created_at?: string
   updated_at?: string
+  fault_id?: string
+  update_id?: string
+  scope?: string
+  target?: string
+  proposed_method?: string
+  risk?: string
+  rollback?: string
+  expires_at?: string
+  evidence_digest?: string
+}
+
+export interface AutomationSwitches {
+  automatic_repair_enabled?: boolean
+  automatic_update_enabled?: boolean
+  updated_at?: string
+  updated_by?: string
+}
+
+export interface PendingActionCardinality {
+  mode?: string
+  unresolved?: number
+  fault_count?: number
+  update_count?: number
+  total_actionable?: number
 }
 
 export interface RuntimeStatusPayload {
   maintenance_ready?: boolean
   decision_sovereign?: SovereignSnapshot
   pending_actions?: PendingActionApproval[]
-  confirmation_release_granted?: boolean
+  automation_switches?: AutomationSwitches
+  pending_action_cardinality?: PendingActionCardinality
 }
 
 const ROLE_LABELS: Record<string, string> = {

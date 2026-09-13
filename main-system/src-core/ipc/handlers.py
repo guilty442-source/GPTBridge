@@ -41,7 +41,38 @@ MAIN_COMMANDS = {
     "app:get-fault-analysis",
     "app:get-pending-actions",
     "app:confirm-pending-action",
+    "app:get-automation-switches",
+    "app:set-automation-switch",
 }
+
+def _pending_action_cardinality(actions: list[dict[str, Any]]) -> dict[str, Any]:
+    """A366 CARDINALITY snapshot for the assistant panel.
+
+    ``SINGLE_FAULT`` when exactly one independently actionable fault
+    exists, ``MULTI_FAULT`` when two or more exist, ``NO_FAULT`` otherwise.
+    Updates are counted separately and never collapse a fault list.
+    """
+    actionable = [
+        action
+        for action in actions
+        if action.get("status") == "awaiting-confirmation"
+    ]
+    repairs = [action for action in actionable if action.get("kind") == "repair"]
+    updates = [action for action in actionable if action.get("kind") == "update"]
+    if len(repairs) >= 2:
+        mode = "MULTI_FAULT"
+    elif len(repairs) == 1:
+        mode = "SINGLE_FAULT"
+    else:
+        mode = "NO_FAULT"
+    return {
+        "mode": mode,
+        "total_actionable": len(actionable),
+        "fault_count": len(repairs),
+        "update_count": len(updates),
+        "unresolved": len(actionable),
+    }
+
 
 class CommandRouter:
     """Route only commands allowed by the current process boundary."""
@@ -384,12 +415,11 @@ class CommandRouter:
 
         # ─── User-confirmation queue (Xingcheng assistant panel) ───────
         # One queue item per fault or update intent; confirmations execute
-        # a single item and only when the operator release switch allows
-        # it (RELEASE_NOT_GRANTED otherwise).
+        # a single item and only when its switch is enabled (A366).
         if command == "app:get-pending-actions":
             from core_system.auto_action_policy import (
+                read_automation_switches,
                 read_pending_actions,
-                user_confirmation_release_allowed,
             )
 
             project_root = getattr(self.app, "project_root", None)
@@ -397,7 +427,51 @@ class CommandRouter:
             return f"{command}_result", {
                 "ok": True,
                 "actions": actions,
-                "release_granted": user_confirmation_release_allowed(),
+                "switches": read_automation_switches(project_root),
+                "cardinality": _pending_action_cardinality(actions),
+            }
+
+        if command == "app:get-automation-switches":
+            from core_system.auto_action_policy import read_automation_switches
+
+            project_root = getattr(self.app, "project_root", None)
+            return f"{command}_result", {
+                "ok": True,
+                "switches": read_automation_switches(project_root),
+            }
+
+        if command == "app:set-automation-switch":
+            from core_system.auto_action_policy import (
+                read_automation_switches,
+                set_automation_switch,
+            )
+
+            switch = str(payload.get("switch") or "").strip()
+            if payload.get("enabled") is None:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "MISSING_ENABLED_STATE",
+                    "message": "enabled (boolean) is required",
+                }
+            try:
+                switches = set_automation_switch(
+                    getattr(self.app, "project_root", None),
+                    switch,
+                    bool(payload.get("enabled")),
+                    actor="authenticated-ui",
+                )
+            except ValueError as error:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "UNKNOWN_SWITCH",
+                    "message": str(error),
+                    "switches": read_automation_switches(
+                        getattr(self.app, "project_root", None)
+                    ),
+                }
+            return f"{command}_result", {
+                "ok": True,
+                "switches": switches,
             }
 
         if command == "app:confirm-pending-action":

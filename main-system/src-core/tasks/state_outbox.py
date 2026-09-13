@@ -125,8 +125,14 @@ class OutboxPublisher:
     def _session_for(self, ui: Any) -> dict[str, Any] | None:
         return self._sessions.get(id(ui))
 
-    def handle_hello(self, ui: Any, cursor: Any) -> dict[str, Any]:
-        """RECONNECT: client resubscribes with its last acknowledged cursor."""
+    def handle_hello(self, ui: Any, cursor: Any, generation: Any = "") -> dict[str, Any]:
+        """RECONNECT: client resubscribes with its last acknowledged cursor.
+
+        A client whose stored generation is missing or superseded starts at
+        the latest committed sequence instead of replaying the full durable
+        history — unbounded backlog replay used to flood fresh sessions and
+        trigger a governed-command storm on the frontend.
+        """
         session = self._session_for(ui)
         if session is None:
             session_id = self.register_session(ui)
@@ -137,6 +143,11 @@ class OutboxPublisher:
             cursor_int = max(0, int(cursor or 0))
         except (TypeError, ValueError):
             cursor_int = 0
+        client_generation = str(generation or "").strip()
+        reset = False
+        if client_generation != self._backend_generation:
+            cursor_int = self._store.max_sequence()
+            reset = True
         session["acked"] = cursor_int
         session["sent_upto"] = cursor_int
         session["last_attempt"] = 0.0
@@ -147,6 +158,7 @@ class OutboxPublisher:
             "release_id": self._release_id,
             "contract_version": OUTBOX_CONTRACT_VERSION,
             "cursor": cursor_int,
+            "reset": reset,
             "latest_sequence": self._store.max_sequence(),
         }
 

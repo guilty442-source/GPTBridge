@@ -1,43 +1,126 @@
-"""Per-item user confirmation service for the assistant panel.
+"""Per-action user confirmation service for the Xingcheng assistant panel.
 
-The assistant (Xingcheng) panel lists pending actions recorded by the
-automatic-repair/update freeze and confirms them one by one.  Per the user
-directive, nothing executes until BOTH conditions hold:
+Implements the execution gate of codex A366
+(``xingcheng-auxiliary-repair-update-user-switch-confirmation-and-fault-
+cardinality``):
 
-  1. the operator release switch ``user_confirmation_release`` is enabled
-     (global 「放行」), and
-  2. the user explicitly confirms that single item in the panel.
+  * A mutation may execute only when its corresponding persisted switch
+    (``automatic_repair_enabled`` / ``automatic_update_enabled``) is enabled
+    AND the user confirms that concrete pending action.
+  * Confirmation binds the action id, scope, target, proposed method, risk,
+    rollback/fallback, evidence digest and expiry; it is one-time,
+    non-transferable and invalid after a material plan/evidence change.
+  * Multi-fault execution runs one action at a time; after each action the
+    remaining evidence is refreshed so a repair cannot ride a stale
+    confirmation.
 
-While the release switch is off every confirmation is refused with
-``RELEASE_NOT_GRANTED`` and the item stays ``awaiting-confirmation`` —
-the wiring is live but nothing is released.
+Detection, classification and evidence collection are unaffected — this
+service only governs execution.
 """
 
 from __future__ import annotations
 
+import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .auto_action_policy import (
+    compute_action_digest,
     read_pending_actions,
+    switch_enabled_for_kind,
+    switch_for_kind,
     update_pending_action_status,
-    user_confirmation_release_allowed,
 )
 from .sovereign_utils import _iso_now
+
+CONFIRMATION_AUDIT_RELATIVE = (
+    "main-system",
+    "runtime",
+    "state",
+    "confirmation-audit.jsonl",
+)
 
 
 def _result(ok: bool, **fields: Any) -> dict[str, Any]:
     return {"ok": ok, **fields}
 
 
+def _project_root(app: Any) -> Path:
+    raw = getattr(app, "project_root", None)
+    if raw:
+        return Path(raw)
+    # core_system/confirmation_service.py -> src-core -> main-system -> root
+    return Path(__file__).resolve().parents[3]
+
+
+def _audit(project_root: Path, entry: dict[str, Any]) -> None:
+    """Append a confirmation audit line (A366 AUDIT, no secrets)."""
+    try:
+        path = project_root.joinpath(*CONFIRMATION_AUDIT_RELATIVE)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(
+                    {"timestamp": _iso_now(), **entry},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+    except OSError:
+        pass
+
+
+def _expired(action: dict[str, Any]) -> bool:
+    raw = str(action.get("expires_at") or "").strip()
+    if not raw:
+        return False
+    try:
+        expiry = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    return datetime.now(timezone.utc) > expiry
+
+
+def _other_action_executing(project_root: Path, action_id: str) -> bool:
+    return any(
+        action.get("action_id") != action_id
+        and action.get("status") == "executing"
+        for action in read_pending_actions(project_root)
+    )
+
+
+def _refresh_remaining_evidence(project_root: Path, executed_id: str) -> None:
+    """Recompute evidence digests for actions still awaiting confirmation."""
+    actions = read_pending_actions(project_root)
+    changed = False
+    for action in actions:
+        if action.get("action_id") == executed_id:
+            continue
+        if action.get("status") != "awaiting-confirmation":
+            continue
+        digest = compute_action_digest(action)
+        if action.get("evidence_digest") != digest:
+            action["evidence_digest"] = digest
+            action["updated_at"] = _iso_now()
+            changed = True
+    if changed:
+        from .auto_action_policy import _write_pending_actions
+
+        _write_pending_actions(project_root, actions)
+
+
 async def confirm_action(app: Any, action_id: str) -> dict[str, Any]:
     """Confirm one pending action (repair or update) by id."""
     action_id = str(action_id or "").strip()
     if not action_id:
-        return _result(False, error_code="MISSING_ACTION_ID", message="action_id is required")
+        return _result(
+            False, error_code="MISSING_ACTION_ID", message="action_id is required"
+        )
 
-    project_root = Path(getattr(app, "project_root", "") or ".")
+    project_root = _project_root(app)
     action = next(
         (
             item
@@ -45,6 +128,15 @@ async def confirm_action(app: Any, action_id: str) -> dict[str, Any]:
             if item.get("action_id") == action_id
         ),
         None,
+    )
+    _audit(
+        project_root,
+        {
+            "event": "confirmation-prompt",
+            "action_id": action_id,
+            "actor": "authenticated-ui",
+            "found": action is not None,
+        },
     )
     if action is None:
         return _result(
@@ -58,35 +150,142 @@ async def confirm_action(app: Any, action_id: str) -> dict[str, Any]:
             error_code="ACTION_NOT_PENDING",
             message=f"action status is {action.get('status')}",
         )
-    if not user_confirmation_release_allowed():
+
+    kind = str(action.get("kind") or "")
+    if not switch_for_kind(kind):
         return _result(
             False,
-            error_code="RELEASE_NOT_GRANTED",
-            message="尚未放行：全域凍結中，確認後仍未允許執行。",
+            error_code="ACTION_KIND_UNKNOWN",
+            message=f"unknown pending action kind: {kind}",
+            action_id=action_id,
+        )
+    if not switch_enabled_for_kind(kind):
+        _audit(
+            project_root,
+            {
+                "event": "confirmation-refused",
+                "reason": "switch-disabled",
+                "action_id": action_id,
+                "kind": kind,
+            },
+        )
+        return _result(
+            False,
+            error_code="SWITCH_DISABLED",
+            message=(
+                "對應的自動執行開關未啟用；開關與逐筆確認必須同時成立。"
+            ),
             action_id=action_id,
             status="awaiting-confirmation",
         )
 
-    kind = str(action.get("kind") or "")
-    if kind == "repair":
-        return await _confirm_repair(app, project_root, action)
-    if kind == "update":
-        return await _confirm_update(app, project_root, action)
-    return _result(
-        False,
-        error_code="ACTION_KIND_UNKNOWN",
-        message=f"unknown pending action kind: {kind}",
-        action_id=action_id,
+    if _expired(action):
+        update_pending_action_status(project_root, action_id, "expired")
+        _audit(
+            project_root,
+            {
+                "event": "confirmation-refused",
+                "reason": "expired",
+                "action_id": action_id,
+                "kind": kind,
+            },
+        )
+        return _result(
+            False,
+            error_code="CONFIRMATION_EXPIRED",
+            message="確認已到期，請等待系統重新產生待確認項目。",
+            action_id=action_id,
+        )
+
+    current_digest = compute_action_digest(action)
+    stored_digest = str(action.get("evidence_digest") or "").strip()
+    if stored_digest and stored_digest != current_digest:
+        update_pending_action_status(
+            project_root, action_id, "invalidated", evidence_digest=current_digest
+        )
+        _audit(
+            project_root,
+            {
+                "event": "confirmation-refused",
+                "reason": "evidence-changed",
+                "action_id": action_id,
+                "kind": kind,
+            },
+        )
+        return _result(
+            False,
+            error_code="EVIDENCE_CHANGED",
+            message="計畫或證據已變更，舊確認失效；請重新確認。",
+            action_id=action_id,
+        )
+
+    if _other_action_executing(project_root, action_id):
+        return _result(
+            False,
+            error_code="EXECUTION_IN_PROGRESS",
+            message="另有項目執行中；多筆故障一次只執行一筆。",
+            action_id=action_id,
+        )
+
+    confirmation = {
+        "confirmed_at": _iso_now(),
+        "actor": "authenticated-ui",
+        "evidence_digest": current_digest,
+        "switch": switch_for_kind(kind),
+    }
+    update_pending_action_status(
+        project_root, action_id, "executing", confirmation=confirmation
+    )
+    _audit(
+        project_root,
+        {
+            "event": "confirmation-accepted",
+            "action_id": action_id,
+            "kind": kind,
+            "evidence_digest": current_digest,
+        },
     )
 
+    if kind == "repair":
+        result = await _execute_repair(app, project_root, action)
+    else:
+        result = await _execute_update(app, project_root, action)
 
-async def _confirm_repair(
+    final_status = "executed" if result.get("ok") else "failed"
+    update_pending_action_status(
+        project_root,
+        action_id,
+        final_status,
+        result={
+            "error_code": result.get("error_code", ""),
+            "decision": result.get("decision", ""),
+            "handover": result.get("handover", ""),
+        },
+    )
+    _refresh_remaining_evidence(project_root, action_id)
+    _audit(
+        project_root,
+        {
+            "event": "confirmation-result",
+            "action_id": action_id,
+            "kind": kind,
+            "ok": bool(result.get("ok")),
+            "error_code": result.get("error_code", ""),
+        },
+    )
+    return result
+
+
+async def _execute_repair(
     app: Any, project_root: Path, action: dict[str, Any]
 ) -> dict[str, Any]:
     from tasks.repair_coordinator import get_repair_coordinator
 
     action_id = str(action.get("action_id") or "")
-    request_id = str((action.get("detail") or {}).get("request_id") or "")
+    detail = action.get("detail") or {}
+    request_id = str(
+        action.get("fault_id") or detail.get("request_id") or ""
+    )
     coordinator = get_repair_coordinator()
     if coordinator is None or not request_id:
         return _result(
@@ -125,42 +324,28 @@ async def _confirm_repair(
             classified, user_confirmed=True
         )
     except Exception as error:
-        detail = f"{type(error).__name__}: {error}"
-        coordinator.mark_request_status(request_id, "failed", error=detail)
-        update_pending_action_status(
-            project_root, action_id, "failed", error=detail
-        )
+        detail_text = f"{type(error).__name__}: {error}"
+        coordinator.mark_request_status(request_id, "failed", error=detail_text)
         return _result(
             False,
             error_code="REPAIR_EXECUTION_FAILED",
-            message=detail,
+            message=detail_text,
             action_id=action_id,
         )
 
     ok = bool(result.get("ok"))
     decision = str(result.get("decision") or ("completed" if ok else "failed"))
     coordinator.acknowledge_request(request_id, decision=decision, ok=ok)
-    update_pending_action_status(
-        project_root,
-        action_id,
-        "executed" if ok else "failed",
-        decision=decision,
-        result={
-            "decision": decision,
-            "execution": result.get("execution", {}),
-            "verification": result.get("verification", {}),
-        },
-    )
     return _result(
         ok,
         action_id=action_id,
-        request_id=request_id,
+        fault_id=request_id,
         decision=decision,
         result=result,
     )
 
 
-async def _confirm_update(
+async def _execute_update(
     app: Any, project_root: Path, action: dict[str, Any]
 ) -> dict[str, Any]:
     action_id = str(action.get("action_id") or "")
@@ -196,28 +381,19 @@ async def _confirm_update(
             changed_paths, user_confirmed=True
         )
     except Exception as error:
-        detail_text = f"{type(error).__name__}: {error}"
-        update_pending_action_status(
-            project_root, action_id, "failed", error=detail_text
-        )
         return _result(
             False,
             error_code="UPDATE_EXECUTION_FAILED",
-            message=detail_text,
+            message=f"{type(error).__name__}: {error}",
             action_id=action_id,
         )
 
-    update_pending_action_status(
-        project_root,
-        action_id,
-        "executed" if accepted else "failed",
-        handover="prepared" if accepted else "deferred",
-    )
     return _result(
         bool(accepted),
         action_id=action_id,
+        update_id=str(action.get("update_id") or action_id),
         handover="prepared" if accepted else "deferred",
     )
 
 
-__all__ = ["confirm_action"]
+__all__ = ["confirm_action", "CONFIRMATION_AUDIT_RELATIVE"]

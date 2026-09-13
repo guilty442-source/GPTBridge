@@ -359,6 +359,54 @@ class RepairCoordinator:
                 requests = self._read_requests()
                 requests.append(request_record)
                 self._write_requests(requests)
+                try:
+                    from datetime import timedelta
+
+                    from core_system.auto_action_policy import (
+                        CONFIRMATION_TTL_SECONDS,
+                        record_pending_action,
+                    )
+
+                    classified = request_record.get("classified") or {}
+                    expires_at = (
+                        datetime.now(timezone.utc)
+                        + timedelta(seconds=CONFIRMATION_TTL_SECONDS)
+                    ).isoformat()
+                    failure_code = str(failure_code or "fault")
+                    target_file = str(classified.get("target_file") or "")
+                    record_pending_action(
+                        self.project_root,
+                        kind="repair",
+                        summary=(
+                            f"{failure_code}"
+                            f" ({classified.get('error_type') or 'unknown'})"
+                        ),
+                        detail={
+                            "request_id": request_id,
+                            "failure_code": failure_code,
+                            "owner": owner,
+                            "classified": classified,
+                            "requested_at": request_record["requested_at"],
+                        },
+                        action_id=f"repair-{request_id}",
+                        binding={
+                            "fault_id": request_id,
+                            "scope": target_file or failure_code,
+                            "target": target_file or failure_code,
+                            "proposed_method": (
+                                str(classified.get("action") or "")
+                                or "targeted-source-repair"
+                            ),
+                            "risk": str(decision_proof.get("severity") or "unclassified"),
+                            "rollback": (
+                                "governed repair backup + independent verification; "
+                                "failed verification rolls back"
+                            ),
+                            "expires_at": expires_at,
+                        },
+                    )
+                except Exception:
+                    pass
                 report["request_id"] = request_id
                 report["ok"] = True
                 report["reason"] = (

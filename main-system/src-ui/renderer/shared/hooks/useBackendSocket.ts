@@ -115,6 +115,12 @@ export const useBackendSocket = () => {
     Number(window.sessionStorage.getItem(OUTBOX_CURSOR_KEY) || 0) || 0
   )
   const outboxBufferRef = useRef<Map<number, OutboxStateEvent>>(new Map())
+  // Generation reported by the current backend session.  Events stamped
+  // with any other (superseded) generation are stale backlog replay and
+  // must never be applied — doing so used to trigger a status-request
+  // storm and exhaust the command rate limit.
+  const sessionGenerationRef = useRef<string | null>(null)
+  const lastRuntimeStatusRequestAtRef = useRef(0)
 
   const flushCommandQueue = useCallback(() => {
     const queue = commandQueueRef.current
@@ -296,6 +302,16 @@ export const useBackendSocket = () => {
         socket.send(JSON.stringify({ command: 'app:get-runtime-status', payload: {} }))
       }
 
+      // Coalesce convergence requests: an outbox replay can deliver many
+      // runtime-status events in a burst, and one request per event would
+      // flood the governed command channel.
+      const requestRuntimeStatusThrottled = (minIntervalMs = 1000) => {
+        const now = Date.now()
+        if (now - lastRuntimeStatusRequestAtRef.current < minIntervalMs) return
+        lastRuntimeStatusRequestAtRef.current = now
+        requestRuntimeStatus()
+      }
+
       const scheduleReadinessCheck = () => {
         clearReadinessTimer()
         readinessTimerRef.current = window.setTimeout(() => {
@@ -363,7 +379,11 @@ export const useBackendSocket = () => {
           socket.send(
             JSON.stringify({
               command: 'state_event_hello',
-              payload: { cursor: outboxAppliedRef.current },
+              payload: {
+                cursor: outboxAppliedRef.current,
+                generation:
+                  window.sessionStorage.getItem(OUTBOX_GENERATION_KEY) || '',
+              },
             })
           )
         } catch {
@@ -389,27 +409,41 @@ export const useBackendSocket = () => {
           // stream from sequence 0 instead of trusting the stale cursor.
           if (payload.event === 'state_event_session') {
             const sess = payload.payload as
-              | { backend_generation?: string }
+              | {
+                  backend_generation?: string
+                  cursor?: number
+                  reset?: boolean
+                }
               | undefined
             const storedGeneration = window.sessionStorage.getItem(
               OUTBOX_GENERATION_KEY
             )
-            if (
-              sess?.backend_generation &&
-              storedGeneration !== null &&
-              sess.backend_generation !== storedGeneration
-            ) {
-              outboxAppliedRef.current = 0
-              outboxBufferRef.current.clear()
-              window.sessionStorage.setItem(OUTBOX_CURSOR_KEY, '0')
-              window.sessionStorage.setItem(
-                OUTBOX_GENERATION_KEY,
-                sess.backend_generation
-              )
-              eventBus.emit('state_event_invalidate', {
-                reason: 'backend-generation-change',
-              })
-            } else if (sess?.backend_generation && storedGeneration === null) {
+            if (sess?.backend_generation) {
+              sessionGenerationRef.current = sess.backend_generation
+              const resetCursor =
+                typeof sess.cursor === 'number' && Number.isFinite(sess.cursor)
+                  ? Math.max(0, sess.cursor)
+                  : null
+              const generationChanged =
+                storedGeneration !== sess.backend_generation
+              // A fresh or superseded session starts from the backend's
+              // authoritative cursor (latest commit) instead of replaying
+              // the full durable history.
+              if (sess.reset === true || generationChanged) {
+                if (resetCursor !== null) {
+                  outboxAppliedRef.current = resetCursor
+                  window.sessionStorage.setItem(
+                    OUTBOX_CURSOR_KEY,
+                    String(resetCursor)
+                  )
+                }
+                outboxBufferRef.current.clear()
+                if (generationChanged) {
+                  eventBus.emit('state_event_invalidate', {
+                    reason: 'backend-generation-change',
+                  })
+                }
+              }
               window.sessionStorage.setItem(
                 OUTBOX_GENERATION_KEY,
                 sess.backend_generation
@@ -421,7 +455,17 @@ export const useBackendSocket = () => {
           // apply once, acknowledge the contiguous cursor.
           if (payload.event === 'state_event') {
             const ev = payload.payload as OutboxStateEvent | undefined
-            if (ev && typeof ev.sequence === 'number') {
+            const sessionGeneration = sessionGenerationRef.current
+            const staleBacklog =
+              ev !== undefined &&
+              typeof ev.sequence === 'number' &&
+              sessionGeneration !== null &&
+              ev.backend_generation !== sessionGeneration
+            if (staleBacklog) {
+              // Superseded-generation backlog replay: ignored entirely so a
+              // fresh session cannot replay days-old events and storm the
+              // governed command channel.
+            } else if (ev && typeof ev.sequence === 'number') {
               const storedGeneration = window.sessionStorage.getItem(
                 OUTBOX_GENERATION_KEY
               )
@@ -460,7 +504,7 @@ export const useBackendSocket = () => {
                   eventBus.emit(`state_event:${next.entity_type}`, next)
                   if (next.entity_type === 'runtime-status') {
                     // Scoped snapshot convergence for the readiness entity.
-                    requestRuntimeStatus()
+                    requestRuntimeStatusThrottled()
                   }
                 }
                 try {

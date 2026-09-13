@@ -19,6 +19,7 @@ never bypasses governance.
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import hashlib
 import json
@@ -29,7 +30,7 @@ import threading
 import time
 import types
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Final, Optional
 from dataclasses import dataclass, field
@@ -206,6 +207,10 @@ class HotReloadWatcher:
 
     # ─── reload request ───────────────────────────────────────────────
 
+    def _active_generation_hint(self) -> str:
+        """Best-effort current generation label for update evidence."""
+        return str(getattr(self.app, "active_generation", "") or "")
+
     async def _maybe_reload(
         self,
         changed_paths: list[str],
@@ -260,7 +265,43 @@ class HotReloadWatcher:
 
         if not automatic_update_execution_allowed() and not user_confirmed:
             try:
+                from core_system.auto_action_policy import (
+                    CONFIRMATION_TTL_SECONDS,
+                )
+
                 summary = "backend update: " + ", ".join(sorted(module_names))
+                file_evidence: list[dict[str, Any]] = []
+                for raw_path in sorted(changed_paths)[:20]:
+                    path = Path(raw_path)
+                    entry: dict[str, Any] = {"path": str(path)}
+                    try:
+                        content = path.read_bytes()
+                        entry["sha256"] = hashlib.sha256(content).hexdigest()
+                        if path.suffix == ".py":
+                            try:
+                                ast.parse(content.decode("utf-8"))
+                                entry["syntax_ok"] = True
+                            except (SyntaxError, UnicodeDecodeError):
+                                entry["syntax_ok"] = False
+                        else:
+                            entry["syntax_ok"] = None
+                    except OSError:
+                        entry["sha256"] = ""
+                        entry["syntax_ok"] = None
+                    file_evidence.append(entry)
+                compatibility_ok = all(
+                    item.get("syntax_ok") is not False for item in file_evidence
+                )
+                expires_at = (
+                    datetime.now(timezone.utc)
+                    + timedelta(seconds=CONFIRMATION_TTL_SECONDS)
+                ).isoformat()
+                action_id = (
+                    "update-"
+                    + hashlib.sha256(
+                        ",".join(sorted(module_names)).encode("utf-8")
+                    ).hexdigest()[:16]
+                )
                 record_pending_action(
                     self.project_root,
                     kind="update",
@@ -268,13 +309,29 @@ class HotReloadWatcher:
                     detail={
                         "modules": sorted(module_names),
                         "changed_paths": sorted(changed_paths)[:20],
+                        "files": file_evidence,
+                        "compatibility": {
+                            "syntax_ok": compatibility_ok,
+                            "evidence": "compile check of changed sources",
+                        },
+                        "source": "backend source change",
+                        "version": self._active_generation_hint(),
                     },
-                    action_id=(
-                        "update-"
-                        + hashlib.sha256(
-                            ",".join(sorted(module_names)).encode("utf-8")
-                        ).hexdigest()[:16]
-                    ),
+                    action_id=action_id,
+                    binding={
+                        "update_id": action_id,
+                        "scope": ", ".join(sorted(module_names)),
+                        "target": sorted(changed_paths)[0]
+                        if changed_paths
+                        else "",
+                        "proposed_method": "A330 standby-generation handover",
+                        "risk": "backend generation switch",
+                        "rollback": (
+                            "gateway keeps the previous generation for a "
+                            "bounded rollback window"
+                        ),
+                        "expires_at": expires_at,
+                    },
                 )
             except Exception:
                 pass

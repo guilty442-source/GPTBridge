@@ -64,22 +64,51 @@ class RuntimeStatusService:
         if callable(get_startup_status):
             result.update(get_startup_status())
         # User-confirmation queue (Xingcheng assistant panel).  Per-item
-        # fault/update approvals plus the operator release state.
+        # fault/update approvals plus the persisted A366 switches.
         try:
             from core_system.auto_action_policy import (
+                read_automation_switches,
                 read_pending_actions,
-                user_confirmation_release_allowed,
             )
 
             project_root = getattr(self.app, "project_root", None)
-            result["pending_actions"] = (
-                read_pending_actions(project_root) if project_root else []
-            )
-            result["confirmation_release_granted"] = (
-                user_confirmation_release_allowed()
-            )
+            actions = read_pending_actions(project_root) if project_root else []
+            result["pending_actions"] = actions
+            result["automation_switches"] = read_automation_switches(project_root)
+            result["pending_action_cardinality"] = {
+                "mode": (
+                    "MULTI_FAULT"
+                    if len(
+                        [
+                            action
+                            for action in actions
+                            if action.get("kind") == "repair"
+                            and action.get("status") == "awaiting-confirmation"
+                        ]
+                    )
+                    >= 2
+                    else "SINGLE_FAULT"
+                    if any(
+                        action.get("kind") == "repair"
+                        and action.get("status") == "awaiting-confirmation"
+                        for action in actions
+                    )
+                    else "NO_FAULT"
+                ),
+                "unresolved": len(
+                    [
+                        action
+                        for action in actions
+                        if action.get("status") == "awaiting-confirmation"
+                    ]
+                ),
+            }
         except Exception:
             result.setdefault("pending_actions", [])
-            result.setdefault("confirmation_release_granted", False)
+            result.setdefault("automation_switches", {})
+            result.setdefault(
+                "pending_action_cardinality",
+                {"mode": "NO_FAULT", "unresolved": 0},
+            )
         _status_cache[cache_key] = (now, result)
         return dict(result)

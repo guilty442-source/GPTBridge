@@ -8,6 +8,7 @@ import { ToolboxEntry } from '@/ui/toolbox/ToolboxEntry'
 import { useToolboxApplications } from '@/ui/toolbox/useToolboxApplications'
 import {
   SovereignDashboard,
+  type PendingActionApproval,
   type RuntimeStatusPayload,
 } from '@/ui/sovereign/SovereignDashboard'
 import { Drawer } from '@/ui/drawer/Drawer'
@@ -58,6 +59,7 @@ export default function App() {
   const [drawerCapacity, setDrawerCapacity] = useState(false)
   const [drawerThirdParty, setDrawerThirdParty] = useState(false)
   const [confirmBusyId, setConfirmBusyId] = useState<string | null>(null)
+  const [switchBusy, setSwitchBusy] = useState<string | null>(null)
   const [confirmMessages, setConfirmMessages] = useState<Record<string, string>>({})
   const backendSocket = useBackendSocket()
   const sendCommand = backendSocket.sendCommand
@@ -132,6 +134,54 @@ export default function App() {
       }
     },
     [confirmBusyId, sendCommand, waitForIpcEvent]
+  )
+
+  const setAutomationSwitch = useCallback(
+    async (switchName: string, enabled: boolean) => {
+      if (switchBusy) return
+      setSwitchBusy(switchName)
+      try {
+        const sent = sendCommand('app:set-automation-switch', {
+          switch: switchName,
+          enabled,
+        })
+        if (!sent.ok) {
+          setConfirmMessages((prev) => ({
+            ...prev,
+            [switchName]: sent.message || xr.switchSetFailed,
+          }))
+          return
+        }
+        const result = await waitForIpcEvent(
+          'app:set-automation-switch_result',
+          10000,
+          (payload) => !payload.switch || String(payload.switch) === switchName
+        )
+        if (result.ok !== true) {
+          setConfirmMessages((prev) => ({
+            ...prev,
+            [switchName]: String(result.message || '') || xr.switchSetFailed,
+          }))
+        } else {
+          setConfirmMessages((prev) => {
+            const next = { ...prev }
+            delete next[switchName]
+            return next
+          })
+        }
+      } catch {
+        setConfirmMessages((prev) => ({
+          ...prev,
+          [switchName]: xr.switchSetFailed,
+        }))
+      } finally {
+        setSwitchBusy(null)
+        sendCommand('app:get-runtime-status', {
+          source: 'automation_switch_update',
+        })
+      }
+    },
+    [switchBusy, sendCommand, waitForIpcEvent]
   )
 
   const {
@@ -313,7 +363,44 @@ export default function App() {
   const pendingActions = Array.isArray(runtimeStatus.pending_actions)
     ? runtimeStatus.pending_actions
     : []
-  const releaseGranted = runtimeStatus.confirmation_release_granted === true
+  const automationSwitches = runtimeStatus.automation_switches || {}
+  const repairSwitchOn = automationSwitches.automatic_repair_enabled === true
+  const updateSwitchOn = automationSwitches.automatic_update_enabled === true
+  const cardinality = runtimeStatus.pending_action_cardinality || {}
+  const switchOnForKind = (kind: string): boolean =>
+    kind === 'repair' ? repairSwitchOn : kind === 'update' ? updateSwitchOn : false
+  const actionExpired = (action: PendingActionApproval): boolean => {
+    const raw = String(action.expires_at || '')
+    if (!raw) return false
+    const parsed = Date.parse(raw)
+    return Number.isFinite(parsed) ? Date.now() > parsed : true
+  }
+  const actionSeverityRank = (action: PendingActionApproval): number => {
+    const numeric = Number(action.risk)
+    if (Number.isFinite(numeric) && numeric > 0) return numeric
+    const risk = String(action.risk || '').toLowerCase()
+    if (risk.includes('critical') || risk.includes('high')) return 4
+    if (risk.includes('medium')) return 3
+    if (risk.includes('low')) return 2
+    return 1
+  }
+  // A366 PRESENTATION: deterministic severity/time/fault_id order.
+  const orderedPendingActions = [...pendingActions].sort((a, b) => {
+    const severity = actionSeverityRank(b) - actionSeverityRank(a)
+    if (severity !== 0) return severity
+    const aTime = Date.parse(String(a.created_at || '')) || 0
+    const bTime = Date.parse(String(b.created_at || '')) || 0
+    if (aTime !== bTime) return aTime - bTime
+    return String(a.fault_id || a.action_id || '').localeCompare(
+      String(b.fault_id || b.action_id || '')
+    )
+  })
+  const cardinalityLabel =
+    cardinality.mode === 'MULTI_FAULT'
+      ? xr.cardinalityMulti
+      : cardinality.mode === 'SINGLE_FAULT'
+        ? xr.cardinalitySingle
+        : xr.cardinalityNoFault
 
   return (
     <div className="product-shell">
@@ -497,18 +584,56 @@ export default function App() {
 
         <section className="xingcheng-approvals" data-testid="pending-approvals">
           <div className="xingcheng-approvals__head">
-            <strong>{xr.pendingTitle}</strong>
-            <span>{releaseGranted ? xr.releaseGranted : xr.pendingHint}</span>
+            <strong>{xr.switchesTitle}</strong>
+            <span>{xr.switchAttribution}</span>
           </div>
-          {pendingActions.length === 0 ? (
+          <div className="xingcheng-switches">
+            {(
+              [
+                ['automatic_repair_enabled', xr.switchRepair, repairSwitchOn],
+                ['automatic_update_enabled', xr.switchUpdate, updateSwitchOn],
+              ] as Array<[string, string, boolean]>
+            ).map(([switchName, label, enabled]) => (
+              <div className="xingcheng-switch" key={switchName}>
+                <span className="xingcheng-switch__label">{label}</span>
+                <button
+                  type="button"
+                  className="xingcheng-switch__toggle"
+                  data-tone={enabled ? 'on' : 'off'}
+                  data-testid={`switch-${switchName}`}
+                  disabled={switchBusy === switchName}
+                  onClick={() => void setAutomationSwitch(switchName, !enabled)}
+                >
+                  {enabled ? xr.switchOn : xr.switchOff}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="xingcheng-approvals__head">
+            <strong>{xr.pendingTitle}</strong>
+            <span>
+              {cardinalityLabel}
+              {typeof cardinality.unresolved === 'number'
+                ? ` · ${xr.cardinalityCounts.replace(
+                    '{count}',
+                    String(cardinality.unresolved)
+                  )}`
+                : ''}
+            </span>
+          </div>
+          {orderedPendingActions.length === 0 ? (
             <p className="xingcheng-report__empty">{xr.pendingEmpty}</p>
           ) : (
             <div className="xingcheng-approvals__list">
-              {pendingActions.map((action, index) => {
+              {orderedPendingActions.map((action, index) => {
                 const actionId = String(action.action_id || '')
                 const busy = confirmBusyId === actionId
                 const message = confirmMessages[actionId]
                 const pending = action.status === 'awaiting-confirmation'
+                const expired = pending && actionExpired(action)
+                const switchReady = switchOnForKind(String(action.kind || ''))
+                const canConfirm = pending && switchReady && !expired && !busy
                 return (
                   <article
                     className="xingcheng-approval"
@@ -520,15 +645,52 @@ export default function App() {
                       </span>
                       <strong>{action.summary || actionId}</strong>
                     </div>
+                    <dl className="xingcheng-approval__detail">
+                      {action.fault_id ? (
+                        <div><dt>{xr.faultId}</dt><dd>{action.fault_id}</dd></div>
+                      ) : null}
+                      {action.update_id ? (
+                        <div><dt>{xr.updateId}</dt><dd>{action.update_id}</dd></div>
+                      ) : null}
+                      {action.scope ? (
+                        <div><dt>{xr.scopeLabel}</dt><dd>{action.scope}</dd></div>
+                      ) : null}
+                      {action.target ? (
+                        <div><dt>{xr.targetLabel}</dt><dd>{action.target}</dd></div>
+                      ) : null}
+                      {action.proposed_method ? (
+                        <div><dt>{xr.methodLabel}</dt><dd>{action.proposed_method}</dd></div>
+                      ) : null}
+                      {action.risk ? (
+                        <div><dt>{xr.riskLabel}</dt><dd>{action.risk}</dd></div>
+                      ) : null}
+                      {action.rollback ? (
+                        <div><dt>{xr.rollbackLabel}</dt><dd>{action.rollback}</dd></div>
+                      ) : null}
+                      {action.expires_at ? (
+                        <div><dt>{xr.expiresLabel}</dt><dd>{action.expires_at}</dd></div>
+                      ) : null}
+                      {action.evidence_digest ? (
+                        <div>
+                          <dt>{xr.evidenceLabel}</dt>
+                          <dd>{action.evidence_digest.slice(0, 16)}</dd>
+                        </div>
+                      ) : null}
+                    </dl>
                     <div className="xingcheng-approval__meta">
-                      <span>{action.status || 'awaiting-confirmation'}</span>
+                      <span>
+                        {expired
+                          ? xr.expired
+                          : action.status || 'awaiting-confirmation'}
+                      </span>
                       <span>{action.created_at || ''}</span>
                     </div>
                     <button
                       type="button"
                       className="xingcheng-approval__confirm"
                       data-testid={`confirm-pending-${actionId}`}
-                      disabled={busy || !pending}
+                      disabled={!canConfirm}
+                      title={!switchReady ? xr.switchDisabledHint : undefined}
                       onClick={() => void confirmPendingAction(actionId)}
                     >
                       {busy

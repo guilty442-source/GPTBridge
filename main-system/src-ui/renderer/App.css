@@ -404,6 +404,45 @@ button:focus-visible {
 .xingcheng-approvals__head strong { color: var(--text); font-size: 13px; }
 .xingcheng-approvals__head span { color: var(--muted); font-size: 10px; }
 .xingcheng-approvals__list { display: grid; gap: 10px; }
+.xingcheng-switches { display: grid; gap: 8px; }
+.xingcheng-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(12, 19, 34, 0.6);
+}
+.xingcheng-switch__label { color: var(--text); font-size: 12px; }
+.xingcheng-switch__toggle {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid rgba(120, 160, 255, 0.4);
+  background: rgba(60, 96, 190, 0.2);
+  color: #dbe6ff;
+}
+.xingcheng-switch__toggle[data-tone="on"] {
+  border-color: rgba(96, 220, 150, 0.5);
+  background: rgba(40, 160, 100, 0.22);
+  color: #b6f0ce;
+}
+.xingcheng-switch__toggle[data-tone="off"] { opacity: 0.85; }
+.xingcheng-approval__detail { display: grid; gap: 6px; margin: 0; }
+.xingcheng-approval__detail > div {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+}
+.xingcheng-approval__detail dt { color: var(--muted); font-size: 10px; }
+.xingcheng-approval__detail dd {
+  margin: 0;
+  color: var(--subtle);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
 .xingcheng-approval {
   display: grid;
   gap: 8px;

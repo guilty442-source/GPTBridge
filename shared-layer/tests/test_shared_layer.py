@@ -159,12 +159,13 @@ def test_no_installer_or_docker_dependency_in_python_core() -> None:
 
 
 def test_xingcheng_self_database_write_is_executor_only() -> None:
-    manifest = json.loads((ROOT.parent / "Standalone tools" / "local-model" / "manifest.json").read_text(encoding="utf-8"))
-    star = manifest["capabilities"]["xingcheng"]["star_native_model_permissions"]
+    local_manifest = json.loads((ROOT.parent / "Standalone tools" / "local-model" / "manifest.json").read_text(encoding="utf-8"))
+    xingcheng_manifest = json.loads((ROOT.parent / "Standalone tools" / "local-model" / "xingcheng" / "manifest.json").read_text(encoding="utf-8"))
+    star = local_manifest["capabilities"]["xingcheng"]["star_native_model_permissions"]
     assert star["database_write"] is True
     assert star["database_write_scope"] == "xingcheng-model-internal-unrestricted-excluding-permission-data"
     assert star["investment_database_write"] is True
-    assert manifest["permissions"]["database_scope"] == "opaque-central-index-read-and-xingcheng-internal-read-write"
+    assert xingcheng_manifest["permissions"]["database_scope"] == "opaque-central-index-read-and-xingcheng-internal-read-write"
 
 
 

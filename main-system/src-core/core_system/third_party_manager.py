@@ -555,12 +555,22 @@ class ThirdPartyManager:
 
         if not automatic_update_execution_allowed():
             try:
+                from datetime import timedelta
+
+                from core_system.auto_action_policy import (
+                    CONFIRMATION_TTL_SECONDS,
+                )
+
                 root = None
                 for parent in self._inventory_path.resolve().parents:
                     if (parent / "main-system").is_dir():
                         root = parent
                         break
                 if root is not None:
+                    expires_at = (
+                        datetime.now(timezone.utc)
+                        + timedelta(seconds=CONFIRMATION_TTL_SECONDS)
+                    ).isoformat()
                     record_pending_action(
                         root,
                         kind="update",
@@ -570,6 +580,15 @@ class ThirdPartyManager:
                             "only_available": only_available,
                         },
                         action_id="update-third-party-auto",
+                        binding={
+                            "update_id": "update-third-party-auto",
+                            "scope": ", ".join(sorted(AUTO_UPDATABLE_TOOLS)),
+                            "target": "auto-updatable third-party tools",
+                            "proposed_method": "package-manager update",
+                            "risk": "third-party version change",
+                            "rollback": "reinstall previous version via package manager",
+                            "expires_at": expires_at,
+                        },
                     )
             except Exception:
                 pass
