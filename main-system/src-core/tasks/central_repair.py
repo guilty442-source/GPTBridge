@@ -350,7 +350,7 @@ class CentralRepairService:
         package_rebuilder: Any | None = None,
     ) -> dict[str, Any]:
         target_id, target_root = self._validate_target(target_tool_id)
-        plan = plan_repair(failure_code)
+        plan = plan_repair(failure_code, recipes=self.known_recipes())
         run_id = uuid.uuid4().hex
         started_at = _iso_now()
         inspection = DatabaseRecoveryInspector(
