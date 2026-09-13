@@ -275,6 +275,7 @@ class GovernancePolicy:
     authority: str
     permission_hierarchy_role: str
     authority_files: tuple[str, ...]
+    runtime_mutable_authority_files: tuple[str, ...]
     top_level_rule: str
     governance_rule_sources: tuple[str, ...]
     governance_rule_count: int
@@ -341,6 +342,15 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
         "governance_rule/execution/tool_runtime/tool_local_cleanup.py",
         "governance_rule/execution/tool_runtime/sub_sovereign.py",
         "governance_rule/execution/git_tiers/__init__.py",
+    ),
+    # A382 non-disruptive amendment: the live codex database and its mirror
+    # publish new generations atomically while the system keeps running, so
+    # they stay protected by audit/seal but are excluded from launch-time
+    # integrity pinning (pinning their bytes would fail-close every running
+    # instance on each amendment).
+    runtime_mutable_authority_files=(
+        "governance_rule/codex/data/governance_codex.sqlite3",
+        "governance_rule/codex/governance_codex.zh-TW.txt",
     ),
     top_level_rule="governance_codex",
     governance_rule_sources=(
