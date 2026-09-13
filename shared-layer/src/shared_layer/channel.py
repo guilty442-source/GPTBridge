@@ -162,6 +162,18 @@ class SharedLayerChannel:
         except PermissionError:
             pass
 
+    def notification_stamp(self) -> tuple[int, int] | None:
+        """Cheap transport write stamp for notification-driven wakeups.
+
+        ``None`` when the active transport exposes no local change signal
+        (e.g. the central PostgreSQL transport); callers then fall back to
+        periodic wakeups.
+        """
+        probe = getattr(self._store, "notification_stamp", None)
+        if not callable(probe):
+            return None
+        return probe()
+
     def respond(self, request_id: str, response: Any) -> bool:
         token = self._issue(
             capability=f"{self._channel_id}-channel-request-process",

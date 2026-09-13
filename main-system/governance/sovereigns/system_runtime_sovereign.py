@@ -144,6 +144,22 @@ class SystemRuntimeSovereign(SovereignBase):
 
         return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A28", "A12"))
 
+    async def _delegate_execution(
+        self, decision: SovereignOutcome, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """運行主宰委派執行（A69/A121）。
+
+        The system-runtime-sovereign is decision-only (A297).  Runtime
+        actions (start/stop/restart/degraded/recover) are adjudicated
+        here and executed by the governed runtime executor; sub-sovereign
+        management and health coordination are pure decisions.  The
+        accepted outcome carries the adjudication record; actual runtime
+        mutation is performed by the governed executor invoked from the
+        orchestration layer, not by this sovereign.  This hook attests
+        that the adjudication is a decision record.
+        """
+        return decision
+
     async def _adjudicate_runtime_status(
         self, request: SovereignRequest
     ) -> SovereignOutcome:

@@ -248,6 +248,9 @@ class GovernedToolRuntime:
             channel_id: ChannelHealth(channel_id=channel_id)
             for channel_id in self._channels
         }
+        # Notification channel state (best-effort wake-up acceleration).
+        self._last_notification: dict[str, Any] | None = None
+        self._notified_request_ids: set[str] = set()
         _assert_sub_sovereign(self)
 
     def channel_for(self, channel_id: str) -> SharedLayerChannel:
@@ -290,14 +293,65 @@ class GovernedToolRuntime:
                 await self.send(websocket, event, payload)
 
     async def _listen_for_notifications(self, notify_queue: asyncio.Queue[str]) -> None:
-        # Codex-native local transport has no PostgreSQL LISTEN source. The
-        # worker polls the local sqlite store directly; this task stays for
-        # interface parity and simply waits out the runtime.
+        """Forward transport change signals into the worker's wake queue.
+
+        The central PostgreSQL transport announces queued requests with
+        ``pg_notify('tool_request_<channel>')``; the local degraded
+        transport has no LISTEN source, so this listener watches the local
+        store's write stamp (a single cheap ``stat`` per processing
+        channel) and enqueues a wake token whenever the database or its
+        WAL sidecar changes.  The worker therefore claims immediately on a
+        new request instead of waiting out its idle backoff, and every
+        delivered token is handled by ``_on_channel_notification``.
+        """
+        last_stamp: dict[str, tuple[int, int] | None] = {}
         while not self.shutdown_event.is_set():
-            await asyncio.sleep(0.5)
+            changed = False
+            for channel_id in self._processing_channel_ids:
+                channel = self._channels.get(channel_id)
+                probe = getattr(channel, "notification_stamp", None)
+                if not callable(probe):
+                    continue
+                try:
+                    stamp = await asyncio.to_thread(probe)
+                except Exception:
+                    stamp = None
+                if stamp is None:
+                    continue
+                if last_stamp.get(channel_id) != stamp:
+                    last_stamp[channel_id] = stamp
+                    changed = True
+            if changed:
+                with contextlib.suppress(asyncio.QueueFull):
+                    notify_queue.put_nowait("transport-store-changed")
+            await asyncio.sleep(0.05 if changed else 0.25)
 
     def _on_channel_notification(self, payload: str) -> None:
-        pass
+        """Handle one delivered transport notification token.
+
+        Records the notification for health/observability, lets the worker
+        clear its idle backoff (it re-claims from the store immediately
+        after a notification), and remembers an embedded ``request_id``
+        when the payload is a structured JSON event so health surfaces can
+        correlate which request triggered the wake-up.  Malformed payloads
+        are ignored — the notification channel is best-effort acceleration
+        on top of the authoritative store claim.
+        """
+        self._last_notification = {
+            "payload": str(payload)[:200],
+            "received_at": _iso_now(),
+        }
+        try:
+            decoded = json.loads(payload)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return
+        if not isinstance(decoded, dict):
+            return
+        request_id = str(decoded.get("request_id") or "").strip()
+        if request_id:
+            self._notified_request_ids.add(request_id)
+            if len(self._notified_request_ids) > 128:
+                self._notified_request_ids.clear()
 
     async def _worker(self) -> None:
         idle_poll_seconds = 0.25

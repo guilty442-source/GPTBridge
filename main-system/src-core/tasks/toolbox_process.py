@@ -6,6 +6,13 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
+from governance_rule.permission_directory.registries.permissions.identity_groups import (
+    identity_group_snapshot,
+)
+from governance_rule.permission_directory.registries.permissions.tool_routes import (
+    AUTHORIZED_TOOL_IDS,
+)
+
 
 class ProcessMixin:
     """Process ownership tracking, lifecycle authorization, and governance helpers."""
@@ -13,6 +20,68 @@ class ProcessMixin:
     # ------------------------------------------------------------------
     # Runtime ownership / authorization
     # ------------------------------------------------------------------
+
+    def _governed_runtime_tool_id(
+        self,
+        tool_id: str,
+        manifest: Dict[str, Any] | None = None,
+    ) -> str:
+        """Resolve the sealed-registry identity a tool's source runtime runs as.
+
+        A tool directory may host nested identity domains — e.g.
+        ``local-model`` physically hosts the ``xingcheng`` governed
+        endpoint.  The runtime identity is the registered AI-channel
+        participant whose sealed-registry bound manifest lives inside this
+        tool directory.  Registry-bound only: a tool cannot claim a
+        foreign identity through its own manifest.  More than one nested
+        channel participant is ambiguous and denied.
+        """
+        try:
+            tool_dir = self._tool_directory_for_id(tool_id)
+        except ValueError:
+            return tool_id
+        tool_root = tool_dir.resolve()
+        candidates: list[str] = []
+        for identity in identity_group_snapshot().identities:
+            bound_id = str(identity.bound_tool_id or "").strip()
+            if bound_id == tool_id or bound_id not in AUTHORIZED_TOOL_IDS:
+                continue
+            binding = identity.manifest_binding
+            if not binding.required or not binding.path_template:
+                continue
+            bound_manifest = (
+                self.project_root / binding.path_template.format(tool_id=bound_id)
+            ).resolve()
+            try:
+                bound_manifest.relative_to(tool_root)
+            except ValueError:
+                continue
+            if bound_manifest.is_file():
+                candidates.append(bound_id)
+        if len(candidates) > 1:
+            raise PermissionError("PERMISSION_DENIED")
+        return candidates[0] if candidates else tool_id
+
+    def _channel_target_tool_id(self, tool_id: str) -> str:
+        """Resolve the governed identity that actually claims the channel.
+
+        Companions route through their shared owner runtime, and the owner
+        may authenticate under a nested sealed-registry identity (e.g.
+        ``local-model`` -> ``xingcheng``).  Requests must be addressed to
+        the identity that claims the channel; the external tool_id is
+        preserved in result objects.
+        """
+        try:
+            manifest, _tool_dir = self._load_manifest_cached(tool_id)
+            owner = self._runtime_owner_tool_id(tool_id, manifest)
+            if owner != tool_id:
+                manifest, _tool_dir = self._load_manifest_cached(owner)
+            return self._governed_runtime_tool_id(owner, manifest)
+        except PermissionError:
+            raise
+        except Exception:
+            return tool_id
+
 
     def _runtime_owner_tool_id(
         self,

@@ -301,6 +301,20 @@ class XingchengSovereign(SovereignBase):
 
         return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A20", "A12"))
 
+    async def _delegate_execution(
+        self, decision: SovereignOutcome, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """星澄委派執行（A69/A121）。
+
+        星澄 is outside the decision chain (A12) but its native
+        capabilities (program/automation) dispatch governed programming
+        tools inside ``_adjudicate``; review/observe/analyze/reason/decide
+        intents are pure adjudications.  The accepted outcome already
+        reflects any dispatched execution.  This hook attests that the
+        delegation happened inside adjudication and returns the decision.
+        """
+        return decision
+
     # ------------------------------------------------------------------
     # Auxiliary review group (A137-A146)
     # ------------------------------------------------------------------

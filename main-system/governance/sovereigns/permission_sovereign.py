@@ -209,6 +209,21 @@ class PermissionSovereign(SovereignBase):
 
         return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A6", "A7", "A10"))
 
+    async def _delegate_execution(
+        self, decision: SovereignOutcome, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """權限主宰委派執行（A69/A121）。
+
+        The permission-sovereign is decision-only: it adjudicates
+        directory/identity/permission queries and records grant
+        lifecycle events (terminate/renew/restrict/suspend/revoke) in its
+        issued-grants ledger.  These are pure adjudications with no
+        execution side-effect — the sovereign does not execute, only
+        adjudicates (A297).  This hook attests that the accepted outcome
+        is a decision record, not an execution result.
+        """
+        return decision
+
     async def _adjudicate_permission_query(
         self, request: SovereignRequest
     ) -> SovereignOutcome:

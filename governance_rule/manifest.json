@@ -48,6 +48,16 @@
       "resident": true,
       "role": "sovereign",
       "activation_order": "before-main-system-and-all-other-modules"
+    },
+    "codex-read-execute": {
+      "authority": "governance-rule-only",
+      "role": "codex-reader",
+      "resident": true
+    },
+    "permission-directory-read-execute": {
+      "authority": "governance-rule-only",
+      "role": "permission-directory-executor",
+      "resident": true
     }
   },
   "environment": {

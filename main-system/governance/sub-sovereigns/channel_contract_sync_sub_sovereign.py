@@ -41,13 +41,10 @@ from core_system.sovereign_utils import _iso_now, _suppress
 from governance_rule.execution.tool_runtime.sub_sovereign import (
     SYSTEM_INTEGRATION_AUTHORITY,
 )
-from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.execution.codex_official import official_sovereign
 
 
-_INTEGRATION_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.id == "channel-contract-sync-sub-sovereign"),
-    None,
-)
+_INTEGRATION_SOVEREIGN = official_sovereign("channel-contract-sync-sub-sovereign")
 if _INTEGRATION_SOVEREIGN is None:
     raise RuntimeError("channel contract sync sub-sovereign not found in Governance Codex")
 

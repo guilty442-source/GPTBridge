@@ -2,9 +2,10 @@
 
 法典依据:
 - A12: SOVEREIGN-DECISION: ADJUDICATION-SOURCE:codex; APPLIES:runtime/maintenance/permission-sovereigns; 星澄:outside-decision-chain
-- A63: SOVEREIGN: decision-only; EXECUTION:delegated-to-governed-executor
-- A64: SUB-SOVEREIGN: control/dispatch under parent authority; EXECUTION:governed-executor
-- A74: ALL-CODEX-CITATION: enter-through-codex://official
+- A69: EXECUTION-LAYER-TIERS:dispatch-intake>authorization-and-governance-gate>task-planning>specialized-executor>result-verification>state-event-audit-publication; CONTROL:sub-sovereign; WORK:specialized-module-executor; VERIFY:independent-from-work-step
+- A121: BOUNDARY-ENFORCEMENT:governance-gate+audit-ledger+deny-on-violation; MECHANISM:pre-execution-verify+post-execution-audit+violation-stop-record-adjudicate
+- A297: TOP-LEVEL-SOVEREIGNS: EXECUTION-POWER:none; SEPARATION:decision actor cannot be execution actor or sole final verifier
+- A74: ALL-CODEX-CITATION: enter-through-governance-codex://official
 """
 
 from __future__ import annotations
@@ -27,6 +28,11 @@ from core_system.codex_decision import (
     refusal_outcome,
     verified_basis,
 )
+
+# Lazy import to avoid circular dependency
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from governance_rule.execution.authentication import GovernanceAuthenticationService
 
 
 @dataclass(frozen=True)
@@ -115,9 +121,11 @@ class SovereignBase(ABC):
         """单一决策入口：裁决 -> 授权 -> 委派执行。
 
         Per A10/A11: explicit allowlist, fail-closed.
+        Per A69/A121: execution is delegated to a governed executor and
+        independently verified; the sovereign never self-executes.
         """
-        # 1. Verify requester identity (A10)
-        if not self._verify_requester(request.requester):
+        # 1. Verify requester identity via capability token (A10/A11/A116)
+        if not await self._verify_requester(request):
             return refusal_outcome("UNAUTHORIZED_REQUESTER", ("A10", "A11"))
 
         # 2. Verify intent against codex edicts
@@ -127,15 +135,72 @@ class SovereignBase(ABC):
         # 3. Make decision (pure adjudication)
         decision = await self._adjudicate(request)
 
-        # 4. If accepted, delegate execution to governed executor
+        # 4. If accepted, delegate execution to governed executor.
+        #    The base default is fail-closed (A69/A121): a subclass MUST
+        #    override ``_delegate_execution`` to either dispatch to a real
+        #    governed executor or explicitly attest that the adjudication
+        #    was a pure decision with no execution side-effect.
         if decision.accepted:
             return await self._delegate_execution(decision, request)
         return decision
 
-    def _verify_requester(self, requester: str) -> bool:
-        """验证请求者身份（法典 A10/A7）。"""
-        # In production, this delegates to PermissionSovereign/identity registry
-        return bool(requester)
+    async def _verify_requester(self, request: SovereignRequest) -> bool:
+        """验证请求者身份（A10/A11/A116）。
+
+        In-process sovereign requests carry no capability token — sovereign
+        actors are not permission-directory identities, so none can be
+        minted for them.  The fail-closed gate therefore is:
+
+        - ``capability_token`` present → it MUST verify through the
+          governance authentication service and its ``actor`` claim must
+          equal ``request.requester`` (an invalid or mismatched token
+          always denies).
+        - no token → the requester string must be non-empty; delegated
+          requests are separately pinned by the sub-sovereign's A334
+          ``_delegated_by`` stamp check.
+        """
+        if not isinstance(request.requester, str) or not request.requester:
+            return False
+
+        token = request.payload.get("capability_token")
+        if token is None:
+            return True
+        if not isinstance(token, str) or not token:
+            return False
+
+        auth = getattr(self.app, "governance_auth", None) or getattr(self.app, "governance", None)
+        if auth is None:
+            return False
+        auth_service = getattr(auth, "authentication", None) or getattr(auth, "authentication_service", None)
+        if auth_service is None:
+            return False
+
+        try:
+            claims = auth_service.authenticate_token(token)
+        except Exception:
+            return False
+
+        # The token must prove the requester identity — ``bound_tool_id``
+        # belongs to the *requester's* attestation, never to the target
+        # sovereign.
+        if claims.actor != request.requester:
+            return False
+        if claims.capability not in {
+            "sovereign.request",
+            f"{self.area}.request",
+            request.intent,
+        }:
+            return False
+
+        request.payload["_verified_claims"] = {
+            "actor": claims.actor,
+            "bound_tool_id": claims.bound_tool_id,
+            "identity_group": claims.identity_group,
+            "capability": claims.capability,
+            "action": claims.action,
+            "target": claims.target,
+        }
+        return True
 
     def _verify_intent(self, intent: str) -> bool:
         """验证意图是否在管辖敕令范围内。"""
@@ -243,12 +308,26 @@ class SovereignBase(ABC):
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
-        """委派执行给受管执行器（A63/A64）。
+        """委派执行给受治理执行器（A69/A121）。
 
-        实际执行由 governed executor 负责，主宰仅返回授权结果。
+        Fail-closed default: a sovereign that does not override this hook
+        cannot claim successful execution.  Returning the bare adjudication
+        result would mask the absence of execution behind an accepted
+        outcome, violating A69 (EXECUTION-LAYER-TIERS requires a real
+        specialized-executor step) and A121 (post-execution-audit must
+        record an actual execution, not a decision echo).
+
+        Subclasses MUST override this hook to do one of:
+          * dispatch the decision to a registered governed executor,
+            run independent verification, and record the audit trail; or
+          * attest that the adjudication was a pure decision / query with
+            no execution side-effect (e.g. permission.query, runtime.status)
+            and return the decision unchanged with that attestation recorded.
         """
-        # Production: delegates to app.governance / toolbox / sub-sovereigns
-        return decision
+        return refusal_outcome(
+            "EXECUTION_NOT_DELEGATED",
+            self.verified_basis("A69", "A121"),
+        )
 
     # -------------------------------------------------------------------------
     # Lifecycle

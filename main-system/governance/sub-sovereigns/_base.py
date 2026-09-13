@@ -4,7 +4,7 @@
 - A64: SUB-SOVEREIGN: control/dispatch under parent authority; EXECUTION:governed-executor
 - A284/A287: system-sub-sovereign: module-management-assignment-coordination-no-decision-no-execution
 - A303/A304: startup-sub-sovereign: child-of-runtime-sovereign-no-decision-no-execution
-- A308: language-review-sub-sovereign: ABOLISHED per A334; capability transferred to 星澄
+- A308: language-review-sub-sovereign: child-of-permission-sovereign-no-decision-no-execution
 - A316: directory-sub-sovereign: child-of-permission-sovereign-no-decision-no-review-no-execution
 - A317: identity-group-sub-sovereign: child-of-permission-sovereign-no-decision-no-review-no-execution
 - A322: all sync sub-sovereigns: child-of-synchronization-sovereign-no-decision-no-execution
@@ -16,9 +16,13 @@ from __future__ import annotations
 
 from abc import ABC
 from typing import Any
+from typing import TYPE_CHECKING
 
 from ..sovereigns._base import SovereignBase, SovereignOutcome, SovereignRequest
 from core_system.codex_decision import accepted_outcome, refusal_outcome
+
+if TYPE_CHECKING:
+    from governance_rule.execution.authentication import GovernanceAuthenticationService
 
 
 class SubSovereignBase(SovereignBase, ABC):
@@ -55,7 +59,7 @@ class SubSovereignBase(SovereignBase, ABC):
         """子主權裁決：僅協調/調度/管理，不決策、不執行。"""
         intent = request.intent
 
-        if not self._verify_parent_authorization(request):
+        if not await self._verify_parent_authorization(request):
             return refusal_outcome("PARENT_AUTHORIZATION_REQUIRED", self.verified_basis("A130", "A284"))
 
         if intent == "coordinate":
@@ -71,26 +75,76 @@ class SubSovereignBase(SovereignBase, ABC):
 
         return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A130", "A284"))
 
+    async def _delegate_execution(
+        self, decision: SovereignOutcome, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """子主權無執行權（A64/A284/A322: no-decision-no-execution）。
+
+        Sub-sovereigns only coordinate/dispatch under parent authority;
+        actual work is performed by governed module executors.  The
+        adjudication result is a coordination record, not an execution
+        outcome, so there is no execution side-effect to delegate.
+        """
+        return decision
+
     def _verify_intent(self, intent: str) -> bool:
         """A10/A11 fail-closed: only declared coordination intents pass."""
         return intent in self._INTENT_ALLOWLIST
 
-    def _verify_parent_authorization(self, request: SovereignRequest) -> bool:
+    async def _verify_parent_authorization(self, request: SovereignRequest) -> bool:
         """A334: each sub-sovereign has exactly one codex-registered parent.
 
         The request must arrive *through* that parent: ``requester`` must
         equal the codex parent AND the payload must carry the
-        ``_delegated_by`` stamp that ``SovereignBase.delegate_to`` adds.
-        A bare ``requester=<parent>`` without the stamp is refused —
-        in-process callers may not impersonate the parent by string
-        alone.
+        ``_delegated_by`` stamp that ``SovereignBase.delegate_to`` adds —
+        a bare ``requester=<parent>`` string is spoofable by any
+        in-process caller.
+
+        When the payload carries a ``capability_token`` it is additionally
+        verified through the governance authentication service and must
+        prove a delegation from the parent (strict-when-present; an
+        invalid token always denies).
         """
         from ..registries import parent_of
 
         parent = parent_of(self.sovereign_id)
+        if not parent:
+            return False
         if request.requester != parent:
             return False
-        return request.payload.get("_delegated_by") == parent
+        if request.payload.get("_delegated_by") != parent:
+            return False
+
+        token = request.payload.get("capability_token")
+        if token is None:
+            return True
+        if not isinstance(token, str) or not token:
+            return False
+        auth = getattr(self.app, "governance_auth", None) or getattr(self.app, "governance", None)
+        auth_service = getattr(auth, "authentication", None) or getattr(auth, "authentication_service", None)
+        if auth_service is None:
+            return False
+        try:
+            claims = auth_service.authenticate_token(token)
+        except Exception:
+            return False
+        if claims.actor != parent:
+            return False
+        if claims.capability != "sovereign.delegate":
+            return False
+        if claims.action != "delegate":
+            return False
+        if claims.target != self.sovereign_id:
+            return False
+
+        request.payload["_verified_parent_claims"] = {
+            "parent": parent,
+            "actor": claims.actor,
+            "capability": claims.capability,
+            "action": claims.action,
+            "target": claims.target,
+        }
+        return True
 
     def report_to_parent(self, kind: str) -> bool:
         """Report a lifecycle outcome to the codex-registered parent.

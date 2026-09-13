@@ -12,8 +12,10 @@ CLI usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -21,9 +23,19 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[5]
 MAIN_SYSTEM_ROOT = PROJECT_ROOT / "main-system"
+PACKAGER_CLI = MAIN_SYSTEM_ROOT / "src-core" / "tasks" / "packager_main.py"
 
 # Windows: suppress console window for background subprocess calls
 _CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+
+_PACKAGE_TIMEOUT_SECONDS = 1800
+_VERIFY_TIMEOUT_SECONDS = 600
+
+
+def _background_subprocess_kwargs() -> dict[str, int]:
+    if os.name == "nt":
+        return {"creationflags": _CREATE_NO_WINDOW}
+    return {}
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -31,6 +43,91 @@ def _load_json(path: Path) -> dict[str, Any]:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def _packager_python() -> Path:
+    venv_python = MAIN_SYSTEM_ROOT / ".venv" / "Scripts" / "python.exe"
+    if venv_python.is_file():
+        return venv_python
+    return Path(sys.executable).resolve()
+
+
+def _run_packager_cli(
+    arguments: list[str],
+    *,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    """Delegate to the main-system central packager CLI under governance."""
+    if not PACKAGER_CLI.is_file():
+        return {
+            "ok": False,
+            "error_code": "PACKAGER_MISSING",
+            "message": f"central packager not found: {PACKAGER_CLI}",
+        }
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "GPTBRIDGE_GOVERNANCE_PROJECT_ROOT": str(PROJECT_ROOT),
+            "PYTHONUTF8": "1",
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONNOUSERSITE": "1",
+        }
+    )
+    try:
+        completed = subprocess.run(
+            [
+                os.fspath(_packager_python()),
+                "-B",
+                "-s",
+                os.fspath(PACKAGER_CLI),
+                *arguments,
+                "--json",
+            ],
+            cwd=os.fspath(PACKAGER_CLI.parent),
+            env=environment,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout_seconds,
+            **_background_subprocess_kwargs(),
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "ok": False,
+            "error_code": "PACKAGER_TIMEOUT",
+            "message": f"central packager timed out after {timeout_seconds}s",
+        }
+    except OSError as error:
+        return {
+            "ok": False,
+            "error_code": "PACKAGER_LAUNCH_FAILED",
+            "message": str(error),
+        }
+    output = (completed.stdout or "").strip()
+    report: dict[str, Any] = {}
+    for line in reversed(output.splitlines()):
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            report = json.loads(line)
+            break
+        except json.JSONDecodeError:
+            continue
+    if not report:
+        return {
+            "ok": False,
+            "error_code": "PACKAGER_OUTPUT_INVALID",
+            "exit_code": completed.returncode,
+            "stdout": output[:4000],
+            "stderr": (completed.stderr or "")[:4000],
+        }
+    report["exit_code"] = completed.returncode
+    if completed.returncode != 0:
+        report["ok"] = False
+    return report
 
 
 def _discover_packaged_tools() -> list[str]:
@@ -131,32 +228,96 @@ def package_platform_tool(
     *,
     skip_integrity: bool = False,
 ) -> dict[str, Any]:
-    """Package a platform tool into a distributable archive.
+    """Package a platform tool via the main-system central packager.
 
-    This is a thin integration shim that delegates to the main-system
-    central platform packager under governance authorization.
+    system-rescue is the governed integration point for platform packaging;
+    the actual assembly is delegated to ``main-system``'s central packager
+    CLI, which owns Electron/runtime staging and upgrade verification.
+    ``output_dir``/``skip_integrity`` are accepted for interface parity; the
+    central packager owns its own output layout and integrity checks.
     """
-    return {
-        "ok": False,
-        "tool_id": tool_id,
-        "error_code": "NOT_IMPLEMENTED",
-        "message": "platform_packager integration pending main-system delegation",
-    }
+    del output_dir, skip_integrity
+    tool_id = str(tool_id or "").strip()
+    if not tool_id:
+        return {
+            "ok": False,
+            "error_code": "TOOL_ID_REQUIRED",
+            "message": "tool_id is required",
+        }
+    report = _run_packager_cli([tool_id], timeout_seconds=_PACKAGE_TIMEOUT_SECONDS)
+    results = report.get("results")
+    if isinstance(results, list):
+        for entry in results:
+            if isinstance(entry, dict) and entry.get("tool_id") == tool_id:
+                merged = dict(entry)
+                merged.setdefault("ok", report.get("ok"))
+                merged["delegated_to"] = "main-system-central-packager"
+                return merged
+    report.setdefault("tool_id", tool_id)
+    report["delegated_to"] = "main-system-central-packager"
+    return report
+
+
+def deep_verify_tool_package(tool_id: str) -> dict[str, Any]:
+    """Run the central packager's real verification for one tool."""
+    tool_id = str(tool_id or "").strip()
+    if not tool_id:
+        return {
+            "ok": False,
+            "error_code": "TOOL_ID_REQUIRED",
+            "message": "tool_id is required",
+        }
+    report = _run_packager_cli(
+        [tool_id, "--verify"], timeout_seconds=_VERIFY_TIMEOUT_SECONDS
+    )
+    results = report.get("results")
+    if isinstance(results, list):
+        for entry in results:
+            if isinstance(entry, dict) and entry.get("tool_id") == tool_id:
+                merged = dict(entry)
+                merged.setdefault("ok", report.get("ok"))
+                merged["delegated_to"] = "main-system-central-packager"
+                return merged
+    report.setdefault("tool_id", tool_id)
+    report["delegated_to"] = "main-system-central-packager"
+    return report
 
 
 def verify_packaged_tool(package_path: Path) -> dict[str, Any]:
-    """Verify the integrity of a packaged tool archive."""
+    """Verify the integrity of a packaged tool archive.
+
+    Besides existence/size, a ``<package>.sha256`` sidecar (hex digest,
+    optionally followed by whitespace and a filename as produced by
+    ``certutil``/``sha256sum``) is honored when present.
+    """
     if not package_path.is_file():
         return {
             "ok": False,
             "error_code": "PACKAGE_NOT_FOUND",
             "message": str(package_path),
         }
-    return {
+    result: dict[str, Any] = {
         "ok": True,
         "package_path": str(package_path),
         "size_bytes": package_path.stat().st_size,
     }
+    sidecar = package_path.with_name(package_path.name + ".sha256")
+    if sidecar.is_file():
+        try:
+            expected = sidecar.read_text(encoding="utf-8").split()[0].strip().lower()
+            actual = hashlib.sha256(package_path.read_bytes()).hexdigest()
+        except (OSError, IndexError) as error:
+            return {
+                "ok": False,
+                "error_code": "PACKAGE_CHECKSUM_UNREADABLE",
+                "message": str(error),
+            }
+        result["sha256"] = actual
+        result["sha256_expected"] = expected
+        if expected != actual:
+            result["ok"] = False
+            result["error_code"] = "PACKAGE_CHECKSUM_MISMATCH"
+    return result
 
 
 def _main(argv: list[str] | None = None) -> int:
@@ -164,6 +325,11 @@ def _main(argv: list[str] | None = None) -> int:
     parser.add_argument("--all", action="store_true", help="process all tools")
     parser.add_argument("--tool", default="", help="specific tool id")
     parser.add_argument("--verify", action="store_true", help="verify package integrity")
+    parser.add_argument(
+        "--deep",
+        action="store_true",
+        help="delegate verification to the main-system central packager",
+    )
     parser.add_argument("--package", action="store_true", help="create package")
     parser.add_argument("--json", action="store_true", help="output as JSON")
     args = parser.parse_args(argv)
@@ -171,10 +337,16 @@ def _main(argv: list[str] | None = None) -> int:
     result: dict[str, Any]
     if args.all and args.verify:
         result = verify_all_packages()
+    elif args.tool and args.verify and args.deep:
+        result = deep_verify_tool_package(args.tool)
     elif args.tool and args.verify:
         result = _verify_tool_package(args.tool)
     elif args.tool and args.package:
         result = package_platform_tool(args.tool)
+    elif args.all and args.package:
+        result = _run_packager_cli(
+            ["--all"], timeout_seconds=_PACKAGE_TIMEOUT_SECONDS
+        )
     elif args.all:
         result = verify_all_packages()
     else:
@@ -192,4 +364,9 @@ if __name__ == "__main__":
     sys.exit(_main())
 
 
-__all__ = ["package_platform_tool", "verify_packaged_tool", "verify_all_packages"]
+__all__ = [
+    "deep_verify_tool_package",
+    "package_platform_tool",
+    "verify_all_packages",
+    "verify_packaged_tool",
+]

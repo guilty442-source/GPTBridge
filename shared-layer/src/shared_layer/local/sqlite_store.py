@@ -153,6 +153,28 @@ class LocalSharedLayerStore:
     def notify_channel(self, token: str, target_tool_id: str) -> None:
         self._authorize(token, "process", target_tool_id)
 
+    def notification_stamp(self) -> tuple[int, int]:
+        """Cheap write stamp of the local transport store (notification probe).
+
+        Returns ``(mtime_ns, size)`` across the database and its WAL sidecar
+        so a write in either is observable without reading any rows.  The
+        governed runtime listener uses this to wake its worker immediately
+        instead of waiting out the idle polling backoff.
+        """
+        stamp = 0
+        size = 0
+        for suffix in ("", "-wal"):
+            candidate = self._database_path.parent / (
+                self._database_path.name + suffix
+            )
+            try:
+                stat_result = candidate.stat()
+            except OSError:
+                continue
+            stamp = max(stamp, stat_result.st_mtime_ns)
+            size += stat_result.st_size
+        return (stamp, size)
+
     def cancel_request(self, token: str, request_id: str, target_tool_id: str) -> bool:
         actor = self._authorize(token, "cancel-request", target_tool_id)
         with self._connect() as connection:

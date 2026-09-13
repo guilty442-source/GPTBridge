@@ -46,6 +46,11 @@
       "authority": "main-system-central-packaging-only",
       "role": "packaging-integration",
       "resident": false
+    },
+    "central-automatic-repair": {
+      "authority": "main-system-central-repair-only",
+      "role": "rescue-integration",
+      "resident": false
     }
   },
   "environment": {

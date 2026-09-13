@@ -20,13 +20,10 @@ from pathlib import Path
 from typing import Any
 
 from ._base import SubSovereignBase
-from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.execution.codex_official import official_sovereign
 
 
-_DECLARATION = next(
-    (item for item in GOVERNANCE_CODEX.sovereigns if item.id == "learning-evidence-sync-sub-sovereign"),
-    None,
-)
+_DECLARATION = official_sovereign("learning-evidence-sync-sub-sovereign")
 if _DECLARATION is None:
     raise RuntimeError("learning evidence sync sub-sovereign not found in Governance Codex")
 

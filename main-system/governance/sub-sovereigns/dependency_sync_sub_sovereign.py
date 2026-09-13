@@ -41,13 +41,10 @@ from core_system.third_party_manager import (
     UpdateCheckResult,
     UpdateExecutionResult,
 )
-from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.execution.codex_official import official_sovereign
 
 
-_THIRD_PARTY_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.id == "dependency-sync-sub-sovereign"),
-    None,
-)
+_THIRD_PARTY_SOVEREIGN = official_sovereign("dependency-sync-sub-sovereign")
 if _THIRD_PARTY_SOVEREIGN is None:
     raise RuntimeError("dependency sync sub-sovereign not found in Governance Codex")
 

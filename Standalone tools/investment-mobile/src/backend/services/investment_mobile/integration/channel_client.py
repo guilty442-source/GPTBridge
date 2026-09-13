@@ -1,27 +1,25 @@
-"""Investment Mobile Integration - Channel Client."""
+"""Investment Mobile Integration - Channel Client.
+
+Compatibility module: the real governed-channel implementations live in
+``.clients``; this module re-exports them so both import paths stay valid.
+"""
 
 from __future__ import annotations
 
-from typing import Any
+from .clients import (
+    INSTRUCTION_COMMAND,
+    MOBILE_ACTOR,
+    SNAPSHOT_COMMAND,
+    XINGCHENG_TOOL_ID,
+    ChannelClient,
+    ExternalAPIClient,
+)
 
-
-class ChannelClient:
-    """Client for channel communication."""
-
-    def __init__(self, tool_id: str) -> None:
-        self.tool_id = tool_id
-
-    async def send(self, command: str, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-        """Send command through governed channel."""
-        return "ok", {"command": command}
-
-
-class ExternalAPIClient:
-    """Client for external API integration."""
-
-    def __init__(self, base_url: str) -> None:
-        self.base_url = base_url
-
-    async def fetch_market_data(self, symbol: str) -> dict[str, Any]:
-        """Fetch market data from external API."""
-        return {"symbol": symbol, "data": {}}
+__all__ = [
+    "ChannelClient",
+    "ExternalAPIClient",
+    "INSTRUCTION_COMMAND",
+    "MOBILE_ACTOR",
+    "SNAPSHOT_COMMAND",
+    "XINGCHENG_TOOL_ID",
+]

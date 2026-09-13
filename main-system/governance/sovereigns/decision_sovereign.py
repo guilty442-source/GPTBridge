@@ -262,6 +262,22 @@ class DecisionSovereign(SovereignBase):
 
         return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A10", "A12"))
 
+    async def _delegate_execution(
+        self, decision: SovereignOutcome, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """決策主宰委派執行（A69/A121）。
+
+        This sovereign is decision-only (A297).  Execution is dispatched
+        inside ``_adjudicate`` through the governed repair decision chain
+        (``RepairDecisionChain.decide_and_route`` performs
+        permission-validation > governed-executor > independent-verification)
+        and through ``delegate_to`` for A330 certified updates routed to
+        the synchronization-sovereign.  The accepted outcome already
+        carries the execution result, so this hook attests that the
+        delegation happened inside adjudication and returns the decision.
+        """
+        return decision
+
     async def _adjudicate_startup_dispatch(
         self, request: SovereignRequest
     ) -> SovereignOutcome:

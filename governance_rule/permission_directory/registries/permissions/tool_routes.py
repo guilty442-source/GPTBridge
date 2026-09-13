@@ -94,12 +94,18 @@ def authorize_ai_route(requester_actor: str, target_tool_id: str, command: str) 
 
 
 def authorize_ai_target(requester_actor: str, target_tool_id: str, command: str) -> None:
-    """Authorize an own-tool command or a governed cross-tool AI route."""
+    """Authorize an own-tool command or a governed cross-tool AI route.
+
+    AI-channel participants that are not route targets (e.g.
+    investment-mobile, a submit-only 星澄 client) accept governance and
+    self commands — their governed runtime executes own-tool requests —
+    but never a cross-tool route into themselves.
+    """
 
     target = str(target_tool_id or "").strip()
     requested_command = str(command or "").strip()
     actor = str(requester_actor or "").strip()
-    if target not in AUTHORIZED_TOOL_IDS or not requested_command:
+    if target not in AI_CHANNEL_TOOL_IDS or not requested_command:
         raise permission_denied()
     # Governance remains the highest authority and may manage an AI tool via
     # the shared request layer. It isn't accepted by authorize_ai_route(), so
@@ -108,6 +114,9 @@ def authorize_ai_target(requester_actor: str, target_tool_id: str, command: str)
         return
     if actor == tool_actor(target):
         return
+    # Submit-only participants are never a cross-tool route target.
+    if target not in AUTHORIZED_TOOL_IDS:
+        raise permission_denied()
     authorize_ai_route(actor, target, requested_command)
 
 

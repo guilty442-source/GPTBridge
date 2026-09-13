@@ -79,9 +79,10 @@ class ExecutionMixin:
         if request_error is not None or request_id is None:
             return {"tool_id": tool_id, **(request_error or {})}
 
+        channel_tool_id = self._channel_target_tool_id(tool_id)
         try:
             self.permission_sovereign.submit_tool_execution_request(
-                tool_id,
+                channel_tool_id,
                 request_id,
                 dict(payload),
             )
@@ -134,6 +135,7 @@ class ExecutionMixin:
         if not tool_id or not request_id:
             return queued
 
+        channel_tool_id = self._channel_target_tool_id(tool_id)
         timeout_seconds = max(1.0, min(float(payload.get("timeout_seconds") or 120), 600))
         deadline = time.monotonic() + timeout_seconds
         poll_interval = 0.1
@@ -143,7 +145,7 @@ class ExecutionMixin:
             try:
                 response = await asyncio.to_thread(
                     self.permission_sovereign.tool_execution_response,
-                    tool_id,
+                    channel_tool_id,
                     request_id,
                 )
                 first_poll_error = None
@@ -244,7 +246,7 @@ class ExecutionMixin:
 
         try:
             cancelled = self.permission_sovereign.cancel_tool_execution_request(
-                tool_id,
+                self._channel_target_tool_id(tool_id),
                 requested_id,
             )
         except PermissionError:

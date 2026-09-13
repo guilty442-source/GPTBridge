@@ -53,12 +53,15 @@ class EnvironmentMixin:
         tool_dir: Path,
         manifest: Dict[str, Any],
     ) -> dict[str, str]:
+        governed_tool_id = self._governed_runtime_tool_id(tool_id, manifest)
         child_env = self._tool_environment(
             tool_id,
             tool_dir,
             manifest,
             start_hidden=True,
+            governance_tool_id=governed_tool_id,
         )
+        child_env["GPTBRIDGE_GOVERNED_RUNTIME_TOOL_ID"] = governed_tool_id
         child_env["GPTBRIDGE_IPC_PORT"] = str(self._allocate_loopback_port())
         child_env["GPTBRIDGE_IPC_SESSION_TOKEN"] = secrets.token_hex(32)
         child_env["GPTBRIDGE_SHUTDOWN_TOKEN"] = secrets.token_hex(32)

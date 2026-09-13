@@ -331,8 +331,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "embedded-browser",
-            "embedded-browser_memory_list",
+            "xingcheng",
+            "xingcheng_memory_list",
             {
                 "include_inactive": include_inactive,
                 "limit": max(1, min(500, int(limit))),
@@ -352,8 +352,8 @@ class InvestmentAiConnections:
         if self._client is None:
             return self._not_ready()
         return self._client.request_sync(
-            "embedded-browser",
-            "embedded-browser_memory_review",
+            "xingcheng",
+            "xingcheng_memory_review",
             {
                 "memory_id": memory_id,
                 "action": action,

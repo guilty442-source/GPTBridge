@@ -145,7 +145,7 @@ class SynchronizationSovereign(SovereignBase):
 
         child_id = _SYNC_INTENT_CHILDREN.get(intent)
         if child_id is not None:
-            return self._adjudicate_sync_dispatch(request, child_id)
+            return await self._adjudicate_sync_dispatch(request, child_id)
 
         if intent == "sub-sovereign.activate":
             return self._adjudicate_child_activation(request)
@@ -168,6 +168,21 @@ class SynchronizationSovereign(SovereignBase):
 
         return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A301", "A322"))
 
+    async def _delegate_execution(
+        self, decision: SovereignOutcome, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """同步主宰委派執行（A69/A121）。
+
+        The synchronization-sovereign is decision-only (A297).  A330
+        certified-update execution is dispatched inside ``_adjudicate``
+        through the governed boot-core / release-update chain; the other
+        intents (sync dispatch, child activation/deactivation, module
+        route, convergence) are coordination decisions with no execution
+        side-effect.  This hook attests that the accepted outcome already
+        reflects the delegated execution or is a pure coordination record.
+        """
+        return decision
+
     # ------------------------------------------------------------------
     # Intent gate (A10/A11 explicit allowlist)
     # ------------------------------------------------------------------
@@ -181,27 +196,66 @@ class SynchronizationSovereign(SovereignBase):
     # A334 registry-driven dispatch
     # ------------------------------------------------------------------
 
-    def _adjudicate_sync_dispatch(
+    async def _adjudicate_sync_dispatch(
         self, request: SovereignRequest, child_id: str
     ) -> SovereignOutcome:
-        """Adjudicate a sync intent against the A334 hierarchy registry.
+        """Adjudicate a sync intent and dispatch it to the registered child.
 
         Fail-closed: the child must be a codex-registered child of this
-        sovereign; the returned outcome carries the registered primary
-        domain and the materialization state for the governed executor.
+        sovereign (A334).  A materialized child receives the sync through
+        its single entry under this parent's authority and performs the
+        durable synchronization duty (persistent journal + audit event);
+        convergence/refusal is reported back here (A322).  Retry/cancel: a
+        refused child dispatch is recorded against the child's bounded
+        consecutive-failure budget.
         """
         if not validate_child_parent(child_id, self.sovereign_id):
             return refusal_outcome(
                 "NOT_CODEX_CHILD", self.verified_basis("A322", "A334")
             )
         child = self._sub_sovereigns.get(child_id)
+        if child is None:
+            return accepted_outcome(
+                {
+                    "sync_type": request.intent,
+                    "delegated_to": child_id,
+                    "primary_domain": primary_domain_of(child_id),
+                    "materialized": False,
+                    "started": False,
+                    "child_dispatched": False,
+                    "no_decision": True,
+                    "no_execution": True,
+                },
+                self.verified_basis("A322", "A301", "A334"),
+            )
+        child_outcome = await self.delegate_to(
+            child_id,
+            SovereignRequest(
+                intent="sync",
+                subject=request.subject or request.intent,
+                requester=self.sovereign_id,
+                payload=dict(request.payload),
+            ),
+        )
+        dispatched = bool(child_outcome.accepted)
+        if dispatched:
+            self.record_child_success(child_id)
+        else:
+            self.record_child_failure(child_id)
         return accepted_outcome(
             {
                 "sync_type": request.intent,
                 "delegated_to": child_id,
                 "primary_domain": primary_domain_of(child_id),
-                "materialized": child is not None,
+                "materialized": True,
                 "started": bool(getattr(child, "_started", False)),
+                "child_dispatched": dispatched,
+                "child_result": child_outcome.result if dispatched else None,
+                "child_refusal": (
+                    child_outcome.refusal.reason_code
+                    if child_outcome.refusal is not None
+                    else None
+                ),
                 "no_decision": True,
                 "no_execution": True,
             },

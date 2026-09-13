@@ -16,10 +16,40 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
 sys.path.insert(0, str(TOOL_ROOT / "src" / "backend" / "services"))
 
-from governance_rule.permission_directory.registries.permissions.tool_routes import (  # noqa: E402
-    authorize_ai_target,
-)
+from investment_mobile.integration.clients import ChannelClient  # noqa: E402
 from governance_rule.execution.tool_runtime.governed_runtime import GovernedToolRuntime  # noqa: E402
+
+
+# Inbound requests arrive on the system channel from governance.  Peers can
+# never target investment-mobile: it is a submit-only AI-channel participant
+# whose sole route is investment-mobile -> xingcheng.
+_GOVERNANCE_MAIN_ACTOR = "governance/main-system"
+_SELF_ACTOR = f"governance/tool/{TOOL_ID}"
+_AUTHORIZED_REQUESTERS = frozenset({_GOVERNANCE_MAIN_ACTOR, _SELF_ACTOR})
+
+# Codex canonical commands (investment-mobile domain) plus the legacy
+# capability aliases declared in manifest.capabilities.
+_SNAPSHOT_COMMANDS = frozenset(
+    {
+        "investment-analysis",
+        "investment-mobile-get-snapshot",
+    }
+)
+_INSTRUCTION_COMMANDS = frozenset(
+    {
+        "investment-manager",
+        "investment-market-search",
+        "investment-mobile-submit-instruction",
+        "investment-mobile-rotate-pairing",
+    }
+)
+_LOCAL_COMMANDS = frozenset(
+    {
+        "investment-mobile-status",
+        "investment-mobile-start",
+        "investment-mobile-stop",
+    }
+)
 
 
 class InvestmentMobileService:
@@ -28,28 +58,51 @@ class InvestmentMobileService:
 
     def __init__(self, tool_root: Path) -> None:
         self.tool_root = tool_root
+        self.channel = ChannelClient(TOOL_ID)
+        self._started = False
 
     def owns(self, command: str) -> bool:
-        return command in {
-            "investment-analysis",
-            "investment-manager",
-            "investment-market-search",
-        }
+        return (
+            command in _SNAPSHOT_COMMANDS
+            or command in _INSTRUCTION_COMMANDS
+            or command in _LOCAL_COMMANDS
+        )
 
-    async def handle(self, command: str, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-        if command == "investment-analysis":
-            return "ok", {"analysis": "completed"}
-        if command == "investment-manager":
-            return "ok", {"manager": "running"}
-        if command == "investment-market-search":
-            return "ok", {"search": "completed"}
+    def bind_channel(self, channel: Any) -> None:
+        self.channel.bind_channel(channel)
+
+    async def handle(
+        self, command: str, payload: dict[str, Any]
+    ) -> tuple[str, dict[str, Any]]:
+        if command in _LOCAL_COMMANDS:
+            return f"{command}_result", self._status(command)
+        if command in _SNAPSHOT_COMMANDS:
+            result = await self.channel.snapshot(dict(payload))
+            return f"{command}_result", result
+        if command in _INSTRUCTION_COMMANDS:
+            result = await self.channel.submit_instruction(dict(payload))
+            return f"{command}_result", result
         raise PermissionError("PERMISSION_DENIED")
 
+    def _status(self, command: str) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "tool_id": TOOL_ID,
+            "command": command,
+            "started": self._started,
+            "channel_connected": self.channel.connected,
+            "transport": "governance-authenticated-shared-layer",
+            "lifecycle_owner": "governed-runtime",
+            "business_layer_owner": "ai-assistant",
+            "permission_profile": "ai-investment-manager-v1",
+            "relay_chain": "investment-mobile -> xingcheng -> ai-assistant",
+        }
+
     async def start(self) -> None:
-        pass
+        self._started = True
 
     async def shutdown(self) -> None:
-        pass
+        self._started = False
 
 
 service = InvestmentMobileService(TOOL_ROOT)
@@ -61,28 +114,29 @@ async def execute(
     _request_id: str,
 ) -> tuple[str, dict[str, Any]]:
     requester = str(payload.pop("_governed_requester_actor", ""))
-    authorize_ai_target(requester, TOOL_ID, command)
+    if requester not in _AUTHORIZED_REQUESTERS:
+        raise PermissionError("PERMISSION_DENIED")
     if not service.owns(command):
         raise PermissionError("PERMISSION_DENIED")
     return await service.handle(command, payload)
 
 
 async def main() -> None:
-    try:
-        runtime = GovernedToolRuntime(
-            tool_id=TOOL_ID,
-            version=service.VERSION,
-            executor=execute,
-            startup=service.start,
-            shutdown=service.shutdown,
-            health=lambda: {
-                "service_ready": True,
-            },
-            channel_modes={"ai": "process"},
-        )
-        await runtime.run()
-    finally:
-        pass
+    runtime = GovernedToolRuntime(
+        tool_id=TOOL_ID,
+        version=service.VERSION,
+        executor=execute,
+        startup=service.start,
+        shutdown=service.shutdown,
+        health=lambda: {
+            "service_ready": True,
+            "channel_connected": service.channel.connected,
+            "ai_channel_mode": "submit-only",
+        },
+        channel_modes={"ai": "submit"},
+    )
+    service.bind_channel(runtime.channel_for("ai"))
+    await runtime.run()
 
 
 if __name__ == "__main__":
