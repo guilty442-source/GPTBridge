@@ -1633,7 +1633,7 @@ class XingchengSovereign(SovereignBase):
         # Check critical directories.
         dirs = snapshot.get("directories", {})
         critical_dirs = {"runtime", "governance", "identity", "permissions"}
-        missing = critical_dirs - set(dirs.keys)
+        missing = critical_dirs - set(dirs)
         if missing:
             anomalies.append({
                 "type": "missing-critical-directories",
