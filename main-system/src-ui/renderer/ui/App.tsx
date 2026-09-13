@@ -1,188 +1,46 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  serviceManager,
-  startStartupPipeline,
-} from '@/services/RuntimeServiceManager'
-import { useBackendSocket } from '@/hooks/useBackendSocket'
-import { ToolboxEntry } from '@/ui/toolbox/ToolboxEntry'
+import { useMemo, useState } from 'react'
 import { useToolboxApplications } from '@/ui/toolbox/useToolboxApplications'
-import {
-  SovereignDashboard,
-  type PendingActionApproval,
-  type RuntimeStatusPayload,
-} from '@/ui/sovereign/SovereignDashboard'
+import { ToolboxEntry } from '@/ui/toolbox/ToolboxEntry'
+import { SovereignDashboard } from '@/ui/sovereign/SovereignDashboard'
 import { Drawer } from '@/ui/drawer/Drawer'
 import { ThirdPartyPanel } from '@/ui/third-party/ThirdPartyPanel'
-import { formatBytes, formatProjectSize } from '@/shared/utils/format'
 import { mainSystemLocale } from '@/locales/main-system'
+import { useAppState } from '@/ui/useAppState'
+import { XingchengDrawer } from '@/ui/AppXingchengDrawer'
+import { CapacityDrawer } from '@/ui/AppCapacityDrawer'
 import '../App.css'
 
-const UI_ZOOM_STORAGE_KEY = 'gptbridge_ui_zoom_factor'
-const MIN_UI_ZOOM = 0.85
-const MAX_UI_ZOOM = 1.3
 const t = mainSystemLocale.product
+const tp = mainSystemLocale.thirdParty
 const xr = mainSystemLocale.xingchengReport
-
-type SystemMetrics = {
-  diskUsagePercent?: number | null
-  diskTotalBytes?: number | null
-  diskFreeBytes?: number | null
-  diskRoot?: string
-}
-
-function clampUiZoom(value: number): number {
-  return Math.max(MIN_UI_ZOOM, Math.min(MAX_UI_ZOOM, value))
-}
+const app = mainSystemLocale.app
 
 function displayVersion(value: string): string {
   const match = /^(\d+)\.(\d+)(?:\.\d+)?$/.exec(value.trim())
   return match ? `${match[1]}.${match[2]}` : '1.0'
 }
 
-function formatFileCount(value: number | undefined): string {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
-    ? `${new Intl.NumberFormat('zh-TW').format(value)} ${t.files}`
-    : t.pendingCheck
-}
-
-function capacityDetail(bytes: number | undefined, fileCount: number | undefined): string {
-  return `${formatBytes(bytes, { exactBytes: true, fallback: t.pendingCheck })} · ${formatFileCount(fileCount)}`
-}
-
 export default function App() {
-  const [appVersion, setAppVersion] = useState('1.0.0')
-  const [maintenanceReady, setMaintenanceReady] = useState(false)
-  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatusPayload>({})
-  const [systemMetrics, setSystemMetrics] = useState<SystemMetrics>({})
-  const [drawerSovereign, setDrawerSovereign] = useState(false)
-  const [drawerXingcheng, setDrawerXingcheng] = useState(false)
-  const [drawerCapacity, setDrawerCapacity] = useState(false)
-  const [drawerThirdParty, setDrawerThirdParty] = useState(false)
-  const [confirmBusyId, setConfirmBusyId] = useState<string | null>(null)
-  const [switchBusy, setSwitchBusy] = useState<string | null>(null)
-  const [confirmMessages, setConfirmMessages] = useState<Record<string, string>>({})
-  const backendSocket = useBackendSocket()
-  const sendCommand = backendSocket.sendCommand
-  const connected = backendSocket.status === 'Connected'
-  const operational = connected && maintenanceReady
-
-  const waitForIpcEvent = useCallback(
-    (
-      eventName: string,
-      timeoutMs: number,
-      predicate?: (payload: Record<string, unknown>) => boolean
-    ): Promise<Record<string, unknown>> => {
-      return new Promise((resolve, reject) => {
-        const timer = window.setTimeout(() => {
-          window.removeEventListener('ipc_event', handler)
-          reject(new Error(`${t.backendResponseTimeout}：${eventName}`))
-        }, timeoutMs)
-
-        const handler = (event: Event) => {
-          const customEvent = event as CustomEvent
-          const detail = customEvent.detail || {}
-          if (detail.event !== eventName) return
-          const payload = (detail.payload || {}) as Record<string, unknown>
-          if (predicate && !predicate(payload)) return
-          window.clearTimeout(timer)
-          window.removeEventListener('ipc_event', handler)
-          resolve(payload)
-        }
-
-        window.addEventListener('ipc_event', handler)
-      })
-    },
-    []
-  )
-
-  const confirmPendingAction = useCallback(
-    async (actionId: string) => {
-      if (!actionId || confirmBusyId) return
-      setConfirmBusyId(actionId)
-      try {
-        const sent = sendCommand('app:confirm-pending-action', {
-          action_id: actionId,
-        })
-        if (!sent.ok) {
-          setConfirmMessages((prev) => ({
-            ...prev,
-            [actionId]: sent.message || xr.confirmQueueFailed,
-          }))
-          return
-        }
-        const result = await waitForIpcEvent(
-          'app:confirm-pending-action_result',
-          12000,
-          (payload) =>
-            !payload.action_id || String(payload.action_id) === actionId
-        )
-        const ok = result.ok === true
-        const message = ok
-          ? xr.confirmedDone
-          : String(result.message || '').trim() || xr.confirmedFailed
-        setConfirmMessages((prev) => ({ ...prev, [actionId]: message }))
-      } catch {
-        setConfirmMessages((prev) => ({
-          ...prev,
-          [actionId]: xr.confirmedFailed,
-        }))
-      } finally {
-        setConfirmBusyId(null)
-        sendCommand('app:get-runtime-status', {
-          source: 'pending_action_confirmation',
-        })
-      }
-    },
-    [confirmBusyId, sendCommand, waitForIpcEvent]
-  )
-
-  const setAutomationSwitch = useCallback(
-    async (switchName: string, enabled: boolean) => {
-      if (switchBusy) return
-      setSwitchBusy(switchName)
-      try {
-        const sent = sendCommand('app:set-automation-switch', {
-          switch: switchName,
-          enabled,
-        })
-        if (!sent.ok) {
-          setConfirmMessages((prev) => ({
-            ...prev,
-            [switchName]: sent.message || xr.switchSetFailed,
-          }))
-          return
-        }
-        const result = await waitForIpcEvent(
-          'app:set-automation-switch_result',
-          10000,
-          (payload) => !payload.switch || String(payload.switch) === switchName
-        )
-        if (result.ok !== true) {
-          setConfirmMessages((prev) => ({
-            ...prev,
-            [switchName]: String(result.message || '') || xr.switchSetFailed,
-          }))
-        } else {
-          setConfirmMessages((prev) => {
-            const next = { ...prev }
-            delete next[switchName]
-            return next
-          })
-        }
-      } catch {
-        setConfirmMessages((prev) => ({
-          ...prev,
-          [switchName]: xr.switchSetFailed,
-        }))
-      } finally {
-        setSwitchBusy(null)
-        sendCommand('app:get-runtime-status', {
-          source: 'automation_switch_update',
-        })
-      }
-    },
-    [switchBusy, sendCommand, waitForIpcEvent]
-  )
+  const {
+    appVersion,
+    maintenanceReady,
+    runtimeStatus,
+    systemMetrics,
+    confirmBusyId,
+    switchBusy,
+    confirmMessages,
+    backendSocket,
+    sendCommand,
+    connected,
+    operational,
+    waitForIpcEvent,
+    confirmPendingAction,
+    setAutomationSwitch,
+    pendingActions,
+    repairSwitchOn,
+    updateSwitchOn,
+    cardinality,
+  } = useAppState()
 
   const {
     toolboxTools,
@@ -204,111 +62,6 @@ export default function App() {
     waitForIpcEvent,
   })
 
-  useEffect(() => {
-    const api = window.electron
-    if (!api?.invoke) return
-
-    let disposed = false
-
-    // Initial one-shot fetch for version + system metrics
-    const refreshStatus = async () => {
-      try {
-        const status = (await api.invoke('app:get-status')) as {
-          version?: unknown
-          systemMetrics?: SystemMetrics
-        } | null
-        if (disposed) return
-        const version = String(status?.version ?? '').trim()
-        if (version) setAppVersion(version)
-        if (status?.systemMetrics) setSystemMetrics(status.systemMetrics)
-      } catch {
-        // Keep the last successful system sample on a transient IPC failure.
-      }
-    }
-
-    void refreshStatus()
-
-    // Subscribe to real-time runtime_status_push events (replaces 5s polling)
-    const onStatusPush = (event: Event) => {
-      const customEvent = event as CustomEvent
-      const detail = customEvent.detail || {}
-      if (detail.event !== 'runtime_status_push') return
-      const payload = (detail.payload || {}) as Record<string, unknown>
-      const version = String(payload.version ?? '').trim()
-      if (version) setAppVersion(version)
-      const metrics = payload.systemMetrics as SystemMetrics | undefined
-      if (metrics) setSystemMetrics(metrics)
-    }
-    window.addEventListener('ipc_event', onStatusPush)
-
-    const saved = (() => {
-      try {
-        const raw = window.localStorage.getItem(UI_ZOOM_STORAGE_KEY)
-        const parsed = raw ? Number(raw) : 1
-        if (Number.isNaN(parsed) || parsed <= 0) return 1
-        return clampUiZoom(parsed)
-      } catch {
-        return 1
-      }
-    })()
-
-    void api.invoke('app:set-ui-zoom', { factor: saved })
-
-    return () => {
-      disposed = true
-      window.removeEventListener('ipc_event', onStatusPush)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (serviceManager.getAllStates().length === 0) {
-      void startStartupPipeline()
-    }
-  }, [])
-
-  useEffect(() => {
-    let disposed = false
-
-    if (!connected) {
-      setMaintenanceReady(false)
-      return () => undefined
-    }
-
-    // Subscribe to real-time status pushes
-    const onStatusPush = (event: Event) => {
-      if (disposed) return
-      const customEvent = event as CustomEvent
-      const detail = customEvent.detail || {}
-      // Accept both the push event and the command result
-      if (
-        detail.event !== 'runtime_status_push' &&
-        detail.event !== 'app:get-runtime-status_result'
-      ) {
-        return
-      }
-      const payload = (detail.payload || {}) as Record<string, unknown>
-      const ready = payload.maintenance_ready === true
-      setMaintenanceReady(ready)
-      setRuntimeStatus(payload as RuntimeStatusPayload)
-    }
-    window.addEventListener('ipc_event', onStatusPush)
-
-    // Register the listener before requesting the initial snapshot. A local
-    // backend can answer in the same event-loop turn; requesting first could
-    // lose that response and leave the UI showing a false channel anomaly.
-    const sent = sendCommand('app:get-runtime-status', {
-      source: 'product_readiness_gate',
-    })
-    if (!sent.ok) {
-      setMaintenanceReady(false)
-    }
-
-    return () => {
-      disposed = true
-      window.removeEventListener('ipc_event', onStatusPush)
-    }
-  }, [connected, sendCommand])
-
   const summary = useMemo(() => {
     const running = toolboxTools.filter((tool) => tool.status === 'running').length
     const issues = toolboxTools.filter(
@@ -318,6 +71,7 @@ export default function App() {
     ).length
     return { running, issues, total: toolboxTools.length }
   }, [toolboxTools])
+
   const xingchengReview = useMemo(() => {
     if (backendSocket.status === 'Connecting' || backendSocket.status === 'Repairing') {
       return { tone: 'warning' as const, state: xr.reviewing, detail: xr.reviewingDetail, issues: [{ id: 'backend-reconnecting', source: xr.informationLayer, title: xr.backendInterrupted, detail: `${xr.reviewingDetail}：${backendSocket.status}`, status: xr.autoRepairing }] }
@@ -347,60 +101,17 @@ export default function App() {
     }
     return { tone: 'ok' as const, state: xr.normal, detail: xr.normalDetail, issues: [] }
   }, [backendSocket.status, connected, maintenanceReady, toolboxTools])
-  // The header indicator reports transport state only. Tool or maintenance
-  // findings remain in the review panel and must not falsely mark a healthy
-  // frontend/backend channel as offline.
+
   const connection = connected
     ? { label: xr.systemNormal, detail: xr.normalDetail, tone: 'online' as const }
     : backendSocket.status === 'Connecting' || backendSocket.status === 'Repairing' || backendSocket.status === 'Synchronizing'
       ? { label: xr.systemReviewing, detail: xr.reviewingDetail, tone: 'pending' as const }
       : { label: xr.systemAnomaly, detail: xr.connectionDetail, tone: 'offline' as const }
-  const diskUsedBytes =
-    typeof systemMetrics.diskTotalBytes === 'number' &&
-    typeof systemMetrics.diskFreeBytes === 'number'
-      ? Math.max(0, systemMetrics.diskTotalBytes - systemMetrics.diskFreeBytes)
-      : null
-  const pendingActions = Array.isArray(runtimeStatus.pending_actions)
-    ? runtimeStatus.pending_actions
-    : []
-  const automationSwitches = runtimeStatus.automation_switches || {}
-  const repairSwitchOn = automationSwitches.automatic_repair_enabled === true
-  const updateSwitchOn = automationSwitches.automatic_update_enabled === true
-  const cardinality = runtimeStatus.pending_action_cardinality || {}
-  const switchOnForKind = (kind: string): boolean =>
-    kind === 'repair' ? repairSwitchOn : kind === 'update' ? updateSwitchOn : false
-  const actionExpired = (action: PendingActionApproval): boolean => {
-    const raw = String(action.expires_at || '')
-    if (!raw) return false
-    const parsed = Date.parse(raw)
-    return Number.isFinite(parsed) ? Date.now() > parsed : true
-  }
-  const actionSeverityRank = (action: PendingActionApproval): number => {
-    const numeric = Number(action.risk)
-    if (Number.isFinite(numeric) && numeric > 0) return numeric
-    const risk = String(action.risk || '').toLowerCase()
-    if (risk.includes('critical') || risk.includes('high')) return 4
-    if (risk.includes('medium')) return 3
-    if (risk.includes('low')) return 2
-    return 1
-  }
-  // A366 PRESENTATION: deterministic severity/time/fault_id order.
-  const orderedPendingActions = [...pendingActions].sort((a, b) => {
-    const severity = actionSeverityRank(b) - actionSeverityRank(a)
-    if (severity !== 0) return severity
-    const aTime = Date.parse(String(a.created_at || '')) || 0
-    const bTime = Date.parse(String(b.created_at || '')) || 0
-    if (aTime !== bTime) return aTime - bTime
-    return String(a.fault_id || a.action_id || '').localeCompare(
-      String(b.fault_id || b.action_id || '')
-    )
-  })
-  const cardinalityLabel =
-    cardinality.mode === 'MULTI_FAULT'
-      ? xr.cardinalityMulti
-      : cardinality.mode === 'SINGLE_FAULT'
-        ? xr.cardinalitySingle
-        : xr.cardinalityNoFault
+
+  const [drawerSovereign, setDrawerSovereign] = useState(false)
+  const [drawerXingcheng, setDrawerXingcheng] = useState(false)
+  const [drawerCapacity, setDrawerCapacity] = useState(false)
+  const [drawerThirdParty, setDrawerThirdParty] = useState(false)
 
   return (
     <div className="product-shell">
@@ -443,7 +154,6 @@ export default function App() {
           </aside>
         )}
 
-        {/* Operational summary */}
         <section className="hero-grid" aria-label={t.systemOverview}>
           <article className="hero-card hero-card--primary">
             <span className="hero-card__label">{t.availableTools}</span>
@@ -482,13 +192,12 @@ export default function App() {
 
         <div className="section-heading">
           <div>
-            <span className="eyebrow">系統管理</span>
-            <h2>常用管理入口</h2>
+            <span className="eyebrow">{app.systemMgmt}</span>
+            <h2>{app.commonEntries}</h2>
           </div>
-          <span>詳細設定不干擾日常工具操作</span>
+          <span>{app.settingsDesc}</span>
         </div>
 
-        {/* Drawer trigger row */}
         <section className="drawer-triggers">
           <button
             type="button"
@@ -525,8 +234,8 @@ export default function App() {
           >
             <span className="drawer-trigger__icon" aria-hidden="true">T</span>
             <span className="drawer-trigger__text">
-              <strong>第三方軟體管理</strong>
-              <small>版本探測 · 自動更新</small>
+              <strong>{tp.title}</strong>
+              <small>{tp.subtitle}</small>
             </span>
             <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -549,168 +258,22 @@ export default function App() {
         <span>{t.footerPlatform}</span>
       </footer>
 
-      <Drawer
+      <XingchengDrawer
         open={drawerXingcheng}
         onClose={() => setDrawerXingcheng(false)}
-        title={xr.title}
-        eyebrow={xr.eyebrow}
-        icon="星"
-      >
-        <div className="xingcheng-report" data-testid="xingcheng-report-detail">
-          <section className="xingcheng-report__summary" data-tone={xingchengReview.tone}>
-            <span>{xr.currentDecision}</span>
-            <strong>{xingchengReview.state}</strong>
-            <p>{xingchengReview.detail}</p>
-          </section>
-          {xingchengReview.issues.length > 0 ? (
-            <div className="xingcheng-report__issues">
-              {xingchengReview.issues.map((issue) => (
-                <article className="xingcheng-issue" key={issue.id}>
-                  <div className="xingcheng-issue__head">
-                    <strong>{issue.title}</strong>
-                    <span>{issue.status}</span>
-                  </div>
-                  <dl>
-                    <div><dt>{xr.source}</dt><dd>{issue.source}</dd></div>
-                    <div><dt>{xr.details}</dt><dd>{issue.detail}</dd></div>
-                  </dl>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="xingcheng-report__empty">{xr.empty}</p>
-          )}
-        </div>
+        review={xingchengReview}
+        runtimeStatus={runtimeStatus}
+        pendingActions={pendingActions}
+        confirmBusyId={confirmBusyId}
+        confirmMessages={confirmMessages}
+        switchBusy={switchBusy}
+        repairSwitchOn={repairSwitchOn}
+        updateSwitchOn={updateSwitchOn}
+        cardinality={cardinality}
+        onConfirm={confirmPendingAction}
+        onSwitch={setAutomationSwitch}
+      />
 
-        <section className="xingcheng-approvals" data-testid="pending-approvals">
-          <div className="xingcheng-approvals__head">
-            <strong>{xr.switchesTitle}</strong>
-            <span>{xr.switchAttribution}</span>
-          </div>
-          <div className="xingcheng-switches">
-            {(
-              [
-                ['automatic_repair_enabled', xr.switchRepair, repairSwitchOn],
-                ['automatic_update_enabled', xr.switchUpdate, updateSwitchOn],
-              ] as Array<[string, string, boolean]>
-            ).map(([switchName, label, enabled]) => (
-              <div className="xingcheng-switch" key={switchName}>
-                <span className="xingcheng-switch__label">{label}</span>
-                <button
-                  type="button"
-                  className="xingcheng-switch__toggle"
-                  data-tone={enabled ? 'on' : 'off'}
-                  data-testid={`switch-${switchName}`}
-                  disabled={switchBusy === switchName}
-                  onClick={() => void setAutomationSwitch(switchName, !enabled)}
-                >
-                  {enabled ? xr.switchOn : xr.switchOff}
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="xingcheng-approvals__head">
-            <strong>{xr.pendingTitle}</strong>
-            <span>
-              {cardinalityLabel}
-              {typeof cardinality.unresolved === 'number'
-                ? ` · ${xr.cardinalityCounts.replace(
-                    '{count}',
-                    String(cardinality.unresolved)
-                  )}`
-                : ''}
-            </span>
-          </div>
-          {orderedPendingActions.length === 0 ? (
-            <p className="xingcheng-report__empty">{xr.pendingEmpty}</p>
-          ) : (
-            <div className="xingcheng-approvals__list">
-              {orderedPendingActions.map((action, index) => {
-                const actionId = String(action.action_id || '')
-                const busy = confirmBusyId === actionId
-                const message = confirmMessages[actionId]
-                const pending = action.status === 'awaiting-confirmation'
-                const expired = pending && actionExpired(action)
-                const switchReady = switchOnForKind(String(action.kind || ''))
-                const canConfirm = pending && switchReady && !expired && !busy
-                return (
-                  <article
-                    className="xingcheng-approval"
-                    key={actionId || `pending-${index}`}
-                  >
-                    <div className="xingcheng-approval__head">
-                      <span className="xingcheng-approval__kind">
-                        {action.kind === 'repair' ? xr.kindRepair : xr.kindUpdate}
-                      </span>
-                      <strong>{action.summary || actionId}</strong>
-                    </div>
-                    <dl className="xingcheng-approval__detail">
-                      {action.fault_id ? (
-                        <div><dt>{xr.faultId}</dt><dd>{action.fault_id}</dd></div>
-                      ) : null}
-                      {action.update_id ? (
-                        <div><dt>{xr.updateId}</dt><dd>{action.update_id}</dd></div>
-                      ) : null}
-                      {action.scope ? (
-                        <div><dt>{xr.scopeLabel}</dt><dd>{action.scope}</dd></div>
-                      ) : null}
-                      {action.target ? (
-                        <div><dt>{xr.targetLabel}</dt><dd>{action.target}</dd></div>
-                      ) : null}
-                      {action.proposed_method ? (
-                        <div><dt>{xr.methodLabel}</dt><dd>{action.proposed_method}</dd></div>
-                      ) : null}
-                      {action.risk ? (
-                        <div><dt>{xr.riskLabel}</dt><dd>{action.risk}</dd></div>
-                      ) : null}
-                      {action.rollback ? (
-                        <div><dt>{xr.rollbackLabel}</dt><dd>{action.rollback}</dd></div>
-                      ) : null}
-                      {action.expires_at ? (
-                        <div><dt>{xr.expiresLabel}</dt><dd>{action.expires_at}</dd></div>
-                      ) : null}
-                      {action.evidence_digest ? (
-                        <div>
-                          <dt>{xr.evidenceLabel}</dt>
-                          <dd>{action.evidence_digest.slice(0, 16)}</dd>
-                        </div>
-                      ) : null}
-                    </dl>
-                    <div className="xingcheng-approval__meta">
-                      <span>
-                        {expired
-                          ? xr.expired
-                          : action.status || 'awaiting-confirmation'}
-                      </span>
-                      <span>{action.created_at || ''}</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="xingcheng-approval__confirm"
-                      data-testid={`confirm-pending-${actionId}`}
-                      disabled={!canConfirm}
-                      title={!switchReady ? xr.switchDisabledHint : undefined}
-                      onClick={() => void confirmPendingAction(actionId)}
-                    >
-                      {busy
-                        ? xr.confirming
-                        : pending
-                          ? xr.confirm
-                          : xr.confirmedDone}
-                    </button>
-                    {message ? (
-                      <p className="xingcheng-approval__message">{message}</p>
-                    ) : null}
-                  </article>
-                )
-              })}
-            </div>
-          )}
-        </section>
-      </Drawer>
-
-      {/* Sovereign drawer */}
       <Drawer
         open={drawerSovereign}
         onClose={() => setDrawerSovereign(false)}
@@ -721,94 +284,29 @@ export default function App() {
         <SovereignDashboard runtimeStatus={runtimeStatus} />
       </Drawer>
 
-      {/* Third-party management drawer */}
       <Drawer
         open={drawerThirdParty}
         onClose={() => setDrawerThirdParty(false)}
-        title="第三方軟體管理"
-        eyebrow="版本探測 · 自動更新"
+        title={tp.title}
+        eyebrow={tp.subtitle}
         icon="T"
       >
         <ThirdPartyPanel />
       </Drawer>
 
-      {/* Capacity drawer */}
-      <Drawer
+      <CapacityDrawer
         open={drawerCapacity}
         onClose={() => setDrawerCapacity(false)}
-        title={t.capacityDetails}
-        eyebrow={t.systemOverview}
-        icon="D"
-      >
-        <div className="capacity-drawer">
-          <article className="capacity-row" data-testid="system-disk-size">
-            <div className="capacity-row__head">
-              <strong>{t.systemDisk} {systemMetrics.diskRoot || ''}</strong>
-              <span className="capacity-row__big">
-                {formatBytes(systemMetrics.diskTotalBytes, { exactBytes: true, fallback: t.pendingCheck })}
-              </span>
-            </div>
-            <p className="capacity-row__detail">
-              {t.usageRate}{' '}
-              {typeof systemMetrics.diskUsagePercent === 'number'
-                ? `${systemMetrics.diskUsagePercent.toFixed(1)}%`
-                : t.pendingCheck}
-              {' · '}
-              {t.used} {formatBytes(diskUsedBytes, { exactBytes: true, fallback: t.pendingCheck })}
-              {' · '}
-              {t.available} {formatBytes(systemMetrics.diskFreeBytes, { exactBytes: true, fallback: t.pendingCheck })}
-            </p>
-          </article>
-
-          <article className="capacity-row" data-testid="main-system-folder-size">
-            <div className="capacity-row__head">
-              <strong>{t.mainSystemSize}</strong>
-              <span className="capacity-row__big">
-                {formatProjectSize(mainSystemSizeBytes, { fallback: t.pendingCheck })}
-              </span>
-            </div>
-            <p className="capacity-row__detail">
-              {t.mainSystemSizeHint} · {capacityDetail(mainSystemSizeBytes, mainSystemFileCount)}
-            </p>
-          </article>
-
-          <article className="capacity-row" data-testid="dependency-folder-size">
-            <div className="capacity-row__head">
-              <strong>{t.dependencySize}</strong>
-              <span className="capacity-row__big">
-                {formatProjectSize(dependencySizeBytes, { fallback: t.pendingCheck })}
-              </span>
-            </div>
-            <p className="capacity-row__detail">
-              {t.dependencySizeHint} · {capacityDetail(dependencySizeBytes, dependencyFileCount)}
-            </p>
-          </article>
-
-          <article className="capacity-row" data-testid="shared-layer-folder-size">
-            <div className="capacity-row__head">
-              <strong>{t.sharedLayerSize}</strong>
-              <span className="capacity-row__big">
-                {formatProjectSize(sharedLayerSizeBytes, { fallback: t.pendingCheck })}
-              </span>
-            </div>
-            <p className="capacity-row__detail">
-              {t.sharedLayerSizeHint} · {capacityDetail(sharedLayerSizeBytes, sharedLayerFileCount)}
-            </p>
-          </article>
-
-          <article className="capacity-row" data-testid="workspace-folder-size">
-            <div className="capacity-row__head">
-              <strong>{t.workspaceSize}</strong>
-              <span className="capacity-row__big">
-                {formatProjectSize(workspaceSizeBytes, { fallback: t.pendingCheck })}
-              </span>
-            </div>
-            <p className="capacity-row__detail">
-              {t.workspaceSizeHint} · {capacityDetail(workspaceSizeBytes, workspaceFileCount)}
-            </p>
-          </article>
-        </div>
-      </Drawer>
+        systemMetrics={systemMetrics}
+        mainSystemSizeBytes={mainSystemSizeBytes}
+        mainSystemFileCount={mainSystemFileCount}
+        dependencySizeBytes={dependencySizeBytes}
+        dependencyFileCount={dependencyFileCount}
+        sharedLayerSizeBytes={sharedLayerSizeBytes}
+        sharedLayerFileCount={sharedLayerFileCount}
+        workspaceSizeBytes={workspaceSizeBytes}
+        workspaceFileCount={workspaceFileCount}
+      />
     </div>
   )
 }
