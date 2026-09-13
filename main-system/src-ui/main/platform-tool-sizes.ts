@@ -1,97 +1,32 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-type PlatformToolSize = {
-  id: string
-  folder_path: string
-  manifest_path: string
-  code_path: string
-  project_size_bytes: number
-  file_count: number
-  size_breakdown: ToolSizeBreakdown
+import {
+  type PlatformToolSize,
+  type ToolSizeBreakdown,
+  type CachedInventory,
+  type FolderInventorySize,
+  type MainSystemSize,
+  type WorkspaceSize,
+  type SharedLayerSize,
+  type CachedMainSystemSize,
+  type CachedFolderInventorySize,
+  CACHE_TTL_MS,
+  YIELD_EVERY_ENTRIES,
+  MAIN_SYSTEM_DEPENDENCY_DIRECTORIES,
+  emptyToolSizeBreakdown,
+  classifyToolFile,
+} from './platformToolSizeTypes'
+
+export {
+  type PlatformToolSize,
+  type ToolSizeBreakdown,
+  type MainSystemSize,
+  type WorkspaceSize,
+  type SharedLayerSize,
+  classifyToolFile,
 }
 
-type ToolSizeCategory =
-  | 'program'
-  | 'runtime'
-  | 'user_data'
-  | 'cache'
-  | 'backups'
-
-type ToolCategorySize = {
-  size_bytes: number
-  file_count: number
-}
-
-export type ToolSizeBreakdown = Record<ToolSizeCategory, ToolCategorySize>
-
-type CachedInventory = {
-  workspaceRoot: string
-  expiresAt: number
-  tools: PlatformToolSize[]
-}
-
-type FolderInventorySize = {
-  folder_path: string
-  project_size_bytes: number
-  file_count: number
-}
-
-export type MainSystemSize = FolderInventorySize & {
-  dependency_size_bytes: number
-  dependency_file_count: number
-  total_size_bytes: number
-  total_file_count: number
-}
-
-export type WorkspaceSize = FolderInventorySize
-
-export type SharedLayerSize = FolderInventorySize
-
-type CachedMainSystemSize = MainSystemSize & {
-  workspaceRoot: string
-  expiresAt: number
-}
-
-type CachedFolderInventorySize = FolderInventorySize & {
-  workspaceRoot: string
-  expiresAt: number
-}
-
-const CACHE_TTL_MS = 30_000
-const YIELD_EVERY_ENTRIES = 256
-const MAIN_SYSTEM_DEPENDENCY_DIRECTORIES = new Set(['.venv', 'node_modules'])
-const TOOL_RUNTIME_ROOTS = new Set([
-  '.venv',
-  'build',
-  'dist',
-  'env',
-  'node_modules',
-  'release',
-  'venv',
-])
-const TOOL_CACHE_SEGMENTS = new Set([
-  '.cache',
-  '.pytest_cache',
-  '.ruff_cache',
-  '__pycache__',
-  'browser-profile',
-  'browser-profiles',
-  'cache',
-  'caches',
-  'code cache',
-  'edge-profile',
-  'electron-user-data',
-  'gpu cache',
-  'temp',
-  'tmp',
-])
-const TOOL_USER_DATA_RUNTIME_ROOTS = new Set([
-  'data',
-  'recovery',
-  'settings',
-  'state',
-])
 let cachedInventory: CachedInventory | null = null
 let inventoryPromise: Promise<PlatformToolSize[]> | null = null
 let cachedMainSystemSize: CachedMainSystemSize | null = null
@@ -111,49 +46,6 @@ function isPathInside(basePath: string, targetPath: string): boolean {
 
 async function yieldToEventLoop(): Promise<void> {
   await new Promise<void>((resolve) => setImmediate(resolve))
-}
-
-function emptyToolSizeBreakdown(): ToolSizeBreakdown {
-  return {
-    program: { size_bytes: 0, file_count: 0 },
-    runtime: { size_bytes: 0, file_count: 0 },
-    user_data: { size_bytes: 0, file_count: 0 },
-    cache: { size_bytes: 0, file_count: 0 },
-    backups: { size_bytes: 0, file_count: 0 },
-  }
-}
-
-export function classifyToolFile(relativePath: string): ToolSizeCategory {
-  const segments = relativePath
-    .split(/[\\/]+/)
-    .filter(Boolean)
-    .map((segment) => segment.toLowerCase())
-  const fileName = segments.at(-1) ?? ''
-  const root = segments[0] ?? ''
-  const runtimeSection = root === 'runtime' ? segments[1] ?? '' : ''
-
-  if (
-    segments.some((segment) => segment === 'backup' || segment === 'backups') ||
-    segments.some((segment) => segment.endsWith('_backups')) ||
-    /\.(?:bak|backup)$/.test(fileName)
-  ) {
-    return 'backups'
-  }
-  if (segments.some((segment) => TOOL_CACHE_SEGMENTS.has(segment))) {
-    return 'cache'
-  }
-  if (
-    root === 'data' ||
-    (root === 'runtime' &&
-      (TOOL_USER_DATA_RUNTIME_ROOTS.has(runtimeSection) ||
-        runtimeSection.startsWith('test-self-training')))
-  ) {
-    return 'user_data'
-  }
-  if (TOOL_RUNTIME_ROOTS.has(root) || root === 'runtime') {
-    return 'runtime'
-  }
-  return 'program'
 }
 
 async function folderSize(

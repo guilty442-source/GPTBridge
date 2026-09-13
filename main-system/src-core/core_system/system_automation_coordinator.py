@@ -33,22 +33,16 @@ import logging
 import time
 from typing import Any
 
+from .system_automation_coordinator_constants import (
+    _COORDINATOR_INTERVAL_SECONDS,
+    _SOVEREIGN_ATTRS,
+)
+from .system_automation_coordinator_health import SystemAutomationHealthMixin
+
 _logger = logging.getLogger("gptbridge.system_automation")
 
-# Coordination loop interval (seconds).
-_COORDINATOR_INTERVAL_SECONDS = 15.0
 
-# Sovereigns managed by the coordinator (in startup order).
-_SOVEREIGN_ATTRS = (
-    "decision_sovereign",
-    "permission_sovereign",
-    "system_runtime_sovereign",
-    "synchronization_sovereign",
-    "xingcheng_sovereign",
-)
-
-
-class SystemAutomationCoordinator:
+class SystemAutomationCoordinator(SystemAutomationHealthMixin):
     """全系統自動化協調器。
 
     統一管理所有主宰的自動化循環，提供全系統健康監控和跨主宰協調。
@@ -63,7 +57,6 @@ class SystemAutomationCoordinator:
         self._task: asyncio.Task[Any] | None = None
         self._stop_event = asyncio.Event()
 
-        # Coordination metrics.
         self._metrics: dict[str, Any] = {
             "coordination_cycles": 0,
             "sovereigns_managed": 0,
@@ -75,10 +68,7 @@ class SystemAutomationCoordinator:
             "last_degradation": "",
         }
 
-        # Last aggregated system health.
         self._last_system_health: dict[str, Any] = {}
-
-        # Pending cross-sovereign routes (degradation → repair).
         self._pending_routes: list[dict[str, Any]] = []
 
     # ------------------------------------------------------------------
@@ -86,13 +76,7 @@ class SystemAutomationCoordinator:
     # ------------------------------------------------------------------
 
     async def start(self) -> dict[str, Any]:
-        """Start the system automation coordinator.
-
-        This does NOT start individual sovereign automation loops — those
-        are started by each sovereign's own ``start()`` method via
-        ``_on_start``.  This coordinator only starts the cross-sovereign
-        coordination loop that aggregates health and routes degradation.
-        """
+        """Start the system automation coordinator."""
         if self._running:
             return {"status": "already_running"}
         self._running = True
@@ -104,7 +88,6 @@ class SystemAutomationCoordinator:
                 name="system-automation-coordinator",
             )
         except RuntimeError:
-            # No running event loop — coordination stays off.
             self._task = None
             self._running = False
             return {"status": "no_event_loop"}
@@ -161,32 +144,22 @@ class SystemAutomationCoordinator:
         self._metrics["coordination_cycles"] += 1
         self._metrics["last_coordination_cycle"] = self._iso_now()
 
-        # 1. Aggregate system health from all sovereigns.
         health = self._aggregate_system_health()
         self._last_system_health = health
         self._metrics["health_aggregations"] += 1
 
-        # 2. Count automated sovereigns.
         automated = sum(
             1 for s in self._sovereigns() if self._is_sovereign_automated(s)
         )
         self._metrics["sovereigns_automated"] = automated
 
-        # 3. Detect cross-sovereign degradation.
         degradation = self._detect_degradation(health)
         if degradation:
             self._metrics["degradation_escalations"] += 1
-            self._metrics["last_degradation"] = degradation.get(
-                "type", ""
-            )
+            self._metrics["last_degradation"] = degradation.get("type", "")
             self._pending_routes.append(degradation)
 
-        # 4. Route pending degradation to the decision-sovereign.
         await self._route_pending_degradations()
-
-        # 5. Emit the filtered evidence projection for 星澄's auxiliary
-        #    global review (A140: information layer is the sole provider;
-        #        read-only, redacted — states only, no payloads).
         self._emit_xingcheng_evidence(health)
 
     def _sovereigns(self) -> list[Any]:
@@ -198,153 +171,8 @@ class SystemAutomationCoordinator:
                 result.append(sov)
         return result
 
-    def _is_sovereign_automated(self, sovereign: Any) -> bool:
-        """Check if a sovereign has its automation loop running."""
-        # Check for auto loop task (sync, runtime, xingcheng).
-        auto_task = getattr(sovereign, "_auto_loop_task", None)
-        if auto_task is not None and not auto_task.done():
-            return True
-        # Check for autonomy task (decision sovereign).
-        autonomy_task = getattr(sovereign, "_autonomy_task", None)
-        if autonomy_task is not None and not autonomy_task.done():
-            return True
-        # Check for permission automation orchestrator.
-        automation = getattr(sovereign, "_automation", None)
-        if automation is not None and getattr(automation, "_running", False):
-            return True
-        return False
-
-    def _aggregate_system_health(self) -> dict[str, Any]:
-        """Aggregate health status from all managed sovereigns.
-
-        Returns a unified health view combining:
-        - Each sovereign's started state
-        - Each sovereign's automation state
-        - Each sovereign's live status
-        - Overall system state
-        """
-        sovereigns_health: dict[str, Any] = {}
-        all_started = True
-        all_automated = True
-        any_degraded = False
-        any_critical = False
-
-        for attr in _SOVEREIGN_ATTRS:
-            sov = getattr(self.app, attr, None)
-            if sov is None:
-                sovereigns_health[attr] = {
-                    "state": "missing",
-                    "started": False,
-                    "automated": False,
-                }
-                all_started = False
-                all_automated = False
-                any_critical = True
-                continue
-
-            started = bool(getattr(sov, "_started", False))
-            automated = self._is_sovereign_automated(sov)
-            sov_id = getattr(sov, "sovereign_id", attr)
-
-            # Get sovereign-specific health.
-            live_status = {}
-            if hasattr(sov, "live_status"):
-                try:
-                    live_status = sov.live_status() or {}
-                except Exception:
-                    live_status = {}
-
-            # Determine sovereign state.
-            if not started:
-                state = "stopped"
-                any_critical = True
-            else:
-                # Check for degraded state.
-                runtime_state = live_status.get("runtime_state", "")
-                if runtime_state in ("degraded", "failed", "dead"):
-                    state = "degraded"
-                    any_degraded = True
-                elif runtime_state in ("serving", "ready", "active"):
-                    state = "healthy"
-                else:
-                    state = "started"
-
-            sovereigns_health[attr] = {
-                "sovereign_id": sov_id,
-                "state": state,
-                "started": started,
-                "automated": automated,
-                "runtime_state": runtime_state,
-            }
-
-            if not started:
-                all_started = False
-            if not automated:
-                all_automated = False
-
-        # Determine overall system state.
-        if any_critical:
-            overall = "critical"
-        elif any_degraded:
-            overall = "degraded"
-        elif all_started and all_automated:
-            overall = "fully-automated"
-        elif all_started:
-            overall = "running"
-        else:
-            overall = "partial"
-
-        return {
-            "aggregated_at": self._iso_now(),
-            "overall_state": overall,
-            "all_started": all_started,
-            "all_automated": all_automated,
-            "sovereigns": sovereigns_health,
-            "coordinator_version": self.VERSION,
-        }
-
-    def _detect_degradation(
-        self, health: dict[str, Any]
-    ) -> dict[str, Any] | None:
-        """Detect cross-sovereign degradation that needs routing.
-
-        Returns a degradation report if any sovereign is in a degraded
-        or critical state, or None if the system is healthy.
-        """
-        overall = health.get("overall_state", "healthy")
-        if overall in ("healthy", "fully-automated", "running"):
-            return None
-
-        degraded_sovereigns: list[dict[str, Any]] = []
-        for attr, sov_health in health.get("sovereigns", {}).items():
-            state = sov_health.get("state", "unknown")
-            if state in ("degraded", "stopped", "critical"):
-                degraded_sovereigns.append({
-                    "sovereign": attr,
-                    "sovereign_id": sov_health.get("sovereign_id", attr),
-                    "state": state,
-                    "runtime_state": sov_health.get("runtime_state", ""),
-                })
-
-        if not degraded_sovereigns:
-            return None
-
-        return {
-            "detected_at": self._iso_now(),
-            "type": "cross-sovereign-degradation",
-            "overall_state": overall,
-            "degraded_sovereigns": degraded_sovereigns,
-            "route_to": "decision-sovereign.repair-decision",
-            "authority": "system-automation-coordinator",
-        }
-
     async def _route_pending_degradations(self) -> None:
-        """Route pending degradation reports to the decision-sovereign.
-
-        The decision-sovereign adjudicates the repair decision (A152/A154)
-        and routes to the appropriate repair chain.  The coordinator only
-        escalates the signal — it does not make repair decisions.
-        """
+        """Route pending degradation reports to the decision-sovereign."""
         if not self._pending_routes:
             return
 
@@ -381,72 +209,14 @@ class SystemAutomationCoordinator:
                     "cross-sovereign degradation route failed: %s", error
                 )
 
-        # Clear pending routes after processing.
         self._pending_routes.clear()
-
-    def _emit_xingcheng_evidence(self, health: dict[str, Any]) -> None:
-        """A140/A146: write the filtered system-evidence projection into
-        星澄's owned domain so its auxiliary global review can consume it.
-
-        The projection is deliberately redacted — only component identity,
-        state and timing make it across the boundary; no payloads, config
-        values, or secrets.  The domain root is taken from the
-        materialized xingcheng sovereign; when it is absent the
-        projection is skipped (fail-quiet).
-        """
-        import json
-        from pathlib import Path
-
-        xingcheng = getattr(self.app, "xingcheng_sovereign", None)
-        domain_root = getattr(xingcheng, "_owned_domain_root", None)
-        if not domain_root:
-            return
-
-        items: list[dict[str, Any]] = [
-            {
-                "component": "system-overall",
-                "state": health.get("overall_state"),
-                "detail": None,
-            }
-        ]
-        for attr, sov_health in health.get("sovereigns", {}).items():
-            items.append({
-                "component": sov_health.get("sovereign_id") or attr,
-                "state": sov_health.get("state") or "unknown",
-                "detail": None,
-            })
-        projection = {
-            "projected_at": self._iso_now(),
-            "channel": "information-layer",
-            "redacted": True,
-            "items": items,
-        }
-        try:
-            target = (
-                Path(domain_root) / "governance" / "system-evidence.json"
-            )
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(
-                json.dumps(projection, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
-        except (OSError, UnicodeError) as error:
-            _logger.warning("xingcheng evidence projection failed: %s", error)
 
     # ------------------------------------------------------------------
     # Status surfaces
     # ------------------------------------------------------------------
 
     def system_status(self) -> dict[str, Any]:
-        """Get the full system automation status.
-
-        This is the single aggregation point for all sovereign automation
-        state.  It combines:
-        - Coordinator metrics
-        - Per-sovereign automation status
-        - Aggregated system health
-        - Pending cross-sovereign routes
-        """
+        """Get the full system automation status."""
         sovereigns_status: dict[str, Any] = {}
         for attr in _SOVEREIGN_ATTRS:
             sov = getattr(self.app, attr, None)
@@ -461,7 +231,6 @@ class SystemAutomationCoordinator:
             started = bool(getattr(sov, "_started", False))
             automated = self._is_sovereign_automated(sov)
 
-            # Get sovereign-specific auto status.
             auto_status: dict[str, Any] = {}
             if hasattr(sov, "auto_status"):
                 try:
