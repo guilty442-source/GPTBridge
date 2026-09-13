@@ -20,6 +20,7 @@ would deadlock on partially-initialized packages.
 """
 
 from .codex_decision import codex_edicts, decision_basis
+from .system_automation_coordinator import SystemAutomationCoordinator
 
 _GOVERNANCE_EXPORTS = {
     "AutomaticLogSyncSubSovereign",
@@ -84,6 +85,7 @@ def __dir__() -> list[str]:
 __all__ = [
     "codex_edicts",
     "decision_basis",
+    "SystemAutomationCoordinator",
     *_GOVERNANCE_EXPORTS,
     *_SERVICE_ALIASES,
 ]

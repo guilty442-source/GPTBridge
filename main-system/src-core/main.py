@@ -32,6 +32,7 @@ from tasks.toolbox_service import ToolboxService
 from tasks.runtime_status_service import RuntimeStatusService
 
 from core_system.update_manager import UpdateManager
+from core_system.system_automation_coordinator import SystemAutomationCoordinator
 from governance.sovereigns import (
     DecisionSovereign,
     PermissionSovereign,
@@ -92,6 +93,11 @@ class GPTBridgeApp:
         self.system_runtime_sovereign = SystemRuntimeSovereign(self)
         self.synchronization_sovereign = SynchronizationSovereign(self)
         self.xingcheng_sovereign = XingchengSovereign(self)
+
+        # System-wide automation coordinator (A63/A64 decision-layer).
+        # Unifies all sovereign automation loops into a single
+        # coordination surface with cross-sovereign health monitoring.
+        self.system_automation_coordinator = SystemAutomationCoordinator(self)
 
         # Sub-sovereigns (initialized on demand, parent set via set_parent)
         self._sub_sovereigns: dict[str, Any] = {}
@@ -165,6 +171,7 @@ class GPTBridgeApp:
             "system_runtime_sovereign": self.system_runtime_sovereign.live_status(),
             "synchronization_sovereign": self.synchronization_sovereign.live_status(),
             "xingcheng_sovereign": self.xingcheng_sovereign.live_status(),
+            "system_automation": self.system_automation_coordinator.system_status(),
             "sub_sovereigns": {
                 name: sov.live_status() for name, sov in self._sub_sovereigns.items()
             },
@@ -253,6 +260,17 @@ class GPTBridgeApp:
             await self.decision_sovereign.start()
         except Exception as error:
             self._record_startup_failure("decision_sovereign", error)
+
+        # Start the system-wide automation coordinator after all
+        # sovereigns are started.  The coordinator aggregates health
+        # and routes cross-sovereign degradation; it does not start
+        # individual sovereign loops (those start via _on_start).
+        try:
+            await self.system_automation_coordinator.start()
+        except Exception as error:
+            self._record_startup_failure(
+                "system_automation_coordinator", error
+            )
 
         # Check if boot_core has already completed phases 0-5
         if startup_state in ("READY", "DEGRADED"):
@@ -430,6 +448,12 @@ class GPTBridgeApp:
         # Each stop is isolated so one failure cannot skip the rest —
         # a single faulty sovereign must never leak the remaining
         # children/tasks through an aborted shutdown sequence.
+        # Stop the system automation coordinator first so it does not
+        # route degradation signals while sovereigns are shutting down.
+        try:
+            await self.system_automation_coordinator.stop()
+        except Exception:
+            pass
         for _sovereign in (
             self.synchronization_sovereign,
             self.xingcheng_sovereign,
