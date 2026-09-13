@@ -3274,6 +3274,33 @@
         "rule": "CANONICAL-TAKEOVER:normal read/write execution must prove Qdrant dense retrieval and PostgreSQL official metadata/FTS/index_state are the live path;LocalVectorStore and LocalSqliteRagRepository activate only for the affected scope after canonical unavailability/unsafe-state evidence. Application code cannot select local fallback merely by default configuration or convenience. RECONCILIATION-QUEUE:every degraded create,update,tombstone,archive or permission/version change creates one durable item with operation_id,idempotency_key,resource_id,locator_id,source_revision,content_hash,operation,tombstone_generation,required embedding/chunk/parser/schema versions,created_at,attempts,next_retry_at,deadline,status,correlation_id and last_error. Status is pending|leased|reconciling|verified|conflict|failed|dead_letter;boolean reconciliation_required is only a projection and never the queue. Lease/retry/dead-letter rules follow Transport governance. CROSS-STORE-WRITE:no unsafe best-effort dual write. A logical operation uses an outbox/saga equivalent:commit central intent and operation identity;apply Qdrant and PostgreSQL idempotently;record each store result;compensate or reconcile partial success;publish complete only after revision/hash/tombstone parity. Qdrant success/PostgreSQL failure and the reverse remain visible recoverable incomplete states,never reported successful. TOMBSTONE-ANTI-RESURRECTION:delete writes authoritative PostgreSQL tombstone with monotonic resource revision and tombstone_generation before vector cleanup;queue and Qdrant payload carry it. Reconciliation rejects any older create/update/vector and cannot recreate a point from stale degraded state. Purge occurs only after all consumers acknowledge tombstone and retention/audit gates pass. INDEX-VERSION:each resource/chunk/point records embedding_model+embedding_version+dimension,chunker_version,parser_version,schema_version,pipeline_version,source_revision,content_hash and backend_generation. Version change calculates affected scope and precisely marks stale/rebuild;no global rebuild when narrower proof suffices,and no partial reuse across incompatible versions. DUAL-AUTHORIZATION:before Qdrant query enforce server-side module_id plus classification/rag_type filters from authorized scope;after results return,RagAuthorizationBridge revalidates caller,module,locator,classification,resource revision and current permission before content resolution. Either denial removes result and is audited without leaking metadata. OBSERVABILITY:each request reports mode=canonical|degraded|reconciling and per-stage path/status/latency/fallback reason for embedding,Qdrant,PostgreSQL FTS/metadata,RRF,reranker,authorization and content resolution;aggregate health cannot hide stage fallback. RETRIEVAL-EVALUATION:versioned fixed question/corpus sets measure Recall@K,MRR,reranker lift,grounded-answer evidence/citation validity,authorization leakage,latency and fallback parity. Dataset/version/expected relevant IDs,scoring tolerance and baseline are immutable evidence;regression policy blocks promotion. AGENTIC-BUDGET:per request bound retrieval rounds,model calls,total tokens/tool calls,deadline,candidate count and no-progress repetitions;stop on sufficient evidence,budget/deadline,no progress or explicit cancellation. MEMORY-LIFECYCLE:session,episodic,long-term memories have distinct scope,retention,consent,promotion/update/supersession/forget and retrieval-recency rules;no automatic cross-scope promotion. CODE-STRUCTURE:Code RAG indexes AST node type,symbol/declaration/reference,imports/includes,dependency edges,file/module/build relation and code-specific chunk spans with language/parser/source revision;plain-text chunks alone cannot satisfy Code RAG. All activation follows A372 order.",
         "prohibition": "FORBID:local vector/SQLite normal default+boolean-only reconciliation+lost degraded mutation+untracked best-effort dual write+partial store success reported complete+tombstoned resource resurrection+vector reuse across incompatible versions+Qdrant query without pre-filter+content resolution without post-authorization+hidden fallback+promotion without retrieval evaluation+unbounded agentic loop+memory scope/retention conflation+claiming Code RAG from plain text chunks.",
         "exception": "During verified canonical outage,the bounded local path may serve authorized degraded results and enqueue changes;it cannot clear queue items,claim canonical mode or bypass later source-based re-embedding and tombstone/version reconciliation."
+      },
+      {
+        "position": 374,
+        "provision_id": "A374",
+        "section_index": "12",
+        "subject": "rag-index-state-reconciliation-collection-topology-and-reranker-fallback",
+        "rule": "INDEX-STATE:every indexed resource/chunk has an authoritative index_state recording at minimum embedding_model,embedding_dimension,chunk_size,chunk_overlap,chunking_version,parser_version,rag_schema_version,content_sha256,indexed_at plus resource_id,chunk_id,source_revision,pipeline_version,backend_generation and status. Reindex planning compares each field and marks only the exact affected resources/chunks stale. A change such as chunk_size 1200/overlap 200 to 1600/250 invalidates entries built under the old pair and their dependent chunk/point mappings;it does not authorize deleting/rebuilding unrelated compatible data or the entire collection. STATE-MACHINE:runtime RAG state is exactly CANONICAL,DEGRADED or RECONCILING. CANONICAL requires healthy Qdrant and PostgreSQL,matching index_state and complete queue. Verified Qdrant/PostgreSQL fault moves affected scope to DEGRADED;bounded SQLite/local-vector service may continue,each mutation is durably queued and reconciliation_required=true. Canonical recovery moves to RECONCILING,which must verify source SHA256,resolve owning-module original content,re-chunk under current index_state,re-embed with canonical model/dimension,idempotently write Qdrant,update PostgreSQL,verify resource/chunk/point counts+IDs+hashes+versions and drain/close queue. Only then may reconciliation_required=false and state return CANONICAL. Service availability alone cannot transition to CANONICAL;SQLite vectors are never copied as canonical. COLLECTION-TOPOLOGY:one Qdrant instance and one canonical collection gptbridge_shared_knowledge serve all authorized local models and four RAG behaviors. Physical per-rag-type or per-model canonical collections are forbidden. Logical isolation uses governed point metadata rag_type with one value or rag_types array containing only hybrid-rag,code-rag,agentic-rag,memory-rag;server-side metadata filters and post-result authorization apply. A chunk may carry multiple rag_types only when each membership has evidence and compatible lifecycle/version. RERANKER-OBSERVABILITY:every retrieval response/evidence reports reranker.requested,reranker.active,reranker.fallback,reranker.reason,model/version and timing. If qwen3-reranker-0.6b is unavailable/not cached,the lawful fallback is RRF with active=false,fallback=rrf and a typed reason such as model_not_cached;successful response cannot imply reranker participation. ORDER:this provision supersedes the shorter A372 work order with the binding sequence:1 Canonical Qdrant;2 PostgreSQL canonical metadata;3 recoverable cross-store write consistency;4 reconciliation;5 index versioning;6 dual-layer authorization filtering;7 stage observability including reranker;8 Code RAG;9 Agentic RAG;10 Memory RAG;11 retrieval benchmark. Stage N activation requires fresh PASS evidence from 1..N-1;isolated experimental work cannot certify a later stage.",
+        "prohibition": "FORBID:index_state missing any minimum field+whole-collection rebuild when exact affected scope is provable+CANONICAL on endpoint availability alone+direct degraded-vector transfer+clearing reconciliation before count/ID/hash/version proof+four physical canonical RAG collections+unregistered rag_type+multi-rag membership without evidence+silent reranker fallback+response claiming reranker active when RRF fallback ran+skipping the eleven-stage order.",
+        "exception": "A full rebuild is lawful only when a collection-wide incompatible schema/model change,total loss or corruption makes narrower rebuild impossible and evidence proves scope. Experimental collections may exist in isolated non-canonical test scope with expiry and cannot be queried by production."
+      },
+      {
+        "position": 375,
+        "provision_id": "A375",
+        "section_index": "13",
+        "subject": "governed-multi-ai-git-coordination-and-delivery-infrastructure",
+        "rule": "GIT-ROLE:Git is governed local coordination and delivery infrastructure for concurrent AI work,not merely version storage. main is the sole stable integration branch. Persistent Pool is E:\\GPTBridge-worktrees\\* with fixed git,local-model,rag,ui worktrees. Ephemeral AI Pool is E:\\GPTBridge\\.kilo\\worktrees\\* and every entry records owner,task_id,created_at,last_activity,base_revision,branch,lease_expiry,status. Workers may work and commit concurrently but never push. Integration is serialized by workspace_sync/coordinator;release topology is Worker Branch>Main Integration Worktree>central bare local delivery authority>origin GitHub remote/mirror. After integration,push central main,verify central/main equals local main,then and only then push origin. ENTRYPOINT:all AI,星澄 and scripts Git execution uses GitRepository.run()>classify/enforce>before snapshot>git.exe>after snapshot>audit. Python/TypeScript modules cannot invoke git by subprocess,os.system,shell or equivalent;the only implementation whitelist is git_tiers/git_repository.py plus platform bootstrap explicitly incapable of repository operations. Unknown Git operation is Tier-3 fail-closed. SAFETY:no force-push,ref deletion,reset or automatic conflict resolution. MERGE-QUEUE:entry binds worker_id,source_branch,immutable source_commit SHA,base_main_commit,enqueue_time,priority,audit_id,policy hash. Coordinator merges the approved SHA,not a moving branch;branch is frozen after enqueue or newer commits require a new entry. SELF-COMMIT:requires dirty stability,no active file-write lock,no test/build in progress and worker checkpoint_ready,then debounce;time alone never means completion. SYNC:dirty/event registry,heartbeat,self-commit event,HEAD change and filesystem notification drive incremental worktree processing;periodic full reconciliation is a safety check,not the high-frequency path. EPHEMERAL-LIFECYCLE:after specified SHA merges and audit passes,remove worktree>delete merged ephemeral branch>prune,with lease expiry/recovery evidence;never delete unmerged work. AUDIT:cross-process file lock protects append;records sequence,previous_hash,record_hash,duration_ms,revision_before/after,worktree_id,worker_id,task_id,operation/result/time. Rotate current.jsonl into time partitions and archive with continuous hash-chain/manifest verification;threading.Lock alone is insufficient. HEALTH:high-frequency status --porcelain=v2,rev-parse,worktree list,branch occupancy and lock state;low-frequency fsck,count-objects,stale worktrees,dangling refs,audit/hooks integrity and central/origin divergence. Existing audit volume is operational data and must be retained/rotated without truncating chain.",
+        "prohibition": "FORBID:direct subprocess git outside whitelist+worker push+moving-branch merge+time-only auto-commit+full high-frequency polling as sole trigger+expired worktree deletion with unmerged commits+thread-only audit lock+broken audit rotation chain+origin push before central equality+force push/ref delete/reset/automatic conflict choice.",
+        "exception": "A non-repository diagnostic may execute git --version through an approved bootstrap adapter;it cannot inspect or mutate a repository and must still be audited."
+      },
+      {
+        "position": 376,
+        "provision_id": "A376",
+        "section_index": "3",
+        "subject": "codex-non-sovereign-xingcheng-model-dialogue-and-information-layer-boundaries",
+        "rule": "ROSTER:Codex is the highest rule-declaration layer only and is not an active sovereign,decision institution,executor or member of the active-sovereign count;its legacy row may remain solely as a schema compatibility record marked non-sovereign. XINGCHENG:Xingcheng/星澄 is a local native model and sovereign of its own privileged domain with the powers granted by Codex;its identity,authority,evidence and directory code cannot be named model-dialogue. MODEL_DIALOGUE:MODEL_DIALOGUE/model-dialogue is an independent UI/tool module that may call Xingcheng and other models through governed contracts;it has no Xingcheng sovereign identity,power,credential,privilege or authority delegation. UI/tool closure cannot redefine or terminate the model sovereign,though it must terminate its own owned backend processes. NAMING:runtime IDs,registries,manifests,paths,IPC subjects,health and audit must use distinct canonical identifiers XINGCHENG and MODEL_DIALOGUE;aliases cannot merge them. INFORMATION-LAYER:information-layer owns information semantics,canonical records,service interfaces,lifecycle,classification and authorization decisions. SHARED-LAYER:shared-layer implements cross-module information transport,IPC/envelopes,schemas/contracts,serialization,delivery,retry and compatibility;it does not own domain information or invent service semantics. Information owners publish through shared-layer contracts;shared-layer failure isolates transport but cannot transfer ownership,while information-layer failure cannot authorize shared-layer to fabricate truth.",
+        "prohibition": "FORBID:counting Codex as active sovereign+calling model-dialogue Xingcheng or vice versa+MODEL_DIALOGUE exercising sovereign power+shared credentials/identity+UI tool owning model domain+shared-layer owning information truth+information-layer implementing an undeclared bypass channel+ownership transfer caused by outage.",
+        "exception": "MODEL_DIALOGUE may display the user-facing name 星澄 only as the explicitly attributed selected model label;machine identity,authority and audit records must still remain distinct."
       }
     ],
     "certification_evidence": [
@@ -4029,7 +4056,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H079",
+        "history_head": "H080",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -12889,6 +12916,24 @@
         "provision_id": "A373",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A374",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A375",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A376",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12947,14 +12992,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H079",
-        "provision_count": 619,
-        "identity_count": 619,
-        "lineage_count": 619,
+        "history_head": "H080",
+        "provision_count": 622,
+        "identity_count": 622,
+        "lineage_count": 622,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "20e40a9532f6c60949e6b50d7dd48ddf93f84c6d54d32d1dcfac376aa138e955",
-        "identity_root": "efe22ac3b3d5744123f67afeda0695d161afd4ce38fed67c12eb603e84a3ae71",
-        "full_root": "89ff07297aef170e726966be7de0365e2641bbdbd1c9dd3457795159875233a4",
+        "content_root": "04d5d094990f80609f06db669d0c686cb32f2a09a8cf1c5da17663bd48652d60",
+        "identity_root": "6edd49ef6f2bcc0509fffa472b4ce749bde00cf72592c810b8fcbe0a4416273a",
+        "full_root": "bfa9be75a1b215e9c1721568f2da48fbed871378b1624238727037e7cfc67371",
         "legacy_history_head": null
       }
     ],
@@ -18081,7 +18126,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H079"
+        "value": "H080"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -18349,7 +18394,7 @@
       },
       {
         "key": "local_rag_stage_order",
-        "value": "qdrant-canonical-runtime>postgresql-central-metadata>degraded-reconciliation>code-rag>agentic-rag>memory-rag"
+        "value": "canonical-qdrant>postgresql-canonical-metadata>cross-store-write-consistency>reconciliation>index-versioning>dual-authorization>observability>code-rag>agentic-rag>memory-rag>retrieval-benchmark"
       },
       {
         "key": "canonical_rag_operational_contract",
@@ -18362,6 +18407,46 @@
       {
         "key": "rag_runtime_modes",
         "value": "canonical|degraded|reconciling"
+      },
+      {
+        "key": "rag_index_state_fields",
+        "value": "embedding_model|embedding_dimension|chunk_size|chunk_overlap|chunking_version|parser_version|rag_schema_version|content_sha256|indexed_at"
+      },
+      {
+        "key": "rag_reconciliation_runtime_states",
+        "value": "CANONICAL|DEGRADED|RECONCILING"
+      },
+      {
+        "key": "git_execution_entrypoint",
+        "value": "GitRepository.run"
+      },
+      {
+        "key": "git_persistent_worktree_pool",
+        "value": "E:\\GPTBridge-worktrees\\*"
+      },
+      {
+        "key": "git_ephemeral_ai_worktree_pool",
+        "value": "E:\\GPTBridge\\.kilo\\worktrees\\*"
+      },
+      {
+        "key": "codex_active_sovereign",
+        "value": "false"
+      },
+      {
+        "key": "xingcheng_identity",
+        "value": "XINGCHENG-local-native-model-sovereign"
+      },
+      {
+        "key": "model_dialogue_identity",
+        "value": "MODEL_DIALOGUE-independent-tool-no-sovereign-power"
+      },
+      {
+        "key": "information_layer_role",
+        "value": "information-ownership-and-services"
+      },
+      {
+        "key": "shared_layer_role",
+        "value": "cross-module-information-channel-and-contract-implementation"
       }
     ],
     "module_assignment_registry": [
@@ -24122,6 +24207,27 @@
         "provision_id": "A373",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A374",
+        "provision_type": "article",
+        "provision_id": "A374",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A375",
+        "provision_type": "article",
+        "provision_id": "A375",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A376",
+        "provision_type": "article",
+        "provision_id": "A376",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -28457,6 +28563,27 @@
         "tier": "special-law",
         "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
         "authority_basis": "A200|A205|A365|A369|A371|A372"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A374",
+        "tier": "special-law",
+        "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "authority_basis": "A365|A369|A371|A372|A373"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A375",
+        "tier": "special-law",
+        "law_code": "CODEX_GIT_WORKTREE_SPECIAL_LAW",
+        "authority_basis": "A140|A141|A142|A143|A144|A145|A146|A147|A148|A149|A150|A151|A152|A153|A154"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A376",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A284|A288|A313|A328|A336"
       }
     ],
     "provision_lifecycle_status": [
@@ -33307,6 +33434,30 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H079+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A374",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H080+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A375",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H080+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A376",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H080+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -38261,6 +38412,30 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "4419ec39e1863235dbb4cb70203ba1a59fe2ffea1d215c346b6a6aa1159d7f94"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A374",
+        "introduced_by": "H080",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "e0b1abfffbbcd1b70becb6e2ce4c748876e14f67bd8b24d1a3a0992632b1039c"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A375",
+        "introduced_by": "H080",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "315ce4d37aefd25938096d811dfc44c51848f84fda75c9b2b2d937381b04585f"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A376",
+        "introduced_by": "H080",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "70472b171505706d6b6361854e604d19475dd48fbfa81060d8f312f338a318b2"
       }
     ],
     "provision_revisions": [
@@ -49225,6 +49400,33 @@
         "content_hash": "4419ec39e1863235dbb4cb70203ba1a59fe2ffea1d215c346b6a6aa1159d7f94",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A374",
+        "revision_id": "H080",
+        "version": "1.00000",
+        "content_hash": "e0b1abfffbbcd1b70becb6e2ce4c748876e14f67bd8b24d1a3a0992632b1039c",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A375",
+        "revision_id": "H080",
+        "version": "1.00000",
+        "content_hash": "315ce4d37aefd25938096d811dfc44c51848f84fda75c9b2b2d937381b04585f",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A376",
+        "revision_id": "H080",
+        "version": "1.00000",
+        "content_hash": "70472b171505706d6b6361854e604d19475dd48fbfa81060d8f312f338a318b2",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -54317,6 +54519,36 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A374",
+        "controlling_law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A375",
+        "controlling_law_code": "CODEX_GIT_WORKTREE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A376",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -55188,6 +55420,17 @@
         "previous_hash": "af7798c23882dfd27402293c4c8b5edd95d5e0d171f8dc26f06f490cf2577ad4",
         "entry_hash": "0af756a8a67e44c37f37955fbe9de935a6453a5b7fc2608ec4ae05cf256a9f1c",
         "version_epoch": 2
+      },
+      {
+        "sequence": 80,
+        "change_id": "H080",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "rag-git-sovereign-roster-and-information-layer-boundary-integration",
+        "summary": "Integrated RAG index/reconciliation topology, governed multi-AI Git delivery infrastructure, non-sovereign Codex classification, Xingcheng/model-dialogue separation, and information/shared-layer boundaries. Version remains E2:1.00000.",
+        "previous_hash": "0af756a8a67e44c37f37955fbe9de935a6453a5b7fc2608ec4ae05cf256a9f1c",
+        "entry_hash": "1bdb43506a1d84fed2bd671107f4b274cb1f76e879c59aee550c2138de51d26d",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -55744,14 +55987,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H079",
-        "provision_count": 619,
-        "identity_count": 619,
-        "lineage_count": 619,
+        "history_head": "H080",
+        "provision_count": 622,
+        "identity_count": 622,
+        "lineage_count": 622,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "20e40a9532f6c60949e6b50d7dd48ddf93f84c6d54d32d1dcfac376aa138e955",
-        "identity_root": "efe22ac3b3d5744123f67afeda0695d161afd4ce38fed67c12eb603e84a3ae71",
-        "full_root": "89ff07297aef170e726966be7de0365e2641bbdbd1c9dd3457795159875233a4",
+        "content_root": "04d5d094990f80609f06db669d0c686cb32f2a09a8cf1c5da17663bd48652d60",
+        "identity_root": "6edd49ef6f2bcc0509fffa472b4ce749bde00cf72592c810b8fcbe0a4416273a",
+        "full_root": "bfa9be75a1b215e9c1721568f2da48fbed871378b1624238727037e7cfc67371",
         "version_epoch": 2
       }
     ],
@@ -59035,8 +59278,8 @@
         "position": 1,
         "sovereign_id": "codex",
         "name": "codex",
-        "area": "rule-declaration",
-        "rank": "highest-rule-declaration-layer-only-no-power",
+        "area": "non-sovereign-rule-declaration-compatibility-record",
+        "rank": "not-an-active-sovereign-no-power-no-execution-no-decision",
         "basis": "codex"
       },
       {
@@ -60669,6 +60912,60 @@
         "cleanup": "remove isolated fixtures only;retain governance evidence",
         "isolation_policy": "isolated stores,generation-fenced queue and no stale resurrection",
         "timeout": "5400s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_RAG_INDEX_STATE_AND_RECONCILIATION",
+        "canonical_name": "rag-index-state-reconciliation-topology-and-reranker-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "canonical RAG index and runtime state contracts",
+        "requirement_ids": "A365|A369|A371|A372|A373|A374",
+        "test_level": "unit+contract+integration+failure-injection+recovery+observability",
+        "preconditions": "index-state variants,three runtime states,pending mutations,shared collection,four rag types,cached/missing reranker and staged evidence",
+        "fixtures": "change each index field;1200/200 to 1600/250;canonical-store fault/recovery;source/hash/model/dimension/count mismatch;single/multiple rag_types;attempt physical split;reranker active/missing/error;each eleven-stage predecessor missing",
+        "ordered_steps": "calculate exact stale scope;walk CANONICAL>DEGRADED>RECONCILING>CANONICAL;prove queue and count/hash/version closure;filter shared collection;inspect reranker envelope;attempt out-of-order activation",
+        "expected_results": "all minimum fields present;only affected items rebuilt;no premature CANONICAL;one physical collection with logical isolation;fallback always visible;exact eleven-stage order enforced",
+        "evidence": "index manifests+affected-scope plan+state transitions+queue/count/hash proofs+collection payload/filter evidence+reranker envelopes+stage decisions",
+        "cleanup": "remove isolated fixtures only;retain evidence",
+        "isolation_policy": "isolated collection,state generation fence and immutable source evidence",
+        "timeout": "4800s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_GIT_MULTI_AI_DELIVERY",
+        "canonical_name": "git-multi-ai-delivery-and-single-entrypoint-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "GitRepository+worktree pools+merge queue+audit+central delivery",
+        "requirement_ids": "A375",
+        "test_level": "contract+integration+concurrency+failure-injection+security",
+        "preconditions": "persistent and ephemeral worktrees,moving branch,locks,tests,queue,central/origin and rotating audit",
+        "fixtures": "direct subprocess scan;checkpoint states;SHA-locked queue;concurrent workers;conflict;expired lease;cross-process audit writes;rotation;central mismatch;health frequencies;unknown operation",
+        "ordered_steps": "verify single entrypoint;enqueue SHA then advance branch;merge exact SHA;gate commit on checkpoint;sync dirty only;clean merged ephemeral;stress audit lock/rotation;push central before origin",
+        "expected_results": "no bypass;worker never pushes;exact SHA merged;unready work uncommitted;unmerged work preserved;audit chain intact;central equality precedes origin;unknown operation denied",
+        "evidence": "source scan+queue snapshots+worktree registry+lock/test/checkpoint evidence+audit hashes+ref comparisons",
+        "cleanup": "remove isolated merged ephemeral fixtures only;retain audit",
+        "isolation_policy": "isolated remotes and no destructive ref operation",
+        "timeout": "4800s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_IDENTITY_INFORMATION_BOUNDARY",
+        "canonical_name": "codex-xingcheng-model-dialogue-information-shared-boundary-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "active roster and cross-layer identity/ownership boundaries",
+        "requirement_ids": "A376",
+        "test_level": "contract+integration+security+failure-injection",
+        "preconditions": "Codex roster,Xingcheng model,MODEL_DIALOGUE tool,information owner and shared transport",
+        "fixtures": "active sovereign count;tool calls Xingcheng/other model;attempt sovereign action from tool;identifier collision;shared-layer outage;information-layer outage;ownership query",
+        "ordered_steps": "verify Codex excluded;verify distinct IDs/credentials/powers;route calls through contract;fail each layer;inspect ownership and audit",
+        "expected_results": "Codex never active sovereign;MODEL_DIALOGUE has no sovereign power;names never merge;information-layer owns data/service;shared-layer only transports contracts;outage transfers no ownership",
+        "evidence": "roster+registry+manifest+IPC+authorization+failure/audit evidence",
+        "cleanup": "remove fixtures only;retain evidence",
+        "isolation_policy": "isolated identities and no privilege inheritance",
+        "timeout": "2400s",
         "introduced_version": "1.00000",
         "retired_version": null
       }
