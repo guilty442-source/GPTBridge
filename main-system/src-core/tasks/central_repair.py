@@ -53,9 +53,11 @@ class CentralRepairService:
 
     def known_recipes(self) -> list[dict[str, Any]]:
         knowledge_file = self._knowledge_file()
+        raw = ""
         recorded: list[dict[str, Any]] = []
         try:
-            recorded = json.loads(knowledge_file.read_text(encoding="utf-8"))
+            raw = knowledge_file.read_text(encoding="utf-8")
+            recorded = json.loads(raw)
         except (OSError, UnicodeError, json.JSONDecodeError):
             recorded = []
         if not isinstance(recorded, list):
@@ -72,14 +74,13 @@ class CentralRepairService:
             if rid:
                 merged[rid] = {**merged.get(rid, {}), **learned, "source": "learned"}
         recipes = list(merged.values())
-        try:
-            knowledge_file.parent.mkdir(parents=True, exist_ok=True)
-            knowledge_file.write_text(
-                json.dumps(recipes, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-        except OSError:
-            pass
+        payload = json.dumps(recipes, ensure_ascii=False, indent=2)
+        if raw.strip() != payload.strip():
+            try:
+                knowledge_file.parent.mkdir(parents=True, exist_ok=True)
+                knowledge_file.write_text(payload, encoding="utf-8")
+            except OSError:
+                pass
         return recipes
 
     def record_recipe(self, recipe: dict[str, Any]) -> dict[str, Any]:

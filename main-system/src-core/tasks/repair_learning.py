@@ -128,6 +128,44 @@ class LearnedRecipe:
         }
 
 
+_SCHEMA_STATEMENTS: tuple[str, ...] = (
+    "CREATE TABLE IF NOT EXISTS error_signatures ("
+    "signature_hash TEXT PRIMARY KEY, "
+    "error_class TEXT NOT NULL, "
+    "message_pattern TEXT NOT NULL, "
+    "failure_code TEXT NOT NULL, "
+    "file_context TEXT NOT NULL DEFAULT '', "
+    "target_tool_id TEXT NOT NULL DEFAULT '', "
+    "first_seen TEXT NOT NULL, "
+    "last_seen TEXT NOT NULL, "
+    "occurrence_count INTEGER NOT NULL DEFAULT 1)",
+    "CREATE TABLE IF NOT EXISTS repair_outcomes ("
+    "outcome_id TEXT PRIMARY KEY, "
+    "run_id TEXT NOT NULL, "
+    "signature_hash TEXT NOT NULL, "
+    "remedy TEXT NOT NULL, "
+    "ok INTEGER NOT NULL, "
+    "detail_json TEXT NOT NULL DEFAULT '{}', "
+    "recorded_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS learned_recipes ("
+    "recipe_id TEXT PRIMARY KEY, "
+    "name TEXT NOT NULL, "
+    "failure_signatures_json TEXT NOT NULL, "
+    "remedy TEXT NOT NULL, "
+    "owner TEXT NOT NULL DEFAULT 'main-system', "
+    "automatic INTEGER NOT NULL DEFAULT 1, "
+    "runtime_only INTEGER NOT NULL DEFAULT 1, "
+    "learned_at TEXT NOT NULL, "
+    "occurrence_count INTEGER NOT NULL DEFAULT 0, "
+    "success_rate REAL NOT NULL DEFAULT 0.0, "
+    "source TEXT NOT NULL DEFAULT 'learned')",
+    "CREATE INDEX IF NOT EXISTS idx_outcomes_signature "
+    "ON repair_outcomes(signature_hash)",
+    "CREATE INDEX IF NOT EXISTS idx_outcomes_remedy "
+    "ON repair_outcomes(remedy, ok)",
+)
+
+
 class RepairLearningStore:
     """SQLite-backed store for error signatures, outcomes, and learned recipes."""
 
@@ -138,54 +176,28 @@ class RepairLearningStore:
         self._path = self.database_root / "repair-learning.sqlite3"
 
     def _connect(self) -> sqlite3.Connection:
-        self.database_root.mkdir(parents=True, exist_ok=True)
+        root = self.database_root
+        if not root.is_dir():
+            root.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self._path, timeout=10)
-        connection.execute("PRAGMA journal_mode=WAL")
-        connection.execute("PRAGMA synchronous=NORMAL")
-        connection.execute(
-            "CREATE TABLE IF NOT EXISTS error_signatures ("
-            "signature_hash TEXT PRIMARY KEY, "
-            "error_class TEXT NOT NULL, "
-            "message_pattern TEXT NOT NULL, "
-            "failure_code TEXT NOT NULL, "
-            "file_context TEXT NOT NULL DEFAULT '', "
-            "target_tool_id TEXT NOT NULL DEFAULT '', "
-            "first_seen TEXT NOT NULL, "
-            "last_seen TEXT NOT NULL, "
-            "occurrence_count INTEGER NOT NULL DEFAULT 1)"
-        )
-        connection.execute(
-            "CREATE TABLE IF NOT EXISTS repair_outcomes ("
-            "outcome_id TEXT PRIMARY KEY, "
-            "run_id TEXT NOT NULL, "
-            "signature_hash TEXT NOT NULL, "
-            "remedy TEXT NOT NULL, "
-            "ok INTEGER NOT NULL, "
-            "detail_json TEXT NOT NULL DEFAULT '{}', "
-            "recorded_at TEXT NOT NULL)"
-        )
-        connection.execute(
-            "CREATE TABLE IF NOT EXISTS learned_recipes ("
-            "recipe_id TEXT PRIMARY KEY, "
-            "name TEXT NOT NULL, "
-            "failure_signatures_json TEXT NOT NULL, "
-            "remedy TEXT NOT NULL, "
-            "owner TEXT NOT NULL DEFAULT 'main-system', "
-            "automatic INTEGER NOT NULL DEFAULT 1, "
-            "runtime_only INTEGER NOT NULL DEFAULT 1, "
-            "learned_at TEXT NOT NULL, "
-            "occurrence_count INTEGER NOT NULL DEFAULT 0, "
-            "success_rate REAL NOT NULL DEFAULT 0.0, "
-            "source TEXT NOT NULL DEFAULT 'learned')"
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_outcomes_signature "
-            "ON repair_outcomes(signature_hash)"
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_outcomes_remedy "
-            "ON repair_outcomes(remedy, ok)"
-        )
+        try:
+            schema_ready = (
+                connection.execute(
+                    "SELECT 1 FROM sqlite_master"
+                    " WHERE type='table' AND name='error_signatures'"
+                ).fetchone()
+                is not None
+            )
+            if not schema_ready:
+                connection.execute("PRAGMA journal_mode=WAL")
+                connection.execute("PRAGMA synchronous=NORMAL")
+                for statement in _SCHEMA_STATEMENTS:
+                    connection.execute(statement)
+            else:
+                connection.execute("PRAGMA synchronous=NORMAL")
+        except BaseException:
+            connection.close()
+            raise
         return connection
 
     def record_error(self, signature: ErrorSignature) -> None:

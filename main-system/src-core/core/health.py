@@ -9,6 +9,18 @@ from typing import Any
 
 _HEALTH_CACHE_TTL_SECONDS: float = 5.0
 _health_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_resolved_roots: dict[str, str] = {}
+
+
+def _resolved_root(project_root: str | Path | None) -> str:
+    """Memoize ``Path.resolve()`` — realpath syscalls dominate hot loops."""
+
+    raw = str(project_root or Path.cwd())
+    resolved = _resolved_roots.get(raw)
+    if resolved is None:
+        resolved = str(Path(raw).resolve())
+        _resolved_roots[raw] = resolved
+    return resolved
 
 
 def _copy_report(report: dict[str, Any]) -> dict[str, Any]:
@@ -30,12 +42,12 @@ def check_core_health(project_root: str | Path | None = None) -> dict[str, Any]:
     collapsing duplicated work to at most one run per window.
     """
 
-    root = Path(project_root or Path.cwd()).resolve()
-    cache_key = str(root).casefold()
+    cache_key = _resolved_root(project_root)
     now = time.monotonic()
     cached = _health_cache.get(cache_key)
     if cached is not None and now - cached[0] < _HEALTH_CACHE_TTL_SECONDS:
         return _copy_report(cached[1])
+    root = Path(cache_key)
     checks = {
         "project_root_exists": root.exists(),
         "package_json_exists": (root / "main-system" / "package.json").exists(),

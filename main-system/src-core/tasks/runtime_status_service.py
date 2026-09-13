@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import time
 from typing import Any
+
+
+_STATUS_CACHE_TTL_SECONDS: float = 1.0
+_status_cache: dict[int, tuple[float, dict[str, Any]]] = {}
 
 
 class RuntimeStatusService:
@@ -28,6 +33,20 @@ class RuntimeStatusService:
         raise ValueError(f"Unknown runtime status command: {command}")
 
     def startup_status(self) -> dict[str, Any]:
+        """Build the full runtime status payload (cached for one second).
+
+        The UI requests this command continuously, and every build
+        aggregates all sovereign status trees, integrity checks, and
+        dependency probes on the IPC event loop.  A short TTL collapses
+        the duplicated work while keeping the surface current enough for
+        status display; callers receive their own top-level mapping so a
+        consumer cannot pollute the cached snapshot.
+        """
+        now = time.monotonic()
+        cache_key = id(self.app)
+        cached = _status_cache.get(cache_key)
+        if cached is not None and now - cached[0] < _STATUS_CACHE_TTL_SECONDS:
+            return dict(cached[1])
         from .readiness_gate import ReadinessGate
 
         readiness = ReadinessGate(self.app).evaluate()
@@ -44,4 +63,5 @@ class RuntimeStatusService:
         get_startup_status = getattr(self.app, "get_startup_status", None)
         if callable(get_startup_status):
             result.update(get_startup_status())
-        return result
+        _status_cache[cache_key] = (now, result)
+        return dict(result)
