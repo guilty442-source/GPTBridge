@@ -3211,6 +3211,33 @@
         "rule": "CONTROL-SURFACE:星澄 auxiliary system owns the user-facing control surface for automatic repair and automatic update. It exposes two independent explicit switches:automatic_repair_enabled and automatic_update_enabled; default and persisted state must be visible,attributable to the user and never inferred from model intent. DETECTION:health observation,fault classification,evidence collection,isolation and non-mutating diagnosis may continue regardless of execution switch so faults remain observable. EXECUTION-GATE:a repair/update mutation may execute only when its corresponding switch is enabled AND the user confirms the concrete pending action. Confirmation binds action_id,fault_id or update_id,scope,target,proposed method,risk,rollback/fallback,evidence digest and expiry; it is one-time,non-transferable and invalid after material plan/evidence change. A switch alone is not confirmation;confirmation alone cannot bypass a disabled switch. Existing lawful one-time manual commands remain valid only for their explicit scope. CARDINALITY:the detector assigns one incident snapshot as SINGLE_FAULT when exactly one independently actionable fault exists,or MULTI_FAULT when two or more exist; correlated symptoms may share a root_cause_group but each distinct fault keeps its own fault_id,evidence,severity,impact,isolation state,proposed action and confirmation state. PRESENTATION:SINGLE_FAULT displays one complete fault item. MULTI_FAULT displays every fault individually in deterministic severity/time/fault_id order,shows total and unresolved counts,and provides per-fault confirmation;bulk confirmation is forbidden unless every included action is expanded,individually selectable and explicitly confirmed in the same user act. SEQUENCING:multi-fault execution is one action at a time;after each action re-detect and refresh remaining evidence because one repair may invalidate another diagnosis. Failure of one item is isolated and cannot hide,cancel or auto-authorize others. UPDATE:automatic update follows the same switch+confirmation rule and must show version/source/hash/affected scope,compatibility evidence and rollback;backend synchronization privilege does not waive user confirmation. AUDIT:record switch changes,prompt,decision,actor,time,action result and refreshed fault set without secrets. UI close/cancel/expiry means no mutation.",
         "prohibition": "FORBID:hidden or combined switch+switch enabling itself+model/repair engine impersonating user confirmation+execute-on-detection+confirmation reused across actions+silent bulk repair/update+multi-fault collapsed into one generic message+showing only first fault+repair failure suppressing other faults+changed plan using stale confirmation+disabled switch bypass+confirmation dialog defaulting to approval+code overwrite/reset as repair.",
         "exception": "Immediate reversible isolation may occur without confirmation solely to stop active damage while preserving unaffected operation; it cannot modify source code,apply an update,erase evidence or become a repair, and must be displayed as an isolated fault action for subsequent user decision."
+      },
+      {
+        "position": 367,
+        "provision_id": "A367",
+        "section_index": "12",
+        "subject": "mandatory-cross-store-data-governance-stage-order",
+        "rule": "The binding dependency order is exactly: 1 RECONCILIATION(PostgreSQL<->SQLite authority/revision/hash/status); 2 GLOBAL_ID_VERSION(one resource_id and version contract across PostgreSQL,SQLite,Qdrant); 3 CENTRAL_INDEX(measured PostgreSQL indexes over stable identities); 4 TRANSPORT(durable lease,idempotency,retry,deadline,dead-letter); 5 AUDIT(central append-only sequence/hash/correlation evidence); 6 QDRANT_REBUILD(PostgreSQL-backed deterministic complete reconstruction); 7 SQLITE_GOVERNANCE(fleet registry,schema/role/integrity/reconcile state); 8 BACKUP_RECOVERY(PostgreSQL WAL/logical,SQLite snapshot/integrity,Qdrant snapshot or rebuild and cross-store restore proof). Each stage consumes verified evidence from every preceding stage. A later stage may be designed or tested in isolation but cannot be declared complete,authoritative,release-ready or used to waive an earlier incomplete stage. Failure at stage N blocks activation of N and every downstream stage while already verified upstream services remain available and the failure is isolated. Re-entry after repair resumes from the earliest invalid stage and revalidates all downstream evidence. The synchronization sovereign coordinates runtime transport and reconciliation;permission sovereign governs directory/access boundaries;neither changes PostgreSQL central authority,SQLite bounded role or Qdrant projection role.",
+        "prohibition": "FORBID:reordering+skipping+parallel activation that bypasses dependency evidence+using indexes before identity contract+using transport success as reconciliation proof+using audit without reliable transport identity+declaring Qdrant recoverable without central source metadata+backing up unreconciled conflict as a valid recovery baseline+backup success masking an earlier-stage failure.",
+        "exception": "Independent non-mutating research,benchmarking and fixture tests may run out of order in isolation; their evidence cannot activate,certify or release a downstream stage until the full ordered predecessor chain passes."
+      },
+      {
+        "position": 368,
+        "provision_id": "A368",
+        "section_index": "12",
+        "subject": "database-runtime-pool-query-schema-health-and-cross-engine-integrity",
+        "rule": "POOL-ISOLATION:central-index,transport,audit and each module-private database use separately budgeted connection pools with owner,max/open/idle/wait/lease metrics and reserved critical capacity;one workload cannot exhaust another pool. READ-WRITE-PATH:code exposes distinct read and write paths even on one host;transaction consistency and read-after-write requirements are explicit and routing may later change without contract drift. SQL-SAFETY:all runtime values use prepared statements or parameterized queries;SQL string concatenation/interpolation for transport,locator,resource lookup and every runtime query is prohibited. TIMEOUTS:every runtime statement has a bounded statement_timeout;transactions have lock_timeout,idle timeout and bounded deadlock/serialization retry with jitter,idempotency and total deadline;retry never duplicates committed side effects. PERFORMANCE-EVIDENCE:slow-query log stores redacted query fingerprint,role/module,mean,p95,p99,rows examined/returned,calls and plan identity without secrets or raw personal values. Periodic analysis identifies unused/duplicate indexes and abnormal sequential scans;index removal/addition requires workload,query-plan,write/storage and rollback evidence. RETENTION:audit,transport history,model inference history and repair history each declare retention,archive/legal-hold,purge owner and proof;central append-only audit uses governed archival/purge rather than runtime mutation. VACUUM-ANALYZE:Python health/maintenance orchestration observes bloat,dead tuples,statistics freshness and transaction age,then schedules bounded VACUUM/ANALYZE through governed execution;manual recurring dependence is forbidden. SCHEMA-CONTRACT:startup verifies expected schema version,tables,columns/types/nullability,constraints,indexes,RLS/policies,extensions and migration head before write readiness. DRIFT:actual catalog is deterministically compared to approved migration-derived schema fingerprint;out-of-band change becomes SCHEMA_DRIFT,blocks unsafe writes and cannot be silently adopted. MIGRATION-DRY-RUN:before formal migration validate dependency graph,lock/table-rewrite risk,name/type/default conflicts,data conversion,space/time budget,upgrade order,rollback or downgrade feasibility and mixed-version compatibility;destructive or irreversible steps require explicit evidence and user/governance authorization. MODULE-DB-HEALTH:each module database state is exactly healthy|degraded|reconcile_required|read_only|failed with reason,evidence,time and allowed operations;health state does not change authority. LOCATOR:verify locator target identity,existence,boundary and content/version hash;missing or mismatched target is orphaned and is never returned as valid. TOMBSTONE:resource deletion first writes deleted/tombstoned status,revision,time,actor,reason and correlation_id;downstream cleanup and audit complete before policy-governed purge;hard delete cannot erase required lineage. QDRANT-FRESHNESS:compare point resource_id/chunk_id/resource_version/content_hash/embedding version to PostgreSQL;older or mismatched vector is stale,excluded from authoritative retrieval and queued for idempotent rebuild. SQLITE-WAL:monitor WAL bytes/age,checkpoint progress,busy_timeout,reader/writer age and database-locked rate;checkpoint is bounded and cannot truncate active work. SQLite integrity checks are risk-based/rotating and cover the fleet within a declared maximum interval;startup does not synchronously scan every database unless incident evidence requires it. CENTRAL-SHAPE:central index stores necessary normalized frequently queried fields;JSONB is for bounded typed extension data with schema,size/index/retention rules and cannot become an unbounded catch-all. CROSS-ENGINE-EVENT:every SQLite>PostgreSQL and PostgreSQL>Qdrant transition uses one correlation_id with resource_id,from/to revision,hash,status,idempotency key and audit linkage across the entire chain. All controls obey the A367 stage order.",
+        "prohibition": "FORBID:shared universal pool+unbounded connection acquisition+mixed hidden read/write route+SQL concatenation/interpolation+unbounded statement/lock wait+unbounded deadlock retry+raw sensitive slow-query text+automatic index churn+unbounded history+manual-only vacuum/analyze+write-ready before schema check+accepting schema drift as baseline+production migration without dry-run+unknown module DB health+returning orphan locator+immediate unaudited hard delete+serving stale vector as current+unmanaged SQLite WAL+all-DB blocking startup scan by default+JSONB dumping ground+cross-engine update without correlation_id.",
+        "exception": "A parameterized administrative migration statement may contain approved static identifiers that cannot be bound,provided identifiers come from a closed registry and are quoted/validated;emergency read-only access may proceed under schema drift only when compatibility is proven and audited."
+      },
+      {
+        "position": 369,
+        "provision_id": "A369",
+        "section_index": "12",
+        "subject": "unified-observable-verifiable-recoverable-local-data-platform",
+        "rule": "PLATFORM:PostgreSQL central official structured authority,SQLite module-private bounded state and Qdrant canonical semantic projection operate as one observable,verifiable,recoverable local data platform;Qdrant remains fully rebuildable and is never unique business truth. HEALTH-CENTER:one normalized health center covers PostgreSQL,every SQLite module database,Qdrant,Migration,Reconcile,Locator,RLS and Index. Every component emits exactly healthy|degraded|stale|reconcile_required|failed plus component_id,resource/module scope,observed revision,expected revision,evidence,reason,first/last observed time,allowed operations and correlation_id. Local aliases are forbidden at the platform boundary. Health aggregation preserves every component finding;one healthy component cannot mask another failed/stale component. CONSISTENCY:auto-check SQLite resource revision/content_hash against PostgreSQL resource revision/content_hash and Qdrant vector resource_version/content_hash/embedding version. Any mismatch immediately becomes stale or reconcile_required according to authority and blocks authoritative use;it creates evidence and never silently overwrites,promotes or deletes either side. RECOVERY-STATE-MACHINE:all data faults use detect>isolate>retry>reconcile>verify>recover>audit. Transitions are explicit,idempotent,deadline/retry bounded and correlation-preserving;skip/reorder is forbidden. Recover requires post-reconcile identity/revision/hash/schema/behavior proof;failure remains isolated/fail-closed and reaches audit. RESOURCE-LIFECYCLE:each resource state is exactly active|stale|superseded|tombstoned|archived|purged with revision,time,actor,reason,predecessor/successor and audit linkage. Legal transitions are active>stale>active after verified reconcile;active/stale>superseded;tombstoned only before archived/purged;purged is terminal and permitted only after retention,reference,backup and audit gates. Direct DELETE cannot bypass lifecycle. SQL-OBSERVABILITY:central performance telemetry records redacted query_fingerprint,duration,mean,p95,p99,lock_wait,rows_scanned,rows_returned,index_usage,pool_usage,module/role and time window;budgets trigger degraded/failed health and measured remediation,not automatic index churn. MIGRATION-RELEASE:formal sequence is validate>dry-run>backup-checkpoint>migrate>schema-verify>RLS-verify>smoke-test>promote. Every step binds migration/version/hash,dependencies,lock/space/time risk and evidence. Before promote any failure performs an approved safe rollback when provably reversible;otherwise fail-closed/read-only with recovery evidence. No partially verified schema is write-ready. SCHEMA-DRIFT:compare migration-derived expected schema to actual PostgreSQL tables,columns,constraints,indexes,RLS/policies/extensions and migration head;difference immediately alerts,marks degraded/failed,blocks unsafe writes and cannot be accepted without an explicit migration. QDRANT-REBUILD:PostgreSQL plus registered private canonical source data deterministically produces resource>chunk>embedding>Qdrant using versioned pipeline,model and manifests;total-loss rebuild verifies counts,IDs,versions,hashes,ACL and retrieval parity. SQLITE-FLEET:one registry tracks every SQLite database schema_version,WAL bytes/age/checkpoint,busy/lock state,integrity,size,last_backup,last_reconcile,last_migration,health and owner;checks are risk-ranked and rotating with declared maximum coverage interval. BACKUP-VERIFICATION:every backup class must regularly execute backup>isolated restore-test>engine integrity-check>cross-store consistency verification>result audit. A backup without successful current restore evidence is unverified and cannot satisfy recovery readiness. ORDER:all controls remain subordinate to A367 exact stage order.",
+        "prohibition": "FORBID:separate incompatible health vocabularies+health aggregation hiding a failing member+revision mismatch silently overwritten+per-error ad-hoc recovery bypassing the state machine+direct resource disappearance+promotion before all migration gates+manual schema drift without migration+Qdrant-only unique data+unregistered SQLite fleet member+backup considered reliable without restore/integrity/audit proof+telemetry containing secrets or causing ungated automatic index changes.",
+        "exception": "Immediate non-mutating isolation may precede full state-machine persistence solely to stop active damage;the same correlation_id must backfill detect/isolate evidence before retry or reconciliation. A provably unrecoverable purge still requires explicit retention,reference and audit authorization."
       }
     ],
     "certification_evidence": [
@@ -3966,7 +3993,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H072",
+        "history_head": "H075",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -6768,6 +6795,15 @@
         "release_gate": "deny repair/update execution on any missing switch,confirmation or individual fault evidence",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "unified_data_health_directory",
+        "required_scope": "PostgreSQL,all SQLite,Qdrant,Migration,Reconcile,Locator,RLS and Index components",
+        "completion_rule": "zero unregistered component,unknown health,masked failure or missing consistency/recovery evidence",
+        "acceptance_evidence": "health aggregation+three-store mismatch+state-machine transition+migration failure+drift+rebuild+fleet+restore tests",
+        "release_gate": "deny unsafe write,promotion or recovery claim on stale/failed/incomplete evidence",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_format_contract": [
@@ -7344,6 +7380,20 @@
         "owner": "permission-sovereign",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_UNIFIED_DATA_HEALTH",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "component_id|component_kind|health_state|expected_revision|observed_revision|allowed_operations|correlation_id|evidence_hash|last_checked_at|lineage",
+        "required_field_order": "envelope>component>expected/observed state>health>allowed operations>correlation>evidence>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-not-applicable-proven",
+        "identity_format": "identity=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "identity>revision/hash comparison>health>operations>evidence>lineage",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -7879,6 +7929,19 @@
         "implementation_state": "mandated-pending-implementation",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_UNIFIED_DATA_HEALTH",
+        "canonical_name": "unified-data-health-directory",
+        "owner": "permission-sovereign",
+        "scope": "PostgreSQL,SQLite,Qdrant,migration,reconcile,locator,RLS,index health and recovery evidence",
+        "authority_kind": "derived-platform-health-non-authoritative",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|component_id|component_kind|health_state|expected_revision|observed_revision|allowed_operations|correlation_id|evidence_hash|last_checked_at|lineage",
+        "relationships": "component|resource|store|migration|reconcile|locator|policy|index|recovery-event",
+        "coverage_rule": "every registered component reports one normalized current health with non-masking evidence",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_normalization_plan": [
@@ -8209,6 +8272,17 @@
         "normalized_relationship_status": "required",
         "plaintext_secret_status": "forbidden",
         "activation_gate": "deny-mutation-until-switch-and-confirmation-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_code": "DIR_UNIFIED_DATA_HEALTH",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-unsafe-operation-until-health-and-consistency-proof",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
       }
@@ -12690,6 +12764,24 @@
         "provision_id": "A366",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A367",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A368",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A369",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12748,14 +12840,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H072",
-        "provision_count": 612,
-        "identity_count": 612,
-        "lineage_count": 612,
+        "history_head": "H075",
+        "provision_count": 615,
+        "identity_count": 615,
+        "lineage_count": 615,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "d50ae850f243283a7c33ef2c016dcec47c98620183407b8a03042233a88b19d0",
-        "identity_root": "f8e2e6ed108d4dd457bdfbae0125f6a2aecb546e91165e0467ac0cba2235f463",
-        "full_root": "f416315aed9ea31937daedf5da55b431ce5c0eca875e561eae7776d5a1730791",
+        "content_root": "1bedae997db2767e4599f9396646085035fdf58ea703dd1df6ba6c3254aa54c3",
+        "identity_root": "a23ca6597b632de6865fd68510966bfd5602fc0320c56d31f93f02d0693b8058",
+        "full_root": "f041443ea0092d07aefcc6380948ef598a1b8c869993a370c3bd7ad0b20889d8",
         "legacy_history_head": null
       }
     ],
@@ -17882,7 +17974,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H072"
+        "value": "H075"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -18087,6 +18179,34 @@
       {
         "key": "fault_cardinality_states",
         "value": "SINGLE_FAULT|MULTI_FAULT"
+      },
+      {
+        "key": "data_governance_stage_order",
+        "value": "reconciliation>global-id-version>central-index>transport>audit>qdrant-rebuild>sqlite-governance>backup-recovery"
+      },
+      {
+        "key": "database_runtime_integrity_contract",
+        "value": "A368"
+      },
+      {
+        "key": "module_database_health_states",
+        "value": "healthy|degraded|reconcile_required|read_only|failed"
+      },
+      {
+        "key": "unified_data_health_contract",
+        "value": "A369"
+      },
+      {
+        "key": "unified_data_health_states",
+        "value": "healthy|degraded|stale|reconcile_required|failed"
+      },
+      {
+        "key": "resource_lifecycle_states",
+        "value": "active|stale|superseded|tombstoned|archived|purged"
+      },
+      {
+        "key": "data_recovery_state_machine",
+        "value": "detect>isolate>retry>reconcile>verify>recover>audit"
       }
     ],
     "module_assignment_registry": [
@@ -23798,6 +23918,27 @@
         "provision_id": "A366",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A367",
+        "provision_type": "article",
+        "provision_id": "A367",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A368",
+        "provision_type": "article",
+        "provision_id": "A368",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A369",
+        "provision_type": "article",
+        "provision_id": "A369",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -28084,6 +28225,27 @@
         "tier": "special-law",
         "law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
         "authority_basis": "A87|A91|A92|A93|A242|A296"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A367",
+        "tier": "special-law",
+        "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "authority_basis": "A365"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A368",
+        "tier": "special-law",
+        "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "authority_basis": "A42|A46|A200|A205|A243|A365|A367"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A369",
+        "tier": "special-law",
+        "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "authority_basis": "A365|A367|A368"
       }
     ],
     "provision_lifecycle_status": [
@@ -32878,6 +33040,30 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H072+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A367",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H073+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A368",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H074+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A369",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H075+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -37776,6 +37962,30 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "5dfd52d16cf8f2aa504c3dcaeab54946a0c65c2e62eb14d1dcd26f6df0e09d5f"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A367",
+        "introduced_by": "H073",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f35da3fedd51765018b58fc80cf63a31d5d7d48ed6fe90012bfe910283c984fb"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A368",
+        "introduced_by": "H074",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "7b24536e9a69b8b5ff7ceac26196c44a4e3f6ed777a60713080817c81d6b7dde"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A369",
+        "introduced_by": "H075",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "e51865658b762bb23b1747b7c4954f7c64abe535a8c148e845ed0604b2b8873a"
       }
     ],
     "provision_revisions": [
@@ -48677,6 +48887,33 @@
         "content_hash": "5dfd52d16cf8f2aa504c3dcaeab54946a0c65c2e62eb14d1dcd26f6df0e09d5f",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A367",
+        "revision_id": "H073",
+        "version": "1.00000",
+        "content_hash": "f35da3fedd51765018b58fc80cf63a31d5d7d48ed6fe90012bfe910283c984fb",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A368",
+        "revision_id": "H074",
+        "version": "1.00000",
+        "content_hash": "7b24536e9a69b8b5ff7ceac26196c44a4e3f6ed777a60713080817c81d6b7dde",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A369",
+        "revision_id": "H075",
+        "version": "1.00000",
+        "content_hash": "e51865658b762bb23b1747b7c4954f7c64abe535a8c148e845ed0604b2b8873a",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -53699,6 +53936,36 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A367",
+        "controlling_law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A368",
+        "controlling_law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A369",
+        "controlling_law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -54493,6 +54760,39 @@
         "previous_hash": "d0ac34658b93c20b97dcfdfe82f05295d246c6f090123e56e2dc7161678b5511",
         "entry_hash": "210925702f32fa713f13f4ede575c7e2f1686f3fe64a104eb35ecdb91cfd7c11",
         "version_epoch": 2
+      },
+      {
+        "sequence": 73,
+        "change_id": "H073",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "mandatory-data-governance-eight-stage-order",
+        "summary": "Fixed the non-skippable data-governance dependency order: reconciliation, identity/version, indexes, transport, audit, Qdrant rebuild, SQLite governance, then backup/recovery. Version remains E2:1.00000.",
+        "previous_hash": "210925702f32fa713f13f4ede575c7e2f1686f3fe64a104eb35ecdb91cfd7c11",
+        "entry_hash": "59bc7a9654639817dcfd5ba4ec87faeca73f80ff1ff2e3156f046c7317b053a2",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 74,
+        "change_id": "H074",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "database-runtime-pool-query-schema-health-and-cross-engine-integrity",
+        "summary": "Added database runtime isolation, safe-query, schema-drift, migration, health, locator/tombstone, Qdrant freshness, SQLite WAL, retention, and correlated cross-engine consistency controls. Version remains E2:1.00000.",
+        "previous_hash": "59bc7a9654639817dcfd5ba4ec87faeca73f80ff1ff2e3156f046c7317b053a2",
+        "entry_hash": "26b74fcd33c67b97f29a4d002a1d2cdfa2fc11e58d2c62ad5a040d9397aef929",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 75,
+        "change_id": "H075",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "unified-local-data-platform-health-consistency-recovery-and-lifecycle",
+        "summary": "Unified PostgreSQL, SQLite fleet, Qdrant, migration, reconciliation, locator, RLS and index health; established automatic consistency checks, one recovery state machine, resource lifecycle, migration release pipeline and verified restore governance. Version remains E2:1.00000.",
+        "previous_hash": "26b74fcd33c67b97f29a4d002a1d2cdfa2fc11e58d2c62ad5a040d9397aef929",
+        "entry_hash": "bbd78df84fb48b732f0fbac72ed8b76122b3f7404784b34331b13bb98d9ceaf7",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -55049,14 +55349,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H072",
-        "provision_count": 612,
-        "identity_count": 612,
-        "lineage_count": 612,
+        "history_head": "H075",
+        "provision_count": 615,
+        "identity_count": 615,
+        "lineage_count": 615,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "d50ae850f243283a7c33ef2c016dcec47c98620183407b8a03042233a88b19d0",
-        "identity_root": "f8e2e6ed108d4dd457bdfbae0125f6a2aecb546e91165e0467ac0cba2235f463",
-        "full_root": "f416315aed9ea31937daedf5da55b431ce5c0eca875e561eae7776d5a1730791",
+        "content_root": "1bedae997db2767e4599f9396646085035fdf58ea703dd1df6ba6c3254aa54c3",
+        "identity_root": "a23ca6597b632de6865fd68510966bfd5602fc0320c56d31f93f02d0693b8058",
+        "full_root": "f041443ea0092d07aefcc6380948ef598a1b8c869993a370c3bd7ad0b20889d8",
         "version_epoch": 2
       }
     ],
@@ -59848,6 +60148,60 @@
         "cleanup": "remove fixtures only;retain decision evidence",
         "isolation_policy": "isolated fault actions and no source overwrite/reset",
         "timeout": "1800s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_DATA_GOVERNANCE_STAGE_ORDER",
+        "canonical_name": "data-governance-eight-stage-order-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "cross-store data governance activation chain",
+        "requirement_ids": "A365|A367",
+        "test_level": "contract+integration+failure-injection+release",
+        "preconditions": "eight stage candidates with pass/fail/stale evidence and cross-store conflicts",
+        "fixtures": "each stage valid;each predecessor missing/fails/stale;out-of-order isolated benchmark;repair earliest invalid stage;downstream evidence generated before predecessor repair",
+        "ordered_steps": "attempt activation in exact order;inject failure at every stage;verify downstream block and upstream continuity;repair and replay downstream validation",
+        "expected_results": "only exact ordered chain activates;stage N failure blocks N..8;upstream remains;out-of-order evidence non-authoritative;recovery never certifies unresolved conflict",
+        "evidence": "stage manifests+dependency edges+gate decisions+failure isolation+revalidation lineage",
+        "cleanup": "remove fixtures only;retain decisions",
+        "isolation_policy": "isolated stage fixtures and immutable evidence",
+        "timeout": "2400s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_DATABASE_RUNTIME_INTEGRITY",
+        "canonical_name": "database-runtime-pool-query-schema-health-and-cross-engine-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "PostgreSQL+SQLite+Qdrant database runtime controls",
+        "requirement_ids": "A42|A46|A200|A205|A243|A365|A367|A368",
+        "test_level": "unit+contract+integration+performance+failure-injection+migration",
+        "preconditions": "isolated pool workloads,slow/locked SQL,schema drift,migrations,module DBs,orphan locators,tombstones,stale vectors,WAL pressure and cross-engine events",
+        "fixtures": "pool saturation isolation;prepared-query injection;statement/lock timeout;deadlock retry;slow-query/index stats;retention/archive;vacuum/analyze scheduling;startup schema contract;manual drift;dry-run conflict;five health states;orphan locator;tombstone purge;stale Qdrant point;WAL/busy lock;rotating integrity;JSONB limits;correlation continuity",
+        "ordered_steps": "execute each scenario and fault;verify budgets,state transitions,write gates,redacted evidence and A367 order;trace one SQLite>PostgreSQL>Qdrant update end-to-end",
+        "expected_results": "no cross-pool starvation;no dynamic SQL;bounded waits/retries;drift blocks unsafe writes;health governs operations;orphan/stale excluded;WAL bounded;retention and maintenance evidenced;one correlation chain complete",
+        "evidence": "pool metrics+query fingerprints/plans+schema hashes+dry-run report+health/locator/tombstone/vector/WAL evidence+audit correlation",
+        "cleanup": "remove fixtures only;retain governance evidence",
+        "isolation_policy": "isolated databases and non-destructive recovery",
+        "timeout": "3600s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_UNIFIED_LOCAL_DATA_PLATFORM",
+        "canonical_name": "unified-local-data-platform-health-consistency-recovery-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "unified data health center and local data platform",
+        "requirement_ids": "A365|A367|A368|A369",
+        "test_level": "unit+contract+integration+failure-injection+recovery+release",
+        "preconditions": "registered stores/components,resource lifecycle fixtures,migrations,drift,Qdrant loss,SQLite fleet and backup sets",
+        "fixtures": "five health states across eight component types;each revision mismatch;every recovery transition;legal/illegal lifecycle transitions;SQL metrics;failure at each migration gate;manual drift;total Qdrant rebuild;fleet WAL/integrity;backup restore corruption",
+        "ordered_steps": "run health aggregation;inject mismatches/failures;verify no overwrite;traverse state machine;run migration release;rebuild Qdrant;rotate fleet checks;restore and audit backups",
+        "expected_results": "uniform non-masking health;all mismatch immediate;exact recovery order;no direct delete;promotion only after PASS;drift blocks writes;Qdrant rebuild parity;fleet complete;only restored backups reliable",
+        "evidence": "health snapshots+revision hashes+state transitions+lifecycle ledger+SQL metrics+migration evidence+schema fingerprints+rebuild/restore manifests+audit",
+        "cleanup": "remove isolated fixtures only;retain platform evidence",
+        "isolation_policy": "isolated stores and fail-closed transitions",
+        "timeout": "4800s",
         "introduced_version": "1.00000",
         "retired_version": null
       }
