@@ -2756,7 +2756,10 @@ def test_backend_gateway_and_watcher_use_atomic_ab_handover() -> None:
 
 def test_backend_entry_keeps_sovereign_runtime_imports_for_next_generation() -> None:
     root = Path(__file__).resolve().parents[1]
-    source = (root / "src-core" / "main.py").read_text("utf-8")
+    source = "\n".join(
+        path.read_text("utf-8")
+        for path in sorted((root / "src-core").glob("main*.py"))
+    )
     for runtime_name in (
         "DecisionSovereign",
         "PermissionSovereign",
