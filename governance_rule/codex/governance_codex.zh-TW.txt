@@ -3031,6 +3031,24 @@
         "rule": "GOVERNANCE-UNIT:C++ six-domain governance applies to namespace+symbol ownership+include/link dependency edges,not source-file or folder count; CANONICAL-NAMESPACES:gptbridge::native::parser|gptbridge::native::vector|gptbridge::native::memory|gptbridge::native::token|gptbridge::native::transform|gptbridge::native::binding; PHYSICAL-ALLOW:parser.cpp+vector.cpp+transformer.cpp are a valid three-file core and no empty/artificial memory.cpp,token.cpp,binding.cpp or six-folder layout is required; COLOCATION:a translation unit may implement multiple canonical namespaces only when every symbol belongs to exactly one namespace and all edges obey the DAG; DAG:memory=>none; token=>memory; parser=>token+memory; vector=>memory; transform=>memory and vector only when explicitly declared; binding=>parser+vector+memory+token+transform; NO-REVERSE:callee cannot include/call dependent/upstream namespace; C-ABI:gptbridge_native.h+gptbridge_native.c remain the language-neutral contract/thunk outside C++ namespace ownership and A344 controls the sole consumer path; BINDING-NAMESPACE:gptbridge::native::binding is private C++/pybind11 adaptation ownership only and cannot become a second public contract; CHECKER:parse namespaces+fully qualified symbols+headers/includes+calls+link graph,resolve each symbol to one domain,compare actual graph to declared DAG,detect cycles+reverse edges+unmapped/global symbols+duplicate owners and report physical files separately from logical namespaces; HEADER:private header declares one primary namespace or an explicit bounded multi-namespace boundary and cannot expose private implementation across forbidden edges; TEST:one logical-domain test group per namespace+dependency graph test+cycle injection+co-location fixture+current-three-file fixture+A340 release gate; SUPERSESSION:A214 requirements for own folder,one domain per source module or six physical units are non-operative and replaced by A346.",
         "prohibition": "FORBID:checker equating namespace count with file count+mandatory six cpp files/folders+namespace-less native symbol except exact C ABI exports+wrong/reverse dependency+cycle+memory dependency+token calling parser/vector/transform/binding+parser calling vector/transform/binding+vector calling parser/token/transform/binding+transform calling parser/token/binding or undeclared vector+binding owning algorithm/policy+include cpp+duplicate/unmapped symbol+physical layout used as proof without namespace graph.",
         "exception": "Compiler-generated anonymous/internal symbols may remain translation-unit local when checker traces them to one enclosing canonical namespace owner and proves no cross-domain edge or exported identity."
+      },
+      {
+        "position": 347,
+        "provision_id": "A347",
+        "section_index": "16",
+        "subject": "language-role-directory-query-budget-and-source-origin-special-law",
+        "rule": "CPP-STYLE:small structs+free functions+RAII resource wrappers+explicit ownership,lifetime,allocation,cache locality,exception boundary and thread safety; Manager|Controller|Service|Factory|Processor|Handler requires native-resource proof and A185 limits still apply. CSHARP-PROJECT:WindowsAdapter/ permits Contracts|Interop|Native|Platform|Tests only and forbids Domain|Business|Workflow|RAG|Model; CSharp is Windows/.NET adapter-only and consumes A344 C ABI. TYPESCRIPT-DIRECTORIES:components|views|stores|transport|contracts|checkers only for UI/client/build-time checking and forbid domain|database|rag|model-runtime|business-engine. SQL-QUERY-BUDGET:every runtime query declares max_returned_rows+max_returned_bytes+timeout+query_plan_policy+index_expectation; filter+join+aggregate+sort+pagination are pushed down; checker flags SELECT-star+missing LIMIT/pagination+unparameterized SQL+large fetchall+unbounded plan; migration/admin use exact expiring audited allowlist. SOURCE-ORIGIN:classify every code-like artifact exactly AUTHORED|GENERATED|THIRD_PARTY before extension checks; .ts/.py may be authored while compiled .js,.pyd,.dll are generated artifacts; generated and third-party are excluded from authored-language counts but retain producer/provenance/hash/security checks; forbidden authored extension never authorizes deletion of valid generated output.",
+        "prohibition": "FORBID:Python-application architecture copied into C++ core+large generic native class hierarchy+CSharp forbidden directory/business logic+TypeScript forbidden directory/backend authority+unbounded SQL+Python fetch-all-then-filter+origin inferred only from extension+authored code hidden as generated/third-party+generated artifact deleted because its authored extension would be forbidden.",
+        "exception": "Migration/admin SQL requires exact expiring audited allowlist. Generated bindings remain generated only with generator,input and output hashes plus reproducibility evidence."
+      },
+      {
+        "position": 348,
+        "provision_id": "A348",
+        "section_index": "16",
+        "subject": "language-boundary-gate-and-data-only-policy-evidence-only-checker-special-law",
+        "rule": "GATE-NAME:LANGUAGE BOUNDARY GATE; VERDICT:exactly PASS|WARN|FAIL; TRIGGERS:save>pre-commit>integration>release; CHECKS:language_allowed+extension_valid+source_origin_valid+owner_valid+directory_valid+dependency_direction_valid+ABI_valid+API_contract_valid+duplicate_owner_absent+test_present+fallback_present+source_size_valid under A185. ALLOWED-LANGUAGES:python|typescript|c|cpp|csharp|sql; SOURCE-EXTENSIONS:python=.py,.pyi;typescript=.ts,.tsx,.d.ts;c=.c,.h;cpp=.cpp,.hpp,.inl;csharp=.cs;sql=.sql; AUTHORED-DENY:.js|.jsx|.mjs|.cjs|.cc|.cxx|.hh|.hxx|.csx and undeclared extensions. LANGUAGEPOLICY-TS:contains data declarations only:ALLOWED_LANGUAGES and SOURCE_EXTENSIONS as immutable const data matching this article; no scanning,filesystem,classification,evidence,verdict,repair,command,network,process or mutation behavior. CHECKER-PIPELINE:scan>classify>compare Codex rules>produce evidence>PASS/WARN/FAIL; checker is deterministic observer/verifier only and never decides,plans,recommends,applies or dispatches a repair. REPAIR-SEPARATION:FAIL/WARN evidence is handed through the governed channel to 星澄 for review and any repair requires separate valid user/Codex authorization+permission+tool/module execution; rerun creates new evidence and checker cannot convert result by mutation. OUTPUT:LANGUAGE BOUNDARY GATE newline PASS|WARN|FAIL newline Allowed languages: 6 newline Authored files scanned:<n> newline Generated files ignored:<n> newline Third-party files ignored:<n>; then FAIL/WARN items each as [canonical path],rule=<exact id>,reason=<typed concise reason>; deterministic typed JSON accompanies human output. GATE-DETAIL:C ABI public native header only gptbridge_native.h; public C++ ABI forbidden; C bridge no algorithm/business; C++ native compute only; TypeScript UI/client/build-time checker; CSharp Windows adapter; SQL set operation; Python application/domain/orchestration authority; unit tests follow owning language and integration tests use pytest only. SEMANTICS:FAIL blocks trigger,WARN requires owner+evidence+expiry and never equals PASS,PASS requires all mandatory checks complete.",
+        "prohibition": "FORBID:checker self-repair+checker choosing repair method+automatic fix/mutation/delete/move/reset/overwrite+LanguagePolicy.ts behavior/import side effects+policy/checker circular ownership+multiple competing verdicts+PASS with missing/skipped check+hidden WARN+free-form result+diagnostic without path/rule/reason+generated/third-party counted as authored+integration framework other than pytest.",
+        "exception": "Save may emit nonblocking WARN; it grants no waiver at pre-commit,integration or release. Formatting a suggested owner-neutral diagnostic is not a repair decision and cannot include executable mutation instructions."
       }
     ],
     "certification_evidence": [
@@ -3786,7 +3804,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H056",
+        "history_head": "H057",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -12067,6 +12085,18 @@
         "provision_id": "A346",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A347",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A348",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12125,14 +12155,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H056",
-        "provision_count": 592,
-        "identity_count": 592,
-        "lineage_count": 592,
+        "history_head": "H057",
+        "provision_count": 594,
+        "identity_count": 594,
+        "lineage_count": 594,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "460c210627bda536e48b852b1e3c2e5f7b12d7a28027b66c4e2c57a8204d9d85",
-        "identity_root": "975c7ed1217556132fed342a00f7f782818a03368010fd8d7ceabc6121baf298",
-        "full_root": "4f0f765155e0c5e9d9a2d4a03a640d5239714f7f432deee76ca8fe03cceca645",
+        "content_root": "3a1a26986a0502c57b4d747e5448eb35ef8b96063ab2a6b1ea834b6642716c33",
+        "identity_root": "2d76ccf093eda458d51dcb7a9ee8231be667f4dbad3ac00841ad5da1cd8dd49e",
+        "full_root": "1d4a4bee7ea1998e4bbfba5d371d1dd0532326e4b02b5b921338b3566cec3ac5",
         "legacy_history_head": null
       }
     ],
@@ -17242,7 +17272,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H056"
+        "value": "H057"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17303,6 +17333,22 @@
       {
         "key": "cpp_namespace_dag",
         "value": "memory>none|token>memory|parser>token+memory|vector>memory|transform>memory(+declared-vector)|binding>all"
+      },
+      {
+        "key": "language_boundary_gate",
+        "value": "PASS|WARN|FAIL;A348"
+      },
+      {
+        "key": "language_policy_ts_role",
+        "value": "immutable-data-only"
+      },
+      {
+        "key": "language_checker_role",
+        "value": "scan>classify>compare>evidence>verdict;no-repair"
+      },
+      {
+        "key": "source_origin_classes",
+        "value": "AUTHORED|GENERATED|THIRD_PARTY"
       }
     ],
     "module_assignment_registry": [
@@ -22874,6 +22920,20 @@
         "provision_id": "A346",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A347",
+        "provision_type": "article",
+        "provision_id": "A347",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A348",
+        "provision_type": "article",
+        "provision_id": "A348",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -27020,6 +27080,20 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A208|A214|A221|A340|A343|A344"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A347",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A185|A207|A208|A211|A215|A340|A341|A342|A344|A346"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A348",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A185|A207|A208|A211|A215|A340|A341|A342|A344|A346"
       }
     ],
     "provision_lifecycle_status": [
@@ -31654,6 +31728,22 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H056+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A347",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H057+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A348",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H057+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36392,6 +36482,22 @@
         "supersedes_id": "A214",
         "status": "active",
         "content_hash": "f32aec5c3a3eac07e309c43ac7e19174ad41ecd4caefc76155f665b9a8c5c5fc"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A347",
+        "introduced_by": "H057",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "c672dd073a78bf24b578b2a32836d69275ee40bbb751acf80023a7b48c6a89c9"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A348",
+        "introduced_by": "H057",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "b3a311b2cb6d96c4b6e6557eeff46f0a22c3213b44e70f1887653a3c0da7b720"
       }
     ],
     "provision_revisions": [
@@ -47113,6 +47219,24 @@
         "content_hash": "f32aec5c3a3eac07e309c43ac7e19174ad41ecd4caefc76155f665b9a8c5c5fc",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A347",
+        "revision_id": "H057",
+        "version": "1.00000",
+        "content_hash": "c672dd073a78bf24b578b2a32836d69275ee40bbb751acf80023a7b48c6a89c9",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A348",
+        "revision_id": "H057",
+        "version": "1.00000",
+        "content_hash": "b3a311b2cb6d96c4b6e6557eeff46f0a22c3213b44e70f1887653a3c0da7b720",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -51935,6 +52059,26 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A347",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A348",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -52553,6 +52697,17 @@
         "previous_hash": "4bc7d2813207ef960635cddf24d1c3536be18fdfe7bcbc95bed58c6e5690e276",
         "entry_hash": "d214e89dfa0d062b74541de3393fd505f4229cb62d5d61537f9751b8bca48887",
         "version_epoch": 2
+      },
+      {
+        "sequence": 57,
+        "change_id": "H057",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "language-boundary-gate-policy-checker-and-role-hardening",
+        "summary": "Unified C++ style, CSharp and TypeScript directory boundaries, SQL query budgets, authored/generated/third-party provenance and the Language Boundary Gate; made LanguagePolicy.ts data-only and the checker evidence-only with no repair decision authority. Version remains E2:1.00000.",
+        "previous_hash": "d214e89dfa0d062b74541de3393fd505f4229cb62d5d61537f9751b8bca48887",
+        "entry_hash": "df898e28aba205dea0864788c09e4e0cbeeb8151afb93be52b518342ec9aa6cd",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -53109,14 +53264,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H056",
-        "provision_count": 592,
-        "identity_count": 592,
-        "lineage_count": 592,
+        "history_head": "H057",
+        "provision_count": 594,
+        "identity_count": 594,
+        "lineage_count": 594,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "460c210627bda536e48b852b1e3c2e5f7b12d7a28027b66c4e2c57a8204d9d85",
-        "identity_root": "975c7ed1217556132fed342a00f7f782818a03368010fd8d7ceabc6121baf298",
-        "full_root": "4f0f765155e0c5e9d9a2d4a03a640d5239714f7f432deee76ca8fe03cceca645",
+        "content_root": "3a1a26986a0502c57b4d747e5448eb35ef8b96063ab2a6b1ea834b6642716c33",
+        "identity_root": "2d76ccf093eda458d51dcb7a9ee8231be667f4dbad3ac00841ad5da1cd8dd49e",
+        "full_root": "1d4a4bee7ea1998e4bbfba5d371d1dd0532326e4b02b5b921338b3566cec3ac5",
         "version_epoch": 2
       }
     ],
