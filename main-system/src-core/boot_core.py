@@ -606,7 +606,15 @@ class BootCore(PhaseMixin, GovernanceMixin):
     def _maybe_handover(
         self, args: list[str], startup_state: str
     ) -> bool:
-        """Prepare a standby generation and atomically route new sessions to it."""
+        """Prepare a standby generation and atomically route new sessions to it.
+
+        A330 convergence: the handover is only marked global-success after
+        (1) the standby accepts new connections, (2) old connections drain
+        within a bounded window, and (3) the new generation remains healthy
+        for a stability window.  If the new generation fails within the
+        rollback window, the gateway switches back to the old generation
+        and the handover is marked rolled-back.
+        """
         request = self._read_update_request()
         if request is None or self._child is None:
             return False
@@ -660,6 +668,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
 
         old_child = self._child
         old_port = active_port
+        old_generation = self._active_generation
         self._gateway.activate(standby_port, generation)
         self._child = standby
         self._active_backend_port = standby_port
@@ -675,6 +684,40 @@ class BootCore(PhaseMixin, GovernanceMixin):
             previous_generation_port=old_port,
             update_operation_id=operation_id,
         )
+
+        # A330 convergence: drain old connections, then verify the new
+        # generation remains healthy for a stability window before marking
+        # global-success.  If the new generation fails within the rollback
+        # window, switch the gateway back to the old generation.
+        converged = self._drain_and_verify(
+            old_port=old_port,
+            new_port=standby_port,
+            standby=standby,
+        )
+        if not converged:
+            # Rollback: switch gateway back to the old generation.
+            self._gateway.activate(old_port, old_generation)
+            self._terminate_process(standby)
+            self._child = old_child
+            self._active_backend_port = old_port
+            self._active_generation = old_generation
+            self._write_state(
+                backend_healthy=True,
+                active_generation=old_generation,
+                active_backend_port=old_port,
+                gateway_port=HEALTH_PROBE_PORT,
+                update_operation_id=operation_id,
+                rollback=True,
+            )
+            self._mark_update_request(
+                request,
+                terminal_status="rolled-back",
+                error="standby-unhealthy-after-activation",
+                active_generation=old_generation,
+                active_backend_port=old_port,
+            )
+            return False
+
         self._mark_update_request(
             request,
             terminal_status="global-success",
@@ -698,6 +741,51 @@ class BootCore(PhaseMixin, GovernanceMixin):
 
         threading.Thread(target=drain_old, name="backend-generation-drain", daemon=True).start()
         return True
+
+    def _drain_and_verify(
+        self,
+        *,
+        old_port: int,
+        new_port: int,
+        standby: subprocess.Popen[bytes],
+        drain_timeout: float = 5.0,
+        stability_window: float = 3.0,
+    ) -> bool:
+        """A330 convergence: drain old connections and verify the new
+        generation remains healthy for a stability window.
+
+        Returns True only if:
+        1. Old connections drain within ``drain_timeout`` (or are force-closed)
+        2. The new generation is HTTP-healthy immediately after activation
+        3. The new generation remains healthy for ``stability_window`` seconds
+        4. The standby process is still alive throughout
+        """
+        # 1. Drain old connections (bounded).
+        drain_deadline = time.monotonic() + drain_timeout
+        while (
+            time.monotonic() < drain_deadline
+            and self._gateway.connection_count(old_port) > 0
+            and not self._stop.is_set()
+        ):
+            self._stop.wait(0.1)
+
+        # 2. Verify standby is alive and healthy immediately after activation.
+        if standby.poll() is not None:
+            return False
+        if not self._probe_health(new_port):
+            return False
+
+        # 3. Stability window: remain healthy for ``stability_window`` seconds.
+        stability_deadline = time.monotonic() + stability_window
+        while time.monotonic() < stability_deadline and not self._stop.is_set():
+            if standby.poll() is not None:
+                return False
+            if not self._probe_health(new_port):
+                return False
+            self._stop.wait(0.5)
+
+        return True
+
 
     def _install_signals(self) -> None:
         def _stop_handler(_signum: int, _frame: object) -> None:

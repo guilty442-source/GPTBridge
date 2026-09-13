@@ -23,6 +23,7 @@ import asyncio
 import json
 import os
 import sys
+import threading
 import time
 import types
 import uuid
@@ -239,6 +240,24 @@ class HotReloadWatcher:
                 "target_generation": target_generation,
                 "handover": "prepared",
             })
+            # C: Report the prepared state to the decision-sovereign so it
+            # tracks the operation lifecycle.  The terminal status (global-
+            # success / failed-isolated / rolled-back) is written by boot_core
+            # to the same request file; a background poller reports it back.
+            self._report_to_decision_sovereign(
+                operation_id=operation_id,
+                terminal_status="prepared",
+                modules=module_names,
+                target_generation=target_generation,
+            )
+            # Spawn a bounded poller that waits for boot_core to write a
+            # terminal status, then reports it to the decision-sovereign.
+            threading.Thread(
+                target=self._poll_terminal_status,
+                args=(operation_id, request_path),
+                daemon=True,
+                name=f"hot-reload-terminal-{operation_id[:8]}",
+            ).start()
             return ok
         except Exception as error:
             self._backoff_until = time.monotonic() + FAILURE_BACKOFF_SECONDS
@@ -363,6 +382,94 @@ class HotReloadWatcher:
             print(payload, flush=True)
         except Exception:
             pass
+
+    # ------------------------------------------------------------------
+    # C: Decision-sovereign feedback loop
+    # ------------------------------------------------------------------
+
+    def _report_to_decision_sovereign(
+        self,
+        *,
+        operation_id: str,
+        terminal_status: str,
+        **detail: Any,
+    ) -> None:
+        """Report a certified-update lifecycle event to the decision-sovereign.
+
+        The decision-sovereign tracks the operation (A152/A330) without
+        executing it.  This closes the feedback loop: boot_core writes
+        terminal status to the request file, the watcher polls it and
+        reports back here.
+        """
+        decision_sovereign = getattr(self.app, "decision_sovereign", None)
+        if decision_sovereign is None:
+            return
+        reporter = getattr(decision_sovereign, "record_certified_update_status", None)
+        if not callable(reporter):
+            return
+        try:
+            reporter(operation_id, terminal_status, **detail)
+        except Exception:
+            pass
+
+    def _poll_terminal_status(
+        self,
+        operation_id: str,
+        request_path: Path,
+        *,
+        timeout: float = 60.0,
+        poll_interval: float = 0.5,
+    ) -> None:
+        """Poll backend-update-request.json for a terminal status written
+        by boot_core, then report it to the decision-sovereign.
+
+        Terminal statuses (A330): global-success, failed-isolated,
+        rolled-back, partial-deferred.  Bounded by ``timeout`` so a missing
+        boot_core response does not leak a thread forever.
+        """
+        terminal_states = {
+            "global-success",
+            "failed-isolated",
+            "rolled-back",
+            "partial-deferred",
+        }
+        deadline = time.monotonic() + timeout
+        last_status = ""
+        while time.monotonic() < deadline:
+            try:
+                data = json.loads(request_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                time.sleep(poll_interval)
+                continue
+            status = str(data.get("terminal_status") or "")
+            if status == last_status:
+                time.sleep(poll_interval)
+                continue
+            last_status = status
+            if status in terminal_states and data.get("operation_id") == operation_id:
+                self._report_to_decision_sovereign(
+                    operation_id=operation_id,
+                    terminal_status=status,
+                    active_generation=data.get("active_generation", ""),
+                    active_backend_port=data.get("active_backend_port"),
+                    error=data.get("error", ""),
+                    processed_at=data.get("processed_at", ""),
+                )
+                self._log({
+                    "type": "hot_reload_watcher",
+                    "ok": status == "global-success",
+                    "operation_id": operation_id,
+                    "terminal_status": status,
+                })
+                return
+            time.sleep(poll_interval)
+        # Timeout: report as failed-isolated so the decision-sovereign
+        # records the missing response.
+        self._report_to_decision_sovereign(
+            operation_id=operation_id,
+            terminal_status="failed-isolated",
+            error="terminal-status-timeout",
+        )
 
 
 __all__ = ["HotReloadWatcher", "WATCH_ROOTS"]
