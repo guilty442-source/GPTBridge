@@ -3373,6 +3373,69 @@
         "rule": "TEST-OWNERSHIP:owner=permission-sovereign in test_flow_directory and test_suite_architecture_directory means directory identity,schema,access and lifecycle authority only. management_owner=health-maintenance-test-sub-sovereign is the centralized operational manager for one-module-one-suite inventory,test planning,scheduling,fixtures,execution coordination,evidence collection,retest and status reporting;it has no policy decision or direct module execution power and dispatches governed module test executors. A test flow lacking a physical management_owner field inherits this exact manager through this provision and its linked suite/module registry;future schema may add the field additively. Domain owners define expected domain truth and acceptance evidence but cannot self-register or suppress results. ROSTERS:top-level current institution roster is separately identified from active sub-sovereign roster. TOP={decision-sovereign,system-runtime-sovereign,synchronization-sovereign,permission-sovereign,星澄};Codex is excluded and remains rule declaration. SUB={system-sub-sovereign,startup-sub-sovereign,directory-sub-sovereign,identity-group-sub-sovereign,resource-dependency-sync-sub-sovereign,channel-contract-sync-sub-sovereign,release-update-sync-sub-sovereign,learning-evidence-sync-sub-sovereign,runtime-state-sync-sub-sovereign,repair-backup-sync-sub-sovereign,cleanup-retention-sync-sub-sovereign,automatic-log-sync-sub-sovereign,policy-architecture-sub-sovereign,health-maintenance-test-sub-sovereign,data-governance-sub-sovereign,priority-capability-sub-sovereign,change-acceptance-sub-sovereign,dependency-sync-sub-sovereign}. Each sub-sovereign keeps one parent and no execution power. Generic active lineage queries cannot be presented as the top-level roster. HISTORICAL-CORRECTION:H045 summary contains damaged display text confidential ?? audit. History remains immutable;the authoritative correction annotation is confidential 星澄 audit. This annotation corrects display/interpretation only and does not replace H045 entry_hash,content,sequence or authority. Consumers displaying H045 must show the annotation and preserve original hash evidence. PENDING-TRUTH:35 mandated-pending-implementation directories,external signature requirements,Epoch-2 human signature and Language Governance FREEZE-PENDING remain genuine blockers. Normalization cannot mark them active/signed/stable;each closes only through its required evidence and a later immutable record.",
         "prohibition": "FORBID:permission-sovereign treated as test execution manager+maintenance manager making policy/permission decisions+domain owner self-registering or suppressing tests+top roster mixed with sub-sovereigns+Codex in either active roster+alias replacing canonical sovereign ID+rewriting H045 history to fix display+annotation changing historical hash+pending/signature/freeze state closed without evidence.",
         "exception": "A module may execute its own unit tests under centralized management and report evidence;this does not transfer suite ownership or management. Historical raw export may retain the damaged H045 bytes when accompanied by the correction annotation."
+      },
+      {
+        "position": 385,
+        "provision_id": "A385",
+        "section_index": "1",
+        "subject": "dynamic-test-management-roster-and-closure-status-successor",
+        "rule": "TEST-OWNERSHIP:owner=permission-sovereign in test_flow_directory and test_suite_architecture_directory means directory identity,schema,access and lifecycle authority only. health-maintenance-test-sub-sovereign is centralized management_owner for one-module-one-suite inventory,planning,scheduling,fixtures,execution coordination,evidence collection,retest and status reporting;it has no policy decision or direct module execution power and dispatches governed module test executors. A test flow without a physical management_owner field resolves it through its suite/module registry and this provision;unresolved mapping is incomplete evidence. Domain owners define expected domain truth/evidence but cannot self-register or suppress results. TEST-ACTIVATION:test suite status mandated means required but not proven active. A suite becomes active only through module path existence,ownership,language-appropriate unit tests,pytest integration when applicable,fixtures,isolation,cleanup,current passing evidence and maintenance-manager acceptance. Counts are always computed from current registries and never frozen into rules. ROSTERS:top current institution roster and active sub-sovereign roster are separate registry-derived views. TOP={decision-sovereign,system-runtime-sovereign,synchronization-sovereign,permission-sovereign,星澄};Codex is excluded. SUB is exactly the active children in sovereign_hierarchy_registry whose lineage/lifecycle/effective state and parent are consistent. Displaying a generic active lineage query as the top roster is forbidden. HISTORICAL-CORRECTION:H045 damaged display token is corrected by immutable annotation to confidential 星澄 audit;original history bytes,entry_hash,sequence and authority remain unchanged. Consumers display the annotation with raw evidence. DYNAMIC-PENDING:directory implementation,all test suites,external signatures,Epoch human signature and Language Governance lifecycle are read live from their canonical registries. pending/mandated/signature-required/FREEZE-PENDING remains a real blocker until its own acceptance evidence and immutable transition record pass. A count,report date or prior audit cannot be used as permanent current state. STATUS-SNAPSHOT:reports may state counts only with source revision,registry hash,generated_at and stale-after;after expiry or registry change they are observations,not rules.",
+        "prohibition": "FORBID:permission owner treated as test manager+maintenance manager making policy/permission decisions+mandated suite treated active+hard-coded pending/test/signature counts as permanent truth+top roster mixed with children+Codex in active roster+alias as canonical ID+rewriting H045+annotation changing history hash+stale status snapshot closing a gate+pending state closed without evidence.",
+        "exception": "A module may execute its own unit tests under centralized management without receiving suite ownership. A timestamped report may include exact current counts when clearly labeled derived evidence with revision,hash and expiry."
+      },
+      {
+        "position": 386,
+        "provision_id": "A386",
+        "section_index": "1",
+        "subject": "dynamic-governance-code-resolution-and-hardcoding-elimination",
+        "rule": "DEFAULT:DYNAMIC-FIRST. Every value that may vary by machine,environment,worktree,module,generation,release,capacity or deployment is referenced by a registered governed code resolved through the owning canonical registry at the point of use. This includes physical paths,executables,ports/endpoints,credentials/secret references,model artifact locations,collection aliases,database DSNs,worktree locations,branch/remotes,tool IDs,module IDs,resource IDs,feature flags,timeouts,retry/pool/query budgets,capacity thresholds,versions and current counts/status. Implementations consume codes or typed configuration contracts and cannot duplicate resolved literal values. CODE-FORM:stable semantic code>registry record>environment/deployment binding>validated resolved value;records include code,owner,scope,type,schema/version,status,generation,source,default policy,validation,confidentiality and lineage. Environment variables carry codes or non-secret deployment bindings and never become authority. RESOLUTION:unknown,ambiguous,wrong-owner,stale,invalid-type,out-of-boundary or conflicting code fails closed with typed evidence;no silent guessed path,home-relative fallback or alternate hardcoded path. CACHE:resolved values are generation/version scoped and invalidated when registry/config/policy changes;cache is derived only. PRECEDENCE:Codex invariant>canonical registry>approved deployment binding>explicit one-time user command. NORMATIVE-LITERALS:a literal may remain in Codex only when it is itself the deliberately fixed normative identity/invariant,including version 1.00000,six governed languages,enumerated state machines,approved top-level root identities,public ABI identity and explicit security prohibition. Such a declaration does not authorize implementations to scatter the literal;they still resolve the registered code. Historical text remains immutable and is interpreted through current code mappings. MIGRATION:hardcoded implementation values are inventory findings,assigned an owning code,migrated consumer-by-consumer with compatibility evidence,and removed after zero-reference proof. Generated/third-party files are classified separately and cannot create an exception.",
+        "prohibition": "FORBID:runtime physical path/port/DSN/model/branch/timeout/count copied across modules+environment variable treated as authority+secret literal in Codex/config/source+unknown code falling back to guessed value+duplicate registries+cache surviving generation change+dynamic resolution changing authority+rewriting historical provisions to remove literals+calling a mutable deployment value a normative invariant.",
+        "exception": "A bootstrapping locator may contain the minimum fixed GPTBridge root identity needed to open the permission-owned registry,provided its exact scope is declared by the top-level-path special law and every subordinate value resolves dynamically. Isolated tests may use fixture literals that cannot escape the test boundary."
+      },
+      {
+        "position": 387,
+        "provision_id": "A387",
+        "section_index": "1",
+        "subject": "codex-canonical-reference-code-only-policy",
+        "rule": "CODEX-REFERENCE:current and future Codex provisions reference mutable/deployable entities by canonical code,not repeated physical or environment-specific values. DIRECTORY-FIRST:when an entity or physical value already exists in any permission-sovereign managed directory,the Codex and every subordinate/special law must reference that directory_code plus typed field selector;it cannot restate the resolved physical value. Resolution is dynamic against the current accepted directory generation. The minimum core code vocabulary is ROOT_GPTBRIDGE,DIR_MAIN_SYSTEM,DIR_STANDALONE_TOOLS,DIR_MODEL_DIALOGUE,DIR_XINGCHENG,DIR_SHARED_LAYER,STORE_POSTGRESQL_CENTRAL,STORE_SQLITE_MODULE,STORE_QDRANT_SEMANTIC,COLLECTION_SHARED_KNOWLEDGE,MODEL_EMBEDDING_CANONICAL,MODEL_RERANKER_CANONICAL,GIT_MAIN_BRANCH,GIT_REMOTE_CENTRAL,GIT_REMOTE_ORIGIN,POOL_WORKTREE_PERSISTENT,POOL_WORKTREE_EPHEMERAL,CHANNEL_INFORMATION_CANONICAL and CONTRACT_SHARED_LAYER. Codes identify semantics;their physical values exist exactly once in the permission-sovereign canonical reference registry and are resolved under A386. A provision defining a code may state its normative semantic meaning,but operational paths,ports,versions,dimensions,chunk sizes,models,collection names,branch names and capacity values belong to typed registry fields. HISTORICAL-MIGRATION:historical immutable literals remain evidence. Each still-effective legacy provision with mutable literals receives a code-mapping record immediately and an immutable code-based successor before its next affected release or configuration change;no in-place rewrite. Until successor completion,the mapping controls resolution and the literal cannot be copied into new law or implementation. CODE-CITATION:law text uses CODE[identifier] and optional field selector;reports may render resolved values with registry revision/hash and label them derived. SECRET codes resolve only inside authorized secret providers and never reveal values in Codex. OWNER:permission-sovereign governs identity/access/lifecycle of reference codes;domain owner supplies semantic truth;neither consumer nor environment invents codes.",
+        "prohibition": "FORBID:new mutable literal in Codex+restating a physical value already present in a directory+same physical value repeated as authority+code mapped in multiple registries+consumer inventing alias+historical literal copied forward+resolved value treated as Codex text+secret value stored in Codex+code without owner/type/version/status+changing mapping without new generation and affected evidence.",
+        "exception": "Irreducible normative constants such as the Codex version identity and closed legal state enums may be stated literally at their single definition point and referenced by code elsewhere. A one-time user command may supply a scoped value without creating persistent law."
+      },
+      {
+        "position": 388,
+        "provision_id": "A388",
+        "section_index": "1",
+        "subject": "governed-environment-variable-binding-fallback",
+        "rule": "RESOLUTION-ORDER:1 Codex fixed invariant;2 permission-sovereign directory/reference code and typed field;3 approved governed environment variable for a mutable deployment value not already stored in a directory;4 explicit one-time user command for its exact scope. If a physical/entity value exists in a directory,consumers use CODE[directory_code].field and cannot duplicate it in an environment variable as a second authority. ENV-SCOPE:environment variables may provide machine/session/deployment-specific values such as feature activation,temporary endpoint binding,process-local budget,toolchain discovery hint,non-persistent test fixture or secret-provider reference when no canonical directory field applies. Every allowed variable uses GPTBRIDGE_ prefix and has registry identity,owner,purpose,value type,required/optional status,validation/range,confidentiality,default policy,scope,consumer allowlist,generation and reload/restart semantics. AUTHORITY:environment is input/binding only,never Codex,directory,permission,data or identity authority. Its value cannot redefine owner,role,canonical ID,resource revision,law state or security boundary. VALIDATION:read once into a typed configuration snapshot at the governed boundary;reject unknown,malformed,out-of-range,conflicting,stale or unauthorized variables with a typed finding. No module reads arbitrary process environment throughout business logic. Optional absence uses an explicitly registered safe default or disabled state;no guessed path/port/model/credential. CHANGE:environment changes produce a new configuration generation and affected-scope validation;hot application follows update/reload law and cannot interrupt unrelated runtime. SECRET:prefer secret-provider references;when a secret value must enter through environment it is never persisted,echoed,logged,placed in evidence,child-process command line or inherited beyond the minimum allowlisted process. TESTS:fixture variables are isolated and cleared after test. EVIDENCE:record variable code,presence,source,generation,validation result and value hash/redaction,never confidential plaintext.",
+        "prohibition": "FORBID:environment duplicate of directory-owned physical value+environment treated as authority+unregistered variable+arbitrary os.environ/process.env reads in domain logic+secret logging/inheritance+silent coercion+unsafe implicit default+environment redefining identity/permission/law+change without generation invalidation+hardcoded fallback after missing variable.",
+        "exception": "The minimum bootstrap variable may locate CODE[ROOT_GPTBRIDGE] registry when the top-level-path law permits it;the resolved root must be validated and cannot broaden containment. CI/tests may inject registered fixture variables only inside isolated scope."
+      },
+      {
+        "position": 389,
+        "provision_id": "A389",
+        "section_index": "1",
+        "subject": "timestamp-only-hardcoding-invariant",
+        "rule": "ONLY-HARDCODE-ALLOWANCE:the only literal runtime/deployment value permitted to be hardcoded is a timestamp value created for an immutable event,revision,evidence or audit record. Every other value without exception is referenced through CODE[identifier].field or a registered governed environment variable under A387-A388. Paths,roots,filenames,ports,endpoints,hosts,branches,remotes,model names,dimensions,chunk sizes,collection/database/table names,language lists,state values,versions,IDs,owners,roles,timeouts,retries,budgets,limits,thresholds,feature flags and defaults cannot be duplicated as hardcoded literals in current law or implementation. Their single defining values live in typed canonical registries;even fixed legal enums and version identities receive codes and consumers reference the code. TIMESTAMP:hardcoded timestamp must be generated by the authoritative clock at event time,include timezone/UTC semantics and precision,be immutable after record creation and never be reused as configuration,deadline,timeout or identity. Historical literals remain immutable evidence but must be mapped to codes and cannot be copied forward. Source/checker scans classify authored literals,resolve exemptions only for typed timestamp fields and emit FAIL for every other hardcoded operational value.",
+        "prohibition": "FORBID:any non-timestamp hardcoded value+claiming a value fixed to evade code registration+timestamp used as configuration/default/timeout+manual fabricated event time+historical literal copied into successor+checker inventing literal whitelist+generated code hiding authored hardcode.",
+        "exception": "Test fixtures may contain isolated synthetic values only as fixture data declared by a registered fixture code;source still references the fixture code. Third-party/generated artifacts are evidence-classified and cannot supply authoritative configuration."
+      },
+      {
+        "position": 390,
+        "provision_id": "A390",
+        "section_index": "3",
+        "subject": "permission-sovereign-formal-audit-validation-authority",
+        "rule": "AUTHORITY:permission-sovereign is the sole formal owner of audit validation across the system. It defines and applies validation of audit identity,access scope,sequence,hash chain,signature,correlation,completeness,retention/rotation,confidentiality and admissibility against Codex-derived rules. It may return validated,rejected,incomplete,stale or conflict evidence and gate acceptance/release where audit proof is required. It has no module execution power and cannot rewrite/delete audit records,invent domain truth,repair code,approve its own unauthorized action or suppress a finding. COLLECTION:modules/shared-layer/synchronization executors append evidence through governed channels;they do not self-validate. XINGCHENG:星澄 retains independent inspection,correlation,challenge and finding capability under A378 but does not issue the formal permission-sovereign audit-validity verdict. Permission-sovereign cannot direct or suppress 星澄 findings;it validates their identity,scope,integrity and admissibility while domain truth remains with the domain owner. SEPARATION:validator identity is distinct from event actor,evidence collector and remediation executor. Validation decisions are themselves append-only audited and independently challengeable.",
+        "prohibition": "FORBID:module self-validating its audit+permission-sovereign executing repair/update+validator altering source evidence+星澄 formal verdict impersonation+permission validation suppressing independent finding+same actor producing and finally validating privileged evidence without separation+audit acceptance with broken hash/identity/scope/confidentiality.",
+        "exception": "A module may perform local pre-validation for fast feedback,marked non-authoritative;formal acceptance still requires permission-sovereign validation."
+      },
+      {
+        "position": 391,
+        "provision_id": "A391",
+        "section_index": "1",
+        "subject": "canonical-timestamp-envelope-fields",
+        "rule": "TIMESTAMP-ENVELOPE:every immutable event/evidence/audit/revision record uses the applicable formal fields occurred_at_utc,recorded_at_utc,observed_at_utc,effective_at_utc,expires_at_utc,source_clock_id,time_zone,utc_offset,precision,monotonic_sequence,clock_skew_ms,timestamp_status and timestamp_hash. occurred_at_utc is when the source event happened;recorded_at_utc is durable append time;observed_at_utc is measurement time;effective_at_utc is legal/config activation time;expires_at_utc is nullable only when non-expiry is legally declared. FIXED-FORMAT:every canonical UTC timestamp is exactly YYYY-MM-DDTHH:mm:ss.ffffffZ in Gregorian calendar,24-hour time,UTC,with six fractional-second digits and uppercase Z;canonical storage forbids omitted fractions,numeric offsets,spaces,locale month names and naive time. precision is fixed to microsecond. time_zone and utc_offset are separate display/source-evidence fields and never alter canonical UTC storage. source_clock_id references the registered clock;monotonic_sequence orders events when wall clock ties/regresses;clock_skew_ms records measured uncertainty;timestamp_status is verified|estimated|corrected|invalid;timestamp_hash binds the normalized envelope to its record. HARD-CODE:only concrete immutable values stored in these timestamp fields qualify for A389 allowance. Field names,format,zones,clock IDs,expiry policy and status vocabulary are referenced by schema codes rather than scattered literals. CORRECTION:timestamps are never overwritten;an error appends a corrected successor with original timestamp_hash,reason,authority and correlation_id. VALIDATION:permission-sovereign formally validates time evidence as part of audit validation;domain collectors supply source evidence. Missing required field,wrong fixed format,naive local time,impossible ordering,excess skew,unregistered clock or hash mismatch makes evidence incomplete/invalid without stopping unrelated system review.",
+        "prohibition": "FORBID:canonical timestamp outside YYYY-MM-DDTHH:mm:ss.ffffffZ+ambiguous local time+missing required source zone evidence+recorded time substituted for occurrence without status+timestamp overwrite+clock regression hidden+timestamp literal outside formal field+timestamp used as configuration identity+unregistered clock+permission validator fabricating source time+invalid time failing unrelated system review.",
+        "exception": "Legacy records may retain their original format when paired with a canonical converted UTC timestamp and immutable migration evidence;the original is evidence only. A source unable to prove occurrence time uses estimated status and explicit uncertainty;it cannot claim verified."
       }
     ],
     "certification_evidence": [
@@ -4128,7 +4191,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H086",
+        "history_head": "H088",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -6957,6 +7020,15 @@
         "release_gate": "deny privileged activation or release on any missing boundary/confidentiality evidence",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "codex_reference_code_registry_directory",
+        "required_scope": "all mutable/deployable references in active Codex and every implementation consumer",
+        "completion_rule": "zero new hardcoded value,duplicate binding,unknown code or unmapped active legacy literal",
+        "acceptance_evidence": "Codex literal inventory+code mapping+resolver tests+consumer scan+generation invalidation+secret non-disclosure",
+        "release_gate": "deny affected release/configuration change until code-based successor or controlled mapping exists",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_format_contract": [
@@ -7575,6 +7647,20 @@
         "owner": "permission-sovereign",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_CODEX_REFERENCE_CODE_REGISTRY",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "reference_code|code_kind|value_type|semantic_owner|binding_source|binding_generation|confidentiality|validation|lineage",
+        "required_field_order": "envelope>code identity>semantic owner>typed binding>generation>validation>confidentiality>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-not-applicable-proven",
+        "identity_format": "reference-code=UPPER_SNAKE;fields=lower_snake",
+        "validation_order": "identity>owner>type>binding source>generation>validation>access>hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -8149,6 +8235,19 @@
         "implementation_state": "mandated-pending-implementation",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_CODEX_REFERENCE_CODE_REGISTRY",
+        "canonical_name": "codex-reference-code-registry-directory",
+        "owner": "permission-sovereign",
+        "scope": "canonical codes and single deployable bindings referenced by Codex",
+        "authority_kind": "canonical-reference-identity-and-binding-registry",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|reference_code|code_kind|value_type|semantic_owner|binding_source|binding_generation|confidentiality|validation|lineage",
+        "relationships": "code|domain-owner|deployment-binding|consumer|successor-provision|audit",
+        "coverage_rule": "every mutable Codex reference resolves through one typed current code with zero duplicate binding",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_normalization_plan": [
@@ -8512,6 +8611,17 @@
         "normalized_relationship_status": "required",
         "plaintext_secret_status": "forbidden",
         "activation_gate": "deny-privileged-action-until-identity-scope-channel-and-audit-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_code": "DIR_CODEX_REFERENCE_CODE_REGISTRY",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-resolution-until-unique-typed-binding-proof",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
       }
@@ -13080,7 +13190,43 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A384",
+        "provision_id": "A385",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A386",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A387",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A388",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A389",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A390",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A391",
         "effective_version": "1.00000",
         "status": "active"
       }
@@ -13141,14 +13287,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H086",
-        "provision_count": 630,
-        "identity_count": 630,
-        "lineage_count": 630,
+        "history_head": "H088",
+        "provision_count": 637,
+        "identity_count": 637,
+        "lineage_count": 637,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "5fd4e7ba19600fb8b0b1e195c7a517c523e1948ba7b888cd2fd2c85865cbf813",
-        "identity_root": "46f47f1ba293a476d24e4d32477f1000a9d5a6a16116aaf732e0bdbcae40d0d6",
-        "full_root": "1f134417acc90382be967a85d14474da4433ff4dfb7a9aafac49b688f67c633a",
+        "content_root": "521c6e824e50a2facc9bdbfe86d246164107bc441717af86ef1095a4103571d0",
+        "identity_root": "6e47c08179ae68217ef5581a6831b6ecde8f7d518318d6f1f194f30e5e96bde5",
+        "full_root": "7aa3d46f41e55a77ed63b4717f6b82ed7102acdea2e415adc0efd84c7c563931",
         "legacy_history_head": null
       }
     ],
@@ -18275,7 +18421,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H086"
+        "value": "H088"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -18672,6 +18818,66 @@
       {
         "key": "historical_revision_correction_H045",
         "value": "damaged=confidential ?? audit;corrected=confidential 星澄 audit;history-hash-unchanged"
+      },
+      {
+        "key": "test_management_roster_current",
+        "value": "A385"
+      },
+      {
+        "key": "closure_status_source",
+        "value": "live-canonical-registries-not-hard-coded-counts"
+      },
+      {
+        "key": "test_suite_mandated_semantics",
+        "value": "required-not-active-until-evidence"
+      },
+      {
+        "key": "dynamic_code_resolution_policy",
+        "value": "A386"
+      },
+      {
+        "key": "codex_reference_code_policy",
+        "value": "A387"
+      },
+      {
+        "key": "dynamic_code_resolution_precedence",
+        "value": "codex-invariant>canonical-registry>deployment-binding>one-time-user-command"
+      },
+      {
+        "key": "environment_binding_policy",
+        "value": "A388"
+      },
+      {
+        "key": "environment_variable_prefix",
+        "value": "GPTBRIDGE_"
+      },
+      {
+        "key": "hardcoding_policy",
+        "value": "timestamp-only"
+      },
+      {
+        "key": "canonical_timestamp_format",
+        "value": "YYYY-MM-DDTHH:mm:ss.ffffffZ"
+      },
+      {
+        "key": "canonical_timestamp_timezone",
+        "value": "UTC"
+      },
+      {
+        "key": "canonical_timestamp_precision",
+        "value": "microsecond"
+      },
+      {
+        "key": "formal_audit_validation_owner",
+        "value": "permission-sovereign"
+      },
+      {
+        "key": "xingcheng_audit_role",
+        "value": "independent-inspection-challenge-finding"
+      },
+      {
+        "key": "dynamic_binding_order",
+        "value": "codex-invariant>directory-reference-code>governed-environment>one-time-user-command"
       }
     ],
     "module_assignment_registry": [
@@ -24509,6 +24715,55 @@
         "provision_id": "A384",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A385",
+        "provision_type": "article",
+        "provision_id": "A385",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A386",
+        "provision_type": "article",
+        "provision_id": "A386",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A387",
+        "provision_type": "article",
+        "provision_id": "A387",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A388",
+        "provision_type": "article",
+        "provision_id": "A388",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A389",
+        "provision_type": "article",
+        "provision_id": "A389",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A390",
+        "provision_type": "article",
+        "provision_id": "A390",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A391",
+        "provision_type": "article",
+        "provision_id": "A391",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -28921,6 +29176,55 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A226|A274|A284|A295|A323|A335|A377|A379|A381"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A385",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A226|A274|A284|A323|A377|A381|A384"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A386",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A185|A201|A222|A223|A224|A268|A269|A270|A274|A284|A377|A385"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A387",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A201|A222|A268|A269|A270|A274|A284|A377|A386"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A388",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A185|A201|A268|A269|A270|A274|A386|A387"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A389",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A222|A268|A274|A386|A387|A388"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A390",
+        "tier": "special-law",
+        "law_code": "CODEX_PERMISSION_IDENTITY_SPECIAL_LAW",
+        "authority_basis": "A46|A134|A243|A295|A326|A376|A378"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A391",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A46|A200|A243|A274|A389|A390"
       }
     ],
     "provision_lifecycle_status": [
@@ -33855,10 +34159,66 @@
       {
         "provision_type": "article",
         "provision_id": "A384",
+        "lifecycle_state": "superseded",
+        "effective_version": "1.00000",
+        "successor_identity": "ARTICLE_A385",
+        "evidence": "H087+dynamic-status-successor"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A385",
         "lifecycle_state": "active",
         "effective_version": "1.00000",
         "successor_identity": null,
-        "evidence": "H086+explicit-user-command"
+        "evidence": "H087+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A386",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H087+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A387",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H087+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A388",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H088+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A389",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H088+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A390",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H088+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A391",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H088+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -38899,8 +39259,64 @@
         "provision_id": "A384",
         "introduced_by": "H086",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "bb12b52be499af1cf787c017b5121f17daa887b1e545831a3c3964d8e42bf36b"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A385",
+        "introduced_by": "H087",
+        "supersedes_id": "A384",
+        "status": "active",
+        "content_hash": "5e48272b3b6a3d016405658485cf99704ce79a3deebc4e0e7ea732687560fcac"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A386",
+        "introduced_by": "H087",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "9b3d1c0fa9eced99ec82f864fc0e677b665a165b07a60285123b82f7e333ee37"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A387",
+        "introduced_by": "H087",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "b8c597cd24c0541e4a3312fb1a6ba7dd0a0b3d3d6964b597f35a9441a75170a4"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A388",
+        "introduced_by": "H088",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f12bff9523b06de44796743c488a169a11afbc318ee1d1d53c427b290deb5a3c"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A389",
+        "introduced_by": "H088",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "bde78afe78132c0e637f2f69022c4dd947c4d284bcb6ae78c780866afabf4c46"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A390",
+        "introduced_by": "H088",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "b024009ebc8d4429af5f7af65edff443fa703787f38e7ea4cfed1c3b058a1320"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A391",
+        "introduced_by": "H088",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "808889cddd0d3c7888745dd45a6f2dc99f8b52780cbf127e4adaec6a0c6ece75"
       }
     ],
     "provision_revisions": [
@@ -49964,6 +50380,69 @@
         "content_hash": "bb12b52be499af1cf787c017b5121f17daa887b1e545831a3c3964d8e42bf36b",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A385",
+        "revision_id": "H087",
+        "version": "1.00000",
+        "content_hash": "5e48272b3b6a3d016405658485cf99704ce79a3deebc4e0e7ea732687560fcac",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A386",
+        "revision_id": "H087",
+        "version": "1.00000",
+        "content_hash": "9b3d1c0fa9eced99ec82f864fc0e677b665a165b07a60285123b82f7e333ee37",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A387",
+        "revision_id": "H087",
+        "version": "1.00000",
+        "content_hash": "b8c597cd24c0541e4a3312fb1a6ba7dd0a0b3d3d6964b597f35a9441a75170a4",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A388",
+        "revision_id": "H088",
+        "version": "1.00000",
+        "content_hash": "f12bff9523b06de44796743c488a169a11afbc318ee1d1d53c427b290deb5a3c",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A389",
+        "revision_id": "H088",
+        "version": "1.00000",
+        "content_hash": "bde78afe78132c0e637f2f69022c4dd947c4d284bcb6ae78c780866afabf4c46",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A390",
+        "revision_id": "H088",
+        "version": "1.00000",
+        "content_hash": "b024009ebc8d4429af5f7af65edff443fa703787f38e7ea4cfed1c3b058a1320",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A391",
+        "revision_id": "H088",
+        "version": "1.00000",
+        "content_hash": "808889cddd0d3c7888745dd45a6f2dc99f8b52780cbf127e4adaec6a0c6ece75",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -55166,6 +55645,76 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A385",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A386",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A387",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A388",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A389",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A390",
+        "controlling_law_code": "CODEX_PERMISSION_IDENTITY_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A391",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -56114,6 +56663,28 @@
         "previous_hash": "0177000cbae776ad09624beb83f462666bfa71b438e581b32d658c788a530531",
         "entry_hash": "9e251a72ee32e187b105617684ae0d5a6acbe912c808b08ac48cf388150566a5",
         "version_epoch": 2
+      },
+      {
+        "sequence": 87,
+        "change_id": "H087",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "dynamic-codex-closure-status-and-test-suite-activation-successor",
+        "summary": "Removed brittle hard-coded closure counts from A384, made pending/test/signature/freeze status registry-derived, and preserved test-management, roster and historical-correction boundaries through immutable successor A385. Version remains E2:1.00000.",
+        "previous_hash": "9e251a72ee32e187b105617684ae0d5a6acbe912c808b08ac48cf388150566a5",
+        "entry_hash": "8f464d68a1a55d850d6c689ab080bdb1b036fa74c0aead30804f843b50f7f8ad",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 88,
+        "change_id": "H088",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "environment-binding-timestamp-only-hardcoding-and-audit-validation-authority",
+        "summary": "Integrated governed environment bindings, timestamp-only hardcoding, and permission-sovereign ownership of formal audit validation while preserving Xingcheng independent inspection. Version remains E2:1.00000.",
+        "previous_hash": "8f464d68a1a55d850d6c689ab080bdb1b036fa74c0aead30804f843b50f7f8ad",
+        "entry_hash": "83768b8e615196170d8e19076b7a5aff31cc498d9c65eb251d7463e26164f750",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -56670,14 +57241,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H086",
-        "provision_count": 630,
-        "identity_count": 630,
-        "lineage_count": 630,
+        "history_head": "H088",
+        "provision_count": 637,
+        "identity_count": 637,
+        "lineage_count": 637,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "5fd4e7ba19600fb8b0b1e195c7a517c523e1948ba7b888cd2fd2c85865cbf813",
-        "identity_root": "46f47f1ba293a476d24e4d32477f1000a9d5a6a16116aaf732e0bdbcae40d0d6",
-        "full_root": "1f134417acc90382be967a85d14474da4433ff4dfb7a9aafac49b688f67c633a",
+        "content_root": "521c6e824e50a2facc9bdbfe86d246164107bc441717af86ef1095a4103571d0",
+        "identity_root": "6e47c08179ae68217ef5581a6831b6ecde8f7d518318d6f1f194f30e5e96bde5",
+        "full_root": "7aa3d46f41e55a77ed63b4717f6b82ed7102acdea2e415adc0efd84c7c563931",
         "version_epoch": 2
       }
     ],
@@ -61162,6 +61733,12 @@
         "successor_identity": "ARTICLE_A377",
         "effective_version": "1.00000",
         "status": "effective"
+      },
+      {
+        "predecessor_identity": "ARTICLE_A384",
+        "successor_identity": "ARTICLE_A385",
+        "effective_version": "1.00000",
+        "status": "effective"
       }
     ],
     "test_flow_directory": [
@@ -61833,10 +62410,10 @@
       },
       {
         "test_flow_code": "TF_TEST_MANAGEMENT_AND_ROSTER_CLOSURE",
-        "canonical_name": "test-management-roster-and-historical-correction-required-cases",
+        "canonical_name": "dynamic-test-management-roster-and-closure-required-cases",
         "owner": "permission-sovereign",
         "target_entity": "test ownership/management,active rosters and H045 annotation",
-        "requirement_ids": "A226|A274|A284|A323|A377|A381|A384",
+        "requirement_ids": "A226|A274|A284|A323|A377|A381|A385",
         "test_level": "schema+contract+integration+audit",
         "preconditions": "all test-flow/suite rows,sovereign hierarchy/lineage,H045 raw summary and pending gates",
         "fixtures": "permission owner versus maintenance manager;module test execution;top/sub roster queries;Codex exclusion;retired identity;raw/corrected H045 display;attempt pending closure",
@@ -61846,6 +62423,60 @@
         "cleanup": "remove derived fixtures only;retain correction and closure evidence",
         "isolation_policy": "read-only history and and non-authoritative display annotation",
         "timeout": "1800s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_DYNAMIC_CODE_RESOLUTION",
+        "canonical_name": "dynamic-governance-code-resolution-and-hardcoding-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "canonical registries,environment bindings and consumers",
+        "requirement_ids": "A185|A201|A222|A268|A269|A270|A274|A284|A377|A386",
+        "test_level": "unit+contract+integration+security+migration",
+        "preconditions": "registered path/port/model/database/worktree/budget codes,unknown/stale/conflicting codes,historical literals,bootstrap root and fixture values",
+        "fixtures": "resolve each typed code;change deployment generation;unknown/wrong-owner/stale binding;duplicate registry;secret literal;consumer hardcode scan;historical literal display;bootstrap locator;test fixture isolation",
+        "ordered_steps": "resolve via precedence;invalidate cache;reject invalid codes;inventory/migrate hardcodes;verify normative literal registry mapping and no authority drift",
+        "expected_results": "all mutable values dynamically resolved;invalid code fails closed;zero secret literals;cache generation correct;historical records unchanged;only declared bootstrap/invariant literals allowed",
+        "evidence": "registry/binding hashes+resolution traces+hardcode inventory+migration evidence+security findings+audit",
+        "cleanup": "remove fixtures/cache only;retain evidence",
+        "isolation_policy": "isolated bindings and no secret output",
+        "timeout": "1800s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_GOVERNED_ENVIRONMENT_BINDING",
+        "canonical_name": "governed-environment-variable-binding-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "directory/reference resolver and process configuration boundary",
+        "requirement_ids": "A185|A201|A268|A269|A270|A274|A386|A387|A388",
+        "test_level": "unit+contract+integration+security",
+        "preconditions": "directory-owned values,registered/unregistered GPTBRIDGE variables,typed defaults,secrets,generations,child processes and test fixtures",
+        "fixtures": "directory/env conflict;valid optional/required values;unknown/malformed/out-of-range;missing default;identity override;secret log/inheritance;hot generation change;bootstrap root;fixture cleanup",
+        "ordered_steps": "resolve directory first;load typed snapshot;reject invalid/authority drift;rotate generation;inspect logs/evidence/child env;clear fixtures",
+        "expected_results": "directory value never duplicated;all environment inputs registered/typed;no authority drift or secret leak;generation invalidates affected state;safe absence;bootstrap contained",
+        "evidence": "registry/binding/config-generation hashes+validation findings+redacted evidence+inheritance inspection+audit",
+        "cleanup": "clear fixture environment and cache;retain redacted evidence",
+        "isolation_policy": "isolated process environment and no secret output",
+        "timeout": "1800s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_TIMESTAMP_ONLY_HARDCODING_AND_AUDIT_VALIDATION",
+        "canonical_name": "timestamp-only-hardcoding-and-permission-audit-validation-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "authored source/Codex literals,formal timestamp envelopes and audit evidence",
+        "requirement_ids": "A46|A134|A200|A222|A243|A268|A274|A295|A326|A378|A386|A387|A388|A389|A390|A391",
+        "test_level": "unit+contract+integration+security+audit",
+        "preconditions": "typed timestamp events,non-time literals,registry/env codes,module audit,星澄 findings,permission validator and conflicting evidence",
+        "fixtures": "each prohibited literal category;complete/missing/invalid timestamp envelope;wall-clock tie/regression/skew;correction successor;timestamp as timeout;fixture code;module self-validation;broken sequence/hash/scope/signature;星澄 challenge;validator self-interest",
+        "ordered_steps": "scan literals;resolve codes;validate clock/time fields and normalized timestamp hash;append correction;submit audit evidence;separate actor/collector/validator;validate and challenge decisions",
+        "expected_results": "only formal immutable timestamp values qualify;all other values coded;ordering survives clock fault;correction immutable;invalid audit rejected;permission-sovereign solely validates;星澄 inspection remains independent",
+        "evidence": "literal scan+code resolution+clock/envelope evidence+timestamp hashes+audit chains+validation decisions+challenge records",
+        "cleanup": "remove fixtures only;retain audit validation evidence",
+        "isolation_policy": "isolated clocks/fixtures,separated identities and append-only validation",
+        "timeout": "2400s",
         "introduced_version": "1.00000",
         "retired_version": null
       }
