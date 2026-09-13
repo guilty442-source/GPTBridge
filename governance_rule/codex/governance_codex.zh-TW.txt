@@ -3067,6 +3067,15 @@
         "rule": "CANONICAL-TOPOLOGY:TypeScript>information/API contract>Python; PYTHON-BRANCHES:{SQL relational set operations}|{Native adapter}|{CSharp Windows/.NET adapter}; NATIVE-PATH:Python>pybind11 _binding.cpp>gptbridge_native.h C ABI>gptbridge_native.c C thunk>C++ implementation; CSHARP-PATH:Python typed adapter request>CSharp WindowsAdapter>Windows/.NET and,when native capability is required,CSharp consumes the same gptbridge_native.h C ABI rather than C++; SQL-PATH:Python repository>parameterized budgeted SQL>bounded result>Python business semantics; DIRECTION:TypeScript never bypasses Python to SQL/native/CSharp and Python remains application+domain+orchestration authority; CONTRACTS:every edge is typed+versioned+permission-scoped+observable+tested under A340+A348; NATIVE-NOTATION:C and pybind11 may appear in one native boundary diagram only as separate roles in one serial path,not parallel APIs:pybind11=Python conversion adapter,C=gptbridge_native.h/C thunk single ABI contract,C++=hidden compute; OWNERSHIP:A341 capability matrix remains controlling; FAILURE:failed branch is isolated and returns typed failure through Python to TypeScript without rerouting around the contract.",
         "prohibition": "FORBID:TypeScript direct SQL/native/CSharp access+Python bypass by client+pybind11 API parallel to C ABI+pybind11 direct C+++CSharp direct C+++public C++ ABI+SQL business judgment+CSharp cross-platform domain logic+C/C++ orchestration+contractless cross-language call+fallback that creates a second owner.",
         "exception": "A build-time TypeScript checker may inspect declared evidence without calling runtime Python services; it cannot perform domain work or mutate runtime state."
+      },
+      {
+        "position": 351,
+        "provision_id": "A351",
+        "section_index": "16",
+        "subject": "cross-language-allowed-use-and-direct-prohibition-matrix",
+        "rule": "MATRIX:{TypeScript=>ALLOW:contract+transport+UI;DIRECT-DENY:Python-import+database+native+CSharp+SQL-direct-connection}|{Python=>ALLOW:SQL+native-binding+CSharp-adapter;DIRECT-DENY:DOM+frontend-storage+direct-ownership-of-C++-implementation}|{C=>ALLOW:C-ABI-thunk;DIRECT-DENY:business+algorithm+database+UI}|{C++=>ALLOW:private-native-core;DIRECT-DENY:public-application-API+database+UI+workflow}|{CSharp=>ALLOW:Windows/.NET-adapter;DIRECT-DENY:RAG+domain+cross-platform-business}|{SQL=>ALLOW:data-operations;DIRECT-DENY:workflow+permission-authority+business-decision}; ROUTING:TypeScript reaches all backend capability only through information/API contract to Python; Python reaches native only through A344 pybind11>C-ABI>C-thunk path and reaches Windows/.NET only through WindowsAdapter; SQL returns bounded data and Python owns semantics; ADAPTER:allowed adapters translate typed data,error,lifetime and transport only and acquire no target capability ownership; CHECKER:resolve imports+includes+FFI+IPC+network+database clients+generated bindings+runtime loading and reject any direct-deny edge; INDIRECT-BYPASS:a wrapper,reflection,dynamic import,subprocess,generated code or shared file cannot legalize a forbidden direct edge; EVIDENCE:source+target+edge type+contract+owner+rule+call path+release identity.",
+        "prohibition": "FORBID:TypeScript importing Python or directly accessing database/native/CSharp/SQL+Python controlling DOM/frontend store or owning C++ implementation+C business/algorithm/database/UI+C++ public application API/database/UI/workflow+CSharp RAG/domain/cross-platform business+SQL workflow/permission/business decision+adapter authority expansion+hidden indirect bypass.",
+        "exception": "Build-time generated contract declarations may reference foreign type names as inert schema data only; they cannot import,execute,connect,own state or bypass the runtime topology."
       }
     ],
     "certification_evidence": [
@@ -3822,7 +3831,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H059",
+        "history_head": "H060",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -12121,6 +12130,12 @@
         "provision_id": "A350",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A351",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12179,14 +12194,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H059",
-        "provision_count": 596,
-        "identity_count": 596,
-        "lineage_count": 596,
+        "history_head": "H060",
+        "provision_count": 597,
+        "identity_count": 597,
+        "lineage_count": 597,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "a7fe78b32e26f30a5a1ae626684a05a919bc55df19d1515be150a708118ce4ff",
-        "identity_root": "67b8b407b54f4cb32538ed15a824b943a98615c01f0256d6d8a871bde5677917",
-        "full_root": "86f97d3c460dd1f1d65fd4e5af7645cd232382fa9204e2095ed6c6f3ffbe905c",
+        "content_root": "240e50983bf7cd35f785cd40a047764699d92b75049c66515d1dc2c9b75a30bc",
+        "identity_root": "b158e3697a10557d928ce576d3dfdad137fbba21b91b94bc15452c9eecb5b3d4",
+        "full_root": "69be272877de45a5eb632c5d8771c91ae05c171f94a9d4b4568c0f607497441e",
         "legacy_history_head": null
       }
     ],
@@ -17296,7 +17311,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H059"
+        "value": "H060"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17377,6 +17392,10 @@
       {
         "key": "canonical_cross_language_topology",
         "value": "TypeScript>contract>Python>{SQL|pybind11>C-ABI>C++|CSharp>Windows.NET}"
+      },
+      {
+        "key": "cross_language_allow_deny_matrix",
+        "value": "A351"
       }
     ],
     "module_assignment_registry": [
@@ -22976,6 +22995,13 @@
         "provision_id": "A350",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A351",
+        "provision_type": "article",
+        "provision_id": "A351",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -27150,6 +27176,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A211|A340|A341|A342|A344|A348"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A351",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A211|A341|A342|A344|A347|A348|A350"
       }
     ],
     "provision_lifecycle_status": [
@@ -31816,6 +31849,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H059+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A351",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H060+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36586,6 +36627,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "be9cc3e66030f706a3a37c9b85ad2b76c626b420d11deccb2bb13f4a819b84ea"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A351",
+        "introduced_by": "H060",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "2393ee61ade2968d8bd423cc3dee58647a280d0aafc57f4018b1e466c989c031"
       }
     ],
     "provision_revisions": [
@@ -47343,6 +47392,15 @@
         "content_hash": "be9cc3e66030f706a3a37c9b85ad2b76c626b420d11deccb2bb13f4a819b84ea",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A351",
+        "revision_id": "H060",
+        "version": "1.00000",
+        "content_hash": "2393ee61ade2968d8bd423cc3dee58647a280d0aafc57f4018b1e466c989c031",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -52205,6 +52263,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A351",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -52856,6 +52924,17 @@
         "previous_hash": "f775c62b7e702e637989725a26b64e4f8733b7b6a8a125d5ab53283314b60e57",
         "entry_hash": "9b31d2bcf2b432ee9b2eb7306711dff94055974dacf5fa195ecef636d36c57f2",
         "version_epoch": 2
+      },
+      {
+        "sequence": 60,
+        "change_id": "H060",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "cross-language-allow-and-direct-deny-matrix",
+        "summary": "Added the exact cross-language allowed-use and direct-prohibition matrix for TypeScript, Python, C, C++, CSharp and SQL, aligned with the canonical A350 topology. Version remains E2:1.00000.",
+        "previous_hash": "9b31d2bcf2b432ee9b2eb7306711dff94055974dacf5fa195ecef636d36c57f2",
+        "entry_hash": "7201470194da2ec7cd1a26c7b2b2915248d82c8cf6bc6b013fe951c10b22f600",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -53412,14 +53491,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H059",
-        "provision_count": 596,
-        "identity_count": 596,
-        "lineage_count": 596,
+        "history_head": "H060",
+        "provision_count": 597,
+        "identity_count": 597,
+        "lineage_count": 597,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "a7fe78b32e26f30a5a1ae626684a05a919bc55df19d1515be150a708118ce4ff",
-        "identity_root": "67b8b407b54f4cb32538ed15a824b943a98615c01f0256d6d8a871bde5677917",
-        "full_root": "86f97d3c460dd1f1d65fd4e5af7645cd232382fa9204e2095ed6c6f3ffbe905c",
+        "content_root": "240e50983bf7cd35f785cd40a047764699d92b75049c66515d1dc2c9b75a30bc",
+        "identity_root": "b158e3697a10557d928ce576d3dfdad137fbba21b91b94bc15452c9eecb5b3d4",
+        "full_root": "69be272877de45a5eb632c5d8771c91ae05c171f94a9d4b4568c0f607497441e",
         "version_epoch": 2
       }
     ],
