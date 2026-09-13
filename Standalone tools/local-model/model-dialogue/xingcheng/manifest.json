@@ -37,6 +37,8 @@
       "Standalone tools/local-model/model-dialogue/xingcheng-excluding-permissions"
     ],
     "deny": [
+      "governance-rule",
+      "governance-permission-directory",
       "main-program",
       "other-tools",
       "direct-database-write",
