@@ -3481,6 +3481,33 @@
         "rule": "REGISTRATION:automatic repair and automatic update use only the registered command codes XINGCHENG_SET_REPAIR_RELEASE,XINGCHENG_SET_UPDATE_RELEASE,SYNC_EXECUTE_APPROVED_AUTOMATIC_REPAIR and SYNC_EXECUTE_APPROVED_AUTOMATIC_UPDATE. CONTROL:the first two commands record the user's independent auxiliary-system switch choice and never execute mutation. EXECUTION:the latter two accept only a current one-time user confirmation bound to action identity,target,scope,method,risk,evidence digest,expiry and rollback/fallback under A366 and A380;dispatch remains through the governed synchronization execution chain. DISABLED/MISSING:disabled switch,missing confirmation,expired confirmation,identity mismatch or unregistered command fails closed without suppressing detection,diagnosis or isolated reporting. EVIDENCE:every request/result records command code,request identity,user actor,decision,correlation,formal timestamp and affected target;retry follows the command directory idempotency contract and cannot broaden scope.",
         "prohibition": "FORBID:unregistered repair/update command+one command controlling both switches+switch command executing mutation+execution command without one-time user confirmation+model/system toggling user switch+alias bypass+confirmation reuse+scope expansion+command directory inventing implementation behavior.",
         "exception": "A user may issue a separate explicit one-time manual repair or update command under the existing user-command exception;it does not enable either automatic switch or create standing authority."
+      },
+      {
+        "position": 397,
+        "provision_id": "A397",
+        "section_index": "1",
+        "subject": "canonical-timestamp-envelope-successor",
+        "rule": "SUCCESSOR:A391 is superseded. TIMESTAMP-ONLY:this article governs timestamp fields,clock evidence,normalization and correction and never defines or evolves a version number. PROFILE:each immutable event,evidence,audit or revision record applies the registered timestamp profile for that record type. The minimum canonical envelope contains recorded_at_utc,source_clock_id,precision,timestamp_status and timestamp_hash;occurred_at_utc,observed_at_utc,effective_at_utc,expires_at_utc,time_zone,utc_offset,monotonic_sequence and clock_skew_ms are required when their declared semantics apply. FORMAT:canonical UTC values use YYYY-MM-DDTHH:mm:ss.ffffffZ,Gregorian calendar,24-hour UTC,six fractional digits and uppercase Z. STATUS:verified|estimated|corrected|invalid. SEPARATION:timestamp values are immutable evidence values allowed by A394;field/schema/status definitions are canonical declarations,not consumer hardcoding. A timestamp cannot act as a version,release identity,generation or ordering authority except that monotonic_sequence resolves equal/regressed wall-clock observations. LEGACY-MIGRATION:legacy timestamp rows retain the original value and append canonical_recorded_at_utc,timestamp_status and immutable migration evidence;date-only revision history is estimated at the declared UTC boundary and cannot claim occurrence precision. CORRECTION:never overwrite source evidence;append or store a paired canonical successor with reason,authority and correlation. VALIDATION:permission-sovereign validates timestamp evidence admissibility while 星澄 independently inspects Codex/implementation agreement.",
+        "prohibition": "FORBID:version rule inside timestamp article+timestamp as version+version as timestamp+naive canonical time+omitted six-digit fraction+numeric-offset canonical storage+invented occurrence precision+overwriting legacy source value+unregistered clock+hidden clock regression+invalid timestamp blocking unrelated scope.",
+        "exception": "A source that cannot prove occurrence time records estimated status and uncertainty. A non-expiring record may omit expires_at_utc only when its registered timestamp profile declares non-expiry."
+      },
+      {
+        "position": 398,
+        "provision_id": "A398",
+        "section_index": "23",
+        "subject": "automatic-repair-update-command-contract-successor",
+        "rule": "SUCCESSOR:A396 is superseded. COMMAND-SET:the complete registered command chain is XINGCHENG_SET_REPAIR_RELEASE,XINGCHENG_SET_UPDATE_RELEASE,XINGCHENG_CONFIRM_AUTOMATIC_REPAIR,XINGCHENG_CONFIRM_AUTOMATIC_UPDATE,XINGCHENG_REVOKE_AUTOMATIC_REPAIR_CONFIRMATION,XINGCHENG_REVOKE_AUTOMATIC_UPDATE_CONFIRMATION,SYNC_EXECUTE_APPROVED_AUTOMATIC_REPAIR and SYNC_EXECUTE_APPROVED_AUTOMATIC_UPDATE. ROLE-SEPARATION:user owns switch choice,confirmation and revocation;星澄 auxiliary system presents controls and records the user's command without deciding for the user;permission-sovereign validates actor/action/target/scope and evidence admissibility;synchronization-sovereign owns update/repair synchronization decision and module assignment;module-execution layer alone performs mutation. CONTRACT-REGISTRATION:every command_code_directory row is its canonical command registration. Switch request fields are command_code,request_id,user_actor_id,desired_state,choice_revision,session_id,correlation_id,recorded_at_utc;confirmation request fields add action_id,category,target_code,scope_code,method_code,risk_code,evidence_digest,expires_at_utc,rollback_or_fallback_code;revocation request fields add confirmation_id and reason_code;execution request fields require confirmation_id,confirmation_hash,permission_proof,synchronization_decision_id,executor_id,expected_before_hash and generation. Every result contains command_code,request_id,decision,status,reason_code,correlation_id,recorded_at_utc and evidence_hash. VERSIONING:the request/result contract identity suffix is a contract version governed by A395 and is separate from its A397 timestamps. GATES:execution requires enabled matching switch plus current unrevoked single-use confirmation plus permission proof and synchronization decision. Missing/mismatched/expired/replayed input fails closed. No checker or executor creates an exception.",
+        "prohibition": "FORBID:unregistered alias+combined repair/update switch+implicit/preselected switch+confirmation embedded without registered confirmation command+missing revocation path+confirmation reuse+permission validator becoming executor+synchronization decision performing module work+module execution changing scope+contract fields inferred from timestamp/version+automatic contract repair.",
+        "exception": "An explicit one-time manual user command remains lawful but does not enable an automatic switch,create persistent consent or bypass permission and evidence validation."
+      },
+      {
+        "position": 399,
+        "provision_id": "A399",
+        "section_index": "1",
+        "subject": "timestamp-version-cross-codex-separation-interpretation",
+        "rule": "INTERPRETATION:A397 is the sole current timestamp representation rule and A395 is the sole current version-number rule. Earlier provisions including A182,A366 and A380 remain effective only for their domain duties;their words time,timestamp,expiry,version,generation or release reference the applicable typed authority and do not establish another format. A394 governs only value-reference placement. PRECEDENCE:on representation conflict A397 controls timestamps and A395 controls versions;neither controls the other's namespace. REFERENCES:new provisions,registries,commands and contracts cite the applicable article instead of restating formats. CHECKERS:emit separate findings for timestamp violation and version violation even when one record contains both.",
+        "prohibition": "FORBID:implicit mixed timestamp-version type+restated competing format+one finding concealing two violations+legacy wording overriding A397/A395+timestamp correction changing version+version evolution rewriting timestamp evidence.",
+        "exception": "A historical provision remains immutable evidence;this interpretation narrows only its current application and does not rewrite historical text."
       }
     ],
     "certification_evidence": [
@@ -3873,7 +3900,10 @@
         "recorded_at_local": "2026-09-10T15:57:12+08:00",
         "timezone": "Asia/Taipei",
         "event": "authority-duty-code-and-environment-root-containment",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-10T07:57:12.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.11000",
@@ -3881,7 +3911,10 @@
         "recorded_at_local": "2026-09-10T19:48:14+08:00",
         "timezone": "Asia/Taipei",
         "event": "architecture-authority-six-language-boundaries",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-10T11:48:14.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.21000",
@@ -3889,7 +3922,10 @@
         "recorded_at_local": "2026-09-10T20:10:49+08:00",
         "timezone": "Asia/Taipei",
         "event": "architecture-authority-canonical-language-role-and-performance-mainline",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-10T12:10:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.31000",
@@ -3897,7 +3933,10 @@
         "recorded_at_local": "2026-09-10T20:13:45+08:00",
         "timezone": "Asia/Taipei",
         "event": "architecture-authority-cpp-six-domain-core",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-10T12:13:45.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.31100",
@@ -3905,7 +3944,10 @@
         "recorded_at_local": "2026-09-10T21:42:19+08:00",
         "timezone": "Asia/Taipei",
         "event": "provision-scope-source-extension-map",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-10T13:42:19.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.31200",
@@ -3913,7 +3955,10 @@
         "recorded_at_local": "2026-09-10T21:47:06+08:00",
         "timezone": "Asia/Taipei",
         "event": "provision-scope-sql-first-python-semantics",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-10T13:47:06.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.31300",
@@ -3921,7 +3966,10 @@
         "recorded_at_local": "2026-09-10T21:51:45+08:00",
         "timezone": "Asia/Taipei",
         "event": "provision-scope-csharp-windows-dotnet-boundary",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-10T13:51:45.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.31400",
@@ -3929,7 +3977,10 @@
         "recorded_at_local": "2026-09-10T21:53:58+08:00",
         "timezone": "Asia/Taipei",
         "event": "provision-scope-python-api-load-split",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-10T13:53:58.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.31500",
@@ -3937,7 +3988,10 @@
         "recorded_at_local": "2026-09-10T21:56:11+08:00",
         "timezone": "Asia/Taipei",
         "event": "provision-scope-cpp-unavailable-python-fallback",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-10T13:56:11.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.31600",
@@ -3945,7 +3999,10 @@
         "recorded_at_local": "2026-09-10T21:58:17+08:00",
         "timezone": "Asia/Taipei",
         "event": "provision-scope-c-interface-cpp-implementation",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-10T13:58:17.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.41600",
@@ -3953,7 +4010,10 @@
         "recorded_at_local": "2026-09-10T22:14:30+08:00",
         "timezone": "Asia/Taipei",
         "event": "architecture-authority-integrated-language-native-contract",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-10T14:14:30.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.51600",
@@ -3961,7 +4021,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.61600",
@@ -3969,7 +4032,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.71600",
@@ -3977,7 +4043,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.81600",
@@ -3985,7 +4054,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.91600",
@@ -3993,7 +4065,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "2.01600",
@@ -4001,7 +4076,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "2.11600",
@@ -4009,7 +4087,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "2.21600",
@@ -4017,7 +4098,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "2.31600",
@@ -4025,7 +4109,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "2.41600",
@@ -4033,7 +4120,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "2.51600",
@@ -4041,7 +4131,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "2.61600",
@@ -4049,7 +4142,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "2.71600",
@@ -4057,7 +4153,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "2.81600",
@@ -4065,7 +4164,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "2.91600",
@@ -4073,7 +4175,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "3.01600",
@@ -4081,7 +4186,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "3.11600",
@@ -4089,7 +4197,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "3.21600",
@@ -4097,7 +4208,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "3.31600",
@@ -4105,7 +4219,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "3.41600",
@@ -4113,7 +4230,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "3.51600",
@@ -4121,7 +4241,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "3.61600",
@@ -4129,7 +4252,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "3.71600",
@@ -4137,7 +4263,10 @@
         "recorded_at_local": "2026-09-12T07:29:49.989372+08:00",
         "timezone": "Asia/Taipei",
         "event": "complete-seal-evidence-bundle",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-11T23:29:49.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "3.81600",
@@ -4145,7 +4274,10 @@
         "recorded_at_local": "2026-09-12T08:25:41+08:00",
         "timezone": "Asia/Taipei",
         "event": "retrospective-evidence-gap-recorded-not-original-seal-time",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-12T00:25:41.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "3.91600",
@@ -4153,7 +4285,10 @@
         "recorded_at_local": "2026-09-12T08:25:41+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-12T00:25:41.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "4.01600",
@@ -4161,7 +4296,10 @@
         "recorded_at_local": "2026-09-12T08:31:04+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-12T00:31:04.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "4.11600",
@@ -4169,7 +4307,10 @@
         "recorded_at_local": "2026-09-12T08:34:34+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-12T00:34:34.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "4.21600",
@@ -4177,7 +4318,10 @@
         "recorded_at_local": "2026-09-12T08:37:35+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-12T00:37:35.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "4.31600",
@@ -4185,7 +4329,10 @@
         "recorded_at_local": "2026-09-12T08:41:50+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-12T00:41:50.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "4.41600",
@@ -4193,7 +4340,10 @@
         "recorded_at_local": "2026-09-12T08:44:24+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-12T00:44:24.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "4.51600",
@@ -4201,7 +4351,10 @@
         "recorded_at_local": "2026-09-12T08:45:39+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-12T00:45:39.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "4.61600",
@@ -4209,7 +4362,10 @@
         "recorded_at_local": "2026-09-12T08:47:34+08:00",
         "timezone": "Asia/Taipei",
         "event": "codex-successor-sealed",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "canonical_recorded_at_utc": "2026-09-12T00:47:34.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       },
       {
         "version": "1.00000",
@@ -4217,7 +4373,10 @@
         "recorded_at_local": "2026-09-13T12:19:09+08:00",
         "timezone": "Asia/Taipei",
         "event": "deep-owner-reference-repair-reseal-H046",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "canonical_recorded_at_utc": "2026-09-13T04:19:09.000000Z",
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H091:legacy-second-precision-preserved"
       }
     ],
     "codex_version_epochs": [
@@ -6594,6 +6753,70 @@
         "permission_action": "execute-approved-action:automatic-update",
         "idempotency_policy": "idempotent-by-action-and-confirmation",
         "timeout_policy": "bounded-by-approved-action",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "command_code": "XINGCHENG_CONFIRM_AUTOMATIC_REPAIR",
+        "canonical_command_id": "xingcheng-confirm-automatic-repair",
+        "canonical_name": "xingcheng-confirm-automatic-repair",
+        "owner": "permission-sovereign",
+        "domain": "xingcheng-auxiliary",
+        "action": "record-user-confirmation",
+        "target": "automatic-repair-action",
+        "input_contract": "xingcheng-confirm-automatic-repair-request-v1",
+        "output_contract": "xingcheng-confirm-automatic-repair-result-v1",
+        "permission_action": "confirm:automatic-repair-action",
+        "idempotency_policy": "single-use-by-confirmation-id",
+        "timeout_policy": "expires-at-required",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "command_code": "XINGCHENG_CONFIRM_AUTOMATIC_UPDATE",
+        "canonical_command_id": "xingcheng-confirm-automatic-update",
+        "canonical_name": "xingcheng-confirm-automatic-update",
+        "owner": "permission-sovereign",
+        "domain": "xingcheng-auxiliary",
+        "action": "record-user-confirmation",
+        "target": "automatic-update-action",
+        "input_contract": "xingcheng-confirm-automatic-update-request-v1",
+        "output_contract": "xingcheng-confirm-automatic-update-result-v1",
+        "permission_action": "confirm:automatic-update-action",
+        "idempotency_policy": "single-use-by-confirmation-id",
+        "timeout_policy": "expires-at-required",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "command_code": "XINGCHENG_REVOKE_AUTOMATIC_REPAIR_CONFIRMATION",
+        "canonical_command_id": "xingcheng-revoke-automatic-repair-confirmation",
+        "canonical_name": "xingcheng-revoke-automatic-repair-confirmation",
+        "owner": "permission-sovereign",
+        "domain": "xingcheng-auxiliary",
+        "action": "revoke-user-confirmation",
+        "target": "automatic-repair-confirmation",
+        "input_contract": "xingcheng-revoke-automatic-repair-confirmation-request-v1",
+        "output_contract": "xingcheng-revoke-automatic-repair-confirmation-result-v1",
+        "permission_action": "revoke:automatic-repair-confirmation",
+        "idempotency_policy": "idempotent-by-confirmation-id",
+        "timeout_policy": "interactive-decision",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "command_code": "XINGCHENG_REVOKE_AUTOMATIC_UPDATE_CONFIRMATION",
+        "canonical_command_id": "xingcheng-revoke-automatic-update-confirmation",
+        "canonical_name": "xingcheng-revoke-automatic-update-confirmation",
+        "owner": "permission-sovereign",
+        "domain": "xingcheng-auxiliary",
+        "action": "revoke-user-confirmation",
+        "target": "automatic-update-confirmation",
+        "input_contract": "xingcheng-revoke-automatic-update-confirmation-request-v1",
+        "output_contract": "xingcheng-revoke-automatic-update-confirmation-result-v1",
+        "permission_action": "revoke:automatic-update-confirmation",
+        "idempotency_policy": "idempotent-by-confirmation-id",
+        "timeout_policy": "interactive-decision",
         "introduced_version": "1.00000",
         "retired_version": null
       }
@@ -13376,12 +13599,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A391",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A392",
         "effective_version": "1.00000",
         "status": "active"
@@ -13406,7 +13623,19 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A396",
+        "provision_id": "A397",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A398",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A399",
         "effective_version": "1.00000",
         "status": "active"
       }
@@ -25007,6 +25236,27 @@
         "provision_id": "A396",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A397",
+        "provision_type": "article",
+        "provision_id": "A397",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A398",
+        "provision_type": "article",
+        "provision_id": "A398",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A399",
+        "provision_type": "article",
+        "provision_id": "A399",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -29488,7 +29738,7 @@
         "provision_id": "A394",
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
-        "authority_basis": "A182|A274|A387|A388|A389|A391|A395"
+        "authority_basis": "A182|A274|A387|A388|A389|A391"
       },
       {
         "provision_type": "article",
@@ -29503,6 +29753,27 @@
         "tier": "special-law",
         "law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
         "authority_basis": "A247|A258|A261|A314|A366|A380|A394"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A397",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A46|A200|A243|A274|A390|A394"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A398",
+        "tier": "special-law",
+        "law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "authority_basis": "A247|A258|A261|A314|A366|A380|A394|A395|A397"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A399",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A182|A366|A380|A394|A395|A397"
       }
     ],
     "provision_lifecycle_status": [
@@ -34493,10 +34764,10 @@
       {
         "provision_type": "article",
         "provision_id": "A391",
-        "lifecycle_state": "active",
+        "lifecycle_state": "superseded",
         "effective_version": "1.00000",
-        "successor_identity": null,
-        "evidence": "H088+explicit-user-command"
+        "successor_identity": "ARTICLE_A397",
+        "evidence": "H091+explicit-successor"
       },
       {
         "provision_type": "article",
@@ -34533,10 +34804,34 @@
       {
         "provision_type": "article",
         "provision_id": "A396",
+        "lifecycle_state": "superseded",
+        "effective_version": "1.00000",
+        "successor_identity": "ARTICLE_A398",
+        "evidence": "H091+explicit-successor"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A397",
         "lifecycle_state": "active",
         "effective_version": "1.00000",
         "successor_identity": null,
-        "evidence": "H090+explicit-user-command"
+        "evidence": "H091+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A398",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H091+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A399",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H091+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -39633,7 +39928,7 @@
         "provision_id": "A391",
         "introduced_by": "H088",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "808889cddd0d3c7888745dd45a6f2dc99f8b52780cbf127e4adaec6a0c6ece75"
       },
       {
@@ -39673,8 +39968,32 @@
         "provision_id": "A396",
         "introduced_by": "H090",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "13b794aa66088cf1084004ece684f1832d81bed93ee9be311e76f7b14f7e1766"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A397",
+        "introduced_by": "H091",
+        "supersedes_id": "A391",
+        "status": "active",
+        "content_hash": "2a972cde7dd8c8a9a0bc1e88875fa306301878f1b01c7f7c7dba13b2a17f7368"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A398",
+        "introduced_by": "H091",
+        "supersedes_id": "A396",
+        "status": "active",
+        "content_hash": "19116040aefe0d87b4546f0a440962f6893741d7aeab73906f82964335ddfaf5"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A399",
+        "introduced_by": "H091",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "e05a00c877d9743a8044c5412d0049fd7e5b6ce3861112b0f8bf4e4f2385d8ac"
       }
     ],
     "provision_revisions": [
@@ -50846,6 +51165,33 @@
         "content_hash": "13b794aa66088cf1084004ece684f1832d81bed93ee9be311e76f7b14f7e1766",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A397",
+        "revision_id": "H091",
+        "version": "1.00000",
+        "content_hash": "2a972cde7dd8c8a9a0bc1e88875fa306301878f1b01c7f7c7dba13b2a17f7368",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A398",
+        "revision_id": "H091",
+        "version": "1.00000",
+        "content_hash": "19116040aefe0d87b4546f0a440962f6893741d7aeab73906f82964335ddfaf5",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A399",
+        "revision_id": "H091",
+        "version": "1.00000",
+        "content_hash": "e05a00c877d9743a8044c5412d0049fd7e5b6ce3861112b0f8bf4e4f2385d8ac",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -56168,6 +56514,36 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A397",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A398",
+        "controlling_law_code": "CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A399",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -56180,7 +56556,10 @@
         "summary": "complete one-time reconstitution: prior version history removed and current effective codex overwritten as new 1.00000 genesis",
         "previous_hash": "GENESIS",
         "entry_hash": "f292f44ac85d961bc739e749ca14635fbeb1ae289bcca7939ae39bda543467d6",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 2,
@@ -56191,7 +56570,10 @@
         "summary": "project code constrained to E:\\GPTBridge and all managed environment dependencies constrained to E:\\AI",
         "previous_hash": "f292f44ac85d961bc739e749ca14635fbeb1ae289bcca7939ae39bda543467d6",
         "entry_hash": "06ff7129192b6045ffb1d622af3f3b6d462b53de31e8f384424b5dd50655899e",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 3,
@@ -56202,7 +56584,10 @@
         "summary": "six-language responsibilities standardized across Python C++ C ABI TypeScript Python API CSharp SQL and automatic governance checks",
         "previous_hash": "06ff7129192b6045ffb1d622af3f3b6d462b53de31e8f384424b5dd50655899e",
         "entry_hash": "69cdb02f3057fc344314ad248aac1e99b99de29a584cc433d093a38fcb0a4325",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 4,
@@ -56213,7 +56598,10 @@
         "summary": "six-language primary roles fixed and native performance mainline standardized as Python through C or pybind11 to C++",
         "previous_hash": "69cdb02f3057fc344314ad248aac1e99b99de29a584cc433d093a38fcb0a4325",
         "entry_hash": "f3e0a14a41419d1a48c4a98b05c95526d01615cb6d8c4ca8e289ae93705d5276",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 5,
@@ -56224,7 +56612,10 @@
         "summary": "C++ performance core decomposed into six single-responsibility domains with fixed acyclic dependencies",
         "previous_hash": "f3e0a14a41419d1a48c4a98b05c95526d01615cb6d8c4ca8e289ae93705d5276",
         "entry_hash": "34d6739b46a7864722c4137ebfd9722dcbb010a40ff35f2433738a05a2fa1ca6",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 6,
@@ -56235,7 +56626,10 @@
         "summary": "six-language source extension map made exact exclusive and canonical",
         "previous_hash": "34d6739b46a7864722c4137ebfd9722dcbb010a40ff35f2433738a05a2fa1ca6",
         "entry_hash": "d12990356d8acf5a86389b74a2512a02006810609620192dd3aa094a7e9b2b23",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 7,
@@ -56246,7 +56640,10 @@
         "summary": "SQL-first bounded data reduction and Python semantic business processing boundary declared",
         "previous_hash": "d12990356d8acf5a86389b74a2512a02006810609620192dd3aa094a7e9b2b23",
         "entry_hash": "c0081baf6090fa7c407051eb116d25ecc197603063416d80ac8247ed7a943d37",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 8,
@@ -56257,7 +56654,10 @@
         "summary": "Python native interface to CSharp to Windows and .NET boundary fixed",
         "previous_hash": "c0081baf6090fa7c407051eb116d25ecc197603063416d80ac8247ed7a943d37",
         "entry_hash": "f5ae919ad4b03970c5a8e96496b02a2d8a831778669433617660434f570b5783",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 9,
@@ -56268,7 +56668,10 @@
         "summary": "Python API branches ordinary work to Python and proven high-load work through pybind11 to C++",
         "previous_hash": "f5ae919ad4b03970c5a8e96496b02a2d8a831778669433617660434f570b5783",
         "entry_hash": "d30fc36f86040bfa831f4d7473753f09e49d31bda32306a7316bb1c535426c9e",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 10,
@@ -56279,7 +56682,10 @@
         "summary": "C++ unavailability now deterministically falls back through the Python API to the Python implementation",
         "previous_hash": "d30fc36f86040bfa831f4d7473753f09e49d31bda32306a7316bb1c535426c9e",
         "entry_hash": "db0174fe4cbfb48ff2c2eccbf0010f99579c638ba410e5249abcb7cd3215d28b",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 11,
@@ -56290,7 +56696,10 @@
         "summary": "C fixed as interface only and C++ fixed as implementation only",
         "previous_hash": "db0174fe4cbfb48ff2c2eccbf0010f99579c638ba410e5249abcb7cd3215d28b",
         "entry_hash": "023eba9f3452a3929580f4ebe5b3d57f4ca556447366832477c70763afc0ce96",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 12,
@@ -56301,7 +56710,10 @@
         "summary": "current language roles runtime routes fallback rules and native physical tree consolidated without version change",
         "previous_hash": "023eba9f3452a3929580f4ebe5b3d57f4ca556447366832477c70763afc0ce96",
         "entry_hash": "32589177ecd374fd5b3ca12d660cec3a4de7765d437c74118b1d5b97d2838546",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-10T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 13,
@@ -56312,7 +56724,10 @@
         "summary": "consolidated canonical directories under permission-sovereign and established directory special law",
         "previous_hash": "32589177ecd374fd5b3ca12d660cec3a4de7765d437c74118b1d5b97d2838546",
         "entry_hash": "a384f73504a087fec33346b48db48509322dfade9e9930e5dd1a3632a723d2f7",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-11T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 14,
@@ -56323,7 +56738,10 @@
         "summary": "consolidated three-tier law model and closed directory-law completeness relationship architecture audit version and seal requirements",
         "previous_hash": "a384f73504a087fec33346b48db48509322dfade9e9930e5dd1a3632a723d2f7",
         "entry_hash": "1ee665c4ca0b5e99a36d4d2ea5ef50630445edd90eec5bd3514083ad06146ddf",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-11T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 15,
@@ -56334,7 +56752,10 @@
         "summary": "registered the complete governed directory domain set and implementation-state gates",
         "previous_hash": "1ee665c4ca0b5e99a36d4d2ea5ef50630445edd90eec5bd3514083ad06146ddf",
         "entry_hash": "cf067813db58948184f80794a2a86b45cf616c76e7c7044a7d8ae59575e19b4e",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-11T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 16,
@@ -56345,7 +56766,10 @@
         "summary": "made Chinese codex reference and mirroring default-denied with Xingcheng as sole confidential non-disclosing exception",
         "previous_hash": "cf067813db58948184f80794a2a86b45cf616c76e7c7044a7d8ae59575e19b4e",
         "entry_hash": "70a84206018c0d6545f4a968f88197c0552a309ddde65a65afafa53cb3239d7c",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-11T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 17,
@@ -56356,7 +56780,10 @@
         "summary": "established thirteen domain special laws under the three-tier codex structure",
         "previous_hash": "70a84206018c0d6545f4a968f88197c0552a309ddde65a65afafa53cb3239d7c",
         "entry_hash": "7de9848b77b41b5c11426e062d73324d33ca26da7b6978288e8deec108f49a91",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-11T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 18,
@@ -56367,7 +56794,10 @@
         "summary": "added privacy cryptography disaster recovery and test special laws plus consolidation conflict normalization and confidentiality closure",
         "previous_hash": "7de9848b77b41b5c11426e062d73324d33ca26da7b6978288e8deec108f49a91",
         "entry_hash": "6f3103973f23d4a4f91285a7b28922f704e7b779bb37732db8190dc096be4734",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-11T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 19,
@@ -56378,7 +56808,10 @@
         "summary": "defined special-law lifecycle directory activation domain proposal boundaries and external closure gates",
         "previous_hash": "6f3103973f23d4a4f91285a7b28922f704e7b779bb37732db8190dc096be4734",
         "entry_hash": "851c6cae52c55c9963d0cc0aef339a7bc8469bbebdb8614b4557c418940a24ea",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-11T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 20,
@@ -56389,7 +56822,10 @@
         "summary": "registered emitted fault codes across all governed modules and closed A223 directory coverage gap",
         "previous_hash": "851c6cae52c55c9963d0cc0aef339a7bc8469bbebdb8614b4557c418940a24ea",
         "entry_hash": "581b1a8ef074dde606d8703534343e9397b1d74213bb479418937793b58faf7b",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-11T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 21,
@@ -56400,7 +56836,10 @@
         "summary": "strengthened channel continuity and eliminated heartbeat session replay outbox backpressure event-loop and supervision disconnect causes",
         "previous_hash": "581b1a8ef074dde606d8703534343e9397b1d74213bb479418937793b58faf7b",
         "entry_hash": "a2b25c57774224ffeaf23289e3a4d254435143455c44675ffba7e18c821db637",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 22,
@@ -56411,7 +56850,10 @@
         "summary": "made complete startup a single ten-second deadline and isolated active runtime from all backend code changes",
         "previous_hash": "a2b25c57774224ffeaf23289e3a4d254435143455c44675ffba7e18c821db637",
         "entry_hash": "cc8e07f8dc62c8be85fea881cdb391d994bbf22baf1cec71bc8af4ba0910fdbf",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 23,
@@ -56422,7 +56864,10 @@
         "summary": "required automatic reconnect while absolutely prohibiting automatic repair from overwriting or mutating program code",
         "previous_hash": "cc8e07f8dc62c8be85fea881cdb391d994bbf22baf1cec71bc8af4ba0910fdbf",
         "entry_hash": "88dd8176ec55f64abf0aa78280fe0bacfc797f30a3ab8792d24308278358911b",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 24,
@@ -56433,7 +56878,10 @@
         "summary": "integrated the entire codex around minimal evidence-bounded automatic repair and prohibited overwrite reset replacement methods",
         "previous_hash": "88dd8176ec55f64abf0aa78280fe0bacfc797f30a3ab8792d24308278358911b",
         "entry_hash": "3b3d80638a5530842d5c337f48afc543e0812bc4e913437d4e067f1225469d6e",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 25,
@@ -56444,7 +56892,10 @@
         "summary": "authorized Xingcheng confidential read-only review of every permission-sovereign-managed directory without operational power",
         "previous_hash": "3b3d80638a5530842d5c337f48afc543e0812bc4e913437d4e067f1225469d6e",
         "entry_hash": "cf6bdb691669979d5adcfba00b78ad9539af980c487f288aa2f2c31ee8c793fa",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 26,
@@ -56455,7 +56906,10 @@
         "summary": "consolidated automatic-repair update-reload channel programming-language startup-control and independent-tool special laws",
         "previous_hash": "cf6bdb691669979d5adcfba00b78ad9539af980c487f288aa2f2c31ee8c793fa",
         "entry_hash": "d430c37414db843df36dc1c5416807e8e4d5b98e41119396ca1cd48fba5a4187",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 27,
@@ -56466,7 +56920,10 @@
         "summary": "established identity-group membership authority separation lifecycle and Xingcheng confidential review special law",
         "previous_hash": "d430c37414db843df36dc1c5416807e8e4d5b98e41119396ca1cd48fba5a4187",
         "entry_hash": "60402fde6f4b1b04494e276948b5e3d770b941fecc2b8252e2d59d91d7026308",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 28,
@@ -56477,7 +56934,10 @@
         "summary": "added typed codename reference ordinance so environment variables and callers use directory aliases instead of physical hardcoding",
         "previous_hash": "60402fde6f4b1b04494e276948b5e3d770b941fecc2b8252e2d59d91d7026308",
         "entry_hash": "4263334eca56efa0a9cc1741ef5e512f48858f5ac1e3a4072dd90b4a41b6eb16",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 29,
@@ -56488,7 +56948,10 @@
         "summary": "made canonical fault-code references global across all individuals layers languages environment variables logs tests and repair paths",
         "previous_hash": "4263334eca56efa0a9cc1741ef5e512f48858f5ac1e3a4072dd90b4a41b6eb16",
         "entry_hash": "8a0a6a3c279159605d4e1e6c34823964121ff3aa2e5f85c9bc27078ff97e15b7",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 30,
@@ -56499,7 +56962,10 @@
         "summary": "closed manual coverage duplicate special-law relationship identity-group and independent-tool isolation directory gaps while retaining external gates",
         "previous_hash": "8a0a6a3c279159605d4e1e6c34823964121ff3aa2e5f85c9bc27078ff97e15b7",
         "entry_hash": "91c91fe343ddd2cac602c2bba1fa4b47c4b5295309d4e4ca6250e3f0aaa90250",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 31,
@@ -56510,7 +56976,10 @@
         "summary": "closed directory coverage fault/manual test traceability and special-law conflict precedence gaps",
         "previous_hash": "91c91fe343ddd2cac602c2bba1fa4b47c4b5295309d4e4ca6250e3f0aaa90250",
         "entry_hash": "eb67cf3fc111034cd733def398ec95a8c12823a0c1e75aff0abeb62eebfbbdbc",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 32,
@@ -56521,7 +56990,10 @@
         "summary": "closed exact fault manual test traceability and added mandatory activation evidence gates",
         "previous_hash": "eb67cf3fc111034cd733def398ec95a8c12823a0c1e75aff0abeb62eebfbbdbc",
         "entry_hash": "c6372c7b99d1d5d2e45275f135cd84c59459ee0b4e911606a46ace272412d1cc",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 33,
@@ -56532,7 +57004,10 @@
         "summary": "completed exact global fault command manual and test registry traceability",
         "previous_hash": "c6372c7b99d1d5d2e45275f135cd84c59459ee0b4e911606a46ace272412d1cc",
         "entry_hash": "7e43548a00959eeea620e2754e89d235db6318db6d6eb9c98b303ffed22b6db3",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 34,
@@ -56543,7 +57018,10 @@
         "summary": "completed all command contracts and active sovereign effective-provision records",
         "previous_hash": "7e43548a00959eeea620e2754e89d235db6318db6d6eb9c98b303ffed22b6db3",
         "entry_hash": "1fb2177f28b25999c8db72ba78762a87b252eecef8a09c3ee0c6274708c067de",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 35,
@@ -56554,7 +57032,10 @@
         "summary": "completed per-version seal timestamp trust-anchor and sealed-component evidence without falsifying historical times",
         "previous_hash": "1fb2177f28b25999c8db72ba78762a87b252eecef8a09c3ee0c6274708c067de",
         "entry_hash": "f6c32f27dbf66e4546a591d6b0c62d22ec4f5e15985922ae1e9aaa89f59fa556",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 36,
@@ -56565,7 +57046,10 @@
         "summary": "add APP_GET_FAULT_ANALYSIS and XINGCHENG_DIAGNOSE_FAULT",
         "previous_hash": "f6c32f27dbf66e4546a591d6b0c62d22ec4f5e15985922ae1e9aaa89f59fa556",
         "entry_hash": "26b191c409c57b223e0c9e76905b7f98111d71ac29a77bf29d3292543806d156",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-11T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 37,
@@ -56576,7 +57060,10 @@
         "summary": "added governed test management to maintenance-sovereign while preserving permission and domain-owner boundaries",
         "previous_hash": "26b191c409c57b223e0c9e76905b7f98111d71ac29a77bf29d3292543806d156",
         "entry_hash": "00a66d2e7c2067e8c32a4c9f2f533a8a7f0f0868ebbc53ade47d3d9c060f87f7",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 38,
@@ -56587,7 +57074,10 @@
         "summary": "classified main-system as the platform-core physical directory and model-dialogue as the local-model top-level directory",
         "previous_hash": "00a66d2e7c2067e8c32a4c9f2f533a8a7f0f0868ebbc53ade47d3d9c060f87f7",
         "entry_hash": "bad2ef1ebd18fb29ae54a80760c45e4849bce8e6048d1eb2d53504ed5ff6242e",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 39,
@@ -56598,7 +57088,10 @@
         "summary": "registered E:\\GPTBridge\\Standalone tools as the independent-tools top-level directory and fixed the main-system physical path as E:\\GPTBridge\\main-system",
         "previous_hash": "bad2ef1ebd18fb29ae54a80760c45e4849bce8e6048d1eb2d53504ed5ff6242e",
         "entry_hash": "a70d525b2ec541bb72a6b057fdb8e054ddcac6b6a3ecca408b4a35a78f41ca5a",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 40,
@@ -56609,7 +57102,10 @@
         "summary": "registered Governance Codex as the codex directory at E:\\GPTBridge\\governance_rule\\codex",
         "previous_hash": "a70d525b2ec541bb72a6b057fdb8e054ddcac6b6a3ecca408b4a35a78f41ca5a",
         "entry_hash": "868bc902322acffe2e46e3bb3f09d1692812bf031dbe2da43e9e501f6c4e7eb1",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 41,
@@ -56620,7 +57116,10 @@
         "summary": "integrated canonical top-level directories and required main-system components and independent tools to converge under their respective roots",
         "previous_hash": "868bc902322acffe2e46e3bb3f09d1692812bf031dbe2da43e9e501f6c4e7eb1",
         "entry_hash": "37a281f746f2eb54953dd03f7394a669183d53ec6989ad8224e1649747c45492",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 42,
@@ -56631,7 +57130,10 @@
         "summary": "classified E:\\GPTBridge as the Git top-level directory and prohibited active Git roots outside it",
         "previous_hash": "37a281f746f2eb54953dd03f7394a669183d53ec6989ad8224e1649747c45492",
         "entry_hash": "5d6b0bf74c058f14842d5b0080da5ee2953ca0ec143f519ec991155fffd590f7",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 43,
@@ -56642,7 +57144,10 @@
         "summary": "classified launcher as startup-core top-level and required shared-layer to converge inside main-system",
         "previous_hash": "5d6b0bf74c058f14842d5b0080da5ee2953ca0ec143f519ec991155fffd590f7",
         "entry_hash": "662c691e4d235a591566eb58bdd03addfbd574fef2c9da898b49a9ebd43cd10b",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 44,
@@ -56653,7 +57158,10 @@
         "summary": "changed launcher canonical root to E:\\GPTBridge\\main-system\\launcher and retired external active-root authority",
         "previous_hash": "662c691e4d235a591566eb58bdd03addfbd574fef2c9da898b49a9ebd43cd10b",
         "entry_hash": "4f652bc5ac129b289410f07ce2bb3bc4e863b18188b3729d4432219920626734",
-        "version_epoch": 1
+        "version_epoch": 1,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 45,
@@ -56664,7 +57172,10 @@
         "summary": "completed epoch-qualified evidence startup supersession UI shutdown tier routing obligation deadlines architecture states seal canonicalization test-suite mapping and effective lifecycle closure; added anti-jailbreak, unified reliability, Xingcheng audit strengthening and noninterrupting channel anomaly isolation laws; top-level sovereigns restricted to decision authority, sub-sovereigns restricted to module assignment and coordination, execution lowered to modules, Governance Authority renamed Codex, System Decision Sovereign renamed Decision Sovereign, System Runtime Sovereign renamed Runtime Sovereign, Synchronization Sovereign added, Maintenance and Data Sovereigns demoted under Decision Sovereign, Startup Sovereign demoted under Runtime Sovereign; Resource, Integration, Third-Party, System Programming and Learning System Sovereigns demoted under Synchronization Sovereign; Language Review Sovereign demoted under Permission Sovereign; Xingcheng renamed 星澄 and elevated to independent privileged institution; Permission review authority transferred entirely to 星澄; automatic cleanup backup repair and update converged under Synchronization Sovereign; all otherwise unspecified sub-sovereigns reassigned by exact single-parent map; Directory and Identity Group Sub-Sovereigns added under Permission Sovereign; exclusive primary-effect boundaries established for Decision, Runtime and Synchronization Sovereigns; Permission Sovereign and 星澄 established as separate independent privileged institutions; sub-sovereign canonical domain areas preserved for runtime compatibility without restoring decision or execution power; Governance Authority canonical identity fully renamed to Codex with former identity historical-only; 星澄 canonical identity fully renamed and all active romanized references retired; synchronization sovereign duties integrated and children split by exclusive convergence domains including automatic logging; decision sovereign children reallocated by exclusive decision-support domains; every sub-sovereign capped at three duties with single-duty preference; all modules reassigned by dominant capability; information layer split between Permission Sovereign permission authority and Synchronization Sovereign channel operation and maintenance with Decision and Runtime Sovereign nonintervention; 星澄 machine-safe directory aliases corrected; machine compatibility selectors separated from canonical names, resource/dependency synchronization split into single-duty children, and 星澄 granted unrestricted confidential read-only entry and exit; Synchronization Sovereign granted narrowly scoped backend-update synchronization execution privilege; Synchronization Sovereign executes certified update sets and global affected-graph convergence; synchronization update gaps closed for singleton fencing, durable idempotent recovery, immutable inventory, deferred targets, compatible schema migration and explicit terminal states; full-Codex integrity and gap-closure requirements established; invalid Unicode machine law-code drift repaired; active-effective lifecycle equality restored; A329 superseded by A330; Codex Runtime Synchronization and 星澄 authority contradictions closed; supersession lifecycle closure completed; Codex architecture identity owner assignments verification ownership and sovereign alias resolution corrected; all retained legacy sovereign references made non-operative and deterministically resolved to current bounded identities; physical architecture parent containment target-root equality and legacy-root cleanup gaps closed; machine-readable sovereign hierarchy and module assignment registries added; 星澄 succession target repaired; human signature boundary made explicit; exact per-module execution identities enforced and one governed test suite registered for every assigned module; activation registry mirror identity path review-owner and legacy-root state regressions repaired; supplemented ten governed directory classes for sovereign hierarchy, module assignment, update synchronization transactions, channel session route state, runtime instance generations, repair provenance, legacy-root retirement, user-command signatures, dependency compatibility and confidential ?? audit, each with a unified content-adaptive format and zero-gap activation gate; corrected shared-layer legacy-root retirement state to remain pending until target acceptance and verified removal; codified stable Backend Gateway with isolated A/B generations, standby validation, atomic new-session handover, bounded generation-fenced drain, failed-candidate isolation and repeatable alternating-slot updates",
         "previous_hash": "4f652bc5ac129b289410f07ce2bb3bc4e863b18188b3729d4432219920626734",
         "entry_hash": "9aee8844af778dfeb24c51c995a483d152b20c50044313519d2f39aac417bd21",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-12T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 46,
@@ -56675,7 +57186,10 @@
         "summary": "Internal-consistency repair for retained legacy sovereign references with all required active-owner retention: 65 provisions previously named retired sovereign identities as active domain owners. Each retired identity now resolves to its current bounded successor per the supersession registry and the complete parent reallocation; domain-decision authority was assigned to the current accountable decision parent and module management to the successor sub-sovereign, so no active sub-sovereign claims decision or execution power. Retirement records, superseded lists and legacy-only guards remain marked historical. Seal roots recomputed under SEAL_CANONICAL_V1 canonicalization as documented in the sealed schema: content root is the canonical object of sections, principles, articles, edicts, preamble and savings tables; identity root is the canonical object of the provision identities table; full root is the canonical object of the ten declared seal components (certification-policy|history|identities|lineage|metadata|provisions|schema|sovereigns|supersessions|version-rules). Note: the regenerated lineage's pre-repair seal roots (content f66eac9c..., identity 30cf61..., full 01902b...) were not reproducible under the documented canonicalization; H046 recomputes all roots canonically, restoring full verifiability. Provision content hashes recomputed as canonical row objects; revision entry appended under H046 with the existing epoch-qualified version identity E2:1.00000 unchanged.",
         "previous_hash": "9aee8844af778dfeb24c51c995a483d152b20c50044313519d2f39aac417bd21",
         "entry_hash": "85dfb55cc8ad7f9116c35943449c8795b96c1f49384bb23e6f8a7965f891ef9f",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 47,
@@ -56686,7 +57200,10 @@
         "summary": "Closed the STAR_DIRECTORY activation record from verified filesystem and manifest evidence; consolidated Codex supremacy, normalized SQLite declaration-only status, permission/domain directory boundaries, pending-directory release blocking, eight mandated implementation obligations and deadline, Epoch 2 human offline signature boundary, external signature and Chinese confidentiality open gates, immutable successor lineage and total Codex RAG/index exclusion. Version remains E2:1.00000.",
         "previous_hash": "85dfb55cc8ad7f9116c35943449c8795b96c1f49384bb23e6f8a7965f891ef9f",
         "entry_hash": "109947a583f4e50c75751539dc775e9fc7b87a632b805de17df046de61504c22",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 48,
@@ -56697,7 +57214,10 @@
         "summary": "Abolished the programming and programming-language-review sub-sovereign roles; transferred programming-language review, code authoring and their former duties to 星澄 as exclusive native-model capabilities; assigned automatic classification to the 星澄 auxiliary system together with its native model; centralized the whole-system automation coordination executor in 星澄 while preserving permission, channel, domain-decision, module execution, evidence, isolation and explicit-user-command boundaries. Version remains E2:1.00000.",
         "previous_hash": "109947a583f4e50c75751539dc775e9fc7b87a632b805de17df046de61504c22",
         "entry_hash": "293098bcb6be599c31506e7a305094f1a9ce419b5768544d1e59d4e29c260e7e",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 49,
@@ -56708,7 +57228,10 @@
         "summary": "Repaired Codex-wide lineage, lifecycle, effective-state and supersession referential integrity; removed residual duties and operative references of abolished programming and language-review sub-sovereigns; vested all-system automatic operation, classification, programming, language review and exclusive coordination execution in the separated 星澄 auxiliary-system and native-model boundaries; enabled bounded multi-task parallel execution with isolation, joins and deterministic convergence. Version remains E2:1.00000.",
         "previous_hash": "293098bcb6be599c31506e7a305094f1a9ce419b5768544d1e59d4e29c260e7e",
         "entry_hash": "6dce2fecd7e43f3b07c5752d4b47df7d22cbdb3f607213e03e087afd297d5507",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 50,
@@ -56719,7 +57242,10 @@
         "summary": "Closed remaining operative programming-owner references after abolition: 星澄 native model is the sole programming and language-review capability, and the 星澄 coordinator is the sole governed automation dispatcher; historical transition clauses remain explicitly historical only. Preserved bounded parallel and multi-core operation, permission separation, synchronization channel ownership and module execution. Version remains E2:1.00000.",
         "previous_hash": "6dce2fecd7e43f3b07c5752d4b47df7d22cbdb3f607213e03e087afd297d5507",
         "entry_hash": "689cf264bb37baf82a8a8a6a060e5bbb4c62c472204bb9edb954ca9481bbba62",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 51,
@@ -56730,7 +57256,10 @@
         "summary": "Corrected language statistics so every .cpp file, including GPTBridgeLauncher.cpp, is classified exclusively as C++; established PowerShell as an explicitly identified governed startup/build/install script exception rather than a seventh application language, with registration, containment, evidence and migration requirements. Version remains E2:1.00000.",
         "previous_hash": "689cf264bb37baf82a8a8a6a060e5bbb4c62c472204bb9edb954ca9481bbba62",
         "entry_hash": "5a40b04faa33b834fb3eee2633a9fa8ddb91769413dd57b8b6b885daafd118e1",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 52,
@@ -56741,7 +57270,10 @@
         "summary": "Established the exclusive seven-capability language ownership and caller matrix; fixed Python internal architecture to application/domain/infrastructure with one-way dependency, ports/adapters, composition-root and migration gates. Preserved the canonical pybind11>C API>C thunk>C++ path and prohibited duplicate orchestration, high-performance and business-semantic owners. Version remains E2:1.00000.",
         "previous_hash": "5a40b04faa33b834fb3eee2633a9fa8ddb91769413dd57b8b6b885daafd118e1",
         "entry_hash": "08527b626094b3d3e1e896bdca06a2fc031cbafe7471795dfaa46eb320aabb75",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 53,
@@ -56752,7 +57284,10 @@
         "summary": "Made correctness-first Python-first measured native promotion mandatory; added a normalized Native Promotion Record directory, checker/release hard gate, rollback/fallback and API parity evidence, and a mandated implementation obligation. Version remains E2:1.00000.",
         "previous_hash": "08527b626094b3d3e1e896bdca06a2fc031cbafe7471795dfaa46eb320aabb75",
         "entry_hash": "78ee088c51c69cdeca0eff4f0c143032eefa38e798b0de489593666dc0c66504",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 54,
@@ -56763,7 +57298,10 @@
         "summary": "Separated pybind11 binding-adapter duty from the sole C ABI native-contract duty; fixed Python and CSharp/other native consumers on one gptbridge_native.h contract and prohibited independent pybind11 API evolution. A344 supersedes A339. Version remains E2:1.00000.",
         "previous_hash": "78ee088c51c69cdeca0eff4f0c143032eefa38e798b0de489593666dc0c66504",
         "entry_hash": "70ef5d581b807019bdb9a808c7b844fc4b2a4b1ed453df0133077728fce9c23b",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 55,
@@ -56774,7 +57312,10 @@
         "summary": "Preserved the current five-function leak-free C ABI as the minimal baseline and established a deferred, evidence-triggered capability-table evolution pattern to prevent unbounded public function growth without imposing premature abstraction. Version remains E2:1.00000.",
         "previous_hash": "70ef5d581b807019bdb9a808c7b844fc4b2a4b1ed453df0133077728fce9c23b",
         "entry_hash": "4bc7d2813207ef960635cddf24d1c3536be18fdfe7bcbc95bed58c6e5690e276",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 56,
@@ -56785,7 +57326,10 @@
         "summary": "Replaced the A214 file-count/folder interpretation with six canonical C++ namespaces and a checker-enforced include/dependency DAG; explicitly allowed the current three-core-cpp physical implementation. Version remains E2:1.00000.",
         "previous_hash": "4bc7d2813207ef960635cddf24d1c3536be18fdfe7bcbc95bed58c6e5690e276",
         "entry_hash": "d214e89dfa0d062b74541de3393fd505f4229cb62d5d61537f9751b8bca48887",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 57,
@@ -56796,7 +57340,10 @@
         "summary": "Unified C++ style, CSharp and TypeScript directory boundaries, SQL query budgets, authored/generated/third-party provenance and the Language Boundary Gate; made LanguagePolicy.ts data-only and the checker evidence-only with no repair decision authority. Version remains E2:1.00000.",
         "previous_hash": "d214e89dfa0d062b74541de3393fd505f4229cb62d5d61537f9751b8bca48887",
         "entry_hash": "df898e28aba205dea0864788c09e4e0cbeeb8151afb93be52b518342ec9aa6cd",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 58,
@@ -56807,7 +57354,10 @@
         "summary": "Withdrew the premature PowerShell governed-script exception: existing PowerShell artifacts are unresolved governance conflicts and legacy infrastructure evidence, not a seventh language or checker-created exception, pending an explicit successor decision to migrate or legalize. A349 supersedes A338. Version remains E2:1.00000.",
         "previous_hash": "df898e28aba205dea0864788c09e4e0cbeeb8151afb93be52b518342ec9aa6cd",
         "entry_hash": "f775c62b7e702e637989725a26b64e4f8733b7b6a8a125d5ab53283314b60e57",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 59,
@@ -56818,7 +57368,10 @@
         "summary": "Fixed the canonical TypeScript-to-Python and Python-to-SQL/native/CSharp language topology while preserving one C ABI native contract: pybind11 is a Python adapter into C ABI, never a parallel native API. Version remains E2:1.00000.",
         "previous_hash": "f775c62b7e702e637989725a26b64e4f8733b7b6a8a125d5ab53283314b60e57",
         "entry_hash": "9b31d2bcf2b432ee9b2eb7306711dff94055974dacf5fa195ecef636d36c57f2",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 60,
@@ -56829,7 +57382,10 @@
         "summary": "Added the exact cross-language allowed-use and direct-prohibition matrix for TypeScript, Python, C, C++, CSharp and SQL, aligned with the canonical A350 topology. Version remains E2:1.00000.",
         "previous_hash": "9b31d2bcf2b432ee9b2eb7306711dff94055974dacf5fa195ecef636d36c57f2",
         "entry_hash": "7201470194da2ec7cd1a26c7b2b2915248d82c8cf6bc6b013fe951c10b22f600",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 61,
@@ -56840,7 +57396,10 @@
         "summary": "Made the specified cross-language, filesystem, domain and C++ namespace dependency edges unconditional Language Boundary Gate failures. Version remains E2:1.00000.",
         "previous_hash": "7201470194da2ec7cd1a26c7b2b2915248d82c8cf6bc6b013fe951c10b22f600",
         "entry_hash": "8507a0cb6d178c75b8cc2240704cd123e64ac08ab2e6f9818cd8814303b0f41e",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 62,
@@ -56851,7 +57410,10 @@
         "summary": "Expanded Language Boundary Gate dependency evidence beyond import text to Python, TypeScript, C/C++, CSharp and build-system semantic references; API and IPC now require proof of routing through the A205 canonical information layer. Version remains E2:1.00000.",
         "previous_hash": "8507a0cb6d178c75b8cc2240704cd123e64ac08ab2e6f9818cd8814303b0f41e",
         "entry_hash": "a9b27998264314ff0464948294ceb4eef6d042760e62b04a0ea60df0e5c88555",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 63,
@@ -56862,7 +57424,10 @@
         "summary": "Defined the TypeScript governance checker code/checkers, code/policy and code/registry structure; made dependency policy data-only, mandated edge-specific diagnostics, readonly v1 behavior and complete positive/negative/cycle tests. Version remains E2:1.00000.",
         "previous_hash": "a9b27998264314ff0464948294ceb4eef6d042760e62b04a0ea60df0e5c88555",
         "entry_hash": "8efec7b1e679e4d4914a7bb326836b83a8305ef161d63c926f8b9ba2871c3f09",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 64,
@@ -56873,7 +57438,10 @@
         "summary": "Established Contract Parity Gate, the unique Capability Registry with owner/executor/adapter/fallback separation, Ownership Uniqueness Gate and the evidence-driven Native Promotion Gate; added data-only policies, read-only checkers and mandatory parity/ownership/promotion tests. Version remains E2:1.00000.",
         "previous_hash": "8efec7b1e679e4d4914a7bb326836b83a8305ef161d63c926f8b9ba2871c3f09",
         "entry_hash": "f7e2c6e83118a00dac8ab9f6cded8e84b9f2afdb3b65821b63772e5de9eb3fd9",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 65,
@@ -56884,7 +57452,10 @@
         "summary": "Established Build ABI Repro Gate with approved toolchains, canonical build policy, ABI/export baselines, complete artifact manifests, semantic reproducibility V1 and strict Debug/Release isolation. Version remains E2:1.00000.",
         "previous_hash": "f7e2c6e83118a00dac8ab9f6cded8e84b9f2afdb3b65821b63772e5de9eb3fd9",
         "entry_hash": "808cb57f995b0cfb6db042c19b28369c713e36fd47b5149ca6d61a92425be563",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 66,
@@ -56895,7 +57466,10 @@
         "summary": "Established the evidence-aggregating Release Compatibility Gate with compatibility matrix, change classification, old/new consumer tests, SQL migration and N-1 upgrade paths, native/fallback dual-mode testing and release language manifest. Version remains E2:1.00000.",
         "previous_hash": "808cb57f995b0cfb6db042c19b28369c713e36fd47b5149ca6d61a92425be563",
         "entry_hash": "4144adf37e4cbe621258ca48fcd1185ebfa289fd2a2331005c2fe3526ed7d5ce",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 67,
@@ -56906,7 +57480,10 @@
         "summary": "Established the change-aware Language Governance Final Gate with four exclusive decisions, criticality, revision-bound evidence requirements, stale-evidence rejection, immutable decision records and separately governed non-bypass waivers. Version remains E2:1.00000.",
         "previous_hash": "4144adf37e4cbe621258ca48fcd1185ebfa289fd2a2331005c2fe3526ed7d5ce",
         "entry_hash": "f5a225ce2a54cee16d6e1aed0beabfb475658533f8a56c73a1afc3a664550e27",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 68,
@@ -56917,7 +57494,10 @@
         "summary": "Established one-scan one-parse Unified Source Index, normalized Governance IR, shared Language Graph, incremental affected-scope planning and one GateEvidence schema for every language gate while preserving Codex as sole authority. Version remains E2:1.00000.",
         "previous_hash": "f5a225ce2a54cee16d6e1aed0beabfb475658533f8a56c73a1afc3a664550e27",
         "entry_hash": "ed1c2011bda95261a22fa0f12b367aab6c66fe232c718d5b1da1b8283ef3bb5f",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 69,
@@ -56928,7 +57508,10 @@
         "summary": "Established full-scan baselines, incremental/full golden-result parity, transitive invalidation, cache-poisoning recovery, and FAST/PRECOMMIT/FULL governance performance modes. Version remains E2:1.00000.",
         "previous_hash": "ed1c2011bda95261a22fa0f12b367aab6c66fe232c718d5b1da1b8283ef3bb5f",
         "entry_hash": "f76e4cf8ce77120522e980b50a00fe13f1326618b2179c3c8311efe6dfb9b9a9",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 70,
@@ -56939,7 +57522,10 @@
         "summary": "Versioned and froze the Language Governance Schema v1 contract, public governance API, Governance IR v1, regression corpus, golden decisions, deprecation lifecycle, and stable/experimental promotion boundary without freezing product development. Codex version remains E2:1.00000.",
         "previous_hash": "f76e4cf8ce77120522e980b50a00fe13f1326618b2179c3c8311efe6dfb9b9a9",
         "entry_hash": "1bbbccb28a49e061da7844964801d4bf5872b3b1a9491bfe811806ce7c93ba94",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 71,
@@ -56950,7 +57536,10 @@
         "summary": "Formalized prioritized PostgreSQL-SQLite reconciliation, global resource identity/version contracts, selective central indexes, durable transport leases, append-only audit chains, rebuildable Qdrant, SQLite fleet governance, and tiered disaster recovery. Version remains E2:1.00000.",
         "previous_hash": "1bbbccb28a49e061da7844964801d4bf5872b3b1a9491bfe811806ce7c93ba94",
         "entry_hash": "d0ac34658b93c20b97dcfdfe82f05295d246c6f090123e56e2dc7161678b5511",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 72,
@@ -56961,7 +57550,10 @@
         "summary": "Required Xingcheng auxiliary-system user-controlled switches and explicit confirmation for automatic repair/update execution, with single-fault and multi-fault classification and individually displayed fault decisions. Version remains E2:1.00000.",
         "previous_hash": "d0ac34658b93c20b97dcfdfe82f05295d246c6f090123e56e2dc7161678b5511",
         "entry_hash": "210925702f32fa713f13f4ede575c7e2f1686f3fe64a104eb35ecdb91cfd7c11",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 73,
@@ -56972,7 +57564,10 @@
         "summary": "Fixed the non-skippable data-governance dependency order: reconciliation, identity/version, indexes, transport, audit, Qdrant rebuild, SQLite governance, then backup/recovery. Version remains E2:1.00000.",
         "previous_hash": "210925702f32fa713f13f4ede575c7e2f1686f3fe64a104eb35ecdb91cfd7c11",
         "entry_hash": "59bc7a9654639817dcfd5ba4ec87faeca73f80ff1ff2e3156f046c7317b053a2",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 74,
@@ -56983,7 +57578,10 @@
         "summary": "Added database runtime isolation, safe-query, schema-drift, migration, health, locator/tombstone, Qdrant freshness, SQLite WAL, retention, and correlated cross-engine consistency controls. Version remains E2:1.00000.",
         "previous_hash": "59bc7a9654639817dcfd5ba4ec87faeca73f80ff1ff2e3156f046c7317b053a2",
         "entry_hash": "26b74fcd33c67b97f29a4d002a1d2cdfa2fc11e58d2c62ad5a040d9397aef929",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 75,
@@ -56994,7 +57592,10 @@
         "summary": "Unified PostgreSQL, SQLite fleet, Qdrant, migration, reconciliation, locator, RLS and index health; established automatic consistency checks, one recovery state machine, resource lifecycle, migration release pipeline and verified restore governance. Version remains E2:1.00000.",
         "previous_hash": "26b74fcd33c67b97f29a4d002a1d2cdfa2fc11e58d2c62ad5a040d9397aef929",
         "entry_hash": "bbd78df84fb48b732f0fbac72ed8b76122b3f7404784b34331b13bb98d9ceaf7",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 76,
@@ -57005,7 +57606,10 @@
         "summary": "Established three-engine self-observation, diagnosis and controlled optimization through index recommendations, capacity forecasts, data tiers, query budgets, transport backpressure, fault injection, recovery drills, integrity summaries, backend generations and non-authoritative scores. Version remains E2:1.00000.",
         "previous_hash": "bbd78df84fb48b732f0fbac72ed8b76122b3f7404784b34331b13bb98d9ceaf7",
         "entry_hash": "4dd7dd7757924e576ecd3e27c64b086b8dea04f17d4325e420aaf8d10a4955a6",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 77,
@@ -57016,7 +57620,10 @@
         "summary": "Mandated Qdrant plus PostgreSQL as the default canonical RAG execution path, source-based re-embedding reconciliation, four distinct governed RAG behaviors, and opaque shared-collection metadata. Version remains E2:1.00000.",
         "previous_hash": "4dd7dd7757924e576ecd3e27c64b086b8dea04f17d4325e420aaf8d10a4955a6",
         "entry_hash": "14d78265ee06bcd49369d413a1bcdbb5efad3bc2f4522da5149be8323d6d86e2",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 78,
@@ -57027,7 +57634,10 @@
         "summary": "Fixed the local RAG implementation order: Qdrant canonical runtime, PostgreSQL central metadata, degraded reconciliation, Code RAG, Agentic RAG, then Memory RAG. Version remains E2:1.00000.",
         "previous_hash": "14d78265ee06bcd49369d413a1bcdbb5efad3bc2f4522da5149be8323d6d86e2",
         "entry_hash": "af7798c23882dfd27402293c4c8b5edd95d5e0d171f8dc26f06f490cf2577ad4",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 79,
@@ -57038,7 +57648,10 @@
         "summary": "Strengthened canonical RAG takeover with PostgreSQL metadata authority, durable reconciliation queue, recoverable cross-store writes, tombstone anti-resurrection, index versions, dual authorization, observability, retrieval evaluation and specialized RAG budgets/lifecycles. Version remains E2:1.00000.",
         "previous_hash": "af7798c23882dfd27402293c4c8b5edd95d5e0d171f8dc26f06f490cf2577ad4",
         "entry_hash": "0af756a8a67e44c37f37955fbe9de935a6453a5b7fc2608ec4ae05cf256a9f1c",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 80,
@@ -57049,7 +57662,10 @@
         "summary": "Integrated RAG index/reconciliation topology, governed multi-AI Git delivery infrastructure, non-sovereign Codex classification, Xingcheng/model-dialogue separation, and information/shared-layer boundaries. Version remains E2:1.00000.",
         "previous_hash": "0af756a8a67e44c37f37955fbe9de935a6453a5b7fc2608ec4ae05cf256a9f1c",
         "entry_hash": "1bdb43506a1d84fed2bd671107f4b274cb1f76e879c59aee550c2138de51d26d",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 81,
@@ -57060,7 +57676,10 @@
         "summary": "Integrated the whole Codex through one precedence, authority, lifecycle, directory, evidence and release-coherence closure; normalized the current RAG order successor and active-sovereign roster. Version remains E2:1.00000.",
         "previous_hash": "1bdb43506a1d84fed2bd671107f4b274cb1f76e879c59aee550c2138de51d26d",
         "entry_hash": "8e793d147d3443dd78cbd5c311e3b3a23931d70b85c0eea8eaaf87a45487b075",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 82,
@@ -57071,7 +57690,10 @@
         "summary": "Established the consolidated Xingcheng Special Law governing identity, native model capability, independent review, controlled automation, auxiliary systems, confidentiality and strict separation from MODEL_DIALOGUE. Version remains E2:1.00000.",
         "previous_hash": "8e793d147d3443dd78cbd5c311e3b3a23931d70b85c0eea8eaaf87a45487b075",
         "entry_hash": "288fad6f5a9777f21baec67cbc01b9245c8ac7dd8fcbb95e49795cdc24824ed2",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 83,
@@ -57082,7 +57704,10 @@
         "summary": "Repaired Codex closure defects through a clean successor for corrupted A335, retired the abolished language-review sub-sovereign, backfilled unambiguous successor registrations, and reaffirmed user-owned manual release switches for repair/update. Version remains E2:1.00000.",
         "previous_hash": "288fad6f5a9777f21baec67cbc01b9245c8ac7dd8fcbb95e49795cdc24824ed2",
         "entry_hash": "cfeb92d92f98215329b54b2dab598dc2524d85fe29ec8f5f977695505c3f51b8",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 84,
@@ -57093,7 +57718,10 @@
         "summary": "Closed roster and lifecycle inconsistencies: retired the legacy sovereign-shaped Codex record, normalized Xingcheng as an own-domain sovereign, fixed the runtime sovereign identifier, aligned superseded lifecycle states, and defined scoped successor branching. Version remains E2:1.00000.",
         "previous_hash": "cfeb92d92f98215329b54b2dab598dc2524d85fe29ec8f5f977695505c3f51b8",
         "entry_hash": "888bbfd759afdc1bbfdb84b68d5cab4d295d712bdc7cc9b2618a2ff02ec5cb74",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 85,
@@ -57104,7 +57732,10 @@
         "summary": "Established a non-disruptive Codex amendment ordinance using isolated staging, complete validation, immutable succession, atomic generation publication and fail-safe retention of the prior active snapshot. Version remains E2:1.00000.",
         "previous_hash": "888bbfd759afdc1bbfdb84b68d5cab4d295d712bdc7cc9b2618a2ff02ec5cb74",
         "entry_hash": "0177000cbae776ad09624beb83f462666bfa71b438e581b32d658c788a530531",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 86,
@@ -57115,7 +57746,10 @@
         "summary": "Closed remaining provable Codex review gaps by separating test directory ownership from centralized test management, splitting top-institution and sub-sovereign rosters, and adding an immutable correction annotation for H045 while preserving genuine pending gates. Version remains E2:1.00000.",
         "previous_hash": "0177000cbae776ad09624beb83f462666bfa71b438e581b32d658c788a530531",
         "entry_hash": "9e251a72ee32e187b105617684ae0d5a6acbe912c808b08ac48cf388150566a5",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 87,
@@ -57126,7 +57760,10 @@
         "summary": "Removed brittle hard-coded closure counts from A384, made pending/test/signature/freeze status registry-derived, and preserved test-management, roster and historical-correction boundaries through immutable successor A385. Version remains E2:1.00000.",
         "previous_hash": "9e251a72ee32e187b105617684ae0d5a6acbe912c808b08ac48cf388150566a5",
         "entry_hash": "8f464d68a1a55d850d6c689ab080bdb1b036fa74c0aead30804f843b50f7f8ad",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 88,
@@ -57137,7 +57774,10 @@
         "summary": "Integrated governed environment bindings, timestamp-only hardcoding, and permission-sovereign ownership of formal audit validation while preserving Xingcheng independent inspection. Version remains E2:1.00000.",
         "previous_hash": "8f464d68a1a55d850d6c689ab080bdb1b036fa74c0aead30804f843b50f7f8ad",
         "entry_hash": "83768b8e615196170d8e19076b7a5aff31cc498d9c65eb251d7463e26164f750",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 89,
@@ -57148,7 +57788,10 @@
         "summary": "Expanded Xingcheng inspection beyond faults to Codex-versus-implementation compliance, required separate evidence-based classification, and standardized code/codename/detail displays for faults and compliance issues. Version remains E2:1.00000.",
         "previous_hash": "83768b8e615196170d8e19076b7a5aff31cc498d9c65eb251d7463e26164f750",
         "entry_hash": "90bbd0cd52ddd024e315fece97827a9aaec5fa516e8c497503b8061805078986",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
       },
       {
         "sequence": 90,
@@ -57159,7 +57802,24 @@
         "summary": "Separated timestamp and version-number governance into independent provisions, superseded the combined hardcoding rule, and registered user-switch plus approved automatic repair/update execution commands. Version remains E2:1.00000.",
         "previous_hash": "90bbd0cd52ddd024e315fece97827a9aaec5fa516e8c497503b8061805078986",
         "entry_hash": "13bf0516c004057fe2e723ad82aebe62010512efcd3552f85b4fae89ef2eded6",
-        "version_epoch": 2
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:legacy-date-only-preserved-no-occurrence-precision"
+      },
+      {
+        "sequence": 91,
+        "change_id": "H091",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "timestamp-version-closure-and-automatic-command-contracts",
+        "summary": "Corrected stale timestamp references through an immutable successor, separated timestamp and version interpretation, registered confirmation/revocation commands and contracts, clarified authority boundaries, and appended canonical migration timestamps. Version remains E2:1.00000.",
+        "previous_hash": "13bf0516c004057fe2e723ad82aebe62010512efcd3552f85b4fae89ef2eded6",
+        "entry_hash": "d37384e0315467deb50624f9122af1ae4c510df9f44631079626eb4699d6cdae",
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T00:00:00.000000Z",
+        "timestamp_status": "estimated",
+        "timestamp_migration_evidence": "H091:current-date-boundary-no-fabricated-event-time"
       }
     ],
     "savings": [
@@ -57716,14 +58376,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H090",
-        "provision_count": 642,
-        "identity_count": 642,
-        "lineage_count": 642,
+        "history_head": "H091",
+        "provision_count": 645,
+        "identity_count": 645,
+        "lineage_count": 645,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "22917a51fedbf41cc69b851764b3192f8662693189a48f0193720ddeb6406fd9",
-        "identity_root": "eb7eaa9a7e7612221da144859807cdeddceb2fd7223cc5acc9ff61427cbc74ae",
-        "full_root": "799ef8b2f27ea21494cc45ca0bee257b32c00443876aa76cba58276adcf84d65",
+        "content_root": "c3ff702fa5eea86d5a2c571667a8e3c7803cf08b21dd7eccf8bb7d9f82f4f96f",
+        "identity_root": "142e57af5a98d49d1549627e4fd4ed50075afc974106f97439141db8f7465546",
+        "full_root": "25467cf36f21de831fa45e83bb5642f6bb6d928a16a0c05632c73cb3226ee10a",
         "version_epoch": 2
       }
     ],
