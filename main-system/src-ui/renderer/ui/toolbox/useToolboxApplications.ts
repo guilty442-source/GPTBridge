@@ -131,6 +131,33 @@ export function useToolboxApplications({
     []
   )
 
+  const fetchBackendTools = useCallback(
+    async (attempts: number): Promise<ToolRuntimeState[] | null> => {
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        if (attempt > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, 750))
+        }
+        const sent = sendCommand('toolbox_list_tools', {
+          source: 'app_toolbox_sync',
+        })
+        if (!sent.ok) continue
+        try {
+          const payload = await waitForIpcEvent(
+            'toolbox_list_tools_result',
+            TOOLBOX_LIST_TIMEOUT_MS
+          )
+          if (payload.ok === false) continue
+          return hydrateToolboxRuntimeStateFromBackend(payload.tools)
+        } catch {
+          // The backend report can be late during startup; retry before
+          // degrading to the local inventory.
+        }
+      }
+      return null
+    },
+    [sendCommand, waitForIpcEvent]
+  )
+
   const refreshToolboxTools = useCallback(async () => {
     if (refreshPromiseRef.current) return refreshPromiseRef.current
 
@@ -139,18 +166,9 @@ export function useToolboxApplications({
       setToolboxSyncing(true)
       try {
         let next = toolboxToolsRef.current
-        const sent = sendCommand('toolbox_list_tools', {
-          source: 'app_toolbox_sync',
-        })
-        if (sent.ok) {
-          const payload = await waitForIpcEvent(
-            'toolbox_list_tools_result',
-            TOOLBOX_LIST_TIMEOUT_MS
-          )
-          if (payload.ok !== false) {
-            const hydrated = hydrateToolboxRuntimeStateFromBackend(payload.tools)
-            next = hydrated.length ? hydrated : createInitialToolboxRuntimeState()
-          }
+        const fetched = await fetchBackendTools(2)
+        if (fetched !== null) {
+          next = fetched.length ? fetched : createInitialToolboxRuntimeState()
         }
         const withSizes = await mergeLocalProjectSizes(next, true)
         if (refreshRevision !== actionRevisionRef.current) return
@@ -174,7 +192,7 @@ export function useToolboxApplications({
 
     refreshPromiseRef.current = refreshPromise
     return refreshPromise
-  }, [mergeLocalProjectSizes, sendCommand, waitForIpcEvent])
+  }, [fetchBackendTools, mergeLocalProjectSizes])
 
   useEffect(() => {
     if (backendStatus === 'Connected') void refreshToolboxTools()

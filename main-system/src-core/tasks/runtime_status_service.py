@@ -29,8 +29,97 @@ class RuntimeStatusService:
         _payload: dict[str, Any],
     ) -> tuple[str, dict[str, Any]]:
         if command == "app:get-runtime-status":
+            compact = (
+                isinstance(_payload, dict) and _payload.get("compact") is True
+            )
+            if compact:
+                return "app:get-runtime-status_result", self.compact_status()
             return "app:get-runtime-status_result", self.startup_status()
         raise ValueError(f"Unknown runtime status command: {command}")
+
+    def compact_status(self, snapshot: Any | None = None) -> dict[str, Any]:
+        """Small readiness/control projection for frequent consumers.
+
+        The full ``startup_status`` snapshot aggregates every sovereign tree,
+        learning store, and dependency probe and can exceed several hundred
+        kilobytes; pushing that every two seconds saturates the IPC channel
+        and the UI.  Frequent consumers (status pushes, socket readiness
+        pings) receive this compact projection and fetch the full snapshot
+        on demand.
+        """
+        from .readiness_gate import ReadinessGate
+
+        if snapshot is None:
+            snapshot = ReadinessGate(self.app).evaluate()
+        result: dict[str, Any] = {
+            "ok": snapshot.overall_ready,
+            "backend": snapshot.runtime_state,
+            "version": str(getattr(self.app, "version", "0.0.0")),
+            "runtime_scope": getattr(
+                getattr(self.app, "command_router", None), "scope", "starting"
+            ),
+            "message": (
+                "runtime status ok" if snapshot.overall_ready else "runtime starting"
+            ),
+            "maintenance_ready": bool(
+                getattr(self.app, "maintenance_ready", False)
+            ),
+            **snapshot.as_dict(),
+        }
+        try:
+            from core_system.auto_action_policy import (
+                read_automation_switches,
+                read_pending_actions,
+            )
+
+            project_root = getattr(self.app, "project_root", None)
+            actions = read_pending_actions(project_root) if project_root else []
+            result["automation_switches"] = read_automation_switches(project_root)
+            result["pending_action_count"] = len(actions)
+            actionable = [
+                action
+                for action in actions
+                if action.get("status") == "awaiting-confirmation"
+            ]
+            repairs = [
+                action for action in actionable if action.get("kind") == "repair"
+            ]
+            result["pending_action_cardinality"] = {
+                "mode": (
+                    "MULTI_FAULT"
+                    if len(repairs) >= 2
+                    else "SINGLE_FAULT"
+                    if len(repairs) == 1
+                    else "NO_FAULT"
+                ),
+                "unresolved": len(actionable),
+                "fault_count": len(repairs),
+                "update_count": len(
+                    [
+                        action
+                        for action in actionable
+                        if action.get("kind") == "update"
+                    ]
+                ),
+            }
+        except Exception:
+            pass
+        reanchor = getattr(self.app, "authority_reanchor_service", None)
+        if reanchor is not None and hasattr(reanchor, "get_status"):
+            try:
+                result["authority_reanchor"] = reanchor.get_status()
+            except Exception:
+                pass
+        # Per-module automation isolation report (one entry per unit).
+        try:
+            from core_system.module_automation_registry import (
+                module_automation_status,
+            )
+
+            result["automation_modules"] = module_automation_status(self.app)
+        except Exception:
+            pass
+        return result
 
     def startup_status(self) -> dict[str, Any]:
         """Build the full runtime status payload (cached for one second).
@@ -110,5 +199,12 @@ class RuntimeStatusService:
                 "pending_action_cardinality",
                 {"mode": "NO_FAULT", "unresolved": 0},
             )
+        # Governed authority re-anchor status (codex updates without restart).
+        reanchor = getattr(self.app, "authority_reanchor_service", None)
+        if reanchor is not None and hasattr(reanchor, "get_status"):
+            try:
+                result["authority_reanchor"] = reanchor.get_status()
+            except Exception:
+                pass
         _status_cache[cache_key] = (now, result)
         return dict(result)

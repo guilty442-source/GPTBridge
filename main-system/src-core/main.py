@@ -103,6 +103,7 @@ class GPTBridgeApp:
         self._sub_sovereigns: dict[str, Any] = {}
 
         self.hot_reload_watcher: Any | None = None
+        self.authority_reanchor_service: Any | None = None
         self._command_tasks: set[asyncio.Task[Any]] = set()
         self._command_task_meta: dict[asyncio.Task[Any], dict[str, Any]] = {}
         # A67 connection counters.  ``_active_ws_connections`` tracks any open
@@ -372,6 +373,20 @@ class GPTBridgeApp:
             self._record_startup_failure("hot_reload_watcher", error)
         self._mark_startup_phase("hot_reload_watcher_started")
 
+        # Governed authority re-anchor — adopts codex / managed-registry
+        # updates in-process so authority changes never require a restart.
+        self._mark_startup_phase("authority_reanchor_starting")
+        try:
+            from core_system.authority_reanchor_service import (
+                AuthorityReanchorService,
+            )
+
+            self.authority_reanchor_service = AuthorityReanchorService(self)
+            self.authority_reanchor_service.start()
+        except Exception as error:
+            self._record_startup_failure("authority_reanchor", error)
+        self._mark_startup_phase("authority_reanchor_started")
+
         # Start the hot-update idle loop so deferred resource-holding module
         # replacements are applied automatically when the system is idle.
         try:
@@ -526,6 +541,9 @@ class GPTBridgeApp:
         watcher = self.hot_reload_watcher
         if watcher is not None:
             await watcher.stop()
+        reanchor = self.authority_reanchor_service
+        if reanchor is not None:
+            reanchor.stop()
 
         # Window-backed tools are closed above before the sovereign stack is
         # stopped, so no UI-owned backend remains after application exit.

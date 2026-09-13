@@ -351,6 +351,24 @@ class MainSystemGovernance:
         self._integrity_cache[cache_key] = (now, self._integrity_ready)
         return self._integrity_ready
 
+    def reanchor_runtime_integrity(self) -> bool:
+        """Re-anchor the launch credential to the live authority files.
+
+        Used by the governed authority re-anchor service when the codex or a
+        managed registry is updated while this process is running, so
+        readiness is restored without a restart.  Returns True when the new
+        authority verifies; the caller records the outcome and retries on
+        failure.
+        """
+
+        self._authentication.reanchor_runtime_integrity()
+        now = time.monotonic()
+        cache_key = str(self._project_root)
+        self._integrity_ready = True
+        self._integrity_checked_at = now
+        self._integrity_cache[cache_key] = (now, True)
+        return True
+
     def can_start_tool(self, tool_id: str) -> bool:
         try:
             self.authorize_tool_lifecycle(tool_id, "start")

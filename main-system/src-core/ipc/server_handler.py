@@ -77,6 +77,22 @@ async def handler(websocket, app_instance):
     if isinstance(notifier, StateChangeNotifier):
         asyncio.create_task(notifier.maybe_notify())
 
+    # The backend owns the refresh: send this client an immediate compact
+    # health report instead of waiting for the next push cycle.  The client
+    # only renders reports it receives; it never polls.
+    try:
+        status_service = getattr(app_instance, "runtime_status_service", None)
+        compact = getattr(status_service, "compact_status", None)
+        if callable(compact):
+            # Off the event loop: the readiness projection must never block
+            # the IPC channel, even if a dependency probe is slow.
+            report = await asyncio.to_thread(compact)
+            report["push"] = True
+            report["immediate"] = True
+            await ui.send_event("runtime_status_push", report)
+    except Exception:
+        pass
+
     # Start heartbeat monitor BEFORE the startup wait — keeps the connection
     # warm while the backend finishes heavy initialization, so the client's
     # stale-connection detector does not kill a healthy socket.  The
@@ -292,12 +308,47 @@ async def handler(websocket, app_instance):
                 pass
 
 
-async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event) -> None:
-    """Periodically push runtime status to all connected WebSocket clients.
+def _compact_pending_actions(app_instance) -> list[dict[str, Any]]:
+    """Per-item pending surface without bulky detail (fault report payload)."""
+    try:
+        from core_system.auto_action_policy import read_pending_actions
 
-    This replaces the frontend's 5-second polling with real-time server push.
-    The push interval is 2 seconds — fast enough for responsive UI updates
-    without overwhelming the WebSocket channel.
+        project_root = getattr(app_instance, "project_root", None)
+        actions = read_pending_actions(project_root) if project_root else []
+        fields = (
+            "action_id",
+            "kind",
+            "summary",
+            "status",
+            "fault_id",
+            "update_id",
+            "scope",
+            "target",
+            "proposed_method",
+            "risk",
+            "rollback",
+            "expires_at",
+            "evidence_digest",
+            "created_at",
+            "updated_at",
+            "confirmation",
+        )
+        return [
+            {key: action.get(key) for key in fields if key in action}
+            for action in actions
+            if isinstance(action, dict)
+        ]
+    except Exception:
+        return []
+
+
+async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event) -> None:
+    """Backend-owned refresh loop pushing compact health reports to clients.
+
+    Every cycle pushes a compact report; a fault or its resolution wakes the
+    loop immediately and adds the per-item pending surface so Xingcheng is
+    informed in real time.  All projection work runs off the event loop so a
+    slow probe can never stall the IPC channel or the main system.
     """
     push_interval = 2.0
     _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -310,6 +361,18 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
             _connection_count = getattr(app_instance, "_active_ws_connections", 0)
             write_ipc_connection_state(_PROJECT_ROOT, _connection_count)
 
+            fault_event = None
+            immediate = False
+            try:
+                from core_system.auto_action_policy import fault_change_event
+
+                fault_event = fault_change_event()
+                if fault_event.is_set():
+                    fault_event.clear()
+                    immediate = True
+            except Exception:
+                fault_event = None
+
             shells = getattr(app_instance, "_active_ui_shells", None)
             if shells:
                 notifier = getattr(app_instance, "_state_change_notifier", None)
@@ -318,13 +381,32 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
                     if isinstance(notifier, StateChangeNotifier)
                     else None
                 )
-                if snapshot is not None:
+                status_service = getattr(app_instance, "runtime_status_service", None)
+                compact = getattr(status_service, "compact_status", None)
+                status_payload: dict[str, Any] = {}
+                if callable(compact):
+                    # The backend owns the refresh: every cycle evaluates and
+                    # pushes a compact health report; clients only render it.
+                    try:
+                        status_payload = await asyncio.to_thread(compact, snapshot)
+                    except Exception:
+                        status_payload = {}
+                elif snapshot is not None:
                     status_payload = snapshot.as_dict()
                     status_payload["systemReady"] = snapshot.overall_ready
                     status_payload["maintenance_ready"] = bool(
                         getattr(app_instance, "maintenance_ready", False)
                     )
+                if status_payload:
+                    if immediate:
+                        # Fault or fault-resolution: report immediately with
+                        # the per-item surface so Xingcheng needs no refresh.
+                        status_payload["pending_actions"] = await asyncio.to_thread(
+                            _compact_pending_actions, app_instance
+                        )
+                        status_payload["fault_report"] = True
                     status_payload["push"] = True
+                    status_payload["immediate"] = True
                     dead: list[UIShell] = []
                     for ui in list(shells):
                         try:
@@ -335,4 +417,16 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
                         shells.discard(ui)
         except Exception:
             pass
-        await asyncio.sleep(push_interval)
+        # Wait for the next cycle, or wake immediately on a fault/clear.
+        try:
+            if fault_event is None:
+                from core_system.auto_action_policy import fault_change_event
+
+                fault_event = fault_change_event()
+            woken = await asyncio.get_running_loop().run_in_executor(
+                None, fault_event.wait, push_interval
+            )
+            if woken:
+                fault_event.clear()
+        except Exception:
+            await asyncio.sleep(push_interval)

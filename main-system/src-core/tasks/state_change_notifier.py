@@ -83,12 +83,17 @@ class StateChangeNotifier:
         return shells
 
     def _build_payload(self, snapshot: ReadinessSnapshot) -> dict[str, Any]:
-        """Build the runtime_status_push payload from a readiness snapshot."""
+        """Build the periodic push payload as a compact readiness projection."""
         status_service = getattr(self.app, "runtime_status_service", None)
         payload: dict[str, Any] = {}
         if status_service is not None:
             try:
-                payload = status_service.startup_status()
+                compact = getattr(status_service, "compact_status", None)
+                payload = (
+                    compact(snapshot)
+                    if callable(compact)
+                    else status_service.startup_status()
+                )
             except Exception:
                 payload = {}
         payload.update(

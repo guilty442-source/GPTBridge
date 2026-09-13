@@ -116,6 +116,7 @@
   "environment": {
     "allow": []
   },
+  "hidden_from_toolbox": true,
   "test_targets": [
     "tests/test_global_cleaner.py"
   ],

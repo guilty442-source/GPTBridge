@@ -122,33 +122,78 @@ async function folderSize(
   }
 }
 
-async function buildInventory(workspaceRoot: string): Promise<PlatformToolSize[]> {
-  const resolvedRoot = path.resolve(workspaceRoot)
-  let entries: fs.Dirent[]
+async function listDirectChildFolders(root: string): Promise<string[]> {
   try {
-    entries = await fs.promises.readdir(resolvedRoot, { withFileTypes: true })
+    const entries = await fs.promises.readdir(root, { withFileTypes: true })
+    return entries
+      .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink())
+      .map((entry) => path.join(root, entry.name))
   } catch {
     return []
   }
+}
+
+async function collectToolManifestCandidates(
+  resolvedRoot: string
+): Promise<Array<{ folderPath: string; manifestPath: string }>> {
+  const candidates: Array<{ folderPath: string; manifestPath: string }> = []
+  const seen = new Set<string>()
+  const push = (folderPath: string) => {
+    const manifestPath = path.join(folderPath, 'manifest.json')
+    if (seen.has(manifestPath)) return
+    seen.add(manifestPath)
+    candidates.push({ folderPath, manifestPath })
+  }
+  for (const folderPath of await listDirectChildFolders(resolvedRoot)) push(folderPath)
+  // Independent tools live under "Standalone tools/"; declared nested tools
+  // (hosted entities) live inside a host root at any depth.
+  const toolsRoot = path.join(resolvedRoot, 'Standalone tools')
+  for (const hostFolder of await listDirectChildFolders(toolsRoot)) {
+    push(hostFolder)
+    for (const nestedFolder of await listDirectChildFolders(hostFolder)) {
+      push(nestedFolder)
+      for (const deeperFolder of await listDirectChildFolders(nestedFolder)) {
+        push(deeperFolder)
+      }
+    }
+  }
+  return candidates
+}
+
+async function readToolManifest(manifestPath: string): Promise<Record<string, unknown> | null> {
+  try {
+    return JSON.parse(
+      await fs.promises.readFile(manifestPath, 'utf-8')
+    ) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+function declaresIndependentToolCard(manifest: Record<string, unknown>): boolean {
+  // A manifest owns a toolbox card only when it declares itself as an
+  // independent tool; infrastructure (codex, shared layer), utilities and
+  // companions declare their own status through the manifest.
+  if (manifest.main_system_independent_tool !== true) return false
+  if (manifest.companion_tool === true) return false
+  if (manifest.hidden_from_toolbox === true) return false
+  return true
+}
+
+async function buildInventory(workspaceRoot: string): Promise<PlatformToolSize[]> {
+  const resolvedRoot = path.resolve(workspaceRoot)
+  const candidates = await collectToolManifestCandidates(resolvedRoot)
 
   const tools: PlatformToolSize[] = []
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-    if (!entry.isDirectory() || entry.isSymbolicLink()) continue
-    const folderPath = path.resolve(resolvedRoot, entry.name)
+  for (const candidate of candidates) {
+    const folderPath = path.resolve(candidate.folderPath)
     if (!isPathInside(resolvedRoot, folderPath)) continue
 
-    const manifestPath = path.join(folderPath, 'manifest.json')
-    let manifest: Record<string, unknown>
-    try {
-      manifest = JSON.parse(
-        await fs.promises.readFile(manifestPath, 'utf-8')
-      ) as Record<string, unknown>
-    } catch {
-      continue
-    }
+    const manifest = await readToolManifest(candidate.manifestPath)
+    if (!manifest || !declaresIndependentToolCard(manifest)) continue
 
     const id = String(manifest.id ?? '').trim()
-    if (!/^[a-z0-9_-]+$/.test(id) || id !== entry.name) continue
+    if (!/^[a-z0-9_-]+$/.test(id) || id !== path.basename(folderPath)) continue
     const runtime =
       manifest.runtime && typeof manifest.runtime === 'object'
         ? (manifest.runtime as Record<string, unknown>)
@@ -162,7 +207,7 @@ async function buildInventory(workspaceRoot: string): Promise<PlatformToolSize[]
     tools.push({
       id,
       folder_path: folderPath,
-      manifest_path: manifestPath,
+      manifest_path: candidate.manifestPath,
       code_path: safeCodePath,
       project_size_bytes: size.bytes,
       file_count: size.fileCount,

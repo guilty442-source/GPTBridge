@@ -12,7 +12,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 ACTUAL_SUITE = WORKSPACE_ROOT / 'shared-layer' / 'tests'
 
 sys.path.insert(0, str(WORKSPACE_ROOT))

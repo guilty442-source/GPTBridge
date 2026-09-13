@@ -8,6 +8,7 @@ import { mainSystemLocale } from '@/locales/main-system'
 import { useAppState } from '@/ui/useAppState'
 import { XingchengDrawer } from '@/ui/AppXingchengDrawer'
 import { CapacityDrawer } from '@/ui/AppCapacityDrawer'
+import { ModuleBoundary } from '@/shared/components/ModuleBoundary'
 import '../App.css'
 
 const t = mainSystemLocale.product
@@ -24,7 +25,6 @@ export default function App() {
   const {
     appVersion,
     maintenanceReady,
-    runtimeStatus,
     systemMetrics,
     confirmBusyId,
     switchBusy,
@@ -36,10 +36,6 @@ export default function App() {
     waitForIpcEvent,
     confirmPendingAction,
     setAutomationSwitch,
-    pendingActions,
-    repairSwitchOn,
-    updateSwitchOn,
-    cardinality,
   } = useAppState()
 
   const {
@@ -181,7 +177,14 @@ export default function App() {
             data-tone={xingchengReview.tone}
             data-testid="xingcheng-global-review"
             aria-haspopup="dialog"
-            onClick={() => setDrawerXingcheng(true)}
+            onClick={() => {
+              setDrawerXingcheng(true)
+              // Periodic pushes are compact; fetch the full snapshot (with
+              // the per-item pending list) when the panel opens.
+              sendCommand('app:get-runtime-status', {
+                source: 'xingcheng_drawer_open',
+              })
+            }}
           >
             <span className="hero-card__label">{mainSystemLocale.sovereign.xingchengTitle}</span>
             <strong className="hero-card__value hero-card__value--text">{xingchengReview.state}</strong>
@@ -243,14 +246,16 @@ export default function App() {
           </button>
         </section>
 
-        <ToolboxEntry
-          tools={toolboxTools}
-          connected={operational}
-          syncing={toolboxSyncing}
-          syncedAt={toolboxSyncedAt}
-          onRefresh={() => void refreshToolboxTools()}
-          onToolAction={handleToolboxAction}
-        />
+        <ModuleBoundary name="工具箱">
+          <ToolboxEntry
+            tools={toolboxTools}
+            connected={operational}
+            syncing={toolboxSyncing}
+            syncedAt={toolboxSyncedAt}
+            onRefresh={() => void refreshToolboxTools()}
+            onToolAction={handleToolboxAction}
+          />
+        </ModuleBoundary>
       </main>
 
       <footer className="product-footer">
@@ -258,21 +263,18 @@ export default function App() {
         <span>{t.footerPlatform}</span>
       </footer>
 
-      <XingchengDrawer
-        open={drawerXingcheng}
-        onClose={() => setDrawerXingcheng(false)}
-        review={xingchengReview}
-        runtimeStatus={runtimeStatus}
-        pendingActions={pendingActions}
-        confirmBusyId={confirmBusyId}
-        confirmMessages={confirmMessages}
-        switchBusy={switchBusy}
-        repairSwitchOn={repairSwitchOn}
-        updateSwitchOn={updateSwitchOn}
-        cardinality={cardinality}
-        onConfirm={confirmPendingAction}
-        onSwitch={setAutomationSwitch}
-      />
+      <ModuleBoundary name="星澄輔助系統">
+        <XingchengDrawer
+          open={drawerXingcheng}
+          onClose={() => setDrawerXingcheng(false)}
+          review={xingchengReview}
+          confirmBusyId={confirmBusyId}
+          confirmMessages={confirmMessages}
+          switchBusy={switchBusy}
+          onConfirm={confirmPendingAction}
+          onSwitch={setAutomationSwitch}
+        />
+      </ModuleBoundary>
 
       <Drawer
         open={drawerSovereign}
@@ -281,7 +283,9 @@ export default function App() {
         eyebrow={mainSystemLocale.sovereign.eyebrow}
         icon="S"
       >
-        <SovereignDashboard runtimeStatus={runtimeStatus} />
+        <ModuleBoundary name="主權面板">
+          <SovereignDashboard />
+        </ModuleBoundary>
       </Drawer>
 
       <Drawer
@@ -291,22 +295,26 @@ export default function App() {
         eyebrow={tp.subtitle}
         icon="T"
       >
-        <ThirdPartyPanel />
+        <ModuleBoundary name="第三方軟體">
+          <ThirdPartyPanel />
+        </ModuleBoundary>
       </Drawer>
 
-      <CapacityDrawer
-        open={drawerCapacity}
-        onClose={() => setDrawerCapacity(false)}
-        systemMetrics={systemMetrics}
-        mainSystemSizeBytes={mainSystemSizeBytes}
-        mainSystemFileCount={mainSystemFileCount}
-        dependencySizeBytes={dependencySizeBytes}
-        dependencyFileCount={dependencyFileCount}
-        sharedLayerSizeBytes={sharedLayerSizeBytes}
-        sharedLayerFileCount={sharedLayerFileCount}
-        workspaceSizeBytes={workspaceSizeBytes}
-        workspaceFileCount={workspaceFileCount}
-      />
+      <ModuleBoundary name="容量資訊">
+        <CapacityDrawer
+          open={drawerCapacity}
+          onClose={() => setDrawerCapacity(false)}
+          systemMetrics={systemMetrics}
+          mainSystemSizeBytes={mainSystemSizeBytes}
+          mainSystemFileCount={mainSystemFileCount}
+          dependencySizeBytes={dependencySizeBytes}
+          dependencyFileCount={dependencyFileCount}
+          sharedLayerSizeBytes={sharedLayerSizeBytes}
+          sharedLayerFileCount={sharedLayerFileCount}
+          workspaceSizeBytes={workspaceSizeBytes}
+          workspaceFileCount={workspaceFileCount}
+        />
+      </ModuleBoundary>
     </div>
   )
 }

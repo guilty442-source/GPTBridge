@@ -1,27 +1,32 @@
-"""Per-action user confirmation service for the Xingcheng assistant panel.
+"""Per-action user confirmation and approved-action execution (codex A366).
 
-Implements the execution gate of codex A366
-(``xingcheng-auxiliary-repair-update-user-switch-confirmation-and-fault-
-cardinality``):
+Implements the execution gate of
+``xingcheng-auxiliary-repair-update-user-switch-confirmation-and-fault-
+cardinality`` with the registered command-code split:
 
-  * A mutation may execute only when its corresponding persisted switch
-    (``automatic_repair_enabled`` / ``automatic_update_enabled``) is enabled
-    AND the user confirms that concrete pending action.
-  * Confirmation binds the action id, scope, target, proposed method, risk,
-    rollback/fallback, evidence digest and expiry; it is one-time,
-    non-transferable and invalid after a material plan/evidence change.
-  * Multi-fault execution runs one action at a time; after each action the
-    remaining evidence is refreshed so a repair cannot ride a stale
-    confirmation.
+  * Xingcheng auxiliary (user-facing control surface):
+      - ``xingcheng-set-repair-release`` / ``xingcheng-set-update-release``
+        set the persisted switches;
+      - ``xingcheng-confirm-automatic-repair`` /
+        ``xingcheng-confirm-automatic-update`` record one single-use,
+        non-transferable user confirmation bound to the concrete action;
+      - ``xingcheng-revoke-automatic-*-confirmation`` revoke a recorded
+        confirmation before it is consumed.
+  * Synchronization domain (execution):
+      - ``sync-execute-approved-automatic-repair`` /
+        ``sync-execute-approved-automatic-update`` execute an approved
+        action exactly once for its confirmation id.
 
-Detection, classification and evidence collection are unaffected — this
-service only governs execution.
+A mutation executes only when its switch is enabled AND the concrete
+pending action carries a valid, unexpired, evidence-matching, single-use
+confirmation.  Detection and classification are unaffected.
 """
 
 from __future__ import annotations
 
 import json
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -73,8 +78,35 @@ def _audit(project_root: Path, entry: dict[str, Any]) -> None:
         pass
 
 
+def _find_action(project_root: Path, action_id: str) -> dict[str, Any] | None:
+    return next(
+        (
+            item
+            for item in read_pending_actions(project_root)
+            if item.get("action_id") == action_id
+        ),
+        None,
+    )
+
+
 def _expired(action: dict[str, Any]) -> bool:
     raw = str(action.get("expires_at") or "").strip()
+    if not raw:
+        return False
+    try:
+        expiry = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    return datetime.now(timezone.utc) > expiry
+
+
+def _confirmation_of(action: dict[str, Any]) -> dict[str, Any]:
+    value = action.get("confirmation")
+    return value if isinstance(value, dict) else {}
+
+
+def _confirmation_expired(confirmation: dict[str, Any]) -> bool:
+    raw = str(confirmation.get("expires_at") or "").strip()
     if not raw:
         return False
     try:
@@ -112,23 +144,30 @@ def _refresh_remaining_evidence(project_root: Path, executed_id: str) -> None:
         _write_pending_actions(project_root, actions)
 
 
-async def confirm_action(app: Any, action_id: str) -> dict[str, Any]:
-    """Confirm one pending action (repair or update) by id."""
+# ----------------------------------------------------------------------
+# Xingcheng auxiliary: record / revoke the user confirmation
+# ----------------------------------------------------------------------
+
+
+async def record_confirmation(
+    app: Any,
+    action_id: str,
+    *,
+    confirmation_id: str = "",
+) -> dict[str, Any]:
+    """Record a single-use user confirmation for one pending action.
+
+    Does NOT execute anything: the synchronization domain executes the
+    approved action.  Both the capability switch and the concrete
+    confirmation remain required at execution time.
+    """
     action_id = str(action_id or "").strip()
     if not action_id:
         return _result(
             False, error_code="MISSING_ACTION_ID", message="action_id is required"
         )
-
     project_root = _project_root(app)
-    action = next(
-        (
-            item
-            for item in read_pending_actions(project_root)
-            if item.get("action_id") == action_id
-        ),
-        None,
-    )
+    action = _find_action(project_root, action_id)
     _audit(
         project_root,
         {
@@ -144,19 +183,29 @@ async def confirm_action(app: Any, action_id: str) -> dict[str, Any]:
             error_code="ACTION_NOT_FOUND",
             message=f"no pending action with id {action_id}",
         )
-    if action.get("status") != "awaiting-confirmation":
-        return _result(
-            False,
-            error_code="ACTION_NOT_PENDING",
-            message=f"action status is {action.get('status')}",
-        )
-
     kind = str(action.get("kind") or "")
     if not switch_for_kind(kind):
         return _result(
             False,
             error_code="ACTION_KIND_UNKNOWN",
             message=f"unknown pending action kind: {kind}",
+            action_id=action_id,
+        )
+    if action.get("status") == "confirmed":
+        existing = _confirmation_of(action)
+        return _result(
+            True,
+            action_id=action_id,
+            kind=kind,
+            confirmation_id=str(existing.get("confirmation_id") or ""),
+            status="confirmed",
+            idempotent=True,
+        )
+    if action.get("status") != "awaiting-confirmation":
+        return _result(
+            False,
+            error_code="ACTION_NOT_PENDING",
+            message=f"action status is {action.get('status')}",
             action_id=action_id,
         )
     if not switch_enabled_for_kind(kind):
@@ -172,45 +221,23 @@ async def confirm_action(app: Any, action_id: str) -> dict[str, Any]:
         return _result(
             False,
             error_code="SWITCH_DISABLED",
-            message=(
-                "對應的自動執行開關未啟用；開關與逐筆確認必須同時成立。"
-            ),
+            message="對應的自動執行開關未啟用；開關與逐筆確認必須同時成立。",
             action_id=action_id,
             status="awaiting-confirmation",
         )
-
     if _expired(action):
         update_pending_action_status(project_root, action_id, "expired")
-        _audit(
-            project_root,
-            {
-                "event": "confirmation-refused",
-                "reason": "expired",
-                "action_id": action_id,
-                "kind": kind,
-            },
-        )
         return _result(
             False,
             error_code="CONFIRMATION_EXPIRED",
             message="確認已到期，請等待系統重新產生待確認項目。",
             action_id=action_id,
         )
-
     current_digest = compute_action_digest(action)
     stored_digest = str(action.get("evidence_digest") or "").strip()
     if stored_digest and stored_digest != current_digest:
         update_pending_action_status(
             project_root, action_id, "invalidated", evidence_digest=current_digest
-        )
-        _audit(
-            project_root,
-            {
-                "event": "confirmation-refused",
-                "reason": "evidence-changed",
-                "action_id": action_id,
-                "kind": kind,
-            },
         )
         return _result(
             False,
@@ -219,6 +246,181 @@ async def confirm_action(app: Any, action_id: str) -> dict[str, Any]:
             action_id=action_id,
         )
 
+    confirmation_id = str(confirmation_id or "").strip() or uuid.uuid4().hex
+    confirmation = {
+        "confirmation_id": confirmation_id,
+        "confirmed_at": _iso_now(),
+        "actor": "authenticated-ui",
+        "evidence_digest": current_digest,
+        "expires_at": str(action.get("expires_at") or ""),
+        "single_use": True,
+        "consumed": False,
+    }
+    update_pending_action_status(
+        project_root, action_id, "confirmed", confirmation=confirmation
+    )
+    _audit(
+        project_root,
+        {
+            "event": "confirmation-recorded",
+            "action_id": action_id,
+            "kind": kind,
+            "confirmation_id": confirmation_id,
+            "evidence_digest": current_digest,
+        },
+    )
+    return _result(
+        True,
+        action_id=action_id,
+        kind=kind,
+        confirmation_id=confirmation_id,
+        status="confirmed",
+        expires_at=confirmation["expires_at"],
+    )
+
+
+async def revoke_confirmation(
+    app: Any,
+    action_id: str,
+    confirmation_id: str,
+) -> dict[str, Any]:
+    """Revoke a recorded confirmation before it is consumed."""
+    action_id = str(action_id or "").strip()
+    confirmation_id = str(confirmation_id or "").strip()
+    if not action_id or not confirmation_id:
+        return _result(
+            False,
+            error_code="MISSING_FIELDS",
+            message="action_id and confirmation_id are required",
+        )
+    project_root = _project_root(app)
+    action = _find_action(project_root, action_id)
+    if action is None:
+        return _result(
+            False,
+            error_code="ACTION_NOT_FOUND",
+            message=f"no pending action with id {action_id}",
+        )
+    confirmation = _confirmation_of(action)
+    if not confirmation or str(confirmation.get("confirmation_id") or "") != confirmation_id:
+        return _result(
+            False,
+            error_code="CONFIRMATION_NOT_FOUND",
+            message="no recorded confirmation matches this action",
+            action_id=action_id,
+        )
+    if action.get("status") not in ("confirmed", "awaiting-confirmation"):
+        return _result(
+            False,
+            error_code="CONFIRMATION_NOT_REVOCABLE",
+            message=f"action status is {action.get('status')}",
+            action_id=action_id,
+        )
+    update_pending_action_status(
+        project_root,
+        action_id,
+        "awaiting-confirmation",
+        confirmation=None,
+        revoked_at=_iso_now(),
+    )
+    _audit(
+        project_root,
+        {
+            "event": "confirmation-revoked",
+            "action_id": action_id,
+            "confirmation_id": confirmation_id,
+        },
+    )
+    return _result(True, action_id=action_id, status="awaiting-confirmation")
+
+
+# ----------------------------------------------------------------------
+# Synchronization domain: execute the approved action
+# ----------------------------------------------------------------------
+
+
+async def execute_approved(
+    app: Any,
+    action_id: str,
+    confirmation_id: str,
+) -> dict[str, Any]:
+    """Execute one approved action exactly once for its confirmation id."""
+    action_id = str(action_id or "").strip()
+    confirmation_id = str(confirmation_id or "").strip()
+    if not action_id or not confirmation_id:
+        return _result(
+            False,
+            error_code="MISSING_FIELDS",
+            message="action_id and confirmation_id are required",
+        )
+    project_root = _project_root(app)
+    action = _find_action(project_root, action_id)
+    if action is None:
+        return _result(
+            False,
+            error_code="ACTION_NOT_FOUND",
+            message=f"no pending action with id {action_id}",
+        )
+    kind = str(action.get("kind") or "")
+    if not switch_for_kind(kind):
+        return _result(
+            False,
+            error_code="ACTION_KIND_UNKNOWN",
+            message=f"unknown pending action kind: {kind}",
+            action_id=action_id,
+        )
+    confirmation = _confirmation_of(action)
+    if (
+        action.get("status") in ("executed", "failed")
+        and str(confirmation.get("confirmation_id") or "") == confirmation_id
+    ):
+        return _result(
+            True,
+            action_id=action_id,
+            status=action.get("status"),
+            idempotent=True,
+            result=action.get("result", {}),
+        )
+    if action.get("status") != "confirmed" or not confirmation:
+        return _result(
+            False,
+            error_code="NOT_CONFIRMED",
+            message="action has no recorded user confirmation",
+            action_id=action_id,
+        )
+    if str(confirmation.get("confirmation_id") or "") != confirmation_id:
+        return _result(
+            False,
+            error_code="CONFIRMATION_MISMATCH",
+            message="confirmation id does not match the recorded confirmation",
+            action_id=action_id,
+        )
+    if not switch_enabled_for_kind(kind):
+        return _result(
+            False,
+            error_code="SWITCH_DISABLED",
+            message="對應的自動執行開關未啟用；開關與逐筆確認必須同時成立。",
+            action_id=action_id,
+        )
+    if _confirmation_expired(confirmation):
+        update_pending_action_status(project_root, action_id, "expired")
+        return _result(
+            False,
+            error_code="CONFIRMATION_EXPIRED",
+            message="確認已到期；請重新確認。",
+            action_id=action_id,
+        )
+    current_digest = compute_action_digest(action)
+    if str(confirmation.get("evidence_digest") or "") != current_digest:
+        update_pending_action_status(
+            project_root, action_id, "invalidated", confirmation=None
+        )
+        return _result(
+            False,
+            error_code="EVIDENCE_CHANGED",
+            message="計畫或證據已變更，確認失效；請重新確認。",
+            action_id=action_id,
+        )
     if _other_action_executing(project_root, action_id):
         return _result(
             False,
@@ -227,53 +429,52 @@ async def confirm_action(app: Any, action_id: str) -> dict[str, Any]:
             action_id=action_id,
         )
 
-    confirmation = {
-        "confirmed_at": _iso_now(),
-        "actor": "authenticated-ui",
-        "evidence_digest": current_digest,
-        "switch": switch_for_kind(kind),
-    }
-    update_pending_action_status(
-        project_root, action_id, "executing", confirmation=confirmation
-    )
+    update_pending_action_status(project_root, action_id, "executing")
     _audit(
         project_root,
         {
-            "event": "confirmation-accepted",
+            "event": "execution-started",
             "action_id": action_id,
             "kind": kind,
-            "evidence_digest": current_digest,
+            "confirmation_id": confirmation_id,
         },
     )
 
     if kind == "repair":
-        result = await _execute_repair(app, project_root, action)
+        outcome = await _execute_repair(app, project_root, action)
     else:
-        result = await _execute_update(app, project_root, action)
+        outcome = await _execute_update(app, project_root, action)
 
-    final_status = "executed" if result.get("ok") else "failed"
+    final_status = "executed" if outcome.get("ok") else "failed"
+    consumed = {**confirmation, "consumed": True, "consumed_at": _iso_now()}
     update_pending_action_status(
         project_root,
         action_id,
         final_status,
+        confirmation=consumed,
         result={
-            "error_code": result.get("error_code", ""),
-            "decision": result.get("decision", ""),
-            "handover": result.get("handover", ""),
+            "error_code": outcome.get("error_code", ""),
+            "decision": outcome.get("decision", ""),
+            "handover": outcome.get("handover", ""),
         },
     )
     _refresh_remaining_evidence(project_root, action_id)
     _audit(
         project_root,
         {
-            "event": "confirmation-result",
+            "event": "execution-result",
             "action_id": action_id,
             "kind": kind,
-            "ok": bool(result.get("ok")),
-            "error_code": result.get("error_code", ""),
+            "ok": bool(outcome.get("ok")),
+            "error_code": outcome.get("error_code", ""),
         },
     )
-    return result
+    return outcome
+
+
+# ----------------------------------------------------------------------
+# Execution bodies (unchanged governance chain)
+# ----------------------------------------------------------------------
 
 
 async def _execute_repair(
@@ -283,9 +484,7 @@ async def _execute_repair(
 
     action_id = str(action.get("action_id") or "")
     detail = action.get("detail") or {}
-    request_id = str(
-        action.get("fault_id") or detail.get("request_id") or ""
-    )
+    request_id = str(action.get("fault_id") or detail.get("request_id") or "")
     coordinator = get_repair_coordinator()
     if coordinator is None or not request_id:
         return _result(
@@ -396,4 +595,9 @@ async def _execute_update(
     )
 
 
-__all__ = ["confirm_action", "CONFIRMATION_AUDIT_RELATIVE"]
+__all__ = [
+    "CONFIRMATION_AUDIT_RELATIVE",
+    "execute_approved",
+    "record_confirmation",
+    "revoke_confirmation",
+]

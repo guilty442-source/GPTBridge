@@ -2,6 +2,8 @@
 
 Provides the independent tool checks and Electron runtime repair
 functions for the environment doctor.
+
+Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 """
 
 from __future__ import annotations

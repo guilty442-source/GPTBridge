@@ -1,5 +1,6 @@
-import type { PendingActionApproval, RuntimeStatusPayload } from '@/ui/sovereign/SovereignDashboard'
+import type { PendingActionApproval } from '@/ui/sovereign/SovereignDashboard'
 import { Drawer } from '@/ui/drawer/Drawer'
+import { useRuntimeStatusField } from '@/shared/hooks/useRuntimeStatusField'
 import { mainSystemLocale } from '@/locales/main-system'
 
 const xr = mainSystemLocale.xingchengReport
@@ -31,14 +32,9 @@ export type XingchengDrawerProps = {
   open: boolean
   onClose: () => void
   review: XingchengReview
-  runtimeStatus: RuntimeStatusPayload
-  pendingActions: PendingActionApproval[]
   confirmBusyId: string | null
   confirmMessages: Record<string, string>
   switchBusy: string | null
-  repairSwitchOn: boolean
-  updateSwitchOn: boolean
-  cardinality: Cardinality
   onConfirm: (actionId: string) => void
   onSwitch: (switchName: string, enabled: boolean) => void
 }
@@ -79,17 +75,19 @@ export function XingchengDrawer({
   open,
   onClose,
   review,
-  runtimeStatus,
-  pendingActions,
   confirmBusyId,
   confirmMessages,
   switchBusy,
-  repairSwitchOn,
-  updateSwitchOn,
-  cardinality,
   onConfirm,
   onSwitch,
 }: XingchengDrawerProps) {
+  // Modular subscriptions: this drawer re-renders only when its own fields
+  // change; a failure here is contained by the module boundary upstream.
+  const pendingActions = useRuntimeStatusField('pending_actions') ?? []
+  const switches = useRuntimeStatusField('automation_switches') ?? {}
+  const cardinality = useRuntimeStatusField('pending_action_cardinality') ?? {}
+  const repairSwitchOn = switches.automatic_repair_enabled === true
+  const updateSwitchOn = switches.automatic_update_enabled === true
   const ordered = orderPendingActions(pendingActions)
   const cardinalityLabel =
     cardinality.mode === 'MULTI_FAULT'

@@ -101,7 +101,15 @@ class ToolPathResolver:
                 manifest.get("companion_tool") is True
                 and manifest.get("companion_owner") == host_tool_id
             )
-            if not owned_companion:
+            # A405: a declared independent tool may be physically hosted
+            # inside its owner root while remaining its own single entity
+            # (e.g. model-dialogue under local-model).
+            declared_independent_hosted = (
+                manifest.get("main_system_independent_tool") is True
+                and manifest.get("companion_tool") is not True
+                and manifest.get("host_tool_id") == host_tool_id
+            )
+            if not (owned_companion or declared_independent_hosted):
                 raise ValueError("Nested tool is not an authorized companion")
             return resolved
         if len(relative.parts) == 4 and relative.parts[0] == "Standalone tools":

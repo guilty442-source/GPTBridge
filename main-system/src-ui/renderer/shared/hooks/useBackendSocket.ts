@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BootLogger } from '../BootLogger'
 import { eventBus } from '../RuntimeEventBus'
 import { getAuthenticatedBackendWebSocketUrl } from '../services/backendSession'
@@ -12,7 +12,6 @@ import {
   WS_RECONNECT_BASE_DELAY_MS,
   WS_RECONNECT_MAX_DELAY_MS,
   WS_CONNECT_TIMEOUT_MS,
-  WS_READINESS_RETRY_MS,
   WS_COMMAND_QUEUE_MAX,
   WS_COMMAND_QUEUE_TTL_MS,
   WS_STALE_CONNECTION_MS,
@@ -22,6 +21,7 @@ import {
   updateBackendConnectionSnapshot,
 } from './useBackendSocketTypes'
 import { handleOutboxSession, handleOutboxStateEvent } from './useBackendSocketOutbox'
+import { applyRuntimeStatusReport } from '../services/runtimeStatusStore'
 
 export { getBackendConnectionSnapshot } from './useBackendSocketTypes'
 
@@ -31,7 +31,6 @@ export const useBackendSocket = () => {
   const socketRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<number | null>(null)
   const connectTimeoutRef = useRef<number | null>(null)
-  const readinessTimerRef = useRef<number | null>(null)
   const reconnectAttemptRef = useRef(0)
   const commandQueueRef = useRef<
     Array<{ command: string; payload: unknown; queuedAt: number }>
@@ -49,7 +48,6 @@ export const useBackendSocket = () => {
   // must never be applied — doing so used to trigger a status-request
   // storm and exhaust the command rate limit.
   const sessionGenerationRef = useRef<string | null>(null)
-  const lastRuntimeStatusRequestAtRef = useRef(0)
 
   const ws = mainSystemLocale.websocket
 
@@ -141,13 +139,6 @@ export const useBackendSocket = () => {
       }
     }
 
-    const clearReadinessTimer = () => {
-      if (readinessTimerRef.current !== null) {
-        window.clearTimeout(readinessTimerRef.current)
-        readinessTimerRef.current = null
-      }
-    }
-
     const clearStaleConnectionTimer = () => {
       if (staleConnectionTimer !== null) {
         window.clearInterval(staleConnectionTimer)
@@ -228,36 +219,6 @@ export const useBackendSocket = () => {
         if (socket.readyState === WebSocket.CONNECTING) socket.close()
       }, WS_CONNECT_TIMEOUT_MS)
 
-      const requestRuntimeStatus = () => {
-        if (disposed || socket.readyState !== WebSocket.OPEN) return
-        // Compact projection: readiness + switches + counters only.  The
-        // full sovereign snapshot is fetched on demand by the UI.
-        socket.send(
-          JSON.stringify({
-            command: 'app:get-runtime-status',
-            payload: { compact: true },
-          })
-        )
-      }
-
-      // Coalesce convergence requests: an outbox replay can deliver many
-      // runtime-status events in a burst, and one request per event would
-      // flood the governed command channel.
-      const requestRuntimeStatusThrottled = (minIntervalMs = 1000) => {
-        const now = Date.now()
-        if (now - lastRuntimeStatusRequestAtRef.current < minIntervalMs) return
-        lastRuntimeStatusRequestAtRef.current = now
-        requestRuntimeStatus()
-      }
-
-      const scheduleReadinessCheck = () => {
-        clearReadinessTimer()
-        readinessTimerRef.current = window.setTimeout(() => {
-          readinessTimerRef.current = null
-          requestRuntimeStatus()
-        }, WS_READINESS_RETRY_MS)
-      }
-
       const applyRuntimeReadiness = (runtime: Record<string, unknown>) => {
         const ready =
           runtime.ok === true &&
@@ -265,7 +226,6 @@ export const useBackendSocket = () => {
           runtime.governance_ready === true &&
           runtime.startup_dead !== true
         if (ready) {
-          clearReadinessTimer()
           reconnectAttemptRef.current = 0
           resetBackendRecovery()
           updateBackendConnectionSnapshot('Connected', socket, true)
@@ -274,11 +234,12 @@ export const useBackendSocket = () => {
           flushCommandQueue()
           setState((prev) => ({ ...prev, queuedCommands: 0 }))
         } else {
+          // No polling: the backend pushes a fresh report every cycle and on
+          // every readiness change, so this state converges without requests.
           updateBackendConnectionSnapshot('Synchronizing', socket, false)
           setState((prev) => ({ ...prev, status: 'Synchronizing' }))
           eventBus.emit('socket_connected', { connected: false })
-          scheduleReadinessCheck()
-          // 連線層永不得重啟後端 (A195/A196): a startup_dead payload means the
+          // A195/A196: a startup_dead payload means the
           // backend PROCESS is alive (it just sent us a message) but its
           // runtime init failed — the governed recovery owner is boot_core,
           // not the UI socket.  Surface a typed degraded signal instead.
@@ -310,7 +271,8 @@ export const useBackendSocket = () => {
           queuedCommands: commandQueueRef.current.length,
         }))
         BootLogger.log('WebSocket', 'OPEN', { endpoint: endpointLabel })
-        requestRuntimeStatus()
+        // The backend owns the refresh: it sends an immediate health report
+        // on connection plus a report every cycle.  The client never polls.
         // A195 RECONNECT: resubscribe to the transactional outbox with the
         // last acknowledged cursor so the backend replays missed events.
         try {
@@ -340,6 +302,10 @@ export const useBackendSocket = () => {
           ) {
             const runtime = (payload.payload ?? {}) as Record<string, unknown>
             applyRuntimeReadiness(runtime)
+            // Modular distribution: each module subscribes to its own field.
+            applyRuntimeStatusReport(
+              runtime as Parameters<typeof applyRuntimeStatusReport>[0]
+            )
           }
 
           // A195: outbox session answer — a generation change means the
@@ -370,7 +336,7 @@ export const useBackendSocket = () => {
                   // retried by the next delivered event
                 }
               },
-              requestRuntimeStatusThrottled
+              () => undefined
             )
           }
 
@@ -422,7 +388,6 @@ export const useBackendSocket = () => {
 
       socket.onclose = () => {
         clearConnectTimeout()
-        clearReadinessTimer()
         if (socketRef.current === socket) {
           socketRef.current = null
         }
@@ -444,7 +409,6 @@ export const useBackendSocket = () => {
       if (document.visibilityState === 'hidden') return
       clearReconnectTimer()
       clearConnectTimeout()
-      clearReadinessTimer()
       void connect()
     }
     window.addEventListener('online', reconnectNow)
@@ -468,7 +432,6 @@ export const useBackendSocket = () => {
       document.removeEventListener('visibilitychange', reconnectNow)
       clearReconnectTimer()
       clearConnectTimeout()
-      clearReadinessTimer()
       clearStaleConnectionTimer()
       reconnectAttemptRef.current = 0
       commandQueueRef.current = []

@@ -53,21 +53,7 @@ interface ThirdPartyStatus {
 
 type LoadingState = 'idle' | 'loading' | 'success' | 'error'
 
-const STATUS_LABELS: Record<string, string> = {
-  ok: '版本一致',
-  'version-drift': '版本不一致',
-  missing: '未安裝',
-  error: '探測失敗',
-}
-
-const STATUS_TONES: Record<string, string> = {
-  ok: 'success',
-  'version-drift': 'warning',
-  missing: 'danger',
-  error: 'danger',
-}
-
-const t = mainSystemLocale.toolbox
+const tp = mainSystemLocale.thirdParty
 
 export function ThirdPartyPanel() {
   const { sendCommand } = useBackendSocket()
@@ -82,10 +68,9 @@ export function ThirdPartyPanel() {
     const result = sendCommand('app:get-third-party-status', {})
     if (!result.ok) {
       setLoadingState('error')
-      setErrorMsg(result.message || '無法取得第三方軟體狀態')
+      setErrorMsg(result.message || tp.errorFetchStatus)
       return
     }
-    // Wait for the response via ipc_event
     const handler = (event: Event) => {
       const detail = (event as CustomEvent).detail
       if (detail.event !== 'app:get-third-party-status_result') return
@@ -96,16 +81,15 @@ export function ThirdPartyPanel() {
         setLoadingState('success')
       } else {
         setLoadingState('error')
-        setErrorMsg(payload.status ? '狀態載入失敗' : `第三方管理服務${t.statusStopped}`)
+        setErrorMsg(payload.status ? tp.errorLoadStatus : tp.errorFetchStatus)
       }
     }
     window.addEventListener('ipc_event', handler)
-    // Timeout fallback
     setTimeout(() => {
       window.removeEventListener('ipc_event', handler)
       if (loadingState === 'loading') {
         setLoadingState('error')
-        setErrorMsg('請求逾時')
+        setErrorMsg(tp.timeout)
       }
     }, 10000)
   }, [sendCommand])
@@ -115,7 +99,7 @@ export function ThirdPartyPanel() {
     const result = sendCommand('app:probe-third-party-versions', {})
     if (!result.ok) {
       setLoadingState('error')
-      setErrorMsg(result.message || '無法探測版本')
+      setErrorMsg(result.message || tp.errorProbeVersions)
       return
     }
     const handler = (event: Event) => {
@@ -146,7 +130,7 @@ export function ThirdPartyPanel() {
         setLoadingState('success')
       } else {
         setLoadingState('error')
-        setErrorMsg('版本探測失敗')
+        setErrorMsg(tp.errorProbeFailed)
       }
     }
     window.addEventListener('ipc_event', handler)
@@ -157,7 +141,7 @@ export function ThirdPartyPanel() {
     const result = sendCommand('app:check-third-party-updates', {})
     if (!result.ok) {
       setLoadingState('error')
-      setErrorMsg(result.message || '無法檢查更新')
+      setErrorMsg(result.message || tp.errorCheckUpdates)
       return
     }
     const handler = (event: Event) => {
@@ -188,7 +172,7 @@ export function ThirdPartyPanel() {
         setLoadingState('success')
       } else {
         setLoadingState('error')
-        setErrorMsg('更新檢查失敗')
+        setErrorMsg(tp.errorCheckFailed)
       }
     }
     window.addEventListener('ipc_event', handler)
@@ -203,7 +187,7 @@ export function ThirdPartyPanel() {
       })
       if (!result.ok && !result.queued) {
         setUpdatingTool(null)
-        setErrorMsg(result.message || `無法${t.start}更新`)
+        setErrorMsg(result.message || tp.errorUpdate)
         return
       }
       const handler = (event: Event) => {
@@ -213,7 +197,6 @@ export function ThirdPartyPanel() {
         const payload = detail.payload as UpdateExecutionResult
         setUpdateResults((prev) => ({ ...prev, [toolId]: payload }))
         setUpdatingTool(null)
-        // Refresh versions after update
         void probeVersions()
       }
       window.addEventListener('ipc_event', handler)
@@ -234,9 +217,9 @@ export function ThirdPartyPanel() {
     <section className="third-party-panel" aria-labelledby="third-party-title">
       <header className="third-party-header">
         <div>
-          <span className="eyebrow">第三方軟體管理</span>
-          <h2 id="third-party-title">第三方軟體集中管理</h2>
-          <p>版本探測、更新檢測、自動更新</p>
+          <span className="eyebrow">{tp.eyebrow}</span>
+          <h2 id="third-party-title">{tp.title}</h2>
+          <p>{tp.subtitle}</p>
         </div>
         <div className="third-party-actions">
           <button
@@ -244,21 +227,21 @@ export function ThirdPartyPanel() {
             onClick={() => void probeVersions()}
             disabled={loadingState === 'loading'}
           >
-            重新探測版本
+            {tp.refreshVersions}
           </button>
           <button
             className="tp-btn tp-btn--secondary"
             onClick={() => void checkUpdates()}
             disabled={loadingState === 'loading'}
           >
-            檢查更新
+            {tp.checkUpdates}
           </button>
           <button
             className="tp-btn tp-btn--primary"
             onClick={() => void refreshStatus()}
             disabled={loadingState === 'loading'}
           >
-            {t.refresh}
+            {tp.refresh}
           </button>
         </div>
       </header>
@@ -272,16 +255,16 @@ export function ThirdPartyPanel() {
       {status?.status && (
         <div className="tp-meta">
           <div className="tp-meta__item">
-            <span>管理服務版本</span>
+            <span>{tp.serviceVersion}</span>
             <strong>{status.status.version}</strong>
           </div>
           <div className="tp-meta__item">
-            <span>可自動更新</span>
+            <span>{tp.autoUpdatable}</span>
             <strong>{autoUpdatable.join(', ') || '—'}</strong>
           </div>
           {status.status.last_full_probe_at && (
             <div className="tp-meta__item">
-              <span>上次探測</span>
+              <span>{tp.lastProbe}</span>
               <strong className="tp-meta__time">
                 {new Date(status.status.last_full_probe_at).toLocaleString('zh-TW', {
                   hour12: false,
@@ -296,20 +279,20 @@ export function ThirdPartyPanel() {
         <table className="tp-table">
           <thead>
             <tr>
-              <th>工具</th>
-              <th>登錄版本</th>
-              <th>偵測版本</th>
-              <th>狀態</th>
-              <th>最新版本</th>
-              <th>可更新</th>
-              <th>操作</th>
+              <th>{tp.tool}</th>
+              <th>{tp.recordedVersion}</th>
+              <th>{tp.detectedVersion}</th>
+              <th>{tp.status}</th>
+              <th>{tp.latestVersion}</th>
+              <th>{tp.updatable}</th>
+              <th>{tp.action}</th>
             </tr>
           </thead>
           <tbody>
             {toolIds.length === 0 && (
               <tr>
                 <td colSpan={7} className="tp-empty">
-                  {loadingState === 'loading' ? '載入中…' : '尚無資料，點擊「重新探測版本」開始'}
+                  {loadingState === 'loading' ? tp.loading : tp.empty}
                 </td>
               </tr>
             )}
@@ -319,7 +302,9 @@ export function ThirdPartyPanel() {
               const canUpdate = autoUpdatable.includes(toolId)
               const result = updateResults[toolId]
               const isUpdating = updatingTool === toolId
-              const tone = STATUS_TONES[info?.status || ''] || 'muted'
+              const statusKey = info?.status || ''
+              const statusLabels = tp.statusLabels as Record<string, string>
+              const tone = statusLabels[statusKey] ? 'success' : 'muted'
               return (
                 <tr key={toolId}>
                   <td className="tp-tool-id">{toolId}</td>
@@ -327,15 +312,15 @@ export function ThirdPartyPanel() {
                   <td className="tp-version">{info?.detected_version || '—'}</td>
                   <td>
                     <span className={`tp-status tp-status--${tone}`}>
-                      {STATUS_LABELS[info?.status || ''] || info?.status || '—'}
+                      {statusLabels[statusKey] || info?.status || '—'}
                     </span>
                   </td>
                   <td className="tp-version">{update?.latest_version || '—'}</td>
                   <td>
                     {canUpdate ? (
-                      <span className="tp-badge tp-badge--yes">可自動更新</span>
+                      <span className="tp-badge tp-badge--yes">{tp.autoUpdatableBadge}</span>
                     ) : (
-                      <span className="tp-badge tp-badge--no">手動</span>
+                      <span className="tp-badge tp-badge--no">{tp.manualBadge}</span>
                     )}
                   </td>
                   <td>
@@ -345,7 +330,7 @@ export function ThirdPartyPanel() {
                         onClick={() => void updateTool(toolId)}
                         disabled={isUpdating}
                       >
-                        {isUpdating ? '更新中…' : '更新'}
+                        {isUpdating ? tp.updating : tp.updateBtn}
                       </button>
                     )}
                     {result && (
@@ -353,8 +338,8 @@ export function ThirdPartyPanel() {
                         className={`tp-update-result ${result.ok ? 'tp-update-result--ok' : 'tp-update-result--fail'}`}
                       >
                         {result.ok
-                          ? `✓ ${result.after_version || '已更新'}`
-                          : `✗ ${result.error || '失敗'}`}
+                          ? `✓ ${result.after_version || tp.updated}`
+                          : `✗ ${result.error || tp.failed}`}
                       </span>
                     )}
                   </td>

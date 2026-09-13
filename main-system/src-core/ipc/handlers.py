@@ -40,9 +40,16 @@ MAIN_COMMANDS = {
     "app:hot-reload-backend",
     "app:get-fault-analysis",
     "app:get-pending-actions",
-    "app:confirm-pending-action",
     "app:get-automation-switches",
     "app:set-automation-switch",
+    "xingcheng-set-repair-release",
+    "xingcheng-set-update-release",
+    "xingcheng-confirm-automatic-repair",
+    "xingcheng-confirm-automatic-update",
+    "xingcheng-revoke-automatic-repair-confirmation",
+    "xingcheng-revoke-automatic-update-confirmation",
+    "sync-execute-approved-automatic-repair",
+    "sync-execute-approved-automatic-update",
 }
 
 def _pending_action_cardinality(actions: list[dict[str, Any]]) -> dict[str, Any]:
@@ -474,11 +481,75 @@ class CommandRouter:
                 "switches": switches,
             }
 
-        if command == "app:confirm-pending-action":
-            from core_system.confirmation_service import confirm_action
+        if command in (
+            "xingcheng-set-repair-release",
+            "xingcheng-set-update-release",
+        ):
+            from core_system.auto_action_policy import (
+                AUTOMATIC_REPAIR_SWITCH,
+                AUTOMATIC_UPDATE_SWITCH,
+                set_automation_switch,
+            )
 
-            action_id = str(payload.get("action_id") or "").strip()
-            result = await confirm_action(self.app, action_id)
+            switch = (
+                AUTOMATIC_REPAIR_SWITCH
+                if "repair" in command
+                else AUTOMATIC_UPDATE_SWITCH
+            )
+            enabled = payload.get("enabled")
+            if not isinstance(enabled, bool):
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "MISSING_ENABLED_STATE",
+                    "message": "enabled (boolean) is required",
+                }
+            switches = set_automation_switch(
+                getattr(self.app, "project_root", None),
+                switch,
+                enabled,
+                actor="authenticated-ui",
+            )
+            return f"{command}_result", {"ok": True, "switches": switches}
+
+        if command in (
+            "xingcheng-confirm-automatic-repair",
+            "xingcheng-confirm-automatic-update",
+        ):
+            from core_system.confirmation_service import record_confirmation
+
+            result = await record_confirmation(
+                self.app,
+                str(payload.get("action_id") or ""),
+                confirmation_id=str(payload.get("confirmation_id") or ""),
+            )
+            result.setdefault("error_code", "")
+            return f"{command}_result", result
+
+        if command in (
+            "xingcheng-revoke-automatic-repair-confirmation",
+            "xingcheng-revoke-automatic-update-confirmation",
+        ):
+            from core_system.confirmation_service import revoke_confirmation
+
+            result = await revoke_confirmation(
+                self.app,
+                str(payload.get("action_id") or ""),
+                str(payload.get("confirmation_id") or ""),
+            )
+            result.setdefault("error_code", "")
+            return f"{command}_result", result
+
+        if command in (
+            "sync-execute-approved-automatic-repair",
+            "sync-execute-approved-automatic-update",
+        ):
+            from core_system.confirmation_service import execute_approved
+
+            result = await execute_approved(
+                self.app,
+                str(payload.get("action_id") or ""),
+                str(payload.get("confirmation_id") or ""),
+            )
             result.setdefault("error_code", "")
             return f"{command}_result", result
 

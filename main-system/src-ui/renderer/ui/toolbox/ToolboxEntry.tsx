@@ -78,9 +78,9 @@ export function ToolboxEntry({
         </div>
       </header>
 
-      <div className="toolbox-toolbar" aria-label="工具篩選">
+      <div className="toolbox-toolbar" aria-label={t.filterLabel}>
         <label className="tool-search">
-          <span className="sr-only">搜尋工具</span>
+          <span className="sr-only">{t.searchLabel}</span>
           <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none">
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
             <path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -88,18 +88,18 @@ export function ToolboxEntry({
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜尋工具或功能"
+            placeholder={t.searchPlaceholder}
           />
           {query && (
-            <button type="button" onClick={() => setQuery('')} aria-label="清除搜尋">×</button>
+            <button type="button" onClick={() => setQuery('')} aria-label={t.clearLabel}>×</button>
           )}
         </label>
-        <div className="tool-filters" role="group" aria-label="工具狀態">
+        <div className="tool-filters" role="group" aria-label={t.filterLabel}>
           {([
-            ['all', '全部'],
+            ['all', t.filterAll],
             ['running', t.statusRunning],
             ['available', `可${t.start}`],
-            ['issues', '需處理'],
+            ['issues', t.filterIssues],
           ] as const).map(([value, label]) => (
             <button
               key={value}
@@ -112,13 +112,13 @@ export function ToolboxEntry({
             </button>
           ))}
         </div>
-        <span className="tool-result-count">顯示 {visibleTools.length} / {tools.length}</span>
+        <span className="tool-result-count">{t.resultCount.replace('{count}', String(visibleTools.length)).replace('{total}', String(tools.length))}</span>
       </div>
 
       {visibleTools.length === 0 ? (
         <div className="empty-state">
-          <strong>{tools.length === 0 ? t.empty : '找不到符合條件的工具'}</strong>
-          {tools.length > 0 && <span>請調整搜尋文字或篩選條件。</span>}
+          <strong>{tools.length === 0 ? t.empty : t.noResults}</strong>
+          {tools.length > 0 && <span>{t.adjustSearch}</span>}
         </div>
       ) : (
         <div className="toolbox-grid">

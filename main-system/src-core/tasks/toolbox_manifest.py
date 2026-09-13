@@ -345,21 +345,55 @@ class ManifestMixin:
                     known_ids.add(tool_id)
             except (OSError, ValueError, json.JSONDecodeError):
                 continue
+        # Nested declared tools (e.g. local-model/model-dialogue) live inside
+        # a host root; their manifest declares independence instead of a
+        # code-level id list, so discover them at any depth below the hosts.
+        for host_dir in sorted(self.tools_dir.iterdir(), key=lambda item: item.name.lower()):
+            if not host_dir.is_dir() or not (host_dir / "manifest.json").is_file():
+                continue
+            for manifest_path in sorted(host_dir.rglob("manifest.json")):
+                if manifest_path.parent == host_dir:
+                    continue
+                try:
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                tool_id = str(manifest.get("id") or "")
+                if not tool_id or tool_id in known_ids:
+                    continue
+                if manifest.get("main_system_independent_tool") is not True:
+                    continue
+                try:
+                    records.append(self._manifest_to_record(manifest_path.parent, manifest))
+                    known_ids.add(tool_id)
+                except (OSError, ValueError):
+                    continue
         return records
 
     # ------------------------------------------------------------------
     # Listing and status
     # ------------------------------------------------------------------
 
-    _HIDDEN_INFRASTRUCTURE_IDS = frozenset(
-        {"global-cleaner", "governance_rule", "shared-layer"}
-    )
     _RESIDENT_SERVICE_IDS = frozenset({"shared-layer", "xingcheng"})
+
+    @staticmethod
+    def _declares_independent_tool_card(tool: dict[str, Any]) -> bool:
+        """A manifest owns a toolbox card only when it declares itself as an
+        independent tool.  Infrastructure (the governance codex, the shared
+        layer), utilities and companions declare their own status through the
+        manifest instead of a code-level id list."""
+        if tool.get("main_system_independent_tool") is not True:
+            return False
+        if tool.get("companion_tool") is True:
+            return False
+        if tool.get("hidden_from_toolbox") is True:
+            return False
+        return True
 
     def _classify_tool(self, tool: dict[str, Any]) -> bool:
         """Classify a tool record in-place. Return True if it needs process checks."""
         tool_id = str(tool.get("id", "")).strip()
-        if tool_id in self._HIDDEN_INFRASTRUCTURE_IDS:
+        if not self._declares_independent_tool_card(tool):
             tool["hidden_from_toolbox"] = True
         if tool_id in self._RESIDENT_SERVICE_IDS:
             tool["permission_denied"] = False

@@ -35,6 +35,28 @@ def _payload(manifest: AuthorityIntegrityManifest) -> bytes:
     ).encode("utf-8")
 
 
+def _pinned_authority_sources() -> tuple[str, ...]:
+    """Authority files whose bytes are pinned into the launch manifest.
+
+    A382 (non-disruptive amendment): runtime-mutable authority data declared
+    by ``policy.runtime_mutable_authority_files`` — the live codex database
+    and its mirror — publishes new generations atomically while the system
+    keeps running, so their bytes are excluded from pinning; their integrity
+    is carried by the codex's own seal manifest and revision hash chain.
+    """
+    policy = governance_policy_snapshot()
+    directory = directory_authority_snapshot()
+    mutable = frozenset(policy.runtime_mutable_authority_files)
+    return tuple(
+        relative
+        for relative in (
+            *policy.authority_files,
+            *directory.managed_read_only_registry_paths,
+        )
+        if relative not in mutable
+    )
+
+
 def build_integrity_manifest(
     project_root: Path,
     launcher_key: bytes,
@@ -61,10 +83,7 @@ def build_integrity_manifest(
                 resolve_project_path(project_root, relative).read_bytes()
             ).hexdigest(),
         )
-        for relative in (
-            *policy.authority_files,
-            *directory.managed_read_only_registry_paths,
-        )
+        for relative in _pinned_authority_sources()
     )
     unsigned = AuthorityIntegrityManifest(
         authority_version=policy.authority_version,
@@ -96,7 +115,6 @@ class AuthorityIntegrityGuard:
         *,
         expected_key_id: str,
     ) -> None:
-        policy = governance_policy_snapshot()
         directory = directory_authority_snapshot()
         key_policy = directory.key_management_policy
         if (
@@ -106,6 +124,27 @@ class AuthorityIntegrityGuard:
             or not isinstance(expected_key_id, str)
             or not expected_key_id
             or manifest.key_id != expected_key_id
+        ):
+            raise permission_denied()
+        self._project_root = project_root
+        self._launcher_key = launcher_key
+        self._expected_key_id = expected_key_id
+        self._manifest = manifest
+        self._adopt(manifest)
+
+    def _adopt(self, manifest: AuthorityIntegrityManifest) -> None:
+        """Validate a manifest structurally and make it the active one.
+
+        Shared by construction and runtime re-anchoring so both paths apply
+        the exact same fail-closed validation.  On verification failure the
+        previous manifest is restored.
+        """
+        policy = governance_policy_snapshot()
+        directory = directory_authority_snapshot()
+        key_policy = directory.key_management_policy
+        if (
+            not isinstance(manifest, AuthorityIntegrityManifest)
+            or manifest.key_id != self._expected_key_id
             or not isinstance(manifest.issued_at, int)
             or isinstance(manifest.issued_at, bool)
             or not isinstance(manifest.signature, str)
@@ -121,7 +160,7 @@ class AuthorityIntegrityGuard:
         ):
             raise permission_denied()
         expected = hmac.new(
-            launcher_key,
+            self._launcher_key,
             _payload(manifest),
             hashlib.sha256,
         ).hexdigest()
@@ -129,15 +168,35 @@ class AuthorityIntegrityGuard:
             raise permission_denied()
         if manifest.authority_version != policy.authority_version:
             raise permission_denied()
-        protected_sources = (
-            *policy.authority_files,
-            *directory.managed_read_only_registry_paths,
-        )
+        protected_sources = _pinned_authority_sources()
         if tuple(path for path, _digest in manifest.file_digests) != protected_sources:
             raise permission_denied()
-        self._project_root = project_root
+        previous = self._manifest
         self._manifest = manifest
-        self.verify()
+        try:
+            self.verify()
+        except Exception:
+            self._manifest = previous
+            raise
+
+    def reanchor(self) -> AuthorityIntegrityManifest:
+        """Re-anchor to the live authority files without a process restart.
+
+        A governed authority update (codex or managed registry) changes file
+        digests while the process keeps running; historically that forced a
+        restart.  This rebuilds and re-signs the launch manifest with the
+        same launcher key and key id under the identical structural
+        validation, so an invalid update fails closed and the previous
+        baseline stays in effect.
+        """
+        manifest = build_integrity_manifest(
+            self._project_root,
+            self._launcher_key,
+            issued_at=int(time.time()),
+            key_id=self._expected_key_id,
+        )
+        self._adopt(manifest)
+        return self._manifest
 
     def verify(self) -> None:
         for relative, expected_digest in self._manifest.file_digests:

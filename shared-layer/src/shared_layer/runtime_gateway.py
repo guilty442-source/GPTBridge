@@ -65,27 +65,45 @@ class GovernedCommandEnvelope:
 class CommandContractResolver:
     """Read-only resolver for the canonical command_code_directory (A224).
 
-    Caches the full command-code set on first lookup; subsequent lookups
-    hit the in-memory cache.  The SQLite file is opened read-only.
+    Caches the command-code set keyed on the codex database's mtime/size so
+    an additive codex registration (command_code_directory update) becomes
+    visible to the running process on the next lookup — no restart needed.
     """
 
     def __init__(self, project_root: Path | str) -> None:
         self._db = Path(project_root) / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
         self._cache: set[str] | None = None
+        self._signature: tuple[int, int] | None = None
+
+    def _current_signature(self) -> tuple[int, int] | None:
+        try:
+            stat_result = self._db.stat()
+        except OSError:
+            return None
+        return (stat_result.st_mtime_ns, stat_result.st_size)
 
     def _load(self) -> set[str]:
-        if self._cache is not None:
+        signature = self._current_signature()
+        if self._cache is not None and signature == self._signature:
             return self._cache
         codes: set[str] = set()
+        loaded = False
         try:
             uri = f"file:{self._db.as_posix()}?mode=ro&immutable=1"
             conn = sqlite3.connect(uri, uri=True)
             for row in conn.execute("SELECT command_code FROM command_code_directory"):
                 codes.add(str(row[0]))
             conn.close()
+            loaded = True
         except Exception:
             pass  # fail-open on database error; audit gate still records
-        self._cache = codes
+        if loaded:
+            self._cache = codes
+            self._signature = signature
+            return self._cache
+        # Transient read failure: keep the last known good directory.
+        if self._cache is not None:
+            return self._cache
         return codes
 
     def is_registered(self, command: str) -> bool:
@@ -100,6 +118,7 @@ class CommandContractResolver:
     def invalidate(self) -> None:
         """Clear the cache so the next lookup re-reads the directory."""
         self._cache = None
+        self._signature = None
 
 
 # ---------------------------------------------------------------------------

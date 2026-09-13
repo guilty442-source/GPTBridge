@@ -4,36 +4,59 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final
 
 
 CODEX_VERSION_UNIT: Final[int] = 100_000
+# Versions are either the legacy ``integer-dot-five-decimal-digits`` form or
+# a UTC timestamp (ISO 8601).  Timestamp versions are represented as epoch
+# seconds, which are far above legacy unit counts, so integer ordering and
+# comparisons keep working across both eras without floating point.
+TIMESTAMP_VERSION_THRESHOLD: Final[int] = 10_000_000
+
+
+def _timestamp_version_units(text: str) -> int:
+    normalized = text.replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return int(parsed.timestamp())
 
 
 def codex_version_units(value: object) -> int:
-    """Convert ``integer-dot-five-decimal-digits`` version text to integer units.
+    """Convert a codex version to integer units.
 
-    A100 mandates integer-only version arithmetic and forbids floating point.
-    Versions are therefore represented as whole counts of the ``0.00001`` unit
-    (e.g. ``1.41600`` -> ``141600``) rather than floats.
+    Accepts the legacy ``integer-dot-five-decimal-digits`` form (e.g.
+    ``1.41600`` -> ``141600``) or a UTC timestamp (ISO 8601, e.g.
+    ``2026-09-13T15:50:00Z``) -> epoch seconds.  Integer-only arithmetic is
+    preserved for both forms.
     """
     text = str(value or "").strip()
     whole, separator, fraction = text.partition(".")
     if (
-        not separator
-        or not whole.isdigit()
-        or not fraction.isdigit()
-        or len(fraction) != 5
+        separator
+        and whole.isdigit()
+        and fraction.isdigit()
+        and len(fraction) == 5
     ):
+        return int(whole) * CODEX_VERSION_UNIT + int(fraction)
+    try:
+        return _timestamp_version_units(text)
+    except (TypeError, ValueError):
         raise ValueError(
-            f"codex version must be integer-dot-five-decimal-digits: {value!r}"
+            f"codex version must be integer-dot-five-decimal-digits or a "
+            f"UTC timestamp: {value!r}"
         )
-    return int(whole) * CODEX_VERSION_UNIT + int(fraction)
 
 
 def format_codex_version(version: int) -> str:
-    """Render an integer micro-unit version as ``integer-dot-five-decimal-digits``."""
+    """Render integer units as a legacy version or a UTC timestamp."""
+    if version >= TIMESTAMP_VERSION_THRESHOLD:
+        return datetime.fromtimestamp(version, tz=timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
     return f"{version // CODEX_VERSION_UNIT}.{version % CODEX_VERSION_UNIT:05d}"
 
 

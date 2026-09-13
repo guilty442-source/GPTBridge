@@ -2658,12 +2658,14 @@ def test_main_startup_follows_declared_dag_and_detaches_ui() -> None:
 
 def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
     root = ROOT / "main-system"
-    watcher = (root / "src-core" / "tasks" / "hot_reload_watcher.py").read_text(
-        "utf-8"
+    watcher = "\n".join(
+        path.read_text("utf-8")
+        for path in sorted((root / "src-core" / "tasks").glob("hot_reload_watcher*.py"))
     )
-    update = (
-        root / "src-core" / "core_system" / "hot_update_service.py"
-    ).read_text("utf-8")
+    update = "\n".join(
+        path.read_text("utf-8")
+        for path in sorted((root / "src-core" / "core_system").glob("hot_update_service*.py"))
+    )
     backend = (root / "src-ui" / "main" / "python-backend.ts").read_text(
         "utf-8"
     )
@@ -2724,12 +2726,14 @@ def test_backend_gateway_and_watcher_use_atomic_ab_handover() -> None:
         path.read_text("utf-8")
         for path in sorted((root / "src-core").glob("boot_core*.py"))
     )
-    watcher = (root / "src-core" / "tasks" / "hot_reload_watcher.py").read_text(
-        "utf-8"
+    watcher = "\n".join(
+        path.read_text("utf-8")
+        for path in sorted((root / "src-core" / "tasks").glob("hot_reload_watcher*.py"))
     )
-    update = (
-        root / "src-core" / "core_system" / "hot_update_service.py"
-    ).read_text("utf-8")
+    update = "\n".join(
+        path.read_text("utf-8")
+        for path in sorted((root / "src-core" / "core_system").glob("hot_update_service*.py"))
+    )
     handlers = (root / "src-core" / "ipc" / "handlers.py").read_text("utf-8")
 
     assert "class BackendGateway" in gateway

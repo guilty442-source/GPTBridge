@@ -152,6 +152,19 @@ def check_directory_identity_and_format(root: Path, errors: list[str]) -> None:
             errors.append("seal manifest is empty")
             return
         current_units = max(seal_versions)
+        # The authoritative current version is the codex metadata version.
+        # Timestamp versions (epoch seconds) order above legacy seals, so
+        # timestamp-era directory entries pass without a renumbered seal.
+        try:
+            metadata = dict(
+                connection.execute("SELECT key, value FROM metadata")
+            )
+            current_units = max(
+                current_units,
+                codex_version_units(metadata.get("codex_version")),
+            )
+        except ValueError:
+            errors.append("codex metadata version is not well-formed")
         for table, identity_column in DIRECTORY_TABLES.items():
             _, rows = _table_rows(connection, table)
             identity_values = set()

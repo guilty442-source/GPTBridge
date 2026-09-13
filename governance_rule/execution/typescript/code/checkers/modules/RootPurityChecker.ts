@@ -22,6 +22,7 @@ const requiredFolders = [
 const allowedRootDirectories = new Set([
   '.git', '.devin', '.kilo', '.smallcode', '.venv', '.vs', '.vscode',
   'docs', 'launcher', 'main-system', 'native', 'scripts', 'shared-layer',
+  'Standalone tools',
 ])
 const allowedRootFiles = new Set([
   '.env', '.gitignore', '.markdownlint.json', 'AGENTS.md', 'pytest.ini',

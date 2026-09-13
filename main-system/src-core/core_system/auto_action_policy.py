@@ -26,6 +26,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
@@ -59,6 +60,21 @@ MAX_PENDING_ACTIONS: Final[int] = 100
 
 # Default confirmation validity window (A366: confirmation binds expiry).
 CONFIRMATION_TTL_SECONDS: Final[float] = 24 * 3600.0
+
+# Cross-thread fault/clear notification: any change to the pending-action
+# surface wakes the backend push loop immediately so Xingcheng receives the
+# fault report (and its resolution) without waiting for the next cycle.
+_FAULT_CHANGE_EVENT: Final[threading.Event] = threading.Event()
+
+
+def fault_change_event() -> threading.Event:
+    """Shared event set when a fault or its resolution is recorded."""
+    return _FAULT_CHANGE_EVENT
+
+
+def notify_fault_change() -> None:
+    """Wake the backend report loop for an immediate Xingcheng update."""
+    _FAULT_CHANGE_EVENT.set()
 
 
 def _iso_now() -> str:
@@ -300,6 +316,7 @@ def record_pending_action(
             merged["evidence_digest"] = compute_action_digest(merged)
             actions[index] = merged
             _write_pending_actions(project_root, actions)
+            notify_fault_change()
             return merged
     record = {
         "action_id": action_id,
@@ -316,6 +333,7 @@ def record_pending_action(
     if len(actions) > MAX_PENDING_ACTIONS:
         actions = actions[-MAX_PENDING_ACTIONS:]
     _write_pending_actions(project_root, actions)
+    notify_fault_change()
     return record
 
 
@@ -340,6 +358,7 @@ def update_pending_action_status(
             break
     if updated is not None:
         _write_pending_actions(project_root, actions)
+        notify_fault_change()
     return updated
 
 
@@ -355,6 +374,8 @@ __all__ = [
     "automatic_repair_execution_allowed",
     "automatic_update_execution_allowed",
     "compute_action_digest",
+    "fault_change_event",
+    "notify_fault_change",
     "pending_actions_path",
     "read_automation_switches",
     "read_pending_actions",

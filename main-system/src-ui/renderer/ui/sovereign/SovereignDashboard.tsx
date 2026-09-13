@@ -77,12 +77,17 @@ export interface PendingActionCardinality {
   total_actionable?: number
 }
 
+import { useRuntimeStatusField } from '@/shared/hooks/useRuntimeStatusField'
+
 export interface RuntimeStatusPayload {
   maintenance_ready?: boolean
   decision_sovereign?: SovereignSnapshot
   pending_actions?: PendingActionApproval[]
+  pending_action_count?: number
   automation_switches?: AutomationSwitches
   pending_action_cardinality?: PendingActionCardinality
+  authority_reanchor?: Record<string, unknown>
+  automation_modules?: Array<Record<string, unknown>>
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -206,9 +211,14 @@ function powerLabel(value: unknown): string {
 export function SovereignDashboard({
   runtimeStatus,
 }: {
-  runtimeStatus: RuntimeStatusPayload
+  runtimeStatus?: RuntimeStatusPayload
 }) {
-  const sovereign = runtimeStatus.decision_sovereign
+  // Modular subscription: this dashboard updates only when the decision
+  // sovereign snapshot changes; an error here is contained by the module
+  // boundary and cannot stall the rest of the UI.
+  const subscribedSovereign = useRuntimeStatusField('decision_sovereign')
+  const sovereign =
+    subscribedSovereign ?? runtimeStatus?.decision_sovereign
   const codex = sovereign?.governance_rules
   const permission = sovereign?.permission
   const xingcheng = sovereign?.peer_systems?.xingcheng

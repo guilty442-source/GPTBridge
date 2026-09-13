@@ -284,6 +284,22 @@ class GovernanceAuthenticationService:
             self._assert_process_binding()
             self._integrity.verify()
 
+    def reanchor_runtime_integrity(self) -> None:
+        """Re-anchor this process to the live authority files (no restart).
+
+        A governed authority update (codex or managed registry) changes file
+        digests while the process keeps running.  Instead of forcing a
+        restart, the launch manifest is rebuilt and re-signed with the same
+        launcher key under the identical structural validation; an invalid
+        or partially written update fails closed and the previous baseline
+        remains in effect.  Called by the governed authority re-anchor
+        service once the new authority has passed the governance audit.
+        """
+
+        with self._lock:
+            self._assert_process_binding()
+            self._integrity.reanchor()
+
     def _resolve_key(self, key_id: str, now: int) -> _SigningKey:
         for key in (self._key_ring.current, self._key_ring.previous):
             if key is not None and key.key_id == key_id:

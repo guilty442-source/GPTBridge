@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   serviceManager,
   startStartupPipeline,
 } from '@/services/RuntimeServiceManager'
 import { useBackendSocket } from '@/hooks/useBackendSocket'
-import type { PendingActionApproval, RuntimeStatusPayload } from '@/ui/sovereign/SovereignDashboard'
+import type { RuntimeStatusPayload } from '@/ui/sovereign/SovereignDashboard'
 import { mainSystemLocale } from '@/locales/main-system'
+import {
+  applyRuntimeStatusReport,
+  getRuntimeStatusState,
+} from '@/shared/services/runtimeStatusStore'
 
 const UI_ZOOM_STORAGE_KEY = 'gptbridge_ui_zoom_factor'
 const MIN_UI_ZOOM = 0.85
@@ -27,12 +31,10 @@ function clampUiZoom(value: number): number {
 export function useAppState() {
   const [appVersion, setAppVersion] = useState('1.0.0')
   const [maintenanceReady, setMaintenanceReady] = useState(false)
-  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatusPayload>({})
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics>({})
   const [confirmBusyId, setConfirmBusyId] = useState<string | null>(null)
   const [switchBusy, setSwitchBusy] = useState<string | null>(null)
   const [confirmMessages, setConfirmMessages] = useState<Record<string, string>>({})
-  const pendingActionsRef = useRef<PendingActionApproval[]>([])
   const backendSocket = useBackendSocket()
   const sendCommand = backendSocket.sendCommand
   const connected = backendSocket.status === 'Connected'
@@ -70,7 +72,7 @@ export function useAppState() {
   const confirmPendingAction = useCallback(
     async (actionId: string) => {
       if (!actionId || confirmBusyId) return
-      const action = pendingActionsRef.current.find(
+      const action = (getRuntimeStatusState().pending_actions || []).find(
         (item) => item.action_id === actionId
       )
       const kind = String(action?.kind || '').trim()
@@ -273,7 +275,8 @@ export function useAppState() {
       const payload = (detail.payload || {}) as Record<string, unknown>
       const ready = payload.maintenance_ready === true
       setMaintenanceReady(ready)
-      setRuntimeStatus(payload as RuntimeStatusPayload)
+      // Modular distribution: per-field subscribers update independently.
+      applyRuntimeStatusReport(payload as Partial<RuntimeStatusPayload>)
     }
     window.addEventListener('ipc_event', onStatusPush)
 
@@ -290,19 +293,9 @@ export function useAppState() {
     }
   }, [connected, sendCommand])
 
-  const pendingActions = Array.isArray(runtimeStatus.pending_actions)
-    ? runtimeStatus.pending_actions
-    : []
-  pendingActionsRef.current = pendingActions
-  const automationSwitches = runtimeStatus.automation_switches || {}
-  const repairSwitchOn = automationSwitches.automatic_repair_enabled === true
-  const updateSwitchOn = automationSwitches.automatic_update_enabled === true
-  const cardinality = runtimeStatus.pending_action_cardinality || {}
-
   return {
     appVersion,
     maintenanceReady,
-    runtimeStatus,
     systemMetrics,
     confirmBusyId,
     switchBusy,
@@ -314,9 +307,5 @@ export function useAppState() {
     waitForIpcEvent,
     confirmPendingAction,
     setAutomationSwitch,
-    pendingActions,
-    repairSwitchOn,
-    updateSwitchOn,
-    cardinality,
   }
 }

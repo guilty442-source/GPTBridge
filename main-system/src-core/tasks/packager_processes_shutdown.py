@@ -3,6 +3,8 @@
 Extracted from packager_processes.py: the verified-packaged-backend
 shutdown logic that probes health, requests graceful shutdown,
 and force-stops unresponsive verified backends.
+
+Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 """
 
 from __future__ import annotations
