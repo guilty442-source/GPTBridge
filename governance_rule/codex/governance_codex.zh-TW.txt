@@ -3436,6 +3436,24 @@
         "rule": "TIMESTAMP-ENVELOPE:every immutable event/evidence/audit/revision record uses the applicable formal fields occurred_at_utc,recorded_at_utc,observed_at_utc,effective_at_utc,expires_at_utc,source_clock_id,time_zone,utc_offset,precision,monotonic_sequence,clock_skew_ms,timestamp_status and timestamp_hash. occurred_at_utc is when the source event happened;recorded_at_utc is durable append time;observed_at_utc is measurement time;effective_at_utc is legal/config activation time;expires_at_utc is nullable only when non-expiry is legally declared. FIXED-FORMAT:every canonical UTC timestamp is exactly YYYY-MM-DDTHH:mm:ss.ffffffZ in Gregorian calendar,24-hour time,UTC,with six fractional-second digits and uppercase Z;canonical storage forbids omitted fractions,numeric offsets,spaces,locale month names and naive time. precision is fixed to microsecond. time_zone and utc_offset are separate display/source-evidence fields and never alter canonical UTC storage. source_clock_id references the registered clock;monotonic_sequence orders events when wall clock ties/regresses;clock_skew_ms records measured uncertainty;timestamp_status is verified|estimated|corrected|invalid;timestamp_hash binds the normalized envelope to its record. HARD-CODE:only concrete immutable values stored in these timestamp fields qualify for A389 allowance. Field names,format,zones,clock IDs,expiry policy and status vocabulary are referenced by schema codes rather than scattered literals. CORRECTION:timestamps are never overwritten;an error appends a corrected successor with original timestamp_hash,reason,authority and correlation_id. VALIDATION:permission-sovereign formally validates time evidence as part of audit validation;domain collectors supply source evidence. Missing required field,wrong fixed format,naive local time,impossible ordering,excess skew,unregistered clock or hash mismatch makes evidence incomplete/invalid without stopping unrelated system review.",
         "prohibition": "FORBID:canonical timestamp outside YYYY-MM-DDTHH:mm:ss.ffffffZ+ambiguous local time+missing required source zone evidence+recorded time substituted for occurrence without status+timestamp overwrite+clock regression hidden+timestamp literal outside formal field+timestamp used as configuration identity+unregistered clock+permission validator fabricating source time+invalid time failing unrelated system review.",
         "exception": "Legacy records may retain their original format when paired with a canonical converted UTC timestamp and immutable migration evidence;the original is evidence only. A source unable to prove occurrence time uses estimated status and explicit uncertainty;it cannot claim verified."
+      },
+      {
+        "position": 392,
+        "provision_id": "A392",
+        "section_index": "17",
+        "subject": "xingcheng-codex-implementation-compliance-classification",
+        "rule": "MANDATE:CODE[INSTITUTION_XINGCHENG] inspects not only runtime faults but also whether CODE[CODEX_CURRENT_GENERATION] and governed implementation agree. Inspection scope includes declarations,authority/ownership,paths through directory codes,identities,contracts,API/ABI/schema,dependency direction,configuration codes,environment bindings,security,tests,evidence,lifecycle,release state and observable runtime behavior. INPUTS:use the current sealed/effective Codex generation,canonical registries,SourceIndex/GovernanceIR/LanguageGraph,current source/build/runtime evidence and affected-scope/full verification as applicable. Never compare against a stale report or superseded provision. METHOD:1 resolve current applicable provisions and codes;2 state the expected obligation and acceptance evidence;3 collect implementation declaration plus observed evidence;4 test contradiction,absence,ambiguity and feasibility;5 trace ownership and revision;6 classify;7 issue separate findings;8 submit audit evidence to CODE[ROLE_PERMISSION_SOVEREIGN] for formal validation. CLASSIFICATION:CODE[FINDING_IMPLEMENTATION_ISSUE] applies only when the Codex rule is current,internally coherent,applicable and testable but source/config/build/runtime/evidence violates or omits it. CODE[FINDING_CODEX_ISSUE] applies only when the governing rule itself is contradictory,ambiguous,missing required semantics,uses unresolved/duplicate codes,has invalid lineage/lifecycle/precedence,requires impossible evidence or conflicts with a higher/current provision. CODE[FINDING_INCOMPLETE_EVIDENCE] applies when neither conclusion is provable;it cannot be reported as compliant. If one incident contains both,a single vague BOTH verdict is forbidden:emit two linked findings,one implementation issue and one Codex issue,each with its own evidence,owner and required action. OUTPUT:each finding includes finding_id,classification,rule/code references,implementation target,expected,observed,evidence hashes,source revision,CodeX generation,scope,severity,certainty,owner,impact,required action,retest condition,correlation_id and CODE[TIMESTAMP_FORMAT_CANONICAL] timestamps. ROUTING:implementation issue goes to its registered implementation owner and normal repair/change workflow;Codex issue goes to explicit user/human amendment workflow under CODE[CODEX_AMENDMENT_FLOW],never automatic source repair. CODE[INSTITUTION_XINGCHENG] may challenge,suggest and re-inspect but cannot formally validate its own audit evidence,change permission or silently amend Codex. EFFECT:no finding alone mutates code,Codex,registry or status. Critical mismatch isolates only unsafe affected scope;unaffected system review and runtime continue.",
+        "prohibition": "FORBID:fault-only inspection+assuming implementation wrong whenever mismatch exists+assuming Codex wrong to excuse implementation+vague combined verdict+classification without current rule and observed evidence+stale/superseded comparison+automatic Codex rewrite+CODE[INSTITUTION_XINGCHENG] self-validating formal audit+finding directly executing repair+missing owner/retest/correlation+compliance PASS on incomplete evidence.",
+        "exception": "A fast save-time inspection may use affected-scope evidence and mark untouched scopes not-evaluated;integration/release or Codex-wide claims require full applicable verification. Emergency isolation may precede final classification but cannot predetermine it."
+      },
+      {
+        "position": 393,
+        "provision_id": "A393",
+        "section_index": "17",
+        "subject": "precise-coded-fault-and-compliance-detail-display",
+        "rule": "NO-VAGUE-FINDING:every fault,implementation issue and Codex issue is displayed as a concrete individually addressable record;generic labels such as system error,unknown failure,compliance problem or something went wrong cannot be the final finding. IDENTITY:display CODE[FAULT_CODE] or CODE[COMPLIANCE_FINDING_CODE] plus CODE[CANONICAL_CODENAME],human title and classification. DETAIL:the required governed detail schema contains finding_id,incident_id,parent/root_cause_group,classification_code,fault_or_rule_code,canonical_codename,title,summary,full_detail,severity,certainty,status,source_revision,CodeX_generation,affected_module_code,owner_code,exact_file_code,resolved_file_path,repository_root_code,line_start,line_end,symbol_or_entry,artifact_or_process,contract_or_operation,rule/provision references,expected,observed,reproduction_or_detection_steps,root_cause,impact,affected_scope,isolation_state,proposed_action_code,action_detail,risk,rollback_or_fallback,retest_condition,evidence hashes,correlation_id and formal timestamps. FILE-PRECISION:implementation findings must resolve to the narrowest authored source/config/build/migration/test file responsible and include line range plus symbol/entry when parse evidence permits. Multiple responsible files are separate linked targets,not one directory-level accusation. Runtime/generated artifact faults identify the artifact/process and trace to its owning authored file or explicitly state which mapping evidence is missing under CODE[FINDING_INCOMPLETE_EVIDENCE]. Codex issues identify exact provision_id/table/row/field or missing provision slot and the conflicting higher/current rule;CODEX database filename alone is insufficient. DISPLAY:single fault shows one full record;multiple faults show every record separately in deterministic severity,time,code order with total/unresolved counts. Collapsed summaries may accompany but never replace details. Paths are rendered from CODE[DIRECTORY_REFERENCE].field and are derived display values,not new hardcoding. REDACTION:secrets/personal/confidential Codex content is redacted by field policy while preserving code,location class,hash and actionable reason;redaction cannot make the finding vague. VALIDATION:CODE[ROLE_PERMISSION_SOVEREIGN] rejects any audit finding lacking required identity,exact target,expected/observed,evidence or retest fields.",
+        "prohibition": "FORBID:vague final error+missing code or codename+directory-only implementation target when file is knowable+missing line/symbol without parser reason+multiple files/faults collapsed into one target+Codex issue without exact provision/table/field+details replaced by summary+unknown used without enumerating missing evidence+hardcoded path instead of directory code+redaction hiding actionable classification+formal validation of incomplete detail.",
+        "exception": "When a crash prevents immediate file resolution,the preliminary record may use CODE[FINDING_INCOMPLETE_EVIDENCE] with exact artifact/process,stack/evidence and missing mapping;it must be enriched before repair approval or final classification. Line numbers may be omitted for binary artifacts when symbol/build/source mapping is provided."
       }
     ],
     "certification_evidence": [
@@ -4191,7 +4209,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H088",
+        "history_head": "H089",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -7029,6 +7047,15 @@
         "release_gate": "deny affected release/configuration change until code-based successor or controlled mapping exists",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "xingcheng_compliance_findings_directory",
+        "required_scope": "all affected Codex rules and implementation source/config/build/runtime/evidence targets",
+        "completion_rule": "zero unclassified mismatch,vague combined verdict,stale comparison or self-validated finding",
+        "acceptance_evidence": "clear implementation fault+clear Codex fault+both linked+incomplete evidence+stale rule+affected/full scan tests",
+        "release_gate": "deny compliance/release claim on unresolved critical or incomplete required evidence",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_format_contract": [
@@ -7661,6 +7688,20 @@
         "owner": "permission-sovereign",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_XINGCHENG_COMPLIANCE_FINDINGS",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "finding_id|classification_code|rule_codes|implementation_target_code|expected|observed|evidence_hashes|certainty|impact|required_action_code|retest_condition|correlation_id|timestamp_code|lineage",
+        "required_field_order": "envelope>current rule/code>target>expected/observed>evidence>classification>owner/action>retest>audit>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-not-applicable-proven",
+        "identity_format": "identity=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "current generation>applicability>evidence>classification>routing>formal validation>retest",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -8248,6 +8289,19 @@
         "implementation_state": "mandated-pending-implementation",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_XINGCHENG_COMPLIANCE_FINDINGS",
+        "canonical_name": "xingcheng-compliance-findings-directory",
+        "owner": "permission-sovereign",
+        "scope": "Codex-versus-implementation inspection findings and linked classifications",
+        "authority_kind": "privileged-inspection-evidence-non-validation-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|finding_id|classification_code|rule_codes|implementation_target_code|expected|observed|evidence_hashes|certainty|impact|required_action_code|retest_condition|correlation_id|timestamp_code|lineage",
+        "relationships": "finding|Codex-provision|implementation-target|owner|evidence|audit-validation|retest",
+        "coverage_rule": "every mismatch has one provable classification or incomplete evidence;dual defects are separate linked findings",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_normalization_plan": [
@@ -8622,6 +8676,17 @@
         "normalized_relationship_status": "required",
         "plaintext_secret_status": "forbidden",
         "activation_gate": "deny-resolution-until-unique-typed-binding-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_code": "DIR_XINGCHENG_COMPLIANCE_FINDINGS",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-compliance-claim-until-classification-and-formal-audit-validation",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
       }
@@ -13229,6 +13294,18 @@
         "provision_id": "A391",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A392",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A393",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -13287,14 +13364,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H088",
-        "provision_count": 637,
-        "identity_count": 637,
-        "lineage_count": 637,
+        "history_head": "H089",
+        "provision_count": 639,
+        "identity_count": 639,
+        "lineage_count": 639,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "521c6e824e50a2facc9bdbfe86d246164107bc441717af86ef1095a4103571d0",
-        "identity_root": "6e47c08179ae68217ef5581a6831b6ecde8f7d518318d6f1f194f30e5e96bde5",
-        "full_root": "7aa3d46f41e55a77ed63b4717f6b82ed7102acdea2e415adc0efd84c7c563931",
+        "content_root": "905ada951acf7f76c870db7049eb9d8d5c5f5c6db764b178e8b8ac2a1e7fd85b",
+        "identity_root": "b5d302e6f92617472a7eca6cb51a038bb699498571cc002d35a62e2e79b28f8b",
+        "full_root": "fefa0a14ae77f6d27527b7c8b0d02d56bf034ebffd6268adcd8d3cbbf3530a45",
         "legacy_history_head": null
       }
     ],
@@ -18421,7 +18498,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H088"
+        "value": "H089"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -18878,6 +18955,34 @@
       {
         "key": "dynamic_binding_order",
         "value": "codex-invariant>directory-reference-code>governed-environment>one-time-user-command"
+      },
+      {
+        "key": "xingcheng_compliance_inspection",
+        "value": "A392"
+      },
+      {
+        "key": "precise_finding_display_policy",
+        "value": "A393"
+      },
+      {
+        "key": "compliance_finding_implementation_code",
+        "value": "FINDING_IMPLEMENTATION_ISSUE"
+      },
+      {
+        "key": "compliance_finding_codex_code",
+        "value": "FINDING_CODEX_ISSUE"
+      },
+      {
+        "key": "compliance_finding_incomplete_code",
+        "value": "FINDING_INCOMPLETE_EVIDENCE"
+      },
+      {
+        "key": "compliance_dual_issue_policy",
+        "value": "separate-linked-findings-never-BOTH"
+      },
+      {
+        "key": "finding_target_precision",
+        "value": "file+line-range+symbol-or-explained-incomplete"
       }
     ],
     "module_assignment_registry": [
@@ -24764,6 +24869,20 @@
         "provision_id": "A391",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A392",
+        "provision_type": "article",
+        "provision_id": "A392",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A393",
+        "provision_type": "article",
+        "provision_id": "A393",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -29225,6 +29344,20 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A46|A200|A243|A274|A389|A390"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A392",
+        "tier": "special-law",
+        "law_code": "CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
+        "authority_basis": "A87|A274|A295|A335|A353|A361|A377|A378|A382|A386|A387|A390"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A393",
+        "tier": "special-law",
+        "law_code": "CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
+        "authority_basis": "A223|A274|A295|A366|A378|A386|A387|A390|A392"
       }
     ],
     "provision_lifecycle_status": [
@@ -34219,6 +34352,22 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H088+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A392",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H089+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A393",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H089+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -39317,6 +39466,22 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "808889cddd0d3c7888745dd45a6f2dc99f8b52780cbf127e4adaec6a0c6ece75"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A392",
+        "introduced_by": "H089",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "bbeacef7c4d61b3a95d9a573fe2c1a472b71eaef592097ecaab4d06b33f57102"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A393",
+        "introduced_by": "H089",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "0f998c4b43453dd7e17487468018316467d22dfdb0b8dc055a0abb7985ff4fdf"
       }
     ],
     "provision_revisions": [
@@ -50443,6 +50608,24 @@
         "content_hash": "808889cddd0d3c7888745dd45a6f2dc99f8b52780cbf127e4adaec6a0c6ece75",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A392",
+        "revision_id": "H089",
+        "version": "1.00000",
+        "content_hash": "bbeacef7c4d61b3a95d9a573fe2c1a472b71eaef592097ecaab4d06b33f57102",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A393",
+        "revision_id": "H089",
+        "version": "1.00000",
+        "content_hash": "0f998c4b43453dd7e17487468018316467d22dfdb0b8dc055a0abb7985ff4fdf",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -55715,6 +55898,26 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A392",
+        "controlling_law_code": "CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A393",
+        "controlling_law_code": "CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -56685,6 +56888,17 @@
         "previous_hash": "8f464d68a1a55d850d6c689ab080bdb1b036fa74c0aead30804f843b50f7f8ad",
         "entry_hash": "83768b8e615196170d8e19076b7a5aff31cc498d9c65eb251d7463e26164f750",
         "version_epoch": 2
+      },
+      {
+        "sequence": 89,
+        "change_id": "H089",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "xingcheng-compliance-classification-and-detailed-finding-display",
+        "summary": "Expanded Xingcheng inspection beyond faults to Codex-versus-implementation compliance, required separate evidence-based classification, and standardized code/codename/detail displays for faults and compliance issues. Version remains E2:1.00000.",
+        "previous_hash": "83768b8e615196170d8e19076b7a5aff31cc498d9c65eb251d7463e26164f750",
+        "entry_hash": "90bbd0cd52ddd024e315fece97827a9aaec5fa516e8c497503b8061805078986",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -57241,14 +57455,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H088",
-        "provision_count": 637,
-        "identity_count": 637,
-        "lineage_count": 637,
+        "history_head": "H089",
+        "provision_count": 639,
+        "identity_count": 639,
+        "lineage_count": 639,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "521c6e824e50a2facc9bdbfe86d246164107bc441717af86ef1095a4103571d0",
-        "identity_root": "6e47c08179ae68217ef5581a6831b6ecde8f7d518318d6f1f194f30e5e96bde5",
-        "full_root": "7aa3d46f41e55a77ed63b4717f6b82ed7102acdea2e415adc0efd84c7c563931",
+        "content_root": "905ada951acf7f76c870db7049eb9d8d5c5f5c6db764b178e8b8ac2a1e7fd85b",
+        "identity_root": "b5d302e6f92617472a7eca6cb51a038bb699498571cc002d35a62e2e79b28f8b",
+        "full_root": "fefa0a14ae77f6d27527b7c8b0d02d56bf034ebffd6268adcd8d3cbbf3530a45",
         "version_epoch": 2
       }
     ],
@@ -62476,6 +62690,42 @@
         "evidence": "literal scan+code resolution+clock/envelope evidence+timestamp hashes+audit chains+validation decisions+challenge records",
         "cleanup": "remove fixtures only;retain audit validation evidence",
         "isolation_policy": "isolated clocks/fixtures,separated identities and append-only validation",
+        "timeout": "2400s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_XINGCHENG_CODEX_IMPLEMENTATION_COMPLIANCE",
+        "canonical_name": "xingcheng-codex-implementation-compliance-classification-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "CODE[INSTITUTION_XINGCHENG] compliance inspection",
+        "requirement_ids": "A87|A274|A295|A353|A361|A377|A378|A382|A386|A387|A390|A392",
+        "test_level": "unit+contract+integration+security+audit",
+        "preconditions": "current/superseded rules,compliant/noncompliant implementations,ambiguous Codex,dual defects,missing evidence and separated validator",
+        "fixtures": "clear implementation violation;contradictory/missing Codex;both in one incident;insufficient evidence;stale report;wrong owner;attempt auto-fix/self-validation;critical affected-scope isolation",
+        "ordered_steps": "resolve current generation/codes;collect observed evidence;classify and split linked findings;route owners;permission-validate;retest;verify no mutation",
+        "expected_results": "correct separate classifications;BOTH never used;incomplete not PASS;no stale comparison;implementation and Codex routes distinct;formal validator separated;unaffected runtime continues",
+        "evidence": "finding envelopes+source/CodeX hashes+scope graph+owner routing+validation/retest audit",
+        "cleanup": "remove fixtures only;retain findings and validation evidence",
+        "isolation_policy": "isolated targets,separated inspection/validation/execution",
+        "timeout": "2400s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_PRECISE_CODED_FINDING_DISPLAY",
+        "canonical_name": "precise-coded-fault-and-compliance-display-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "fault and compliance finding presentation",
+        "requirement_ids": "A223|A274|A295|A366|A378|A386|A387|A390|A392|A393",
+        "test_level": "unit+contract+UI-integration+security+audit",
+        "preconditions": "single/multiple faults,implementation source/config/build/migration defects,Codex conflict/missing field,binary crash and confidential evidence",
+        "fixtures": "vague label;missing code/codename;file/line/symbol target;multiple responsible files;exact Codex provision/table/field;unmapped binary;redaction;hardcoded versus coded path;formal validation",
+        "ordered_steps": "generate each record;resolve directory/file/symbol;split targets;render single/multi UI;redact;permission-validate;retest classification",
+        "expected_results": "every final item individually coded,named,detailed and file-precise;Codex target exact;unknown only incomplete with missing evidence;redaction actionable;incomplete record rejected",
+        "evidence": "finding schema+UI snapshots+source/IR mapping+Codex row refs+redaction evidence+validation decisions",
+        "cleanup": "remove fixtures only;retain validated finding evidence",
+        "isolation_policy": "isolated fixtures and confidential-field controls",
         "timeout": "2400s",
         "introduced_version": "1.00000",
         "retired_version": null
