@@ -1,4 +1,4 @@
-"""main-system consolidated test suite (A57/E43)
+﻿"""main-system consolidated test suite (A57/E43)
 
 One managed test file per module, maintained by the
 maintenance sovereign for self-health (self-test collection).
@@ -2632,9 +2632,12 @@ def test_main_startup_follows_declared_dag_and_detaches_ui() -> None:
     phases_source = (
         ROOT / "main-system" / "src-core" / "startup_core" / "phases.py"
     ).read_text("utf-8")
-    boot_source = (
-        ROOT / "main-system" / "src-core" / "boot_core.py"
-    ).read_text("utf-8")
+    boot_source = "\n".join(
+        path.read_text("utf-8")
+        for path in sorted(
+            (ROOT / "main-system" / "src-core").glob("boot_core*.py")
+        )
+    )
     ui_source = (
         ROOT / "main-system" / "src-ui" / "main" / "index.ts"
     ).read_text("utf-8")
@@ -2645,7 +2648,8 @@ def test_main_startup_follows_declared_dag_and_detaches_ui() -> None:
     assert "STARTUP_GATE_DEADLINE_SECONDS: Final[float] = _cfg_probe" in phases_source
     assert "include_self_health=False" in phases_source
     assert "CrashRepair" not in boot_source
-    assert "signal_only=True" in boot_source
+    boot_repair_source = (ROOT / "main-system" / "src-core" / "boot_core_repair.py").read_text("utf-8")
+    assert "signal_only=True" in boot_repair_source
     before_quit = ui_source.split("app.on('before-quit', (event) =>", 1)[1]
     assert "shutdownApplication()" in before_quit
     assert "stopBackend()" in ui_source
@@ -2663,7 +2667,10 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
     backend = (root / "src-ui" / "main" / "python-backend.ts").read_text(
         "utf-8"
     )
-    boot = (root / "src-core" / "boot_core.py").read_text("utf-8")
+    boot = "\n".join(
+        path.read_text("utf-8")
+        for path in sorted((root / "src-core").glob("boot_core*.py"))
+    )
     lifecycle = (root / "src-core" / "ipc" / "server_lifecycle.py").read_text(
         "utf-8"
     )
@@ -2697,8 +2704,9 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
     assert "probeExistingBackend" in backend
     assert "requestGracefulBackendShutdown" in backend
     assert "GPTBRIDGE_SHUTDOWN_TOKEN" in backend
-    assert "if healthy:\n                    self._restarts = 0" in boot
-    assert 'probe_port}/health?brief=1' in boot
+    boot_health = (root / "src-core" / "boot_core_health.py").read_text("utf-8")
+    assert "if healthy:\n                    self._restarts = 0" in boot_health
+    assert 'probe_port}/health?brief=1' in boot_health
     assert "BackendGateway(HEALTH_PROBE_PORT)" in boot
     assert 'query == "brief=1" or query == "level=brief"' in lifecycle
     assert "readiness = notifier.current_snapshot()" in lifecycle
@@ -2712,7 +2720,10 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
 def test_backend_gateway_and_watcher_use_atomic_ab_handover() -> None:
     root = ROOT / "main-system"
     gateway = (root / "src-core" / "backend_gateway.py").read_text("utf-8")
-    boot = (root / "src-core" / "boot_core.py").read_text("utf-8")
+    boot = "\n".join(
+        path.read_text("utf-8")
+        for path in sorted((root / "src-core").glob("boot_core*.py"))
+    )
     watcher = (root / "src-core" / "tasks" / "hot_reload_watcher.py").read_text(
         "utf-8"
     )
@@ -2723,10 +2734,12 @@ def test_backend_gateway_and_watcher_use_atomic_ab_handover() -> None:
 
     assert "class BackendGateway" in gateway
     assert "BACKEND_GENERATION_PORTS" in boot
-    assert "self._gateway.activate(standby_port, generation)" in boot
-    assert "healthy and not self._probe_health(HEALTH_PROBE_PORT)" in boot
+    boot_handover = (root / "src-core" / "boot_core_handover.py").read_text("utf-8")
+    boot_health = (root / "src-core" / "boot_core_health.py").read_text("utf-8")
+    assert "self._gateway.activate(standby_port, generation)" in boot_handover
+    assert "healthy and not self._probe_health(self._health_probe_port)" in boot_health
     assert "def is_running(self) -> bool:" in gateway
-    assert "standby-readiness-failed" in boot
+    assert "standby-readiness-failed" in boot_handover
     assert "backend-update-request.json" in watcher
     assert '"terminal_status": "prepared"' in watcher
     assert "os.replace(temporary, request_path)" in watcher
