@@ -3085,6 +3085,15 @@
         "rule": "GATE:LANGUAGE BOUNDARY GATE; VERDICT-MATRIX:{TypeScript>database=>FAIL}|{TypeScript>native=>FAIL}|{TypeScript>Python-filesystem=>FAIL}|{C++>Python=>FAIL}|{C++>SQL=>FAIL}|{C++>UI=>FAIL}|{CSharp>domain-logic=>FAIL}|{gptbridge::native::memory>gptbridge::native::vector=>FAIL}|{memory>parser=>FAIL}|{parser>vector=>FAIL}|{vector>parser=>FAIL}; EDGE-DETECTION:imports+includes+links+FFI+IPC+socket+database-client+filesystem path access+process invocation+reflection+dynamic loading+generated adapter+shared-file command/data path+symbol call all count as an edge; TS-PYTHON-FILESYSTEM:any TypeScript read/write/watch/import/execute of Python source,module path,Python-owned runtime state or filesystem handoff is direct forbidden access and must use the information/API contract; NATIVE-DAG:A346 remains controlling and these listed reverse/cross-domain edges have no WARN downgrade; RESULT:each violation emits canonical source path+target+edge type+rule=A352+reason+evidence and FAIL blocks save enforcement where configured,pre-commit,integration and release; TRANSITIVE:an intermediate wrapper cannot conceal a forbidden effective edge; ZERO-TOLERANCE:no legacy baseline,grandfather,warning,auto-exception or checker repair.",
         "prohibition": "FORBID:downgrade listed edge to WARN/PASS+allowlist created by checker+path alias or generated wrapper bypass+TypeScript filesystem bridge to Python+C++ calling Python/SQL/UI+CSharp domain ownership+memory upward dependency+parser/vector cycle or direct cross-call+release with any listed edge.",
         "exception": "None. A future change requires an explicit human-governor successor law that replaces the exact matrix edge and supplies complete architecture,security,test and migration evidence."
+      },
+      {
+        "position": 353,
+        "provision_id": "A353",
+        "section_index": "16",
+        "subject": "semantic-dependency-evidence-and-a205-information-layer-verification",
+        "rule": "CHECKER-SCOPE:not import-only and not text-search-only; MINIMUM-EVIDENCE-CLASSES:{Python=>import+from-import resolved by Python AST/module resolution}|{TypeScript=>static import+export-from+require where permitted+dynamic import resolved by TypeScript compiler/module resolution}|{C/C++=>preprocessor include+generated include+compile_commands/CMake include path+link target+symbol dependency}|{CSharp=>using+namespace/type resolution+ProjectReference+PackageReference+assembly/PInvoke reference resolved by Roslyn/MSBuild}|{Build=>CMake target/source/include/link/add_subdirectory+csproj project/compile/reference/native items+tsconfig extends/references/paths/files/include/exclude and effective configuration}; GRAPH:normalize each source,target,resolved canonical path,edge kind,condition,toolchain/configuration/platform and provenance into one typed dependency graph; CONDITIONAL:an inactive platform/configuration edge remains recorded and is tested in its applicable matrix rather than ignored; GENERATED:generated dependency edges trace to generator+input+output identity; API-IPC:A205 canonical information layer compliance requires positive structural proof,not keyword occurrence:registered endpoint/route+typed versioned contract+authorized producer/consumer+gateway/information-layer adapter identity+session/generation fencing+event/command correlation+schema hash+test evidence and absence of direct transport/database/file-drop/private-bus path; TRACE:checker follows caller>adapter>route registry>information-layer handler>authorized target and fails on unresolved or bypassed hop; TEXT-SEARCH:may discover candidates only and can never establish PASS or FAIL without parser/resolver/registry evidence; RESULT:each edge reports evidence class+resolver+source location+resolved target+contract/route id+A205 status+rule and confidence; UNRESOLVED:mandatory edge or API/IPC route that cannot be resolved is FAIL,not ignored; CACHE:keyed by source+toolchain+build config+contract registry+path map hashes and invalidated on any change; RELEASE:A340+A348 require all applicable configurations and A352 forbidden edges remain hard FAIL.",
+        "prohibition": "FORBID:import-only scan+regex/text-search as final verdict+ignoring dynamic import/include/project/build reference+unresolved alias as absent edge+single build configuration proof+API/IPC accepted because a string mentions information layer+A205 route without registration/contract/authorization/session evidence+direct socket/database/file-drop/private bus hidden behind adapter+stale dependency cache+generated edge without provenance.",
+        "exception": "A text-only prefilter may reduce parser workload, but every reported or cleared boundary must be confirmed by the authoritative language/build resolver and A205 registry evidence before a gate verdict."
       }
     ],
     "certification_evidence": [
@@ -3840,7 +3849,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H061",
+        "history_head": "H062",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -12151,6 +12160,12 @@
         "provision_id": "A352",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A353",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12209,14 +12224,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H061",
-        "provision_count": 598,
-        "identity_count": 598,
-        "lineage_count": 598,
+        "history_head": "H062",
+        "provision_count": 599,
+        "identity_count": 599,
+        "lineage_count": 599,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "454d0d338abe33bf14a5d695ea2a072e5b854339e75c19437cc21b02f8efe40b",
-        "identity_root": "bc47ea57c5513a7595ff0b63b0c50b36a7620edcf10c5f879323099dba1d2daa",
-        "full_root": "3fd02a505405408b9b7efa71a732f726464a0f2115ee1fc93979bd4e48e94368",
+        "content_root": "9f78b2faf01153588301c06d2e3ec2dc46525b861dffe49bd591fe18bd72e049",
+        "identity_root": "45d3da6e8011282ca0f3f4b87a68ef7ceac36d98ce1ebbbb78aed05cb0ce4d23",
+        "full_root": "f04c32acd0e5271349645cfece2e4f1c897282d513c5c3f08dbd1abf31457991",
         "legacy_history_head": null
       }
     ],
@@ -17326,7 +17341,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H061"
+        "value": "H062"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17415,6 +17430,14 @@
       {
         "key": "explicit_language_edge_fail_matrix",
         "value": "A352"
+      },
+      {
+        "key": "language_dependency_evidence",
+        "value": "python-ast|typescript-resolver|cpp-preprocessor-build|roslyn-msbuild|cmake-csproj-tsconfig"
+      },
+      {
+        "key": "api_ipc_information_layer_proof",
+        "value": "A205-positive-route-contract-registry-proof;no-text-only-pass"
       }
     ],
     "module_assignment_registry": [
@@ -23028,6 +23051,13 @@
         "provision_id": "A352",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A353",
+        "provision_type": "article",
+        "provision_id": "A353",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -27216,6 +27246,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A346|A348|A350|A351"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A353",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A205|A208|A340|A348|A350|A351|A352"
       }
     ],
     "provision_lifecycle_status": [
@@ -31898,6 +31935,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H061+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A353",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H062+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36684,6 +36729,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "bedada186b1463a51661f1f7de500daf5e4b1b0810f343676fe0d9981254c1ee"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A353",
+        "introduced_by": "H062",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "530e58c15a12607f3018182cb4e28fcf6b583bac74ac1cc7f481995d8733e7fd"
       }
     ],
     "provision_revisions": [
@@ -47459,6 +47512,15 @@
         "content_hash": "bedada186b1463a51661f1f7de500daf5e4b1b0810f343676fe0d9981254c1ee",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A353",
+        "revision_id": "H062",
+        "version": "1.00000",
+        "content_hash": "530e58c15a12607f3018182cb4e28fcf6b583bac74ac1cc7f481995d8733e7fd",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -52341,6 +52403,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A353",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -53014,6 +53086,17 @@
         "previous_hash": "7201470194da2ec7cd1a26c7b2b2915248d82c8cf6bc6b013fe951c10b22f600",
         "entry_hash": "8507a0cb6d178c75b8cc2240704cd123e64ac08ab2e6f9818cd8814303b0f41e",
         "version_epoch": 2
+      },
+      {
+        "sequence": 62,
+        "change_id": "H062",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "semantic-dependency-evidence-and-a205-information-layer-proof",
+        "summary": "Expanded Language Boundary Gate dependency evidence beyond import text to Python, TypeScript, C/C++, CSharp and build-system semantic references; API and IPC now require proof of routing through the A205 canonical information layer. Version remains E2:1.00000.",
+        "previous_hash": "8507a0cb6d178c75b8cc2240704cd123e64ac08ab2e6f9818cd8814303b0f41e",
+        "entry_hash": "a9b27998264314ff0464948294ceb4eef6d042760e62b04a0ea60df0e5c88555",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -53570,14 +53653,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H061",
-        "provision_count": 598,
-        "identity_count": 598,
-        "lineage_count": 598,
+        "history_head": "H062",
+        "provision_count": 599,
+        "identity_count": 599,
+        "lineage_count": 599,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "454d0d338abe33bf14a5d695ea2a072e5b854339e75c19437cc21b02f8efe40b",
-        "identity_root": "bc47ea57c5513a7595ff0b63b0c50b36a7620edcf10c5f879323099dba1d2daa",
-        "full_root": "3fd02a505405408b9b7efa71a732f726464a0f2115ee1fc93979bd4e48e94368",
+        "content_root": "9f78b2faf01153588301c06d2e3ec2dc46525b861dffe49bd591fe18bd72e049",
+        "identity_root": "45d3da6e8011282ca0f3f4b87a68ef7ceac36d98ce1ebbbb78aed05cb0ce4d23",
+        "full_root": "f04c32acd0e5271349645cfece2e4f1c897282d513c5c3f08dbd1abf31457991",
         "version_epoch": 2
       }
     ],
