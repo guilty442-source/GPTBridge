@@ -3058,6 +3058,15 @@
         "rule": "STATUS:PowerShell is not an allowed seventh project language and no general or operational-script exception currently exists; EXISTING:.ps1+.psm1+.psd1 artifacts are classified as GOVERNANCE_CONFLICT and LEGACY_INFRASTRUCTURE_EVIDENCE,not AUTHORED-six-language,GENERATED approval or legal exception; GATE-OUTPUT:LANGUAGE BOUNDARY GATE emits the canonical path+rule=A349+reason=unresolved PowerShell identity governance conflict+evidence_class=legacy infrastructure+execution/use/dependency facts; VERDICT:inventory-only nonexecuting discovery may WARN,while any affected execution+startup+build+install+mutation+integration or release path is FAIL until a successor law resolves identity; EVIDENCE:preserve exact path+hash+owner claim+purpose+callers+commands+inputs/outputs+permissions+side effects+network/process behavior+tests+replacement feasibility without endorsing legality; DECISION-DEFERRED:only an explicit human-governor Codex successor may choose either migration into an approved language or a narrowly defined legal exception; CHECKER:detect+classify+compare+report only and cannot infer necessity,approve usage,create allowlist,grandfather,waive,move,rewrite,delete or repair; MIGRATION/NARROW-EXCEPTION:no action begins before the successor decision and both require separate governed implementation evidence; SUPERSESSION:A338 PowerShell exception declaration is withdrawn and non-operative,while its language-statistics rule for .cpp remains preserved independently by A215+A348.",
         "prohibition": "FORBID:PowerShell as seventh language+implicit/automatic/legacy exception+checker-created exception or allowlist+continued execution because file already exists+classifying .ps1 as Python/TypeScript/C/C++/CSharp/SQL+silent ignore+automatic migration/delete/rewrite+WARN used to authorize execution+runtime/build/release bypass+interpreting A338 as current PowerShell authority.",
         "exception": "None. Even emergency use requires an explicit user command plus a valid Codex successor establishing exact temporary authority; the checker itself can never create that authority."
+      },
+      {
+        "position": 350,
+        "provision_id": "A350",
+        "section_index": "16",
+        "subject": "canonical-typescript-python-sql-native-csharp-topology-special-law",
+        "rule": "CANONICAL-TOPOLOGY:TypeScript>information/API contract>Python; PYTHON-BRANCHES:{SQL relational set operations}|{Native adapter}|{CSharp Windows/.NET adapter}; NATIVE-PATH:Python>pybind11 _binding.cpp>gptbridge_native.h C ABI>gptbridge_native.c C thunk>C++ implementation; CSHARP-PATH:Python typed adapter request>CSharp WindowsAdapter>Windows/.NET and,when native capability is required,CSharp consumes the same gptbridge_native.h C ABI rather than C++; SQL-PATH:Python repository>parameterized budgeted SQL>bounded result>Python business semantics; DIRECTION:TypeScript never bypasses Python to SQL/native/CSharp and Python remains application+domain+orchestration authority; CONTRACTS:every edge is typed+versioned+permission-scoped+observable+tested under A340+A348; NATIVE-NOTATION:C and pybind11 may appear in one native boundary diagram only as separate roles in one serial path,not parallel APIs:pybind11=Python conversion adapter,C=gptbridge_native.h/C thunk single ABI contract,C++=hidden compute; OWNERSHIP:A341 capability matrix remains controlling; FAILURE:failed branch is isolated and returns typed failure through Python to TypeScript without rerouting around the contract.",
+        "prohibition": "FORBID:TypeScript direct SQL/native/CSharp access+Python bypass by client+pybind11 API parallel to C ABI+pybind11 direct C+++CSharp direct C+++public C++ ABI+SQL business judgment+CSharp cross-platform domain logic+C/C++ orchestration+contractless cross-language call+fallback that creates a second owner.",
+        "exception": "A build-time TypeScript checker may inspect declared evidence without calling runtime Python services; it cannot perform domain work or mutate runtime state."
       }
     ],
     "certification_evidence": [
@@ -3813,7 +3822,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H058",
+        "history_head": "H059",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -12106,6 +12115,12 @@
         "provision_id": "A349",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A350",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12164,14 +12179,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H058",
-        "provision_count": 595,
-        "identity_count": 595,
-        "lineage_count": 595,
+        "history_head": "H059",
+        "provision_count": 596,
+        "identity_count": 596,
+        "lineage_count": 596,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "e1714a5260c042e745e7bf3f1af7d7327683a8d03e7b73a37bbd6059ebeeb9ad",
-        "identity_root": "c21207d78f4e857b2da08bebb6b8e034c5ab954e11f1f267b0d25836228e24cd",
-        "full_root": "611145024376c85beb3e805326af93d9f25bcd95ed0d59578317e89547104706",
+        "content_root": "a7fe78b32e26f30a5a1ae626684a05a919bc55df19d1515be150a708118ce4ff",
+        "identity_root": "67b8b407b54f4cb32538ed15a824b943a98615c01f0256d6d8a871bde5677917",
+        "full_root": "86f97d3c460dd1f1d65fd4e5af7645cd232382fa9204e2095ed6c6f3ffbe905c",
         "legacy_history_head": null
       }
     ],
@@ -17281,7 +17296,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H058"
+        "value": "H059"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17358,6 +17373,10 @@
       {
         "key": "source_origin_classes",
         "value": "AUTHORED|GENERATED|THIRD_PARTY"
+      },
+      {
+        "key": "canonical_cross_language_topology",
+        "value": "TypeScript>contract>Python>{SQL|pybind11>C-ABI>C++|CSharp>Windows.NET}"
       }
     ],
     "module_assignment_registry": [
@@ -22950,6 +22969,13 @@
         "provision_id": "A349",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A350",
+        "provision_type": "article",
+        "provision_id": "A350",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -27117,6 +27143,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A215|A338|A348"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A350",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A211|A340|A341|A342|A344|A348"
       }
     ],
     "provision_lifecycle_status": [
@@ -31775,6 +31808,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H058+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A350",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H059+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36537,6 +36578,14 @@
         "supersedes_id": "A338",
         "status": "active",
         "content_hash": "33867f8e4454e7b1a0829334deec0971357b754d2c4cbaa06e392dadbfdf89e2"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A350",
+        "introduced_by": "H059",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "be9cc3e66030f706a3a37c9b85ad2b76c626b420d11deccb2bb13f4a819b84ea"
       }
     ],
     "provision_revisions": [
@@ -47285,6 +47334,15 @@
         "content_hash": "33867f8e4454e7b1a0829334deec0971357b754d2c4cbaa06e392dadbfdf89e2",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A350",
+        "revision_id": "H059",
+        "version": "1.00000",
+        "content_hash": "be9cc3e66030f706a3a37c9b85ad2b76c626b420d11deccb2bb13f4a819b84ea",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -52137,6 +52195,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A350",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -52777,6 +52845,17 @@
         "previous_hash": "df898e28aba205dea0864788c09e4e0cbeeb8151afb93be52b518342ec9aa6cd",
         "entry_hash": "f775c62b7e702e637989725a26b64e4f8733b7b6a8a125d5ab53283314b60e57",
         "version_epoch": 2
+      },
+      {
+        "sequence": 59,
+        "change_id": "H059",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "canonical-cross-language-topology",
+        "summary": "Fixed the canonical TypeScript-to-Python and Python-to-SQL/native/CSharp language topology while preserving one C ABI native contract: pybind11 is a Python adapter into C ABI, never a parallel native API. Version remains E2:1.00000.",
+        "previous_hash": "f775c62b7e702e637989725a26b64e4f8733b7b6a8a125d5ab53283314b60e57",
+        "entry_hash": "9b31d2bcf2b432ee9b2eb7306711dff94055974dacf5fa195ecef636d36c57f2",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -53333,14 +53412,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H058",
-        "provision_count": 595,
-        "identity_count": 595,
-        "lineage_count": 595,
+        "history_head": "H059",
+        "provision_count": 596,
+        "identity_count": 596,
+        "lineage_count": 596,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "e1714a5260c042e745e7bf3f1af7d7327683a8d03e7b73a37bbd6059ebeeb9ad",
-        "identity_root": "c21207d78f4e857b2da08bebb6b8e034c5ab954e11f1f267b0d25836228e24cd",
-        "full_root": "611145024376c85beb3e805326af93d9f25bcd95ed0d59578317e89547104706",
+        "content_root": "a7fe78b32e26f30a5a1ae626684a05a919bc55df19d1515be150a708118ce4ff",
+        "identity_root": "67b8b407b54f4cb32538ed15a824b943a98615c01f0256d6d8a871bde5677917",
+        "full_root": "86f97d3c460dd1f1d65fd4e5af7645cd232382fa9204e2095ed6c6f3ffbe905c",
         "version_epoch": 2
       }
     ],
