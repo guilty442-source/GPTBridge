@@ -64,12 +64,10 @@
     "allow": []
   },
   "has_custom_ui": false,
-  "window": {
-    "width": 900,
-    "height": 720,
-    "minWidth": 720,
-    "minHeight": 560,
-    "title_key": "tool.window_title"
+  "background_service": {
+    "auto_restart": true,
+    "headless": true,
+    "explicit_force_close_suppresses_restart": true
   },
   "test_targets": [
     "tests/test_local_model_reexport.py"
