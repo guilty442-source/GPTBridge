@@ -1,28 +1,11 @@
-"""Resilient Shared Layer Store for main-system — connection stability with retry, circuit breaker, and health monitoring.
+"""Resilient Shared Layer Store for main-system — facade.
 
-This module provides a resilient wrapper around PostgresSharedLayerStore that adds:
-- Connection pooling via shared-layer's ConnectionManager
-- Exponential backoff retry logic for transient failures
-- Circuit breaker pattern to prevent cascade failures
-- Connection health monitoring and automatic reconnection
-- Statistics collection for observability
+This module provides the ResilientSharedLayerStore class.  Types,
+circuit breaker, and helpers live in
+:mod:`resilient_shared_layer_types`.
 
-Usage:
-    from main_system.resilient_shared_layer import ResilientSharedLayerStore, ResilientStoreConfig
-
-    config = ResilientStoreConfig(
-        max_retries=3,
-        base_delay=0.1,
-        max_delay=2.0,
-        circuit_failure_threshold=5,
-        circuit_recovery_timeout=30.0,
-        pool_min_size=2,
-        pool_max_size=8,
-    )
-    resilient_store = ResilientSharedLayerStore(project_root, authentication, "system", config)
-
-    # Use exactly like PostgresSharedLayerStore
-    resilient_store.submit_request(token, request_id, tool_id, payload)
+Connection stability with retry, circuit breaker, and health monitoring
+around PostgresSharedLayerStore.
 """
 
 from __future__ import annotations
@@ -30,8 +13,6 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Callable, Optional, TypeVar
 
 from shared_layer import SharedLayerStore as BaseSharedLayerStore
@@ -40,228 +21,23 @@ from shared_layer.database.config import DatabaseSettings
 from governance_rule.execution.authentication import GovernanceAuthenticationService
 from governance_rule.permission_directory.directory_authority import directory_authority_snapshot
 
+from .resilient_shared_layer_types import (
+    CircuitBreaker,
+    CircuitOpenError,
+    CircuitState,
+    ConnectionStats,
+    ResilientStoreConfig,
+    _calculate_delay,
+    _is_retryable,
+)
+
 _logger = logging.getLogger("gptbridge.resilient_shared_layer")
 
 T = TypeVar("T")
 
 
-class CircuitState(Enum):
-    CLOSED = "closed"
-    OPEN = "open"
-    HALF_OPEN = "half_open"
-
-
-@dataclass
-class ResilientStoreConfig:
-    """Configuration for resilient store behavior."""
-
-    max_retries: int = 3
-    base_delay: float = 0.1
-    max_delay: float = 2.0
-    exponential_base: float = 2.0
-    jitter: float = 0.05
-    circuit_failure_threshold: int = 5
-    circuit_recovery_timeout: float = 30.0
-    health_check_interval: float = 60.0
-    enable_circuit_breaker: bool = True
-    enable_retry: bool = True
-    retryable_exceptions: tuple[type[Exception], ...] = (
-        ConnectionError,
-        TimeoutError,
-        OSError,
-    )
-    # Connection pool settings
-    pool_min_size: int = 2
-    pool_max_size: int = 8
-    pool_acquire_timeout: float = 10.0
-
-
-@dataclass
-class ConnectionStats:
-    """Connection statistics for observability."""
-
-    total_calls: int = 0
-    successful_calls: int = 0
-    failed_calls: int = 0
-    retried_calls: int = 0
-    circuit_breaker_opens: int = 0
-    circuit_breaker_fallbacks: int = 0
-    last_failure_time: float = 0.0
-    last_success_time: float = 0.0
-    consecutive_failures: int = 0
-    _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
-
-    def record_success(self) -> None:
-        with self._lock:
-            self.total_calls += 1
-            self.successful_calls += 1
-            self.consecutive_failures = 0
-            self.last_success_time = time.monotonic()
-
-    def record_failure(self) -> None:
-        with self._lock:
-            self.total_calls += 1
-            self.failed_calls += 1
-            self.consecutive_failures += 1
-            self.last_failure_time = time.monotonic()
-
-    def record_retry(self) -> None:
-        with self._lock:
-            self.retried_calls += 1
-
-    def record_circuit_open(self) -> None:
-        with self._lock:
-            self.circuit_breaker_opens += 1
-
-    def record_fallback(self) -> None:
-        with self._lock:
-            self.circuit_breaker_fallbacks += 1
-
-    def as_dict(self) -> dict[str, Any]:
-        with self._lock:
-            return {
-                "total_calls": self.total_calls,
-                "successful_calls": self.successful_calls,
-                "failed_calls": self.failed_calls,
-                "retried_calls": self.retried_calls,
-                "circuit_breaker_opens": self.circuit_breaker_opens,
-                "circuit_breaker_fallbacks": self.circuit_breaker_fallbacks,
-                "last_failure_time": self.last_failure_time,
-                "last_success_time": self.last_success_time,
-                "consecutive_failures": self.consecutive_failures,
-            }
-
-
-class CircuitBreaker:
-    """Thread-safe circuit breaker with automatic recovery."""
-
-    def __init__(
-        self,
-        name: str,
-        failure_threshold: int = 5,
-        recovery_timeout: float = 30.0,
-        fallback_fn: Optional[Callable[..., T]] = None,
-    ) -> None:
-        self.name = name
-        self.failure_threshold = failure_threshold
-        self.recovery_timeout = recovery_timeout
-        self.fallback_fn = fallback_fn
-        self._lock = threading.RLock()
-        self._state = CircuitState.CLOSED
-        self._failure_count = 0
-        self._last_failure_time: float = 0.0
-
-    @property
-    def state(self) -> CircuitState:
-        with self._lock:
-            if self._state == CircuitState.OPEN:
-                if time.monotonic() - self._last_failure_time >= self.recovery_timeout:
-                    self._state = CircuitState.HALF_OPEN
-                    _logger.info(
-                        "circuit_half_open name=%s — trial call allowed",
-                        self.name,
-                    )
-            return self._state
-
-    def call(self, fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
-        with self._lock:
-            current_state = self.state
-            if current_state == CircuitState.OPEN:
-                if self.fallback_fn is not None:
-                    _logger.warning(
-                        "circuit_open_fallback name=%s", self.name
-                    )
-                    return self.fallback_fn(*args, **kwargs)
-                raise CircuitOpenError(
-                    f"circuit '{self.name}' is open (failures={self._failure_count})"
-                )
-
-        try:
-            result = fn(*args, **kwargs)
-            self._on_success()
-            return result
-        except Exception as error:
-            self._on_failure()
-            if current_state == CircuitState.HALF_OPEN:
-                _logger.warning(
-                    "circuit_half_open_failed name=%s error=%s",
-                    self.name, error,
-                )
-            if self.fallback_fn is not None:
-                return self.fallback_fn(*args, **kwargs)
-            raise
-
-    def _on_success(self) -> None:
-        with self._lock:
-            self._failure_count = 0
-            if self._state == CircuitState.HALF_OPEN:
-                self._state = CircuitState.CLOSED
-                _logger.info(
-                    "circuit_closed name=%s — recovered after trial success",
-                    self.name,
-                )
-
-    def _on_failure(self) -> None:
-        with self._lock:
-            self._failure_count += 1
-            self._last_failure_time = time.monotonic()
-            if self._failure_count >= self.failure_threshold:
-                self._state = CircuitState.OPEN
-                _logger.warning(
-                    "circuit_opened name=%s failures=%d threshold=%d",
-                    self.name, self._failure_count, self.failure_threshold,
-                )
-
-    def reset(self) -> None:
-        with self._lock:
-            self._state = CircuitState.CLOSED
-            self._failure_count = 0
-            self._last_failure_time = 0.0
-
-    def stats(self) -> dict[str, Any]:
-        with self._lock:
-            return {
-                "name": self.name,
-                "state": self.state.value,
-                "failure_count": self._failure_count,
-                "failure_threshold": self.failure_threshold,
-                "recovery_timeout_seconds": self.recovery_timeout,
-            }
-
-
-class CircuitOpenError(Exception):
-    """Raised when the circuit is open and no fallback is provided."""
-    pass
-
-
-def _calculate_delay(attempt: int, config: ResilientStoreConfig) -> float:
-    """Calculate delay with exponential backoff and jitter."""
-    delay = min(
-        config.base_delay * (config.exponential_base ** attempt),
-        config.max_delay
-    )
-    jitter_amount = delay * config.jitter
-    import random
-    return delay + random.uniform(-jitter_amount, jitter_amount)
-
-
-def _is_retryable(exception: Exception, config: ResilientStoreConfig) -> bool:
-    """Check if an exception is retryable."""
-    return isinstance(exception, config.retryable_exceptions)
-
-
 class ResilientSharedLayerStore:
-    """Resilient wrapper around PostgresSharedLayerStore with connection pooling.
-
-    This wrapper provides:
-    - Persistent connection pool (reuses connections)
-    - Exponential backoff retry for transient failures
-    - Circuit breaker to prevent cascade failures
-    - Background health monitoring
-    - Statistics for observability
-
-    All public methods of PostgresSharedLayerStore are available with the same signatures.
-    """
+    """Resilient wrapper around PostgresSharedLayerStore with connection pooling."""
 
     def __init__(
         self,
@@ -301,7 +77,6 @@ class ResilientSharedLayerStore:
                     )
                     if not declared.startswith("postgresql:"):
                         raise PermissionError("INVALID_DATABASE_PATH")
-                    # Parse the DSN
                     import os
                     from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
