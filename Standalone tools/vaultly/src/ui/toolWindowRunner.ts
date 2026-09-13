@@ -1,7 +1,7 @@
 import { useCallback, useRef, type CSSProperties } from 'react'
-import { useLocalBackendSocket } from '../../../shared-layer/src/ui/toolWindow/useLocalBackendSocket'
-import { waitForIpcEvent } from '../../../shared-layer/src/ui/toolWindow/toolWindowUtils'
-import type { ToolRunResult, OpenPathResult } from '../../../shared-layer/src/ui/toolWindow/toolWindowUtils'
+import { useLocalBackendSocket } from '../../../../shared-layer/src/ui/toolWindow/useLocalBackendSocket'
+import { waitForIpcEvent } from '../../../../shared-layer/src/ui/toolWindow/toolWindowUtils'
+import type { ToolRunResult, OpenPathResult } from '../../../../shared-layer/src/ui/toolWindow/toolWindowUtils'
 
 export {
   formatFileSize,
@@ -14,7 +14,7 @@ export {
   type ToolRunMode,
   type ToolRunOptions,
   type ToolRunResult,
-} from '../../../shared-layer/src/ui/toolWindow/toolWindowUtils'
+} from '../../../../shared-layer/src/ui/toolWindow/toolWindowUtils'
 
 export function useToolRunner(toolId: string, timeoutMs = 120000) {
   const { sendCommand, status: socketStatus } = useLocalBackendSocket()
