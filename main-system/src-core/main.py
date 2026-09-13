@@ -84,6 +84,7 @@ class GPTBridgeApp:
         self.runtime_bootstrap = RuntimeBootstrap(self)
         self.hot_update_service = HotUpdateService(self)
         self.daily_global_cleaner_service = DailyGlobalCleanerService(self)
+        self.update_manager: UpdateManager | None = None
 
         # New governance architecture sovereigns (A63/A64/A12/A128)
         # Decision layer sovereigns
@@ -380,7 +381,6 @@ class GPTBridgeApp:
 
         # Initialize UpdateManager for enhanced self-update capability
         try:
-            from core_system.update_manager import UpdateManager
             self.update_manager = UpdateManager(self, self.hot_update_service, self.project_root)
             await self.update_manager.start_auto_update()
             self._log({"type": "status", "message": "UpdateManager started"})
@@ -517,6 +517,8 @@ class GPTBridgeApp:
             self.hot_update_service,
             self.update_manager,
         ):
+            if _service is None:
+                continue
             try:
                 await _service.stop()
             except Exception:
