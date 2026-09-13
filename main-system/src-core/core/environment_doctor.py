@@ -1,127 +1,38 @@
+"""Environment doctor — facade.
+
+This module provides the environment check and report functions.
+Implementation details live in submodules:
+
+  * :mod:`core.environment_doctor_constants` — constants, helpers.
+  * :mod:`core.environment_doctor_tools` — independent tools, repair.
+
+Windows background subprocess no-window flag: CREATE_NO_WINDOW.
+"""
+
 from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 import subprocess
-import sys
-import zipfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from utils.archive import safe_extract_zip
-
-
-def _background_subprocess_kwargs() -> dict[str, int]:
-    if os.name != "nt":
-        return {}
-    creationflags = int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
-    return {"creationflags": creationflags} if creationflags else {}
-
-
-REQUIRED_PROJECT_PATHS: tuple[str, ...] = (
-    "package.json",
-    "package-lock.json",
-    "requirements.txt",
-    "src-core/main.py",
-    "src-core/ipc/server.py",
-    "src-ui/renderer",
+from .environment_doctor_constants import (
+    _background_subprocess_kwargs,
+    REQUIRED_PROJECT_PATHS,
+    REQUIRED_WORKSPACE_PATHS,
+    REQUIRED_PYTHON_MODULES,
+    OPTIONAL_PYTHON_MODULE_GROUPS,
+    default_python_executable,
+    parse_requirement_names,
 )
-
-REQUIRED_WORKSPACE_PATHS: tuple[str, ...] = (
-    "governance_rule/governance_policy.py",
-    "governance_rule/permission_directory/directory_authority.py",
+from .environment_doctor_tools import (
+    check_external_tools,
+    check_independent_tools,
+    repair_electron_runtime,
 )
-
-# Runtime dependencies — the main-system venv MUST have these (pyproject
-# ``dependencies``).  Everything else moved to optional extras when the
-# dependency tree was slimmed; the doctor reports their presence without
-# failing the environment on their absence.
-REQUIRED_PYTHON_MODULES: dict[str, str] = {
-    "psutil": "psutil",
-    "psycopg": "psycopg",
-    "websockets": "websockets",
-}
-
-# Optional extra groups (pyproject ``[project.optional-dependencies]``).
-OPTIONAL_PYTHON_MODULE_GROUPS: dict[str, dict[str, str]] = {
-    "test": {
-        "pytest": "pytest",
-        "pytest-asyncio": "pytest_asyncio",
-    },
-    "build": {
-        "pybind11": "pybind11",
-        "pyinstaller": "PyInstaller",
-        "setuptools": "setuptools",
-    },
-    "local-model": {
-        "beautifulsoup4": "bs4",
-        "imageio-ffmpeg": "imageio_ffmpeg",
-        "numpy": "numpy",
-        "pillow": "PIL",
-        "sentence-transformers": "sentence_transformers",
-        "torch": "torch",
-    },
-}
-
-# External system-level tools the project depends on at runtime or build
-# time.  These are NOT Python packages (those are in REQUIRED_PYTHON_MODULES)
-# and NOT codex formal tools (those are declared in A49/E35).  Each entry
-# maps the tool name to its command-line probe (``shutil.which``).
-REQUIRED_EXTERNAL_TOOLS: dict[str, str] = {
-    "git": "git",
-    "node": "node",
-    "npm": "npm.cmd",
-    "python": "python",
-}
-
-# Optional external tools — the project degrades gracefully when these
-# are unavailable, but they should be listed so the doctor can report
-# their presence/absence.
-OPTIONAL_EXTERNAL_TOOLS: dict[str, str] = {
-    "ollama": "ollama",
-    "playwright": "playwright",
-    "cl": "cl",            # MSVC C++ compiler (build-time only)
-    "nvidia-smi": "nvidia-smi",  # CUDA / GPU (optional acceleration)
-    "ffmpeg": "ffmpeg",    # Standalone ffmpeg; imageio-ffmpeg bundles its own
-}
-
-
-def normalize_requirement_name(line: str) -> str | None:
-    value = line.split("#", 1)[0].strip()
-    if not value or value.startswith(("-r ", "--")):
-        return None
-    if " @ " in value:
-        value = value.split(" @ ", 1)[0].strip()
-    else:
-        value = re.split(r"[<>=!~;\[\s]", value, maxsplit=1)[0].strip()
-    return value.casefold().replace("_", "-") or None
-
-
-def parse_requirement_names(requirements_path: Path) -> set[str]:
-    try:
-        lines = requirements_path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return set()
-    return {
-        name
-        for line in lines
-        if (name := normalize_requirement_name(line)) is not None
-    }
-
-
-def default_python_executable(project_root: Path) -> Path:
-    candidates = [
-        project_root / ".venv" / "Scripts" / "python.exe",
-        project_root / ".venv" / "bin" / "python",
-        Path(sys.executable),
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return candidates[0]
 
 
 def check_project_paths(project_root: Path) -> dict[str, Any]:
@@ -149,8 +60,6 @@ def check_requirements_file(
     required_modules: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     required_modules = dict(required_modules or REQUIRED_PYTHON_MODULES)
-    # requirements.txt declares the full workspace set (runtime + every
-    # optional extra group), so declaration coverage checks all of them.
     declared_modules = dict(required_modules)
     for group in OPTIONAL_PYTHON_MODULE_GROUPS.values():
         declared_modules.update(group)
@@ -238,8 +147,6 @@ def check_python_modules(
     if completed.returncode != 0 and not missing:
         missing = sorted(required_modules)
 
-    # Probe optional extra groups — reported for observability only;
-    # their absence must not fail the environment check.
     optional_probe = (
         "import importlib.util,json;"
         f"groups=json.loads({json.dumps(json.dumps({g: list(m.values()) for g, m in OPTIONAL_PYTHON_MODULE_GROUPS.items()}))});"
@@ -337,134 +244,6 @@ def check_node_environment(project_root: Path) -> dict[str, Any]:
     }
 
 
-def _resolve_platform_tool_entry(
-    project_root: Path,
-    tool_dir: Path,
-    manifest: Mapping[str, Any],
-) -> Path:
-    runtime = manifest.get("runtime")
-    if isinstance(runtime, Mapping):
-        runtime_entry = str(runtime.get("entry", "")).strip()
-        if runtime_entry:
-            return (tool_dir / runtime_entry).resolve()
-
-    raw_entry = str(manifest.get("entry", "")).strip()
-    if not raw_entry:
-        return (tool_dir / "src" / "main.py").resolve()
-
-    entry_path = project_root / raw_entry
-    if entry_path.suffix == "":
-        entry_path = entry_path.with_suffix(".py")
-    return entry_path.resolve()
-
-
-def check_external_tools() -> dict[str, Any]:
-    """Probe required and optional external system-level tools."""
-    required_missing: list[str] = []
-    required_present: dict[str, bool] = {}
-    for label, command in REQUIRED_EXTERNAL_TOOLS.items():
-        found = shutil.which(command) is not None
-        required_present[label] = found
-        if not found:
-            required_missing.append(label)
-    optional_present: dict[str, bool] = {}
-    for label, command in OPTIONAL_EXTERNAL_TOOLS.items():
-        optional_present[label] = shutil.which(command) is not None
-    return {
-        "ok": not required_missing,
-        "required": required_present,
-        "optional": optional_present,
-        "missing": required_missing,
-    }
-
-
-def check_independent_tools(project_root: Path) -> dict[str, Any]:
-    tools: list[dict[str, Any]] = []
-    invalid_manifests: list[dict[str, str]] = []
-    missing_entries: list[dict[str, str]] = []
-    missing_executables: list[str] = []
-
-    tool_directories = [
-        path
-        for path in sorted(project_root.iterdir(), key=lambda item: item.name.casefold())
-        if path.is_dir() and (path / "manifest.json").is_file()
-    ]
-    for host_dir in tuple(tool_directories):
-        try:
-            host_manifest = json.loads(
-                (host_dir / "manifest.json").read_text(encoding="utf-8")
-            )
-        except (OSError, json.JSONDecodeError):
-            continue
-        declarations = host_manifest.get("companion_tools")
-        if not isinstance(declarations, list):
-            continue
-        for declaration in declarations:
-            if not isinstance(declaration, Mapping):
-                continue
-            relative_path = str(declaration.get("path") or "").strip()
-            candidate = (host_dir / relative_path).resolve()
-            try:
-                candidate.relative_to(host_dir.resolve())
-            except ValueError:
-                continue
-            if (
-                candidate.parent == host_dir.resolve()
-                and (candidate / "manifest.json").is_file()
-            ):
-                tool_directories.append(candidate)
-
-    for tool_dir in tool_directories:
-        if not tool_dir.is_dir() or tool_dir.name.startswith("_"):
-            continue
-        manifest_path = tool_dir / "manifest.json"
-        if not manifest_path.exists():
-            continue
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            invalid_manifests.append({"tool": tool_dir.name, "error": str(exc)})
-            continue
-        if not isinstance(manifest, dict):
-            invalid_manifests.append({"tool": tool_dir.name, "error": "manifest is not an object"})
-            continue
-
-        tool_id = str(manifest.get("id", tool_dir.name)).strip() or tool_dir.name
-        entry = _resolve_platform_tool_entry(project_root, tool_dir, manifest)
-        executable = manifest.get("executable")
-        has_executable = isinstance(executable, Mapping) and bool(
-            str(executable.get("path") or executable.get("name") or "").strip()
-        )
-        distribution = manifest.get("distribution")
-        lifecycle = manifest.get("lifecycle")
-        explicitly_unpacked = isinstance(distribution, Mapping) and distribution.get("package") is False
-        direct_load = isinstance(lifecycle, Mapping) and lifecycle.get("directLoad") is True
-        requires_executable = not explicitly_unpacked and not direct_load
-        if not entry.exists():
-            missing_entries.append({"tool": tool_id, "entry": str(entry)})
-        if requires_executable and not has_executable:
-            missing_executables.append(tool_id)
-        tools.append(
-            {
-                "id": tool_id,
-                "entry": str(entry),
-                "entry_exists": entry.exists(),
-                "has_executable": has_executable,
-                "requires_executable": requires_executable,
-            }
-        )
-
-    ok = not invalid_manifests and not missing_entries and not missing_executables
-    return {
-        "ok": ok,
-        "count": len(tools),
-        "tools": tools,
-        "invalid_manifests": invalid_manifests,
-        "missing_entries": missing_entries,
-        "missing_executables": missing_executables,
-    }
-
-
 def collect_environment_report(
     project_root: str | os.PathLike[str] | None = None,
     *,
@@ -548,98 +327,6 @@ def collect_environment_report(
     }
 
 
-def _safe_extract_zip(zip_path: Path, target_dir: Path) -> None:
-    safe_extract_zip(zip_path, target_dir)
-
-
-def _electron_cache_roots() -> list[Path]:
-    roots: list[Path] = []
-    local_app_data = os.environ.get("LOCALAPPDATA")
-    if local_app_data:
-        roots.append(Path(local_app_data) / "electron" / "Cache")
-    roots.append(Path.home() / ".cache" / "electron")
-    return roots
-
-
-def repair_electron_runtime(project_root: str | os.PathLike[str] | None = None) -> dict[str, Any]:
-    root = Path(project_root or Path.cwd()).resolve()
-    before = check_electron_runtime(root)
-    if before["ok"]:
-        return {"ok": True, "changed": False, "method": "already_ready", "electron": before}
-
-    electron_root = root / "node_modules" / "electron"
-    package_path = electron_root / "package.json"
-    installed_version_path = electron_root / "dist" / "version"
-    try:
-        package_version = str(json.loads(package_path.read_text(encoding="utf-8"))["version"]).lstrip("v")
-        installed_version = installed_version_path.read_text(encoding="utf-8").strip().lstrip("v")
-        if before["exe_exists"] and package_version == installed_version:
-            (electron_root / "path.txt").write_text("electron.exe", encoding="utf-8", newline="\n")
-            after_metadata_repair = check_electron_runtime(root)
-            if after_metadata_repair["ok"]:
-                return {
-                    "ok": True,
-                    "changed": True,
-                    "method": "restore_electron_path_metadata",
-                    "electron": after_metadata_repair,
-                }
-    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
-        pass
-
-    install_script = root / "node_modules" / "electron" / "install.js"
-    if install_script.exists() and shutil.which("node"):
-        completed = subprocess.run(
-            ["node", str(install_script)],
-            cwd=str(root),
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=120,
-            **_background_subprocess_kwargs(),
-        )
-        after_node_install = check_electron_runtime(root)
-        if after_node_install["ok"]:
-            return {
-                "ok": True,
-                "changed": True,
-                "method": "electron_install_script",
-                "output": completed.stdout,
-                "electron": after_node_install,
-            }
-
-    cache_zips: list[Path] = []
-    for cache_root in _electron_cache_roots():
-        if cache_root.exists():
-            cache_zips.extend(cache_root.rglob("electron-v*-win32-x64.zip"))
-    cache_zips.sort(key=lambda item: item.stat().st_mtime, reverse=True)
-
-    dist_dir = electron_root / "dist"
-    for zip_path in cache_zips:
-        try:
-            _safe_extract_zip(zip_path, dist_dir)
-            (electron_root / "path.txt").write_text("electron.exe", encoding="utf-8", newline="\n")
-        except (OSError, RuntimeError, zipfile.BadZipFile):
-            continue
-        after_cache = check_electron_runtime(root)
-        if after_cache["ok"]:
-            return {
-                "ok": True,
-                "changed": True,
-                "method": "electron_cache_zip",
-                "cache_zip": str(zip_path),
-                "electron": after_cache,
-            }
-
-    return {
-        "ok": False,
-        "changed": False,
-        "method": "unresolved",
-        "electron": check_electron_runtime(root),
-    }
-
-
 def format_environment_report(report: Mapping[str, Any]) -> str:
     lines = [
         f"GPTBridge environment: {report.get('status', 'unknown')}",
@@ -660,3 +347,17 @@ def format_environment_report(report: Mapping[str, Any]) -> str:
         lines.append("Recommendations:")
         lines.extend(f"- {recommendation}" for recommendation in recommendations)
     return "\n".join(lines)
+
+
+__all__ = [
+    "check_project_paths",
+    "check_requirements_file",
+    "check_python_modules",
+    "check_electron_runtime",
+    "check_node_environment",
+    "check_external_tools",
+    "check_independent_tools",
+    "collect_environment_report",
+    "format_environment_report",
+    "repair_electron_runtime",
+]
