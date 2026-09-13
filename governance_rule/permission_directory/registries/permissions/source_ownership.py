@@ -85,6 +85,7 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "auto_repair_chain.py",
         "channel_runtime.py",
         "architecture_boundary.py",
+        "process_control.py",
     }
 )
 SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (

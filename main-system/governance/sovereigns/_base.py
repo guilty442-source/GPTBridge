@@ -29,6 +29,8 @@ from core_system.codex_decision import (
     verified_basis,
 )
 
+from ._delegation import consume_delegation, mint_delegation
+
 # Lazy import to avoid circular dependency
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -145,62 +147,112 @@ class SovereignBase(ABC):
         return decision
 
     async def _verify_requester(self, request: SovereignRequest) -> bool:
-        """验证请求者身份（A10/A11/A116）。
+        """验证请求者身份（A10/A11/A116/A121/A174）。
 
-        In-process sovereign requests carry no capability token — sovereign
-        actors are not permission-directory identities, so none can be
-        minted for them.  The fail-closed gate therefore is:
+        Identity proofs accepted, fail-closed:
 
         - ``capability_token`` present → it MUST verify through the
-          governance authentication service and its ``actor`` claim must
-          equal ``request.requester`` (an invalid or mismatched token
-          always denies).
-        - no token → the requester string must be non-empty; delegated
-          requests are separately pinned by the sub-sovereign's A334
-          ``_delegated_by`` stamp check.
+          governance authentication service, its ``actor`` claim must equal
+          ``request.requester`` and its capability must cover the request
+          (an invalid or mismatched token always denies).
+        - ``_delegation_nonce`` present → it MUST be an unconsumed,
+          unexpired single-use delegation session minted by another
+          sovereign for this sovereign and intent (A174 single-use; a
+          replayed or forged nonce denies).
+        - self-adjudication (``requester == sovereign_id``) is accepted.
+        - a sovereign-identity claim without a token or a valid single-use
+          delegation session is rejected — a bare string is unverifiable.
+        - other in-process automation actors (governance coordinator,
+          startup/governed executors) keep their governed in-process actor
+          path; they never claim a sovereign identity.
         """
         if not isinstance(request.requester, str) or not request.requester:
             return False
 
         token = request.payload.get("capability_token")
-        if token is None:
+        if token is not None:
+            if not isinstance(token, str) or not token:
+                return False
+            claims = self._authenticate_token_claims(request, token)
+            if claims is None:
+                return False
+            request.payload["_verified_claims"] = {
+                "actor": claims.actor,
+                "bound_tool_id": claims.bound_tool_id,
+                "identity_group": claims.identity_group,
+                "capability": claims.capability,
+                "action": claims.action,
+                "target": claims.target,
+            }
             return True
-        if not isinstance(token, str) or not token:
+
+        nonce = request.payload.get("_delegation_nonce")
+        if isinstance(nonce, str) and nonce:
+            if consume_delegation(
+                nonce,
+                parent=request.requester,
+                child=self.sovereign_id,
+                intent=request.intent,
+            ):
+                request.payload["_verified_delegation"] = {
+                    "parent": request.requester,
+                    "child": self.sovereign_id,
+                    "intent": request.intent,
+                }
+                return True
             return False
 
-        auth = getattr(self.app, "governance_auth", None) or getattr(self.app, "governance", None)
+        if request.requester == self.sovereign_id:
+            return True
+
+        if self._claims_sovereign_identity(request.requester):
+            return False
+
+        return True
+
+    def _authenticate_token_claims(
+        self, request: SovereignRequest, token: str
+    ) -> Any | None:
+        """Verify a capability token against this sovereign's request scope."""
+        auth = getattr(self.app, "governance_auth", None) or getattr(
+            self.app, "governance", None
+        )
         if auth is None:
-            return False
-        auth_service = getattr(auth, "authentication", None) or getattr(auth, "authentication_service", None)
+            return None
+        auth_service = getattr(auth, "authentication", None) or getattr(
+            auth, "authentication_service", None
+        )
         if auth_service is None:
-            return False
-
+            return None
         try:
             claims = auth_service.authenticate_token(token)
         except Exception:
-            return False
-
+            return None
         # The token must prove the requester identity — ``bound_tool_id``
         # belongs to the *requester's* attestation, never to the target
         # sovereign.
         if claims.actor != request.requester:
-            return False
+            return None
         if claims.capability not in {
             "sovereign.request",
             f"{self.area}.request",
             request.intent,
         }:
-            return False
+            return None
+        return claims
 
-        request.payload["_verified_claims"] = {
-            "actor": claims.actor,
-            "bound_tool_id": claims.bound_tool_id,
-            "identity_group": claims.identity_group,
-            "capability": claims.capability,
-            "action": claims.action,
-            "target": claims.target,
-        }
-        return True
+    def _claims_sovereign_identity(self, requester: str) -> bool:
+        """True when the requester string names a sovereign identity."""
+        value = str(requester or "").strip()
+        if not value:
+            return False
+        if value.endswith(("-sovereign", "-sub-sovereign")):
+            return True
+        from ..registries import parent_of, resolve_sovereign
+
+        if parent_of(value) is not None:
+            return True
+        return resolve_sovereign(self.app, value) is not None
 
     def _verify_intent(self, intent: str) -> bool:
         """验证意图是否在管辖敕令范围内。"""
@@ -269,12 +321,16 @@ class SovereignBase(ABC):
             return refusal_outcome(
                 "TARGET_SOVEREIGN_NOT_STARTED", ("A10", "A11")
             )
-        # Stamp the delegation so a sub-sovereign target can verify the
-        # request genuinely passed through its codex parent — a bare
+        # Stamp the delegation so the target can verify the request
+        # genuinely passed through this sovereign — a bare
         # ``requester=<parent>`` string is spoofable by any in-process
-        # caller; the marker makes the delegation path explicit (A334).
+        # caller; the single-use session nonce makes the delegation path
+        # explicit, replay-proof and single-use (A121/A174/A334).
         payload = dict(request.payload)
         payload["_delegated_by"] = self.sovereign_id
+        payload["_delegation_nonce"] = mint_delegation(
+            self.sovereign_id, target_sovereign_id, request.intent
+        )
         forwarded = SovereignRequest(
             intent=request.intent,
             subject=request.subject,

@@ -22,7 +22,7 @@ from ._base import SubSovereignBase
 from governance_rule.execution.codex_official import official_sovereign
 
 
-_DECLARATION = official_sovereign("release-update-sync-sub-sovereign")
+_DECLARATION = official_sovereign("release-update-sync-sub-sovereign", requester="release-update-sync-sub-sovereign", purpose="self-declaration")
 if _DECLARATION is None:
     raise RuntimeError("release update sync sub-sovereign not found in Governance Codex")
 

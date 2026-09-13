@@ -3157,6 +3157,24 @@
         "rule": "GATE:RELEASE_COMPATIBILITY returns exactly PASS|WARN|FAIL and answers:language boundaries intact? API/ABI intact? old consumers work? migrations safely upgrade? native failure falls back? every required gate passed? AGGREGATION:consume immutable evidence only from Language Boundary+Dependency DAG+Contract Parity+Ownership Uniqueness+Native Promotion+Resource and Concurrency+Build ABI Reproducibility Gates; never reimplement their checks; any required FAIL=>release FAIL; WARN blocking is explicit immutable ReleaseCompatibilityPolicy per category and cannot be improvised. STRUCTURE:code/checkers/ReleaseCompatibilityChecker.ts+code/policy/ReleaseCompatibilityPolicy.ts+code/registry/SupportedVersionRegistry.ts+code/evidence/release-compatibility/; policy/registry data only; registry fields release+supported_api_range+supported_abi_range+supported_schema_range+supported_previous_releases. MATRIX:compare current release with every previous supported release for TypeScript/Python API,Python/native parity+fallback,C ABI major/minor+symbols,CSharp/native interop,SQL schema+migration,Python public package entry,native artifact architecture/runtime/toolchain; prove prior API/ABI ranges and schema upgrade path remain supported. CHANGE-CLASS:PATCH permits bug fix/internal optimization/performance/implementation only and denies contract/ABI/schema break;MINOR permits optional field,new operation/capability/ABI symbol only while old consumer works;MAJOR alone permits removal/required rename/operation or ABI symbol removal/layout/incompatible semantics with explicit migration. CONSUMERS:test old TypeScript client>new Python backend and new client>supported old backend when bidirectional window declared; old supported native consumer>new C ABI load+behavior. SQL-UPGRADE:old schema>ordered transactional migration>new schema>new application; verify rollback policy+data preservation+indexes+constraints and activation order before Python requires new field. NATIVE-DUAL:every approved accelerated capability runs identical integration suite native-enabled and native-disabled Python fallback; either failure=>release FAIL. UPGRADE-PATH:at least N-1>N with existing config+DB+native state; verify startup+API+DB+native+CSharp+UI contract. MANIFEST:release_version+source_revision+api_version+abi_version+schema_version+python_version+typescript_version+cpp_toolchain+c_toolchain+dotnet_version+native_artifact_hash+contract_hash+schema_hash+supported_previous_versions+all gate_results+ReleaseCompatibility verdict; content-addressed and immutable. OUTPUT:RELEASE_COMPATIBILITY+verdict; failures include category+change/operation/symbol/capability+old+new+rule+reason+required_action. READONLY:checker only aggregates,compares,judges and reports; no repair.",
         "prohibition": "FORBID:new-new pair only+required gate FAIL overridden+WARN policy invented at runtime+PATCH contract/ABI/schema change+MINOR breaking old consumer+major break without migration+SQL migration execution-only test+new field used before migration+native-only integration test+fallback failure accepted+missing N-1 upgrade+incomplete manifest+automatic major bump+contract/ABI/migration/fallback mutation+lowered standard+self-repair.",
         "exception": "A project declaring no backward compatibility window must still test N-1 migration to a typed unsupported-version outcome that preserves data and supports rollback; silent breakage is never allowed."
+      },
+      {
+        "position": 361,
+        "provision_id": "A361",
+        "section_index": "16",
+        "subject": "language-governance-final-decision-and-evidence-freshness-gate",
+        "rule": "SOLE-QUESTION:may the current change,integration,build or release be accepted under programming-language governance; FINAL-RESULT:exactly APPROVED|APPROVED_WITH_WARNINGS|REJECTED|INCOMPLETE_EVIDENCE; upstream checkers produce evidence verdicts only and never final acceptance. CHAIN:LanguageBoundary>DependencyDAG>ContractParity>OwnershipUniqueness>NativePromotion>ResourceConcurrency>BuildAbiReproducibility>ReleaseCompatibility>LanguageGovernanceFinalGate. STRUCTURE:code/final/LanguageGovernanceFinalGate.ts+code/policy/FinalDecisionPolicy.ts+code/policy/EvidenceRequirementPolicy.ts+code/registry/GateRegistry.ts+code/registry/WaiverRegistry.ts+code/evidence/final-decisions/; policies/registries are immutable data; Final Gate reads evidence+policy+registry+previous baseline+current revision and never rescans code or reimplements a checker. CRITICALITY:CRITICAL=ABI/API/ownership/illegal-language/authority and always blocks;HIGH=fallback/resource/dependency/release-compatibility and blocks unless policy explicitly classifies a narrowly non-failing warning;MEDIUM=performance/maintainability/nonbreaking drift policy-controlled;LOW=naming/noncritical advice nonblocking. DECISION:CRITICAL FAIL=>REJECTED;missing/invalid/stale required evidence=>INCOMPLETE_EVIDENCE;HIGH FAIL=>REJECTED;policy-permitted warnings=>APPROVED_WITH_WARNINGS;otherwise APPROVED; missing evidence is never PASS and order prevents a missing proof hiding a known rejection. CHANGE-SCOPE:classify TS-only|Python-only|native|C-ABI|CSharp|SQL|cross-language|release through changed files+contracts+affected dependency graph; rerun only required gates and reuse only content-addressed proof that affected scope is unchanged. REQUIRED-EVIDENCE:{.py application=>language+dependency+ownership+pytest}|{.ts/.tsx=>language+dependency+contract+vitest}|{.c/.h=>language+ABI+contract+native-tests}|{.cpp/.hpp=>language+DAG+ownership+resource+native-tests}|{.cs=>language+interop+ownership+xUnit}|{.sql=>language+migration+compatibility+DB-tests}|{API-contract=>parity+compatibility}|{native-promotion=>profile+benchmark+fallback+resource}|{release=>all-required-gates}; .pyi,.d.ts,.inl follow owning-language plus declaration parity. EVIDENCE-IDENTITY:source_revision+policy_version+contract_hash+toolchain_hash+timestamp+scope+input/artifact hashes+gate version+verdict; evidence revision must equal applicable current revision or prove affected scope unchanged by exact hashes/graph; contract/header/schema/policy/toolchain change invalidates dependent reuse; stale evidence=>INCOMPLETE_EVIDENCE. DECISION-RECORD:decision_id+revision+scope+policy_version+result+required_gates+executed_gates+skipped_gates+reused_evidence+critical_findings+warnings+contract_hash+abi_version+schema_version+toolchain_baseline+decision_timestamp+lineage; output LANGUAGE GOVERNANCE FINAL plus revision,scope,result,each gate verdict/N-A,counts and evidence references. READONLY:read+adjudicate+record immutable decision only; no code/version/ABI/policy/registry/waiver change and no implicit WARN ignore. WAIVER:separate registry record waiver_id+rule+scope+reason+approver+expires_at+revision_range+evidence; checker/final-gate cannot create it; illegal seventh authored language+public C++ ABI+duplicate canonical owner+breaking ABI without major+required fallback absent are non-waivable CRITICAL invariants.",
+        "prohibition": "FORBID:checker final acceptance+Final Gate rescanning code+FAIL-count-only decision+missing evidence as PASS+stale/cross-revision evidence reuse without unchanged proof+runtime warning ignore+automatic repair/version/ABI/policy/registry/waiver mutation+inline path ignore+waiver without approver/expiry/revision scope+waiving non-waivable invariant+APPROVED before complete required matrix.",
+        "exception": "None for non-waivable CRITICAL invariants or evidence freshness. A valid separate waiver can affect only a policy-declared waivable MEDIUM/LOW or narrowly classified HIGH warning and never converts missing evidence into PASS."
+      },
+      {
+        "position": 362,
+        "provision_id": "A362",
+        "section_index": "16",
+        "subject": "unified-language-source-index-graph-ir-and-incremental-planner",
+        "rule": "CORE:scan once+parse once+build one Unified Source Index and one Unified Language Graph consumed by LanguageBoundary,DependencyDAG,OwnershipUniqueness,ContractParity,NativePromotion,BuildAbi,ReleaseCompatibility and Final Governance; no checker rescans repository or owns a private graph. SOURCE-INDEX:one SourceUnit per canonical file stores path+language+source_class+module+owner+content_hash+mtime advisory only+imports+includes+exports+symbols+functions+classes+public_entries+contracts+capabilities+native_bindings+test_type+generated+third_party+parser_version+revision; hash,not mtime,is reuse authority. PARSERS:PythonParser+TypeScriptParser+CParser+CppParser+CSharpParser+SqlParser each use its authoritative parser/resolver but emit one normalized ParsedSource{language,imports,exports,declarations,symbols,contracts,dependencies}; checkers cannot depend on language AST internals. GOVERNANCE-IR:thin derived model only,not language/bytecode/authority; canonical types SourceUnit+CallableSymbol+Symbol+Dependency+Capability+Contract+NativeBoundary+TestEvidence+BuildArtifact. GRAPH:NODES=file|module|capability|contract|symbol|artifact;EDGES=IMPORTS|INCLUDES|CALLS|IMPLEMENTS|BINDS|ADAPTS|OWNS|FALLBACK_OF|GENERATES|TESTS; one stable node/edge identity+provenance; example PythonAPI BINDS pybind11 CALLS C-ABI IMPLEMENTS C++vector and PythonFallback FALLBACK_OF capability. INCREMENTAL:file content hash unchanged reuses IR only when parser_version+policy_version+contract_hash also match; changed file reparses once,updates graph transactionally and invalidates reverse-dependency affected subgraph; policy/parser/contract change invalidates all dependent cache even with unchanged source. AFFECTED-SCOPE:ChangedFiles>AffectedScopeResolver>affected modules+contracts+capabilities+artifacts; gptbridge_native.h change necessarily affects C ABI+pybind11+CSharp interop+native artifact+contract parity+build ABI+release compatibility. EVIDENCE:every gate outputs GateEvidence{gate_id,rule_ids,revision,scope,result,severity,findings,source_hashes,policy_version,parser_version,contract_hash,generated_at,input_graph_hash}; one schema only,never gate-specific incompatible result formats. PLANNER:change scope+EvidenceRequirementPolicy>GovernanceExecutionPlanner>only required gates; .tsx runs language+dependency+contract when affected+Vitest+Final; vector.cpp runs language+dependency+ownership+native+resource+build/ABI+native tests+Final; release runs full verification. AUTHORITY:Codex canonical; SourceIndex+graph+AST/IR cache+evidence derived,rebuildable,non-authoritative and prohibited from inventing policy. STAGES:save fast incremental;pre-commit affected scope;integration affected graph;release full verified graph. STRUCTURE-ROLES:governance/language/index/SourceIndex.ts;parser six adapters;ir/GovernanceIR.ts;graph/LanguageGraph.ts;planner/AffectedScopeResolver.ts+GovernanceExecutionPlanner.ts;evidence/GateEvidence.ts;checkers existing gates; equivalent physical layout allowed only when registry maps these exact single responsibilities without merging authority. CONSISTENCY:index/graph generation is atomic+generation-fenced+content-addressed; incomplete parse/graph=>INCOMPLETE_EVIDENCE and prior cache cannot masquerade current.",
+        "prohibition": "FORBID:multiple repository scans per governance cycle+checker-private AST/graph/index+language AST leaking into checker contract+mtime-only reuse+cache as authority+policy change with stale cache+partial graph publish+unresolved parser treated absent+gate-specific evidence schema+fixed run-all planner at save/pre-commit+skipping required affected gate+incremental evidence used for release full verification+checker inventing policy from graph.",
+        "exception": "Release may reuse a source parse only when source_hash+parser_version+policy_version+contract_hash and resolver/build configuration hashes exactly match; release still verifies the full graph and all required gates."
       }
     ],
     "certification_evidence": [
@@ -3912,7 +3930,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H066",
+        "history_head": "H068",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -6660,6 +6678,24 @@
         "release_gate": "deny affected integration/release on gap",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "language_governance_final_decision_directory",
+        "required_scope": "every change/integration/build/release final adjudication",
+        "completion_rule": "one immutable decision with complete fresh required evidence",
+        "acceptance_evidence": "matrix coverage+stale evidence+criticality+waiver failure injection",
+        "release_gate": "deny acceptance on missing decision/evidence",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "language_governance_derived_state_directory",
+        "required_scope": "every governed source,normalized symbol,dependency edge,scope and gate evidence",
+        "completion_rule": "one source unit per file,one shared graph,zero stale cache and complete reverse dependency closure",
+        "acceptance_evidence": "full-vs-incremental equivalence+cache invalidation+graph generation fault injection",
+        "release_gate": "deny final decision on incomplete/stale derived state",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_format_contract": [
@@ -7152,6 +7188,34 @@
         "owner": "permission-sovereign",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_LANGUAGE_GOVERNANCE_FINAL_DECISION",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "decision_id|source_revision|change_scope|policy_version|result|required_gates|executed_gates|skipped_gates|reused_evidence|critical_findings|warnings|contract_hash|abi_version|schema_version|toolchain_baseline|decision_timestamp|lineage",
+        "required_field_order": "envelope>revision>scope>policy>requirements>evidence>findings>result>timestamp>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-N-A-proven",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "identity>scope>required-evidence>freshness>criticality>decision>hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_LANGUAGE_GOVERNANCE_DERIVED_STATE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "generation|source_revision|policy_version|parser_versions|contract_hash|source_index_hash|language_graph_hash|gate_evidence_schema|cache_keys|affected_scope|build_config_hash|created_at|lineage",
+        "required_field_order": "envelope>generation>inputs>index>IR>graph>scope>evidence>cache>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-not-applicable-proven",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "identity>input hashes>parser/policy/contract>graph integrity>scope>evidence>hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -7609,6 +7673,32 @@
         "implementation_state": "mandated-pending-implementation",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_LANGUAGE_GOVERNANCE_FINAL_DECISION",
+        "canonical_name": "language-governance-final-decision-directory",
+        "owner": "permission-sovereign",
+        "scope": "every final language-governance decision",
+        "authority_kind": "immutable-adjudication-evidence",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|decision_id|source_revision|change_scope|policy_version|result|required_gates|executed_gates|skipped_gates|reused_evidence|critical_findings|warnings|contract_hash|abi_version|schema_version|toolchain_baseline|decision_timestamp|lineage",
+        "relationships": "gate-evidence|policy|capability|release|waiver",
+        "coverage_rule": "every decision resolves complete required evidence and one final result",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "directory_code": "DIR_LANGUAGE_GOVERNANCE_DERIVED_STATE",
+        "canonical_name": "language-governance-derived-state-directory",
+        "owner": "permission-sovereign",
+        "scope": "source index,IR,language graph,cache,affected scope and gate evidence",
+        "authority_kind": "derived-non-authoritative-governance-state",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|generation|source_revision|policy_version|parser_versions|contract_hash|source_index_hash|language_graph_hash|gate_evidence_schema|cache_keys|affected_scope|build_config_hash|created_at|lineage",
+        "relationships": "source-file|parser|policy|contract|capability|artifact|gate-evidence",
+        "coverage_rule": "every governed source and graph edge is indexed exactly once with zero stale generation",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_normalization_plan": [
@@ -7867,6 +7957,28 @@
       },
       {
         "directory_code": "DIR_CAPABILITY_REGISTRY",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-until-zero-gap-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_code": "DIR_LANGUAGE_GOVERNANCE_FINAL_DECISION",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-until-zero-gap-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_code": "DIR_LANGUAGE_GOVERNANCE_DERIVED_STATE",
         "target_format_version": "directory-format-v1",
         "common_envelope_status": "required",
         "typed_domain_status": "required",
@@ -12318,6 +12430,18 @@
         "provision_id": "A360",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A361",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A362",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12376,14 +12500,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H066",
-        "provision_count": 606,
-        "identity_count": 606,
-        "lineage_count": 606,
+        "history_head": "H068",
+        "provision_count": 608,
+        "identity_count": 608,
+        "lineage_count": 608,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "f25b97dca6076c1d56d65ba60738cca11a75d991381049fc1a15faebe03570ac",
-        "identity_root": "5e71d71ae5a958603e97a2a749654a73337265209fd50be1cab3916ae632468b",
-        "full_root": "5f428dd9de686b2633000850b61d383498ad766b31e4a2690fd91a0f0ac7b974",
+        "content_root": "3973c12fb002869784feaddfbe59bcb137e85e051ba0d15efc679953dffefffa",
+        "identity_root": "2387fe076ac67df45e2b1986a25129c0f36c9d06e8f77ad7ec599c44e02f97d3",
+        "full_root": "cc0e7bedddd58ec993e34e6c6ed986a6e81c0f83863964d6fe21ebdaba8a0f5c",
         "legacy_history_head": null
       }
     ],
@@ -17510,7 +17634,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H066"
+        "value": "H068"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17651,6 +17775,22 @@
       {
         "key": "release_compatibility_required_gates",
         "value": "language|dependency|contract|ownership|native-promotion|resource-concurrency|build-abi"
+      },
+      {
+        "key": "language_governance_final_gate",
+        "value": "A361"
+      },
+      {
+        "key": "language_governance_final_results",
+        "value": "APPROVED|APPROVED_WITH_WARNINGS|REJECTED|INCOMPLETE_EVIDENCE"
+      },
+      {
+        "key": "unified_language_governance_graph",
+        "value": "A362"
+      },
+      {
+        "key": "gate_evidence_schema",
+        "value": "GateEvidence-v1"
       }
     ],
     "module_assignment_registry": [
@@ -23320,6 +23460,20 @@
         "provision_id": "A360",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A361",
+        "provision_type": "article",
+        "provision_id": "A361",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A362",
+        "provision_type": "article",
+        "provision_id": "A362",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -27564,6 +27718,20 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A175|A200|A204|A205|A219|A340|A348|A354|A355|A356|A357|A358|A359"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A361",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A205|A340|A348|A353|A354|A355|A356|A357|A358|A359|A360"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A362",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A208|A348|A353|A354|A355|A356|A357|A359|A360|A361"
       }
     ],
     "provision_lifecycle_status": [
@@ -32310,6 +32478,22 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H066+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A361",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H067+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A362",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H068+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -37160,6 +37344,22 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "93b8111a55b7b220524f4fb05d393f0b1ea4e9cdcee3640460b5e61212916363"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A361",
+        "introduced_by": "H067",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "6c0c09baac98ce84e098795da7039e520f24773fa925e7b13075c90539ca3a4f"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A362",
+        "introduced_by": "H068",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "a2b9547d9924f8f3d4fcea61660240f410a96253825156508bbbae240bbad46b"
       }
     ],
     "provision_revisions": [
@@ -48007,6 +48207,24 @@
         "content_hash": "93b8111a55b7b220524f4fb05d393f0b1ea4e9cdcee3640460b5e61212916363",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A361",
+        "revision_id": "H067",
+        "version": "1.00000",
+        "content_hash": "6c0c09baac98ce84e098795da7039e520f24773fa925e7b13075c90539ca3a4f",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A362",
+        "revision_id": "H068",
+        "version": "1.00000",
+        "content_hash": "a2b9547d9924f8f3d4fcea61660240f410a96253825156508bbbae240bbad46b",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -52969,6 +53187,26 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A361",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A362",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -53697,6 +53935,28 @@
         "previous_hash": "808cb57f995b0cfb6db042c19b28369c713e36fd47b5149ca6d61a92425be563",
         "entry_hash": "4144adf37e4cbe621258ca48fcd1185ebfa289fd2a2331005c2fe3526ed7d5ce",
         "version_epoch": 2
+      },
+      {
+        "sequence": 67,
+        "change_id": "H067",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "language-governance-final-decision-and-evidence-freshness-gate",
+        "summary": "Established the change-aware Language Governance Final Gate with four exclusive decisions, criticality, revision-bound evidence requirements, stale-evidence rejection, immutable decision records and separately governed non-bypass waivers. Version remains E2:1.00000.",
+        "previous_hash": "4144adf37e4cbe621258ca48fcd1185ebfa289fd2a2331005c2fe3526ed7d5ce",
+        "entry_hash": "f5a225ce2a54cee16d6e1aed0beabfb475658533f8a56c73a1afc3a664550e27",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 68,
+        "change_id": "H068",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "unified-language-source-index-graph-ir-and-execution-planner",
+        "summary": "Established one-scan one-parse Unified Source Index, normalized Governance IR, shared Language Graph, incremental affected-scope planning and one GateEvidence schema for every language gate while preserving Codex as sole authority. Version remains E2:1.00000.",
+        "previous_hash": "f5a225ce2a54cee16d6e1aed0beabfb475658533f8a56c73a1afc3a664550e27",
+        "entry_hash": "ed1c2011bda95261a22fa0f12b367aab6c66fe232c718d5b1da1b8283ef3bb5f",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -54253,14 +54513,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H066",
-        "provision_count": 606,
-        "identity_count": 606,
-        "lineage_count": 606,
+        "history_head": "H068",
+        "provision_count": 608,
+        "identity_count": 608,
+        "lineage_count": 608,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "f25b97dca6076c1d56d65ba60738cca11a75d991381049fc1a15faebe03570ac",
-        "identity_root": "5e71d71ae5a958603e97a2a749654a73337265209fd50be1cab3916ae632468b",
-        "full_root": "5f428dd9de686b2633000850b61d383498ad766b31e4a2690fd91a0f0ac7b974",
+        "content_root": "3973c12fb002869784feaddfbe59bcb137e85e051ba0d15efc679953dffefffa",
+        "identity_root": "2387fe076ac67df45e2b1986a25129c0f36c9d06e8f77ad7ec599c44e02f97d3",
+        "full_root": "cc0e7bedddd58ec993e34e6c6ed986a6e81c0f83863964d6fe21ebdaba8a0f5c",
         "version_epoch": 2
       }
     ],
@@ -58944,6 +59204,42 @@
         "cleanup": "remove fixtures only;retain immutable evidence",
         "isolation_policy": "isolated versioned release fixtures+no production mutation",
         "timeout": "1800s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_LANGUAGE_GOVERNANCE_FINAL_GATE",
+        "canonical_name": "language-governance-final-gate-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "LanguageGovernanceFinalGate",
+        "requirement_ids": "A348|A353|A354|A355|A356|A357|A358|A359|A360|A361",
+        "test_level": "contract+integration+decision+failure-injection",
+        "preconditions": "all scopes,gate evidence revisions,policies,baselines and waivers",
+        "fixtures": "APPROVED all required pass;APPROVED_WITH_WARNINGS policy-allowed warnings;REJECTED critical/high fail;INCOMPLETE missing/stale evidence;TS-only scoped reuse;C-ABI forces parity/build/native/release;non-waivable invariants;expired/wrong-revision waiver",
+        "ordered_steps": "classify scope>derive evidence matrix>validate freshness>criticality>waiver validity>decision>immutable record",
+        "expected_results": "exact one final result;no rescan/mutation;missing evidence never approved",
+        "evidence": "decision inputs+hash graph+policy+record",
+        "cleanup": "remove fixtures only;retain decision evidence",
+        "isolation_policy": "read-only isolated fixtures",
+        "timeout": "900s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_UNIFIED_LANGUAGE_GRAPH_INCREMENTAL",
+        "canonical_name": "unified-language-graph-incremental-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "SourceIndex+LanguageGraph+AffectedScopeResolver+GovernanceExecutionPlanner",
+        "requirement_ids": "A208|A353|A354|A361|A362",
+        "test_level": "unit+contract+integration+performance+failure-injection",
+        "preconditions": "six-language files,generated/third-party,contract/header/policy changes,cycles and 4000-file fixture",
+        "fixtures": "first full scan parses each file once;unchanged file cache hit;single vector.cpp reparses one+affected graph;tsx excludes native when unaffected;header affects ABI/pybind/CSharp/artifact/release;policy/parser/contract invalidates cache;incremental/full graph equivalent;partial publish rejected",
+        "ordered_steps": "index>parse adapters>IR>graph>scope>planner>gate evidence>Final;compare parse counts,graph hashes,required gates and verdict",
+        "expected_results": "no duplicate parse/private graph/stale evidence;save incremental,precommit affected,release full",
+        "evidence": "content hashes+parse counters+IR+graph+scope+planner+evidence",
+        "cleanup": "remove cache fixture only;retain evidence",
+        "isolation_policy": "isolated generation-fenced derived store",
+        "timeout": "1200s",
         "introduced_version": "1.00000",
         "retired_version": null
       }

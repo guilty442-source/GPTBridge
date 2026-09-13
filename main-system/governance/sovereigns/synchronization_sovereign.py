@@ -1003,7 +1003,7 @@ class SynchronizationSovereign(SovereignBase):
                     },
                 },
             )
-            await decision.handle(request)
+            await self.delegate_to("decision-sovereign", request)
         except Exception as error:
             _logger.warning("sync coverage gap route failed: %s", error)
 

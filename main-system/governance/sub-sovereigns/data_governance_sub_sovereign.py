@@ -27,7 +27,7 @@ from core.health import check_core_health
 from governance_rule.execution.codex_official import official_sovereign
 
 
-_DATA_SOVEREIGN = official_sovereign("data-governance-sub-sovereign")
+_DATA_SOVEREIGN = official_sovereign("data-governance-sub-sovereign", requester="data-governance-sub-sovereign", purpose="self-declaration")
 if _DATA_SOVEREIGN is None:
     raise RuntimeError("data governance sub-sovereign not found in Governance Codex")
 

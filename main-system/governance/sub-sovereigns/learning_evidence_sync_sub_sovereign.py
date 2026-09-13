@@ -23,7 +23,7 @@ from ._base import SubSovereignBase
 from governance_rule.execution.codex_official import official_sovereign
 
 
-_DECLARATION = official_sovereign("learning-evidence-sync-sub-sovereign")
+_DECLARATION = official_sovereign("learning-evidence-sync-sub-sovereign", requester="learning-evidence-sync-sub-sovereign", purpose="self-declaration")
 if _DECLARATION is None:
     raise RuntimeError("learning evidence sync sub-sovereign not found in Governance Codex")
 

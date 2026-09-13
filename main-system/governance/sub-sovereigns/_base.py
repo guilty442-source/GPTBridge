@@ -19,6 +19,7 @@ from typing import Any
 from typing import TYPE_CHECKING
 
 from ..sovereigns._base import SovereignBase, SovereignOutcome, SovereignRequest
+from ..sovereigns._delegation import consume_delegation
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 
 if TYPE_CHECKING:
@@ -114,6 +115,32 @@ class SubSovereignBase(SovereignBase, ABC):
             return False
         if request.payload.get("_delegated_by") != parent:
             return False
+
+        # A121/A174: the delegation must carry a single-use session nonce
+        # minted by the parent — a bare ``_delegated_by`` string is
+        # forgeable by any in-process caller and replayable.  The entry
+        # gate (``_verify_requester``) consumes the nonce and records the
+        # verified delegation; a direct adjudication path that bypassed the
+        # entry gate consumes it here instead (single-use either way).
+        verified = request.payload.get("_verified_delegation")
+        if isinstance(verified, dict):
+            if (
+                verified.get("parent") != parent
+                or verified.get("child") != self.sovereign_id
+                or verified.get("intent") != request.intent
+            ):
+                return False
+        else:
+            nonce = request.payload.get("_delegation_nonce")
+            if not isinstance(nonce, str) or not nonce:
+                return False
+            if not consume_delegation(
+                nonce,
+                parent=parent,
+                child=self.sovereign_id,
+                intent=request.intent,
+            ):
+                return False
 
         token = request.payload.get("capability_token")
         if token is None:

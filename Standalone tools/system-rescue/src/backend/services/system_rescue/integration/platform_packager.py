@@ -15,27 +15,34 @@ import argparse
 import hashlib
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+try:  # information-layer-owned process adapter (A177)
+    from shared_layer.process_control import GovernedProcessAdapter
+except ImportError:  # pragma: no cover - fail closed when the layer is absent
+    GovernedProcessAdapter = None  # type: ignore[assignment]
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[5]
 MAIN_SYSTEM_ROOT = PROJECT_ROOT / "main-system"
 PACKAGER_CLI = MAIN_SYSTEM_ROOT / "src-core" / "tasks" / "packager_main.py"
 
-# Windows: suppress console window for background subprocess calls
-_CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
-
 _PACKAGE_TIMEOUT_SECONDS = 1800
 _VERIFY_TIMEOUT_SECONDS = 600
 
+_PACKAGER_ADAPTER: Any | None = None
 
-def _background_subprocess_kwargs() -> dict[str, int]:
-    if os.name == "nt":
-        return {"creationflags": _CREATE_NO_WINDOW}
-    return {}
+
+def _packager_adapter() -> Any | None:
+    """Information-layer-owned adapter restricted to the packager interpreter."""
+    global _PACKAGER_ADAPTER
+    if GovernedProcessAdapter is None:
+        return None
+    if _PACKAGER_ADAPTER is None:
+        _PACKAGER_ADAPTER = GovernedProcessAdapter([_packager_python()])
+    return _PACKAGER_ADAPTER
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -57,12 +64,24 @@ def _run_packager_cli(
     *,
     timeout_seconds: int,
 ) -> dict[str, Any]:
-    """Delegate to the main-system central packager CLI under governance."""
+    """Delegate to the main-system central packager under governance.
+
+    A177: the cross-process call runs through the information-layer-owned
+    ``GovernedProcessAdapter`` (allowlisted interpreter + bounded timeout +
+    audit record), never through a direct subprocess control channel.
+    """
     if not PACKAGER_CLI.is_file():
         return {
             "ok": False,
             "error_code": "PACKAGER_MISSING",
             "message": f"central packager not found: {PACKAGER_CLI}",
+        }
+    adapter = _packager_adapter()
+    if adapter is None:
+        return {
+            "ok": False,
+            "error_code": "INFORMATION_LAYER_UNAVAILABLE",
+            "message": "governed process adapter is unavailable",
         }
     environment = dict(os.environ)
     environment.update(
@@ -74,59 +93,36 @@ def _run_packager_cli(
             "PYTHONNOUSERSITE": "1",
         }
     )
-    try:
-        completed = subprocess.run(
-            [
-                os.fspath(_packager_python()),
-                "-B",
-                "-s",
-                os.fspath(PACKAGER_CLI),
-                *arguments,
-                "--json",
-            ],
-            cwd=os.fspath(PACKAGER_CLI.parent),
-            env=environment,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout_seconds,
-            **_background_subprocess_kwargs(),
-        )
-    except subprocess.TimeoutExpired:
+    report = adapter.run_json(
+        [
+            os.fspath(_packager_python()),
+            "-B",
+            "-s",
+            os.fspath(PACKAGER_CLI),
+            *arguments,
+            "--json",
+        ],
+        timeout_seconds=float(timeout_seconds),
+        cwd=PACKAGER_CLI.parent,
+        environment=environment,
+    )
+    error_code = report.get("error_code")
+    if error_code == "PROCESS_TIMEOUT":
         return {
             "ok": False,
             "error_code": "PACKAGER_TIMEOUT",
             "message": f"central packager timed out after {timeout_seconds}s",
+            "audit": report.get("audit"),
         }
-    except OSError as error:
+    if error_code == "PROCESS_LAUNCH_FAILED":
         return {
             "ok": False,
             "error_code": "PACKAGER_LAUNCH_FAILED",
-            "message": str(error),
+            "message": report.get("message", ""),
+            "audit": report.get("audit"),
         }
-    output = (completed.stdout or "").strip()
-    report: dict[str, Any] = {}
-    for line in reversed(output.splitlines()):
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            report = json.loads(line)
-            break
-        except json.JSONDecodeError:
-            continue
-    if not report:
-        return {
-            "ok": False,
-            "error_code": "PACKAGER_OUTPUT_INVALID",
-            "exit_code": completed.returncode,
-            "stdout": output[:4000],
-            "stderr": (completed.stderr or "")[:4000],
-        }
-    report["exit_code"] = completed.returncode
-    if completed.returncode != 0:
-        report["ok"] = False
+    if error_code == "PROCESS_OUTPUT_INVALID":
+        report["error_code"] = "PACKAGER_OUTPUT_INVALID"
     return report
 
 

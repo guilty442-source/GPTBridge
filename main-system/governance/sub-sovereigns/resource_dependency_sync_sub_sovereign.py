@@ -33,7 +33,7 @@ from core_system.native import (
 from governance_rule.execution.codex_official import official_sovereign
 
 
-_RESOURCE_SOVEREIGN = official_sovereign("resource-dependency-sync-sub-sovereign")
+_RESOURCE_SOVEREIGN = official_sovereign("resource-dependency-sync-sub-sovereign", requester="resource-dependency-sync-sub-sovereign", purpose="self-declaration")
 if _RESOURCE_SOVEREIGN is None:
     raise RuntimeError("resource dependency sync sub-sovereign not found in Governance Codex")
 

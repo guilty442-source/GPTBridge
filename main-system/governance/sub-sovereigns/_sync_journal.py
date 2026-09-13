@@ -16,6 +16,14 @@ from pathlib import Path
 from typing import Any
 
 
+class SyncJournalError(RuntimeError):
+    """Raised when a sync record cannot be durably recorded or audited.
+
+    A121/A69 fail-closed: a sync that cannot be persisted or audited must
+    surface as a failure — never as a silent success.
+    """
+
+
 class SyncJournal:
     """Bounded durable journal for one sub-sovereign's sync records."""
 
@@ -54,8 +62,10 @@ class SyncJournal:
             tmp = self._path.with_suffix(".tmp")
             tmp.write_text(payload + "\n", encoding="utf-8")
             os.replace(tmp, self._path)
-        except OSError:
-            pass  # best-effort persistence; the in-memory journal stays valid
+        except OSError as error:
+            raise SyncJournalError(
+                f"sync journal persistence failed: {type(error).__name__}"
+            ) from error
 
     def append(self, kind: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Append one sync record durably and publish its audit event."""
@@ -74,7 +84,13 @@ class SyncJournal:
         return record
 
     def _publish_audit(self, record: dict[str, Any]) -> None:
-        """Publish the sync as an A195 outbox state event (audit chain)."""
+        """Publish the sync as an A195 outbox state event (audit chain).
+
+        When a publisher is present, a failed publication raises so the sync
+        is reported as refused rather than silently accepted (A121/A69).
+        The durable journal entry itself remains the record of last resort
+        for standalone/test contexts without a publisher.
+        """
         publisher = getattr(self._app, "_outbox_publisher", None)
         append = getattr(publisher, "append_state_event", None)
         if not callable(append):
@@ -89,8 +105,10 @@ class SyncJournal:
                 invalidation_keys=("synchronization-journal", self._sovereign_id),
                 state_hash=hashlib.sha256(state.encode("utf-8")).hexdigest(),
             )
-        except Exception:
-            pass  # audit publication is best-effort; the journal is durable
+        except Exception as error:
+            raise SyncJournalError(
+                f"sync audit publication failed: {type(error).__name__}"
+            ) from error
 
     def latest(self) -> dict[str, Any] | None:
         return self.records[-1] if self.records else None
@@ -99,4 +117,4 @@ class SyncJournal:
         return self.records[-max(1, int(limit)) :]
 
 
-__all__ = ["SyncJournal"]
+__all__ = ["SyncJournal", "SyncJournalError"]

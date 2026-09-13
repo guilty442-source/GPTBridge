@@ -44,7 +44,7 @@ from governance_rule.execution.tool_runtime.sub_sovereign import (
 from governance_rule.execution.codex_official import official_sovereign
 
 
-_INTEGRATION_SOVEREIGN = official_sovereign("channel-contract-sync-sub-sovereign")
+_INTEGRATION_SOVEREIGN = official_sovereign("channel-contract-sync-sub-sovereign", requester="channel-contract-sync-sub-sovereign", purpose="self-declaration")
 if _INTEGRATION_SOVEREIGN is None:
     raise RuntimeError("channel contract sync sub-sovereign not found in Governance Codex")
 

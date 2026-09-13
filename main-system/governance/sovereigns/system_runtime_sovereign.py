@@ -555,7 +555,7 @@ class SystemRuntimeSovereign(SovereignBase):
                     },
                 },
             )
-            await decision.handle(request)
+            await self.delegate_to("decision-sovereign", request)
         except Exception as error:
             _logger.warning("runtime coverage gap route failed: %s", error)
 
@@ -612,7 +612,7 @@ class SystemRuntimeSovereign(SovereignBase):
                             },
                         },
                     )
-                    await decision.handle(request)
+                    await self.delegate_to("decision-sovereign", request)
                 except Exception as error:
                     _logger.warning(
                         "runtime degradation route failed: %s", error

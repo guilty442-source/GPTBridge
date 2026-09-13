@@ -60,7 +60,7 @@ from core_system.maintenance_repair_chain import MaintenanceRepairChainMixin
 from core.health import check_core_health
 
 
-_MAINTENANCE_SOVEREIGN = official_sovereign("health-maintenance-test-sub-sovereign")
+_MAINTENANCE_SOVEREIGN = official_sovereign("health-maintenance-test-sub-sovereign", requester="health-maintenance-test-sub-sovereign", purpose="self-declaration")
 if _MAINTENANCE_SOVEREIGN is None:
     raise RuntimeError("health maintenance test sub-sovereign not found in Governance Codex")
 

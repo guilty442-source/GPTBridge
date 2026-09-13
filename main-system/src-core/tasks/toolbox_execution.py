@@ -6,6 +6,12 @@ import re
 import time
 from typing import Any, Dict
 
+from governance.registries import (
+    module_assignment,
+    parent_of,
+    validate_execution_identity,
+)
+
 from .toolbox_constants import (
     MAX_TOOL_REQUEST_ID_LENGTH,
     ToolEventCallback,
@@ -14,6 +20,55 @@ from .toolbox_constants import (
 
 class ExecutionMixin:
     """Tool execution request queuing and cancellation via the shared layer."""
+
+    def _verify_module_assignment(self, tool_id: str) -> Dict[str, Any] | None:
+        """A334 execution gate: the module registry is the machine authority.
+
+        Every executable module must be registered with its exact execution
+        identity, a managing sub-sovereign declared in the single-parent
+        hierarchy, and decision/review authorities on record.  Returns an
+        error response when the gate denies (fail-closed), otherwise None.
+        """
+        module_code = tool_id.upper().replace("-", "_")
+        try:
+            row = module_assignment(module_code)
+        except Exception:
+            return {
+                "ok": False,
+                "tool_id": tool_id,
+                "error_code": "MODULE_REGISTRY_UNAVAILABLE",
+                "message": "A334 module-assignment registry is unavailable",
+            }
+        if row is None:
+            return {
+                "ok": False,
+                "tool_id": tool_id,
+                "error_code": "MODULE_NOT_IN_REGISTRY",
+                "message": "A334: executable module is not registered",
+            }
+        if not validate_execution_identity(module_code, module_code):
+            return {
+                "ok": False,
+                "tool_id": tool_id,
+                "error_code": "EXECUTION_IDENTITY_MISMATCH",
+                "message": "A334: execution identity does not match registry",
+            }
+        managing = str(row.get("managing_sub_sovereign") or "")
+        if not managing or parent_of(managing) is None:
+            return {
+                "ok": False,
+                "tool_id": tool_id,
+                "error_code": "MANAGING_SUB_SOVEREIGN_UNREGISTERED",
+                "message": "A334: managing sub-sovereign is not in the hierarchy registry",
+            }
+        if not row.get("decision_authority") or not row.get("review_authority"):
+            return {
+                "ok": False,
+                "tool_id": tool_id,
+                "error_code": "MODULE_AUTHORITY_INCOMPLETE",
+                "message": "A334: module decision/review authority is incomplete",
+            }
+        return None
 
     async def request_tool_execution(
         self,
@@ -35,6 +90,13 @@ class ExecutionMixin:
                 "error_code": "TOOL_OUTSIDE_STANDALONE_SCOPE",
                 "message": "This standalone runtime can execute only its own tool.",
             }
+        # A334: the module-assignment registry is the execution gate —
+        # verify the exact registered execution identity, the managing
+        # sub-sovereign's hierarchy registration, and the module's
+        # decision/review authorities before any governed execution.
+        assignment_error = self._verify_module_assignment(tool_id)
+        if assignment_error is not None:
+            return assignment_error
         try:
             if self.governance is None:
                 raise PermissionError("PERMISSION_DENIED")
