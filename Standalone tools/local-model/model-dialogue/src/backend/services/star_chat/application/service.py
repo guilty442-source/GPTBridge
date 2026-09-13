@@ -6,6 +6,8 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
+from .programming_tools import collect_programming_context, render_programming_context
+
 
 def _service_version() -> str:
     try:
@@ -297,6 +299,12 @@ class StarChatService:
                     "primary_language": self.PRIMARY_LANGUAGE,
                     "sequence": list(self.AUTOMATIC_WORKFLOW_SEQUENCE),
                 },
+                "programming_tools": {
+                    "enabled": True,
+                    "mode": "automatic-governed-read-only",
+                    "available": ["workspace_list", "workspace_read"],
+                    "scope": "user-selected-programming-folder",
+                },
             }
         if command == "star_chat_send_message":
             conversation_mode = self._conversation_mode(payload)
@@ -305,7 +313,22 @@ class StarChatService:
                 32_000,
             )
             command_context = self._conversation_context(payload)
+            programming_tool_result: dict[str, Any] = {}
+            if conversation_mode == "coding":
+                programming_tool_result = await asyncio.to_thread(
+                    collect_programming_context,
+                    self._bounded_text(payload.get("programming_folder"), 1_024),
+                    raw_message,
+                )
+                tool_context = render_programming_context(programming_tool_result)
+                if tool_context:
+                    command_context = "\n\n".join(
+                        part for part in (command_context, tool_context) if part
+                    )
+                    payload = {**payload, "history": [], "_tool_context": tool_context}
             prompt = self._conversation_prompt(payload)
+            if command_context and conversation_mode == "coding":
+                prompt = f"{prompt}\n\n{command_context}"
             if not prompt:
                 return f"{command}_result", {
                     "ok": False,
@@ -426,6 +449,8 @@ class StarChatService:
                 "primary_language": self.PRIMARY_LANGUAGE,
                 "sequence": list(self.AUTOMATIC_WORKFLOW_SEQUENCE),
             }
+            if conversation_mode == "coding":
+                result["programming_tools"] = programming_tool_result
             return f"{command}_result", result
         raise PermissionError("PERMISSION_DENIED")
 
