@@ -1,141 +1,39 @@
-"""Fault analysis service — read-only fault evidence aggregation and pattern detection.
+"""Fault analysis service — facade.
 
-Provides Xingcheng (星澄) with a structured, read-only view of system fault
-evidence for global review and anomaly explanation.  This service aggregates
-fault data from multiple sources:
+This module provides the FaultAnalysisService class.  Implementation
+details live in submodules:
 
-  * **Automatic repair knowledge** — repair recipes and learned patterns
-  * **Repair run history** — per-tool repair execution records
-  * **Repair learning** — error signatures, outcomes, and promoted recipes
-  * **Crash diagnosis records** — boot-core crash tracebacks and signals
-  * **Repair requests** — pending and completed governed repair requests
-  * **System health snapshots** — boot-core state and health probe results
-  * **Tool crash quarantine** — isolated tool crash records
-  * **Audit records** — system-rescue audit trail
-  * **Runtime logs** — system-rescue log entries
+  * :mod:`core_system.fault_analysis_service_types` — data structures.
+  * :mod:`core_system.fault_analysis_service_collectors` — collectors mixin.
 
-The service is **strictly read-only**.  It never executes repairs, writes
-state, or modifies any data.  All analysis is derived from existing
-artifacts on disk.
-
-Per A174/A6500: Xingcheng has codex-authorized global review authority.
-This service implements the data aggregation surface for fault analysis
-within that authority.
+Read-only fault evidence aggregation and pattern detection for Xingcheng
+(A174/A6500 codex-authorized global review authority).
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import re
 import sqlite3
-import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+import threading
 from pathlib import Path
-from typing import Any, Final
+from typing import Any
 
-_logger = logging.getLogger("gptbridge.fault_analysis")
-
-# ------------------------------------------------------------------
-# Paths
-# ------------------------------------------------------------------
-
-_AUTOMATIC_REPAIR_ROOT: Final[tuple[str, ...]] = (
-    "main-system", "data", "automatic-repair",
+from .fault_analysis_service_types import (
+    _iso_now,
+    _AUTOMATIC_REPAIR_ROOT,
+    _RUNTIME_STATE_ROOT,
+    _SYSTEM_RESCUE_ROOT,
+    _QUARANTINE_DIR,
+    FaultSummary,
+    FaultPattern,
 )
-_RUNTIME_STATE_ROOT: Final[tuple[str, ...]] = (
-    "main-system", "runtime", "state",
-)
-_SYSTEM_RESCUE_ROOT: Final[tuple[str, ...]] = (
-    "system-rescue", "data",
-)
-_QUARANTINE_DIR: Final[tuple[str, ...]] = (
-    "main-system", "runtime", "state", "tool-crash-quarantine",
-)
+from .fault_analysis_service_collectors import FaultAnalysisCollectorsMixin
 
 
-def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-# ------------------------------------------------------------------
-# Data structures
-# ------------------------------------------------------------------
-
-@dataclass
-class FaultSummary:
-    """Aggregated fault summary for a single fault incident."""
-    fault_id: str
-    fault_type: str  # crash | repair | health | quarantine | audit
-    source: str  # boot-core | tool:{id} | system-rescue | ...
-    timestamp: str
-    severity: str  # critical | high | medium | low | info
-    error_class: str
-    error_message: str
-    target_entity: str
-    repair_action: str
-    repair_outcome: str  # success | failure | pending | skipped | none
-    raw_evidence: dict[str, Any] = field(default_factory=dict)
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "fault_id": self.fault_id,
-            "fault_type": self.fault_type,
-            "source": self.source,
-            "timestamp": self.timestamp,
-            "severity": self.severity,
-            "error_class": self.error_class,
-            "error_message": self.error_message,
-            "target_entity": self.target_entity,
-            "repair_action": self.repair_action,
-            "repair_outcome": self.repair_outcome,
-            "raw_evidence": self.raw_evidence,
-        }
-
-
-@dataclass
-class FaultPattern:
-    """A recurring fault pattern detected across multiple incidents."""
-    pattern_id: str
-    error_signature: str
-    error_class: str
-    occurrence_count: int
-    first_seen: str
-    last_seen: str
-    affected_entities: list[str]
-    common_repair_action: str
-    success_rate: float  # 0.0 to 1.0
-    severity_trend: str  # increasing | stable | decreasing | unknown
-    sample_fault_ids: list[str]
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "pattern_id": self.pattern_id,
-            "error_signature": self.error_signature,
-            "error_class": self.error_class,
-            "occurrence_count": self.occurrence_count,
-            "first_seen": self.first_seen,
-            "last_seen": self.last_seen,
-            "affected_entities": self.affected_entities,
-            "common_repair_action": self.common_repair_action,
-            "success_rate": round(self.success_rate, 3),
-            "severity_trend": self.severity_trend,
-            "sample_fault_ids": self.sample_fault_ids,
-        }
-
-
-# ------------------------------------------------------------------
-# Fault analysis service
-# ------------------------------------------------------------------
-
-class FaultAnalysisService:
-    """Read-only fault evidence aggregation and pattern detection.
-
-    All methods are synchronous and designed to be called from async
-    code via ``asyncio.to_thread``.
-    """
+class FaultAnalysisService(FaultAnalysisCollectorsMixin):
+    """Read-only fault evidence aggregation and pattern detection."""
 
     def __init__(self, project_root: Path | str) -> None:
         self.project_root = Path(project_root).resolve()
@@ -170,21 +68,16 @@ class FaultAnalysisService:
         """Return a high-level system health overview from fault evidence."""
         faults = self.collect_all_faults(limit=100)
         patterns = self.detect_patterns(faults)
-        # Severity distribution.
         severity_counts: dict[str, int] = {}
         for f in faults:
             severity_counts[f.severity] = severity_counts.get(f.severity, 0) + 1
-        # Outcome distribution.
         outcome_counts: dict[str, int] = {}
         for f in faults:
             outcome_counts[f.repair_outcome] = outcome_counts.get(f.repair_outcome, 0) + 1
-        # Source distribution.
         source_counts: dict[str, int] = {}
         for f in faults:
             source_counts[f.source] = source_counts.get(f.source, 0) + 1
-        # Boot-core state.
         boot_state = self._read_boot_core_state()
-        # Repair recipes count.
         recipes = self._read_repair_recipes()
         return {
             "timestamp": _iso_now(),
@@ -239,185 +132,6 @@ class FaultAnalysisService:
             "patterns": [p.as_dict() for p in patterns],
             "recent_faults": [f.as_dict() for f in component_faults[:20]],
         }
-
-    # ------------------------------------------------------------------
-    # Fault collectors
-    # ------------------------------------------------------------------
-
-    def _collect_repair_runs(self) -> list[FaultSummary]:
-        """Collect repair run records from per-tool SQLite databases."""
-        faults: list[FaultSummary] = []
-        if not self._repair_root.is_dir():
-            return faults
-        for tool_dir in self._repair_root.iterdir():
-            if not tool_dir.is_dir():
-                continue
-            db_path = tool_dir / "automatic-repair.sqlite3"
-            if not db_path.is_file():
-                continue
-            tool_id = tool_dir.name
-            try:
-                faults.extend(self._read_repair_runs_db(db_path, tool_id))
-            except Exception as exc:
-                _logger.debug("fault_analysis_repair_runs_skip tool=%s err=%s", tool_id, exc)
-        return faults
-
-    def _collect_repair_learning(self) -> list[FaultSummary]:
-        """Collect repair learning records (error signatures + outcomes)."""
-        faults: list[FaultSummary] = []
-        db_path = self._repair_root / "repair-learning.sqlite3"
-        if not db_path.is_file():
-            return faults
-        try:
-            connection = sqlite3.connect(
-                f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=3,
-            )
-            try:
-                rows = connection.execute(
-                    "SELECT signature_hash, error_class, message_pattern, "
-                    "failure_code, file_context, target_tool_id, "
-                    "outcome, attempted_action, timestamp "
-                    "FROM repair_learning ORDER BY timestamp DESC LIMIT 200"
-                ).fetchall()
-            except sqlite3.OperationalError:
-                rows = []
-            finally:
-                connection.close()
-            for row in rows:
-                sig, err_class, msg_pattern, fail_code, file_ctx, tool_id, outcome, action, ts = row
-                faults.append(FaultSummary(
-                    fault_id=f"learning-{sig}",
-                    fault_type="repair-learning",
-                    source=f"tool:{tool_id or 'unknown'}",
-                    timestamp=str(ts or ""),
-                    severity=self._severity_from_code(str(fail_code)),
-                    error_class=str(err_class or ""),
-                    error_message=str(msg_pattern or ""),
-                    target_entity=str(tool_id or ""),
-                    repair_action=str(action or ""),
-                    repair_outcome=self._normalize_outcome(str(outcome or "")),
-                    raw_evidence={
-                        "signature_hash": sig,
-                        "failure_code": fail_code,
-                        "file_context": file_ctx,
-                    },
-                ))
-        except Exception as exc:
-            _logger.debug("fault_analysis_learning_skip err=%s", exc)
-        return faults
-
-    def _collect_crash_diagnosis(self) -> list[FaultSummary]:
-        """Collect crash diagnosis records from boot-core state."""
-        faults: list[FaultSummary] = []
-        boot_state = self._read_boot_core_state()
-        last_exit = boot_state.get("last_exit", {})
-        if last_exit and last_exit.get("exit_code") not in (0, None):
-            faults.append(FaultSummary(
-                fault_id=f"crash-{boot_state.get('backend_pid', 'unknown')}",
-                fault_type="crash",
-                source="boot-core",
-                timestamp=str(boot_state.get("updated_at", "")),
-                severity="critical" if boot_state.get("status") == "failed" else "high",
-                error_class=str(last_exit.get("error_type", "UnknownExit")),
-                error_message=str(last_exit.get("reason", "")),
-                target_entity="main-system",
-                repair_action=str(last_exit.get("repair_action", "")),
-                repair_outcome=str(last_exit.get("repair_outcome", "pending")),
-                raw_evidence=last_exit,
-            ))
-        return faults
-
-    def _collect_repair_requests(self) -> list[FaultSummary]:
-        """Collect repair request signals from the information layer."""
-        faults: list[FaultSummary] = []
-        requests_path = self._state_root / "repair-requests.json"
-        if not requests_path.is_file():
-            return faults
-        try:
-            data = json.loads(requests_path.read_text(encoding="utf-8"))
-            requests = data if isinstance(data, list) else data.get("requests", [])
-            for req in requests:
-                if not isinstance(req, dict):
-                    continue
-                faults.append(FaultSummary(
-                    fault_id=f"repair-req-{req.get('id', hash(str(req)))}",
-                    fault_type="repair-request",
-                    source=str(req.get("owner", "unknown")),
-                    timestamp=str(req.get("requested_at", "")),
-                    severity=self._severity_from_code(str(req.get("failure_code", ""))),
-                    error_class=str(req.get("failure_code", "")),
-                    error_message=str(req.get("reason", "")),
-                    target_entity=str(req.get("target_entity", "")),
-                    repair_action=str(req.get("repair_plan", {}).get("action", "")),
-                    repair_outcome="pending",
-                    raw_evidence=req,
-                ))
-        except (OSError, json.JSONDecodeError):
-            pass
-        return faults
-
-    def _collect_quarantine_records(self) -> list[FaultSummary]:
-        """Collect tool crash quarantine records."""
-        faults: list[FaultSummary] = []
-        if not self._quarantine_dir.is_dir():
-            return faults
-        for record_path in self._quarantine_dir.glob("*.json"):
-            try:
-                record = json.loads(record_path.read_text(encoding="utf-8"))
-                faults.append(FaultSummary(
-                    fault_id=f"quarantine-{record.get('tool_id', 'unknown')}-{record_path.stem}",
-                    fault_type="quarantine",
-                    source=f"tool:{record.get('tool_id', 'unknown')}",
-                    timestamp=str(record.get("timestamp", "")),
-                    severity="high",
-                    error_class="ToolCrash",
-                    error_message=f"Tool crashed with exit code {record.get('exit_code', 'unknown')}",
-                    target_entity=str(record.get("tool_id", "")),
-                    repair_action="quarantine",
-                    repair_outcome="quarantined",
-                    raw_evidence=record,
-                ))
-            except (OSError, json.JSONDecodeError):
-                pass
-        return faults
-
-    def _collect_audit_records(self) -> list[FaultSummary]:
-        """Collect audit records from system-rescue."""
-        faults: list[FaultSummary] = []
-        audit_root = self._rescue_root / "audit"
-        if not audit_root.is_dir():
-            return faults
-        for audit_file in audit_root.rglob("*.json"):
-            try:
-                record = json.loads(audit_file.read_text(encoding="utf-8"))
-                if isinstance(record, list):
-                    for entry in record:
-                        self._audit_entry_to_fault(entry, faults)
-                elif isinstance(record, dict):
-                    self._audit_entry_to_fault(record, faults)
-            except (OSError, json.JSONDecodeError):
-                pass
-        return faults
-
-    def _audit_entry_to_fault(self, entry: dict[str, Any], faults: list[FaultSummary]) -> None:
-        """Convert an audit entry to a FaultSummary if it represents a fault."""
-        operation = str(entry.get("operation", ""))
-        # Only collect fault-related audit entries.
-        if not any(marker in operation for marker in ("repair", "crash", "fault", "error", "fail")):
-            return
-        faults.append(FaultSummary(
-            fault_id=f"audit-{entry.get('id', hash(str(entry)))}",
-            fault_type="audit",
-            source=str(entry.get("actor", "system-rescue")),
-            timestamp=str(entry.get("timestamp", "")),
-            severity="info",
-            error_class=str(entry.get("operation", "")),
-            error_message=str(entry.get("result", "")),
-            target_entity=str(entry.get("target", "")),
-            repair_action="",
-            repair_outcome=str(entry.get("status", "")),
-            raw_evidence=entry,
-        ))
 
     # ------------------------------------------------------------------
     # Pattern detection
@@ -491,7 +205,6 @@ class FaultAnalysisService:
             f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=3,
         )
         try:
-            # Try common schema variations.
             try:
                 rows = connection.execute(
                     "SELECT id, failure_code, error_class, error_message, "
@@ -631,7 +344,7 @@ class FaultAnalysisService:
 # ------------------------------------------------------------------
 
 _service: FaultAnalysisService | None = None
-_service_lock = __import__("threading").Lock()
+_service_lock = threading.Lock()
 
 
 def get_fault_analysis_service(project_root: Path | str | None = None) -> FaultAnalysisService:
