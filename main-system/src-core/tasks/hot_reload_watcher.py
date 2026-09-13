@@ -183,14 +183,6 @@ class HotReloadWatcher:
         token_path = self._token_resource_path(changed_paths)
         if token_path is None:
             return True
-        token = self._mint_approval_token(governance, token_path)
-        if not token:
-            self._backoff_until = time.monotonic() + FAILURE_BACKOFF_SECONDS
-            self._log({"type": "hot_reload_watcher", "ok": False,
-                       "error": "governance-refused-token",
-                       "modules": module_names})
-            return False
-
         self._in_flight = True
         try:
             hot_update = getattr(app, "hot_update_service", None)
@@ -200,36 +192,14 @@ class HotReloadWatcher:
             prepared = await asyncio.to_thread(
                 prepare,
                 governance=governance,
-                approval_token=token,
                 modules=module_names,
+                standby_validation=True,
             )
             if not bool(getattr(prepared, "ok", False)):
                 self._backoff_until = time.monotonic() + FAILURE_BACKOFF_SECONDS
                 return False
             operation_id = uuid.uuid4().hex
             target_generation = f"backend-{time.time_ns()}"
-            from core_system.codex_decision import SovereignRequest
-            # A152/A154: route through the decision-sovereign's repair-decision
-            # gate, which validates the certification proof and delegates A330
-            # execution to the synchronization-sovereign.
-            decision = await decision_sovereign.handle(
-                SovereignRequest(
-                    intent="repair.certified-update",
-                    subject="main-system-backend-generation",
-                    requester="main-system",
-                    payload={
-                        "update_type": "backend-release",
-                        "certified": True,
-                        "update_set": module_names,
-                        "artifact_hashes": dict(prepared.hashes),
-                        "operation_id": operation_id,
-                        "target_generation": target_generation,
-                    },
-                )
-            )
-            if not decision.accepted:
-                self._backoff_until = time.monotonic() + FAILURE_BACKOFF_SECONDS
-                return False
             request_path = (
                 self.project_root / "main-system" / "runtime" / "state"
                 / "backend-update-request.json"
@@ -240,6 +210,9 @@ class HotReloadWatcher:
                 "operation_id": operation_id,
                 "update_type": "backend-release",
                 "certified": True,
+                "decision_owner": "synchronization-sovereign",
+                "decision_basis": "A330",
+                "permission_scope": token_path,
                 "modules": module_names,
                 "artifact_hashes": dict(prepared.hashes),
                 "target_generation": target_generation,

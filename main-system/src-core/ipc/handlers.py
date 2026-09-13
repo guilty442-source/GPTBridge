@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from typing import Any, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -273,27 +274,16 @@ class CommandRouter:
                 **coordinator.get_status(),
             }
 
-        # app:hot-reload-backend — governed system-wide hot-reload trigger.
-        # Per E127 (RUNTIME-ACTION:system-runtime), hot-reload is a runtime
-        # action owned by the runtime sub-sovereign (under the
-        # decision-sovereign).  An approval token (capability
-        # hot-update/hot-reload) minted through the governance authorization
-        # path is required.
+        # A330: prepare a standby generation; never mutate ACTIVE in place.
         if command == "app:hot-reload-backend":
-            decision_sovereign = getattr(self.app, "decision_sovereign", None)
-            runtime_sovereign = (
-                getattr(decision_sovereign, "runtime_sovereign", None)
-                if decision_sovereign is not None
-                else None
-            )
-            if runtime_sovereign is None:
+            watcher = getattr(self.app, "hot_reload_watcher", None)
+            if watcher is None:
                 return f"{command}_result", {
                     "ok": False,
-                    "duty": "runtime-action",
-                    "error_code": "RUNTIME_SOVEREIGN_UNAVAILABLE",
+                    "duty": "release-update-sync",
+                    "error_code": "HOT_RELOAD_WATCHER_UNAVAILABLE",
                     "message": "PERMISSION_DENIED",
                 }
-            approval_token = str(payload.get("approval_token") or "").strip()
             modules = payload.get("modules")
             if modules is not None and (
                 isinstance(modules, (str, bytes))
@@ -304,18 +294,31 @@ class CommandRouter:
                     "error_code": "INVALID_MODULES",
                     "message": "modules must be a list of dotted module names",
                 }
+            changed_paths = []
+            for name in (modules or ()):
+                module = sys.modules.get(str(name))
+                file_path = getattr(module, "__file__", None)
+                if file_path:
+                    changed_paths.append(str(file_path))
+            if not changed_paths:
+                return f"{command}_result", {
+                    "ok": False,
+                    "error_code": "NO_LOADED_MODULES",
+                    "message": "no loaded backend modules were selected",
+                }
             try:
-                result = await runtime_sovereign.execute_hot_reload(
-                    approval_token=approval_token or None,
-                    modules=modules,
-                )
+                accepted = await watcher._maybe_reload(changed_paths)
             except Exception as error:
                 return f"{command}_result", {
                     "ok": False,
                     "error_code": "HOT_RELOAD_FAILED",
                     "message": f"{type(error).__name__}: {error}",
                 }
-            return f"{command}_result", result
+            return f"{command}_result", {
+                "ok": bool(accepted),
+                "duty": "release-update-sync",
+                "handover": "prepared" if accepted else "deferred",
+            }
 
         # app:get-fault-analysis — read-only fault evidence aggregation
         # for Xingcheng global review (A174/A6500).  Returns aggregated

@@ -59,11 +59,13 @@ from startup_core.phases import PhaseMixin
 from startup_core.governance import GovernanceMixin
 from startup_core.startup_config import port as _cfg_port, supervisor_constant as _cfg_supervisor
 from tasks.crash_diagnosis import CrashDiagnoser
+from backend_gateway import BackendGateway
 
 MAX_RESTARTS = _cfg_supervisor("max_restarts")
 BACKOFF_SCHEDULE_SECONDS = _cfg_supervisor("backoff_schedule_seconds")
 HEALTHY_UPTIME_RESET_SECONDS = _cfg_supervisor("healthy_uptime_reset_seconds")
 HEALTH_PROBE_PORT = _cfg_port("health_probe")
+BACKEND_GENERATION_PORTS = (HEALTH_PROBE_PORT + 1, HEALTH_PROBE_PORT + 2)
 HEALTH_PROBE_TIMEOUT = _cfg_supervisor("health_probe_timeout")
 HEALTH_PROBE_INTERVAL = _cfg_supervisor("health_probe_interval")
 # Fast cadence until the first healthy probe — the supervised interval is
@@ -91,10 +93,17 @@ class BootCore(PhaseMixin, GovernanceMixin):
         self.state_path = self.project_root.joinpath(*STATE_RELATIVE)
         self._stop = threading.Event()
         self._child: subprocess.Popen[bytes] | None = None
+        self._active_backend_port: int | None = None
+        self._active_generation = ""
+        self._gateway = BackendGateway(HEALTH_PROBE_PORT)
+        self._update_request_path = self.project_root / "main-system" / "runtime" / "state" / "backend-update-request.json"
+        self._last_update_operation = ""
         self._restarts = 0
         self._last_exit: dict[str, object] = {}
         self._status = "starting"
         self._backend_healthy = False
+        self._unhealthy_since: float | None = time.monotonic()
+        self._health_epoch = 0
         self._health_thread: threading.Thread | None = None
         self._watchdog: threading.Thread | None = None
         self._connection_watchdog: Any = None
@@ -222,7 +231,8 @@ class BootCore(PhaseMixin, GovernanceMixin):
         return os.fspath(exe)
 
     def _spawn_backend(
-        self, args: list[str], startup_state: str = "", generation_id: str = ""
+        self, args: list[str], startup_state: str = "", generation_id: str = "",
+        backend_port: int | None = None,
     ) -> subprocess.Popen[bytes]:
         command = [
             self._python_executable(),
@@ -258,6 +268,9 @@ class BootCore(PhaseMixin, GovernanceMixin):
             env["GPTBRIDGE_STARTUP_STATE"] = startup_state
         if generation_id:
             env["GPTBRIDGE_STARTUP_GENERATION"] = generation_id
+        if backend_port is not None:
+            env["GPTBRIDGE_IPC_PORT"] = str(backend_port)
+            env["GPTBRIDGE_GATEWAY_PORT"] = str(HEALTH_PROBE_PORT)
         return subprocess.Popen(  # noqa: S603 - governed local spawn
             command,
             cwd=os.fspath(self.project_root),
@@ -267,7 +280,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
             creationflags=creationflags,
         )
 
-    def _probe_health(self) -> bool:
+    def _probe_health(self, port: int | None = None) -> bool:
         """Probe the backend HTTP /health endpoint.
 
         A67: a live socket alone is NOT "ready".  The backend is only healthy
@@ -285,8 +298,9 @@ class BootCore(PhaseMixin, GovernanceMixin):
         treating it as a connection failure.
         """
         try:
+            probe_port = port or self._active_backend_port or HEALTH_PROBE_PORT
             request = urllib.request.Request(
-                f"http://127.0.0.1:{HEALTH_PROBE_PORT}/health?brief=1",
+                f"http://127.0.0.1:{probe_port}/health?brief=1",
                 headers={"Connection": "close"},
             )
             try:
@@ -326,12 +340,25 @@ class BootCore(PhaseMixin, GovernanceMixin):
         except (OSError, urllib.error.URLError, ValueError, UnicodeDecodeError):
             return False
 
-    def _health_loop(self) -> None:
-        """Background thread: periodically probe backend health for state file."""
+    def _health_loop(self, epoch: int) -> None:
+        """Background thread: periodically probe backend health for state file.
+
+        The epoch guard binds this thread to one supervise generation: after
+        a crash + respawn the outer loop increments ``_health_epoch`` and the
+        stale thread exits instead of probing forever alongside its
+        successor.  An in-generation handover keeps the same epoch, so the
+        probe follows ``_active_backend_port`` to the standby port.
+        """
         while not self._stop.is_set():
+            if epoch != self._health_epoch:
+                return
             if self._child is None or self._child.poll() is not None:
                 break
             healthy = self._probe_health()
+            if healthy:
+                self._unhealthy_since = None
+            elif self._unhealthy_since is None:
+                self._unhealthy_since = time.monotonic()
             if healthy != self._backend_healthy:
                 self._backend_healthy = healthy
                 # The restart budget counts consecutive failed generations,
@@ -495,6 +522,165 @@ class BootCore(PhaseMixin, GovernanceMixin):
             except Exception:
                 pass
 
+    def _terminate_process(self, child: subprocess.Popen[bytes]) -> None:
+        if child.poll() is not None:
+            return
+        try:
+            child.terminate()
+            child.wait(timeout=10)
+        except Exception:
+            try:
+                child.kill()
+            except Exception:
+                pass
+
+    def _read_update_request(self) -> dict[str, Any] | None:
+        try:
+            payload = json.loads(self._update_request_path.read_text("utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return None
+        operation_id = str(payload.get("operation_id") or "")
+        if (
+            not operation_id
+            or operation_id == self._last_update_operation
+            or payload.get("certified") is not True
+            or not payload.get("artifact_hashes")
+        ):
+            return None
+        return payload
+
+    def _mark_update_request(self, payload: dict[str, Any], **result: Any) -> None:
+        recorded = {**payload, **result, "processed_at": _iso_now()}
+        try:
+            temporary = self._update_request_path.with_suffix(".tmp")
+            temporary.write_text(
+                json.dumps(recorded, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(temporary, self._update_request_path)
+        except OSError:
+            pass
+
+    def _wait_backend_ready(
+        self, child: subprocess.Popen[bytes], port: int, timeout: float
+    ) -> bool:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline and not self._stop.is_set():
+            if child.poll() is not None:
+                return False
+            if self._probe_health(port):
+                return True
+            self._stop.wait(STARTUP_HEALTH_PROBE_INTERVAL)
+        return False
+
+    @staticmethod
+    def _wait_port_available(port: int, timeout: float = 10.0) -> bool:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+                try:
+                    probe.bind(("127.0.0.1", port))
+                    return True
+                except OSError:
+                    time.sleep(0.1)
+        return False
+
+    def _maybe_handover(
+        self, args: list[str], startup_state: str
+    ) -> bool:
+        """Prepare a standby generation and atomically route new sessions to it."""
+        request = self._read_update_request()
+        if request is None or self._child is None:
+            return False
+        operation_id = str(request["operation_id"])
+        self._last_update_operation = operation_id
+        active_port = self._active_backend_port
+        if active_port is None:
+            self._mark_update_request(
+                request,
+                terminal_status="failed-isolated",
+                error="no-active-backend-port",
+            )
+            return False
+        standby_port = next(
+            port for port in BACKEND_GENERATION_PORTS if port != active_port
+        )
+        generation = str(request.get("target_generation") or operation_id)
+        if not self._wait_port_available(standby_port):
+            self._mark_update_request(
+                request,
+                terminal_status="failed-isolated",
+                error="standby-port-not-released",
+            )
+            return False
+        try:
+            standby = self._spawn_backend(
+                args,
+                startup_state=startup_state,
+                generation_id=generation,
+                backend_port=standby_port,
+            )
+        except OSError as error:
+            self._mark_update_request(
+                request,
+                terminal_status="failed-isolated",
+                error=f"spawn: {type(error).__name__}: {error}",
+            )
+            return False
+        if standby.stdout is not None:
+            threading.Thread(
+                target=self._relay, args=(standby.stdout,), daemon=True
+            ).start()
+        if not self._wait_backend_ready(standby, standby_port, 45.0):
+            self._terminate_process(standby)
+            self._mark_update_request(
+                request,
+                terminal_status="failed-isolated",
+                error="standby-readiness-failed",
+            )
+            return False
+
+        old_child = self._child
+        old_port = active_port
+        self._gateway.activate(standby_port, generation)
+        self._child = standby
+        self._active_backend_port = standby_port
+        self._active_generation = generation
+        self._backend_healthy = True
+        self._unhealthy_since = None
+        self._status = "backend-running"
+        self._write_state(
+            backend_healthy=True,
+            active_generation=generation,
+            active_backend_port=standby_port,
+            gateway_port=HEALTH_PROBE_PORT,
+            previous_generation_port=old_port,
+            update_operation_id=operation_id,
+        )
+        self._mark_update_request(
+            request,
+            terminal_status="global-success",
+            active_generation=generation,
+            active_backend_port=standby_port,
+        )
+
+        # New connections already use the standby. Give old WebSocket sessions
+        # a bounded drain, then close them so frontend generation fencing causes
+        # an authenticated snapshot/replay reconnect to the new backend.
+        def drain_old() -> None:
+            deadline = time.monotonic() + 5.0
+            while (
+                time.monotonic() < deadline
+                and self._gateway.connection_count(old_port) > 0
+                and not self._stop.is_set()
+            ):
+                self._stop.wait(0.1)
+            self._gateway.close_generation_connections(old_port)
+            self._terminate_process(old_child)
+
+        threading.Thread(target=drain_old, name="backend-generation-drain", daemon=True).start()
+        return True
+
     def _install_signals(self) -> None:
         def _stop_handler(_signum: int, _frame: object) -> None:
             self._stop.set()
@@ -506,6 +692,32 @@ class BootCore(PhaseMixin, GovernanceMixin):
                     signal.signal(sig, _stop_handler)
                 except (OSError, ValueError):
                     pass
+
+    def _start_gateway(self, allow_replacement: bool) -> None:
+        try:
+            self._gateway.start()
+            return
+        except OSError:
+            if not allow_replacement:
+                raise
+        self._ensure_runtime_paths()
+        from ipc.server_process import _get_port_owner, _is_gptbridge_process, _kill_process
+
+        owner_pid, _description = _get_port_owner(HEALTH_PROBE_PORT)
+        if (
+            owner_pid is None
+            or not _is_gptbridge_process(owner_pid, self.project_root)
+            or not _kill_process(owner_pid)
+        ):
+            raise OSError(f"gateway port {HEALTH_PROBE_PORT} is occupied")
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            try:
+                self._gateway.start()
+                return
+            except OSError:
+                time.sleep(0.1)
+        raise OSError(f"gateway port {HEALTH_PROBE_PORT} did not release")
 
     # --------------------------------------------------------------
     # Automatic repair on crash
@@ -581,6 +793,13 @@ class BootCore(PhaseMixin, GovernanceMixin):
 
     def run(self, args: list[str]) -> int:
         self._install_signals()
+        try:
+            self._start_gateway("--auto-kill-backend-port" in args)
+        except OSError as error:
+            self._status = "gateway-bind-failed"
+            self._last_exit = {"error": f"{type(error).__name__}: {error}"}
+            self._write_state()
+            return 4
         self._write_state()
         while not self._stop.is_set():
             # --- five pre-spawn dependency gates (phases 0-5) ---
@@ -600,6 +819,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 # help dependency failures, but it records the event).
                 self._signal_startup_failure(1, 0.0)
                 if self._restarts >= MAX_RESTARTS:
+                    self._gateway.stop()
                     return 2
                 self._restarts += 1
                 delay = BACKOFF_SCHEDULE_SECONDS[
@@ -610,6 +830,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 if self._stop.wait(timeout=delay):
                     self._status = "stopped"
                     self._write_state()
+                    self._gateway.stop()
                     return 0
                 continue
 
@@ -625,10 +846,13 @@ class BootCore(PhaseMixin, GovernanceMixin):
 
             # Spawn main.py --serve which will run startup_executor (phase 6 + handoff)
             try:
+                self._active_backend_port = BACKEND_GENERATION_PORTS[0]
+                self._active_generation = str(generation_id)
                 self._child = self._spawn_backend(
                     args,
                     startup_state=startup_state,
                     generation_id=generation_id,
+                    backend_port=self._active_backend_port,
                 )
             except OSError as error:
                 self._status = "spawn-failed"
@@ -636,6 +860,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 self._write_state()
                 self._signal_startup_failure(1, 0.0)
                 if self._restarts >= MAX_RESTARTS:
+                    self._gateway.stop()
                     return 2
                 self._restarts += 1
                 delay = BACKOFF_SCHEDULE_SECONDS[
@@ -646,19 +871,29 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 if self._stop.wait(timeout=delay):
                     self._status = "stopped"
                     self._write_state()
+                    self._gateway.stop()
                     return 0
                 continue
 
             child_started_at = time.monotonic()
             self._backend_healthy = False
+            self._unhealthy_since = time.monotonic()
             self._status = "backend-running"
-            self._write_state()
+            self._gateway.activate(
+                self._active_backend_port, self._active_generation
+            )
+            self._write_state(
+                gateway_port=HEALTH_PROBE_PORT,
+                active_backend_port=self._active_backend_port,
+                active_generation=self._active_generation,
+            )
             relay = threading.Thread(
                 target=self._relay, args=(self._child.stdout,), daemon=True
             )
             relay.start()
+            self._health_epoch += 1
             self._health_thread = threading.Thread(
-                target=self._health_loop, daemon=True
+                target=self._health_loop, args=(self._health_epoch,), daemon=True
             )
             self._health_thread.start()
             self._start_connection_watchdog()
@@ -670,6 +905,10 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 code = self._child.poll()
                 if code is not None:
                     break
+                if self._maybe_handover(args, startup_state):
+                    child_started_at = time.monotonic()
+                    dead_generation = False
+                    continue
                 # P105/E155: a generation that stays unready (startup_dead,
                 # readiness gate failed) beyond the bounded grace window is
                 # a dead generation.  The supervisor terminates it and
@@ -677,7 +916,9 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 # leave a zombie backend serving degraded 503s forever.
                 if (
                     not self._backend_healthy
-                    and time.monotonic() - child_started_at > dead_grace_seconds
+                    and self._unhealthy_since is not None
+                    and time.monotonic() - self._unhealthy_since
+                    > dead_grace_seconds
                 ):
                     dead_generation = True
                     self._terminate_child()
@@ -688,6 +929,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 self._stop_connection_watchdog()
                 self._status = "stopped"
                 self._write_state()
+                self._gateway.stop()
                 return 0
             code = int(self._child.returncode or 0)
             self._last_exit = {
@@ -703,6 +945,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 self._stop_connection_watchdog()
                 self._status = "backend-stopped-clean"
                 self._write_state()
+                self._gateway.stop()
                 return 0
             healthy_uptime = time.monotonic() - child_started_at
             if healthy_uptime >= HEALTHY_UPTIME_RESET_SECONDS:
@@ -712,6 +955,7 @@ class BootCore(PhaseMixin, GovernanceMixin):
                 self._stop_connection_watchdog()
                 self._status = "restart-budget-exhausted"
                 self._write_state()
+                self._gateway.stop()
                 return 3
             # Diagnose and signal; startup authority never mutates source.
             repair_report = self._signal_startup_failure(code, healthy_uptime)
@@ -723,8 +967,10 @@ class BootCore(PhaseMixin, GovernanceMixin):
             if self._stop.wait(timeout=delay):
                 self._status = "stopped"
                 self._write_state()
+                self._gateway.stop()
                 return 0
         self._stop_connection_watchdog()
+        self._gateway.stop()
         self._status = "stopped"
         self._write_state()
         return 0

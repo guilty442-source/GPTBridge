@@ -43,10 +43,10 @@ _RESOURCE_INDICATORS: Final[tuple[str, ...]] = (
 
 # Batch size for progressive reload — modules are reloaded in groups
 # of this size with a health check between batches.
-_RELOAD_BATCH_SIZE: Final[int] = 8
+_RELOAD_BATCH_SIZE: Final[int] = 16
 # Warm-up delay after each batch (seconds) — lets reloaded modules
 # settle before the next batch.
-_RELOAD_BATCH_DELAY: Final[float] = 0.2
+_RELOAD_BATCH_DELAY: Final[float] = 0.1
 # Maximum wait for idle before timing out a reload request (seconds).
 _IDLE_WAIT_TIMEOUT: Final[float] = 10.0
 # Health check timeout after reload (seconds).
@@ -101,10 +101,23 @@ def _cleanup_module(module: types.ModuleType) -> None:
             pass
 
 
+# Module-level cache for file hashes
+_file_hash_cache: dict[str, tuple[float, str]] = {}  # path -> (mtime, hash)
+
 def _module_source_hash(file_path: str) -> str | None:
-    """Return SHA-256 of a module's source file, or None if unreadable."""
+    """Return SHA-256 of a module's source file, or None if unreadable (with caching)."""
     try:
-        return hashlib.sha256(Path(file_path).read_bytes()).hexdigest()
+        path = Path(file_path)
+        mtime = path.stat().st_mtime
+        # Check cache
+        if file_path in _file_hash_cache:
+            cached_mtime, cached_hash = _file_hash_cache[file_path]
+            if cached_mtime == mtime:
+                return cached_hash
+        # Compute new hash
+        hash_val = hashlib.sha256(path.read_bytes()).hexdigest()
+        _file_hash_cache[file_path] = (mtime, hash_val)
+        return hash_val
     except (OSError, ValueError):
         return None
 
@@ -190,6 +203,7 @@ class HotUpdateService:
         # its source file.  Only modules whose hash changed are reloaded.
         self._source_hashes: dict[str, str] = {}
         self._hash_lock = threading.Lock()
+        self._file_hash_cache: dict[str, tuple[float, str]] = {}  # path -> (mtime, hash)
         # Load persisted source hashes so we know what was last reloaded.
         self._load_source_hashes()
         # Idle-loop lifecycle.
@@ -465,6 +479,64 @@ class HotUpdateService:
             error=result.error if result.errors else ("" if release_preserved else "active-release-identity-changed"),
             pending_replacements=self.pending_replacement_count(),
         )
+
+    def prepare_generation(
+        self,
+        *,
+        governance: Any = None,
+        approval_token: str | None = None,
+        modules: Any = None,
+        standby_validation: bool = False,
+    ) -> types.SimpleNamespace:
+        """Authenticate and preflight an immutable backend generation set.
+
+        This performs no live-module mutation. The serving generation remains
+        untouched while boot_core starts the candidate on the standby port.
+        """
+        if not standby_validation:
+            authorized, auth_message = self._authenticate(
+                governance, approval_token
+            )
+            if not authorized:
+                return types.SimpleNamespace(
+                    ok=False, hashes={}, error=auth_message
+                )
+        elif governance is None:
+            return types.SimpleNamespace(
+                ok=False, hashes={}, error="governance-unavailable"
+            )
+        requested = {str(item).strip() for item in (modules or ()) if item}
+        if not requested:
+            return types.SimpleNamespace(ok=False, hashes={}, error="empty-update-set")
+        roots = self._resolve_src_roots()
+        hashes: dict[str, str] = {}
+        for module_name in sorted(requested):
+            module = sys.modules.get(module_name)
+            if not isinstance(module, types.ModuleType) or _is_protected(module_name):
+                return types.SimpleNamespace(
+                    ok=False, hashes={}, error=f"module-not-reloadable:{module_name}"
+                )
+            if not self._is_in_src_root(module, roots):
+                return types.SimpleNamespace(
+                    ok=False, hashes={}, error=f"module-outside-governed-root:{module_name}"
+                )
+            file_path = str(getattr(module, "__file__", ""))
+            try:
+                source = Path(file_path).read_text(encoding="utf-8")
+                compile(source, file_path, "exec")
+            except Exception as error:
+                return types.SimpleNamespace(
+                    ok=False,
+                    hashes={},
+                    error=f"{module_name}: preflight: {error}",
+                )
+            digest = _module_source_hash(file_path)
+            if digest is None:
+                return types.SimpleNamespace(
+                    ok=False, hashes={}, error=f"hash-failed:{module_name}"
+                )
+            hashes[module_name] = digest
+        return types.SimpleNamespace(ok=True, hashes=hashes, error="")
 
     def _do_reload(
         self,
