@@ -3013,6 +3013,15 @@
         "rule": "SOLE-NATIVE-CONTRACT:gptbridge_native.h C ABI is the only public/versioned native capability contract for every consumer; PURPOSE-C-ABI:language-neutral ABI identity+function signatures+opaque handles+layout+calling convention+ownership+lifetime+status/error+version negotiation and compatibility; PURPOSE-PYBIND11:Python-only adapter that converts Python objects/exceptions/lifetimes/GIL into calls to the same C ABI and owns no independent native capability API; CANONICAL-FLOW:Python>pybind11 _binding.cpp>gptbridge_native.h C ABI>gptbridge_native.c C thunk>C++ implementation; OTHER-CONSUMER-FLOW:CSharp/other-approved-native-consumer>the same gptbridge_native.h C ABI>C thunk>C++ implementation; CONTRACT-TOPOLOGY:C-ABI-contract has Python/pybind11 and CSharp/other-native-consumer branches and both converge before C++ implementation; API-UNITY:one capability name+version+semantics+status+ownership rule+test vector across all consumers; PYBIND11-SURFACE:may expose Pythonic names/types only as a mechanically traceable projection of one C ABI symbol and cannot add capability absent from C ABI; EVOLUTION:C ABI successor first>all projections regenerate/update atomically>API/ABI/schema/fallback/interop hard gates A340>single release; CHECKER:rejects direct pybind11-to-C+++pybind11-only symbol+consumer-specific semantic drift+duplicate native contract+unmapped wrapper+different lifecycle/error behavior; IMPLEMENTATION:C++ remains hidden implementation and C thunk remains validation/translation only; A339 is superseded wherever it could be read as permitting direct pybind11>C++ invocation.",
         "prohibition": "FORBID:Python>pybind11>C++ direct path+pybind11 API A beside C ABI API B+public/versioned pybind11-native contract independent of C ABI+consumer-specific native capability+wrapper-only feature+separate semantic/version evolution+direct CSharp>C+++public C++ ABI+duplicate implementation in binding/thunk+promotion or release with contract parity failure.",
         "exception": "A Python convenience function may compose multiple existing C ABI calls only in ordinary Python application/domain code above the binding boundary; it is not a native contract capability and cannot be implemented as hidden pybind11-only native behavior."
+      },
+      {
+        "position": 345,
+        "provision_id": "A345",
+        "section_index": "16",
+        "subject": "minimal-c-abi-function-budget-and-deferred-capability-table-special-law",
+        "rule": "CURRENT-BASELINE:gptbridge_native.h has exactly five public C ABI functions and exposes no C++ type; preserve this minimal state and do not refactor solely to introduce abstraction; FUNCTION-BUDGET:public native capability growth must not become one exported function per feature and every proposed sixth-or-later public function triggers capability-table impact review before admission; DEFERRED-EVOLUTION:only when measured API growth,consumer diversity or compatibility pressure proves the five-function baseline insufficient may a certified successor converge on the stable shape gptbridge_get_abi_version+gptbridge_query_capability+gptbridge_create_context+gptbridge_execute+gptbridge_destroy_context; EXTENSION-DATA:capability_id+versioned request_struct+versioned response_struct carry future expansion behind gptbridge_execute without C++ types; CAPABILITY-TABLE:each capability has stable id+request/response schema+size/version fields+feature flags+owner+thread/lifetime/error/resource contract+availability query+test vector; VERSIONING:ABI major changes only for incompatible layout/calling/ownership changes and ABI minor adds backward-compatible capability/schema versions; UNKNOWN:unknown capability/version/field is rejected by typed status without crash or reinterpretation; STRUCT-COMPATIBILITY:fixed-width C types+explicit size/version+reserved-zero fields+alignment/endianness bounds+caller/callee allocation ownership; MIGRATION-TRIGGER:requires current function inventory+growth forecast+consumer graph+benchmark/complexity evidence+A340 cross-language tests+dual-path bounded migration+rollback and removal of displaced exports in one certified release; NO-PREMATURE-ABSTRACTION:while five functions remain sufficient,checker records baseline compliance and forbids forced capability-dispatch conversion; A344 single-C-ABI-contract remains controlling.",
+        "prohibition": "FORBID:unbounded gptbridge_native.h function growth+feature-per-export API+sixth public function without capability-table review+public C++ type/template/exception/STL+unversioned request/response struct+capability id reuse+silent unknown-field acceptance+ABI-major bump for compatible addition+premature capability-table rewrite without evidence+parallel legacy/new ABI left indefinitely.",
+        "exception": "A safety-critical primitive may temporarily exceed the five-function budget only through explicit human-governor successor law with impossibility proof,exact expiry,migration target and complete API/ABI/fallback evidence; convenience is insufficient."
       }
     ],
     "certification_evidence": [
@@ -3768,7 +3777,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H054",
+        "history_head": "H055",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -12037,6 +12046,12 @@
         "provision_id": "A344",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A345",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12095,14 +12110,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H054",
-        "provision_count": 590,
-        "identity_count": 590,
-        "lineage_count": 590,
+        "history_head": "H055",
+        "provision_count": 591,
+        "identity_count": 591,
+        "lineage_count": 591,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "31c7408feef2d2efa1bdb642727032066846de88fedee13820254e7800bef7f8",
-        "identity_root": "d002be44c4b3e5371e13956fb8fb2a07b4a3cfa64fe29be553953dbf301a212a",
-        "full_root": "c9944c50476e270a3a920172234acb4df7dcd9f00f766b4e0a3bab1c128bd9e0",
+        "content_root": "8afedef850e0c9b9bc64900072fb723f7293d0fd5fe802ef9ba9fd3ee4b88b1d",
+        "identity_root": "d8ad074ca493ca5c251f7ecb7e28c4226f22c936a6bcafb9ba92aa1f7716d6e4",
+        "full_root": "6766263eed85824bbb9a61944166f2ef94103f31b54f240b27425fc4bd73b113",
         "legacy_history_head": null
       }
     ],
@@ -17212,7 +17227,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H054"
+        "value": "H055"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17257,6 +17272,14 @@
       {
         "key": "sole_native_contract",
         "value": "gptbridge_native.h C ABI;pybind11 is Python adapter only"
+      },
+      {
+        "key": "c_abi_public_function_baseline",
+        "value": "5;no-C++-type-leak"
+      },
+      {
+        "key": "c_abi_capability_table_policy",
+        "value": "deferred-until-evidence-triggered-growth;A345"
       }
     ],
     "module_assignment_registry": [
@@ -22814,6 +22837,13 @@
         "provision_id": "A344",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A345",
+        "provision_type": "article",
+        "provision_id": "A345",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -26946,6 +26976,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A211|A215|A221|A339|A340|A341|A343"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A345",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A215|A221|A340|A343|A344"
       }
     ],
     "provision_lifecycle_status": [
@@ -31564,6 +31601,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H054+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A345",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H055+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36286,6 +36331,14 @@
         "supersedes_id": "A339",
         "status": "active",
         "content_hash": "9c8455d65b9a7b5eebd72069b9060ad1e1a15c00b1f24e4802315c7530a6215f"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A345",
+        "introduced_by": "H055",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "653eaf37fdb35524bcc18bf4c71ef32258f13ca94691c13f2883c44732663bf8"
       }
     ],
     "provision_revisions": [
@@ -46989,6 +47042,15 @@
         "content_hash": "9c8455d65b9a7b5eebd72069b9060ad1e1a15c00b1f24e4802315c7530a6215f",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A345",
+        "revision_id": "H055",
+        "version": "1.00000",
+        "content_hash": "653eaf37fdb35524bcc18bf4c71ef32258f13ca94691c13f2883c44732663bf8",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -51791,6 +51853,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A345",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -52387,6 +52459,17 @@
         "previous_hash": "78ee088c51c69cdeca0eff4f0c143032eefa38e798b0de489593666dc0c66504",
         "entry_hash": "70ef5d581b807019bdb9a808c7b844fc4b2a4b1ed453df0133077728fce9c23b",
         "version_epoch": 2
+      },
+      {
+        "sequence": 55,
+        "change_id": "H055",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "c-abi-five-function-baseline-and-deferred-capability-table",
+        "summary": "Preserved the current five-function leak-free C ABI as the minimal baseline and established a deferred, evidence-triggered capability-table evolution pattern to prevent unbounded public function growth without imposing premature abstraction. Version remains E2:1.00000.",
+        "previous_hash": "70ef5d581b807019bdb9a808c7b844fc4b2a4b1ed453df0133077728fce9c23b",
+        "entry_hash": "4bc7d2813207ef960635cddf24d1c3536be18fdfe7bcbc95bed58c6e5690e276",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -52943,14 +53026,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H054",
-        "provision_count": 590,
-        "identity_count": 590,
-        "lineage_count": 590,
+        "history_head": "H055",
+        "provision_count": 591,
+        "identity_count": 591,
+        "lineage_count": 591,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "31c7408feef2d2efa1bdb642727032066846de88fedee13820254e7800bef7f8",
-        "identity_root": "d002be44c4b3e5371e13956fb8fb2a07b4a3cfa64fe29be553953dbf301a212a",
-        "full_root": "c9944c50476e270a3a920172234acb4df7dcd9f00f766b4e0a3bab1c128bd9e0",
+        "content_root": "8afedef850e0c9b9bc64900072fb723f7293d0fd5fe802ef9ba9fd3ee4b88b1d",
+        "identity_root": "d8ad074ca493ca5c251f7ecb7e28c4226f22c936a6bcafb9ba92aa1f7716d6e4",
+        "full_root": "6766263eed85824bbb9a61944166f2ef94103f31b54f240b27425fc4bd73b113",
         "version_epoch": 2
       }
     ],
