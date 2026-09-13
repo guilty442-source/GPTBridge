@@ -1,0 +1,161 @@
+"""GPTBridgeApp shutdown mixin.
+
+Extracted from main.py: the shutdown and _shutdown_once methods that
+gracefully stop all sovereigns, services, and tool backends within
+a bounded deadline.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import time
+from typing import Any
+
+
+class GPTBridgeAppShutdownMixin:
+    """Shutdown methods for GPTBridgeApp."""
+
+    async def shutdown(self) -> None:
+        if self._shutdown_started:  # type: ignore[attr-defined]
+            await self._shutdown_complete.wait()  # type: ignore[attr-defined]
+            return
+        self._shutdown_started = True  # type: ignore[attr-defined]
+        try:
+            # Complete-close bound: a stalled tool/sovereign/service stop must
+            # never keep the backend alive after the UI has closed.  The
+            # deadline sits inside the launcher-side graceful window so the
+            # supervisor observes a clean exit instead of a force-kill.
+            try:
+                await asyncio.wait_for(self._shutdown_once(), timeout=8.0)  # type: ignore[attr-defined]
+            except asyncio.TimeoutError:
+                self._log(  # type: ignore[attr-defined]
+                    {
+                        "type": "warning",
+                        "message": (
+                            "shutdown deadline exceeded; abandoning remaining "
+                            "cleanup so the backend can exit"
+                        ),
+                    }
+                )
+        finally:
+            self._shutdown_complete.set()  # type: ignore[attr-defined]
+
+    async def _shutdown_once(self) -> None:
+        # Stop the tool isolation health monitor first — every tool exit
+        # from this point on is an intentional shutdown or a governed
+        # generation replacement, never a crash worth recording.
+        try:
+            from core_system.tool_isolation import get_isolation_manager
+            get_isolation_manager().stop_monitor()
+        except Exception:
+            pass
+        toolbox = self.toolbox_service  # type: ignore[attr-defined]
+        if toolbox is not None:
+            for record in toolbox._load_manifest_records():
+                if record.get("has_custom_ui") is not True:
+                    continue
+                tool_id = str(record.get("id") or "").strip()
+                if not tool_id:
+                    continue
+                try:
+                    result = await toolbox.force_close_tool(
+                        {
+                            "tool_id": tool_id,
+                            "request_id": f"main-window-close-{tool_id}-{time.time_ns()}",
+                            "reason": "main-window-closed",
+                        }
+                    )
+                    if result.get("ok") is not True:
+                        self._log(  # type: ignore[attr-defined]
+                            {
+                                "type": "warning",
+                                "message": "tool backend did not exit during window shutdown",
+                                "tool_id": tool_id,
+                                "error_code": str(result.get("error_code") or ""),
+                            }
+                        )
+                except Exception as error:
+                    self._log(  # type: ignore[attr-defined]
+                        {
+                            "type": "warning",
+                            "message": "tool backend shutdown failed during window shutdown",
+                            "tool_id": tool_id,
+                            "error_type": type(error).__name__,
+                        }
+                    )
+
+        # Stop sub-sovereigns
+        for sov in self._sub_sovereigns.values():  # type: ignore[attr-defined]
+            try:
+                await sov.stop()
+            except Exception:
+                pass
+
+        # Stop sovereigns (A63/A64: decision only, execution delegated).
+        # Each stop is isolated so one failure cannot skip the rest —
+        # a single faulty sovereign must never leak the remaining
+        # children/tasks through an aborted shutdown sequence.
+        # Stop the system automation coordinator first so it does not
+        # route degradation signals while sovereigns are shutting down.
+        try:
+            await self.system_automation_coordinator.stop()  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        for _sovereign in (
+            self.synchronization_sovereign,  # type: ignore[attr-defined]
+            self.xingcheng_sovereign,  # type: ignore[attr-defined]
+            self.system_runtime_sovereign,  # type: ignore[attr-defined]
+            self.permission_sovereign,  # type: ignore[attr-defined]
+            self.decision_sovereign,  # type: ignore[attr-defined]
+        ):
+            try:
+                await _sovereign.stop()
+            except Exception:
+                pass
+
+        for _service in (
+            self.daily_global_cleaner_service,  # type: ignore[attr-defined]
+            self.hot_update_service,  # type: ignore[attr-defined]
+            self.update_manager,  # type: ignore[attr-defined]
+        ):
+            if _service is None:
+                continue
+            try:
+                await _service.stop()
+            except Exception:
+                pass
+        watcher = self.hot_reload_watcher  # type: ignore[attr-defined]
+        if watcher is not None:
+            await watcher.stop()
+        reanchor = self.authority_reanchor_service  # type: ignore[attr-defined]
+        if reanchor is not None:
+            reanchor.stop()
+
+        # Window-backed tools are closed above before the sovereign stack is
+        # stopped, so no UI-owned backend remains after application exit.
+
+        pending_tasks = [task for task in self._command_tasks if not task.done()]  # type: ignore[attr-defined]
+        for task in pending_tasks:
+            task.cancel()
+        if pending_tasks:
+            _done, still_running = await asyncio.wait(
+                pending_tasks,
+                timeout=10,
+            )
+            if still_running:
+                self._log(  # type: ignore[attr-defined]
+                    {
+                        "type": "warning",
+                        "message": (
+                            f"{len(still_running)} command task(s) retained "
+                            "durable recovery state after shutdown deadline"
+                        ),
+                    }
+                )
+
+        self._command_tasks.clear()  # type: ignore[attr-defined]
+        self._command_task_meta.clear()  # type: ignore[attr-defined]
+        await self.runtime_bootstrap.shutdown()  # type: ignore[attr-defined]
+        if self.governance is not None:  # type: ignore[attr-defined]
+            self.governance.close()  # type: ignore[attr-defined]
+            self.governance = None  # type: ignore[attr-defined]

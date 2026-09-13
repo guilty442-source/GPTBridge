@@ -61,8 +61,10 @@ from governance.sub_sovereigns import (
     AutomaticLogSyncSubSovereign,
 )
 
+from main_shutdown import GPTBridgeAppShutdownMixin
 
-class GPTBridgeApp:
+
+class GPTBridgeApp(GPTBridgeAppShutdownMixin):
     # Full catalog of supported governance rules for UI selection menus.
     AVAILABLE_GOVERNANCE_RULES = list(GOVERNANCE_RULE_CATALOG)
 
@@ -428,151 +430,6 @@ class GPTBridgeApp:
             "status": "ready" if startup_ok else "maintenance_incomplete",
             "maintenance_ready": startup_ok,
         })
-
-    async def shutdown(self) -> None:
-        if self._shutdown_started:
-            await self._shutdown_complete.wait()
-            return
-        self._shutdown_started = True
-        try:
-            # Complete-close bound: a stalled tool/sovereign/service stop must
-            # never keep the backend alive after the UI has closed.  The
-            # deadline sits inside the launcher-side graceful window so the
-            # supervisor observes a clean exit instead of a force-kill.
-            try:
-                await asyncio.wait_for(self._shutdown_once(), timeout=8.0)
-            except asyncio.TimeoutError:
-                self._log(
-                    {
-                        "type": "warning",
-                        "message": (
-                            "shutdown deadline exceeded; abandoning remaining "
-                            "cleanup so the backend can exit"
-                        ),
-                    }
-                )
-        finally:
-            self._shutdown_complete.set()
-
-    async def _shutdown_once(self) -> None:
-        # Stop the tool isolation health monitor first — every tool exit
-        # from this point on is an intentional shutdown or a governed
-        # generation replacement, never a crash worth recording.
-        try:
-            from core_system.tool_isolation import get_isolation_manager
-            get_isolation_manager().stop_monitor()
-        except Exception:
-            pass
-        toolbox = self.toolbox_service
-        if toolbox is not None:
-            for record in toolbox._load_manifest_records():
-                if record.get("has_custom_ui") is not True:
-                    continue
-                tool_id = str(record.get("id") or "").strip()
-                if not tool_id:
-                    continue
-                try:
-                    result = await toolbox.force_close_tool(
-                        {
-                            "tool_id": tool_id,
-                            "request_id": f"main-window-close-{tool_id}-{time.time_ns()}",
-                            "reason": "main-window-closed",
-                        }
-                    )
-                    if result.get("ok") is not True:
-                        self._log(
-                            {
-                                "type": "warning",
-                                "message": "tool backend did not exit during window shutdown",
-                                "tool_id": tool_id,
-                                "error_code": str(result.get("error_code") or ""),
-                            }
-                        )
-                except Exception as error:
-                    self._log(
-                        {
-                            "type": "warning",
-                            "message": "tool backend shutdown failed during window shutdown",
-                            "tool_id": tool_id,
-                            "error_type": type(error).__name__,
-                        }
-                    )
-
-        # Stop sub-sovereigns
-        for sov in self._sub_sovereigns.values():
-            try:
-                await sov.stop()
-            except Exception:
-                pass
-
-        # Stop sovereigns (A63/A64: decision only, execution delegated).
-        # Each stop is isolated so one failure cannot skip the rest —
-        # a single faulty sovereign must never leak the remaining
-        # children/tasks through an aborted shutdown sequence.
-        # Stop the system automation coordinator first so it does not
-        # route degradation signals while sovereigns are shutting down.
-        try:
-            await self.system_automation_coordinator.stop()
-        except Exception:
-            pass
-        for _sovereign in (
-            self.synchronization_sovereign,
-            self.xingcheng_sovereign,
-            self.system_runtime_sovereign,
-            self.permission_sovereign,
-            self.decision_sovereign,
-        ):
-            try:
-                await _sovereign.stop()
-            except Exception:
-                pass
-
-        for _service in (
-            self.daily_global_cleaner_service,
-            self.hot_update_service,
-            self.update_manager,
-        ):
-            if _service is None:
-                continue
-            try:
-                await _service.stop()
-            except Exception:
-                pass
-        watcher = self.hot_reload_watcher
-        if watcher is not None:
-            await watcher.stop()
-        reanchor = self.authority_reanchor_service
-        if reanchor is not None:
-            reanchor.stop()
-
-        # Window-backed tools are closed above before the sovereign stack is
-        # stopped, so no UI-owned backend remains after application exit.
-
-        pending_tasks = [task for task in self._command_tasks if not task.done()]
-        for task in pending_tasks:
-            task.cancel()
-        if pending_tasks:
-            _done, still_running = await asyncio.wait(
-                pending_tasks,
-                timeout=10,
-            )
-            if still_running:
-                self._log(
-                    {
-                        "type": "warning",
-                        "message": (
-                            f"{len(still_running)} command task(s) retained "
-                            "durable recovery state after shutdown deadline"
-                        ),
-                    }
-                )
-
-        self._command_tasks.clear()
-        self._command_task_meta.clear()
-        await self.runtime_bootstrap.shutdown()
-        if self.governance is not None:
-            self.governance.close()
-            self.governance = None
 
 
 async def main() -> None:
