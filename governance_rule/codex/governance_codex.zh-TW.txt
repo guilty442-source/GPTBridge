@@ -1,5 +1,5 @@
 {
-  "codex_version": "2026-09-13T23:31:26Z",
+  "codex_version": "2026-09-13T23:37:12Z",
   "tables": {
     "access_actor_classes": [
       {
@@ -3652,6 +3652,15 @@
         "rule": "REFERENCE-RESOLUTION:every current reference to a superseded provision resolves through provision_reference_resolution to exactly one active successor before interpretation;the predecessor remains historical identity only. A reference inside a SUCCESSOR declaration is historical evidence and is not an active dependency. CURRENT-MAP:A406 resolves to A411 for timestamp version identity;A395 resolves through A406 to A411;A397 resolves to A410 for evidence timestamps;A394 resolves to A409 for dynamic references;A398 resolves to A408 for automatic command contracts;A399 resolves to A407 for cross-Codex interpretation;A100 and A109 resolve to A412 for change classification. BINDING:legacy numeric effective_version values are preserved in legacy_effective_version while current_binding_version points to the current timestamp version;this binds existing active provisions without fabricating their original effective time. STATUS:timestamp_status uses only verified,estimated,corrected or invalid. HISTORY:revision_history remains empty under A414 and this amendment is represented by provision lineage,current seal and canonical timestamp only.",
         "prohibition": "FORBID:interpreting superseded text without successor resolution+multiple active successors+rewriting historical effective version+numeric legacy field selecting current law+timestamp status outside canonical vocabulary+repopulating user-deleted revision history.",
         "exception": "A deliberately historical citation may address the predecessor when explicitly marked historical and cannot control current operation."
+      },
+      {
+        "position": 416,
+        "provision_id": "A416",
+        "section_index": "1",
+        "subject": "typed-complete-successor-resolution-successor",
+        "rule": "SUCCESSOR:A415 is superseded. REGISTRY:provision_reference_resolution_v2 covers every superseded principle,article,edict and sovereign with typed predecessor identity. Each row records predecessor_type,predecessor_id,declared_successor_identity,resolved_successor_type,resolved_active_successor_id,resolution_path,status and validation timestamp. STATUS:resolved-active means the full chain terminates in exactly one active provision of the applicable type;cross-type-retirement-basis means a retired identity cites an active provision as its retirement authority rather than becoming that provision;retired-no-successor means retirement is terminal and no current semantic successor may be inferred;unresolved or cycle is incomplete evidence. INTERPRETATION:current citations automatically traverse resolved-active chains. Historical citations remain historical. A terminal retirement cannot be revived or mapped by similarity. COVERAGE:registry row count and typed predecessor set exactly equal lifecycle superseded set. FAILURE:missing row,duplicate typed predecessor,cycle,non-active resolved target or invented target blocks only the affected interpretation and produces a precise Codex finding. HISTORY:the user-deleted revision_history remains empty.",
+        "prohibition": "FORBID:untyped predecessor collision+partial resolution registry+invented successor+retired identity revival+cross-type retirement authority treated as identity replacement+cycle hidden+missing target treated compliant+revision history reconstruction.",
+        "exception": "A terminal retired identity may remain without successor when the lifecycle evidence explicitly closes it and no active rule depends on it as current authority."
       }
     ],
     "certification_evidence": [
@@ -4574,6 +4583,17 @@
         "event": "active-successor-reference-and-legacy-binding-closure",
         "version_epoch": 2,
         "canonical_recorded_at_utc": "2026-09-13T23:31:26.596162Z",
+        "timestamp_status": "verified",
+        "timestamp_migration_evidence": "explicit-user-command+revision-history-disabled"
+      },
+      {
+        "version": "2026-09-13T23:37:12Z",
+        "recorded_at_utc": "2026-09-13T23:37:12Z",
+        "recorded_at_local": "2026-09-14T07:37:12+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "typed-complete-successor-resolution",
+        "version_epoch": 2,
+        "canonical_recorded_at_utc": "2026-09-13T23:37:12.484051Z",
         "timestamp_status": "verified",
         "timestamp_migration_evidence": "explicit-user-command+revision-history-disabled"
       }
@@ -15033,11 +15053,11 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A415",
-        "effective_version": "2026-09-13T23:31:26Z",
+        "provision_id": "A416",
+        "effective_version": "2026-09-13T23:37:12Z",
         "status": "active",
         "legacy_effective_version": null,
-        "current_binding_version": "2026-09-13T23:31:26Z"
+        "current_binding_version": "2026-09-13T23:37:12Z"
       }
     ],
     "entity_classification": [
@@ -20704,20 +20724,24 @@
         "value": "explicit-user-command-only"
       },
       {
-        "key": "codex_version",
-        "value": "2026-09-13T23:31:26Z"
-      },
-      {
-        "key": "current_version_identity",
-        "value": "E2:2026-09-13T23:31:26Z"
-      },
-      {
         "key": "active_provision_binding_version",
         "value": "2026-09-13T23:31:26Z"
       },
       {
         "key": "provision_reference_resolution_policy",
-        "value": "registered-transitive-single-active-successor"
+        "value": "typed-complete-v2"
+      },
+      {
+        "key": "provision_reference_resolution_v1_state",
+        "value": "legacy-retired"
+      },
+      {
+        "key": "codex_version",
+        "value": "2026-09-13T23:37:12Z"
+      },
+      {
+        "key": "current_version_identity",
+        "value": "E2:2026-09-13T23:37:12Z"
       }
     ],
     "module_assignment_registry": [
@@ -26730,6 +26754,13 @@
         "provision_id": "A415",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A416",
+        "provision_type": "article",
+        "provision_id": "A416",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -31359,6 +31390,13 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A79|A88|A96|A274|A407|A408|A409|A410|A411|A412|A414"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A416",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A79|A88|A96|A274|A414|A415"
       }
     ],
     "provision_lifecycle_status": [
@@ -37835,12 +37873,22 @@
       {
         "provision_type": "article",
         "provision_id": "A415",
-        "lifecycle_state": "active",
+        "lifecycle_state": "superseded",
         "effective_version": "2026-09-13T23:31:26Z",
+        "successor_identity": "ARTICLE_A416",
+        "evidence": "typed-complete-resolution-successor",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-13T23:31:26Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A416",
+        "lifecycle_state": "active",
+        "effective_version": "2026-09-13T23:37:12Z",
         "successor_identity": null,
         "evidence": "explicit-user-command+revision-history-disabled",
         "legacy_effective_version": null,
-        "current_binding_version": "2026-09-13T23:31:26Z"
+        "current_binding_version": "2026-09-13T23:37:12Z"
       }
     ],
     "provision_lineage": [
@@ -43081,8 +43129,16 @@
         "provision_id": "A415",
         "introduced_by": "AMENDMENT@2026-09-13T23:31:26Z",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "c6932ee88e7f3967a1265caf5a215bfb0db749be478f6bffc89db5d68d3c5edc"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A416",
+        "introduced_by": "AMENDMENT@2026-09-13T23:37:12Z",
+        "supersedes_id": "A415",
+        "status": "active",
+        "content_hash": "b2f58d0bbb0445c049ec9406a83d45a164c595a039c624622b7b71efbdbfeccf"
       }
     ],
     "provision_revisions": [
@@ -54425,6 +54481,15 @@
         "content_hash": "c6932ee88e7f3967a1265caf5a215bfb0db749be478f6bffc89db5d68d3c5edc",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A416",
+        "revision_id": "AMENDMENT@2026-09-13T23:37:12Z",
+        "version": "2026-09-13T23:37:12Z",
+        "content_hash": "b2f58d0bbb0445c049ec9406a83d45a164c595a039c624622b7b71efbdbfeccf",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -59877,6 +59942,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "2026-09-13T23:31:26Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A416",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "2026-09-13T23:37:12Z"
       }
     ],
     "revision_history": [],
@@ -60490,6 +60565,18 @@
         "content_root": "6f00957e8bf078653c6bf3945f5d5d83fd58ce47d82139de87abeca467640c9e",
         "identity_root": "1d928e6f29113dcb4ec1bb303b0ddbe952ecf24177713880ce69128fe9a32dfe",
         "full_root": "dd8ad885bee1763f7fb8e85798978c58d36d592ae665326968aa377217646491",
+        "version_epoch": 2
+      },
+      {
+        "version": "2026-09-13T23:37:12Z",
+        "history_head": "USER_HISTORY_DELETED@2026-09-13T23:37:12Z",
+        "provision_count": 656,
+        "identity_count": 656,
+        "lineage_count": 656,
+        "certification_state": "sealed-read-only-pending-human-governor-signature",
+        "content_root": "ce97ac7c34ae0da04fb6efa7577c6ba9a27607ddbc0129ec46435c49d87893ea",
+        "identity_root": "0fa97c27a729b7da0bd4bcc7b9b8bd31e0ea8b00fcf90ab04dbea3c08ce61f40",
+        "full_root": "300701e65511fad6fde5870c0db7037b9dc84a21697b5cf33f89acc770cd784a",
         "version_epoch": 2
       }
     ],
@@ -66637,6 +66724,558 @@
         "resolution_path": "A109>A412",
         "status": "active",
         "validated_at_utc": "2026-09-13T23:31:26.596162Z"
+      }
+    ],
+    "provision_reference_resolution_v2": [
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A100",
+        "declared_successor_identity": "ARTICLE_A412",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A412",
+        "resolution_path": "article:A100>article:A412",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A109",
+        "declared_successor_identity": "ARTICLE_A412",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A412",
+        "resolution_path": "article:A109>article:A412",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A131",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "article:A131",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A203",
+        "declared_successor_identity": "codex/provision/article/A212",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A219",
+        "resolution_path": "article:A203>article:A212>article:A218>article:A219",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A204",
+        "declared_successor_identity": "codex/provision/article/A213",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A220",
+        "resolution_path": "article:A204>article:A213>article:A220",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A206",
+        "declared_successor_identity": "codex/provision/article/A217",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A217",
+        "resolution_path": "article:A206>article:A217",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A209",
+        "declared_successor_identity": "codex/provision/article/A215",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A215",
+        "resolution_path": "article:A209>article:A215",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A212",
+        "declared_successor_identity": "codex/provision/article/A218",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A219",
+        "resolution_path": "article:A212>article:A218>article:A219",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A213",
+        "declared_successor_identity": "codex/provision/article/A220",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A220",
+        "resolution_path": "article:A213>article:A220",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A214",
+        "declared_successor_identity": "codex/provision/article/A221",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A221",
+        "resolution_path": "article:A214>article:A221",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A218",
+        "declared_successor_identity": "codex/provision/article/A219",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A219",
+        "resolution_path": "article:A218>article:A219",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A236",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "article:A236",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A254",
+        "declared_successor_identity": "codex/provision/article/A263",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A263",
+        "resolution_path": "article:A254>article:A263",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A255",
+        "declared_successor_identity": "codex/provision/article/A265",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A265",
+        "resolution_path": "article:A255>article:A265",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A256",
+        "declared_successor_identity": "codex/provision/article/A262",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A262",
+        "resolution_path": "article:A256>article:A262",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A257",
+        "declared_successor_identity": "codex/provision/article/A258",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A261",
+        "resolution_path": "article:A257>article:A258>article:A261",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A258",
+        "declared_successor_identity": "codex/provision/article/A261",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A261",
+        "resolution_path": "article:A258>article:A261",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A260",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "article:A260",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A35",
+        "declared_successor_identity": "codex/provision/article/A203",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A219",
+        "resolution_path": "article:A35>article:A203>article:A212>article:A218>article:A219",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A55",
+        "declared_successor_identity": "codex/provision/article/A209",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A215",
+        "resolution_path": "article:A55>article:A209>article:A215",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A56",
+        "declared_successor_identity": "codex/provision/article/A210",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A210",
+        "resolution_path": "article:A56>article:A210",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "edict",
+        "predecessor_id": "E177",
+        "declared_successor_identity": "codex/provision/edict/E178",
+        "resolved_successor_type": "edict",
+        "resolved_active_successor_id": "E178",
+        "resolution_path": "edict:E177>edict:E178",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "edict",
+        "predecessor_id": "E21",
+        "declared_successor_identity": "codex/provision/edict/E177",
+        "resolved_successor_type": "edict",
+        "resolved_active_successor_id": "E178",
+        "resolution_path": "edict:E21>edict:E177>edict:E178",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "edict",
+        "predecessor_id": "E41",
+        "declared_successor_identity": "codex/provision/edict/E180",
+        "resolved_successor_type": "edict",
+        "resolved_active_successor_id": "E180",
+        "resolution_path": "edict:E41>edict:E180",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "principle",
+        "predecessor_id": "P114",
+        "declared_successor_identity": "codex/provision/principle/P115",
+        "resolved_successor_type": "principle",
+        "resolved_active_successor_id": "P115",
+        "resolution_path": "principle:P114>principle:P115",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "principle",
+        "predecessor_id": "P16",
+        "declared_successor_identity": "codex/provision/principle/P114",
+        "resolved_successor_type": "principle",
+        "resolved_active_successor_id": "P115",
+        "resolution_path": "principle:P16>principle:P114>principle:P115",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "data-sovereign",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "sovereign:data-sovereign",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "integration-sovereign",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "sovereign:integration-sovereign",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "language-review-sovereign",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "sovereign:language-review-sovereign",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "learning-system-sovereign",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "sovereign:learning-system-sovereign",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "maintenance-sovereign",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "sovereign:maintenance-sovereign",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "maintenance-sub-sovereign",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "sovereign:maintenance-sub-sovereign",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "permission-sub-sovereign",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "sovereign:permission-sub-sovereign",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "resource-sovereign",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "sovereign:resource-sovereign",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "startup-sovereign",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "sovereign:startup-sovereign",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "system-programming-sovereign",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "sovereign:system-programming-sovereign",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "third-party-sovereign",
+        "declared_successor_identity": null,
+        "resolved_successor_type": null,
+        "resolved_active_successor_id": null,
+        "resolution_path": "sovereign:third-party-sovereign",
+        "status": "retired-no-successor",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A335",
+        "declared_successor_identity": "ARTICLE_A379",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A379",
+        "resolution_path": "article:A335>article:A379",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A336",
+        "declared_successor_identity": "ARTICLE_A337",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A337",
+        "resolution_path": "article:A336>article:A337",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "sovereign",
+        "predecessor_id": "system-programming-sub-sovereign",
+        "declared_successor_identity": "ARTICLE_A337",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A337",
+        "resolution_path": "sovereign:system-programming-sub-sovereign>article:A337",
+        "status": "cross-type-retirement-basis",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A338",
+        "declared_successor_identity": "ARTICLE_A349",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A349",
+        "resolution_path": "article:A338>article:A349",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A339",
+        "declared_successor_identity": "ARTICLE_A344",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A344",
+        "resolution_path": "article:A339>article:A344",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A372",
+        "declared_successor_identity": "ARTICLE_A374",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A374",
+        "resolution_path": "article:A372>article:A374",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A384",
+        "declared_successor_identity": "ARTICLE_A385",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A385",
+        "resolution_path": "article:A384>article:A385",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A389",
+        "declared_successor_identity": "ARTICLE_A394",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A409",
+        "resolution_path": "article:A389>article:A394>article:A409",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A391",
+        "declared_successor_identity": "ARTICLE_A397",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A410",
+        "resolution_path": "article:A391>article:A397>article:A410",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A394",
+        "declared_successor_identity": "ARTICLE_A409",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A409",
+        "resolution_path": "article:A394>article:A409",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A395",
+        "declared_successor_identity": "ARTICLE_A406",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A411",
+        "resolution_path": "article:A395>article:A406>article:A411",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A396",
+        "declared_successor_identity": "ARTICLE_A398",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A408",
+        "resolution_path": "article:A396>article:A398>article:A408",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A397",
+        "declared_successor_identity": "ARTICLE_A410",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A410",
+        "resolution_path": "article:A397>article:A410",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A398",
+        "declared_successor_identity": "ARTICLE_A408",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A408",
+        "resolution_path": "article:A398>article:A408",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A399",
+        "declared_successor_identity": "ARTICLE_A407",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A407",
+        "resolution_path": "article:A399>article:A407",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A406",
+        "declared_successor_identity": "ARTICLE_A411",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A411",
+        "resolution_path": "article:A406>article:A411",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A413",
+        "declared_successor_identity": "ARTICLE_A414",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A414",
+        "resolution_path": "article:A413>article:A414",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A415",
+        "declared_successor_identity": "ARTICLE_A416",
+        "resolved_successor_type": "article",
+        "resolved_active_successor_id": "A416",
+        "resolution_path": "article:A415>article:A416",
+        "status": "resolved-active",
+        "validated_at_utc": "2026-09-13T23:37:12.484051Z"
       }
     ]
   }
