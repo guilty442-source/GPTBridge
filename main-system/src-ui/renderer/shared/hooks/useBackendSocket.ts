@@ -276,7 +276,14 @@ export const useBackendSocket = () => {
         return
       }
       if (disposed) return
-      BootLogger.log('WebSocket', 'CONNECTING', { endpoint: '127.0.0.1:8765' })
+      const endpointLabel = (() => {
+        try {
+          return new URL(wsUrl).host
+        } catch {
+          return 'backend'
+        }
+      })()
+      BootLogger.log('WebSocket', 'CONNECTING', { endpoint: endpointLabel })
       const socket = new WebSocket(wsUrl)
       socketRef.current = socket
       clearConnectTimeout()
@@ -348,7 +355,7 @@ export const useBackendSocket = () => {
           reconnectAttempt: reconnectAttemptRef.current,
           queuedCommands: commandQueueRef.current.length,
         }))
-        BootLogger.log('WebSocket', 'OPEN', { endpoint: '127.0.0.1:8765' })
+        BootLogger.log('WebSocket', 'OPEN', { endpoint: endpointLabel })
         requestRuntimeStatus()
         // A195 RECONNECT: resubscribe to the transactional outbox with the
         // last acknowledged cursor so the backend replays missed events.

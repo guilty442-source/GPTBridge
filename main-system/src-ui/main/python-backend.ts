@@ -25,9 +25,13 @@ import http from 'node:http'
 import path from 'node:path'
 import { app } from 'electron'
 import {
+  BACKEND_HEALTH_PATH,
   getBackendSessionToken,
   getIpcStateRoot,
   getWorkspaceInstanceId,
+  isGatewayAlive,
+  LOOPBACK_HOST,
+  resolveBackendPort,
 } from './ipcSession'
 import { getRuntimePathLibrary } from './pathLibrary'
 import { getRuntimeEnvMap } from './runtime-env'
@@ -51,10 +55,11 @@ let autoRestartTimer: ReturnType<typeof setTimeout> | null = null
 let manualShutdown = false
 let shutdownToken = ''
 
-function probeExistingBackend(): Promise<boolean> {
+async function probeExistingBackend(): Promise<boolean> {
+  const backendPort = await resolveBackendPort()
   return new Promise((resolve) => {
     const request = http.get(
-      { host: '127.0.0.1', port: 8765, path: '/health?brief=1', timeout: 8_000 },
+      { host: LOOPBACK_HOST, port: backendPort, path: BACKEND_HEALTH_PATH, timeout: 8_000 },
       (response) => {
         const chunks: Buffer[] = []
         response.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
@@ -81,7 +86,9 @@ function probeExistingBackend(): Promise<boolean> {
   })
 }
 
-function hasLiveSupervisor(paths: ReturnType<typeof getRuntimePathLibrary>): boolean {
+async function hasLiveSupervisor(
+  paths: ReturnType<typeof getRuntimePathLibrary>
+): Promise<boolean> {
   const statePath = path.join(
     paths.workspaceRoot,
     'main-system',
@@ -95,22 +102,34 @@ function hasLiveSupervisor(paths: ReturnType<typeof getRuntimePathLibrary>): boo
       status?: string
     }
     const pid = Number(state.pid)
-    if (pid <= 0 || state.status === 'stopped') return false
-    process.kill(pid, 0)
-    return true
+    if (pid > 0 && state.status !== 'stopped') {
+      process.kill(pid, 0)
+      return true
+    }
+  } catch {
+    // State file missing, stale, or the recorded pid already exited.
+  }
+  // The state file can be missing or overwritten by a superseded generation
+  // (for example an orphan boot_core that restarted itself).  boot_core hosts
+  // the gateway, so a gateway answering /health for this workspace is
+  // authoritative evidence that a supervisor is already running — attaching
+  // to it prevents duplicate backend generations and their restart loops.
+  try {
+    return await isGatewayAlive()
   } catch {
     return false
   }
 }
 
-function requestGracefulBackendShutdown(): Promise<boolean> {
+async function requestGracefulBackendShutdown(): Promise<boolean> {
   if (!shutdownToken) return Promise.resolve(false)
+  const backendPort = await resolveBackendPort()
   return new Promise((resolve) => {
     const request = http.request(
       {
         method: 'GET',
-        host: '127.0.0.1',
-        port: 8765,
+        host: LOOPBACK_HOST,
+        port: backendPort,
         path: '/shutdown',
         timeout: 1_500,
         headers: {
@@ -281,7 +300,7 @@ export async function startBackend(forceReplacement = false) {
   if (
     !forceReplacement &&
     (await probeExistingBackend()) &&
-    hasLiveSupervisor(paths)
+    (await hasLiveSupervisor(paths))
   ) {
     backendStatus = 'running'
     backendReadyAt = Date.now()

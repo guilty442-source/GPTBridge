@@ -3,7 +3,20 @@ type BackendSessionDescriptor = {
   websocketUrl?: unknown
 }
 
-const EXPECTED_URL_PREFIX = 'ws://127.0.0.1:8765/'
+const LOOPBACK_HOST = '127.0.0.1'
+const MIN_TOKEN_LENGTH = 32
+
+function isValidLoopbackWebSocketUrl(value: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(value)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'ws:' || parsed.hostname !== LOOPBACK_HOST) return false
+  const port = Number(parsed.port)
+  return Number.isInteger(port) && port > 0 && port <= 65535
+}
 
 export async function getAuthenticatedBackendWebSocketUrl(): Promise<string> {
   const api = window.electron
@@ -15,7 +28,7 @@ export async function getAuthenticatedBackendWebSocketUrl(): Promise<string> {
   )) as BackendSessionDescriptor | null
   const websocketUrl = String(raw?.websocketUrl || '').trim()
   const token = String(raw?.token || '').trim()
-  if (!websocketUrl.startsWith(EXPECTED_URL_PREFIX) || token.length < 32) {
+  if (!isValidLoopbackWebSocketUrl(websocketUrl) || token.length < MIN_TOKEN_LENGTH) {
     throw new Error('後端驗證資訊無效，無法建立安全連線。')
   }
   return websocketUrl

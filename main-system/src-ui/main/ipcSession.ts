@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
+import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import { getRuntimePathLibrary } from './pathLibrary'
@@ -10,6 +11,22 @@ const TOKEN_FILE_NAME = 'session-token'
 const TOKEN_LOCK_NAME = '.session-token.lock'
 const LOCK_WAIT_MS = 10_000
 const STALE_LOCK_MS = 5_000
+const DEFAULT_GATEWAY_PORT = 8765
+const GENERATION_PORT_OFFSETS = [1, 2] as const
+const HEALTH_PROBE_TIMEOUT_MS = 350
+const STARTUP_MANIFEST_RELATIVE = [
+  'main-system',
+  'config',
+  'startup_manifest.json',
+] as const
+const BOOT_CORE_STATE_RELATIVE = [
+  'main-system',
+  'runtime',
+  'state',
+  'boot-core.json',
+] as const
+export const LOOPBACK_HOST = '127.0.0.1'
+export const BACKEND_HEALTH_PATH = '/health?brief=1'
 
 let cachedToken = ''
 
@@ -266,18 +283,130 @@ export function getWorkspaceInstanceId(): string {
     .slice(0, 24)
 }
 
-export function getBackendSessionDescriptor(): {
+function isValidPort(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value > 0 &&
+    value <= 65535
+  )
+}
+
+function readConfiguredGatewayPort(): number {
+  const manifestPath = path.join(
+    getRuntimePathLibrary().workspaceRoot,
+    ...STARTUP_MANIFEST_RELATIVE
+  )
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as {
+      ports?: { health_probe?: unknown }
+    }
+    const port = Number(manifest.ports?.health_probe)
+    return isValidPort(port) ? port : DEFAULT_GATEWAY_PORT
+  } catch {
+    return DEFAULT_GATEWAY_PORT
+  }
+}
+
+function readActiveBackendPort(): number | null {
+  const statePath = path.join(
+    getRuntimePathLibrary().workspaceRoot,
+    ...BOOT_CORE_STATE_RELATIVE
+  )
+  try {
+    const state = JSON.parse(fs.readFileSync(statePath, 'utf-8')) as {
+      active_backend_port?: unknown
+    }
+    const port = Number(state.active_backend_port)
+    return isValidPort(port) ? port : null
+  } catch {
+    return null
+  }
+}
+
+function probeBackendPort(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = (result: boolean) => {
+      if (settled) return
+      settled = true
+      resolve(result)
+    }
+    const request = http.get(
+      {
+        host: LOOPBACK_HOST,
+        port,
+        path: BACKEND_HEALTH_PATH,
+        timeout: HEALTH_PROBE_TIMEOUT_MS,
+      },
+      (response) => {
+        const chunks: Buffer[] = []
+        response.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
+        response.on('end', () => {
+          try {
+            const payload = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+              workspace_instance_id?: unknown
+            }
+            finish(payload.workspace_instance_id === getWorkspaceInstanceId())
+          } catch {
+            finish(false)
+          }
+        })
+      }
+    )
+    request.on('timeout', () => request.destroy())
+    request.on('error', () => finish(false))
+  })
+}
+
+/**
+ * Resolve the live backend endpoint without assuming a fixed port.
+ *
+ * The startup manifest declares the gateway port and boot_core rotates the
+ * backend generation across the two following ports.  Prefer the configured
+ * gateway, then the generation recorded by boot_core, then the remaining
+ * generation ports — returning the first endpoint that answers /health for
+ * this workspace instance.  Falls back to the configured gateway so callers
+ * still have a stable default while the backend is down.
+ */
+export async function resolveBackendPort(): Promise<number> {
+  const configured = readConfiguredGatewayPort()
+  const candidates = [
+    configured,
+    readActiveBackendPort(),
+    ...GENERATION_PORT_OFFSETS.map((offset) => configured + offset),
+  ].filter(isValidPort)
+  for (const port of [...new Set(candidates)]) {
+    if (await probeBackendPort(port)) return port
+  }
+  return configured
+}
+
+/**
+ * Probe the configured gateway port for a live boot_core.
+ *
+ * boot_core hosts the gateway, so a gateway that answers /health for this
+ * workspace is authoritative evidence that a supervisor is alive — even when
+ * the persisted boot-core state file is missing or mentions a superseded
+ * generation.  Used to avoid spawning a duplicate supervisor.
+ */
+export async function isGatewayAlive(): Promise<boolean> {
+  return probeBackendPort(readConfiguredGatewayPort())
+}
+
+export async function getBackendSessionDescriptor(): Promise<{
   token: string
   websocketUrl: string
   workspaceInstanceId: string
-} {
+}> {
   const token = getBackendSessionToken()
   const workspaceInstanceId = getWorkspaceInstanceId()
+  const backendPort = await resolveBackendPort()
   return {
     token,
     workspaceInstanceId,
     websocketUrl:
-      `ws://127.0.0.1:8765/?token=${encodeURIComponent(token)}` +
+      `ws://${LOOPBACK_HOST}:${backendPort}/?token=${encodeURIComponent(token)}` +
       `&instance=${encodeURIComponent(workspaceInstanceId)}`,
   }
 }
