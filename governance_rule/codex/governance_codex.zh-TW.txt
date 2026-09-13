@@ -3022,6 +3022,15 @@
         "rule": "CURRENT-BASELINE:gptbridge_native.h has exactly five public C ABI functions and exposes no C++ type; preserve this minimal state and do not refactor solely to introduce abstraction; FUNCTION-BUDGET:public native capability growth must not become one exported function per feature and every proposed sixth-or-later public function triggers capability-table impact review before admission; DEFERRED-EVOLUTION:only when measured API growth,consumer diversity or compatibility pressure proves the five-function baseline insufficient may a certified successor converge on the stable shape gptbridge_get_abi_version+gptbridge_query_capability+gptbridge_create_context+gptbridge_execute+gptbridge_destroy_context; EXTENSION-DATA:capability_id+versioned request_struct+versioned response_struct carry future expansion behind gptbridge_execute without C++ types; CAPABILITY-TABLE:each capability has stable id+request/response schema+size/version fields+feature flags+owner+thread/lifetime/error/resource contract+availability query+test vector; VERSIONING:ABI major changes only for incompatible layout/calling/ownership changes and ABI minor adds backward-compatible capability/schema versions; UNKNOWN:unknown capability/version/field is rejected by typed status without crash or reinterpretation; STRUCT-COMPATIBILITY:fixed-width C types+explicit size/version+reserved-zero fields+alignment/endianness bounds+caller/callee allocation ownership; MIGRATION-TRIGGER:requires current function inventory+growth forecast+consumer graph+benchmark/complexity evidence+A340 cross-language tests+dual-path bounded migration+rollback and removal of displaced exports in one certified release; NO-PREMATURE-ABSTRACTION:while five functions remain sufficient,checker records baseline compliance and forbids forced capability-dispatch conversion; A344 single-C-ABI-contract remains controlling.",
         "prohibition": "FORBID:unbounded gptbridge_native.h function growth+feature-per-export API+sixth public function without capability-table review+public C++ type/template/exception/STL+unversioned request/response struct+capability id reuse+silent unknown-field acceptance+ABI-major bump for compatible addition+premature capability-table rewrite without evidence+parallel legacy/new ABI left indefinitely.",
         "exception": "A safety-critical primitive may temporarily exceed the five-function budget only through explicit human-governor successor law with impossibility proof,exact expiry,migration target and complete API/ABI/fallback evidence; convenience is insufficient."
+      },
+      {
+        "position": 346,
+        "provision_id": "A346",
+        "section_index": "16",
+        "subject": "cpp-six-domain-namespace-and-include-dependency-special-law",
+        "rule": "GOVERNANCE-UNIT:C++ six-domain governance applies to namespace+symbol ownership+include/link dependency edges,not source-file or folder count; CANONICAL-NAMESPACES:gptbridge::native::parser|gptbridge::native::vector|gptbridge::native::memory|gptbridge::native::token|gptbridge::native::transform|gptbridge::native::binding; PHYSICAL-ALLOW:parser.cpp+vector.cpp+transformer.cpp are a valid three-file core and no empty/artificial memory.cpp,token.cpp,binding.cpp or six-folder layout is required; COLOCATION:a translation unit may implement multiple canonical namespaces only when every symbol belongs to exactly one namespace and all edges obey the DAG; DAG:memory=>none; token=>memory; parser=>token+memory; vector=>memory; transform=>memory and vector only when explicitly declared; binding=>parser+vector+memory+token+transform; NO-REVERSE:callee cannot include/call dependent/upstream namespace; C-ABI:gptbridge_native.h+gptbridge_native.c remain the language-neutral contract/thunk outside C++ namespace ownership and A344 controls the sole consumer path; BINDING-NAMESPACE:gptbridge::native::binding is private C++/pybind11 adaptation ownership only and cannot become a second public contract; CHECKER:parse namespaces+fully qualified symbols+headers/includes+calls+link graph,resolve each symbol to one domain,compare actual graph to declared DAG,detect cycles+reverse edges+unmapped/global symbols+duplicate owners and report physical files separately from logical namespaces; HEADER:private header declares one primary namespace or an explicit bounded multi-namespace boundary and cannot expose private implementation across forbidden edges; TEST:one logical-domain test group per namespace+dependency graph test+cycle injection+co-location fixture+current-three-file fixture+A340 release gate; SUPERSESSION:A214 requirements for own folder,one domain per source module or six physical units are non-operative and replaced by A346.",
+        "prohibition": "FORBID:checker equating namespace count with file count+mandatory six cpp files/folders+namespace-less native symbol except exact C ABI exports+wrong/reverse dependency+cycle+memory dependency+token calling parser/vector/transform/binding+parser calling vector/transform/binding+vector calling parser/token/transform/binding+transform calling parser/token/binding or undeclared vector+binding owning algorithm/policy+include cpp+duplicate/unmapped symbol+physical layout used as proof without namespace graph.",
+        "exception": "Compiler-generated anonymous/internal symbols may remain translation-unit local when checker traces them to one enclosing canonical namespace owner and proves no cross-domain edge or exported identity."
       }
     ],
     "certification_evidence": [
@@ -3777,7 +3786,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H055",
+        "history_head": "H056",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -12052,6 +12061,12 @@
         "provision_id": "A345",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A346",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12110,14 +12125,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H055",
-        "provision_count": 591,
-        "identity_count": 591,
-        "lineage_count": 591,
+        "history_head": "H056",
+        "provision_count": 592,
+        "identity_count": 592,
+        "lineage_count": 592,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "8afedef850e0c9b9bc64900072fb723f7293d0fd5fe802ef9ba9fd3ee4b88b1d",
-        "identity_root": "d8ad074ca493ca5c251f7ecb7e28c4226f22c936a6bcafb9ba92aa1f7716d6e4",
-        "full_root": "6766263eed85824bbb9a61944166f2ef94103f31b54f240b27425fc4bd73b113",
+        "content_root": "460c210627bda536e48b852b1e3c2e5f7b12d7a28027b66c4e2c57a8204d9d85",
+        "identity_root": "975c7ed1217556132fed342a00f7f782818a03368010fd8d7ceabc6121baf298",
+        "full_root": "4f0f765155e0c5e9d9a2d4a03a640d5239714f7f432deee76ca8fe03cceca645",
         "legacy_history_head": null
       }
     ],
@@ -17227,7 +17242,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H055"
+        "value": "H056"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17280,6 +17295,14 @@
       {
         "key": "c_abi_capability_table_policy",
         "value": "deferred-until-evidence-triggered-growth;A345"
+      },
+      {
+        "key": "cpp_six_domain_governance",
+        "value": "namespace+symbol+include-DAG;not-file-count"
+      },
+      {
+        "key": "cpp_namespace_dag",
+        "value": "memory>none|token>memory|parser>token+memory|vector>memory|transform>memory(+declared-vector)|binding>all"
       }
     ],
     "module_assignment_registry": [
@@ -22844,6 +22867,13 @@
         "provision_id": "A345",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A346",
+        "provision_type": "article",
+        "provision_id": "A346",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -26983,6 +27013,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A215|A221|A340|A343|A344"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A346",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A208|A214|A221|A340|A343|A344"
       }
     ],
     "provision_lifecycle_status": [
@@ -31609,6 +31646,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H055+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A346",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H056+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36339,6 +36384,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "653eaf37fdb35524bcc18bf4c71ef32258f13ca94691c13f2883c44732663bf8"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A346",
+        "introduced_by": "H056",
+        "supersedes_id": "A214",
+        "status": "active",
+        "content_hash": "f32aec5c3a3eac07e309c43ac7e19174ad41ecd4caefc76155f665b9a8c5c5fc"
       }
     ],
     "provision_revisions": [
@@ -47051,6 +47104,15 @@
         "content_hash": "653eaf37fdb35524bcc18bf4c71ef32258f13ca94691c13f2883c44732663bf8",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A346",
+        "revision_id": "H056",
+        "version": "1.00000",
+        "content_hash": "f32aec5c3a3eac07e309c43ac7e19174ad41ecd4caefc76155f665b9a8c5c5fc",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -51863,6 +51925,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A346",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -52470,6 +52542,17 @@
         "previous_hash": "70ef5d581b807019bdb9a808c7b844fc4b2a4b1ed453df0133077728fce9c23b",
         "entry_hash": "4bc7d2813207ef960635cddf24d1c3536be18fdfe7bcbc95bed58c6e5690e276",
         "version_epoch": 2
+      },
+      {
+        "sequence": 56,
+        "change_id": "H056",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "cpp-six-domain-namespace-and-dependency-dag-governance",
+        "summary": "Replaced the A214 file-count/folder interpretation with six canonical C++ namespaces and a checker-enforced include/dependency DAG; explicitly allowed the current three-core-cpp physical implementation. Version remains E2:1.00000.",
+        "previous_hash": "4bc7d2813207ef960635cddf24d1c3536be18fdfe7bcbc95bed58c6e5690e276",
+        "entry_hash": "d214e89dfa0d062b74541de3393fd505f4229cb62d5d61537f9751b8bca48887",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -53026,14 +53109,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H055",
-        "provision_count": 591,
-        "identity_count": 591,
-        "lineage_count": 591,
+        "history_head": "H056",
+        "provision_count": 592,
+        "identity_count": 592,
+        "lineage_count": 592,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "8afedef850e0c9b9bc64900072fb723f7293d0fd5fe802ef9ba9fd3ee4b88b1d",
-        "identity_root": "d8ad074ca493ca5c251f7ecb7e28c4226f22c936a6bcafb9ba92aa1f7716d6e4",
-        "full_root": "6766263eed85824bbb9a61944166f2ef94103f31b54f240b27425fc4bd73b113",
+        "content_root": "460c210627bda536e48b852b1e3c2e5f7b12d7a28027b66c4e2c57a8204d9d85",
+        "identity_root": "975c7ed1217556132fed342a00f7f782818a03368010fd8d7ceabc6121baf298",
+        "full_root": "4f0f765155e0c5e9d9a2d4a03a640d5239714f7f432deee76ca8fe03cceca645",
         "version_epoch": 2
       }
     ],
