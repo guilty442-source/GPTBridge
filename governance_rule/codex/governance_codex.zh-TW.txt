@@ -3175,6 +3175,15 @@
         "rule": "CORE:scan once+parse once+build one Unified Source Index and one Unified Language Graph consumed by LanguageBoundary,DependencyDAG,OwnershipUniqueness,ContractParity,NativePromotion,BuildAbi,ReleaseCompatibility and Final Governance; no checker rescans repository or owns a private graph. SOURCE-INDEX:one SourceUnit per canonical file stores path+language+source_class+module+owner+content_hash+mtime advisory only+imports+includes+exports+symbols+functions+classes+public_entries+contracts+capabilities+native_bindings+test_type+generated+third_party+parser_version+revision; hash,not mtime,is reuse authority. PARSERS:PythonParser+TypeScriptParser+CParser+CppParser+CSharpParser+SqlParser each use its authoritative parser/resolver but emit one normalized ParsedSource{language,imports,exports,declarations,symbols,contracts,dependencies}; checkers cannot depend on language AST internals. GOVERNANCE-IR:thin derived model only,not language/bytecode/authority; canonical types SourceUnit+CallableSymbol+Symbol+Dependency+Capability+Contract+NativeBoundary+TestEvidence+BuildArtifact. GRAPH:NODES=file|module|capability|contract|symbol|artifact;EDGES=IMPORTS|INCLUDES|CALLS|IMPLEMENTS|BINDS|ADAPTS|OWNS|FALLBACK_OF|GENERATES|TESTS; one stable node/edge identity+provenance; example PythonAPI BINDS pybind11 CALLS C-ABI IMPLEMENTS C++vector and PythonFallback FALLBACK_OF capability. INCREMENTAL:file content hash unchanged reuses IR only when parser_version+policy_version+contract_hash also match; changed file reparses once,updates graph transactionally and invalidates reverse-dependency affected subgraph; policy/parser/contract change invalidates all dependent cache even with unchanged source. AFFECTED-SCOPE:ChangedFiles>AffectedScopeResolver>affected modules+contracts+capabilities+artifacts; gptbridge_native.h change necessarily affects C ABI+pybind11+CSharp interop+native artifact+contract parity+build ABI+release compatibility. EVIDENCE:every gate outputs GateEvidence{gate_id,rule_ids,revision,scope,result,severity,findings,source_hashes,policy_version,parser_version,contract_hash,generated_at,input_graph_hash}; one schema only,never gate-specific incompatible result formats. PLANNER:change scope+EvidenceRequirementPolicy>GovernanceExecutionPlanner>only required gates; .tsx runs language+dependency+contract when affected+Vitest+Final; vector.cpp runs language+dependency+ownership+native+resource+build/ABI+native tests+Final; release runs full verification. AUTHORITY:Codex canonical; SourceIndex+graph+AST/IR cache+evidence derived,rebuildable,non-authoritative and prohibited from inventing policy. STAGES:save fast incremental;pre-commit affected scope;integration affected graph;release full verified graph. STRUCTURE-ROLES:governance/language/index/SourceIndex.ts;parser six adapters;ir/GovernanceIR.ts;graph/LanguageGraph.ts;planner/AffectedScopeResolver.ts+GovernanceExecutionPlanner.ts;evidence/GateEvidence.ts;checkers existing gates; equivalent physical layout allowed only when registry maps these exact single responsibilities without merging authority. CONSISTENCY:index/graph generation is atomic+generation-fenced+content-addressed; incomplete parse/graph=>INCOMPLETE_EVIDENCE and prior cache cannot masquerade current.",
         "prohibition": "FORBID:multiple repository scans per governance cycle+checker-private AST/graph/index+language AST leaking into checker contract+mtime-only reuse+cache as authority+policy change with stale cache+partial graph publish+unresolved parser treated absent+gate-specific evidence schema+fixed run-all planner at save/pre-commit+skipping required affected gate+incremental evidence used for release full verification+checker inventing policy from graph.",
         "exception": "Release may reuse a source parse only when source_hash+parser_version+policy_version+contract_hash and resolver/build configuration hashes exactly match; release still verifies the full graph and all required gates."
+      },
+      {
+        "position": 363,
+        "provision_id": "A363",
+        "section_index": "16",
+        "subject": "governance-full-scan-baseline-incremental-golden-parity-and-cache-correctness",
+        "rule": "BASELINE:before optimization establish a reproducible FULL scan baseline recording revision,source_file_count,source_bytes,scan_time,parse_time,graph_build_time,gate_time,total_time,peak_memory,cache_size,finding_count,warning_count,failure_count; it is the canonical comparison evidence for incremental work,not an authority over Codex. SCENARIOS:benchmark single .py,.tsx,gptbridge_native.h,vector.cpp,.sql migration,shared contract and policy changes; require incremental work to be less than full work without fixed speed multiplier. GOLDEN:after every incremental run execute or compare against an applicable FULL scan and require exact normalized finding parity by rule,severity,source,target,capability,contract,symbol,result; any omitted or extra governance finding is FAIL regardless of speed. INVALIDATION:maintain reverse dependency closure; a changed dependency invalidates all governed downstream consumers to policy-defined depth. Header changes invalidate dependent translation units,C ABI,binding,CSharp interop,Python native adapter,native artifact and consumer/release compatibility evidence. contract_hash changes invalidate TypeScript+Python contract evidence,ContractParity,consumer and release compatibility. policy_version,parser_version,governance_ir_version,graph_schema_version or checker_version changes invalidate every dependent IR/graph/evidence even when source is unchanged. CACHE-KEY:source_hash+parser_version+governance_ir_version+graph_schema_version+policy_version+checker_version+contract_hash plus applicable resolver/build hashes. CACHE-SAFETY:truncated,wrong-schema,bad-hash,unknown-version or otherwise poisoned cache is discarded and deterministically rebuilt; invalid cache may only reduce speed and can never skip a checker,reduce scope,or produce approval. Cache stores parsed IR,graph fragments,hashes and intermediate evidence only; no permanent approval,waiver or authoritative decision. MODES:FAST=save-time changed file+direct affected scope;PRECOMMIT=changed files+transitive dependencies+required gates;FULL=entire repository+all gates with no reliance on incremental verdict alone. TRIGGERS:save FAST;pre-commit PRECOMMIT;main integration FULL;release FULL+release gates;policy/parser/IR/graph migration FULL. PERFORMANCE-EVIDENCE:revision,mode,changed_files,affected_files,cache_hits,cache_misses,parse_count,reused_count,duration_ms,peak_memory,full_findings_hash,incremental_findings_hash,parity; parity=true is mandatory. ACCEPTANCE:correctness first;incremental findings equal FULL findings;incremental work less than FULL work;unchanged files mostly reused;no fixed 10x requirement. A stale evidence reuse or parity mismatch is CRITICAL and blocks Final Governance.",
+        "prohibition": "FORBID:optimizing without FULL baseline+accepting faster incomplete findings+mtime-only validity+non-transitive invalidation+header/contract/policy/parser/checker/schema drift with reused evidence+cache corruption causing skipped checks+cache-held permanent approval+incremental replacing integration/release FULL verification+hardcoded universal speed multiplier+stale evidence classified below CRITICAL.",
+        "exception": "A FULL run may reuse verified parse artifacts only when every cache-key component and input provenance matches exactly; it must still cover the entire repository,execute all required gates,and reproduce the canonical normalized findings."
       }
     ],
     "certification_evidence": [
@@ -3930,7 +3939,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H068",
+        "history_head": "H069",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -6696,6 +6705,15 @@
         "release_gate": "deny final decision on incomplete/stale derived state",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "governance_performance_evidence_directory",
+        "required_scope": "FULL baseline plus Python,TypeScript,C ABI,C++,SQL,contract,policy and parser/cache scenarios",
+        "completion_rule": "all required scenarios recorded and incremental/full normalized findings hashes equal",
+        "acceptance_evidence": "benchmark manifests+cache counters+reverse closure+fault injection+golden comparison",
+        "release_gate": "deny final approval on missing baseline,stale evidence or parity=false",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_format_contract": [
@@ -7216,6 +7234,20 @@
         "owner": "permission-sovereign",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_GOVERNANCE_PERFORMANCE_EVIDENCE",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "mode|changed_files|affected_files|cache_hits|cache_misses|parse_count|reused_count|duration_ms|peak_memory|full_findings_hash|incremental_findings_hash|parity|lineage",
+        "required_field_order": "envelope>revision>mode>inputs>scope>cache>timing>memory>finding hashes>parity>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-not-applicable-proven",
+        "identity_format": "identity=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "identity>revision>input hashes>metrics>parity>content hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -7699,6 +7731,19 @@
         "implementation_state": "mandated-pending-implementation",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_GOVERNANCE_PERFORMANCE_EVIDENCE",
+        "canonical_name": "governance-performance-evidence-directory",
+        "owner": "permission-sovereign",
+        "scope": "full scan baselines,incremental benchmarks,golden parity and cache correctness evidence",
+        "authority_kind": "derived-non-authoritative-governance-evidence",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|mode|changed_files|affected_files|cache_hits|cache_misses|parse_count|reused_count|duration_ms|peak_memory|full_findings_hash|incremental_findings_hash|parity|lineage",
+        "relationships": "revision|source-index|language-graph|gate-evidence|benchmark|baseline",
+        "coverage_rule": "one FULL baseline plus every mandated scenario and exact golden finding parity",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_normalization_plan": [
@@ -7985,6 +8030,17 @@
         "normalized_relationship_status": "required",
         "plaintext_secret_status": "forbidden",
         "activation_gate": "deny-until-zero-gap-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_code": "DIR_GOVERNANCE_PERFORMANCE_EVIDENCE",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-until-full-baseline-and-golden-parity-proof",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
       }
@@ -12442,6 +12498,12 @@
         "provision_id": "A362",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A363",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12500,14 +12562,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H068",
-        "provision_count": 608,
-        "identity_count": 608,
-        "lineage_count": 608,
+        "history_head": "H069",
+        "provision_count": 609,
+        "identity_count": 609,
+        "lineage_count": 609,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "3973c12fb002869784feaddfbe59bcb137e85e051ba0d15efc679953dffefffa",
-        "identity_root": "2387fe076ac67df45e2b1986a25129c0f36c9d06e8f77ad7ec599c44e02f97d3",
-        "full_root": "cc0e7bedddd58ec993e34e6c6ed986a6e81c0f83863964d6fe21ebdaba8a0f5c",
+        "content_root": "ceb678970e80e6769eb420469908fb64c31fd8bf481761b4dd906ff8f776a54e",
+        "identity_root": "039af406b4d811b0a83ecfaa38694acecd3ab90496b470cd40ea24e8d5940394",
+        "full_root": "3d4449c086628d6e7883973fe09a3678c3bda25612f7aa4cec5207aae938fc16",
         "legacy_history_head": null
       }
     ],
@@ -17634,7 +17696,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H068"
+        "value": "H069"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17791,6 +17853,14 @@
       {
         "key": "gate_evidence_schema",
         "value": "GateEvidence-v1"
+      },
+      {
+        "key": "governance_performance_and_cache_correctness",
+        "value": "A363"
+      },
+      {
+        "key": "governance_cache_key_schema",
+        "value": "source_hash|parser_version|governance_ir_version|graph_schema_version|policy_version|checker_version|contract_hash"
       }
     ],
     "module_assignment_registry": [
@@ -23474,6 +23544,13 @@
         "provision_id": "A362",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A363",
+        "provision_type": "article",
+        "provision_id": "A363",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -27732,6 +27809,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A208|A348|A353|A354|A355|A356|A357|A359|A360|A361"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A363",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A208|A353|A361|A362"
       }
     ],
     "provision_lifecycle_status": [
@@ -32494,6 +32578,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H068+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A363",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H069+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -37360,6 +37452,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "a2b9547d9924f8f3d4fcea61660240f410a96253825156508bbbae240bbad46b"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A363",
+        "introduced_by": "H069",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "404699682ef460d53c6d9e1ff7e4552d36111e4644f29b6b054a3368b6e0d410"
       }
     ],
     "provision_revisions": [
@@ -48225,6 +48325,15 @@
         "content_hash": "a2b9547d9924f8f3d4fcea61660240f410a96253825156508bbbae240bbad46b",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A363",
+        "revision_id": "H069",
+        "version": "1.00000",
+        "content_hash": "404699682ef460d53c6d9e1ff7e4552d36111e4644f29b6b054a3368b6e0d410",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -53207,6 +53316,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A363",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -53957,6 +54076,17 @@
         "previous_hash": "f5a225ce2a54cee16d6e1aed0beabfb475658533f8a56c73a1afc3a664550e27",
         "entry_hash": "ed1c2011bda95261a22fa0f12b367aab6c66fe232c718d5b1da1b8283ef3bb5f",
         "version_epoch": 2
+      },
+      {
+        "sequence": 69,
+        "change_id": "H069",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "governance-full-scan-baseline-incremental-parity-and-cache-correctness",
+        "summary": "Established full-scan baselines, incremental/full golden-result parity, transitive invalidation, cache-poisoning recovery, and FAST/PRECOMMIT/FULL governance performance modes. Version remains E2:1.00000.",
+        "previous_hash": "ed1c2011bda95261a22fa0f12b367aab6c66fe232c718d5b1da1b8283ef3bb5f",
+        "entry_hash": "f76e4cf8ce77120522e980b50a00fe13f1326618b2179c3c8311efe6dfb9b9a9",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -54513,14 +54643,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H068",
-        "provision_count": 608,
-        "identity_count": 608,
-        "lineage_count": 608,
+        "history_head": "H069",
+        "provision_count": 609,
+        "identity_count": 609,
+        "lineage_count": 609,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "3973c12fb002869784feaddfbe59bcb137e85e051ba0d15efc679953dffefffa",
-        "identity_root": "2387fe076ac67df45e2b1986a25129c0f36c9d06e8f77ad7ec599c44e02f97d3",
-        "full_root": "cc0e7bedddd58ec993e34e6c6ed986a6e81c0f83863964d6fe21ebdaba8a0f5c",
+        "content_root": "ceb678970e80e6769eb420469908fb64c31fd8bf481761b4dd906ff8f776a54e",
+        "identity_root": "039af406b4d811b0a83ecfaa38694acecd3ab90496b470cd40ea24e8d5940394",
+        "full_root": "3d4449c086628d6e7883973fe09a3678c3bda25612f7aa4cec5207aae938fc16",
         "version_epoch": 2
       }
     ],
@@ -59240,6 +59370,24 @@
         "cleanup": "remove cache fixture only;retain evidence",
         "isolation_policy": "isolated generation-fenced derived store",
         "timeout": "1200s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_GOVERNANCE_INCREMENTAL_CACHE_CORRECTNESS",
+        "canonical_name": "governance-incremental-cache-correctness-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "SourceIndex+LanguageGraph+AffectedScopeResolver+cache+GovernanceExecutionPlanner",
+        "requirement_ids": "A208|A361|A362|A363",
+        "test_level": "unit+contract+integration+performance+failure-injection",
+        "preconditions": "valid FULL baseline and representative six-language dependency graph",
+        "fixtures": "unchanged hit;single source affected-only;dependency reverse invalidation;header transitive invalidation;contract/policy/parser/IR/graph/checker version invalidation;truncated/wrong-schema/bad-hash/unknown-version cache poisoning;FAST/PRECOMMIT/FULL;incremental/full golden parity",
+        "ordered_steps": "record FULL;mutate each fixture;run incremental;run FULL;compare normalized findings;corrupt cache;verify discard/rebuild;verify integration and release FULL",
+        "expected_results": "all valid hits reused;all affected nodes rebuilt;poisoned cache never skips checks;parity=true;stale reuse is CRITICAL FAIL",
+        "evidence": "baseline+metrics+cache keys+affected closure+finding hashes+GateEvidence+Final decision",
+        "cleanup": "delete fixtures and derived cache only;retain evidence",
+        "isolation_policy": "isolated generation-fenced content-addressed cache",
+        "timeout": "1800s",
         "introduced_version": "1.00000",
         "retired_version": null
       }
