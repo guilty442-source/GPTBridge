@@ -2977,6 +2977,24 @@
         "rule": "RELEASE-HARD-GATE:before every affected release promotion,automatic offline-capable tests must pass for all Python/TypeScript/C/C++/CSharp/SQL boundaries; API:versioned request/response/event/error schemas+generated-client parity+backward/forward compatibility; ABI:gptbridge_native.h layout+calling convention+symbol allowlist+opaque-handle ownership+status translation+Python>pybind11>C API>C thunk>C++ call-path proof; SCHEMA:TypeScript/Python payload hashes+SQL migration/read-write compatibility+PostgreSQL/Qdrant contract versions and rollback; FALLBACK:Python fallback behavioral/golden parity+failure activation criteria+no silent capability loss; CSHARP-WINDOWS:CLR/Windows adapter interface+marshalling+encoding+bitness+thread/apartment+lifecycle+error+cleanup parity on supported Windows targets; TEST-LEVELS:compile+type+static contract+unit+integration+failure injection+golden equivalence+sanitizer where native+packaged-artifact smoke; EVIDENCE:release-id+artifact hashes+toolchain versions+test identities+results+logs+coverage+platform matrix+timestamp+independent verifier; ATOMICITY:all mandatory gates join into one release verdict and any missing/stale/skipped/failed item blocks promotion while current certified release continues; OWNER:星澄 coordinates tests and independent review,permission-sovereign validates scope,synchronization-sovereign preserves channel/release state,and registered test modules execute.",
         "prohibition": "FORBID:release-before-boundary-tests+manual assertion as pass+unit-only acceptance+mock-only ABI proof+schema drift+fallback untested+CSharp/Windows interop omission+partial platform evidence+stale cached result+warning coercion+test disable/skip+promotion on incomplete join+self-reported success by changed module.",
         "exception": "An unaffected boundary may reuse content-addressed evidence only when artifact+contract+toolchain+platform hashes are identical and the release verifier proves zero affected dependency edges; time-based reuse alone is forbidden."
+      },
+      {
+        "position": 341,
+        "provision_id": "A341",
+        "section_index": "16",
+        "subject": "exclusive-language-capability-owner-and-caller-matrix",
+        "rule": "MATRIX:{system-orchestration=>owner:Python;callers:TypeScript+CSharp+C++ adapters;deny:TypeScript/CSharp/C++ second orchestration}+{UI-state-and-presentation=>owner:TypeScript;caller:Python API data provider;deny:Python DOM control}+{Native-ABI=>owner:C;callers:Python+CSharp+pybind11;deny:public C++ ABI}+{high-performance-algorithms=>owner:C++;callers:C ABI and pybind11 only through A339 canonical C-API/C-thunk path;deny:C/Python duplicate high-performance implementation}+{Windows-DotNET=>owner:CSharp;callers:Python+C ABI;deny:CSharp cross-platform domain logic}+{relational-data-operation=>owner:SQL;caller:Python;deny:Python fetch-all-then-filter}+{business-semantics=>owner:Python;callers:UI+API;deny:SQL/C++ independent business judgment}; UNIQUENESS:each capability has exactly one authoritative language owner and callers are adapters/consumers only; CALL-PATH:every cross-language call is typed+versioned+tested and A339+A340 govern native path and release evidence; FALLBACK:a fallback preserves behavior but cannot become a second active owner; CHANGE:owner transfer requires successor law+affected graph+atomic migration+old-owner removal+release hard gate.",
+        "prohibition": "FORBID:dual owner+adapter accumulating orchestration/domain policy+Python controlling DOM+C++ ABI exposure+C/Python duplicate performance kernel+CSharp portable business logic+Python unbounded relational filtering+SQL/C++ business decision+direct cross-language bypass+self-declared capability ownership.",
+        "exception": "Generated bindings and thin adapters may translate types/errors/lifetimes only; they own no orchestration,algorithm,semantic policy,state authority or duplicate implementation."
+      },
+      {
+        "position": 342,
+        "provision_id": "A342",
+        "section_index": "16",
+        "subject": "canonical-python-application-domain-infrastructure-architecture",
+        "rule": "PYTHON-ROOT:every governed Python implementation module is classified under exactly one registered internal layer:application|domain|infrastructure; APPLICATION:application/orchestration+application/use_cases own system orchestration,use-case sequencing,transactions,authorization requests and port invocation but no business-rule truth or concrete I/O adapter; DOMAIN:domain/semantic_policy+domain/business_rules own business meaning,invariants,entities,value objects and deterministic policy with no UI/database/filesystem/network/native/framework/process dependency; INFRASTRUCTURE:infrastructure/database+infrastructure/native+infrastructure/filesystem+infrastructure/external_adapters own concrete persistence,C ABI/native bridge,file I/O and governed external adapters but no business judgment or system orchestration; DEPENDENCY-DIRECTION:domain imports neither application nor infrastructure; application imports domain and declared abstract ports only; infrastructure implements declared ports and may import domain value types/application port contracts without importing use-case orchestration; COMPOSITION-ROOT:one registered startup/composition entry wires implementations to ports and contains no domain logic; API/UI:transport adapters call application use cases and never domain persistence directly; SQL:infrastructure database adapters submit bounded set-based SQL under A341; NATIVE:infrastructure native adapters use A339 only; EXTERNAL:all network access remains governed tool/channel path; FILE-LAYOUT:layer directory names are canonical under each registered Python source root and each module has one layer owner; TESTS:domain pure unit tests+application use-case/port tests+infrastructure integration/contract tests+architecture import-cycle/forbidden-edge checker; MIGRATION:inventory existing Python modules>classify by dominant responsibility>split mixed modules>rewrite imports through ports>remove old path in same certified release.",
+        "prohibition": "FORBID:fourth/catchall Python layer+common/shared/util as hidden owner+domain importing application/infrastructure/framework+application concrete database/filesystem/native/external calls+infrastructure business policy/orchestration+UI calling repository directly+cross-layer mutable global+runtime path alias hiding wrong layer+temporary duplicate module after migration+release with forbidden import edge or unclassified Python file.",
+        "exception": "Package __init__,typed DTO/schema and composition-root files may sit at a registered layer boundary only with an explicit boundary identity,no behavior beyond export/wiring,and checker evidence proving no hidden ownership."
       }
     ],
     "certification_evidence": [
@@ -3732,7 +3750,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H051",
+        "history_head": "H052",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -11936,6 +11954,18 @@
         "provision_id": "A340",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A341",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A342",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -11994,14 +12024,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H051",
-        "provision_count": 586,
-        "identity_count": 586,
-        "lineage_count": 586,
+        "history_head": "H052",
+        "provision_count": 588,
+        "identity_count": 588,
+        "lineage_count": 588,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "caa7dc487593964f1cb32ea314f32c186e78a0901603608aadc4db74ec49f430",
-        "identity_root": "d0c2694043b3ffc0af892f5d999d9bd81c8aee1dba6e87492d15b4ffbaf68fa2",
-        "full_root": "6079c6a882efe3e64b670dc2c26ebe2de0f80da966ae82634a285158cff66c48",
+        "content_root": "774503bc0595d39b462e4290b26cb5839d8fb6910ebc0c2ff65e26f4f8d1d493",
+        "identity_root": "b603469de3bc2793704ae264adc6927cf7140879cd8c706f8ccfe52fefc4c163",
+        "full_root": "b670c6af8372e179b5433c6337d65eff4891de969aad93bb00017a7bfc9c769e",
         "legacy_history_head": null
       }
     ],
@@ -17094,7 +17124,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H051"
+        "value": "H052"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17119,6 +17149,14 @@
       {
         "key": "cross_language_release_gate",
         "value": "mandatory automatic API+ABI+schema+fallback+CSharp-Windows interop verification"
+      },
+      {
+        "key": "exclusive_language_capability_matrix",
+        "value": "A341"
+      },
+      {
+        "key": "python_internal_architecture",
+        "value": "application|domain|infrastructure"
       }
     ],
     "module_assignment_registry": [
@@ -22648,6 +22686,20 @@
         "provision_id": "A340",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A341",
+        "provision_type": "article",
+        "provision_id": "A341",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A342",
+        "provision_type": "article",
+        "provision_id": "A342",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -26752,6 +26804,20 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A175|A208|A211|A214|A215|A221|A240"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A341",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A35|A208|A211|A215|A240|A339|A340"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A342",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A35|A208|A211|A215|A240|A339|A340"
       }
     ],
     "provision_lifecycle_status": [
@@ -31338,6 +31404,22 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H051+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A341",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H052+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A342",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H052+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36028,6 +36110,22 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "1f98f532a0b3ccefb4d3b5dbd3fb067d39b46d7eb40481c1d91e9461d99282df"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A341",
+        "introduced_by": "H052",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "9f82d16c9e8ab303e48f523a4a2005df392e413a9a2d7de5cd50b001a7463829"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A342",
+        "introduced_by": "H052",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f4953a6c729b0206cf5e447a31902a3161e8c4fedf6a6298d2ab99c2189d7b41"
       }
     ],
     "provision_revisions": [
@@ -46695,6 +46793,24 @@
         "content_hash": "1f98f532a0b3ccefb4d3b5dbd3fb067d39b46d7eb40481c1d91e9461d99282df",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A341",
+        "revision_id": "H052",
+        "version": "1.00000",
+        "content_hash": "9f82d16c9e8ab303e48f523a4a2005df392e413a9a2d7de5cd50b001a7463829",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A342",
+        "revision_id": "H052",
+        "version": "1.00000",
+        "content_hash": "f4953a6c729b0206cf5e447a31902a3161e8c4fedf6a6298d2ab99c2189d7b41",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -51457,6 +51573,26 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A341",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A342",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -52020,6 +52156,17 @@
         "previous_hash": "689cf264bb37baf82a8a8a6a060e5bbb4c62c472204bb9edb954ca9481bbba62",
         "entry_hash": "5a40b04faa33b834fb3eee2633a9fa8ddb91769413dd57b8b6b885daafd118e1",
         "version_epoch": 2
+      },
+      {
+        "sequence": 52,
+        "change_id": "H052",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "exclusive-language-capability-and-python-layer-architecture",
+        "summary": "Established the exclusive seven-capability language ownership and caller matrix; fixed Python internal architecture to application/domain/infrastructure with one-way dependency, ports/adapters, composition-root and migration gates. Preserved the canonical pybind11>C API>C thunk>C++ path and prohibited duplicate orchestration, high-performance and business-semantic owners. Version remains E2:1.00000.",
+        "previous_hash": "5a40b04faa33b834fb3eee2633a9fa8ddb91769413dd57b8b6b885daafd118e1",
+        "entry_hash": "08527b626094b3d3e1e896bdca06a2fc031cbafe7471795dfaa46eb320aabb75",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -52576,14 +52723,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H051",
-        "provision_count": 586,
-        "identity_count": 586,
-        "lineage_count": 586,
+        "history_head": "H052",
+        "provision_count": 588,
+        "identity_count": 588,
+        "lineage_count": 588,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "caa7dc487593964f1cb32ea314f32c186e78a0901603608aadc4db74ec49f430",
-        "identity_root": "d0c2694043b3ffc0af892f5d999d9bd81c8aee1dba6e87492d15b4ffbaf68fa2",
-        "full_root": "6079c6a882efe3e64b670dc2c26ebe2de0f80da966ae82634a285158cff66c48",
+        "content_root": "774503bc0595d39b462e4290b26cb5839d8fb6910ebc0c2ff65e26f4f8d1d493",
+        "identity_root": "b603469de3bc2793704ae264adc6927cf7140879cd8c706f8ccfe52fefc4c163",
+        "full_root": "b670c6af8372e179b5433c6337d65eff4891de969aad93bb00017a7bfc9c769e",
         "version_epoch": 2
       }
     ],
