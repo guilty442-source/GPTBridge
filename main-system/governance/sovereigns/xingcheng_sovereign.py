@@ -75,10 +75,10 @@ from core_system.codex_decision import accepted_outcome, refusal_outcome
 _logger = logging.getLogger("gptbridge.sovereign.xingcheng")
 
 # Owned-domain root — matches the codex project_architecture_directory
-# STAR_DIRECTORY physical_root.
-_OWNED_DOMAIN_ROOT = (
-    "E:/GPTBridge/Standalone tools/local-model/model-dialogue/xingcheng"
-)
+# STAR_DIRECTORY physical_root.  Declared project-root-relative and resolved
+# against the live project root at init so checkouts and worktrees that do
+# not live at a fixed absolute location still resolve correctly.
+_OWNED_DOMAIN_ROOT = "Standalone tools/local-model/model-dialogue/xingcheng"
 
 # Domain health thresholds.
 _DB_MAX_SIZE_BYTES = 500 * 1024 * 1024  # 500 MB
@@ -205,7 +205,15 @@ class XingchengSovereign(SovereignBase):
 
     def __init__(self, app: Any | None = None) -> None:
         super().__init__(app)
-        self._owned_domain_root = _OWNED_DOMAIN_ROOT
+        app_root = getattr(self.app, "project_root", None)
+        self._project_root = (
+            Path(app_root).resolve()
+            if app_root
+            else Path(__file__).resolve().parents[3]
+        )
+        self._owned_domain_root = (
+            self._project_root / _OWNED_DOMAIN_ROOT
+        ).as_posix()
         self._isolated = True
         # Auto-automation state (A20 full-automation upgrade).
         self._auto_loop_task: asyncio.Task[Any] | None = None
@@ -1023,10 +1031,14 @@ class XingchengSovereign(SovereignBase):
 
     def _is_in_owned_domain(self, request: SovereignRequest) -> bool:
         """A20: 驗證請求目標在自有域內，禁止系統目標。"""
-        target = request.payload.get("target", "")
+        target = str(request.payload.get("target", "")).replace("\\", "/")
         if target.startswith(self._owned_domain_root):
             return True
-        if target.startswith("E:/GPTBridge/main-system") or target.startswith("E:/GPTBridge/governance_rule"):
+        system_roots = (
+            (self._project_root / "main-system").as_posix(),
+            (self._project_root / "governance_rule").as_posix(),
+        )
+        if any(target.startswith(root) for root in system_roots):
             return False
         return request.payload.get("domain_confirmed") is True
 

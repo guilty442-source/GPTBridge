@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import secrets
 import socket
@@ -198,42 +199,23 @@ class EnvironmentMixin:
         isolated_tool_root = tool_dir.resolve()
         isolated_data_root = isolated_tool_root / "runtime"
         cache_root = isolated_data_root / "cache"
-        cache_owner_root = isolated_tool_root
-        shared_cache_owner = str(
-            (manifest.get("shared_cache_owner") or "")
-            if isinstance(manifest, dict)
-            else ""
-        ).strip()
         host_owner = str(manifest.get("host_tool_id") or "").strip()
-        manifest_tool_id = str(manifest.get("id") or "").strip()
-        # Companion tool: use declaring host's cache storage
-        # Non-companion tool: use own runtime/cache/companions/tool_id
         if host_owner:
-            # Companion tool: find declaring host and use its cache storage
-            declaring_host_id = None
-            if tool_dir.name == "model-dialogue":
-                declaring_host_id = "local-model"
-            elif tool_dir.parent.name == "local-model":
-                declaring_host_id = "local-model"
-            if declaring_host_id:
-                try:
-                    host_dir = self._tool_directory_for_id(declaring_host_id)
-                    host_manifest_path = host_dir / "manifest.json"
-                    if host_manifest_path.is_file():
-                        import json
-                        host_manifest = json.loads(host_manifest_path.read_text(encoding="utf-8"))
-                        host_cache_storage = str(host_manifest.get("cache_storage") or "").strip()
-                        if declaring_host_id == "local-model":
-                            host_cache_storage = "runtime/cache"
-                        if host_cache_storage:
-                            cache_root = (host_dir / host_cache_storage / "companions" / tool_id).resolve()
-                            cache_root = self._validated_tool_path(
-                                host_dir,
-                                cache_root,
-                                label="Companion tool cache storage",
-                            )
-                except (OSError, json.JSONDecodeError, ValueError):
-                    pass  # Fall back to default
+            # Companion tool: resolve the declaring top-level host directory
+            # dynamically (physical_owner_root / tool location) and read the
+            # host manifest's cache_storage — no hardcoded host names.
+            try:
+                host_dir = self._companion_host_dir(manifest, tool_dir)
+                if host_dir is not None:
+                    cache_root = self._validated_tool_path(
+                        host_dir,
+                        host_dir.joinpath(
+                            *self._companion_cache_parts(host_dir, tool_id)
+                        ),
+                        label="Companion tool cache storage",
+                    )
+            except (OSError, json.JSONDecodeError, ValueError):
+                pass  # Fall back to default
         else:
             # Non-companion tool: use own runtime/cache/companions/tool_id
             cache_root = (isolated_tool_root / "runtime" / "cache" / "companions" / tool_id).resolve()
@@ -319,6 +301,76 @@ class EnvironmentMixin:
         for key in managed_keys:
             child_env.pop(key, None)
         return child_env
+
+    # ------------------------------------------------------------------
+    # Companion cache resolution (manifest-driven)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _read_tool_manifest(tool_dir: Path) -> Dict[str, Any]:
+        try:
+            data = json.loads(
+                (tool_dir / "manifest.json").read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _companion_host_dir(
+        self, manifest: Dict[str, Any], tool_dir: Path
+    ) -> Path | None:
+        """Resolve the declaring top-level host directory of a companion tool.
+
+        The companion's ``physical_owner_root`` is a tools-dir-relative path
+        whose leading component is the host's directory; when the field is
+        absent, the tool's own location under the tools directory supplies
+        the host instead.  The host must carry a manifest to be accepted.
+        """
+        physical_root = str(manifest.get("physical_owner_root") or "").strip()
+        parts = [
+            part
+            for part in physical_root.replace("\\", "/").split("/")
+            if part and part not in {".", ".."}
+        ]
+        host_name = parts[0] if parts else ""
+        if not host_name:
+            try:
+                host_name = tool_dir.resolve().relative_to(
+                    self.tools_dir.resolve()
+                ).parts[0]
+            except (IndexError, ValueError):
+                return None
+        host_dir = (self.tools_dir / host_name).resolve()
+        try:
+            host_dir.relative_to(self.tools_dir.resolve())
+        except ValueError:
+            return None
+        if not (host_dir / "manifest.json").is_file():
+            return None
+        return host_dir
+
+    def _companion_cache_parts(
+        self, host_dir: Path, tool_id: str
+    ) -> list[str]:
+        """Return the host-relative cache path parts for a companion tool.
+
+        The host manifest declares ``cache_storage`` as
+        ``<host-name>/<path under host>``; the leading host component is
+        dropped and ``companions/<tool_id>`` is appended.
+        """
+        host_manifest = self._read_tool_manifest(host_dir)
+        host_id = str(host_manifest.get("id") or host_dir.name).strip()
+        raw_storage = str(host_manifest.get("cache_storage") or "").strip()
+        parts = [
+            part
+            for part in raw_storage.replace("\\", "/").split("/")
+            if part and part not in {".", ".."}
+        ]
+        if parts and parts[0] in {host_id, host_dir.name}:
+            parts = parts[1:]
+        if not parts:
+            parts = ["runtime", "cache"]
+        return [*parts, "companions", tool_id]
 
     # ------------------------------------------------------------------
     # Argument / request-id validation
