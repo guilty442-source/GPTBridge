@@ -40,6 +40,16 @@ class BackendGateway:
         with self._target_lock:
             return self._target
 
+    @property
+    def is_running(self) -> bool:
+        thread = self._thread
+        return bool(
+            thread is not None
+            and thread.is_alive()
+            and self._listener is not None
+            and not self._stop.is_set()
+        )
+
     def start(self) -> None:
         if self._thread is not None and self._thread.is_alive():
             return

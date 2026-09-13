@@ -355,6 +355,24 @@ class BootCore(PhaseMixin, GovernanceMixin):
             if self._child is None or self._child.poll() is not None:
                 break
             healthy = self._probe_health()
+            if healthy and not self._probe_health(HEALTH_PROBE_PORT):
+                # The backend generation can remain healthy while the stable
+                # frontend gateway's accept loop or listener has failed.  In
+                # that case repair only the gateway; never recycle or overwrite
+                # the healthy backend generation.
+                self._gateway.stop()
+                try:
+                    self._gateway.start()
+                    if self._active_backend_port is not None:
+                        self._gateway.activate(
+                            self._active_backend_port, self._active_generation
+                        )
+                    healthy = self._probe_health(HEALTH_PROBE_PORT)
+                except OSError as error:
+                    healthy = False
+                    self._last_exit = {
+                        "error": f"gateway-recovery-failed: {type(error).__name__}: {error}"
+                    }
             if healthy:
                 self._unhealthy_since = None
             elif self._unhealthy_since is None:

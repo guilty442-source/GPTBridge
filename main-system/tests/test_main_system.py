@@ -2649,6 +2649,8 @@ def test_backend_gateway_and_watcher_use_atomic_ab_handover() -> None:
     assert "class BackendGateway" in gateway
     assert "BACKEND_GENERATION_PORTS" in boot
     assert "self._gateway.activate(standby_port, generation)" in boot
+    assert "healthy and not self._probe_health(HEALTH_PROBE_PORT)" in boot
+    assert "def is_running(self) -> bool:" in gateway
     assert "standby-readiness-failed" in boot
     assert "backend-update-request.json" in watcher
     assert '"terminal_status": "prepared"' in watcher
