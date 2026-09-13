@@ -95,6 +95,15 @@ _CHILD_ATTRIBUTE_MAP: dict[str, str] = {
     "system_programming_sovereign": "release-update-sync-sub-sovereign",
 }
 
+# A330 terminal statuses — used by certified_update_status() to
+# distinguish active vs terminal operations.
+_TERMINAL_STATUSES: frozenset[str] = frozenset({
+    "global-success",
+    "failed-isolated",
+    "rolled-back",
+    "partial-deferred",
+})
+
 
 class DecisionSovereign(SovereignBase):
     """決策主宰：啟動堆疊裁決/派工、維修決策、子主宰擁有者（不執行）。
@@ -173,19 +182,12 @@ class DecisionSovereign(SovereignBase):
 
     def _parent_for(self, child_id: str) -> Any | None:
         """A334: resolve a child identity to its codex-registered parent."""
-        from governance.registries import parent_of
+        from governance.registries import parent_of, resolve_sovereign
 
-        app = self.app
-        return {
-            "decision-sovereign": self,
-            "permission-sovereign": getattr(app, "permission_sovereign", None),
-            "synchronization-sovereign": getattr(
-                app, "synchronization_sovereign", None
-            ),
-            "system-runtime-sovereign": getattr(
-                app, "system_runtime_sovereign", None
-            ),
-        }.get(parent_of(child_id))
+        parent_id = parent_of(child_id)
+        if parent_id == self.sovereign_id:
+            return self
+        return resolve_sovereign(self.app, parent_id)
 
     def _child(self, child_id: str) -> Any:
         """Resolve a child through its codex-registered parent's registry."""
@@ -196,13 +198,15 @@ class DecisionSovereign(SovereignBase):
 
     def _all_children(self) -> dict[str, Any]:
         """All materialized children across every parent's registry."""
+        from governance.registries import hierarchy_status, resolve_sovereign
+
         merged: dict[str, Any] = {}
-        for parent in (
-            self,
-            getattr(self.app, "permission_sovereign", None),
-            getattr(self.app, "synchronization_sovereign", None),
-            getattr(self.app, "system_runtime_sovereign", None),
-        ):
+        for parent_id in hierarchy_status()["parents"]:
+            parent = (
+                self
+                if parent_id == self.sovereign_id
+                else resolve_sovereign(self.app, parent_id)
+            )
             if parent is not None:
                 merged.update(getattr(parent, "_sub_sovereigns", {}))
         return merged
@@ -270,18 +274,56 @@ class DecisionSovereign(SovereignBase):
     async def _adjudicate_repair_decision(
         self, request: SovereignRequest
     ) -> SovereignOutcome:
-        """A152/A154/E127/E128: 維修決策鏈。"""
+        """A152/A154/E127/E128: 維修決策鏈。
+
+        Routes the classified signal through the repair decision chain
+        (permission validation → governed executor → verification).
+        The decision-sovereign owns the decision; the chain executes
+        the routing.  This method returns the chain's verdict — it does
+        not execute the repair itself (A63/A64).
+        """
         classified_signal = request.payload.get("classified_signal")
         if not classified_signal:
             return refusal_outcome("MISSING_CLASSIFIED_SIGNAL", self.verified_basis("A152"))
 
-        repair_type = classified_signal.get("repair_type", "unknown")
+        if not isinstance(classified_signal, dict):
+            return refusal_outcome(
+                "INVALID_CLASSIFIED_SIGNAL",
+                self.verified_basis("A152", "A154"),
+            )
+
+        # A152/E128: route through the repair decision chain.
+        # The chain performs permission validation and dispatches to the
+        # governed executor; the decision-sovereign owns the decision.
+        try:
+            result = self._repair_decision_chain.decide_and_route(classified_signal)
+        except Exception as error:
+            return refusal_outcome(
+                "REPAIR_CHAIN_ERROR",
+                self.verified_basis("A152", "E128"),
+            )
+
+        if not isinstance(result, dict):
+            return refusal_outcome(
+                "REPAIR_CHAIN_INVALID_RESULT",
+                self.verified_basis("A152"),
+            )
+
+        if not result.get("authorized", False):
+            # Permission denied or chain failed — return the chain's
+            # verdict as a refusal so the caller sees the reason.
+            reason = result.get("reason", "REPAIR_NOT_AUTHORIZED")
+            return refusal_outcome(
+                reason,
+                self.verified_basis("A152", "A154", "E128"),
+            )
 
         return accepted_outcome(
             {
                 "repair_decision": "authorized",
-                "repair_type": repair_type,
+                "repair_type": classified_signal.get("repair_type", "unknown"),
                 "route": "permission-validation > governed-executor > verification",
+                "chain_result": result,
                 "forbidden": "maintenance-owning-non-health-decisions",
             },
             self.verified_basis("A152", "A154", "E127", "E128"),
@@ -320,33 +362,59 @@ class DecisionSovereign(SovereignBase):
             return refusal_outcome(
                 "MISSING_ARTIFACT_HASHES", self.verified_basis("A152", "A330")
             )
+        # A330: operation_id is required (one per operation, fail-closed).
+        operation_id = str(request.payload.get("operation_id") or "")
+        if not operation_id:
+            return refusal_outcome(
+                "MISSING_OPERATION_ID", self.verified_basis("A152", "A330")
+            )
+        # Reject duplicate operation-ids (idempotent replay guard).
+        if operation_id in self._certified_updates:
+            existing = self._certified_updates[operation_id]
+            existing_status = existing.get("terminal_status", "")
+            if existing_status in _TERMINAL_STATUSES:
+                # Already terminal — return the recorded result (idempotent).
+                return accepted_outcome(
+                    {
+                        "repair_decision": "authorized",
+                        "update_type": update_type,
+                        "operation_id": operation_id,
+                        "terminal_status": existing_status,
+                        "idempotent_replay": True,
+                    },
+                    self.verified_basis("A152", "A154", "A330"),
+                )
+            # In-flight duplicate — refuse (concurrent coordinator guard).
+            return refusal_outcome(
+                "OPERATION_IN_FLIGHT", self.verified_basis("A152", "A330")
+            )
 
         # Delegate A330 execution adjudication to the synchronization
-        # sovereign — the sole holder of A330 execution power (A301/A322).
-        synchronization = getattr(self.app, "synchronization_sovereign", None)
-        if synchronization is None:
-            return refusal_outcome(
-                "SYNCHRONIZATION_SOVEREIGN_UNAVAILABLE",
-                self.verified_basis("A152", "A330", "A301"),
-            )
-        sync_outcome = await synchronization._adjudicate_A330_certified_update(
+        # sovereign — the sole holder of A330 execution power (A301/A322) —
+        # through its single entry gate so the requester/intent checks run
+        # instead of bypassing them with a private method call.
+        sync_outcome = await self.delegate_to(
+            "synchronization-sovereign",
             SovereignRequest(
                 intent="A330.certified-update",
                 subject=request.subject,
                 requester=request.requester,
                 payload=request.payload,
-            )
+            ),
         )
         if not sync_outcome.accepted:
+            if sync_outcome.refusal and sync_outcome.refusal.reason_code == (
+                "TARGET_SOVEREIGN_UNAVAILABLE"
+            ):
+                return refusal_outcome(
+                    "SYNCHRONIZATION_SOVEREIGN_UNAVAILABLE",
+                    self.verified_basis("A152", "A330", "A301"),
+                )
             return sync_outcome
 
         # Record the operation for lifecycle tracking.  The decision-sovereign
         # tracks the decision state; execution state is owned by boot_core
         # and the synchronization-sovereign.
-        operation_id = str(
-            request.payload.get("operation_id")
-            or f"{update_type}-{int(time.monotonic() * 1000)}"
-        )
         self._certified_updates[operation_id] = {
             "operation_id": operation_id,
             "update_type": update_type,
@@ -382,6 +450,14 @@ class DecisionSovereign(SovereignBase):
 
         if sub_sovereign not in children_of("decision-sovereign"):
             return refusal_outcome("UNKNOWN_SUB_SOVEREIGN", self.verified_basis("A130", "A334"))
+
+        # A10: validate the action against the explicit allowlist.
+        valid_actions = {"start", "stop", "coordinate", "assign", "status"}
+        if action not in valid_actions:
+            return refusal_outcome(
+                "INVALID_ACTION",
+                self.verified_basis("A10", "A130"),
+            )
 
         return accepted_outcome(
             {
@@ -488,31 +564,45 @@ class DecisionSovereign(SovereignBase):
 
     def record_certified_update_status(
         self, operation_id: str, terminal_status: str, **detail: Any
-    ) -> None:
+    ) -> bool:
         """Update a tracked certified-update operation's terminal status.
 
         Called by the governed executor or synchronization-sovereign when
-        a certified update reaches a terminal state (converged, failed,
-        rolled-back, partial-deferred).  The decision-sovereign records
-        the outcome for lifecycle reporting but does not execute anything.
+        a certified update reaches a terminal state (global-success,
+        failed-isolated, rolled-back, partial-deferred).  The
+        decision-sovereign records the outcome for lifecycle reporting
+        but does not execute anything.  Returns True if the operation
+        was found and updated; False if the operation_id is unknown or
+        the terminal_status is invalid (fail-closed, A11).
         """
         record = self._certified_updates.get(operation_id)
         if record is None:
-            return
+            return False
+        if terminal_status not in _TERMINAL_STATUSES:
+            return False
+        if record.get("terminal_status") in _TERMINAL_STATUSES:
+            # Already terminal — idempotent replay, do not overwrite.
+            return False
         record["terminal_status"] = terminal_status
         record["updated_at"] = _iso_now()
         record.update(detail)
+        return True
 
     def certified_update_status(self) -> dict[str, Any]:
         """Read-only lifecycle status of tracked certified-update operations."""
+        active = [
+            record
+            for record in self._certified_updates.values()
+            if record.get("terminal_status") not in _TERMINAL_STATUSES
+        ]
+        recent = [
+            record
+            for record in self._certified_updates.values()
+            if record.get("terminal_status") in _TERMINAL_STATUSES
+        ][-8:]
         return {
-            "active_operations": [
-                record
-                for record in self._certified_updates.values()
-                if record.get("terminal_status")
-                not in ("converged", "failed-isolated", "rolled-back", "partial-deferred")
-            ],
-            "recent_operations": list(self._certified_updates.values())[-8:],
+            "active_operations": active,
+            "recent_terminal": recent,
             "total_tracked": len(self._certified_updates),
         }
 
@@ -551,7 +641,12 @@ class DecisionSovereign(SovereignBase):
             "health_owner": "health-maintenance-test-sub-sovereign",
             "governance_rules": self.governance_rule_coordination.coordination_status(),
             "certified_updates": self.certified_update_status(),
-            "runtime": self._child_status("runtime-state-sync-sub-sovereign"),
+            "runtime-state-sync": self._child_status("runtime-state-sync-sub-sovereign"),
+            "resource-dependency-sync": self._child_status("resource-dependency-sync-sub-sovereign"),
+            "data-governance": self._child_status("data-governance-sub-sovereign"),
+            "channel-contract-sync": self._child_status("channel-contract-sync-sub-sovereign"),
+            "language-review": self._child_status("language-review-sub-sovereign"),
+            "dependency-sync": self._child_status("dependency-sync-sub-sovereign"),
             "maintenance": (
                 maintenance_sovereign.live_status()
                 if maintenance_sovereign is not None
@@ -562,11 +657,6 @@ class DecisionSovereign(SovereignBase):
                 if permission_sovereign is not None
                 else {"enabled": False}
             ),
-            "resource": self._child_status("resource-dependency-sync-sub-sovereign"),
-            "data": self._child_status("data-governance-sub-sovereign"),
-            "integration": self._child_status("channel-contract-sync-sub-sovereign"),
-            "language_review": self._child_status("language-review-sub-sovereign"),
-            "third_party": self._child_status("dependency-sync-sub-sovereign"),
         }
 
     def live_status(self) -> dict[str, Any]:
@@ -624,7 +714,7 @@ class DecisionSovereign(SovereignBase):
             },
             "health_owner": "health-maintenance-test-sub-sovereign",
             "governance_rules": self.governance_rule_coordination.orchestration_status(),
-            "runtime": self._child_status(
+            "runtime-state-sync": self._child_status(
                 "runtime-state-sync-sub-sovereign", "orchestration_status"
             ),
             "maintenance": (
@@ -637,19 +727,19 @@ class DecisionSovereign(SovereignBase):
                 if permission_sovereign is not None
                 else {"enabled": False}
             ),
-            "resource": self._child_status(
+            "resource-dependency-sync": self._child_status(
                 "resource-dependency-sync-sub-sovereign", "orchestration_status"
             ),
-            "data": self._child_status(
+            "data-governance": self._child_status(
                 "data-governance-sub-sovereign", "orchestration_status"
             ),
-            "integration": self._child_status(
+            "channel-contract-sync": self._child_status(
                 "channel-contract-sync-sub-sovereign", "orchestration_status"
             ),
-            "language_review": self._child_status(
+            "language-review": self._child_status(
                 "language-review-sub-sovereign", "orchestration_status"
             ),
-            "third_party": self._child_status(
+            "dependency-sync": self._child_status(
                 "dependency-sync-sub-sovereign", "orchestration_status"
             ),
             "subsystems": [
