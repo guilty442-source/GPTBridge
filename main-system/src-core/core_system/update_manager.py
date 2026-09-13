@@ -737,7 +737,22 @@ class UpdateManager:
             _logger.error(f"Rollback failed: {e}")
 
     async def start_auto_update(self) -> None:
-        """Start automatic update checking."""
+        """Start automatic update checking.
+
+        User directive: automatic updates must not execute without explicit
+        user confirmation.  While ``automatic_update_execution`` is
+        disabled, update intents are queued by the hot-reload watcher as
+        pending actions and this loop stays off.
+        """
+        from core_system.auto_action_policy import (
+            automatic_update_execution_allowed,
+        )
+
+        if not automatic_update_execution_allowed():
+            _logger.info(
+                "Auto-update loop disabled: updates await user confirmation"
+            )
+            return
         if self._auto_update_task is not None and not self._auto_update_task.done():
             return
         self._stop_auto.clear()
@@ -769,6 +784,17 @@ class UpdateManager:
         """
         while not self._stop_auto.is_set():
             try:
+                # User-confirmation gate: refresh the hash baseline but do
+                # not emit automatic updates while execution is disabled.
+                from core_system.auto_action_policy import (
+                    automatic_update_execution_allowed,
+                )
+
+                if not automatic_update_execution_allowed():
+                    await asyncio.to_thread(self._detect_source_changes)
+                    await asyncio.sleep(self.check_interval_seconds)
+                    continue
+
                 # Pre-update health check — only trigger updates when healthy.
                 health = await self.health.run_all_checks()
                 if not all(h.passed for h in health.values()):

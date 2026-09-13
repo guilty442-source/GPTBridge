@@ -440,6 +440,14 @@ class GPTBridgeApp:
             self._shutdown_complete.set()
 
     async def _shutdown_once(self) -> None:
+        # Stop the tool isolation health monitor first — every tool exit
+        # from this point on is an intentional shutdown or a governed
+        # generation replacement, never a crash worth recording.
+        try:
+            from core_system.tool_isolation import get_isolation_manager
+            get_isolation_manager().stop_monitor()
+        except Exception:
+            pass
         toolbox = self.toolbox_service
         if toolbox is not None:
             for record in toolbox._load_manifest_records():
@@ -513,12 +521,6 @@ class GPTBridgeApp:
                 await _service.stop()
             except Exception:
                 pass
-        # Stop the tool isolation health monitor.
-        try:
-            from core_system.tool_isolation import get_isolation_manager
-            get_isolation_manager().stop_monitor()
-        except Exception:
-            pass
         watcher = self.hot_reload_watcher
         if watcher is not None:
             await watcher.stop()

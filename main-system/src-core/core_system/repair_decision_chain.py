@@ -60,7 +60,12 @@ class RepairDecisionChain:
     # Public entry point
     # ------------------------------------------------------------------
 
-    def decide_and_route(self, classified_signal: dict[str, Any]) -> dict[str, Any]:
+    def decide_and_route(
+        self,
+        classified_signal: dict[str, Any],
+        *,
+        user_confirmed: bool = False,
+    ) -> dict[str, Any]:
         """Make the repair decision and route through the governed chain.
 
         ``classified_signal`` is the health classification produced by the
@@ -68,7 +73,24 @@ class RepairDecisionChain:
         method owns the repair DECISION (A152) — whether the fault is
         repairable under current policy — and the routing through
         permission validation and governed execution.
+
+        User-confirmation gate: while ``automatic_repair_execution`` is
+        disabled, no repair is decided or executed here unless the call
+        carries ``user_confirmed=True`` (an explicit per-item confirmation
+        that also required the operator release switch).
         """
+        from .auto_action_policy import automatic_repair_execution_allowed
+
+        if not automatic_repair_execution_allowed() and not user_confirmed:
+            return {
+                "ok": False,
+                "decision": "awaiting-user-confirmation",
+                "reason": (
+                    "automatic repair execution is disabled; "
+                    "confirm this fault in the assistant panel"
+                ),
+                **classified_signal,
+            }
 
         # ── Step 1: repair decision ──
         decision = self._decide_repairable(classified_signal)

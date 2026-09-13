@@ -43,9 +43,21 @@ interface SovereignSnapshot {
   permission?: Record<string, unknown>
 }
 
+export interface PendingActionApproval {
+  action_id?: string
+  kind?: string
+  summary?: string
+  detail?: Record<string, unknown>
+  status?: string
+  created_at?: string
+  updated_at?: string
+}
+
 export interface RuntimeStatusPayload {
   maintenance_ready?: boolean
   decision_sovereign?: SovereignSnapshot
+  pending_actions?: PendingActionApproval[]
+  confirmation_release_granted?: boolean
 }
 
 const ROLE_LABELS: Record<string, string> = {

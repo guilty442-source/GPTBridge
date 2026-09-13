@@ -338,7 +338,34 @@ class RepairCoordinator:
             # Process through the full repair chain
             chain_result = self._orchestrator.process_health_signal(signal, actor=owner)
             report.update(chain_result)
-            report["ok"] = chain_result.get("stage") == "complete"
+            if chain_result.get("stage") == "awaiting-user-confirmation":
+                # Automatic repair is frozen: keep one durable record per
+                # fault so the user confirms it individually.
+                request_record["status"] = "awaiting-confirmation"
+                request_record["awaiting_confirmation_at"] = _iso_now()
+                request_record["classified"] = {
+                    "error_type": str(
+                        decision_proof.get("error_type")
+                        or (decision_proof.get("diagnosis") or {}).get("error_type")
+                        or ""
+                    ),
+                    "target_file": str(
+                        (decision_proof.get("diagnosis") or {}).get("file") or ""
+                    ),
+                    "action": str(
+                        (decision_proof.get("diagnosis") or {}).get("action") or ""
+                    ),
+                }
+                requests = self._read_requests()
+                requests.append(request_record)
+                self._write_requests(requests)
+                report["request_id"] = request_id
+                report["ok"] = True
+                report["reason"] = (
+                    "automatic repair frozen; awaiting user confirmation"
+                )
+            else:
+                report["ok"] = chain_result.get("stage") == "complete"
             self.release(owner=owner, failure_code=failure_code)
             return report
 
@@ -358,6 +385,24 @@ class RepairCoordinator:
         # Crash repair: backend is dead, decision-sovereign unavailable.
         # The governance bootstrap attestation IS the decision proof.
         # Execute the repair mutation under the coordination lock.
+        from core_system.auto_action_policy import (
+            automatic_repair_execution_allowed,
+        )
+
+        if not automatic_repair_execution_allowed():
+            # User directive: automatic repair is frozen.  Record the fault
+            # and wait for individual user confirmation.
+            request_record["status"] = "awaiting-confirmation"
+            request_record["awaiting_confirmation_at"] = _iso_now()
+            requests = self._read_requests()
+            requests.append(request_record)
+            self._write_requests(requests)
+            report["request_id"] = request_id
+            report["ok"] = True
+            report["reason"] = "automatic repair frozen; awaiting user confirmation"
+            self.release(owner=owner, failure_code=failure_code)
+            return report
+
         request_record["status"] = "executing"
         requests = self._read_requests()
         requests.append(request_record)
@@ -410,6 +455,61 @@ class RepairCoordinator:
                 req["sovereign_decision_ok"] = ok
                 break
         self._write_requests(requests)
+
+    def await_user_confirmation(
+        self,
+        request_id: str,
+        *,
+        classified: dict[str, Any] | None = None,
+    ) -> None:
+        """Mark a repair request as awaiting explicit user confirmation.
+
+        User directive: no repair executes automatically.  The request stays
+        in this state (one entry per fault) until the user confirms it from
+        the assistant panel.
+        """
+        requests = self._read_requests()
+        for req in requests:
+            if req.get("request_id") == request_id:
+                req["status"] = "awaiting-confirmation"
+                req["awaiting_confirmation_at"] = _iso_now()
+                if classified is not None:
+                    req["classified"] = classified
+                break
+        self._write_requests(requests)
+
+    def awaiting_confirmation_requests(self) -> list[dict[str, Any]]:
+        """Return repair requests waiting for explicit user confirmation."""
+        return [
+            req for req in self._read_requests()
+            if req.get("status") == "awaiting-confirmation"
+        ]
+
+    def get_request(self, request_id: str) -> dict[str, Any] | None:
+        """Return one repair request by id."""
+        for req in self._read_requests():
+            if req.get("request_id") == request_id:
+                return req
+        return None
+
+    def mark_request_status(
+        self,
+        request_id: str,
+        status: str,
+        **fields: Any,
+    ) -> dict[str, Any] | None:
+        """Update a request's status and optional fields; returns the record."""
+        requests = self._read_requests()
+        updated: dict[str, Any] | None = None
+        for req in requests:
+            if req.get("request_id") == request_id:
+                req["status"] = status
+                req.update(fields)
+                updated = req
+                break
+        if updated is not None:
+            self._write_requests(requests)
+        return updated
 
 
 # Module-level singleton — initialized lazily by the backend on startup.

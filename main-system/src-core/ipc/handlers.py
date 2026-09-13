@@ -39,6 +39,8 @@ MAIN_COMMANDS = {
     "app:get-repair-status",
     "app:hot-reload-backend",
     "app:get-fault-analysis",
+    "app:get-pending-actions",
+    "app:confirm-pending-action",
 }
 
 class CommandRouter:
@@ -379,6 +381,32 @@ class CommandRouter:
                     "error_code": "FAULT_ANALYSIS_FAILED",
                     "message": f"{type(error).__name__}: {error}",
                 }
+
+        # ─── User-confirmation queue (Xingcheng assistant panel) ───────
+        # One queue item per fault or update intent; confirmations execute
+        # a single item and only when the operator release switch allows
+        # it (RELEASE_NOT_GRANTED otherwise).
+        if command == "app:get-pending-actions":
+            from core_system.auto_action_policy import (
+                read_pending_actions,
+                user_confirmation_release_allowed,
+            )
+
+            project_root = getattr(self.app, "project_root", None)
+            actions = read_pending_actions(project_root) if project_root else []
+            return f"{command}_result", {
+                "ok": True,
+                "actions": actions,
+                "release_granted": user_confirmation_release_allowed(),
+            }
+
+        if command == "app:confirm-pending-action":
+            from core_system.confirmation_service import confirm_action
+
+            action_id = str(payload.get("action_id") or "").strip()
+            result = await confirm_action(self.app, action_id)
+            result.setdefault("error_code", "")
+            return f"{command}_result", result
 
         handler_name = TOOL_LIFECYCLE_HANDLERS.get(command)
         if handler_name is not None:

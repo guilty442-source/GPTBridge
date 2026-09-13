@@ -153,6 +153,60 @@ class MaintenanceRepairChainMixin:
         # ── Step 1: health classification (maintenance scope: health-only) ──
         classified = self._classify_health_signal(decision_proof)
 
+        # ── User-confirmation gate (user directive) ──
+        # While automatic repair execution is disabled, classify and queue
+        # the fault for individual confirmation in the assistant panel.
+        # Nothing is decided, permitted, dispatched, or mutated here.
+        from core_system.auto_action_policy import (
+            automatic_repair_execution_allowed,
+            record_pending_action,
+        )
+
+        if not automatic_repair_execution_allowed():
+            try:
+                coordinator.await_user_confirmation(
+                    request_id, classified=classified
+                )
+            except Exception:
+                pass
+            try:
+                project_root = getattr(coordinator, "project_root", None)
+                if project_root is not None:
+                    record_pending_action(
+                        project_root,
+                        kind="repair",
+                        summary=(
+                            f"{request.get('failure_code') or 'fault'}"
+                            f" ({classified.get('error_type') or 'unknown'})"
+                        ),
+                        detail={
+                            "request_id": request_id,
+                            "failure_code": str(request.get("failure_code") or ""),
+                            "owner": str(request.get("owner") or ""),
+                            "classified": classified,
+                            "requested_at": str(request.get("requested_at") or ""),
+                        },
+                        action_id=f"repair-{request_id}",
+                    )
+            except Exception:
+                pass
+            try:
+                asyncio.create_task(
+                    self._notify_ui(
+                        "maintenance:repair-awaiting-confirmation",
+                        {
+                            "request_id": request_id,
+                            "failure_code": str(request.get("failure_code") or ""),
+                            "error_type": str(classified.get("error_type") or ""),
+                            "target_file": str(classified.get("target_file") or ""),
+                            "requires_user_confirmation": True,
+                        },
+                    )
+                )
+            except Exception:
+                pass
+            return
+
         # ── Step 2: delegate repair decision to decision-sovereign ──
         decision_sovereign = getattr(self.app, "decision_sovereign", None)
         if decision_sovereign is None:

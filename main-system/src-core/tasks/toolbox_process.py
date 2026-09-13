@@ -99,12 +99,17 @@ class ProcessMixin:
         owner = str(manifest.get("runtime_owner_tool_id") or "").strip()
         if not owner or owner == tool_id:
             return tool_id
-        declared_owner = str(
-            manifest.get("host_tool_id")
-            or manifest.get("shared_permission_owner")
-            or ""
-        ).strip()
-        if owner != declared_owner:
+        # The runtime owner is declared either as the tool's host or as its
+        # shared permission owner — a physical host folder may host a
+        # companion while a different identity owns the runtime (e.g.
+        # star-chat physically nested under local-model but running on the
+        # xingcheng runtime).
+        declared_owners = {
+            str(manifest.get("host_tool_id") or "").strip(),
+            str(manifest.get("shared_permission_owner") or "").strip(),
+        }
+        declared_owners.discard("")
+        if owner not in declared_owners:
             raise PermissionError("PERMISSION_DENIED")
         try:
             owner_dir = self._tool_directory_for_id(owner)

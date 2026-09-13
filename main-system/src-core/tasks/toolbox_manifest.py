@@ -277,8 +277,21 @@ class ManifestMixin:
         root_direct = self.project_root / tool_id
         if (root_direct / "manifest.json").is_file():
             return self._validated_tool_directory(root_direct)
+        # Use the manifest cache which has the correct path for nested tools.
+        cached = self._manifest_cache.get(tool_id)
+        if cached is not None:
+            _manifest, tool_dir = cached
+            return self._validated_tool_directory(tool_dir)
         # Use the cached index instead of scanning every directory each time.
         index = self._build_tool_dir_index()
+        # _build_tool_dir_index() populates _manifest_cache with the real
+        # directory of every discovered manifest — prefer it so nested
+        # companion tools resolve to their actual path instead of a
+        # nonexistent top-level directory of the same name.
+        cached = self._manifest_cache.get(tool_id)
+        if cached is not None:
+            _cached_manifest, tool_dir = cached
+            return self._validated_tool_directory(tool_dir)
         for dir_name, tid in index.items():
             if tid == tool_id:
                 return self._validated_tool_directory(self.tools_dir / dir_name)

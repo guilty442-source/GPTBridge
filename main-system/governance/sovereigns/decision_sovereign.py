@@ -813,7 +813,12 @@ class DecisionSovereign(SovereignBase):
     # Repair decision (A152/A154/E127/E128)
     # ------------------------------------------------------------------
 
-    def decide_and_route_repair(self, classified_signal: dict[str, Any]) -> dict[str, Any]:
+    def decide_and_route_repair(
+        self,
+        classified_signal: dict[str, Any],
+        *,
+        user_confirmed: bool = False,
+    ) -> dict[str, Any]:
         """A152 repair-decision entry point for the decision-sovereign.
 
         Per A152 (supersedes A67): ``REPAIR-DECISION:decision-sovereign``
@@ -824,8 +829,14 @@ class DecisionSovereign(SovereignBase):
         validation and governed execution (E128):
         ``decision > permission > runtime-or-release-update > executor
         > verification``.
+
+        ``user_confirmed=True`` marks an explicit per-item confirmation
+        from the assistant panel (the operator release switch is checked
+        by the caller before setting it).
         """
-        return self._repair_decision_chain.decide_and_route(classified_signal)
+        return self._repair_decision_chain.decide_and_route(
+            classified_signal, user_confirmed=user_confirmed
+        )
 
     # ------------------------------------------------------------------
     # Certified-update lifecycle tracking (A152/A330 decision-layer)

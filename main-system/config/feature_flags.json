@@ -32,6 +32,18 @@
       "description": "Example: new IPC handler implementation behind feature flag",
       "enabled": false,
       "rollout_percentage": 0
+    },
+    "automatic_repair_execution": {
+      "description": "Execute automatic repairs without explicit user confirmation. Disabled: faults are classified and queued for confirmation in the Xingcheng assistant panel.",
+      "enabled": false
+    },
+    "automatic_update_execution": {
+      "description": "Apply automatic backend/third-party updates without explicit user confirmation. Disabled: update intents are queued for confirmation in the Xingcheng assistant panel.",
+      "enabled": false
+    },
+    "user_confirmation_release": {
+      "description": "Release switch: allows a user-confirmed pending action (repair or update) to execute. While disabled, the assistant panel buttons are wired but every confirmation is refused with RELEASE_NOT_GRANTED.",
+      "enabled": false
     }
   }
 }

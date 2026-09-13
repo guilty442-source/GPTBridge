@@ -63,5 +63,23 @@ class RuntimeStatusService:
         get_startup_status = getattr(self.app, "get_startup_status", None)
         if callable(get_startup_status):
             result.update(get_startup_status())
+        # User-confirmation queue (Xingcheng assistant panel).  Per-item
+        # fault/update approvals plus the operator release state.
+        try:
+            from core_system.auto_action_policy import (
+                read_pending_actions,
+                user_confirmation_release_allowed,
+            )
+
+            project_root = getattr(self.app, "project_root", None)
+            result["pending_actions"] = (
+                read_pending_actions(project_root) if project_root else []
+            )
+            result["confirmation_release_granted"] = (
+                user_confirmation_release_allowed()
+            )
+        except Exception:
+            result.setdefault("pending_actions", [])
+            result.setdefault("confirmation_release_granted", False)
         _status_cache[cache_key] = (now, result)
         return dict(result)

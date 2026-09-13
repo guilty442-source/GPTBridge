@@ -20,6 +20,7 @@ never bypasses governance.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import random
@@ -205,8 +206,18 @@ class HotReloadWatcher:
 
     # ─── reload request ───────────────────────────────────────────────
 
-    async def _maybe_reload(self, changed_paths: list[str]) -> bool:
-        """Attempt one reload; return whether the pending revision was consumed."""
+    async def _maybe_reload(
+        self,
+        changed_paths: list[str],
+        *,
+        user_confirmed: bool = False,
+    ) -> bool:
+        """Attempt one reload; return whether the pending revision was consumed.
+
+        ``user_confirmed=True`` marks an explicit per-item confirmation from
+        the assistant panel (the operator release switch is checked by the
+        caller before setting it) and bypasses the automatic-update freeze.
+        """
         if self._in_flight or not self._enabled:
             return False
         now = time.monotonic()
@@ -238,6 +249,43 @@ class HotReloadWatcher:
         module_names = self._loaded_module_names(changed_paths)
         if not module_names:
             return True
+
+        # User-confirmation gate: while automatic update execution is
+        # disabled, queue the update intent for individual confirmation in
+        # the assistant panel instead of preparing a standby generation.
+        from core_system.auto_action_policy import (
+            automatic_update_execution_allowed,
+            record_pending_action,
+        )
+
+        if not automatic_update_execution_allowed() and not user_confirmed:
+            try:
+                summary = "backend update: " + ", ".join(sorted(module_names))
+                record_pending_action(
+                    self.project_root,
+                    kind="update",
+                    summary=summary,
+                    detail={
+                        "modules": sorted(module_names),
+                        "changed_paths": sorted(changed_paths)[:20],
+                    },
+                    action_id=(
+                        "update-"
+                        + hashlib.sha256(
+                            ",".join(sorted(module_names)).encode("utf-8")
+                        ).hexdigest()[:16]
+                    ),
+                )
+            except Exception:
+                pass
+            self._log({
+                "type": "hot_reload_watcher",
+                "ok": False,
+                "awaiting_user_confirmation": True,
+                "modules": sorted(module_names),
+            })
+            return True
+
         token_path = self._token_resource_path(changed_paths)
         if token_path is None:
             return True

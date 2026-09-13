@@ -646,6 +646,33 @@ class ToolIsolationManager:
             self._monitor_thread.join(timeout=5.0)
             self._monitor_thread = None
 
+    def _superseded_by_newer_generation(self) -> bool:
+        """True when this backend generation has been replaced by a newer one.
+
+        During a governed generation handover the successor backend owns the
+        toolbox and force-replaces this generation's tool runtimes.  Every
+        exit this generation observes in that window is a governed
+        replacement, not a crash — recording it would only produce false
+        quarantine entries and spurious restart scheduling.
+        """
+        generation = os.environ.get("GPTBRIDGE_STARTUP_GENERATION", "").strip()
+        if not generation:
+            return False
+        try:
+            state = json.loads(
+                (
+                    self.project_root
+                    / "main-system"
+                    / "runtime"
+                    / "state"
+                    / "boot-core.json"
+                ).read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            return False
+        active = str(state.get("active_generation") or "").strip()
+        return bool(active) and active != generation
+
     def _monitor_loop(self, interval: float) -> None:
         """Background health check loop — detects crashes and notifies."""
         while not self._stop_event.is_set():
@@ -664,6 +691,16 @@ class ToolIsolationManager:
                         continue
                     health = self.check_tool_health(tid)
                     if health.get("status") == "crashed":
+                        if self._superseded_by_newer_generation():
+                            # A newer governed backend generation owns the
+                            # toolbox now; this exit is a replacement, not a
+                            # crash.  Mark it silently so the loop does not
+                            # re-check it every interval.
+                            with self._lock:
+                                replaced = self._entries.get(tid)
+                                if replaced is not None:
+                                    replaced.crashed = True
+                            continue
                         _logger.warning(
                             "tool_isolation_crash_detected tool_id=%s pid=%s",
                             tid, health.get("pid"),

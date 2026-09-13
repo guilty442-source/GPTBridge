@@ -57,6 +57,8 @@ export default function App() {
   const [drawerXingcheng, setDrawerXingcheng] = useState(false)
   const [drawerCapacity, setDrawerCapacity] = useState(false)
   const [drawerThirdParty, setDrawerThirdParty] = useState(false)
+  const [confirmBusyId, setConfirmBusyId] = useState<string | null>(null)
+  const [confirmMessages, setConfirmMessages] = useState<Record<string, string>>({})
   const backendSocket = useBackendSocket()
   const sendCommand = backendSocket.sendCommand
   const connected = backendSocket.status === 'Connected'
@@ -89,6 +91,47 @@ export default function App() {
       })
     },
     []
+  )
+
+  const confirmPendingAction = useCallback(
+    async (actionId: string) => {
+      if (!actionId || confirmBusyId) return
+      setConfirmBusyId(actionId)
+      try {
+        const sent = sendCommand('app:confirm-pending-action', {
+          action_id: actionId,
+        })
+        if (!sent.ok) {
+          setConfirmMessages((prev) => ({
+            ...prev,
+            [actionId]: sent.message || xr.confirmQueueFailed,
+          }))
+          return
+        }
+        const result = await waitForIpcEvent(
+          'app:confirm-pending-action_result',
+          12000,
+          (payload) =>
+            !payload.action_id || String(payload.action_id) === actionId
+        )
+        const ok = result.ok === true
+        const message = ok
+          ? xr.confirmedDone
+          : String(result.message || '').trim() || xr.confirmedFailed
+        setConfirmMessages((prev) => ({ ...prev, [actionId]: message }))
+      } catch {
+        setConfirmMessages((prev) => ({
+          ...prev,
+          [actionId]: xr.confirmedFailed,
+        }))
+      } finally {
+        setConfirmBusyId(null)
+        sendCommand('app:get-runtime-status', {
+          source: 'pending_action_confirmation',
+        })
+      }
+    },
+    [confirmBusyId, sendCommand, waitForIpcEvent]
   )
 
   const {
@@ -267,6 +310,10 @@ export default function App() {
     typeof systemMetrics.diskFreeBytes === 'number'
       ? Math.max(0, systemMetrics.diskTotalBytes - systemMetrics.diskFreeBytes)
       : null
+  const pendingActions = Array.isArray(runtimeStatus.pending_actions)
+    ? runtimeStatus.pending_actions
+    : []
+  const releaseGranted = runtimeStatus.confirmation_release_granted === true
 
   return (
     <div className="product-shell">
@@ -447,6 +494,58 @@ export default function App() {
             <p className="xingcheng-report__empty">{xr.empty}</p>
           )}
         </div>
+
+        <section className="xingcheng-approvals" data-testid="pending-approvals">
+          <div className="xingcheng-approvals__head">
+            <strong>{xr.pendingTitle}</strong>
+            <span>{releaseGranted ? xr.releaseGranted : xr.pendingHint}</span>
+          </div>
+          {pendingActions.length === 0 ? (
+            <p className="xingcheng-report__empty">{xr.pendingEmpty}</p>
+          ) : (
+            <div className="xingcheng-approvals__list">
+              {pendingActions.map((action, index) => {
+                const actionId = String(action.action_id || '')
+                const busy = confirmBusyId === actionId
+                const message = confirmMessages[actionId]
+                const pending = action.status === 'awaiting-confirmation'
+                return (
+                  <article
+                    className="xingcheng-approval"
+                    key={actionId || `pending-${index}`}
+                  >
+                    <div className="xingcheng-approval__head">
+                      <span className="xingcheng-approval__kind">
+                        {action.kind === 'repair' ? xr.kindRepair : xr.kindUpdate}
+                      </span>
+                      <strong>{action.summary || actionId}</strong>
+                    </div>
+                    <div className="xingcheng-approval__meta">
+                      <span>{action.status || 'awaiting-confirmation'}</span>
+                      <span>{action.created_at || ''}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="xingcheng-approval__confirm"
+                      data-testid={`confirm-pending-${actionId}`}
+                      disabled={busy || !pending}
+                      onClick={() => void confirmPendingAction(actionId)}
+                    >
+                      {busy
+                        ? xr.confirming
+                        : pending
+                          ? xr.confirm
+                          : xr.confirmedDone}
+                    </button>
+                    {message ? (
+                      <p className="xingcheng-approval__message">{message}</p>
+                    ) : null}
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
       </Drawer>
 
       {/* Sovereign drawer */}

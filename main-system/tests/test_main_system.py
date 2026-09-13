@@ -130,20 +130,28 @@ from governance_rule.code_rule_directory import (  # noqa: E402
 
 
 def _manifest_paths() -> list[Path]:
+    def _is_valid_path(path: Path) -> bool:
+        """Exclude worktree and hidden directories."""
+        parts = path.parts
+        return not any(part.startswith(".") or part == "worktrees" for part in parts)
+
     paths = list(
         path
         for path in ROOT.glob("*/manifest.json")
-        if json.loads(_read_text_cached(str(path))).get("id") in EXPECTED_TOOL_IDS
+        if _is_valid_path(path)
+        and json.loads(_read_text_cached(str(path))).get("id") in EXPECTED_TOOL_IDS
     )
     paths.extend(
         path
         for path in ROOT.glob("Standalone tools/*/manifest.json")
-        if json.loads(_read_text_cached(str(path))).get("id") in EXPECTED_TOOL_IDS
+        if _is_valid_path(path)
+        and json.loads(_read_text_cached(str(path))).get("id") in EXPECTED_TOOL_IDS
     )
     paths.extend(
         path
         for path in ROOT.glob("Standalone tools/*/*/manifest.json")
-        if (
+        if _is_valid_path(path)
+        and (
             json.loads(_read_text_cached(str(path))).get("main_system_independent_tool")
             is True
             or json.loads(_read_text_cached(str(path))).get("companion_tool") is True
@@ -152,7 +160,8 @@ def _manifest_paths() -> list[Path]:
     paths.extend(
         path
         for path in ROOT.glob("Standalone tools/*/*/*/manifest.json")
-        if (
+        if _is_valid_path(path)
+        and (
             json.loads(_read_text_cached(str(path))).get("main_system_independent_tool")
             is True
             or json.loads(_read_text_cached(str(path))).get("companion_tool") is True
@@ -161,7 +170,8 @@ def _manifest_paths() -> list[Path]:
     paths.extend(
         path
         for path in ROOT.glob("Standalone tools/*/*/*/*/manifest.json")
-        if (
+        if _is_valid_path(path)
+        and (
             json.loads(_read_text_cached(str(path))).get("main_system_independent_tool")
             is True
             or json.loads(_read_text_cached(str(path))).get("companion_tool") is True
@@ -2406,24 +2416,26 @@ def test_special_unpacked_manifest_resolves_governed_channel_entry() -> None:
     assert record["executable_exists"] is False
     assert record["data_boundary"] == {
         "standalone": True,
-        "code_scope": "project-source-excluding-governance-rule",
-            "database_scope": "opaque-central-index-read-and-xingcheng-internal-read-write",
+        "code_scope": "tool-root-only",
+        "database_scope": "tool-database-only",
     }
 
 
-def test_model_dialogue_is_discovered_as_xingcheng_companion_tool() -> None:
+def test_local_model_companion_tools_are_discovered() -> None:
     governance = GovernanceStub()
     service = ToolboxService(ROOT, governance=governance)
     records = {record["id"]: record for record in service._load_manifest_records()}
 
     assert not (ROOT / "star-chat").exists()
-    assert records["xingcheng"]["folder_path"] == str(LOCAL_MODEL_ROOT)
+    assert records["xingcheng"]["folder_path"] == str(
+        LOCAL_MODEL_ROOT / "xingcheng"
+    )
     assert records["star-chat"]["folder_path"] == str(
-        LOCAL_MODEL_ROOT / "model-dialogue"
+        LOCAL_MODEL_ROOT / "model-dialogue" / "star-chat"
     )
     assert records["star-chat"]["runtime_available"] is True
     assert service._tool_directory_for_id("star-chat") == (
-        LOCAL_MODEL_ROOT / "model-dialogue"
+        LOCAL_MODEL_ROOT / "model-dialogue" / "star-chat"
     ).resolve()
     assert records["star-chat"]["runtime_owner_tool_id"] == "xingcheng"
     assert records["star-chat"]["physical_owner_root"] == "local-model"
@@ -3044,7 +3056,7 @@ def test_start_tool_does_not_require_exe_for_special_unpacked(
     assert result["ok"] is True
     assert result["runtime_mode"] == "governed-source"
     assert result["pid"] == 43210
-    assert result["runtime_path"].endswith("local-model\\src\\channel_runtime.py")
+    assert result["runtime_path"].endswith("xingcheng\\src\\channel_runtime.py")
 
 
 def test_source_ui_waits_for_governed_runtime_health() -> None:

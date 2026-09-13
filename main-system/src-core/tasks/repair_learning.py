@@ -36,6 +36,11 @@ REPAIR_LEARNING_VERSION: Final[str] = component_version("repair-learning")
 
 # Minimum occurrences of an error→remedy pair before promoting to a recipe.
 LEARN_PROMOTION_THRESHOLD: Final[int] = 2
+# Minimum success rate a remedy must reach before it may become an automatic
+# recipe.  Without this floor a remedy that almost never works (for example a
+# passive watchdog remedy for a fault that keeps recurring) would still be
+# promoted and then auto-planned by the repair chain.
+LEARN_PROMOTION_MIN_SUCCESS_RATE: Final[float] = 0.8
 # Maximum learned recipes to retain (LRU eviction).
 MAX_LEARNED_RECIPES: Final[int] = 50
 
@@ -435,10 +440,13 @@ class RepairLearner:
                 best_remedy = remedy
                 best_success_rate = rate
                 best_count = stats["total"]
-        if not best_remedy or best_success_rate == 0.0:
+        if not best_remedy or best_success_rate < LEARN_PROMOTION_MIN_SUCCESS_RATE:
             return {
                 "promoted": False,
-                "reason": "no successful remedy found in history",
+                "reason": (
+                    "no remedy meets the minimum promoted success rate "
+                    f"({LEARN_PROMOTION_MIN_SUCCESS_RATE})"
+                ),
             }
         # Get the error signature details.
         signatures = {

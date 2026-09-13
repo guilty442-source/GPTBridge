@@ -952,6 +952,8 @@ class AutoRepairOrchestrator:
         self,
         signal: HealthSignal,
         actor: str = "information-layer",
+        *,
+        user_confirmed: bool = False,
     ) -> dict[str, Any]:
         """Process a health signal through the full repair chain."""
         # Stage 1: Health Classification (health-maintenance-test-sub-sovereign)
@@ -960,6 +962,24 @@ class AutoRepairOrchestrator:
         # If healthy, no further action
         if classification["overall_state"] == HealthState.HEALTHY:
             return {"stage": "health_classification", "result": "healthy", "classification": classification}
+
+        # User-confirmation gate: while automatic repair execution is
+        # disabled the chain records the signal but performs no decision,
+        # no permission grant, and no mutation.  The request waits for the
+        # user to confirm this fault in the assistant panel.  An explicit
+        # per-item confirmation (user_confirmed=True) bypasses the gate.
+        from .auto_action_policy import automatic_repair_execution_allowed
+
+        if not automatic_repair_execution_allowed() and not user_confirmed:
+            return {
+                "stage": "awaiting-user-confirmation",
+                "result": "deferred",
+                "classification": classification,
+                "reason": (
+                    "automatic repair execution is disabled; "
+                    "confirm this fault in the assistant panel"
+                ),
+            }
 
         # Stage 2: Repair Decision (decision-sovereign)
         objective = self.decision_sovereign.assign_repair_objective(

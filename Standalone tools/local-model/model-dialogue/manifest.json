@@ -74,5 +74,12 @@
   },
   "test_targets": [
     "tests/test_model_dialogue_reexport.py"
+  ],
+  "companion_tools": [
+    {
+      "id": "star-chat",
+      "path": "star-chat",
+      "companion_owner": "local-model"
+    }
   ]
 }

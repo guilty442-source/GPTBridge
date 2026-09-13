@@ -1,0 +1,6 @@
+{
+  "tool.name": "Star-Chat",
+  "tool.description": "AI 聊天介面",
+  "tool.window_title": "Star-Chat",
+  "errors.permission_denied": "權限不足"
+}

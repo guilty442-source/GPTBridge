@@ -542,7 +542,38 @@ class ThirdPartyManager:
 
         If only_available is True, only update tools where an update is
         confirmed available (requires a prior check_for_updates call).
+
+        User directive: automatic updates stay frozen until the user
+        explicitly allows them.  While ``automatic_update_execution`` is
+        disabled this queues a pending confirmation item and updates
+        nothing.
         """
+        from core_system.auto_action_policy import (
+            automatic_update_execution_allowed,
+            record_pending_action,
+        )
+
+        if not automatic_update_execution_allowed():
+            try:
+                root = None
+                for parent in self._inventory_path.resolve().parents:
+                    if (parent / "main-system").is_dir():
+                        root = parent
+                        break
+                if root is not None:
+                    record_pending_action(
+                        root,
+                        kind="update",
+                        summary="third-party tool updates",
+                        detail={
+                            "tools": sorted(AUTO_UPDATABLE_TOOLS),
+                            "only_available": only_available,
+                        },
+                        action_id="update-third-party-auto",
+                    )
+            except Exception:
+                pass
+            return {}
         authorized, auth_message = self._verify_approval_token(approval_token)
         if not authorized:
             raise PermissionError(f"permission-denied: {auth_message}")

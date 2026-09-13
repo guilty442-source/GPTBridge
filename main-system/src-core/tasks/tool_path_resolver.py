@@ -104,6 +104,30 @@ class ToolPathResolver:
             if not owned_companion:
                 raise ValueError("Nested tool is not an authorized companion")
             return resolved
+        if len(relative.parts) == 4 and relative.parts[0] == "Standalone tools":
+            # A278/A280: companion tools nested under a subdirectory of an
+            # independent tool inside "Standalone tools/"
+            # (e.g. xingcheng under local-model/model-dialogue)
+            host_root = self.project_root / relative.parts[0] / relative.parts[1]
+            subdir = relative.parts[2]
+            if self.is_link_or_reparse_point(host_root):
+                raise ValueError("Companion host directory cannot be a link or reparse point")
+            manifest_path = resolved / "manifest.json"
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                host_manifest = json.loads(
+                    (host_root / "manifest.json").read_text(encoding="utf-8")
+                )
+            except (OSError, json.JSONDecodeError) as error:
+                raise ValueError("Companion tool manifest could not be verified") from error
+            host_tool_id = host_manifest.get("id")
+            owned_companion = (
+                manifest.get("companion_tool") is True
+                and manifest.get("companion_owner") == host_tool_id
+            )
+            if not owned_companion:
+                raise ValueError("Nested tool is not an authorized companion")
+            return resolved
         raise ValueError(
             "Tool directory must be a direct child or declared main-system companion"
         )

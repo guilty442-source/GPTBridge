@@ -142,7 +142,19 @@
     "currentDecision": "目前判定",
     "source": "來源",
     "details": "詳細資訊",
-    "empty": "目前沒有異常紀錄。"
+    "empty": "目前沒有異常紀錄。",
+    "pendingTitle": "待確認修復與更新",
+    "pendingEmpty": "目前沒有待確認項目。",
+    "pendingHint": "自動修復與自動更新已凍結；請逐筆確認後才執行。",
+    "releaseGranted": "已放行：可逐筆確認執行",
+    "kindRepair": "修復",
+    "kindUpdate": "更新",
+    "confirm": "確認執行",
+    "confirming": "確認中…",
+    "releaseNotGranted": "尚未放行：全域凍結中，確認後仍未允許執行。",
+    "confirmedDone": "已執行",
+    "confirmedFailed": "執行失敗",
+    "confirmQueueFailed": "指令未送出，請稍後再試。"
   },
   "sovereign": {
     "eyebrow": "治理主權架構",

@@ -3238,6 +3238,42 @@
         "rule": "PLATFORM:PostgreSQL central official structured authority,SQLite module-private bounded state and Qdrant canonical semantic projection operate as one observable,verifiable,recoverable local data platform;Qdrant remains fully rebuildable and is never unique business truth. HEALTH-CENTER:one normalized health center covers PostgreSQL,every SQLite module database,Qdrant,Migration,Reconcile,Locator,RLS and Index. Every component emits exactly healthy|degraded|stale|reconcile_required|failed plus component_id,resource/module scope,observed revision,expected revision,evidence,reason,first/last observed time,allowed operations and correlation_id. Local aliases are forbidden at the platform boundary. Health aggregation preserves every component finding;one healthy component cannot mask another failed/stale component. CONSISTENCY:auto-check SQLite resource revision/content_hash against PostgreSQL resource revision/content_hash and Qdrant vector resource_version/content_hash/embedding version. Any mismatch immediately becomes stale or reconcile_required according to authority and blocks authoritative use;it creates evidence and never silently overwrites,promotes or deletes either side. RECOVERY-STATE-MACHINE:all data faults use detect>isolate>retry>reconcile>verify>recover>audit. Transitions are explicit,idempotent,deadline/retry bounded and correlation-preserving;skip/reorder is forbidden. Recover requires post-reconcile identity/revision/hash/schema/behavior proof;failure remains isolated/fail-closed and reaches audit. RESOURCE-LIFECYCLE:each resource state is exactly active|stale|superseded|tombstoned|archived|purged with revision,time,actor,reason,predecessor/successor and audit linkage. Legal transitions are active>stale>active after verified reconcile;active/stale>superseded;tombstoned only before archived/purged;purged is terminal and permitted only after retention,reference,backup and audit gates. Direct DELETE cannot bypass lifecycle. SQL-OBSERVABILITY:central performance telemetry records redacted query_fingerprint,duration,mean,p95,p99,lock_wait,rows_scanned,rows_returned,index_usage,pool_usage,module/role and time window;budgets trigger degraded/failed health and measured remediation,not automatic index churn. MIGRATION-RELEASE:formal sequence is validate>dry-run>backup-checkpoint>migrate>schema-verify>RLS-verify>smoke-test>promote. Every step binds migration/version/hash,dependencies,lock/space/time risk and evidence. Before promote any failure performs an approved safe rollback when provably reversible;otherwise fail-closed/read-only with recovery evidence. No partially verified schema is write-ready. SCHEMA-DRIFT:compare migration-derived expected schema to actual PostgreSQL tables,columns,constraints,indexes,RLS/policies/extensions and migration head;difference immediately alerts,marks degraded/failed,blocks unsafe writes and cannot be accepted without an explicit migration. QDRANT-REBUILD:PostgreSQL plus registered private canonical source data deterministically produces resource>chunk>embedding>Qdrant using versioned pipeline,model and manifests;total-loss rebuild verifies counts,IDs,versions,hashes,ACL and retrieval parity. SQLITE-FLEET:one registry tracks every SQLite database schema_version,WAL bytes/age/checkpoint,busy/lock state,integrity,size,last_backup,last_reconcile,last_migration,health and owner;checks are risk-ranked and rotating with declared maximum coverage interval. BACKUP-VERIFICATION:every backup class must regularly execute backup>isolated restore-test>engine integrity-check>cross-store consistency verification>result audit. A backup without successful current restore evidence is unverified and cannot satisfy recovery readiness. ORDER:all controls remain subordinate to A367 exact stage order.",
         "prohibition": "FORBID:separate incompatible health vocabularies+health aggregation hiding a failing member+revision mismatch silently overwritten+per-error ad-hoc recovery bypassing the state machine+direct resource disappearance+promotion before all migration gates+manual schema drift without migration+Qdrant-only unique data+unregistered SQLite fleet member+backup considered reliable without restore/integrity/audit proof+telemetry containing secrets or causing ungated automatic index changes.",
         "exception": "Immediate non-mutating isolation may precede full state-machine persistence solely to stop active damage;the same correlation_id must backfill detect/isolate evidence before retry or reconciliation. A provably unrecoverable purge still requires explicit retention,reference and audit authorization."
+      },
+      {
+        "position": 370,
+        "provision_id": "A370",
+        "section_index": "12",
+        "subject": "three-engine-self-observation-diagnosis-and-controlled-optimization",
+        "rule": "PURPOSE:PostgreSQL central official structured authority,SQLite module-private operation state and Qdrant canonical rebuildable semantic projection form a self-observing,self-diagnosing,controlled-self-optimizing local platform;no new database technology is implied. INDEX-OPTIMIZATION:collect redacted slow-query fingerprints and comparable plans;analyze sequential scans,index scans,selectivity,rows,frequency,write cost and table size;detect unused and duplicate indexes;produce an evidence-bound recommendation. Creation follows recommend>dry-run/EXPLAIN>lock/write/storage budget>approval under automatic repair/update user-confirmation rules>controlled create>plan/performance verification>audit. Runtime programs cannot arbitrarily DROP indexes;drop requires explicit governed proposal,dependency/constraint check,rollback plan,observation window and user confirmation. CAPACITY:measure PostgreSQL table/index,SQLite database/WAL and Qdrant collection growth rates with retention-aware baselines;forecast 30/90/180-day bytes and exhaustion date with confidence/assumptions;crossing budget triggers archive or maintenance proposal early,never silent destructive cleanup. DATA-TIERS:resource tier is Hot(recent/high-frequency),Warm(normal history),Archive(long retention),Tombstone(awaiting governed cleanup),Purged(formally removed). Tier transitions preserve resource lifecycle,revision,locator,ACL,retention,correlation and audit;access frequency alone cannot override legal hold or authority. QUERY-BUDGET:each SQL workload class declares statement timeout,max rows/bytes,max transaction duration,max retry,max lock wait,pool allocation and priority;enforcement fails boundedly and isolates the offending module so one workload cannot exhaust central PostgreSQL. BACKPRESSURE:gptbridge_transport pressure state is exactly normal>throttled>degraded>reject-low-priority with thresholds,hysteresis,queue/lease age,capacity and recovery criteria. High-priority accepted work remains bounded;low-priority rejection is explicit,retry-after capable and audited;no infinite enqueue or retry storm. FAULT-INJECTION:regular isolated tests stop PostgreSQL,stop Qdrant,lock SQLite,expand WAL,interrupt migration,invalidate locator,misconfigure RLS and exhaust a connection pool;verify fail-closed,degradation,isolation,backpressure,reconciliation and unaffected continuity. RECOVERY-DRILL:periodically execute fault>fail-closed>degrade>restore>reconcile>Qdrant rebuild>integrity verify>reopen;reopen requires verified schema/RLS,resource revisions/content hashes,audit continuity and recovery objectives,not merely process availability. INTEGRITY-SUMMARY:each data domain periodically emits resource_count,revision_head,content_hash/schema digest,schema_version,reconcile_generation,audit_sequence,backend_generation and evidence time;differences become stale/reconcile_required and cannot be hidden by a score. GENERATION:one monotonic backend_generation is shared in PostgreSQL,registered SQLite and Qdrant manifests;major rebuild/restore increments it once through a coordinated generation transaction. Every record/projection binds its producing generation;prior-generation vectors or state are stale until verified or rebuilt. SCORING:each engine/fleet may expose 0..100 Health,Consistency,Performance,Recoverability,Security scores with formula,input freshness and confidence. Scores are monitoring summaries only,never governance authority,never suppress findings and never authorize mutation/reopen/release. LOOP:database>monitor>detect anomaly>diagnose>propose optimization>user-confirmed controlled execution>verify>audit. All execution observes A366 confirmation,A367 stage order,A368 controls and A369 health/recovery contracts.",
+        "prohibition": "FORBID:auto-DROP index+create index without dry-run/budget/confirmation+capacity forecast causing silent purge+frequency overriding retention/legal hold+unbudgeted query+infinite transport enqueue+priority rejection without evidence+fault injection against uncontrolled production scope+reopen before integrity/reconcile proof+generation reset/reuse+accepting prior-generation vector as current+score treated as authority or masking a CRITICAL finding+self-optimization bypassing user confirmation.",
+        "exception": "An approved emergency may cancel a query,throttle/reject new low-priority work or isolate a failing pool without mutation confirmation to preserve stability;it must remain reversible,visible and audited and cannot create/drop an index,purge data or reopen a failed store."
+      },
+      {
+        "position": 371,
+        "provision_id": "A371",
+        "section_index": "12",
+        "subject": "qdrant-default-rag-execution-reembedding-reconciliation-and-four-rag-behaviors",
+        "rule": "DEFAULT-PATH:when Qdrant and PostgreSQL pass readiness,authorization,schema/version and health gates,the mandatory normal RAG path is source content>qwen3-embedding:4b 2560-dimensional embedding>Qdrant dense retrieval plus PostgreSQL FTS/metadata filtering>RRF>reranker. LocalVectorStore and LocalSqliteRagRepository are bounded-degraded fallback only and cannot remain the preferred/default route while canonical services are healthy. Runtime reports canonical=true only after live-path evidence proves both canonical stores and reconciliation complete;fixed canonical=false/reconciliation_required=true presentation is forbidden when state differs. DEGRADATION:only a verified Qdrant or PostgreSQL failure/unavailability/unsafe state may route affected scope to LocalVectorStore 256-dimensional hashing n-gram/fallback plus LocalSqliteRagRepository. Degradation is explicit,correlation-bound,time/budget limited and preserves resource_id,locator_id,source revision/content hash and pending reconciliation;it never changes authority. RECONCILIATION:degraded vectors are never copied,dimension-padded,projected or treated as canonical embeddings. Recovery pipeline is degraded resource_id+locator_id>authorized owning-module source resolution>source revision and SHA256 verification>canonical code/content chunking>qwen3-embedding:4b>new 2560D vector>Qdrant upsert with idempotency/generation>PostgreSQL index_state update>cross-store verification>reconciliation_required=false>audit. Missing/changed source,hash mismatch,model/dimension mismatch or partial write remains conflict/stale and fail-closed. FOUR-RAG-BEHAVIORS:hybrid-rag executes dense+keyword+RRF+reranker. code-rag additionally requires language-aware AST,symbol/declaration/reference,dependency graph,file/module relation and code-specific chunk boundaries with source-revision evidence. agentic-rag requires bounded retrieve>inspect evidence>reformulate>retrieve again loop with iteration/deadline/budget,novelty/progress test,stop condition and cited evidence;it cannot self-authorize tools or bypass retrieval ACL. memory-rag requires session,long-term and episodic separation,recency/decay policy,memory scope,identity/consent/retention and cross-session authorization;it cannot mix another identity/module scope. A shared engine may provide common primitives,but each rag_type must demonstrate its distinct execution behavior and tests;four declarations over one undifferentiated hybrid behavior are noncompliant. SHARED-COLLECTION:gptbridge_shared_knowledge is the single canonical shared Qdrant collection for authorized local models unless a later special law changes it;do not create per-model duplicate indexes. Each point records point_id,locator_id,resource_id,chunk_id,module_id,rag_type or governed rag_types,data_category,resource_type,classification,embedding_model,embedding_version,resource/version,content_hash,backend_generation and pipeline version. Filtering by module,classification,rag type and authorization occurs before content resolution. OPAQUE-SECURITY:Qdrant cannot store content,text,path,physical_location,windows_path,secrets or independently resolvable physical locations. It stores opaque locator and metadata only;RagAuthorizationBridge and owning module resolve content after authorization. PostgreSQL/private source retains rebuild truth. HEALTH:Qdrant total loss rebuilds from PostgreSQL manifests plus owning-module source,never from degraded 256D vectors.",
+        "prohibition": "FORBID:LocalVectorStore/SQLite as default while canonical path healthy+claiming canonical without live evidence+copy/pad/project 256D fallback vector into 2560D Qdrant+clearing reconciliation before source/hash/vector/index verification+four RAG labels backed only by identical hybrid behavior+unbounded agentic loop+memory scope leakage+per-model duplicate canonical collection+Qdrant plaintext content/path/physical locator+unauthorized locator resolution+serving stale generation/model/dimension point.",
+        "exception": "An explicitly isolated benchmark or offline test may select a non-default engine with test evidence and no production publication. A capability-specific collection requires a later Codex-authorized necessity finding,not model preference;all authority,metadata and rebuild rules still apply."
+      },
+      {
+        "position": 372,
+        "provision_id": "A372",
+        "section_index": "12",
+        "subject": "mandatory-local-rag-six-stage-implementation-order",
+        "rule": "The binding local RAG work and activation order is exactly: 1 QDRANT_CANONICAL_RUNTIME makes healthy Qdrant the proven default dense read/write execution path and confines LocalVectorStore to bounded degradation; 2 POSTGRESQL_CENTRAL_METADATA makes PostgreSQL the official metadata,FTS,index_state,resource/chunk/version and locator-mapping authority used by the live path; 3 DEGRADED_RECONCILIATION proves end-to-end fallback capture,owning-source resolution,re-chunk,SHA256 verification,2560D re-embedding,Qdrant upsert,PostgreSQL state update and reconciliation closure without copying 256D vectors; 4 CODE_RAG implements and verifies AST,symbol,dependency,file/module and code-chunk behavior; 5 AGENTIC_RAG implements bounded evidence inspection,reformulation,retrieval iteration and stop conditions; 6 MEMORY_RAG implements session,long-term,episodic,recency,scope,identity,consent and retention behavior. Each stage consumes current passing evidence from all predecessors. A later stage may be researched or tested in isolation but cannot be declared complete,default,production-ready or release-blocking until every predecessor is active and verified. Failure/staleness at stage N blocks activation of N through 6;verified upstream capability remains available and the fault is isolated. After correction,revalidation resumes at the earliest invalid stage and refreshes every dependent downstream result. Hybrid RAG remains the common retrieval foundation but cannot be used to claim completion of Code,Agentic or Memory behavior.",
+        "prohibition": "FORBID:reordering or skipping stages+PostgreSQL metadata claim before Qdrant default-path proof+reconciliation claim before both canonical stores are live+implementing later RAG type as substitute for unfinished canonical/reconcile foundation+declaring four RAG labels over one hybrid behavior+using later-stage tests to waive predecessor failure+parallel production activation without dependency evidence.",
+        "exception": "Non-production prototypes,fixtures and benchmarks may execute out of order in isolated experimental scope;they produce observation evidence only and cannot activate,certify or release that stage."
+      },
+      {
+        "position": 373,
+        "provision_id": "A373",
+        "section_index": "12",
+        "subject": "canonical-rag-takeover-reconciliation-queue-double-write-and-evaluation",
+        "rule": "CANONICAL-TAKEOVER:normal read/write execution must prove Qdrant dense retrieval and PostgreSQL official metadata/FTS/index_state are the live path;LocalVectorStore and LocalSqliteRagRepository activate only for the affected scope after canonical unavailability/unsafe-state evidence. Application code cannot select local fallback merely by default configuration or convenience. RECONCILIATION-QUEUE:every degraded create,update,tombstone,archive or permission/version change creates one durable item with operation_id,idempotency_key,resource_id,locator_id,source_revision,content_hash,operation,tombstone_generation,required embedding/chunk/parser/schema versions,created_at,attempts,next_retry_at,deadline,status,correlation_id and last_error. Status is pending|leased|reconciling|verified|conflict|failed|dead_letter;boolean reconciliation_required is only a projection and never the queue. Lease/retry/dead-letter rules follow Transport governance. CROSS-STORE-WRITE:no unsafe best-effort dual write. A logical operation uses an outbox/saga equivalent:commit central intent and operation identity;apply Qdrant and PostgreSQL idempotently;record each store result;compensate or reconcile partial success;publish complete only after revision/hash/tombstone parity. Qdrant success/PostgreSQL failure and the reverse remain visible recoverable incomplete states,never reported successful. TOMBSTONE-ANTI-RESURRECTION:delete writes authoritative PostgreSQL tombstone with monotonic resource revision and tombstone_generation before vector cleanup;queue and Qdrant payload carry it. Reconciliation rejects any older create/update/vector and cannot recreate a point from stale degraded state. Purge occurs only after all consumers acknowledge tombstone and retention/audit gates pass. INDEX-VERSION:each resource/chunk/point records embedding_model+embedding_version+dimension,chunker_version,parser_version,schema_version,pipeline_version,source_revision,content_hash and backend_generation. Version change calculates affected scope and precisely marks stale/rebuild;no global rebuild when narrower proof suffices,and no partial reuse across incompatible versions. DUAL-AUTHORIZATION:before Qdrant query enforce server-side module_id plus classification/rag_type filters from authorized scope;after results return,RagAuthorizationBridge revalidates caller,module,locator,classification,resource revision and current permission before content resolution. Either denial removes result and is audited without leaking metadata. OBSERVABILITY:each request reports mode=canonical|degraded|reconciling and per-stage path/status/latency/fallback reason for embedding,Qdrant,PostgreSQL FTS/metadata,RRF,reranker,authorization and content resolution;aggregate health cannot hide stage fallback. RETRIEVAL-EVALUATION:versioned fixed question/corpus sets measure Recall@K,MRR,reranker lift,grounded-answer evidence/citation validity,authorization leakage,latency and fallback parity. Dataset/version/expected relevant IDs,scoring tolerance and baseline are immutable evidence;regression policy blocks promotion. AGENTIC-BUDGET:per request bound retrieval rounds,model calls,total tokens/tool calls,deadline,candidate count and no-progress repetitions;stop on sufficient evidence,budget/deadline,no progress or explicit cancellation. MEMORY-LIFECYCLE:session,episodic,long-term memories have distinct scope,retention,consent,promotion/update/supersession/forget and retrieval-recency rules;no automatic cross-scope promotion. CODE-STRUCTURE:Code RAG indexes AST node type,symbol/declaration/reference,imports/includes,dependency edges,file/module/build relation and code-specific chunk spans with language/parser/source revision;plain-text chunks alone cannot satisfy Code RAG. All activation follows A372 order.",
+        "prohibition": "FORBID:local vector/SQLite normal default+boolean-only reconciliation+lost degraded mutation+untracked best-effort dual write+partial store success reported complete+tombstoned resource resurrection+vector reuse across incompatible versions+Qdrant query without pre-filter+content resolution without post-authorization+hidden fallback+promotion without retrieval evaluation+unbounded agentic loop+memory scope/retention conflation+claiming Code RAG from plain text chunks.",
+        "exception": "During verified canonical outage,the bounded local path may serve authorized degraded results and enqueue changes;it cannot clear queue items,claim canonical mode or bypass later source-based re-embedding and tombstone/version reconciliation."
       }
     ],
     "certification_evidence": [
@@ -3993,7 +4029,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H075",
+        "history_head": "H079",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -6804,6 +6840,15 @@
         "release_gate": "deny unsafe write,promotion or recovery claim on stale/failed/incomplete evidence",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "data_platform_observability_directory",
+        "required_scope": "PostgreSQL,all SQLite,Qdrant,transport,indexes,capacity,tiers,budgets,drills,generations and scores",
+        "completion_rule": "zero unbudgeted workload,unknown generation,unverified proposal or score-masked finding",
+        "acceptance_evidence": "index dry-run+capacity forecast+backpressure+eight fault injections+full recovery drill+generation-staleness tests",
+        "release_gate": "deny mutation,reopen or release on incomplete/failed verification",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_format_contract": [
@@ -7394,6 +7439,20 @@
         "owner": "permission-sovereign",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_DATA_PLATFORM_OBSERVABILITY",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "engine|domain|backend_generation|integrity_summary|capacity_forecast|query_budget|pressure_state|optimization_proposal|score_components|evidence_hash|lineage",
+        "required_field_order": "envelope>engine/domain>generation>integrity>capacity>budget/pressure>proposal>score>evidence>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-not-applicable-proven",
+        "identity_format": "identity=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "identity>generation>raw metrics>findings>proposal>confirmation>verification>audit",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -7942,6 +8001,19 @@
         "implementation_state": "mandated-pending-implementation",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_DATA_PLATFORM_OBSERVABILITY",
+        "canonical_name": "data-platform-observability-directory",
+        "owner": "permission-sovereign",
+        "scope": "three-engine metrics,integrity summaries,generations,capacity forecasts,budgets,backpressure,proposals,scores and drills",
+        "authority_kind": "derived-monitoring-and-decision-evidence",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|engine|domain|backend_generation|integrity_summary|capacity_forecast|query_budget|pressure_state|optimization_proposal|score_components|evidence_hash|lineage",
+        "relationships": "engine|domain|query|index|pool|transport|resource-tier|generation|recovery-drill|audit",
+        "coverage_rule": "every engine/domain has fresh evidence and every proposal/action/reopen has traceable verification",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_normalization_plan": [
@@ -8283,6 +8355,17 @@
         "normalized_relationship_status": "required",
         "plaintext_secret_status": "forbidden",
         "activation_gate": "deny-unsafe-operation-until-health-and-consistency-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_code": "DIR_DATA_PLATFORM_OBSERVABILITY",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-controlled-optimization-until-fresh-evidence-and-confirmation",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
       }
@@ -12782,6 +12865,30 @@
         "provision_id": "A369",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A370",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A371",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A372",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A373",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12840,14 +12947,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H075",
-        "provision_count": 615,
-        "identity_count": 615,
-        "lineage_count": 615,
+        "history_head": "H079",
+        "provision_count": 619,
+        "identity_count": 619,
+        "lineage_count": 619,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "1bedae997db2767e4599f9396646085035fdf58ea703dd1df6ba6c3254aa54c3",
-        "identity_root": "a23ca6597b632de6865fd68510966bfd5602fc0320c56d31f93f02d0693b8058",
-        "full_root": "f041443ea0092d07aefcc6380948ef598a1b8c869993a370c3bd7ad0b20889d8",
+        "content_root": "20e40a9532f6c60949e6b50d7dd48ddf93f84c6d54d32d1dcfac376aa138e955",
+        "identity_root": "efe22ac3b3d5744123f67afeda0695d161afd4ce38fed67c12eb603e84a3ae71",
+        "full_root": "89ff07297aef170e726966be7de0365e2641bbdbd1c9dd3457795159875233a4",
         "legacy_history_head": null
       }
     ],
@@ -17974,7 +18081,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H075"
+        "value": "H079"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -18207,6 +18314,54 @@
       {
         "key": "data_recovery_state_machine",
         "value": "detect>isolate>retry>reconcile>verify>recover>audit"
+      },
+      {
+        "key": "data_platform_controlled_optimization",
+        "value": "A370"
+      },
+      {
+        "key": "transport_pressure_states",
+        "value": "normal|throttled|degraded|reject-low-priority"
+      },
+      {
+        "key": "data_temperature_tiers",
+        "value": "Hot|Warm|Archive|Tombstone|Purged"
+      },
+      {
+        "key": "capacity_forecast_horizons_days",
+        "value": "30|90|180"
+      },
+      {
+        "key": "canonical_rag_default_path",
+        "value": "qwen3-embedding:4b/2560>Qdrant+PostgreSQL-FTS-metadata>RRF>reranker"
+      },
+      {
+        "key": "degraded_rag_path",
+        "value": "LocalVectorStore-256D+LocalSqliteRagRepository"
+      },
+      {
+        "key": "canonical_qdrant_collection",
+        "value": "gptbridge_shared_knowledge"
+      },
+      {
+        "key": "governed_rag_types",
+        "value": "hybrid-rag|code-rag|agentic-rag|memory-rag"
+      },
+      {
+        "key": "local_rag_stage_order",
+        "value": "qdrant-canonical-runtime>postgresql-central-metadata>degraded-reconciliation>code-rag>agentic-rag>memory-rag"
+      },
+      {
+        "key": "canonical_rag_operational_contract",
+        "value": "A373"
+      },
+      {
+        "key": "rag_reconciliation_queue_states",
+        "value": "pending|leased|reconciling|verified|conflict|failed|dead_letter"
+      },
+      {
+        "key": "rag_runtime_modes",
+        "value": "canonical|degraded|reconciling"
       }
     ],
     "module_assignment_registry": [
@@ -23939,6 +24094,34 @@
         "provision_id": "A369",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A370",
+        "provision_type": "article",
+        "provision_id": "A370",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A371",
+        "provision_type": "article",
+        "provision_id": "A371",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A372",
+        "provision_type": "article",
+        "provision_id": "A372",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A373",
+        "provision_type": "article",
+        "provision_id": "A373",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -28246,6 +28429,34 @@
         "tier": "special-law",
         "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
         "authority_basis": "A365|A367|A368"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A370",
+        "tier": "special-law",
+        "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "authority_basis": "A365|A366|A367|A368|A369"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A371",
+        "tier": "special-law",
+        "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "authority_basis": "A205|A365|A367|A368|A369|A370"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A372",
+        "tier": "special-law",
+        "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "authority_basis": "A365|A367|A369|A371"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A373",
+        "tier": "special-law",
+        "law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "authority_basis": "A200|A205|A365|A369|A371|A372"
       }
     ],
     "provision_lifecycle_status": [
@@ -33064,6 +33275,38 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H075+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A370",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H076+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A371",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H077+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A372",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H078+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A373",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H079+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -37986,6 +38229,38 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "e51865658b762bb23b1747b7c4954f7c64abe535a8c148e845ed0604b2b8873a"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A370",
+        "introduced_by": "H076",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "3ed41739411791b47cff39acb6af026a514f62a3e42d916a50474f1a4a6665ed"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A371",
+        "introduced_by": "H077",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "41bff275f6c2ae28654ff7dbab1e81a94e8fa4fb7f2ee298d75769ec3a57a5f1"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A372",
+        "introduced_by": "H078",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "c76998ba2205a555ea5c621a15affbcea0f10a25ba07ee3c9f825a1ad325f162"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A373",
+        "introduced_by": "H079",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "4419ec39e1863235dbb4cb70203ba1a59fe2ffea1d215c346b6a6aa1159d7f94"
       }
     ],
     "provision_revisions": [
@@ -48914,6 +49189,42 @@
         "content_hash": "e51865658b762bb23b1747b7c4954f7c64abe535a8c148e845ed0604b2b8873a",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A370",
+        "revision_id": "H076",
+        "version": "1.00000",
+        "content_hash": "3ed41739411791b47cff39acb6af026a514f62a3e42d916a50474f1a4a6665ed",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A371",
+        "revision_id": "H077",
+        "version": "1.00000",
+        "content_hash": "41bff275f6c2ae28654ff7dbab1e81a94e8fa4fb7f2ee298d75769ec3a57a5f1",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A372",
+        "revision_id": "H078",
+        "version": "1.00000",
+        "content_hash": "c76998ba2205a555ea5c621a15affbcea0f10a25ba07ee3c9f825a1ad325f162",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A373",
+        "revision_id": "H079",
+        "version": "1.00000",
+        "content_hash": "4419ec39e1863235dbb4cb70203ba1a59fe2ffea1d215c346b6a6aa1159d7f94",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -53966,6 +54277,46 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A370",
+        "controlling_law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A371",
+        "controlling_law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A372",
+        "controlling_law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A373",
+        "controlling_law_code": "CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -54793,6 +55144,50 @@
         "previous_hash": "26b74fcd33c67b97f29a4d002a1d2cdfa2fc11e58d2c62ad5a040d9397aef929",
         "entry_hash": "bbd78df84fb48b732f0fbac72ed8b76122b3f7404784b34331b13bb98d9ceaf7",
         "version_epoch": 2
+      },
+      {
+        "sequence": 76,
+        "change_id": "H076",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "three-engine-observation-diagnosis-controlled-optimization-and-recovery-drills",
+        "summary": "Established three-engine self-observation, diagnosis and controlled optimization through index recommendations, capacity forecasts, data tiers, query budgets, transport backpressure, fault injection, recovery drills, integrity summaries, backend generations and non-authoritative scores. Version remains E2:1.00000.",
+        "previous_hash": "bbd78df84fb48b732f0fbac72ed8b76122b3f7404784b34331b13bb98d9ceaf7",
+        "entry_hash": "4dd7dd7757924e576ecd3e27c64b086b8dea04f17d4325e420aaf8d10a4955a6",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 77,
+        "change_id": "H077",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "qdrant-default-rag-reembedding-reconciliation-and-four-rag-behaviors",
+        "summary": "Mandated Qdrant plus PostgreSQL as the default canonical RAG execution path, source-based re-embedding reconciliation, four distinct governed RAG behaviors, and opaque shared-collection metadata. Version remains E2:1.00000.",
+        "previous_hash": "4dd7dd7757924e576ecd3e27c64b086b8dea04f17d4325e420aaf8d10a4955a6",
+        "entry_hash": "14d78265ee06bcd49369d413a1bcdbb5efad3bc2f4522da5149be8323d6d86e2",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 78,
+        "change_id": "H078",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "mandatory-local-rag-six-stage-implementation-order",
+        "summary": "Fixed the local RAG implementation order: Qdrant canonical runtime, PostgreSQL central metadata, degraded reconciliation, Code RAG, Agentic RAG, then Memory RAG. Version remains E2:1.00000.",
+        "previous_hash": "14d78265ee06bcd49369d413a1bcdbb5efad3bc2f4522da5149be8323d6d86e2",
+        "entry_hash": "af7798c23882dfd27402293c4c8b5edd95d5e0d171f8dc26f06f490cf2577ad4",
+        "version_epoch": 2
+      },
+      {
+        "sequence": 79,
+        "change_id": "H079",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "canonical-rag-takeover-reconciliation-queue-and-specialized-rag-controls",
+        "summary": "Strengthened canonical RAG takeover with PostgreSQL metadata authority, durable reconciliation queue, recoverable cross-store writes, tombstone anti-resurrection, index versions, dual authorization, observability, retrieval evaluation and specialized RAG budgets/lifecycles. Version remains E2:1.00000.",
+        "previous_hash": "af7798c23882dfd27402293c4c8b5edd95d5e0d171f8dc26f06f490cf2577ad4",
+        "entry_hash": "0af756a8a67e44c37f37955fbe9de935a6453a5b7fc2608ec4ae05cf256a9f1c",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -55349,14 +55744,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H075",
-        "provision_count": 615,
-        "identity_count": 615,
-        "lineage_count": 615,
+        "history_head": "H079",
+        "provision_count": 619,
+        "identity_count": 619,
+        "lineage_count": 619,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "1bedae997db2767e4599f9396646085035fdf58ea703dd1df6ba6c3254aa54c3",
-        "identity_root": "a23ca6597b632de6865fd68510966bfd5602fc0320c56d31f93f02d0693b8058",
-        "full_root": "f041443ea0092d07aefcc6380948ef598a1b8c869993a370c3bd7ad0b20889d8",
+        "content_root": "20e40a9532f6c60949e6b50d7dd48ddf93f84c6d54d32d1dcfac376aa138e955",
+        "identity_root": "efe22ac3b3d5744123f67afeda0695d161afd4ce38fed67c12eb603e84a3ae71",
+        "full_root": "89ff07297aef170e726966be7de0365e2641bbdbd1c9dd3457795159875233a4",
         "version_epoch": 2
       }
     ],
@@ -60202,6 +60597,78 @@
         "cleanup": "remove isolated fixtures only;retain platform evidence",
         "isolation_policy": "isolated stores and fail-closed transitions",
         "timeout": "4800s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_DATA_PLATFORM_CONTROLLED_OPTIMIZATION",
+        "canonical_name": "data-platform-controlled-optimization-and-recovery-drill-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "three-engine observability and controlled optimization",
+        "requirement_ids": "A365|A366|A367|A368|A369|A370",
+        "test_level": "unit+contract+integration+performance+failure-injection+recovery",
+        "preconditions": "slow queries,index fixtures,growth histories,tiered resources,budget classes,transport load,eight faults,multi-generation stores and backups",
+        "fixtures": "Seq/Index scans;unused/duplicate index;dry-run/create/drop denial;30/90/180 forecasts;all tiers;each query budget;all pressure states;PostgreSQL/Qdrant stop,SQLite lock,WAL growth,migration interrupt,locator/RLS fault,pool exhaustion;full recovery drill;old generation vector;five scores",
+        "ordered_steps": "observe and diagnose;propose;confirm controlled action;verify/audit;inject every fault;run complete drill;compare integrity summaries and generations",
+        "expected_results": "no arbitrary drop;forecasts/proposals evidenced;budgets/backpressure bounded;eight degradations correct;reopen only after full verification;old generation stale;scores never authorize or mask",
+        "evidence": "query/plan/pool metrics+forecasts+tier ledger+pressure events+fault/drill manifests+integrity summaries+generation lineage+score inputs+audit",
+        "cleanup": "remove isolated fixtures only;retain evidence",
+        "isolation_policy": "isolated fault environment and generation-fenced recovery",
+        "timeout": "5400s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_QDRANT_DEFAULT_AND_RAG_RECONCILIATION",
+        "canonical_name": "qdrant-default-rag-reembedding-and-four-behavior-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "canonical and degraded RAG execution paths",
+        "requirement_ids": "A205|A365|A367|A368|A369|A370|A371",
+        "test_level": "unit+contract+integration+failure-injection+recovery+security",
+        "preconditions": "healthy/unhealthy Qdrant/PostgreSQL,256D degraded vectors,owning sources,four rag types,shared collection and unauthorized locators",
+        "fixtures": "healthy default path;each canonical-store failure;recovery with matching/changed/missing source;dimension/model/hash mismatch;partial Qdrant/PostgreSQL write;hybrid/code/agentic/memory behavior;agentic stop/budget;memory scope;metadata filter;forbidden content/path;total Qdrant loss",
+        "ordered_steps": "prove normal Qdrant+PostgreSQL+RRF+reranker;degrade;reconcile only by source re-chunk/re-embed;verify index state;run distinct behavior suites;inspect shared point payload;rebuild total collection",
+        "expected_results": "canonical path is default;fallback bounded;no 256D copy;reconciliation clears only after parity;all four behaviors distinct;one shared opaque collection;authorization and rebuild pass",
+        "evidence": "route/readiness evidence+source/chunk/vector hashes+dimension/model+index transitions+behavior traces+payload inspection+rebuild manifest+audit",
+        "cleanup": "remove fixtures and rebuilt test collection only;retain evidence",
+        "isolation_policy": "isolated stores,generation-fenced idempotent reconciliation",
+        "timeout": "4800s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_LOCAL_RAG_STAGE_ORDER",
+        "canonical_name": "local-rag-six-stage-order-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "local RAG activation chain",
+        "requirement_ids": "A365|A367|A369|A371|A372",
+        "test_level": "contract+integration+failure-injection+release",
+        "preconditions": "six stage candidates with valid,missing,failed and stale predecessor evidence",
+        "fixtures": "exact-order success;failure/stale evidence at each stage;isolated later-stage prototype;hybrid-only behavior labeled code/agentic/memory;repair earliest invalid stage",
+        "ordered_steps": "attempt activation of each stage;inject predecessor failure;verify downstream block and upstream continuity;repair and replay dependent evidence",
+        "expected_results": "only exact sequence activates;stage N invalid blocks N..6;prototype remains experimental;hybrid-only cannot complete specialized RAG;revalidation starts at earliest invalid stage",
+        "evidence": "stage manifests+dependency chain+route/metadata/reconcile evidence+specialized behavior traces+gate decisions",
+        "cleanup": "remove fixtures only;retain stage decisions",
+        "isolation_policy": "isolated stages and immutable evidence",
+        "timeout": "3600s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_CANONICAL_RAG_TAKEOVER_AND_QUEUE",
+        "canonical_name": "canonical-rag-takeover-reconciliation-queue-and-evaluation-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "canonical/degraded RAG runtime and specialized behaviors",
+        "requirement_ids": "A200|A205|A365|A369|A371|A372|A373",
+        "test_level": "unit+contract+integration+failure-injection+recovery+security+evaluation",
+        "preconditions": "healthy/failing stores,degraded mutation queue,partial writes,tombstones,index versions,permission scopes,fixed retrieval corpus and specialized RAG fixtures",
+        "fixtures": "prove canonical default;fallback activation;create/update/delete queue;lease/retry/dead-letter;Qdrant-only and PostgreSQL-only success;tombstone race with old vector;each version drift;pre/post authorization denial;stage observability;Recall@K/MRR/reranker/grounding;agentic limits;memory transitions;code AST graph",
+        "ordered_steps": "run live-path evidence;inject partial failures;reconcile idempotently;race tombstone;rebuild affected versions;exercise both authorization layers;score fixed corpus;exhaust agentic budgets;verify memory and code structures",
+        "expected_results": "canonical takeover genuine;no lost/duplicate mutation;partial writes recover;no resurrection;precise rebuild;zero authorization leak;all fallbacks visible;evaluation passes;budgets/lifecycles/AST behavior enforced",
+        "evidence": "route traces+queue ledger+store receipts+tombstone/version manifests+authorization audit+evaluation report+behavior evidence",
+        "cleanup": "remove isolated fixtures only;retain governance evidence",
+        "isolation_policy": "isolated stores,generation-fenced queue and no stale resurrection",
+        "timeout": "5400s",
         "introduced_version": "1.00000",
         "retired_version": null
       }
