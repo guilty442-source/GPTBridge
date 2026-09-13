@@ -506,6 +506,7 @@ class GovernedExecutor:
                         cwd=str(self.project_root),
                         capture_output=True,
                         text=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW,
                     )
                     if result.stdout.strip():
                         return True
@@ -553,6 +554,7 @@ class GovernedExecutor:
                 result = subprocess.run(
                     ["python", "-m", "py_compile", str(full_path)],
                     capture_output=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
                 )
                 if result.returncode != 0:
                     shutil.copy2(backup_path, full_path)
@@ -692,6 +694,7 @@ class IndependentVerifier:
                     result = subprocess.run(
                         ["python", "-m", "py_compile", str(full_path)],
                         capture_output=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW,
                     )
                     if result.returncode != 0:
                         return False
@@ -734,6 +737,7 @@ class IndependentVerifier:
                         result = subprocess.run(
                             ["python", "-m", "py_compile", str(full_path)],
                             capture_output=True,
+                            creationflags=subprocess.CREATE_NO_WINDOW,
                         )
                         if result.returncode != 0:
                             return False
@@ -752,6 +756,7 @@ class IndependentVerifier:
                         cwd=str(self.project_root),
                         capture_output=True,
                         text=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW,
                     )
                     if result.stdout.strip():
                         # Has uncommitted changes - check if they're preserved

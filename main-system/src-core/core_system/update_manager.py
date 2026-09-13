@@ -345,6 +345,7 @@ class UpdateHealthMonitor:
                 capture_output=True,
                 text=True,
                 timeout=15.0,
+                creationflags=subprocess.CREATE_NO_WINDOW,
             )
             output = (result.stdout or "") + (result.stderr or "")
             passed = "[PASS]" in output and result.returncode == 0
