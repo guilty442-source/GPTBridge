@@ -3139,6 +3139,15 @@
         "rule": "POLICY:code/policy/NativePromotionPolicy.ts is immutable data only and stores per-capability latency_budget+cpu_budget+memory_budget+throughput_target+minimum_meaningful_improvement; no global 2x or shared multiplier. RECORD-REQUIRED:capability_id+benchmark_id+dataset_id+python_revision+native_revision+machine_profile+input_size+warmup_count+sample_count+python_metrics+native_metrics+resource_budget+parity_result+fallback_result+record_timestamp; MACHINE-PROFILE:CPU/GPU/memory/OS/toolchain/power/thermal/runtime identity required for reproduction. COMPARABILITY:same input+semantic scope+warmup+iteration+correctness verification; otherwise FAIL benchmark_not_comparable; measure end-to-end Python call>conversion>pybind11>C ABI>C++>result conversion>Python return,not compute-only. COPY-METRICS:input_bytes+output_bytes+copy_count+allocation_count+peak_native_memory; excessive boundary copy=WARN unless it violates budget,then FAIL. GIL:long-running CPU call+no Python object access+GIL retained=>WARN with evidence; release is not universally required. FALLBACK-INJECTION:native load failure+ABI incompatible+capability unavailable+initialization failure+circuit breaker open must preserve Python API+semantic contract+controlled fallback/error+zero duplicate side effect. STRUCTURE:add code/checkers/NativePromotionChecker.ts+code/policy/NativePromotionPolicy.ts+code/registry/NativePromotionRegistry.ts+code/evidence/native-promotion/; registry data fields capability+owner+native_executor+profile_evidence+benchmark_evidence+parity_evidence+fallback_evidence+status and no implementation logic. STATES:PYTHON_ONLY>EXPERIMENTAL_NATIVE only after profile bottleneck; EXPERIMENTAL_NATIVE>APPROVED_NATIVE only after parity+benchmark+budget+fallback all pass; regression causes APPROVED_NATIVE>SUSPENDED_NATIVE>Python fallback; no automatic C++ deletion. CHECKER:read-only evidence+verdict only.",
         "prohibition": "FORBID:fixed universal speedup ratio+compute-only timing+different input/scope/cache/warmup/iterations+missing machine profile+ignored conversion/copy/allocation cost+automatic GIL rule+fallback tested only by missing .pyd+APPROVED without all gates+production EXPERIMENTAL+deleting suspended native code+checker mutation.",
         "exception": "None for benchmark comparability or production approval; capability-specific budgets may differ only through registered evidence and owner-approved policy data."
+      },
+      {
+        "position": 359,
+        "provision_id": "A359",
+        "section_index": "16",
+        "subject": "build-abi-toolchain-artifact-reproducibility-gate",
+        "rule": "GATE:BUILD ABI REPRO GATE answers only:approved toolchain used? artifact conforms to approved ABI/API baseline? same input yields acceptably equivalent artifact? FLOW:source>toolchain verification>canonical build configuration>native/.NET/build>symbol+ABI inspection>artifact fingerprint>reproducibility comparison>PASS|WARN|FAIL. STRUCTURE:code/checkers/BuildAbiReproChecker.ts+code/policy/BuildAbiPolicy.ts+code/registry/ToolchainRegistry.ts+code/registry/AbiBaselineRegistry.ts+code/evidence/build-abi/; policy and registries are immutable governance data only,checker verifies and never repairs. TOOLCHAINS:Python native records Python+pybind11+setuptools/build config;C/C++ records MSVC/clang/gcc family+version+target_arch+runtime_library+language_standard+optimization_level+exception_policy+rtti_policy+calling_convention+symbol_visibility+CMake;CSharp records compiler+.NET runtime+target_framework+PlatformTarget+RID;TypeScript records Node+TypeScript+Vite/build tool;SQL records migration version/order+schema baseline. CPP-LOCK:C++20+x64+public ABI C only+C++ symbols hidden unless explicit successor; /MD versus /MT,architecture,standard,flags,exception/RTTI/calling/visibility differences are distinct ABI build identities. ABI-BASELINE:abi_major+abi_minor+exported_symbols+struct_sizes+struct_alignments+field widths/signedness+calling_convention+architecture+runtime; permit compatible minor additive change; FAIL removed symbol+changed width/layout/calling convention+breaking semantics without major bump. EXPORT-GATE:public allowlist only registered gptbridge_* symbols; std/internal classes/vector/parser/mangled C++ symbols private. PYD:_sovereign_native.pyd is formal artifact and records name+hash+architecture+python_abi+compiler+runtime+build_config_hash+source_revision; existence alone never passes. CSHARP:x64 required when consuming x64 native unless registered multi-arch strategy; verify target framework+RID+interop signature+DllImport calling convention+CharSet/encoding+width. REPRO-V1:semantic reproducibility is mandatory:ABI+exports+behavior+config equivalent; binary hash difference caused by timestamp/debug path/PDB/link metadata is WARN with explained normalized diff; bit reproducibility is recorded aspirational level until promoted by successor. MANIFEST:each artifact stores artifact+source_revision+source_hash+compiler+compiler_version+language_standard+target_arch+runtime+flags+dependency_versions+contract_hash+abi_version+build_timestamp+artifact_hash+configuration. CANONICAL-BUILD-POLICY:BuildAbiPolicy is sole value source consumed by CMakeLists.txt+build_native.py+csproj+package.json; checker rejects duplicate/conflicting version/flag definitions. CONFIGURATION:DEBUG and RELEASE have different identities; production accepts RELEASE artifact only and rejects debug CRT+assert/iterator-debug/different optimization contamination. VERDICT:PASS=approved toolchain+arch+compatible ABI+exact exports+complete manifest+semantic reproducibility;WARN=semantic reproducible but unexplained binary hash variance remains bounded;FAIL=unapproved compiler/version+arch/runtime/standard mismatch+public C++ export+removed ABI symbol without major bump+layout change+incomplete manifest+debug artifact in release.",
+        "prohibition": "FORBID:build existence as proof+unregistered toolchain+mixed /MD /MT identity+x86/x64 or Debug/Release mixing+public C++ symbols+ABI baseline overwrite+removed/changed ABI without major version+independent version/flag truth in build files+missing manifest+byte-identical V1 requirement that ignores semantic normalization+WARN promoted to PASS without evidence+checker changing build config.",
+        "exception": "Registered multi-architecture or bit-reproducible profiles require separate artifact identities and evidence; neither may weaken semantic reproducibility or release configuration isolation."
       }
     ],
     "certification_evidence": [
@@ -3894,7 +3903,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H064",
+        "history_head": "H065",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -12288,6 +12297,12 @@
         "provision_id": "A358",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A359",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12346,14 +12361,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H064",
-        "provision_count": 604,
-        "identity_count": 604,
-        "lineage_count": 604,
+        "history_head": "H065",
+        "provision_count": 605,
+        "identity_count": 605,
+        "lineage_count": 605,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "8150424f06b86b75daef1aa24ed7ab563fab29744135778e8815238afd0acf56",
-        "identity_root": "d1d46c943ee8438cbe858b8763c6fb0e7756775b66918dc08470818c2f7244ed",
-        "full_root": "3401d64a87158d222eb4888aa556d5d52880fe46aa905285d4e65297324f26ff",
+        "content_root": "0b944a2b68c30998b26505eb6662076991105a2981c454e9f02eb0b1cdea0b5e",
+        "identity_root": "a65e5af8878b698a5e5a0bfb0311e5fb18ed72f16e933b9baced68df6103127d",
+        "full_root": "f701d0949d923332a60a8e20feeb7830a449ad7942cb2a5b8c0d68eb194bf361",
         "legacy_history_head": null
       }
     ],
@@ -17480,7 +17495,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H064"
+        "value": "H065"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17605,6 +17620,14 @@
       {
         "key": "native_promotion_states",
         "value": "PYTHON_ONLY|EXPERIMENTAL_NATIVE|APPROVED_NATIVE|SUSPENDED_NATIVE"
+      },
+      {
+        "key": "build_abi_repro_gate",
+        "value": "A359"
+      },
+      {
+        "key": "build_reproducibility_v1",
+        "value": "semantic-required;bit-difference-WARN"
       }
     ],
     "module_assignment_registry": [
@@ -23260,6 +23283,13 @@
         "provision_id": "A358",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A359",
+        "provision_type": "article",
+        "provision_id": "A359",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -27490,6 +27520,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A205|A211|A218|A219|A220|A264|A340|A343|A344|A354"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A359",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A175|A205|A340|A344|A345|A348|A353|A355|A357|A358"
       }
     ],
     "provision_lifecycle_status": [
@@ -32220,6 +32257,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H064+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A359",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H065+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -37054,6 +37099,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "a80a60ec900fba89021d6e688d16d881bc4c82f11b1f3441a6dd5b918de726fb"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A359",
+        "introduced_by": "H065",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "d8799a730b6de08b3b126c4d836cf308114c62dd79bcd2891972ced57e38307b"
       }
     ],
     "provision_revisions": [
@@ -47883,6 +47936,15 @@
         "content_hash": "a80a60ec900fba89021d6e688d16d881bc4c82f11b1f3441a6dd5b918de726fb",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A359",
+        "revision_id": "H065",
+        "version": "1.00000",
+        "content_hash": "d8799a730b6de08b3b126c4d836cf308114c62dd79bcd2891972ced57e38307b",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -52825,6 +52887,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A359",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -53531,6 +53603,17 @@
         "previous_hash": "8efec7b1e679e4d4914a7bb326836b83a8305ef161d63c926f8b9ba2871c3f09",
         "entry_hash": "f7e2c6e83118a00dac8ab9f6cded8e84b9f2afdb3b65821b63772e5de9eb3fd9",
         "version_epoch": 2
+      },
+      {
+        "sequence": 65,
+        "change_id": "H065",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "build-abi-toolchain-artifact-reproducibility-gate",
+        "summary": "Established Build ABI Repro Gate with approved toolchains, canonical build policy, ABI/export baselines, complete artifact manifests, semantic reproducibility V1 and strict Debug/Release isolation. Version remains E2:1.00000.",
+        "previous_hash": "f7e2c6e83118a00dac8ab9f6cded8e84b9f2afdb3b65821b63772e5de9eb3fd9",
+        "entry_hash": "808cb57f995b0cfb6db042c19b28369c713e36fd47b5149ca6d61a92425be563",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -54087,14 +54170,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H064",
-        "provision_count": 604,
-        "identity_count": 604,
-        "lineage_count": 604,
+        "history_head": "H065",
+        "provision_count": 605,
+        "identity_count": 605,
+        "lineage_count": 605,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "8150424f06b86b75daef1aa24ed7ab563fab29744135778e8815238afd0acf56",
-        "identity_root": "d1d46c943ee8438cbe858b8763c6fb0e7756775b66918dc08470818c2f7244ed",
-        "full_root": "3401d64a87158d222eb4888aa556d5d52880fe46aa905285d4e65297324f26ff",
+        "content_root": "0b944a2b68c30998b26505eb6662076991105a2981c454e9f02eb0b1cdea0b5e",
+        "identity_root": "a65e5af8878b698a5e5a0bfb0311e5fb18ed72f16e933b9baced68df6103127d",
+        "full_root": "f701d0949d923332a60a8e20feeb7830a449ad7942cb2a5b8c0d68eb194bf361",
         "version_epoch": 2
       }
     ],
@@ -58742,6 +58825,24 @@
         "cleanup": "remove fixtures only;retain evidence",
         "isolation_policy": "isolated read-only fixtures",
         "timeout": "900s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_BUILD_ABI_REPRO_GATE",
+        "canonical_name": "build-abi-repro-gate-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "BuildAbiReproChecker",
+        "requirement_ids": "A340|A344|A345|A355|A359",
+        "test_level": "unit+contract+integration+build+failure-injection",
+        "preconditions": "approved and altered toolchain/config/ABI/export/artifact fixtures",
+        "fixtures": "PASS approved compiler+arch+ABI+exports+manifest+semantic repro;WARN semantic repro with normalized binary hash variance;FAIL unapproved compiler/version|x86-x64|runtime|standard|flags|public C++ symbols|removed symbol no major|struct size/layout|calling convention|missing export|incomplete manifest|debug artifact in release|PYD Python ABI mismatch|CSharp PInvoke mapping",
+        "ordered_steps": "build each fixture>inspect symbols/layout/config>fingerprint>normalize nondeterminism>compare baseline>emit verdict and evidence",
+        "expected_results": "every fixture exact verdict;no mutation;release blocks every FAIL",
+        "evidence": "toolchain identity+baseline+manifest+symbol dump+normalized diff+verdict",
+        "cleanup": "remove fixture outputs only;retain evidence",
+        "isolation_policy": "isolated reproducible build roots+bounded resources",
+        "timeout": "1200s",
         "introduced_version": "1.00000",
         "retired_version": null
       }
