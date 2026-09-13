@@ -204,11 +204,17 @@ class SovereignBase(ABC):
             return refusal_outcome(
                 "TARGET_SOVEREIGN_NOT_STARTED", ("A10", "A11")
             )
+        # Stamp the delegation so a sub-sovereign target can verify the
+        # request genuinely passed through its codex parent — a bare
+        # ``requester=<parent>`` string is spoofable by any in-process
+        # caller; the marker makes the delegation path explicit (A334).
+        payload = dict(request.payload)
+        payload["_delegated_by"] = self.sovereign_id
         forwarded = SovereignRequest(
             intent=request.intent,
             subject=request.subject,
             requester=self.sovereign_id,
-            payload=request.payload,
+            payload=payload,
         )
         return await target.handle(forwarded)
 

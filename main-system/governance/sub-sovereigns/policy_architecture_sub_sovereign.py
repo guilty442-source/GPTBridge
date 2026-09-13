@@ -24,12 +24,20 @@ class PolicyArchitectureSubSovereign(SubSovereignBase):
         super().__init__(app, parent)
         self._policies: dict[str, dict[str, Any]] = {}
 
-    def register_policy(self, policy_id: str, spec: dict[str, Any]) -> None:
+    def register_policy(self, policy_id: str, spec: dict[str, Any]) -> bool:
+        """A323: policy coordination — refuse malformed or conflicting
+        registrations (fail-closed; no decision power)."""
+        if not policy_id or not isinstance(spec, dict):
+            return False
+        existing = self._policies.get(policy_id)
+        if existing is not None and existing.get("spec") != spec:
+            return False
         self._policies[policy_id] = {
             "spec": spec,
             "registered_at": self._iso_now(),
             "status": "active",
         }
+        return True
 
     def live_status(self) -> dict[str, Any]:
         base = super().live_status()

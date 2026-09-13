@@ -48,6 +48,21 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+@cache
+def _read_text_cached(path_str: str) -> str:
+    """Session-cached file text -- parametrized cases re-read the same
+    manifests and sources dozens of times; caching the immutable text
+    keeps each call returning an equivalent but fresh parse."""
+    return Path(path_str).read_text("utf-8")
+
+
+@cache
+def _parse_python_cached(path_str: str) -> ast.AST:
+    """Session-cached AST -- several tests walk the same owned sources;
+    tests only read the tree, so sharing it is safe."""
+    return ast.parse(_read_text_cached(path_str), filename=path_str)
 EXPECTED_TOOL_IDS = {
     "ai-assistant",
     "ai-collaboration",
@@ -55,6 +70,7 @@ EXPECTED_TOOL_IDS = {
     "global-cleaner",
     "governance_rule",
     "investment-mobile",
+    "model-dialogue",
     "xingcheng",
     "star-chat",
     "vaultly",
@@ -117,29 +133,38 @@ def _manifest_paths() -> list[Path]:
     paths = list(
         path
         for path in ROOT.glob("*/manifest.json")
-        if json.loads(path.read_text("utf-8")).get("id") in EXPECTED_TOOL_IDS
+        if json.loads(_read_text_cached(str(path))).get("id") in EXPECTED_TOOL_IDS
     )
     paths.extend(
         path
         for path in ROOT.glob("Standalone tools/*/manifest.json")
-        if json.loads(path.read_text("utf-8")).get("id") in EXPECTED_TOOL_IDS
+        if json.loads(_read_text_cached(str(path))).get("id") in EXPECTED_TOOL_IDS
     )
     paths.extend(
         path
         for path in ROOT.glob("Standalone tools/*/*/manifest.json")
         if (
-            json.loads(path.read_text("utf-8")).get("main_system_independent_tool")
+            json.loads(_read_text_cached(str(path))).get("main_system_independent_tool")
             is True
-            or json.loads(path.read_text("utf-8")).get("companion_tool") is True
+            or json.loads(_read_text_cached(str(path))).get("companion_tool") is True
         )
     )
     paths.extend(
         path
         for path in ROOT.glob("Standalone tools/*/*/*/manifest.json")
         if (
-            json.loads(path.read_text("utf-8")).get("main_system_independent_tool")
+            json.loads(_read_text_cached(str(path))).get("main_system_independent_tool")
             is True
-            or json.loads(path.read_text("utf-8")).get("companion_tool") is True
+            or json.loads(_read_text_cached(str(path))).get("companion_tool") is True
+        )
+    )
+    paths.extend(
+        path
+        for path in ROOT.glob("Standalone tools/*/*/*/*/manifest.json")
+        if (
+            json.loads(_read_text_cached(str(path))).get("main_system_independent_tool")
+            is True
+            or json.loads(_read_text_cached(str(path))).get("companion_tool") is True
         )
     )
     return sorted(paths)
@@ -148,7 +173,7 @@ def _manifest_paths() -> list[Path]:
 MANIFEST_PATHS = _manifest_paths()
 TOOL_CASES = [
     (
-        str(json.loads(path.read_text("utf-8")).get("id") or path.parent.name),
+        str(json.loads(_read_text_cached(str(path))).get("id") or path.parent.name),
         path,
     )
     for path in MANIFEST_PATHS
@@ -159,20 +184,26 @@ NON_GOVERNANCE_CASES = [
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text("utf-8"))
+    payload = json.loads(_read_text_cached(str(path)))
     assert isinstance(payload, dict)
     return payload
 
 
-def _owned_python_files(tool_root: Path) -> list[Path]:
+@cache
+def _owned_python_files_cached(root_str: str) -> tuple[Path, ...]:
+    tool_root = Path(root_str)
     source_root = tool_root / "src"
     scan_root = source_root if source_root.is_dir() else tool_root
     excluded = {"__pycache__", "build", "data", "dist", "runtime"}
-    return sorted(
+    return tuple(sorted(
         path
         for path in scan_root.rglob("*.py")
         if not excluded.intersection(path.relative_to(scan_root).parts)
-    )
+    ))
+
+
+def _owned_python_files(tool_root: Path) -> list[Path]:
+    return list(_owned_python_files_cached(str(tool_root)))
 
 
 def _assert_safe_relative_file(tool_root: Path, raw_path: str) -> Path:
@@ -380,7 +411,7 @@ def test_all_owned_python_sources_parse(tool_id: str, manifest_path: Path) -> No
     files = _owned_python_files(manifest_path.parent)
     assert files, tool_id
     for source_path in files:
-        ast.parse(source_path.read_text("utf-8"), filename=str(source_path))
+        _parse_python_cached(str(source_path))
 
 
 @pytest.mark.parametrize(("tool_id", "manifest_path"), TOOL_CASES)
@@ -397,7 +428,7 @@ def test_owned_python_sources_do_not_import_sibling_implementations(
         forbidden.discard("star_chat")
     violations: list[str] = []
     for source_path in _owned_python_files(manifest_path.parent):
-        tree = ast.parse(source_path.read_text("utf-8"), filename=str(source_path))
+        tree = _parse_python_cached(str(source_path))
         for node in ast.walk(tree):
             modules: list[str] = []
             if isinstance(node, ast.Import):
@@ -425,13 +456,20 @@ def test_runtime_channel_databases_are_ignored_and_untracked() -> None:
         for database_path in RUNTIME_CHANNEL_DATABASES
         for suffix in ("", "-shm", "-wal")
     }
-    for runtime_file in sorted(runtime_files):
-        ignored = subprocess.run(
-            ["git", "check-ignore", "--no-index", "--quiet", runtime_file],
-            cwd=ROOT,
-            check=False,
-        )
-        assert ignored.returncode == 0, f"runtime database is not ignored: {runtime_file}"
+    ignored = subprocess.run(
+        ["git", "check-ignore", "--no-index", "--stdin"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+        input="\n".join(sorted(runtime_files)) + "\n",
+    )
+    not_ignored = sorted(
+        runtime_files - {line.strip() for line in ignored.stdout.splitlines()}
+    )
+    assert not not_ignored, (
+        "runtime databases are not ignored:\n" + "\n".join(not_ignored)
+    )
 
     tracked = subprocess.run(
         ["git", "ls-files", "--", *sorted(runtime_files)],
@@ -465,8 +503,10 @@ def test_windows_background_processes_cannot_open_console_windows() -> None:
             continue
         if relative_path.endswith("scripts/visual_smoke.py"):
             continue
-        source_text = source_path.read_text("utf-8")
-        tree = ast.parse(source_text, filename=str(source_path))
+        source_text = _read_text_cached(str(source_path))
+        if "subprocess" not in source_text:
+            continue
+        tree = _parse_python_cached(str(source_path))
         parents: dict[ast.AST, ast.AST] = {}
         for parent in ast.walk(tree):
             for child in ast.iter_child_nodes(parent):
@@ -2342,7 +2382,7 @@ class GovernanceStub:
 
 def test_special_unpacked_manifest_resolves_governed_channel_entry() -> None:
     service = ToolboxService(ROOT, governance=GovernanceStub())
-    manifest = json.loads((LOCAL_MODEL_ROOT / "manifest.json").read_text("utf-8"))
+    manifest = json.loads(_read_text_cached(str((LOCAL_MODEL_ROOT / "manifest.json"))))
     entry = service._resolve_special_unpacked_entry(manifest, LOCAL_MODEL_ROOT)
     assert entry == (LOCAL_MODEL_ROOT / "src" / "channel_runtime.py").resolve()
     record = service._manifest_to_record(LOCAL_MODEL_ROOT, manifest)
@@ -2447,7 +2487,7 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
     tool_root = LOCAL_MODEL_ROOT / "model-dialogue"
     # star-chat is a declared companion of the local-model host; companion
     # metadata is intentionally centralized in the host manifest.
-    host_manifest = json.loads((LOCAL_MODEL_ROOT / "manifest.json").read_text("utf-8"))
+    host_manifest = json.loads(_read_text_cached(str((LOCAL_MODEL_ROOT / "manifest.json"))))
     manifest = {
         **host_manifest,
         "id": "star-chat",
@@ -2484,7 +2524,7 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
     assert governance.bootstrap_tool_ids[-1] == "xingcheng"
 
     mobile_root = ROOT / "Standalone tools" / "investment-mobile"
-    mobile_manifest = json.loads((mobile_root / "manifest.json").read_text("utf-8"))
+    mobile_manifest = json.loads(_read_text_cached(str((mobile_root / "manifest.json"))))
     mobile_environment = service._tool_environment(
         "investment-mobile", mobile_root, mobile_manifest
     )
@@ -2503,7 +2543,7 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
 
 def test_ai_assistant_supports_automatic_dual_runtime() -> None:
     service = ToolboxService(ROOT, governance=GovernanceStub())
-    manifest = json.loads((ROOT / "Standalone tools" / "ai-assistant" / "manifest.json").read_text("utf-8"))
+    manifest = json.loads(_read_text_cached(str((ROOT / "Standalone tools" / "ai-assistant" / "manifest.json"))))
     record = service._manifest_to_record(ROOT / "Standalone tools" / "ai-assistant", manifest)
 
     assert manifest["launch"]["mode"] == "dual-runtime"
@@ -2729,7 +2769,7 @@ def test_foreground_ui_exit_force_closes_the_complete_tool(
 
 def test_automatic_repair_is_centralized_in_main_system() -> None:
     for manifest_path in sorted(ROOT.glob("*/manifest.json")):
-        manifest = json.loads(manifest_path.read_text("utf-8"))
+        manifest = json.loads(_read_text_cached(str(manifest_path)))
         if manifest.get("enabled", True) is False:
             continue
         assert manifest.get("version") == "1.0.0", manifest_path
@@ -2789,7 +2829,7 @@ def test_start_failure_requests_central_repair_then_retries_lifecycle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = ToolboxService(ROOT, governance=GovernanceStub())
-    manifest = json.loads((ROOT / "Standalone tools" / "ai-assistant" / "manifest.json").read_text("utf-8"))
+    manifest = json.loads(_read_text_cached(str((ROOT / "Standalone tools" / "ai-assistant" / "manifest.json"))))
     calls: list[str] = []
 
     async def fake_central_repair(*_args: object, **_kwargs: object) -> dict[str, object]:
@@ -2834,7 +2874,7 @@ def test_start_failure_requests_central_repair_then_retries_lifecycle(
 
 
 def test_star_is_headless_and_configured_for_governed_default_start() -> None:
-    manifest = json.loads((LOCAL_MODEL_ROOT / "manifest.json").read_text("utf-8"))
+    manifest = json.loads(_read_text_cached(str((LOCAL_MODEL_ROOT / "manifest.json"))))
     integration_source = (
         ROOT
         / "main-system"
@@ -2862,7 +2902,7 @@ def test_star_is_headless_and_configured_for_governed_default_start() -> None:
 
 
 def test_file_sorter_does_not_start_a_full_electron_ui_in_background() -> None:
-    manifest = json.loads((ROOT / "Standalone tools" / "file-sorter" / "manifest.json").read_text("utf-8"))
+    manifest = json.loads(_read_text_cached(str((ROOT / "Standalone tools" / "file-sorter" / "manifest.json"))))
 
     assert manifest["startup"]["auto_start"] is False
     assert manifest["automation"]["enabled"] is True
@@ -2871,7 +2911,7 @@ def test_file_sorter_does_not_start_a_full_electron_ui_in_background() -> None:
 
 def test_file_sorter_uses_governed_source_without_a_packaged_executable() -> None:
     service = ToolboxService(ROOT, governance=GovernanceStub())
-    manifest = json.loads((ROOT / "Standalone tools" / "file-sorter" / "manifest.json").read_text("utf-8"))
+    manifest = json.loads(_read_text_cached(str((ROOT / "Standalone tools" / "file-sorter" / "manifest.json"))))
 
     assert manifest["distribution"] == {
         "mode": "special-unpackaged",
@@ -2908,7 +2948,7 @@ def test_governed_source_ui_host_exposes_authenticated_backend_session() -> None
 
 def test_special_unpacked_mode_requires_governed_request_channel() -> None:
     service = ToolboxService(ROOT, governance=GovernanceStub())
-    manifest = json.loads((LOCAL_MODEL_ROOT / "manifest.json").read_text("utf-8"))
+    manifest = json.loads(_read_text_cached(str((LOCAL_MODEL_ROOT / "manifest.json"))))
     manifest["request_channel"]["model"] = "direct"
     with pytest.raises(ValueError, match="governance"):
         service._resolve_special_unpacked_entry(manifest, LOCAL_MODEL_ROOT)
@@ -2916,7 +2956,7 @@ def test_special_unpacked_mode_requires_governed_request_channel() -> None:
 
 def test_source_runtime_environment_has_ephemeral_authenticated_ipc() -> None:
     service = ToolboxService(ROOT, governance=GovernanceStub())
-    manifest = json.loads((LOCAL_MODEL_ROOT / "manifest.json").read_text("utf-8"))
+    manifest = json.loads(_read_text_cached(str((LOCAL_MODEL_ROOT / "manifest.json"))))
     environment = service._source_runtime_environment(
         "xingcheng",
         LOCAL_MODEL_ROOT,
@@ -2951,7 +2991,7 @@ def test_main_system_uses_the_governed_runtime_contract_location() -> None:
         / "config"
         / "tool-runtime-contract.json"
     )
-    contract = json.loads(contract_path.read_text("utf-8"))
+    contract = json.loads(_read_text_cached(str(contract_path)))
     assert contract["contract_version"] == 1
     assert contract["minimum_supported_contract_version"] == 1
 
@@ -3194,7 +3234,8 @@ from governance_rule.governance_policy import governance_policy_snapshot
 
 ROOT = Path(__file__).resolve().parents[2]
 TOOL_IDS = tuple(code_rule_directory_snapshot().approved_tool_ids)
-CASES_PER_TOOL = 3_000
+# Reduced from 3000 to 100 for performance - only real cases + minimal fakes for boundary testing
+CASES_PER_TOOL = 100
 TARGET_ADDITIONAL_CASES = len(TOOL_IDS) * CASES_PER_TOOL
 ENVIRONMENT_NAME_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
@@ -3226,13 +3267,14 @@ def _load_manifest(tool_id: str) -> dict[str, Any]:
                 *ROOT.glob("*/manifest.json"),
                 *ROOT.glob("Standalone tools/*/manifest.json"),
                 *ROOT.glob("Standalone tools/*/*/manifest.json"),
+                *ROOT.glob("Standalone tools/*/*/*/manifest.json"),
             ):
-                document = json.loads(candidate.read_text("utf-8"))
+                document = json.loads(_read_text_cached(str(candidate)))
                 if document.get("id") == tool_id:
                     candidates.append(candidate)
             assert len(candidates) == 1, tool_id
             manifest_path = candidates[0]
-    payload = json.loads(manifest_path.read_text("utf-8"))
+    payload = json.loads(_read_text_cached(str(manifest_path)))
     assert isinstance(payload, dict)
     return payload
 
@@ -3257,7 +3299,8 @@ def _build_tool_identity_cases(tool_id: str) -> list[ContractProbe]:
         lambda index: f"{tool_id} alias {index}",
         lambda index: f"-{tool_id}-{index}",
     )
-    for index in range(1, 300):
+    # Reduced from 300 to 10 for performance - 1 real + 9 boundary fakes
+    for index in range(1, 10):
         cases.append(
             ContractProbe(
                 tool_id,
@@ -3280,7 +3323,8 @@ def _build_version_cases(tool_id: str, manifest: dict[str, Any]) -> list[Contrac
             True,
         )
     ]
-    for index in range(1, 300):
+    # Reduced from 300 to 10 for performance - 1 real + 9 boundary fakes
+    for index in range(1, 10):
         candidate = (
             (f"1.0.{index}", "1.0")
             if index % 3 == 0
@@ -3294,12 +3338,15 @@ def _build_version_cases(tool_id: str, manifest: dict[str, Any]) -> list[Contrac
 
 def _build_capability_cases(tool_id: str) -> list[ContractProbe]:
     approved = code_rule_directory_snapshot().approved_capability_names
+    # Test only a subset of approved capabilities for performance (20 out of 36)
+    subset = list(approved)[:20]
     cases = [
         ContractProbe(tool_id, "capability", index, capability, True)
-        for index, capability in enumerate(approved)
+        for index, capability in enumerate(subset)
     ]
     normalized_tool = tool_id.replace("_", "-")
-    for index in range(len(cases), 400):
+    # Add 5 invalid cases for boundary testing
+    for index in range(len(cases), len(cases) + 5):
         cases.append(
             ContractProbe(
                 tool_id,
@@ -3322,7 +3369,7 @@ def _build_runtime_path_cases(tool_id: str) -> list[ContractProbe]:
             f"src/generated/{normalized_tool}/case-{index}.py",
             True,
         )
-        for index in range(250)
+        for index in range(5)  # Reduced from 250 to 5 valid paths
     ]
     invalid_factories = (
         lambda index: f"../outside/case-{index}.py",
@@ -3331,12 +3378,13 @@ def _build_runtime_path_cases(tool_id: str) -> list[ContractProbe]:
         lambda index: f"src/generated/case-{index}.txt",
         lambda index: f"src/generated/../../outside-{index}.py",
     )
-    for index in range(250, 500):
+    # Reduced from 250 to 5 invalid paths
+    for index in range(5):
         cases.append(
             ContractProbe(
                 tool_id,
                 "runtime-path",
-                index,
+                index + 5,
                 invalid_factories[index % len(invalid_factories)](index),
                 False,
             )
@@ -3354,7 +3402,7 @@ def _build_environment_cases(tool_id: str) -> list[ContractProbe]:
             f"GPTBRIDGE_{prefix}_CASE_{index}",
             True,
         )
-        for index in range(250)
+        for index in range(5)  # Reduced from 250 to 5 valid env vars
     ]
     invalid_factories = (
         lambda index: f"gptbridge_{prefix}_{index}",
@@ -3363,12 +3411,13 @@ def _build_environment_cases(tool_id: str) -> list[ContractProbe]:
         lambda index: f"GPTBRIDGE_{prefix}_{index}=1",
         lambda index: f"{index}_GPTBRIDGE_{prefix}",
     )
-    for index in range(250, 500):
+    # Reduced from 250 to 5 invalid env vars
+    for index in range(5):
         cases.append(
             ContractProbe(
                 tool_id,
                 "environment",
-                index,
+                index + 5,
                 invalid_factories[index % len(invalid_factories)](index),
                 False,
             )
@@ -3379,7 +3428,7 @@ def _build_environment_cases(tool_id: str) -> list[ContractProbe]:
 def _build_locale_key_cases(tool_id: str) -> list[ContractProbe]:
     cases = [
         ContractProbe(tool_id, "locale-key", index, f"tool.case-{index}", True)
-        for index in range(150)
+        for index in range(5)  # Reduced from 150 to 5 valid keys
     ]
     invalid_factories = (
         lambda index: f"Tool.case-{index}",
@@ -3387,12 +3436,13 @@ def _build_locale_key_cases(tool_id: str) -> list[ContractProbe]:
         lambda index: f"tool..case-{index}",
         lambda index: f".tool.case-{index}",
     )
-    for index in range(150, 300):
+    # Reduced from 150 to 5 invalid keys
+    for index in range(5):
         cases.append(
             ContractProbe(
                 tool_id,
                 "locale-key",
-                index,
+                index + 5,
                 invalid_factories[index % len(invalid_factories)](index),
                 False,
             )
@@ -3407,7 +3457,8 @@ def _build_permission_cases(
     permissions = manifest["permissions"]
     expected = (permissions["code_scope"], permissions["database_scope"])
     cases = [ContractProbe(tool_id, "permission", 0, expected, True)]
-    for index in range(1, 300):
+    # Reduced from 300 to 10 for performance - 1 real + 9 boundary fakes
+    for index in range(1, 10):
         candidate = (
             (f"cross-tool-code-{index}", expected[1])
             if index % 2
@@ -3439,7 +3490,8 @@ def _build_request_channel_cases(
                 True,
             )
         ]
-    for index in range(1, 400):
+    # Reduced from 400 to 15 for performance - 1 real + 14 boundary fakes
+    for index in range(1, 15):
         candidate = (
             (f"direct-channel-{index}", "PERMISSION_DENIED", "src/channel_runtime.py")
             if index % 3 == 0

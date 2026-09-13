@@ -102,6 +102,8 @@ class SystemRuntimeSovereign(SovereignBase):
             "conflict_isolations": 0,
             "last_auto_cycle": "",
         }
+        # Health-coordination event log (A33/A65).
+        self._health_events: list[dict[str, Any]] = []
         # Isolated children pending re-acceptance (A322 conflict isolation).
         self._isolated_children: set[str] = set()
         # Last known convergence state per child.
@@ -167,7 +169,7 @@ class SystemRuntimeSovereign(SovereignBase):
             {
                 "authorized": True,
                 "action": action,
-                "execution": "delegated-to-runtime-sub-sovereign",
+                "execution": "delegated-to-governed-executor",
                 "basis": "codex-delegation",
             },
             self.verified_basis("A28", "A128", "A130"),
@@ -211,11 +213,32 @@ class SystemRuntimeSovereign(SovereignBase):
     async def _adjudicate_health_coordinate(
         self, request: SovereignRequest
     ) -> SovereignOutcome:
-        """與維護主宰協調健康（A33/A65）。"""
+        """與維護子層協調健康（A33/A65）— 聚合子層即時狀態並記錄事件。"""
+        children_health = {
+            child_id: {
+                "started": bool(getattr(child, "started", False)),
+                "status": (
+                    child.live_status().get("state")
+                    if hasattr(child, "live_status")
+                    else None
+                ),
+            }
+            for child_id, child in self._sub_sovereigns.items()
+        }
+        event = {
+            "scope": request.payload.get("scope") or "runtime-integrity",
+            "runtime_state": self._runtime_state,
+            "children": children_health,
+            "coordinated_at": self._iso_now(),
+        }
+        self._health_events.append(event)
+        del self._health_events[:-100]
         return accepted_outcome(
             {
                 "coordinated_with": "health-maintenance-test-sub-sovereign",
-                "scope": "runtime-integrity",
+                "scope": event["scope"],
+                "runtime_state": self._runtime_state,
+                "children_health": children_health,
                 "information_layer": "official",
             },
             self.verified_basis("A28", "A33", "A65"),

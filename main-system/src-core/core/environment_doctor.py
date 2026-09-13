@@ -35,17 +35,57 @@ REQUIRED_WORKSPACE_PATHS: tuple[str, ...] = (
     "governance_rule/permission_directory/directory_authority.py",
 )
 
+# Runtime dependencies — the main-system venv MUST have these (pyproject
+# ``dependencies``).  Everything else moved to optional extras when the
+# dependency tree was slimmed; the doctor reports their presence without
+# failing the environment on their absence.
 REQUIRED_PYTHON_MODULES: dict[str, str] = {
-    "fastapi": "fastapi",
-    "uvicorn": "uvicorn",
-    "pydantic": "pydantic",
-    "pytest": "pytest",
-    "pytest-asyncio": "pytest_asyncio",
-    "python-dotenv": "dotenv",
-    "imageio-ffmpeg": "imageio_ffmpeg",
-    "pillow": "PIL",
-    "pyinstaller": "PyInstaller",
+    "psutil": "psutil",
+    "psycopg": "psycopg",
     "websockets": "websockets",
+}
+
+# Optional extra groups (pyproject ``[project.optional-dependencies]``).
+OPTIONAL_PYTHON_MODULE_GROUPS: dict[str, dict[str, str]] = {
+    "test": {
+        "pytest": "pytest",
+        "pytest-asyncio": "pytest_asyncio",
+    },
+    "build": {
+        "pybind11": "pybind11",
+        "pyinstaller": "PyInstaller",
+        "setuptools": "setuptools",
+    },
+    "local-model": {
+        "beautifulsoup4": "bs4",
+        "imageio-ffmpeg": "imageio_ffmpeg",
+        "numpy": "numpy",
+        "pillow": "PIL",
+        "sentence-transformers": "sentence_transformers",
+        "torch": "torch",
+    },
+}
+
+# External system-level tools the project depends on at runtime or build
+# time.  These are NOT Python packages (those are in REQUIRED_PYTHON_MODULES)
+# and NOT codex formal tools (those are declared in A49/E35).  Each entry
+# maps the tool name to its command-line probe (``shutil.which``).
+REQUIRED_EXTERNAL_TOOLS: dict[str, str] = {
+    "git": "git",
+    "node": "node",
+    "npm": "npm.cmd",
+    "python": "python",
+}
+
+# Optional external tools — the project degrades gracefully when these
+# are unavailable, but they should be listed so the doctor can report
+# their presence/absence.
+OPTIONAL_EXTERNAL_TOOLS: dict[str, str] = {
+    "ollama": "ollama",
+    "playwright": "playwright",
+    "cl": "cl",            # MSVC C++ compiler (build-time only)
+    "nvidia-smi": "nvidia-smi",  # CUDA / GPU (optional acceleration)
+    "ffmpeg": "ffmpeg",    # Standalone ffmpeg; imageio-ffmpeg bundles its own
 }
 
 
@@ -108,12 +148,17 @@ def check_requirements_file(
     project_root: Path,
     required_modules: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    required_modules = required_modules or REQUIRED_PYTHON_MODULES
+    required_modules = dict(required_modules or REQUIRED_PYTHON_MODULES)
+    # requirements.txt declares the full workspace set (runtime + every
+    # optional extra group), so declaration coverage checks all of them.
+    declared_modules = dict(required_modules)
+    for group in OPTIONAL_PYTHON_MODULE_GROUPS.values():
+        declared_modules.update(group)
     requirements_path = project_root / "requirements.txt"
     names = parse_requirement_names(requirements_path)
     missing = [
         requirement
-        for requirement in sorted(required_modules)
+        for requirement in sorted(declared_modules)
         if requirement not in names
     ]
     return {
@@ -193,12 +238,54 @@ def check_python_modules(
     if completed.returncode != 0 and not missing:
         missing = sorted(required_modules)
 
+    # Probe optional extra groups — reported for observability only;
+    # their absence must not fail the environment check.
+    optional_probe = (
+        "import importlib.util,json;"
+        f"groups=json.loads({json.dumps(json.dumps({g: list(m.values()) for g, m in OPTIONAL_PYTHON_MODULE_GROUPS.items()}))});"
+        "print(json.dumps({g: {n: importlib.util.find_spec(n) is not None for n in names} for g, names in groups.items()}, sort_keys=True))"
+    )
+    optional_results: dict[str, dict[str, bool]] = {}
+    try:
+        opt_completed = subprocess.run(
+            [str(executable), "-c", optional_probe],
+            cwd=str(project_root),
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=15,
+            **_background_subprocess_kwargs(),
+        )
+        if opt_completed.returncode == 0:
+            optional_results = {
+                group: {
+                    req: bool(modules.get(import_name))
+                    for req, import_name in OPTIONAL_PYTHON_MODULE_GROUPS[group].items()
+                }
+                for group, modules in json.loads(
+                    opt_completed.stdout.strip() or "{}"
+                ).items()
+            }
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        optional_results = {}
+
+    optional_missing = {
+        group: sorted(
+            req for req, present in modules.items() if not present
+        )
+        for group, modules in optional_results.items()
+    }
+
     return {
         "ok": completed.returncode == 0 and not missing,
         "executable": str(executable),
         "exists": True,
         "missing": missing,
         "modules": module_results,
+        "optional_modules": optional_results,
+        "optional_missing": optional_missing,
         "error": completed.stderr.strip() or decode_error,
     }
 
@@ -269,6 +356,26 @@ def _resolve_platform_tool_entry(
     if entry_path.suffix == "":
         entry_path = entry_path.with_suffix(".py")
     return entry_path.resolve()
+
+
+def check_external_tools() -> dict[str, Any]:
+    """Probe required and optional external system-level tools."""
+    required_missing: list[str] = []
+    required_present: dict[str, bool] = {}
+    for label, command in REQUIRED_EXTERNAL_TOOLS.items():
+        found = shutil.which(command) is not None
+        required_present[label] = found
+        if not found:
+            required_missing.append(label)
+    optional_present: dict[str, bool] = {}
+    for label, command in OPTIONAL_EXTERNAL_TOOLS.items():
+        optional_present[label] = shutil.which(command) is not None
+    return {
+        "ok": not required_missing,
+        "required": required_present,
+        "optional": optional_present,
+        "missing": required_missing,
+    }
 
 
 def check_independent_tools(project_root: Path) -> dict[str, Any]:
@@ -370,6 +477,7 @@ def collect_environment_report(
     requirements = check_requirements_file(root, required_modules)
     python = check_python_modules(root, python_executable, required_modules)
     node = check_node_environment(root)
+    external = check_external_tools()
     independent_tools = check_independent_tools(root.parent)
 
     failures: list[str] = []
@@ -385,6 +493,8 @@ def collect_environment_report(
             failures.append(f"python probe error: {python['error']}")
     if not node["ok"]:
         failures.extend(f"node environment issue: {name}" for name in node["missing"])
+    if not external["ok"]:
+        failures.extend(f"missing external tool: {name}" for name in external["missing"])
     if not independent_tools["ok"]:
         failures.extend(
             f"independent tool missing entry: {item['tool']}"
@@ -408,6 +518,17 @@ def collect_environment_report(
         recommendations.append("Run npm.cmd ci to restore Node dependencies.")
     if not node["electron"]["ok"]:
         recommendations.append("Run npm.cmd run doctor:fix to repair the local Electron runtime.")
+    if external["missing"]:
+        recommendations.append(
+            "Install missing external tools: " + ", ".join(external["missing"])
+        )
+    for group, missing_reqs in (python.get("optional_missing") or {}).items():
+        if missing_reqs:
+            recommendations.append(
+                f"Optional group '{group}' not installed: "
+                + ", ".join(missing_reqs)
+                + f" — pip install -e .[{group}] when needed."
+            )
     if independent_tools["missing_entries"]:
         recommendations.append("Fix independent tool runtime.entry paths before packaging.")
 
@@ -420,6 +541,7 @@ def collect_environment_report(
         "requirements": requirements,
         "python": python,
         "node": node,
+        "external_tools": external,
         "independent_tools": independent_tools,
         "failures": failures,
         "recommendations": recommendations,

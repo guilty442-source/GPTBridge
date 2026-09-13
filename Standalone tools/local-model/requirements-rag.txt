@@ -1,5 +1,11 @@
-# Qwen3 reranker runtime. Vector and keyword retrieval are local-only
-# (sqlite3 hash semantic index + local keyword store, no Qdrant/PostgreSQL).
-sentence-transformers>=4.1.0
-transformers>=4.51.0
+# 星澄原生模型 + RAG 執行期依賴。
+# torch 為原生 Transformer 計算後端；triton 為可選 GPU 加速核心，
+# 不可用時自動回退至 PyTorch 純實作。
+beautifulsoup4>=4.12,<5
+numpy>=1.26,<3
 psutil>=6.0,<8
+sentence-transformers>=4.1.0
+torch>=2.2,<3
+
+# 可選 GPU 加速（triton 不可用時自動回退至 PyTorch）
+# triton>=3.0,<4

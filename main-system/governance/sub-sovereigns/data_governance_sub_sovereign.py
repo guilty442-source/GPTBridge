@@ -28,7 +28,7 @@ from governance_rule.codex import GOVERNANCE_CODEX
 
 
 _DATA_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "data-integrity"),
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.id == "data-governance-sub-sovereign"),
     None,
 )
 if _DATA_SOVEREIGN is None:
@@ -163,12 +163,20 @@ class DataGovernanceSubSovereign(SubSovereignBase):
     # Data-BODY responsibility status surfaces
     # ------------------------------------------------------------------
 
-    def register_data_spec(self, spec_id: str, spec: dict[str, Any]) -> None:
+    def register_data_spec(self, spec_id: str, spec: dict[str, Any]) -> bool:
+        """A323: refuse malformed or conflicting spec registrations
+        (fail-closed coordination; no decision power)."""
+        if not spec_id or not isinstance(spec, dict):
+            return False
+        existing = self._data_specs.get(spec_id)
+        if existing is not None and existing.get("spec") != spec:
+            return False
         self._data_specs[spec_id] = {
             "spec": spec,
             "registered_at": self._iso_now(),
             "status": "active",
         }
+        return True
 
     def _integrity_ready(self) -> bool | None:
         checker = self._integrity_checker

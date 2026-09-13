@@ -45,7 +45,7 @@ from governance_rule.codex import GOVERNANCE_CODEX
 
 
 _THIRD_PARTY_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "dependency-governance"),
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.id == "dependency-sync-sub-sovereign"),
     None,
 )
 if _THIRD_PARTY_SOVEREIGN is None:
@@ -195,19 +195,28 @@ class DependencySyncSubSovereign(SubSovereignBase):
 
     # ─── Dependency registry ───────────────────────────────────────────
 
-    def register_dependency(self, dep_id: str, spec: dict[str, Any]) -> None:
+    def register_dependency(self, dep_id: str, spec: dict[str, Any]) -> bool:
+        """Refuse malformed or conflicting registrations (fail-closed)."""
+        if not dep_id or not isinstance(spec, dict):
+            return False
+        existing = self._dependencies.get(dep_id)
+        if existing is not None and existing.get("spec") != spec:
+            return False
         self._dependencies[dep_id] = {
             "spec": spec,
             "registered_at": self._iso_now(),
             "status": "tracked",
         }
+        return True
 
-    def sync_dependency(self, dep_id: str, status: dict[str, Any]) -> None:
-        if dep_id in self._dependencies:
-            self._dependencies[dep_id].update({
-                "status": status,
-                "synced_at": self._iso_now(),
-            })
+    def sync_dependency(self, dep_id: str, status: dict[str, Any]) -> bool:
+        if dep_id not in self._dependencies:
+            return False
+        self._dependencies[dep_id].update({
+            "status": status,
+            "synced_at": self._iso_now(),
+        })
+        return True
 
     # ─── Status ────────────────────────────────────────────────────────
 

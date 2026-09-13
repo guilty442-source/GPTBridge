@@ -24,7 +24,7 @@ from governance_rule.codex import GOVERNANCE_CODEX
 
 
 _DECLARATION = next(
-    (item for item in GOVERNANCE_CODEX.sovereigns if item.area == "system-learning"),
+    (item for item in GOVERNANCE_CODEX.sovereigns if item.id == "learning-evidence-sync-sub-sovereign"),
     None,
 )
 if _DECLARATION is None:

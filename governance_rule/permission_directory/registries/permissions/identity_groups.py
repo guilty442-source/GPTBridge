@@ -10,6 +10,8 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_GLOBAL_CLEANER,
     IDENTITY_GROUP_GOVERNANCE_RULE,
     IDENTITY_GROUP_INVESTMENT_MOBILE,
+    IDENTITY_GROUP_LOCAL_MODEL,
+    IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE,
     IDENTITY_GROUP_MAIN_SYSTEM,
     IDENTITY_GROUP_SHARED_LAYER,
     IDENTITY_GROUP_SYSTEM_RESCUE,
@@ -214,6 +216,21 @@ VAULTLY_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     language_name="vaultly",
     codename="VAULT",
 )
+LOCAL_MODEL_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
+    "local-model",
+    group_id=IDENTITY_GROUP_LOCAL_MODEL,
+    identity_code="L00001",
+    language_name="local_model",
+    codename="LOCAL_MODEL",
+)
+MODEL_DIALOGUE_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
+    "model-dialogue",
+    group_id=IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE,
+    identity_code="D00001",
+    language_name="model_dialogue",
+    codename="DIALOGUE",
+    physical_root="local-model",
+)
 del _business_tool_identity
 
 SYSTEM_RESCUE_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
@@ -253,6 +270,8 @@ CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     XINGCHENG_IDENTITY,
     VAULTLY_IDENTITY,
     SYSTEM_RESCUE_IDENTITY,
+    LOCAL_MODEL_IDENTITY,
+    MODEL_DIALOGUE_IDENTITY,
 )
 
 ACTIVE_IDENTITY_GROUP: Final[IdentityGroup] = IdentityGroup(

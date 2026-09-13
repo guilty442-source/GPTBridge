@@ -19,7 +19,9 @@ startup; this governed executor executes it:
   1. Materialize every active registry child under its codex-registered
      parent (A334 single-parent map):
        system-runtime-sovereign  -> system-sub, startup-sub
-       permission-sovereign      -> language-review, directory, identity-group
+       permission-sovereign      -> directory, identity-group
+                                 (language-review-sub-sovereign: ABOLISHED,
+                                  capability transferred to 星澄 per A334)
        decision-sovereign        -> policy-architecture, health-maintenance-test,
                                     data-governance, priority-capability,
                                     change-acceptance
@@ -55,7 +57,6 @@ def _sub_sovereigns_module() -> Any:
 _CHILD_CLASSES: dict[str, str] = {
     "system-sub-sovereign": "SystemSubSovereign",
     "startup-sub-sovereign": "StartupSubSovereign",
-    "language-review-sub-sovereign": "LanguageReviewSubSovereign",
     "directory-sub-sovereign": "DirectorySubSovereign",
     "identity-group-sub-sovereign": "IdentityGroupSubSovereign",
     "policy-architecture-sub-sovereign": "PolicyArchitectureSubSovereign",
@@ -523,7 +524,7 @@ class SovereignStackExecutor:
 
         dependency_state = sovereign._dependency_state()
 
-        runtime, resource, data, integration, language_review, third_party = (
+        runtime, resource, data, integration, third_party = (
             await asyncio.gather(
                 self._start_child(
                     sovereign, "runtime", "runtime-state-sync-sub-sovereign"
@@ -536,9 +537,6 @@ class SovereignStackExecutor:
                 ),
                 self._start_child(
                     sovereign, "integration", "channel-contract-sync-sub-sovereign"
-                ),
-                self._start_child(
-                    sovereign, "language_review", "language-review-sub-sovereign"
                 ),
                 self._start_child(
                     sovereign, "third_party", "dependency-sync-sub-sovereign"
@@ -573,7 +571,6 @@ class SovereignStackExecutor:
                 resource,
                 data,
                 integration,
-                language_review,
                 third_party,
             )
             if result

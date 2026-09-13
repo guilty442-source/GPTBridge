@@ -61,7 +61,7 @@ from core.health import check_core_health
 
 
 _MAINTENANCE_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "maintenance"),
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.id == "health-maintenance-test-sub-sovereign"),
     None,
 )
 if _MAINTENANCE_SOVEREIGN is None:
@@ -126,20 +126,29 @@ class HealthMaintenanceTestSubSovereign(
     # Health check registry
     # ------------------------------------------------------------------
 
-    def register_health_check(self, check_id: str, spec: dict[str, Any]) -> None:
+    def register_health_check(self, check_id: str, spec: dict[str, Any]) -> bool:
+        """Refuse malformed or conflicting registrations (fail-closed)."""
+        if not check_id or not isinstance(spec, dict):
+            return False
+        existing = self._health_checks.get(check_id)
+        if existing is not None and existing.get("spec") != spec:
+            return False
         self._health_checks[check_id] = {
             "spec": spec,
             "registered_at": self._iso_now(),
             "status": "registered",
         }
+        return True
 
-    def record_health_result(self, check_id: str, result: dict[str, Any]) -> None:
-        if check_id in self._health_checks:
-            self._health_checks[check_id].update({
-                "last_result": result,
-                "checked_at": self._iso_now(),
-                "status": "completed",
-            })
+    def record_health_result(self, check_id: str, result: dict[str, Any]) -> bool:
+        if check_id not in self._health_checks:
+            return False
+        self._health_checks[check_id].update({
+            "last_result": result,
+            "checked_at": self._iso_now(),
+            "status": "completed",
+        })
+        return True
 
 
 __all__ = ["HealthMaintenanceTestSubSovereign"]

@@ -109,6 +109,45 @@ worktrees are clean, governance audits pass, integration succeeds, and
 `origin/main` is an ancestor of local `main`. Workers and self-commit watchers
 must never push directly.
 
+## Supervised Full-System Automation
+
+The automation supervisor owns the entire parallel pipeline as one persistent,
+self-restarting service: it spawns one self-commit watcher per registered
+worktree, periodically runs the conflict-safe synchronizer, and records its
+state in `.git/gptbridge-automation/`. Use the wrapper from any checkout:
+
+```powershell
+# status / start / stop
+& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --status
+& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --start
+& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --stop
+
+# cross-reboot persistence (per-user Run key: no elevation needed)
+& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --install-logon
+& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --uninstall-logon
+
+# optional: Task Scheduler logon job (requires an elevated shell)
+& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --install-task
+& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --uninstall-task
+```
+
+Design notes:
+
+- Double-start is safe: a second supervisor exits when the lock is busy
+  (`LockBusyError`), delete the lock file only to force yourself to replace a
+  hung instance (`Stop-Process` its pid first).
+- Watchers auto-commit their own worktree after a stability debounce; the
+  supervisor never pushes unless `--push` was used at start time.
+- If a sync cycle reports `error:dirty-worktree:<path>` it means a worktree
+  (usually the main checkout while an external worker is mid-edit) is still
+  uncommitted; the next cycle absorbs it once the tree settles and the
+  governance audit passes. This is the intended parallel-update behaviour.
+- Local-worker branches (`git`, `local-model`, `rag`, `ui` and the `kilo`
+  worktrees) are merged into `main` by the coordinator; conflicts stop the
+  cycle until a human resolves them.
+
+Implementation: `governance_rule/execution/git_tiers/automation_supervisor.py`.
+
 ## Governance
 
 - Codex files (`governance_rule/codex/*.py`) are **read-only** — do not modify without explicit user approval.

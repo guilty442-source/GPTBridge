@@ -1,12 +1,21 @@
-fastapi==0.115.0
-uvicorn==0.30.6
-pydantic==2.9.2
+# Runtime dependencies (main system)
+psutil>=6.0,<8
+psycopg[binary,pool]>=3.2,<4
+websockets==16.1
+
+# Test dependencies
 pytest==9.1.1
 pytest-asyncio==1.4.0
-python-dotenv==1.0.1
-psycopg[binary]>=3.2,<4
-imageio-ffmpeg==0.6.0
-Pillow==12.3.0
+
+# Build dependencies
+pybind11>=2.13,<3
 pyinstaller==6.22.2
-websockets==16.1
-pybind11==3.1.0
+setuptools>=75,<80
+
+# Local-model / standalone-tool dependencies
+beautifulsoup4>=4.12,<5
+imageio-ffmpeg==0.6.0
+numpy>=1.26,<3
+Pillow>=10.0,<14
+sentence-transformers>=4.1.0
+torch>=2.2,<3

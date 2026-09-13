@@ -24,15 +24,45 @@ class StartupSubSovereign(SubSovereignBase):
         super().__init__(app, parent)
         self._startup_phases: dict[str, dict[str, Any]] = {}
 
-    def record_phase(self, phase: str, status: str, details: dict[str, Any] | None = None) -> None:
+    def record_phase(self, phase: str, status: str, details: dict[str, Any] | None = None) -> bool:
+        """Record a boot phase — refuse malformed phase records
+        (fail-closed coordination)."""
+        if not phase or not status:
+            return False
         self._startup_phases[phase] = {
             "status": status,
             "details": details or {},
             "recorded_at": self._iso_now(),
         }
+        return True
 
     def get_phase(self, phase: str) -> dict[str, Any] | None:
         return self._startup_phases.get(phase)
+
+    def readiness_handoff(self) -> dict[str, Any]:
+        """A303/A304: verify boot phases and hand readiness to the
+        runtime-sovereign parent.
+
+        Startup coordinates boot only — it does not decide or execute.
+        A handoff is valid only when every recorded phase reached a
+        ``ready``/``done`` state; the verified outcome is reported to the
+        codex parent via ``report_to_parent``.
+        """
+        phases = self._startup_phases
+        incomplete = {
+            name: state.get("status")
+            for name, state in phases.items()
+            if state.get("status") not in ("ready", "done", "converged")
+        }
+        ready = bool(phases) and not incomplete
+        report = {
+            "ready": ready,
+            "phases": {name: s.get("status") for name, s in phases.items()},
+            "incomplete": incomplete,
+            "handed_to": self.parent_sovereign_id if ready else None,
+        }
+        self.report_to_parent("converged" if ready else "incomplete")
+        return report
 
     def live_status(self) -> dict[str, Any]:
         base = super().live_status()

@@ -24,13 +24,27 @@ class IdentityGroupSubSovereign(SubSovereignBase):
         super().__init__(app, parent)
         self._groups: dict[str, dict[str, Any]] = {}
 
-    def register_group(self, group_id: str, members: list[str], spec: dict[str, Any]) -> None:
+    def register_group(self, group_id: str, members: list[str], spec: dict[str, Any]) -> bool:
+        """A317: identity-group coordination — the group must exist in the
+        sealed permission-directory identity registry; unknown groups are
+        refused (fail-closed coordination, no review power)."""
+        from governance_rule.permission_directory.registries.permissions.identity_groups import (
+            identity_group_snapshot,
+        )
+
+        registered = {
+            identity.group_id
+            for identity in identity_group_snapshot().identities
+        }
+        if group_id not in registered:
+            return False
         self._groups[group_id] = {
             "members": members,
             "spec": spec,
             "registered_at": self._iso_now(),
             "status": "active",
         }
+        return True
 
     def get_group(self, group_id: str) -> dict[str, Any] | None:
         return self._groups.get(group_id)

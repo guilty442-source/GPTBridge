@@ -12,6 +12,18 @@ class LockBusyError(RuntimeError):
     """Raised when a live process owns the requested lock."""
 
 
+def pid_alive(pid: int) -> bool:
+    """Return whether ``pid`` refers to a live process (OS-portable)."""
+    try:
+        import psutil
+    except ImportError as exc:  # pragma: no cover - unusual environment
+        raise LockBusyError(f"pid probe unavailable ({exc})") from exc
+    try:
+        return psutil.pid_exists(pid)
+    except Exception:
+        return False
+
+
 def _owner_alive(path: Path) -> bool:
     try:
         age = max(0.0, time.time() - path.stat().st_mtime)
@@ -22,11 +34,7 @@ def _owner_alive(path: Path) -> bool:
         pid = int(payload["pid"])
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         return age < 10.0
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
+    return pid_alive(pid)
 
 
 def lock_is_active(path: Path) -> bool:

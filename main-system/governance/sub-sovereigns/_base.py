@@ -4,7 +4,7 @@
 - A64: SUB-SOVEREIGN: control/dispatch under parent authority; EXECUTION:governed-executor
 - A284/A287: system-sub-sovereign: module-management-assignment-coordination-no-decision-no-execution
 - A303/A304: startup-sub-sovereign: child-of-runtime-sovereign-no-decision-no-execution
-- A308: language-review-sub-sovereign: child-of-permission-sovereign-no-decision-no-execution
+- A308: language-review-sub-sovereign: ABOLISHED per A334; capability transferred to 星澄
 - A316: directory-sub-sovereign: child-of-permission-sovereign-no-decision-no-review-no-execution
 - A317: identity-group-sub-sovereign: child-of-permission-sovereign-no-decision-no-review-no-execution
 - A322: all sync sub-sovereigns: child-of-synchronization-sovereign-no-decision-no-execution
@@ -37,6 +37,12 @@ class SubSovereignBase(SovereignBase, ABC):
         super().__init__(app)
         self._parent = parent
         self._managed_resources: dict[str, Any] = {}
+        self._assignments: dict[str, dict[str, Any]] = {}
+        # Per-target sync bookkeeping — named ``_sync_targets`` because
+        # several domain subclasses already use ``_sync_state`` for their
+        # own domain sync payload.
+        self._sync_targets: dict[str, dict[str, Any]] = {}
+        self._coordinations: list[dict[str, Any]] = []
 
     @property
     def parent(self) -> Any | None:
@@ -70,10 +76,21 @@ class SubSovereignBase(SovereignBase, ABC):
         return intent in self._INTENT_ALLOWLIST
 
     def _verify_parent_authorization(self, request: SovereignRequest) -> bool:
-        """A334: each sub-sovereign has exactly one codex-registered parent."""
+        """A334: each sub-sovereign has exactly one codex-registered parent.
+
+        The request must arrive *through* that parent: ``requester`` must
+        equal the codex parent AND the payload must carry the
+        ``_delegated_by`` stamp that ``SovereignBase.delegate_to`` adds.
+        A bare ``requester=<parent>`` without the stamp is refused —
+        in-process callers may not impersonate the parent by string
+        alone.
+        """
         from ..registries import parent_of
 
-        return request.requester == parent_of(self.sovereign_id)
+        parent = parent_of(self.sovereign_id)
+        if request.requester != parent:
+            return False
+        return request.payload.get("_delegated_by") == parent
 
     def report_to_parent(self, kind: str) -> bool:
         """Report a lifecycle outcome to the codex-registered parent.
@@ -99,10 +116,19 @@ class SubSovereignBase(SovereignBase, ABC):
         return True
 
     async def _adjudicate_coordinate(self, request: SovereignRequest) -> SovereignOutcome:
+        event = {
+            "scope": request.payload.get("scope"),
+            "detail": request.payload.get("detail"),
+            "coordinated_at": self._iso_now(),
+            "event_id": f"coord-{len(self._coordinations) + 1}",
+        }
+        self._coordinations.append(event)
+        del self._coordinations[:-200]
         return accepted_outcome(
             {
                 "coordinated": True,
-                "scope": request.payload.get("scope"),
+                "event_id": event["event_id"],
+                "scope": event["scope"],
                 "decision": "none",
                 "execution": "none",
             },
@@ -110,14 +136,37 @@ class SubSovereignBase(SovereignBase, ABC):
         )
 
     async def _adjudicate_assign(self, request: SovereignRequest) -> SovereignOutcome:
+        """A334: module assignments are validated against the codex
+        module_assignment_registry — a sub-sovereign may only coordinate
+        modules whose ``managing_sub_sovereign`` is itself."""
+        module_code = request.payload.get("module") or request.payload.get("resource")
+        if module_code:
+            from ..registries import module_assignment
+
+            row = module_assignment(str(module_code))
+            if row is None:
+                return refusal_outcome(
+                    "MODULE_NOT_IN_REGISTRY", self.verified_basis("A334")
+                )
+            if row.get("managing_sub_sovereign") != self.sovereign_id:
+                return refusal_outcome(
+                    "MODULE_ASSIGNED_ELSEWHERE",
+                    self.verified_basis("A334"),
+                )
+            self._assignments[str(module_code)] = {
+                "to": request.payload.get("target"),
+                "primary_domain": row.get("primary_domain"),
+                "assigned_at": self._iso_now(),
+            }
         return accepted_outcome(
             {
-                "assigned": request.payload.get("resource"),
+                "assigned": module_code,
                 "to": request.payload.get("target"),
+                "recorded": module_code in self._assignments,
                 "decision": "none",
                 "execution": "none",
             },
-            self.verified_basis("A130", "A284", "A287"),
+            self.verified_basis("A130", "A284", "A287", "A334"),
         )
 
     async def _adjudicate_manage(self, request: SovereignRequest) -> SovereignOutcome:
@@ -141,9 +190,16 @@ class SubSovereignBase(SovereignBase, ABC):
         )
 
     async def _adjudicate_sync(self, request: SovereignRequest) -> SovereignOutcome:
+        target = request.payload.get("target")
+        if target:
+            self._sync_targets[str(target)] = {
+                "status": request.payload.get("sync_status") or "synced",
+                "synced_at": self._iso_now(),
+            }
         return accepted_outcome(
             {
-                "synced": request.payload.get("target"),
+                "synced": target,
+                "sync_state": self._sync_targets.get(str(target)),
                 "decision": "none",
                 "execution": "none",
             },
@@ -155,6 +211,8 @@ class SubSovereignBase(SovereignBase, ABC):
             {
                 "status": "active" if self.started else "stopped",
                 "managed_resources": list(self._managed_resources.keys()),
+                "assignments": list(self._assignments.keys()),
+                "sync_state": dict(self._sync_targets),
                 "parent": self.parent_sovereign_id,
             },
             self.verified_basis("A130"),
@@ -164,6 +222,12 @@ class SubSovereignBase(SovereignBase, ABC):
         base = super().live_status()
         base["parent"] = self.parent_sovereign_id
         base["managed_resources"] = list(self._managed_resources.keys())
+        base["assignments"] = list(self._assignments.keys())
+        base["pending_sync"] = [
+            target
+            for target, state in self._sync_targets.items()
+            if state.get("status") != "synced"
+        ]
         base["no_decision"] = True
         base["no_execution"] = True
         return base

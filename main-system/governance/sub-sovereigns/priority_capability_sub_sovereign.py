@@ -24,12 +24,20 @@ class PriorityCapabilitySubSovereign(SubSovereignBase):
         super().__init__(app, parent)
         self._capabilities: dict[str, dict[str, Any]] = {}
 
-    def register_capability(self, cap_id: str, spec: dict[str, Any]) -> None:
+    def register_capability(self, cap_id: str, spec: dict[str, Any]) -> bool:
+        """A323: capability-priority coordination — refuse malformed or
+        conflicting registrations (fail-closed; no decision power)."""
+        if not cap_id or not isinstance(spec, dict):
+            return False
+        existing = self._capabilities.get(cap_id)
+        if existing is not None and existing.get("spec") != spec:
+            return False
         self._capabilities[cap_id] = {
             "spec": spec,
             "registered_at": self._iso_now(),
             "status": "active",
         }
+        return True
 
     def live_status(self) -> dict[str, Any]:
         base = super().live_status()

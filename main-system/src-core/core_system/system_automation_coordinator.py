@@ -20,6 +20,10 @@
 
 此協調器是**決策層**組件，不執行任何業務邏輯。它只協調已存在的
 主宰自動化循環，不取代任何主宰的裁決權。
+
+A336 邊界：全系統自動化**任務執行**（分解/排程/派工/收斂/驗收/故障
+隔離）專屬於星澄的 automation executor；本協調器只做主宰生命週期
+與健康聚合，不是平行的自動化協調器（A336 prohibition）。
 """
 
 from __future__ import annotations
@@ -179,6 +183,11 @@ class SystemAutomationCoordinator:
 
         # 4. Route pending degradation to the decision-sovereign.
         await self._route_pending_degradations()
+
+        # 5. Emit the filtered evidence projection for 星澄's auxiliary
+        #    global review (A140: information layer is the sole provider;
+        #        read-only, redacted — states only, no payloads).
+        self._emit_xingcheng_evidence(health)
 
     def _sovereigns(self) -> list[Any]:
         """Get all managed sovereigns from the app."""
@@ -374,6 +383,55 @@ class SystemAutomationCoordinator:
 
         # Clear pending routes after processing.
         self._pending_routes.clear()
+
+    def _emit_xingcheng_evidence(self, health: dict[str, Any]) -> None:
+        """A140/A146: write the filtered system-evidence projection into
+        星澄's owned domain so its auxiliary global review can consume it.
+
+        The projection is deliberately redacted — only component identity,
+        state and timing make it across the boundary; no payloads, config
+        values, or secrets.  The domain root is taken from the
+        materialized xingcheng sovereign; when it is absent the
+        projection is skipped (fail-quiet).
+        """
+        import json
+        from pathlib import Path
+
+        xingcheng = getattr(self.app, "xingcheng_sovereign", None)
+        domain_root = getattr(xingcheng, "_owned_domain_root", None)
+        if not domain_root:
+            return
+
+        items: list[dict[str, Any]] = [
+            {
+                "component": "system-overall",
+                "state": health.get("overall_state"),
+                "detail": None,
+            }
+        ]
+        for attr, sov_health in health.get("sovereigns", {}).items():
+            items.append({
+                "component": sov_health.get("sovereign_id") or attr,
+                "state": sov_health.get("state") or "unknown",
+                "detail": None,
+            })
+        projection = {
+            "projected_at": self._iso_now(),
+            "channel": "information-layer",
+            "redacted": True,
+            "items": items,
+        }
+        try:
+            target = (
+                Path(domain_root) / "governance" / "system-evidence.json"
+            )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(
+                json.dumps(projection, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+        except (OSError, UnicodeError) as error:
+            _logger.warning("xingcheng evidence projection failed: %s", error)
 
     # ------------------------------------------------------------------
     # Status surfaces

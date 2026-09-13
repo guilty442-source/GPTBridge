@@ -24,20 +24,33 @@ class ChangeAcceptanceSubSovereign(SubSovereignBase):
         super().__init__(app, parent)
         self._changes: dict[str, dict[str, Any]] = {}
 
-    def submit_change(self, change_id: str, spec: dict[str, Any]) -> None:
+    def submit_change(self, change_id: str, spec: dict[str, Any]) -> bool:
+        """A323: change-acceptance coordination — refuse malformed or
+        conflicting submissions (fail-closed; no decision power)."""
+        if not change_id or not isinstance(spec, dict):
+            return False
+        existing = self._changes.get(change_id)
+        if existing is not None and existing.get("spec") != spec:
+            return False
         self._changes[change_id] = {
             "spec": spec,
             "submitted_at": self._iso_now(),
             "status": "pending",
         }
+        return True
 
-    def accept_change(self, change_id: str, result: dict[str, Any]) -> None:
-        if change_id in self._changes:
-            self._changes[change_id].update({
-                "result": result,
-                "accepted_at": self._iso_now(),
-                "status": "accepted",
-            })
+    def accept_change(self, change_id: str, result: dict[str, Any]) -> bool:
+        """Record acceptance of a submitted change — only pending changes
+        may be accepted (fail-closed coordination)."""
+        change = self._changes.get(change_id)
+        if change is None or change.get("status") != "pending":
+            return False
+        change.update({
+            "result": result,
+            "accepted_at": self._iso_now(),
+            "status": "accepted",
+        })
+        return True
 
     def live_status(self) -> dict[str, Any]:
         base = super().live_status()

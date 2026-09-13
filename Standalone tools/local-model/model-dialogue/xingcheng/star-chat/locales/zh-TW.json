@@ -1,0 +1,6 @@
+{
+  "tool.name": "星聊",
+  "tool.window_title": "星聊",
+  "tool.description": "星澄本地模型對話平台，提供 AI 對話服務。",
+  "errors.permission_denied": "權限不足"
+}

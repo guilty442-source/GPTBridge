@@ -470,6 +470,38 @@ class PermissionSovereign(SovereignBase):
         data_scope = request.payload.get("data_scope")
         if not all([actor, capability, target]):
             return refusal_outcome("MISSING_PARAMETERS", self.verified_basis("A10"))
+
+        # A313: authorization may only proceed after a current 星澄
+        # permission review; a deny-objection finding cannot be
+        # overridden absent an explicit human-governor successor law.
+        review = request.payload.get("xingcheng_review")
+        if not isinstance(review, dict) or not review.get("finding"):
+            # Producer wiring: request the review from 星澄 through its
+            # single entry gate so the chain is fail-closed and audited.
+            review_outcome = await self.delegate_to(
+                "星澄",
+                SovereignRequest(
+                    intent="review.permission",
+                    subject=request.subject,
+                    requester=self.sovereign_id,
+                    payload=dict(request.payload),
+                ),
+            )
+            if not review_outcome.accepted:
+                return refusal_outcome(
+                    "XINGCHENG_REVIEW_REQUIRED", self.verified_basis("A313")
+                )
+            review = review_outcome.result or {}
+        finding = str(review.get("finding"))
+        if finding == "deny-objection":
+            return refusal_outcome(
+                "DENY_OBJECTION_NOT_OVERRIDABLE", self.verified_basis("A313")
+            )
+        if finding != "pass":
+            return refusal_outcome(
+                "XINGCHENG_REVIEW_NOT_PASSED", self.verified_basis("A313")
+            )
+
         # A7: directory-driven verification.
         directory = code_rule_directory_snapshot()
         if actor not in directory.approved_actor_names:

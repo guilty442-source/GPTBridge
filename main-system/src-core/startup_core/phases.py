@@ -216,18 +216,34 @@ class PhaseMixin:
             report = collect_environment_report(app_root)
             paths = report.get("paths", {})
             ok = bool(paths.get("ok"))
-            detail = f"paths_ok={ok} modules_ok={report.get('python', {}).get('ok', '?')}"
+            external = report.get("external_tools", {})
+            external_missing = external.get("missing") or []
+            detail = (
+                f"paths_ok={ok} "
+                f"modules_ok={report.get('python', {}).get('ok', '?')} "
+                f"external_missing={','.join(external_missing) or 'none'}"
+            )
+            # External tools (git/node/npm) are build-and-runtime deps —
+            # surface them as a degradation signal but do not hard-block
+            # backend startup on a missing build-time tool.
+            degraded = bool(external_missing)
         except Exception as exc:
             ok = False
+            degraded = False
             detail = f"{type(exc).__name__}: {exc}"
         return {
             "phase": "environment-check",
             "label": "環境檢查",
             "critical": True,
             "ready": ok,
-            "state": "ok" if ok else "fault",
-            "fault_code": "ENVIRONMENT_OK" if ok else "ENVIRONMENT_FAULT",
+            "state": "ok" if ok and not degraded else ("degraded" if ok else "fault"),
+            "fault_code": (
+                "ENVIRONMENT_OK" if ok and not degraded
+                else "ENVIRONMENT_DEGRADED" if ok
+                else "ENVIRONMENT_FAULT"
+            ),
             "message": detail,
+            "external_tools_missing": external_missing if ok else [],
             "duration_ms": int((time.monotonic() - start) * 1000),
         }
     def _run_startup_phases(self) -> dict[str, Any]:

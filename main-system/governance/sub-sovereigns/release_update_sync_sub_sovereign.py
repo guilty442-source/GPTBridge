@@ -23,7 +23,7 @@ from governance_rule.codex import GOVERNANCE_CODEX
 
 
 _DECLARATION = next(
-    (item for item in GOVERNANCE_CODEX.sovereigns if item.area == "system-programming"),
+    (item for item in GOVERNANCE_CODEX.sovereigns if item.id == "release-update-sync-sub-sovereign"),
     None,
 )
 if _DECLARATION is None:

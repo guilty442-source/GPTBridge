@@ -19,7 +19,6 @@ sys.path.insert(0, str(GOVERNANCE_RULE))
 from core_system import (
     MaintenanceSovereign,
     DataSubSovereign,
-    LanguageReviewSubSovereign,
     RuntimeSubSovereign,
     ThirdPartySubSovereign,
 )
@@ -88,9 +87,6 @@ def test_maintenance_is_the_only_governance_health_checker(tmp_path: Path) -> No
     maintenance._health_monitoring()
 
     RuntimeSubSovereign(app).live_status()
-    language = LanguageReviewSubSovereign(app)
-    language._python_audit = app.governance
-    language._python_audit_status()
     data = DataSubSovereign(app)
     data._data_directory_report()
 

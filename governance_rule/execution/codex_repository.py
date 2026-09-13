@@ -170,6 +170,23 @@ def _load_codex_directories(
 
 
 _codex_cache: dict[tuple[str, int, int], GovernanceCodex] = {}
+_resolved_codex_paths: dict[str, str] = {}
+
+
+def _resolved_path_key(path: Path) -> str:
+    """Memoize ``Path.resolve()`` — it is realpath-syscall heavy on Windows.
+
+    Status surfaces rebuild the sovereign tree per request and each
+    ``decision_basis`` call reaches this function; resolving the same
+    module-constant path on every call saturated the backend event loop.
+    """
+
+    raw = str(path)
+    resolved = _resolved_codex_paths.get(raw)
+    if resolved is None:
+        resolved = str(Path(raw).resolve())
+        _resolved_codex_paths[raw] = resolved
+    return resolved
 
 
 def load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
@@ -182,7 +199,11 @@ def load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
     """
     try:
         stat_result = Path(path).stat()
-        key = (str(Path(path).resolve()), stat_result.st_mtime_ns, stat_result.st_size)
+        key = (
+            _resolved_path_key(path),
+            stat_result.st_mtime_ns,
+            stat_result.st_size,
+        )
     except OSError:
         key = None
     if key is not None:

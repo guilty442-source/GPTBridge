@@ -45,7 +45,7 @@ from governance_rule.codex import GOVERNANCE_CODEX
 
 
 _INTEGRATION_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "information-channel"),
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.id == "channel-contract-sync-sub-sovereign"),
     None,
 )
 if _INTEGRATION_SOVEREIGN is None:
@@ -455,13 +455,20 @@ class ChannelContractSyncSubSovereign(SubSovereignBase):
     # Channel contract registry
     # ------------------------------------------------------------------
 
-    def register_contract(self, channel_id: str, contract: dict[str, Any]) -> None:
-        """註冊通道契約。"""
+    def register_contract(self, channel_id: str, contract: dict[str, Any]) -> bool:
+        """註冊通道契約 — refuse malformed or conflicting registrations
+        (fail-closed coordination; no decision power)."""
+        if not channel_id or not isinstance(contract, dict):
+            return False
+        existing = self._contracts.get(channel_id)
+        if existing is not None and existing.get("contract") != contract:
+            return False
         self._contracts[channel_id] = {
             "contract": contract,
             "registered_at": self._iso_now(),
             "status": "active",
         }
+        return True
 
     # ------------------------------------------------------------------
     # Integration authority surface

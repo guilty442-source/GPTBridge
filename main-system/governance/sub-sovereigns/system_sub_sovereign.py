@@ -29,12 +29,22 @@ class SystemSubSovereign(SubSovereignBase):
         state["modules"] = list(self._modules.keys())
         return state
 
-    def register_module(self, module_id: str, config: dict[str, Any]) -> None:
+    def register_module(self, module_id: str, config: dict[str, Any]) -> bool:
+        """A284/A334: only modules assigned to this sub-sovereign in the
+        codex module_assignment_registry may be managed here — anything
+        else is refused (fail-closed coordination)."""
+        from ..registries import module_assignment
+
+        row = module_assignment(module_id)
+        if row is None or row.get("managing_sub_sovereign") != self.sovereign_id:
+            return False
         self._modules[module_id] = {
             "config": config,
+            "primary_domain": row.get("primary_domain"),
             "registered_at": self._iso_now(),
             "status": "registered",
         }
+        return True
 
     def get_module(self, module_id: str) -> dict[str, Any] | None:
         return self._modules.get(module_id)

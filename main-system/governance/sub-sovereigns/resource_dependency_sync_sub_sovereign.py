@@ -34,7 +34,7 @@ from governance_rule.codex import GOVERNANCE_CODEX
 
 
 _RESOURCE_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "resource-allocation"),
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.id == "resource-dependency-sync-sub-sovereign"),
     None,
 )
 if _RESOURCE_SOVEREIGN is None:

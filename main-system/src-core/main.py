@@ -43,7 +43,6 @@ from governance.sovereigns import (
 from governance.sub_sovereigns import (
     SystemSubSovereign,
     StartupSubSovereign,
-    LanguageReviewSubSovereign,
     DirectorySubSovereign,
     IdentityGroupSubSovereign,
     ResourceDependencySyncSubSovereign,
@@ -172,10 +171,49 @@ class GPTBridgeApp:
             "synchronization_sovereign": self.synchronization_sovereign.live_status(),
             "xingcheng_sovereign": self.xingcheng_sovereign.live_status(),
             "system_automation": self.system_automation_coordinator.system_status(),
-            "sub_sovereigns": {
-                name: sov.live_status() for name, sov in self._sub_sovereigns.items()
-            },
+            "sub_sovereigns": self._collect_sub_sovereign_status(),
         }
+
+    def _collect_sub_sovereign_status(self) -> dict[str, Any]:
+        """Aggregate live status from every materialized codex child.
+
+        The executor registers children into each codex parent's own
+        ``_sub_sovereigns`` registry (A334) — the app-level dict is a
+        legacy surface that is usually empty, so enumerate the parents'
+        registries via the hierarchy registry instead.
+        """
+        collected: dict[str, Any] = dict(
+            getattr(self, "_sub_sovereigns", {}) or {}
+        )
+        try:
+            from governance.registries import children_of
+
+            for parent_id in (
+                "decision-sovereign",
+                "permission-sovereign",
+                "system-runtime-sovereign",
+                "synchronization-sovereign",
+            ):
+                parent = getattr(
+                    self, parent_id.replace("-", "_"), None
+                )
+                registry = getattr(parent, "_sub_sovereigns", None)
+                if not registry:
+                    continue
+                for child_id in children_of(parent_id):
+                    child = registry.get(child_id)
+                    if child is not None:
+                        collected.setdefault(child_id, child)
+        except Exception:
+            pass
+        out: dict[str, Any] = {}
+        for name, sov in collected.items():
+            live = getattr(sov, "live_status", None)
+            try:
+                out[name] = live() if callable(live) else {"started": False}
+            except Exception:
+                out[name] = {"error": "live_status-failed"}
+        return out
 
     def _load_governance_rules(self) -> list[str]:
         """Return the versioned, immutable main-system governance catalog."""

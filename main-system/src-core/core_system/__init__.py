@@ -33,7 +33,6 @@ _GOVERNANCE_EXPORTS = {
     "DirectorySubSovereign",
     "HealthMaintenanceTestSubSovereign",
     "IdentityGroupSubSovereign",
-    "LanguageReviewSubSovereign",
     "LearningEvidenceSyncSubSovereign",
     "PermissionSovereign",
     "PolicyArchitectureSubSovereign",

@@ -9,6 +9,8 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_GLOBAL_CLEANER,
     IDENTITY_GROUP_GOVERNANCE_RULE,
     IDENTITY_GROUP_INVESTMENT_MOBILE,
+    IDENTITY_GROUP_LOCAL_MODEL,
+    IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE,
     IDENTITY_GROUP_MAIN_SYSTEM,
     IDENTITY_GROUP_SHARED_LAYER,
     IDENTITY_GROUP_SYSTEM_RESCUE,
@@ -159,6 +161,28 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "system-channel-request-process",
             "system-health-check",
             "central-automatic-repair",
+        ),
+    ),
+    IdentityPermissionBinding(
+        group_id=IDENTITY_GROUP_LOCAL_MODEL,
+        actor="governance/tool/local-model",
+        capabilities=(
+            "independent-tool-business-logic",
+            "independent-tool-user-settings",
+            "independent-tool-business-storage",
+            "system-channel-request-submit",
+            "system-channel-request-process",
+        ),
+    ),
+    IdentityPermissionBinding(
+        group_id=IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE,
+        actor="governance/tool/model-dialogue",
+        capabilities=(
+            "independent-tool-business-logic",
+            "independent-tool-user-settings",
+            "independent-tool-business-storage",
+            "system-channel-request-submit",
+            "system-channel-request-process",
         ),
     ),
 )

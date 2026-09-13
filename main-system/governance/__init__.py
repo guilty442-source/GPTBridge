@@ -46,7 +46,6 @@ DependencySyncSubSovereign = _sub_sovereigns.DependencySyncSubSovereign
 DirectorySubSovereign = _sub_sovereigns.DirectorySubSovereign
 HealthMaintenanceTestSubSovereign = _sub_sovereigns.HealthMaintenanceTestSubSovereign
 IdentityGroupSubSovereign = _sub_sovereigns.IdentityGroupSubSovereign
-LanguageReviewSubSovereign = _sub_sovereigns.LanguageReviewSubSovereign
 LearningEvidenceSyncSubSovereign = _sub_sovereigns.LearningEvidenceSyncSubSovereign
 PolicyArchitectureSubSovereign = _sub_sovereigns.PolicyArchitectureSubSovereign
 PriorityCapabilitySubSovereign = _sub_sovereigns.PriorityCapabilitySubSovereign
@@ -68,7 +67,6 @@ __all__ = [
     "DirectorySubSovereign",
     "HealthMaintenanceTestSubSovereign",
     "IdentityGroupSubSovereign",
-    "LanguageReviewSubSovereign",
     "LearningEvidenceSyncSubSovereign",
     "PermissionSovereign",
     "PolicyArchitectureSubSovereign",

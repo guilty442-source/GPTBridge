@@ -251,17 +251,48 @@ class PermissionLifecycleManager:
                 # 更新檢查時間
                 grant.last_checked = now
 
-                # 清理已撤銷超過30天的授予
+                # 清理已終結（撤銷/過期）超過30天的授予 — EXPIRED 授予
+                # 沒有 revoked_at，要用 expires_at 起算否則永不清除
                 if grant.state in (PermissionGrantState.REVOKED, PermissionGrantState.EXPIRED):
-                    if grant.revoked_at and (now - grant.revoked_at) > timedelta(days=30):
+                    terminal_at = grant.revoked_at or grant.expires_at
+                    if terminal_at and (now - terminal_at) > timedelta(days=30):
                         del self._grants[grant_id]
                         _logger.info(f"Cleaned up old grant: {grant_id}")
 
     async def _renew_grant(self, grant: PermissionGrant) -> bool:
-        """自動續期權限授予。"""
+        """自動續期權限授予。
+
+        續期是權限事務 — 委派給權限主宰的 ``permission.renew`` 裁決
+        （A10/A11 完整閘門 + A313 星澄審查），不自作決定。裁決被拒
+        或主宰不可用時 fail-closed 標記過期。
+        """
         try:
-            # 這裡應該委派給權限主宰的授權邏輯
-            # 簡化實作：延長過期時間
+            from core_system.codex_decision import SovereignRequest
+
+            outcome = await self.permission_sovereign.handle(
+                SovereignRequest(
+                    intent="permission.renew",
+                    subject="permission-grant",
+                    requester="permission-automation",
+                    payload={
+                        "grant_id": grant.grant_id,
+                        "actor": grant.actor,
+                        "capability": grant.capability,
+                        "action": grant.action,
+                        "target": grant.target,
+                        "data_scope": grant.data_scope,
+                        "renewal_count": grant.renewal_count,
+                    },
+                )
+            )
+            if not getattr(outcome, "accepted", False):
+                _logger.warning(
+                    "Renewal adjudication refused for %s: %s",
+                    grant.grant_id,
+                    getattr(outcome, "refusal", None),
+                )
+                grant.state = PermissionGrantState.EXPIRED
+                return False
             grant.expires_at = datetime.now(timezone.utc) + self._default_ttl
             grant.renewed_at = datetime.now(timezone.utc)
             grant.renewal_count += 1
@@ -356,7 +387,49 @@ class DirectorySyncManager:
         if current_hash != self._last_sync_hash:
             _logger.info("Directory changes detected, sync triggered")
             self._last_sync_hash = current_hash
-            # 這裡可以觸發同步事件或通知相關主權
+            await self._notify_directory_children(sync_data)
+
+    async def _notify_directory_children(self, sync_data: str) -> None:
+        """Notify the permission-sovereign's codex children of the change.
+
+        Directory and identity-group coordination belongs to
+        ``directory-sub-sovereign`` / ``identity-group-sub-sovereign``
+        (A316/A317) — delivery goes through the sovereign's
+        ``delegate_to`` so the child gate sees the real parent as
+        requester.  Undelivered notifications are logged, not raised.
+        """
+        from core_system.codex_decision import SovereignRequest
+
+        for child_id in (
+            "directory-sub-sovereign",
+            "identity-group-sub-sovereign",
+        ):
+            try:
+                outcome = await self.permission_sovereign.delegate_to(
+                    child_id,
+                    SovereignRequest(
+                        intent="sync",
+                        subject="directory-change",
+                        requester="permission-automation",
+                        payload={
+                            "target": child_id,
+                            "sync_status": "directory-changed",
+                            "hash_source": sync_data[:64],
+                        },
+                    ),
+                )
+                if not getattr(outcome, "accepted", False):
+                    _logger.warning(
+                        "Directory sync notification to %s refused: %s",
+                        child_id,
+                        getattr(outcome, "refusal", None),
+                    )
+            except Exception as e:
+                _logger.warning(
+                    "Directory sync notification to %s failed: %s",
+                    child_id,
+                    e,
+                )
 
     def get_sync_status(self) -> dict[str, Any]:
         return {
@@ -388,6 +461,10 @@ class ComplianceMonitor:
         self._violations: dict[str, ComplianceViolation] = {}
         self._violation_counter = 0
         self._risk_scores: dict[str, float] = defaultdict(float)
+        # Fingerprints of source violations already ingested — the
+        # sovereign's ``_compliance_violations`` list is cumulative, so
+        # without dedup every cycle would re-ingest all of them.
+        self._seen_violations: set[str] = set()
 
     async def start(self) -> None:
         if self._running:
@@ -434,7 +511,16 @@ class ComplianceMonitor:
         self._update_risk_scores()
 
     async def _process_violation(self, violation: dict) -> None:
-        """處理違規記錄。"""
+        """處理違規記錄（已攝入的來源記錄去重）。"""
+        import json as _json
+
+        fingerprint = _json.dumps(
+            violation, sort_keys=True, default=str
+        )
+        if fingerprint in self._seen_violations:
+            return
+        self._seen_violations.add(fingerprint)
+
         violation_id = f"viol-{self._violation_counter}"
         self._violation_counter += 1
 
@@ -509,9 +595,32 @@ class ComplianceMonitor:
             _logger.error(f"Directory integrity check failed: {e}")
 
     async def _check_grant_consistency(self) -> None:
-        """檢查授予狀態一致性。"""
-        # 這裡可以檢查權限主宰的授予記錄與實際目錄的一致性
-        pass
+        """檢查授予狀態一致性。
+
+        權限主宰帳本（``_issued_grants``）中的授予若其 actor/能力已不在
+        封印身份權限目錄內，記為 medium 違規 — 帳本與目錄漂移屬於
+        執行合規監督範圍（A6）。
+        """
+        issued = getattr(self.permission_sovereign, "_issued_grants", None)
+        if not issued:
+            return
+        try:
+            snapshot = identity_permission_snapshot()
+            known_identities = {
+                getattr(rec, "actor", None) or getattr(rec, "identity_code", None)
+                for rec in getattr(snapshot, "permissions", getattr(snapshot, "identities", []))
+            }
+        except Exception:
+            return
+        for grant_id, grant in issued.items():
+            actor = grant.get("actor") if isinstance(grant, dict) else getattr(grant, "actor", None)
+            if actor and actor not in known_identities:
+                await self._process_violation({
+                    "violation": "grant-actor-not-in-directory",
+                    "actor": actor,
+                    "capability": grant.get("capability") if isinstance(grant, dict) else getattr(grant, "capability", ""),
+                    "target": grant_id,
+                })
 
     def _update_risk_scores(self) -> None:
         """更新風險評分（時間衰減）。"""
@@ -708,10 +817,17 @@ class SelfHealingManager:
             return False
 
     def _check_governance_connection(self) -> bool:
-        """檢查治理連接。"""
+        """檢查治理連接 — 權限主宰必須能解析治理參考且已啟動。"""
         try:
-            # 這裡需要訪問 app 的 governance
-            return True  # 簡化實作
+            sovereign = self.permission_sovereign
+            if not getattr(sovereign, "started", True):
+                return False
+            governance = getattr(sovereign, "_governance", None)
+            if callable(governance):
+                governance = governance()
+            if governance is None:
+                governance = getattr(getattr(sovereign, "app", None), "governance", None)
+            return governance is not None
         except Exception:
             return False
 
@@ -801,6 +917,8 @@ class IdentityGroupManager:
         metadata: Optional[dict] = None,
     ) -> bool:
         """註冊新身份群組。"""
+        if not group_id or not actor:
+            return False
         # 檢查衝突
         if group_id in self._group_registry:
             return False
@@ -812,9 +930,48 @@ class IdentityGroupManager:
             "metadata": metadata or {},
             "registered_at": datetime.now(timezone.utc),
             "active": True,
+            # A317: groups absent from the sealed identity registry are
+            # coordinated-only — flagged as directory drift, never
+            # silently authoritative.
+            "directory_registered": self._in_directory(group_id),
         }
         _logger.info(f"Registered identity group: {group_id} for {actor}")
         return True
+
+    @staticmethod
+    def _in_directory(group_id: str) -> bool:
+        try:
+            registered = {
+                getattr(identity, "group_id", None) or getattr(identity, "identity_code", None)
+                for identity in identity_group_snapshot().identities
+            }
+            return group_id in registered
+        except Exception:
+            return False
+
+    def reconcile_with_directory(self) -> dict[str, Any]:
+        """對帳本地群組登錄與封印身份目錄。
+
+        產生 drift 報告：目錄有但本地未登錄（missing）、本地有但目錄
+        沒有（unregistered）。不回寫任何一邊 — 對帳是協調層證據，
+        決策屬於權限主宰。
+        """
+        try:
+            registered = {
+                getattr(identity, "group_id", None) or getattr(identity, "identity_code", None)
+                for identity in identity_group_snapshot().identities
+            }
+            registered.discard(None)
+        except Exception as e:
+            return {"ok": False, "error": f"directory-unavailable: {e}"}
+        local = {gid for gid, info in self._group_registry.items() if info["active"]}
+        return {
+            "ok": True,
+            "missing_locally": sorted(registered - local),
+            "unregistered_in_directory": sorted(local - registered),
+            "local_active": len(local),
+            "directory_registered": len(registered),
+        }
 
     def unregister_group(self, group_id: str) -> bool:
         """註銷身份群組。"""
@@ -938,6 +1095,7 @@ class PermissionAutomationOrchestrator:
             "audit_history": self.audit.get_audit_history(10),
             "healing_degraded": self.healing.is_degraded(),
             "identity_groups": self.identity.list_active_groups(),
+            "identity_directory_reconciliation": self.identity.reconcile_with_directory(),
         }
 
     # 代理方法 - 委派給權限主宰
@@ -949,9 +1107,6 @@ class PermissionAutomationOrchestrator:
 
     def register_identity_group(self, *args, **kwargs) -> Any:
         return self.identity.register_group(*args, **kwargs)
-
-    def get_system_status(self) -> dict[str, Any]:
-        return self.get_system_status()
 
 
 __all__ = [

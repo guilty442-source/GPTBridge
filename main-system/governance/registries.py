@@ -144,6 +144,13 @@ def successor_of(predecessor_identity: str) -> str | None:
     return None
 
 
+# Sovereign identities whose app attribute name differs from the raw
+# identity (e.g. the non-ASCII 星澄 identity maps to ``xingcheng_sovereign``).
+_SOVEREIGN_ATTR_ALIASES = {
+    "星澄": "xingcheng_sovereign",
+}
+
+
 def resolve_sovereign(app: Any, sovereign_id: str) -> Any | None:
     """Resolve a sovereign identity to its materialized in-process instance.
 
@@ -154,7 +161,9 @@ def resolve_sovereign(app: Any, sovereign_id: str) -> Any | None:
     """
     if app is None or not sovereign_id:
         return None
-    direct = getattr(app, sovereign_id.replace("-", "_"), None)
+    direct = getattr(
+        app, _SOVEREIGN_ATTR_ALIASES.get(sovereign_id, sovereign_id.replace("-", "_")), None
+    )
     if direct is not None:
         return direct
     parent_id = parent_of(sovereign_id)

@@ -47,7 +47,6 @@ Owned child sub-sovereigns (codex-aligned identities, A302–A323):
   * resource-dependency-sync-sub-sovereign -- owns all resource-body concerns
   * data-governance-sub-sovereign          -- owns all data-body concerns
   * channel-contract-sync-sub-sovereign    -- owns cross-sovereign structural interfaces
-  * language-review-sub-sovereign          -- programming-language conformance
   * dependency-sync-sub-sovereign          -- third-party software management
   * learning-evidence-sync-sub-sovereign   -- persistent error learning
   * release-update-sync-sub-sovereign      -- governed code-change dispatch
@@ -74,7 +73,7 @@ from core_system.sovereign_utils import _iso_now
 
 
 _DECISION_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "decision"),
+    (s for s in GOVERNANCE_CODEX.sovereigns if s.id == "decision-sovereign"),
     None,
 )
 if _DECISION_SOVEREIGN is None:
@@ -90,7 +89,6 @@ _CHILD_ATTRIBUTE_MAP: dict[str, str] = {
     "resource_sovereign": "resource-dependency-sync-sub-sovereign",
     "data_sovereign": "data-governance-sub-sovereign",
     "integration_sovereign": "channel-contract-sync-sub-sovereign",
-    "language_review_sovereign": "language-review-sub-sovereign",
     "third_party_sovereign": "dependency-sync-sub-sovereign",
     "learning_system_sovereign": "learning-evidence-sync-sub-sovereign",
     "system_programming_sovereign": "release-update-sync-sub-sovereign",
@@ -488,9 +486,21 @@ class DecisionSovereign(SovereignBase):
     async def _adjudicate_governance_coordination(
         self, request: SovereignRequest
     ) -> SovereignOutcome:
-        """法典規則協調（A63）。"""
+        """法典規則協調（A63）— 回報管轄敕令覆蓋與子層對齊狀態。"""
+        edicts = self.edicts()
+        children = sorted(self._sub_sovereigns.keys())
         return accepted_outcome(
-            {"coordination": "governance-rules-aligned", "source": "codex-only"},
+            {
+                "coordination": "governance-rules-aligned",
+                "source": "codex-only",
+                "edict_count": len(edicts),
+                "children": children,
+                "children_started": sum(
+                    1
+                    for c in self._sub_sovereigns.values()
+                    if getattr(c, "started", False)
+                ),
+            },
             self.verified_basis("A12", "A128"),
         )
 
@@ -879,7 +889,6 @@ class DecisionSovereign(SovereignBase):
                 self._child_status("resource-dependency-sync-sub-sovereign"),
                 self._child_status("data-governance-sub-sovereign"),
                 self._child_status("channel-contract-sync-sub-sovereign"),
-                self._child_status("language-review-sub-sovereign"),
                 self._child_status("dependency-sync-sub-sovereign"),
             ],
             "peer_systems": {
@@ -907,7 +916,6 @@ class DecisionSovereign(SovereignBase):
             "resource-dependency-sync": self._child_status("resource-dependency-sync-sub-sovereign"),
             "data-governance": self._child_status("data-governance-sub-sovereign"),
             "channel-contract-sync": self._child_status("channel-contract-sync-sub-sovereign"),
-            "language-review": self._child_status("language-review-sub-sovereign"),
             "dependency-sync": self._child_status("dependency-sync-sub-sovereign"),
             "maintenance": (
                 maintenance_sovereign.live_status()
@@ -967,9 +975,6 @@ class DecisionSovereign(SovereignBase):
                     "channel-contract-sync-sub-sovereign", "orchestration_status"
                 ),
                 self._child_status(
-                    "language-review-sub-sovereign", "orchestration_status"
-                ),
-                self._child_status(
                     "dependency-sync-sub-sovereign", "orchestration_status"
                 ),
             ],
@@ -1005,9 +1010,6 @@ class DecisionSovereign(SovereignBase):
             "channel-contract-sync": self._child_status(
                 "channel-contract-sync-sub-sovereign", "orchestration_status"
             ),
-            "language-review": self._child_status(
-                "language-review-sub-sovereign", "orchestration_status"
-            ),
             "dependency-sync": self._child_status(
                 "dependency-sync-sub-sovereign", "orchestration_status"
             ),
@@ -1024,9 +1026,6 @@ class DecisionSovereign(SovereignBase):
                 ),
                 self._child_status(
                     "channel-contract-sync-sub-sovereign", "orchestration_status"
-                ),
-                self._child_status(
-                    "language-review-sub-sovereign", "orchestration_status"
                 ),
                 self._child_status(
                     "dependency-sync-sub-sovereign", "orchestration_status"

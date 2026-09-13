@@ -24,12 +24,20 @@ class DirectorySubSovereign(SubSovereignBase):
         super().__init__(app, parent)
         self._directories: dict[str, dict[str, Any]] = {}
 
-    def register_directory(self, dir_id: str, spec: dict[str, Any]) -> None:
+    def register_directory(self, dir_id: str, spec: dict[str, Any]) -> bool:
+        """A316: directory coordination — refuse malformed or conflicting
+        registrations (fail-closed; no review power)."""
+        if not dir_id or not isinstance(spec, dict):
+            return False
+        existing = self._directories.get(dir_id)
+        if existing is not None and existing.get("spec") != spec:
+            return False
         self._directories[dir_id] = {
             "spec": spec,
             "registered_at": self._iso_now(),
             "status": "active",
         }
+        return True
 
     def get_directory(self, dir_id: str) -> dict[str, Any] | None:
         return self._directories.get(dir_id)

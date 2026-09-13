@@ -9,7 +9,6 @@
 from ._base import SubSovereignBase
 from .system_sub_sovereign import SystemSubSovereign
 from .startup_sub_sovereign import StartupSubSovereign
-from .language_review_sub_sovereign import LanguageReviewSubSovereign
 from .directory_sub_sovereign import DirectorySubSovereign
 from .identity_group_sub_sovereign import IdentityGroupSubSovereign
 from .resource_dependency_sync_sub_sovereign import ResourceDependencySyncSubSovereign
@@ -31,7 +30,6 @@ __all__ = [
     "SubSovereignBase",
     "SystemSubSovereign",
     "StartupSubSovereign",
-    "LanguageReviewSubSovereign",
     "DirectorySubSovereign",
     "IdentityGroupSubSovereign",
     "ResourceDependencySyncSubSovereign",
