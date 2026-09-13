@@ -3049,6 +3049,15 @@
         "rule": "GATE-NAME:LANGUAGE BOUNDARY GATE; VERDICT:exactly PASS|WARN|FAIL; TRIGGERS:save>pre-commit>integration>release; CHECKS:language_allowed+extension_valid+source_origin_valid+owner_valid+directory_valid+dependency_direction_valid+ABI_valid+API_contract_valid+duplicate_owner_absent+test_present+fallback_present+source_size_valid under A185. ALLOWED-LANGUAGES:python|typescript|c|cpp|csharp|sql; SOURCE-EXTENSIONS:python=.py,.pyi;typescript=.ts,.tsx,.d.ts;c=.c,.h;cpp=.cpp,.hpp,.inl;csharp=.cs;sql=.sql; AUTHORED-DENY:.js|.jsx|.mjs|.cjs|.cc|.cxx|.hh|.hxx|.csx and undeclared extensions. LANGUAGEPOLICY-TS:contains data declarations only:ALLOWED_LANGUAGES and SOURCE_EXTENSIONS as immutable const data matching this article; no scanning,filesystem,classification,evidence,verdict,repair,command,network,process or mutation behavior. CHECKER-PIPELINE:scan>classify>compare Codex rules>produce evidence>PASS/WARN/FAIL; checker is deterministic observer/verifier only and never decides,plans,recommends,applies or dispatches a repair. REPAIR-SEPARATION:FAIL/WARN evidence is handed through the governed channel to 星澄 for review and any repair requires separate valid user/Codex authorization+permission+tool/module execution; rerun creates new evidence and checker cannot convert result by mutation. OUTPUT:LANGUAGE BOUNDARY GATE newline PASS|WARN|FAIL newline Allowed languages: 6 newline Authored files scanned:<n> newline Generated files ignored:<n> newline Third-party files ignored:<n>; then FAIL/WARN items each as [canonical path],rule=<exact id>,reason=<typed concise reason>; deterministic typed JSON accompanies human output. GATE-DETAIL:C ABI public native header only gptbridge_native.h; public C++ ABI forbidden; C bridge no algorithm/business; C++ native compute only; TypeScript UI/client/build-time checker; CSharp Windows adapter; SQL set operation; Python application/domain/orchestration authority; unit tests follow owning language and integration tests use pytest only. SEMANTICS:FAIL blocks trigger,WARN requires owner+evidence+expiry and never equals PASS,PASS requires all mandatory checks complete.",
         "prohibition": "FORBID:checker self-repair+checker choosing repair method+automatic fix/mutation/delete/move/reset/overwrite+LanguagePolicy.ts behavior/import side effects+policy/checker circular ownership+multiple competing verdicts+PASS with missing/skipped check+hidden WARN+free-form result+diagnostic without path/rule/reason+generated/third-party counted as authored+integration framework other than pytest.",
         "exception": "Save may emit nonblocking WARN; it grants no waiver at pre-commit,integration or release. Formatting a suggested owner-neutral diagnostic is not a repair decision and cannot include executable mutation instructions."
+      },
+      {
+        "position": 349,
+        "provision_id": "A349",
+        "section_index": "16",
+        "subject": "powershell-governance-conflict-and-legacy-infrastructure-evidence-special-law",
+        "rule": "STATUS:PowerShell is not an allowed seventh project language and no general or operational-script exception currently exists; EXISTING:.ps1+.psm1+.psd1 artifacts are classified as GOVERNANCE_CONFLICT and LEGACY_INFRASTRUCTURE_EVIDENCE,not AUTHORED-six-language,GENERATED approval or legal exception; GATE-OUTPUT:LANGUAGE BOUNDARY GATE emits the canonical path+rule=A349+reason=unresolved PowerShell identity governance conflict+evidence_class=legacy infrastructure+execution/use/dependency facts; VERDICT:inventory-only nonexecuting discovery may WARN,while any affected execution+startup+build+install+mutation+integration or release path is FAIL until a successor law resolves identity; EVIDENCE:preserve exact path+hash+owner claim+purpose+callers+commands+inputs/outputs+permissions+side effects+network/process behavior+tests+replacement feasibility without endorsing legality; DECISION-DEFERRED:only an explicit human-governor Codex successor may choose either migration into an approved language or a narrowly defined legal exception; CHECKER:detect+classify+compare+report only and cannot infer necessity,approve usage,create allowlist,grandfather,waive,move,rewrite,delete or repair; MIGRATION/NARROW-EXCEPTION:no action begins before the successor decision and both require separate governed implementation evidence; SUPERSESSION:A338 PowerShell exception declaration is withdrawn and non-operative,while its language-statistics rule for .cpp remains preserved independently by A215+A348.",
+        "prohibition": "FORBID:PowerShell as seventh language+implicit/automatic/legacy exception+checker-created exception or allowlist+continued execution because file already exists+classifying .ps1 as Python/TypeScript/C/C++/CSharp/SQL+silent ignore+automatic migration/delete/rewrite+WARN used to authorize execution+runtime/build/release bypass+interpreting A338 as current PowerShell authority.",
+        "exception": "None. Even emergency use requires an explicit user command plus a valid Codex successor establishing exact temporary authority; the checker itself can never create that authority."
       }
     ],
     "certification_evidence": [
@@ -3804,7 +3813,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H057",
+        "history_head": "H058",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -12040,12 +12049,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A338",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A340",
         "effective_version": "1.00000",
         "status": "active"
@@ -12095,6 +12098,12 @@
       {
         "provision_type": "article",
         "provision_id": "A348",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A349",
         "effective_version": "1.00000",
         "status": "active"
       }
@@ -12155,14 +12164,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H057",
-        "provision_count": 594,
-        "identity_count": 594,
-        "lineage_count": 594,
+        "history_head": "H058",
+        "provision_count": 595,
+        "identity_count": 595,
+        "lineage_count": 595,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "3a1a26986a0502c57b4d747e5448eb35ef8b96063ab2a6b1ea834b6642716c33",
-        "identity_root": "2d76ccf093eda458d51dcb7a9ee8231be667f4dbad3ac00841ad5da1cd8dd49e",
-        "full_root": "1d4a4bee7ea1998e4bbfba5d371d1dd0532326e4b02b5b921338b3566cec3ac5",
+        "content_root": "e1714a5260c042e745e7bf3f1af7d7327683a8d03e7b73a37bbd6059ebeeb9ad",
+        "identity_root": "c21207d78f4e857b2da08bebb6b8e034c5ab954e11f1f267b0d25836228e24cd",
+        "full_root": "611145024376c85beb3e805326af93d9f25bcd95ed0d59578317e89547104706",
         "legacy_history_head": null
       }
     ],
@@ -17272,7 +17281,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H057"
+        "value": "H058"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17284,7 +17293,7 @@
       },
       {
         "key": "powershell_identity_rule",
-        "value": "governed-operational-script-exception-not-seventh-application-language"
+        "value": "unresolved-governance-conflict+legacy-infrastructure-evidence;no-exception"
       },
       {
         "key": "canonical_pybind11_call_path",
@@ -22934,6 +22943,13 @@
         "provision_id": "A348",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A349",
+        "provision_type": "article",
+        "provision_id": "A349",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -27094,6 +27110,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A185|A207|A208|A211|A215|A340|A341|A342|A344|A346"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A349",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A215|A338|A348"
       }
     ],
     "provision_lifecycle_status": [
@@ -31660,10 +31683,10 @@
       {
         "provision_type": "article",
         "provision_id": "A338",
-        "lifecycle_state": "active",
+        "lifecycle_state": "superseded",
         "effective_version": "1.00000",
-        "successor_identity": null,
-        "evidence": "H051+explicit-user-command"
+        "successor_identity": "ARTICLE_A349",
+        "evidence": "H058"
       },
       {
         "provision_type": "article",
@@ -31744,6 +31767,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H057+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A349",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H058+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36416,7 +36447,7 @@
         "provision_id": "A338",
         "introduced_by": "H051",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "8607b3676ee8d43755b5d527083726097a9e1ab4194fdc600bb63d26a92dfee0"
       },
       {
@@ -36498,6 +36529,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "b3a311b2cb6d96c4b6e6557eeff46f0a22c3213b44e70f1887653a3c0da7b720"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A349",
+        "introduced_by": "H058",
+        "supersedes_id": "A338",
+        "status": "active",
+        "content_hash": "33867f8e4454e7b1a0829334deec0971357b754d2c4cbaa06e392dadbfdf89e2"
       }
     ],
     "provision_revisions": [
@@ -47237,6 +47276,15 @@
         "content_hash": "b3a311b2cb6d96c4b6e6557eeff46f0a22c3213b44e70f1887653a3c0da7b720",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A349",
+        "revision_id": "H058",
+        "version": "1.00000",
+        "content_hash": "33867f8e4454e7b1a0829334deec0971357b754d2c4cbaa06e392dadbfdf89e2",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -52079,6 +52127,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A349",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -52708,6 +52766,17 @@
         "previous_hash": "d214e89dfa0d062b74541de3393fd505f4229cb62d5d61537f9751b8bca48887",
         "entry_hash": "df898e28aba205dea0864788c09e4e0cbeeb8151afb93be52b518342ec9aa6cd",
         "version_epoch": 2
+      },
+      {
+        "sequence": 58,
+        "change_id": "H058",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "powershell-unresolved-governance-conflict-and-legacy-evidence",
+        "summary": "Withdrew the premature PowerShell governed-script exception: existing PowerShell artifacts are unresolved governance conflicts and legacy infrastructure evidence, not a seventh language or checker-created exception, pending an explicit successor decision to migrate or legalize. A349 supersedes A338. Version remains E2:1.00000.",
+        "previous_hash": "df898e28aba205dea0864788c09e4e0cbeeb8151afb93be52b518342ec9aa6cd",
+        "entry_hash": "f775c62b7e702e637989725a26b64e4f8733b7b6a8a125d5ab53283314b60e57",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -53264,14 +53333,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H057",
-        "provision_count": 594,
-        "identity_count": 594,
-        "lineage_count": 594,
+        "history_head": "H058",
+        "provision_count": 595,
+        "identity_count": 595,
+        "lineage_count": 595,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "3a1a26986a0502c57b4d747e5448eb35ef8b96063ab2a6b1ea834b6642716c33",
-        "identity_root": "2d76ccf093eda458d51dcb7a9ee8231be667f4dbad3ac00841ad5da1cd8dd49e",
-        "full_root": "1d4a4bee7ea1998e4bbfba5d371d1dd0532326e4b02b5b921338b3566cec3ac5",
+        "content_root": "e1714a5260c042e745e7bf3f1af7d7327683a8d03e7b73a37bbd6059ebeeb9ad",
+        "identity_root": "c21207d78f4e857b2da08bebb6b8e034c5ab954e11f1f267b0d25836228e24cd",
+        "full_root": "611145024376c85beb3e805326af93d9f25bcd95ed0d59578317e89547104706",
         "version_epoch": 2
       }
     ],
@@ -57659,6 +57728,12 @@
       {
         "predecessor_identity": "ARTICLE_A339",
         "successor_identity": "ARTICLE_A344",
+        "effective_version": "1.00000",
+        "status": "effective"
+      },
+      {
+        "predecessor_identity": "ARTICLE_A338",
+        "successor_identity": "ARTICLE_A349",
         "effective_version": "1.00000",
         "status": "effective"
       }
