@@ -1,42 +1,10 @@
-"""Sovereign Stack Executor — 受管執行器（物質化與啟動整套主宰堆疊）。
+"""Sovereign Stack Executor — facade.
 
-法典依據:
-- A63 (→A128/A130): SOVEREIGN: decision-only;
-  EXECUTION:delegated-to-governed-executor
-- A130: SUB-SOVEREIGN: control/dispatch under parent authority;
-  EXECUTION:governed-executor
-- A334: ``sovereign_hierarchy_registry`` is the machine authority for each
-  sub-sovereign's single parent; ``module_assignment_registry`` is the
-  machine authority for each executable module's managing sub-sovereign.
-  Both are enforced here at materialization/dispatch time (fail-closed).
-- A128/A130: the mother process delegates sovereign-stack startup to the
-  decision-sovereign, which adjudicates the dispatch; THIS executor performs
-  the actual materialization and activation work.
+This module provides the SovereignStackExecutor class.  Constants
+and helpers live in :mod:`core_system.sovereign_stack_executor_constants`.
 
-The decision-sovereign decides the dispatch order and authorizes the
-startup; this governed executor executes it:
-
-  1. Materialize every active registry child under its codex-registered
-     parent (A334 single-parent map):
-       system-runtime-sovereign  -> system-sub, startup-sub
-       permission-sovereign      -> directory, identity-group
-                                 (language-review-sub-sovereign: ABOLISHED,
-                                  capability transferred to 星澄 per A334)
-       decision-sovereign        -> policy-architecture, health-maintenance-test,
-                                    data-governance, priority-capability,
-                                    change-acceptance
-       synchronization-sovereign -> resource-dependency-sync, dependency-sync,
-                                    channel-contract-sync, release-update-sync,
-                                    learning-evidence-sync, runtime-state-sync,
-                                    repair-backup-sync, cleanup-retention-sync,
-                                    automatic-log-sync
-  2. Start each child ONLY after its codex parent authorizes the activation
-     (``parent.authorize_child_activation`` — decision-layer adjudication;
-     the actual ``child.start()`` is executor work).
-
-All heavy work stays delegated to governed executors; nothing here is a
-sovereign — this module is a plain orchestration executor owned by the
-startup path.
+Governed executor: materializes and activates the sovereign stack
+(A63/A128/A130/A334).
 """
 
 from __future__ import annotations
@@ -48,41 +16,15 @@ from typing import Any
 
 from governance.registries import children_of, validate_child_parent
 
-
-def _sub_sovereigns_module() -> Any:
-    return import_module("governance.sub_sovereigns")
-
-
-# child_identity -> governance.sub_sovereigns class name
-_CHILD_CLASSES: dict[str, str] = {
-    "system-sub-sovereign": "SystemSubSovereign",
-    "startup-sub-sovereign": "StartupSubSovereign",
-    "directory-sub-sovereign": "DirectorySubSovereign",
-    "identity-group-sub-sovereign": "IdentityGroupSubSovereign",
-    "policy-architecture-sub-sovereign": "PolicyArchitectureSubSovereign",
-    "health-maintenance-test-sub-sovereign": "HealthMaintenanceTestSubSovereign",
-    "data-governance-sub-sovereign": "DataGovernanceSubSovereign",
-    "priority-capability-sub-sovereign": "PriorityCapabilitySubSovereign",
-    "change-acceptance-sub-sovereign": "ChangeAcceptanceSubSovereign",
-    "resource-dependency-sync-sub-sovereign": "ResourceDependencySyncSubSovereign",
-    "dependency-sync-sub-sovereign": "DependencySyncSubSovereign",
-    "channel-contract-sync-sub-sovereign": "ChannelContractSyncSubSovereign",
-    "release-update-sync-sub-sovereign": "ReleaseUpdateSyncSubSovereign",
-    "learning-evidence-sync-sub-sovereign": "LearningEvidenceSyncSubSovereign",
-    "runtime-state-sync-sub-sovereign": "RuntimeStateSyncSubSovereign",
-    "repair-backup-sync-sub-sovereign": "RepairBackupSyncSubSovereign",
-    "cleanup-retention-sync-sub-sovereign": "CleanupRetentionSyncSubSovereign",
-    "automatic-log-sync-sub-sovereign": "AutomaticLogSyncSubSovereign",
-}
-
-# Per-child start kwargs resolved at dispatch time.
-def _child_start_kwargs(app: Any, child_id: str) -> dict[str, Any]:
-    if child_id == "resource-dependency-sync-sub-sovereign":
-        return {"memory_maintainer": getattr(app, "_idle_memory_maintainer", None)}
-    return {}
+from .sovereign_stack_executor_constants import (
+    _sub_sovereigns_module,
+    _CHILD_CLASSES,
+    _child_start_kwargs,
+)
+from .sovereign_stack_executor_children import SovereignStackChildrenMixin
 
 
-class SovereignStackExecutor:
+class SovereignStackExecutor(SovereignStackChildrenMixin):
     """Governed executor: materializes and activates the sovereign stack."""
 
     def __init__(self, app: Any) -> None:
@@ -94,8 +36,7 @@ class SovereignStackExecutor:
     # ------------------------------------------------------------------
 
     def _materialize_top_sovereigns(self, sovereign: Any) -> None:
-        """Ensure the other top-level sovereigns exist before child
-        materialization (children resolve their parent through the app)."""
+        """Ensure the other top-level sovereigns exist before child materialization."""
         app = self.app
         top_specs = (
             (
@@ -136,8 +77,7 @@ class SovereignStackExecutor:
                 )
 
     async def _start_top_sovereigns(self, sovereign: Any) -> None:
-        """Activate the top-level coordination sovereigns (decision-layer
-        surfaces; sub-sovereign dispatch is still executor work)."""
+        """Activate the top-level coordination sovereigns."""
         app = self.app
         for top in (
             getattr(app, "system_runtime_sovereign", None),
@@ -170,11 +110,7 @@ class SovereignStackExecutor:
         }.get(parent_id)
 
     def _materialize_children(self, sovereign: Any) -> None:
-        """Instantiate every active registry child under its codex parent.
-
-        Fail-closed: a child whose registry parent is missing or mismatched
-        is recorded as a startup failure and never materialized.
-        """
+        """Instantiate every active registry child under its codex parent."""
         app = self.app
         sub = _sub_sovereigns_module()
         for child_id, class_name in _CHILD_CLASSES.items():
@@ -245,17 +181,12 @@ class SovereignStackExecutor:
             result = await child.start(
                 **_child_start_kwargs(self.app, child_id)
             )
-            # Recovery is explicit: a previously-failed child that now
-            # starts cleanly clears the parent's consecutive-failure
-            # counter so A322 restart budgets reset.
             try:
                 parent.record_child_success(child_id)
             except Exception:
                 pass
             return result
         except Exception as error:
-            # Feed the parent's consecutive-failure counter so the A322
-            # retry/cancel and quarantine adjudication sees real state.
             try:
                 parent.record_child_failure(child_id)
             except Exception:
@@ -272,14 +203,7 @@ class SovereignStackExecutor:
     async def restart_child(
         self, sovereign: Any, child_id: str
     ) -> dict[str, Any]:
-        """Restart one materialized child under codex-parent authorization.
-
-        The decision-sovereign's supervision loop adjudicates the restart
-        (A322 bounded failure budget); this executor performs the actual
-        materialization check and activation (A63/A64).  Fail-closed: an
-        unknown child, missing codex parent, or refused parent
-        authorization all return ``ok: False`` without side effects.
-        """
+        """Restart one materialized child under codex-parent authorization."""
         parent_id = self._codex_parent(child_id)
         parent = (
             self._parent_object(sovereign, parent_id) if parent_id else None
@@ -328,34 +252,19 @@ class SovereignStackExecutor:
     # ------------------------------------------------------------------
 
     async def activate(self, sovereign: Any) -> bool:
-        """Materialize and start the entire sovereign stack.
-
-        ``sovereign`` is the decision-sovereign that authorized this
-        dispatch; the executor registers materialized children under their
-        codex parents and the app's ``_sub_sovereigns`` surface.  Returns the
-        maintenance_ready flag.
-        """
-
+        """Materialize and start the entire sovereign stack."""
         app = self.app
         step_timings: dict[str, int] = {}
         _step_start = time.monotonic()
 
-        # Materialize top-level sovereigns first (children resolve their
-        # codex parent through the app), then every active registry child
-        # under its codex parent (A334).
         self._startup_failures = []
         self._materialize_top_sovereigns(sovereign)
         self._materialize_children(sovereign)
         await self._start_top_sovereigns(sovereign)
 
-        # The health-maintenance sub-sovereign is a decision-sovereign child
-        # (A302/A323); surface it on the app under its legacy attribute for
-        # existing callers (ipc handlers, repair chains).
         app.maintenance_sovereign = sovereign._sub_sovereigns.get(
             "health-maintenance-test-sub-sovereign"
         )
-        # Legacy app attributes for the synchronization children used by
-        # repair/learning chains.
         synchronization = getattr(app, "synchronization_sovereign", None)
         sync_children = (
             getattr(synchronization, "_sub_sovereigns", {})
@@ -369,10 +278,6 @@ class SovereignStackExecutor:
             "release-update-sync-sub-sovereign"
         )
 
-        # Learning-evidence and release-update start before maintenance so
-        # every subsequent failure and repair can be learned, and every code
-        # change has one governed dispatch owner.  The daily cleaner is
-        # independent — E155 bounded-independent-parallelism applies.
         async def _start_cleaner() -> None:
             try:
                 await app.daily_global_cleaner_service.start()
@@ -394,8 +299,6 @@ class SovereignStackExecutor:
         )
         _step_start = time.monotonic()
 
-        # 1. Health Maintenance Test Sub-Sovereign — periodic maintenance,
-        #    health, repair classification
         app._mark_startup_phase("maintenance_sovereign_starting")
 
         async def _start_maintenance() -> None:
@@ -435,8 +338,6 @@ class SovereignStackExecutor:
             except Exception as error:
                 app._record_startup_failure("maintenance_sovereign", error)
 
-        # 2. Permission Sovereign — read-only permission coordination
-        #    (materialized above in _materialize_top_sovereigns)
         app._mark_startup_phase("permission_sovereign_starting")
         try:
             app._log(
@@ -449,11 +350,6 @@ class SovereignStackExecutor:
             app._record_startup_failure("permission_sovereign", error)
         app._mark_startup_phase("permission_sovereign_started")
 
-        # 3. Main-system self-maintenance runs before the Decision Sovereign
-        #    so that maintenance_ready is already true when resident tools
-        #    try to start.  No global lock; the boolean flag is the only gate.
-        #    It is independent of the health-maintenance sub-sovereign's
-        #    start, so both run under E155 bounded-independent-parallelism.
         app._mark_startup_phase("sovereign_initializing")
         try:
             from core_system.main_system_self_maintenance import (
@@ -481,10 +377,6 @@ class SovereignStackExecutor:
             (time.monotonic() - _step_start) * 1000
         )
         _step_start = time.monotonic()
-        # CORE-READY condition "maintenance-active" means the maintenance
-        # services are activated and running their loops — the deferred
-        # startup duty pass reports through _last_report/health monitoring
-        # once it completes; it is not an activation gate.
         startup_ok = bool(
             getattr(app.main_system_self_maintenance, "_running", False)
         )
@@ -492,8 +384,6 @@ class SovereignStackExecutor:
         if app.governance is not None:
             app.governance.maintenance_ready = startup_ok
 
-        # 4. Decision Sovereign activation + remaining registry children,
-        #    each under its codex parent's authorization (A334).
         try:
             await sovereign.start()
             report = await self._start_children(sovereign)
@@ -512,121 +402,8 @@ class SovereignStackExecutor:
         app._mark_startup_phase("sovereign_initialized")
         return startup_ok
 
-    async def _start_children(self, sovereign: Any) -> dict[str, Any]:
-        """Start the remaining registry children under parent authorization.
-
-        Single-fault isolation: each sub-sovereign is started independently.
-        A failure in one does not prevent the rest from starting, and all
-        failures are recorded in the report's ``startup_failures`` list.
-        """
-
-        from core_system.sovereign_utils import _iso_now
-
-        dependency_state = sovereign._dependency_state()
-
-        runtime, resource, data, integration, third_party = (
-            await asyncio.gather(
-                self._start_child(
-                    sovereign, "runtime", "runtime-state-sync-sub-sovereign"
-                ),
-                self._start_child(
-                    sovereign, "resource", "resource-dependency-sync-sub-sovereign"
-                ),
-                self._start_child(
-                    sovereign, "data", "data-governance-sub-sovereign"
-                ),
-                self._start_child(
-                    sovereign, "integration", "channel-contract-sync-sub-sovereign"
-                ),
-                self._start_child(
-                    sovereign, "third_party", "dependency-sync-sub-sovereign"
-                ),
-            )
-        )
-
-        # A334 completeness: activate every remaining codex-registered child
-        # that was materialized but not yet started, under its codex
-        # parent's authorization.
-        remaining: list[Any] = []
-        for parent_id in (
-            "system-runtime-sovereign",
-            "permission-sovereign",
-            "decision-sovereign",
-            "synchronization-sovereign",
-        ):
-            parent = self._parent_object(sovereign, parent_id)
-            if parent is None:
-                continue
-            for cid in children_of(parent_id):
-                child = getattr(parent, "_sub_sovereigns", {}).get(cid)
-                if child is not None and not getattr(child, "_started", False):
-                    remaining.append(self._start_child(sovereign, cid, cid))
-        if remaining:
-            await asyncio.gather(*remaining)
-
-        sub_sovereign_roles = [
-            result.get("role", "")
-            for result in (
-                runtime,
-                resource,
-                data,
-                integration,
-                third_party,
-            )
-            if result
-        ]
-
-        synchronization = getattr(self.app, "synchronization_sovereign", None)
-        sync_children = (
-            getattr(synchronization, "_sub_sovereigns", {})
-            if synchronization is not None
-            else {}
-        )
-        learning = sync_children.get("learning-evidence-sync-sub-sovereign")
-        programming = sync_children.get("release-update-sync-sub-sovereign")
-
-        # E173: the startup report is an activation receipt — role names,
-        # failures, and dependency state only.  Full status trees
-        # (orchestration_status/live_status) are served on demand by
-        # status()/orchestration_status(); composing them inline here would
-        # burn the phase budget on reporting, not activation.
-        report = {
-            "ok": len(self._startup_failures) == 0,
-            "sovereign": "decision-sovereign",
-            "dependency_state": dependency_state,
-            "started_at": _iso_now(),
-            "execution_delegation": "governed-executor-only",
-            # A334: this list is the decision-sovereign's own codex children —
-            # children dispatched under other parents are reported separately.
-            "sub_sovereigns": sorted(
-                cid
-                for cid in children_of("decision-sovereign")
-                if cid in getattr(sovereign, "_sub_sovereigns", {})
-            ),
-            "dispatched_sub_sovereigns": sub_sovereign_roles,
-            "startup_failures": list(self._startup_failures),
-            "peer_systems": {
-                "learning": getattr(learning, "_started", False),
-                "programming": getattr(programming, "_started", False),
-            },
-            "health_owner": "health-maintenance-test-sub-sovereign",
-            "sources": [
-                {"kind": "env", "name": "GPTBRIDGE_STARTUP_STATE"},
-                {
-                    "kind": "report",
-                    "path": str(sovereign.launcher_report_path),
-                },
-            ],
-        }
-        sovereign._save_state(report)
-        return report
-
     async def deactivate(self, sovereign: Any) -> None:
-        """Stop every materialized registry child (reverse order).
-
-        The health-maintenance sub-sovereign and permission sovereign are
-        stopped by the app.
-        """
+        """Stop every materialized registry child (reverse order)."""
         from core_system.sovereign_utils import _iso_now
 
         for parent in (
