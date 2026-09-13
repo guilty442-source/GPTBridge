@@ -39,13 +39,11 @@ import json
 import os
 import threading
 import time
-from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Final
+from typing import Any
 from uuid import uuid4
 
-from core_system.versioning import component_version
 from core_system.auto_repair_chain import (
     AutoRepairOrchestrator,
     HealthSignal,
@@ -54,40 +52,16 @@ from core_system.auto_repair_chain import (
 )
 from governance_rule.execution.authentication import GovernanceAuthenticationService
 
-REPAIR_COORDINATOR_VERSION: Final[str] = component_version("repair-coordinator")
-
-# How long a repair lock is considered valid before it's treated as stale
-# (the owner likely crashed).  This bounds the window for duplicate repair.
-REPAIR_LOCK_STALE_SECONDS: Final[float] = 120.0
-
-
-def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from .repair_coordinator_types import (
+    REPAIR_COORDINATOR_VERSION,
+    REPAIR_LOCK_STALE_SECONDS,
+    RepairLock,
+    _iso_now,
+)
+from .repair_coordinator_requests import RepairCoordinatorRequestsMixin
 
 
-@dataclass
-class RepairLock:
-    """A held repair lock for a failure domain."""
-    lock_id: str
-    failure_code: str
-    owner: str
-    acquired_at: str
-    expires_at: str
-
-    def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-    def is_stale(self, now: float | None = None) -> bool:
-        if now is None:
-            now = time.time()
-        try:
-            expires = datetime.fromisoformat(self.expires_at).timestamp()
-            return now > expires
-        except (ValueError, OSError):
-            return True
-
-
-class RepairCoordinator:
+class RepairCoordinator(RepairCoordinatorRequestsMixin):
     """Coordinates repair ownership to prevent duplicate repair owners.
 
     Thread-safe.  Lives in the backend process.  The boot_core connection
@@ -479,85 +453,6 @@ class RepairCoordinator:
 
         self.release(owner=owner, failure_code=failure_code)
         return report
-
-    def pending_requests(self) -> list[dict[str, Any]]:
-        """Return pending repair requests for the decision-sovereign to process."""
-        return [
-            req for req in self._read_requests()
-            if req.get("status") == "pending"
-        ]
-
-    def acknowledge_request(
-        self,
-        request_id: str,
-        *,
-        decision: str,
-        ok: bool,
-    ) -> None:
-        """Record the decision-sovereign's decision on a repair request."""
-        requests = self._read_requests()
-        for req in requests:
-            if req.get("request_id") == request_id:
-                req["status"] = decision
-                req["sovereign_decided_at"] = _iso_now()
-                req["sovereign_decision_ok"] = ok
-                break
-        self._write_requests(requests)
-
-    def await_user_confirmation(
-        self,
-        request_id: str,
-        *,
-        classified: dict[str, Any] | None = None,
-    ) -> None:
-        """Mark a repair request as awaiting explicit user confirmation.
-
-        User directive: no repair executes automatically.  The request stays
-        in this state (one entry per fault) until the user confirms it from
-        the assistant panel.
-        """
-        requests = self._read_requests()
-        for req in requests:
-            if req.get("request_id") == request_id:
-                req["status"] = "awaiting-confirmation"
-                req["awaiting_confirmation_at"] = _iso_now()
-                if classified is not None:
-                    req["classified"] = classified
-                break
-        self._write_requests(requests)
-
-    def awaiting_confirmation_requests(self) -> list[dict[str, Any]]:
-        """Return repair requests waiting for explicit user confirmation."""
-        return [
-            req for req in self._read_requests()
-            if req.get("status") == "awaiting-confirmation"
-        ]
-
-    def get_request(self, request_id: str) -> dict[str, Any] | None:
-        """Return one repair request by id."""
-        for req in self._read_requests():
-            if req.get("request_id") == request_id:
-                return req
-        return None
-
-    def mark_request_status(
-        self,
-        request_id: str,
-        status: str,
-        **fields: Any,
-    ) -> dict[str, Any] | None:
-        """Update a request's status and optional fields; returns the record."""
-        requests = self._read_requests()
-        updated: dict[str, Any] | None = None
-        for req in requests:
-            if req.get("request_id") == request_id:
-                req["status"] = status
-                req.update(fields)
-                updated = req
-                break
-        if updated is not None:
-            self._write_requests(requests)
-        return updated
 
 
 # Module-level singleton — initialized lazily by the backend on startup.

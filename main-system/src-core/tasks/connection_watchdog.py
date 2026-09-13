@@ -36,58 +36,22 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Final
+from typing import Any
 
-from core_system.versioning import component_version
-
-CONNECTION_WATCHDOG_VERSION: Final[str] = component_version("connection-watchdog")
-CONNECTION_PROBE_INTERVAL: Final[float] = 5.0
-CONNECTION_PROBE_TIMEOUT: Final[float] = 3.0
-CONNECTION_DEAD_THRESHOLD: Final[int] = 2  # consecutive dead probes → disconnected
-CONNECTION_STATE_FILE: Final[str] = "ipc-connection-state.json"
-# Allow a single transient probe failure without counting toward the dead
-# threshold — only sustained failures indicate a real disconnection.
-CONNECTION_PROBE_RETRY_GRACE: Final[int] = 1
-
-
-def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-@dataclass
-class ConnectionSnapshot:
-    """Point-in-time snapshot of the frontend-backend connection state."""
-
-    backend_process_alive: bool = False
-    backend_http_healthy: bool = False
-    frontend_connected: bool = False
-    overall_state: str = "unknown"  # connected, degraded, disconnected, starting
-    consecutive_dead: int = 0
-    last_change_at: str = ""
-    probe_count: int = 0
-
-    def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass
-class ConnectionEvent:
-    """A connection state transition event."""
-
-    event_id: str
-    timestamp: str
-    from_state: str
-    to_state: str
-    backend_process_alive: bool
-    backend_http_healthy: bool
-    frontend_connected: bool
-    trigger_repair: bool = False
-
-    def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
+from .connection_watchdog_types import (
+    CONNECTION_DEAD_THRESHOLD,
+    CONNECTION_PROBE_INTERVAL,
+    CONNECTION_PROBE_RETRY_GRACE,
+    CONNECTION_PROBE_TIMEOUT,
+    CONNECTION_STATE_FILE,
+    CONNECTION_WATCHDOG_VERSION,
+    ConnectionEvent,
+    ConnectionSnapshot,
+    _iso_now,
+    write_ipc_connection_state,
+)
 
 
 class ConnectionWatchdog:
@@ -140,11 +104,7 @@ class ConnectionWatchdog:
         )
 
     def set_repair_callback(self, callback: Any) -> None:
-        """Set a callback to invoke when connection repair is needed.
-
-        The callback receives (failure_code: str, snapshot: ConnectionSnapshot)
-        and should return a dict with at least {"ok": bool}.
-        """
+        """Set a callback to invoke when connection repair is needed."""
         self._repair_callback = callback
 
     def set_learning_store(self, store: Any) -> None:
@@ -162,21 +122,7 @@ class ConnectionWatchdog:
             return list(self._events)
 
     def _probe_backend_http(self) -> bool:
-        """Probe the backend HTTP /health endpoint with caching.
-
-        The backend is considered HTTP-healthy when the core runtime is
-        ready (governance + backend runtime + dependencies) and startup_dead
-        is not True.  Full readiness (runtime_state=ready, including
-        authenticated IPC) is the strongest signal, but the backend is also
-        healthy when it is fully started and merely awaiting a frontend
-        session.
-
-        The health endpoint returns HTTP 503 while the runtime is still
-        starting or when the frontend has not connected.  A 503 response
-        still carries the full JSON payload, so we must read it rather than
-        treating it as a connection failure.
-        """
-        # Simple in-memory cache to avoid duplicate probes within the same interval
+        """Probe the backend HTTP /health endpoint with caching."""
         now = time.monotonic()
         if (
             hasattr(self, "_http_cache")
@@ -205,17 +151,12 @@ class ConnectionWatchdog:
                     payload = json.loads(response.read().decode("utf-8"))
             if payload.get("startup_dead") is True:
                 return False
-            # Full readiness (frontend connected) is the strongest signal.
             if (
                 payload.get("ok") is True
                 and payload.get("runtime_state") == "ready"
                 and payload.get("governance_ready") is True
             ):
                 result = True
-            # Core-ready without frontend: governance + backend runtime
-            # + dependencies are up, but authenticated IPC is not yet
-            # connected.  This is a healthy backend awaiting a user
-            # session.
             else:
                 result = bool(
                     payload.get("governance_ready") is True
@@ -229,12 +170,7 @@ class ConnectionWatchdog:
             return False
 
     def _check_frontend_connected(self) -> bool:
-        """Check if the frontend WebSocket is connected to the IPC server.
-
-        The IPC server writes connection state to ipc-connections.json.
-        If the file doesn't exist or is stale, assume disconnected.
-        """
-        # Simple file modification time cache
+        """Check if the frontend WebSocket is connected to the IPC server."""
         try:
             mtime = self._ipc_state_file.stat().st_mtime
             now = time.time()
@@ -254,7 +190,7 @@ class ConnectionWatchdog:
                     from datetime import datetime as _dt
                     try:
                         parsed = _dt.fromisoformat(updated_at.replace("Z", "+00:00"))
-                        age = (datetime.now(timezone.utc) - parsed).total_seconds()
+                        age = (time.time() - parsed.timestamp())
                         if age > 20:
                             result = False
                         else:
@@ -277,7 +213,7 @@ class ConnectionWatchdog:
         if backend_alive and backend_http and frontend_connected:
             return "connected"
         if backend_alive and backend_http and not frontend_connected:
-            return "degraded"  # backend up but frontend not connected
+            return "degraded"
         if not backend_alive:
             return "disconnected"
         return "starting"
@@ -303,14 +239,8 @@ class ConnectionWatchdog:
         )
         with self._lock:
             self._events.append(event)
-            # Keep only the last 100 events.
             if len(self._events) > 100:
                 self._events = self._events[-100:]
-        # Learning: only genuine fault transitions create error signatures.
-        # Recovery transitions close the matching fault with a successful
-        # outcome instead of masquerading as "CONNECTION_CONNECTED" errors,
-        # which otherwise flood the learning store and auto-promote recipes
-        # for normal connection behaviour.
         if self._learning_store is not None:
             is_fault = (
                 to_state == "disconnected"
@@ -328,21 +258,13 @@ class ConnectionWatchdog:
                 )
                 self._last_fault = (failure_code, from_state, to_state)
                 self._record_learning(
-                    failure_code,
-                    from_state,
-                    to_state,
-                    ok=False,
-                    run_id=event.event_id,
+                    failure_code, from_state, to_state, ok=False, run_id=event.event_id
                 )
             elif is_recovery and self._last_fault is not None:
                 failure_code, fault_from, fault_to = self._last_fault
                 self._last_fault = None
                 self._record_learning(
-                    failure_code,
-                    fault_from,
-                    fault_to,
-                    ok=True,
-                    run_id=event.event_id,
+                    failure_code, fault_from, fault_to, ok=True, run_id=event.event_id
                 )
         return event
 
@@ -365,9 +287,7 @@ class ConnectionWatchdog:
             message = f"{from_state}->{to_state}"
             sig = ErrorSignature(
                 signature_hash=_normalize_error_signature(
-                    failure_code,
-                    message,
-                    file_path="ipc/connection",
+                    failure_code, message, file_path="ipc/connection",
                 ),
                 error_class=failure_code,
                 message_pattern=message,
@@ -375,8 +295,6 @@ class ConnectionWatchdog:
                 file_context="ipc/connection",
                 target_tool_id="main-system",
             )
-            # Use the CentralRepairService's connection learning methods if
-            # available (they close the loop with consistent signatures).
             try:
                 from .central_repair import CentralRepairService
                 repair_root = (
@@ -385,17 +303,11 @@ class ConnectionWatchdog:
                 repair_root.mkdir(parents=True, exist_ok=True)
                 service = CentralRepairService(self.project_root, repair_root)
                 service.record_connection_outcome(
-                    failure_code,
-                    from_state,
-                    to_state,
-                    remedy="connection-watchdog",
-                    ok=ok,
-                    run_id=run_id,
+                    failure_code, from_state, to_state,
+                    remedy="connection-watchdog", ok=ok, run_id=run_id,
                     record_error=not ok,
                 )
             except Exception:
-                # Fallback: record directly in the learning store.  A
-                # recovery outcome must not re-register the fault signature.
                 outcome = RepairOutcome(
                     run_id=run_id,
                     signature_hash=sig.signature_hash,
@@ -407,7 +319,7 @@ class ConnectionWatchdog:
                     self._learning_store.record_error(sig)
                 self._learning_store.record_outcome(outcome)
         except Exception:
-            pass  # Learning is best-effort.
+            pass
 
     def _write_state(self) -> None:
         """Write connection state to the state file for observability."""
@@ -431,13 +343,9 @@ class ConnectionWatchdog:
         self,
         backend_process_alive: bool | None = None,
     ) -> ConnectionSnapshot:
-        """Perform one probe cycle and return the updated snapshot.
-
-        If backend_process_alive is provided, use it; otherwise assume alive
-        (boot_core calls this with the child process state).
-        """
+        """Perform one probe cycle and return the updated snapshot."""
         if backend_process_alive is None:
-            backend_process_alive = True  # assume alive if not specified
+            backend_process_alive = True
         backend_http = self._probe_backend_http()
         frontend_connected = self._check_frontend_connected()
         new_state = self._compute_state(
@@ -449,14 +357,8 @@ class ConnectionWatchdog:
             if new_state == "connected":
                 new_dead = 0
             elif new_state == "degraded":
-                # Backend is healthy but frontend is not connected — this
-                # is an expected state while waiting for a user session and
-                # should not count toward the dead threshold.
                 new_dead = 0
             elif old_state == "connected" and new_state == "disconnected":
-                # Sudden drop from connected to disconnected is likely a
-                # transient network glitch — allow one grace probe before
-                # counting toward the dead threshold.
                 new_dead = max(0, old_dead - CONNECTION_PROBE_RETRY_GRACE + 1)
             else:
                 new_dead = old_dead + 1
@@ -480,32 +382,26 @@ class ConnectionWatchdog:
         elif trigger:
             self._repair_triggered = True
 
-        # Record state transition, or the first threshold crossing.
         if new_state != old_state:
-            self._record_event(
-                old_state, new_state, snapshot, trigger_repair=trigger
-            )
+            self._record_event(old_state, new_state, snapshot, trigger_repair=trigger)
         elif trigger:
             self._record_event(old_state, new_state, snapshot, trigger_repair=True)
         if trigger and self._repair_callback is not None:
             try:
                 self._repair_callback("FRONTEND_BACKEND_DISCONNECTED", snapshot)
             except Exception:
-                pass  # Repair signalling is best-effort.
+                pass
         self._write_state()
         return snapshot
 
     def run(self, backend_alive_fn: Any) -> None:
-        """Background loop: probe connection health periodically.
-
-        backend_alive_fn: a callable returning bool (is backend process alive?)
-        """
+        """Background loop: probe connection health periodically."""
         while not self._stop.is_set():
             try:
                 alive = bool(backend_alive_fn())
                 self.probe_once(backend_process_alive=alive)
             except Exception:
-                pass  # Watchdog must never crash boot_core.
+                pass
             if self._stop.wait(timeout=self.probe_interval):
                 break
 
@@ -524,32 +420,6 @@ class ConnectionWatchdog:
             "probe_interval_seconds": self.probe_interval,
             "dead_threshold": self.dead_threshold,
         }
-
-
-def write_ipc_connection_state(
-    project_root: Path, active_connections: int
-) -> None:
-    """Write IPC connection state for the watchdog to read.
-
-    Called by the IPC server when WebSocket connections open/close.
-    """
-    state_file = (
-        project_root / "main-system" / "runtime" / "state" / "ipc-connections.json"
-    )
-    try:
-        state_file.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "active_connections": active_connections,
-            "updated_at": _iso_now(),
-        }
-        tmp = state_file.with_suffix(".tmp")
-        tmp.write_text(
-            json.dumps(payload, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(tmp, state_file)
-    except OSError:
-        pass
 
 
 __all__ = [

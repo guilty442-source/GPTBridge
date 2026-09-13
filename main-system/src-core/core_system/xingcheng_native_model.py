@@ -24,76 +24,25 @@ import json
 from pathlib import Path
 from typing import Any
 
-from governance_rule.codex import GOVERNANCE_CODEX
-
 from .xingcheng_personality import XINGCHENG_MODULE_ID
-
-_XINGCHENG_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "xingcheng"),
-    None,
+from .xingcheng_native_model_constants import (
+    XINGCHENG_KIND,
+    XINGCHENG_EMPOWERED_POWERS,
+    XINGCHENG_PROHIBITED_POWERS,
+    _DEFAULT_MODEL_PERMISSIONS,
+    _MAIN_MODEL_ID,
+    _MAIN_MODEL_RESPONSIBILITIES,
+    _CHAT_MODE_MODEL_ID,
+    _CHAT_MODE_DOCUMENT_READING_MODEL,
+    _CHAT_MODE_VISUAL_MODEL,
+    _CHAT_MODE_RESPONSIBILITIES,
+    _PROGRAMMING_MODE_MODEL_ID,
+    _PROGRAMMING_MODE_RESPONSIBILITIES,
 )
-if _XINGCHENG_SOVEREIGN is None:
-    raise RuntimeError("xingcheng sovereign not found in Governance Codex")
-
-XINGCHENG_KIND = "local-native-model"
-
-# 星澄的可行權力（來自 Codex）— 模型能力面
-XINGCHENG_EMPOWERED_POWERS = _XINGCHENG_SOVEREIGN.powers
-XINGCHENG_PROHIBITED_POWERS = _XINGCHENG_SOVEREIGN.prohibitions
-
-# 預設模型能力權限
-_DEFAULT_MODEL_PERMISSIONS: dict[str, bool] = {
-    "inference": True,
-    "understanding": True,
-    "advisory": True,
-    "generation": True,
-    "entry_dispatch": False,
-}
-
-# ======================================================================
-# 三模式收斂定義
-# ======================================================================
-
-# 主模型 — 綜合能力（協調、理解、整合、檢查、裁決、分配）
-# 來自 manifest.capabilities.xingcheng 中的多個 *_owner / *_authority
-_MAIN_MODEL_ID = "qwen3.8:27b-q4_K_M"
-_MAIN_MODEL_RESPONSIBILITIES = (
-    "coordination",
-    "collaboration",
-    "generalist",
-    "understanding",
-    "allocation",
-    "integration",
-    "inspection",
-    "result",
-    "failure-adjudication",
-    "final-coordination",
-)
-
-# 聊天模式 — 對話、理解、回應、文件閱讀、視覺辨識
-_CHAT_MODE_MODEL_ID = "qwen3.8:27b-q4_K_M"
-_CHAT_MODE_DOCUMENT_READING_MODEL = "gemma4:12b-it-qat"
-_CHAT_MODE_VISUAL_MODEL = "openbmb/minicpm-v4.6:q8_0"
-_CHAT_MODE_RESPONSIBILITIES = (
-    "language-understanding",
-    "response-generation",
-    "document-reading",
-    "visual-recognition",
-    "conversation",
-)
-
-# 編程模式 — 程式碼執行、生成、分析、重構
-_PROGRAMMING_MODE_MODEL_ID = "qwen3.6:35b-a3b-coding"
-_PROGRAMMING_MODE_RESPONSIBILITIES = (
-    "coding-execution",
-    "code-generation",
-    "code-analysis",
-    "refactoring",
-    "self-upgrade",
-)
+from .xingcheng_native_model_domains import XingchengNativeModelDomainsMixin
 
 
-class XingchengNativeModel:
+class XingchengNativeModel(XingchengNativeModelDomainsMixin):
     """星澄原生模型能力 — 收攏所有分散的能力定義，收斂為三個模型模式。
 
     模型模式：
@@ -403,73 +352,8 @@ class XingchengNativeModel:
         return dict(dispatch) if isinstance(dispatch, dict) else {}
 
     # ==================================================================
-    # 4. 業務能力面 (business_domains)
+    # 4. 業務能力面 (business_domains) — 見 XingchengNativeModelDomainsMixin
     # ==================================================================
-
-    def business_domain(self, domain_id: str) -> dict[str, Any]:
-        """取得指定業務能力面的設定。"""
-        return self._business_domain(domain_id)
-
-    @property
-    def business_domains(self) -> dict[str, dict[str, Any]]:
-        """所有業務能力面的完整快照。"""
-        manifest = self._manifest()
-        capabilities = manifest.get("capabilities") or {}
-        if not isinstance(capabilities, dict):
-            return {}
-        return {
-            domain_id: dict(config) if isinstance(config, dict) else {}
-            for domain_id, config in capabilities.items()
-        }
-
-    @property
-    def business_domain_ids(self) -> list[str]:
-        """所有業務能力面 ID 清單。"""
-        return sorted(self.business_domains.keys())
-
-    # --- 投資市場搜尋 ---
-
-    @property
-    def investment_market_search(self) -> dict[str, Any]:
-        """投資市場搜尋能力面。"""
-        return self._business_domain("investment-market-search")
-
-    # --- 投資分析 ---
-
-    @property
-    def investment_analysis(self) -> dict[str, Any]:
-        """投資分析能力面。"""
-        return self._business_domain("investment-analysis")
-
-    # --- 程式升級優化 ---
-
-    @property
-    def upgrade_optimization(self) -> dict[str, Any]:
-        """程式升級優化能力面。"""
-        return self._business_domain("upgrade-optimization")
-
-    # --- 專案程式 ---
-
-    @property
-    def star_project_programming(self) -> dict[str, Any]:
-        """專案程式能力面。"""
-        return self._business_domain("star-project-programming")
-
-    # --- AI 連線 ---
-
-    @property
-    def ai_connections(self) -> dict[str, Any]:
-        """AI 連線能力面。"""
-        return self._business_domain("ai-connections")
-
-    # --- 文件閱讀 ---
-
-    @property
-    def document_reading(self) -> dict[str, Any]:
-        """文件閱讀能力。"""
-        xingcheng_caps = self._xingcheng_capabilities()
-        doc_reading = xingcheng_caps.get("document_reading") or {}
-        return dict(doc_reading) if isinstance(doc_reading, dict) else {}
 
     # ==================================================================
     # 完整能力快照
