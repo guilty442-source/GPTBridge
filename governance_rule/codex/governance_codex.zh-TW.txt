@@ -3346,6 +3346,24 @@
         "rule": "CODEX-RECORD:The historical provision_type=sovereign record for codex is retired as a compatibility artifact and has no effective-sovereign state. Current Codex authority continues exclusively through the rule-declaration layer and A377;retiring the malformed roster record does not retire the Codex. XINGCHENG-ROSTER:the current 星澄 record rank is own-domain-sovereign-local-native-model-independent-privileged-domain under A378;this grants only enumerated 星澄-domain powers and does not make it a top decision/runtime/synchronization/permission sovereign. ACTIVE-ROSTER canonical IDs are decision-sovereign,system-runtime-sovereign,synchronization-sovereign,permission-sovereign and 星澄,with sub-sovereigns separately listed under parents;aliases cannot replace these IDs. LIFECYCLE:lineage and lifecycle use the same terminal meaning. A provision displaced by a known successor is superseded in both registries;retired means withdrawn without an operative successor;abolished is represented as retired plus explicit transfer/termination evidence and no effective record. EFFECTIVITY:active requires one effective record;non-active requires none. SCOPED-SUCCESSION:a predecessor may have multiple later provisions only when each successor declares a distinct non-overlapping subject/scope and the registry records that scoped relationship;within one conflict scope exactly one current successor is permitted. Multiple complementary successors such as native physical tree,ABI path and namespace dependency do not form competing authority. Ambiguous overlapping successors remain unresolved and cannot be silently selected by position/date. CONSISTENCY:every amendment verifies canonical IDs,roster type,lifecycle/effective parity,successor scope and metadata aliases. Pending directory implementation,external signatures,human signature and Language Governance FREEZE-PENDING remain pending until their own evidence passes and are not altered by this normalization.",
         "prohibition": "FORBID:Codex compatibility row counted active+retiring Codex rule authority with its malformed sovereign row+星澄 treated as top general sovereign+runtime-sovereign alias published as canonical ID+lineage superseded/lifecycle retired mismatch+non-active effective record+overlapping active successors in one scope+automatic choice among ambiguous successors+normalization falsely closing pending implementation/signature/freeze gates.",
         "exception": "Historical displays may retain old names/status text when explicitly marked historical and excluded from active/effective queries. Complementary scoped successors may coexist when their scopes and precedence are machine-verifiable."
+      },
+      {
+        "position": 382,
+        "provision_id": "A382",
+        "section_index": "16",
+        "subject": "non-disruptive-codex-amendment-ordinance-flow",
+        "rule": "PURPOSE:a Codex amendment must not interrupt,stop,restart,disconnect,reconfigure or partially mutate the running system. Every amendment follows this ordinance flow:1 RECEIVE explicit human/user amendment command and immutable amendment_id;2 SNAPSHOT current active Codex generation,history head,seals,read-only attributes and runtime reader generation;3 STAGE all proposed rows and Chinese confidential representation in an isolated non-authoritative transaction/generation;4 NORMALIZE identity,law classification,lineage,lifecycle,effective records,directories,test flows,metadata and version 1.00000 evolution rules;5 VALIDATE SQLite integrity,foreign keys,history/hash chain,seal roots,known references,unique scoped successors,authority/lifecycle/effective parity,confidentiality,mirror parity and applicable tests/audit;6 CERTIFY required evidence without fabricating external or human signatures;7 PREPARE immutable successor and generation manifest with rollback pointer to prior snapshot;8 ATOMIC-PUBLISH the complete generation by one generation-fenced pointer/transaction;9 NOTIFY consumers through typed shared-layer contract;10 RELOAD policy views only at safe boundaries using snapshot isolation;11 VERIFY old in-flight readers finish on prior generation,new readers use the published generation,system health/channel continuity remain intact;12 AUDIT result and restore read-only protection. Runtime services continue with the last fully accepted generation throughout staging/validation. No service may observe half-written Codex state. Publication does not itself execute newly declared implementation obligations,repair/update code,change permissions or restart a backend;those proceed through their own authorized ordinance and user-confirmation gates. If any step fails,the staged generation is rejected/quarantined,the active pointer remains unchanged,running service continues,and evidence is emitted. Concurrent amendments serialize by amendment lock and rebase/revalidate against the actual current history head;no lost update. Consumer incompatibility yields INCOMPLETE_EVIDENCE or rejection,never forced reload. Emergency rollback is pointer restoration only to a previously sealed accepted generation and cannot erase the failed attempt or history.",
+        "prohibition": "FORBID:editing active generation in place+partial table/mirror publication+runtime restart or channel disconnect caused only by Codex update+new rule auto-executing implementation+publication before validation+fabricated signature+reader seeing mixed generations+concurrent lost amendment+failed staging replacing active snapshot+rollback by reset/overwrite/history deletion+Codex watcher triggering recursive repair/update.",
+        "exception": "A new rule may explicitly require a later controlled system restart for its own implementation, but the Codex amendment transaction itself remains non-disruptive and only records that pending obligation. A security-critical rule may block new unsafe operations after atomic publication while existing safe in-flight operations drain."
+      },
+      {
+        "position": 383,
+        "provision_id": "A383",
+        "section_index": "16",
+        "subject": "codex-readonly-state-review-isolation",
+        "rule": "Codex filesystem read-only state is a Codex protection control,not a prerequisite for inspecting or auditing unrelated system/runtime/module health. If a Codex artifact is unexpectedly writable,the reviewer records CODEX_PROTECTION_DEGRADED,verifies content hash/history/seal and isolates Codex mutation/publication;the condition does not stop,fail,skip or contaminate independent system review and does not make the running system unhealthy by itself. System review must continue and report its own findings. Writable state never grants amendment authority and never makes changed content effective. After an authorized amendment transaction,read-only protection is restored and separately verified. If content integrity also changed without authority,the last sealed generation remains authoritative while the incident is isolated and audited;unaffected runtime continues.",
+        "prohibition": "FORBID:using writable attribute alone to abort unrelated system review+reporting whole system failed solely because Codex is writable+trusting writable content as effective+silently ignoring writable state+automatic reset/overwrite to repair attributes+mixing Codex-protection finding into unrelated module verdict.",
+        "exception": "A review specifically scoped to Codex protection may fail or block Codex publication on writable state;that scoped verdict still cannot replace the independent system review result."
       }
     ],
     "certification_evidence": [
@@ -4101,7 +4119,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H084",
+        "history_head": "H085",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -13038,6 +13056,18 @@
         "provision_id": "A381",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A382",
+        "effective_version": "1.00000",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A383",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -13096,14 +13126,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H084",
-        "provision_count": 627,
-        "identity_count": 627,
-        "lineage_count": 627,
+        "history_head": "H085",
+        "provision_count": 629,
+        "identity_count": 629,
+        "lineage_count": 629,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "395568c09d716f4c7663fd9f06fa82c39a697247e5ee43e2ca96a8e8b8fbd325",
-        "identity_root": "053dff52ef4fb7adaca8d1002e6462c9e9bca8aca982db77a62c8e35b35a17e1",
-        "full_root": "62259b3bff27340496a4eef9ff01a3ed5d5522f0a79f065a8a73889f0728e46e",
+        "content_root": "508a02ff2c0bf4135872ee08e0ec493a14722b48903a23da64e64788e103f620",
+        "identity_root": "bf2337ce5277f738a1b46f48d41cb296767de999b8d61d8109ad91c329ef2043",
+        "full_root": "b666b3880f15d6af8fe56403142c0dcbb4ff5269f18cf06f9a260e6ad1cac745",
         "legacy_history_head": null
       }
     ],
@@ -18230,7 +18260,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H084"
+        "value": "H085"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -18595,6 +18625,18 @@
       {
         "key": "successor_model",
         "value": "scoped-complementary-branches-with-one-current-successor-per-conflict-scope"
+      },
+      {
+        "key": "codex_amendment_flow",
+        "value": "receive>snapshot>stage>normalize>validate>certify>prepare>atomic-publish>notify>safe-reload>verify>audit-readonly"
+      },
+      {
+        "key": "codex_update_runtime_effect",
+        "value": "non-disruptive-no-implementation-auto-execution"
+      },
+      {
+        "key": "codex_readonly_review_effect",
+        "value": "codex-protection-only-system-review-continues"
       }
     ],
     "module_assignment_registry": [
@@ -24411,6 +24453,20 @@
         "provision_id": "A381",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A382",
+        "provision_type": "article",
+        "provision_id": "A382",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A383",
+        "provision_type": "article",
+        "provision_id": "A383",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -28802,6 +28858,20 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A274|A284|A311|A327|A376|A377|A378"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A382",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A13|A87|A175|A181|A241|A262|A377|A379"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A383",
+        "tier": "subordinate-ordinance",
+        "law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "authority_basis": "A87|A274|A294|A377|A379|A382"
       }
     ],
     "provision_lifecycle_status": [
@@ -33716,6 +33786,22 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H084+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A382",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H085+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A383",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H085+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -38734,6 +38820,22 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "4beb0cc0844cec5d49774aa359b45a03c489371a782dee05d8f2e4efdcfd9f4e"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A382",
+        "introduced_by": "H085",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "21f5c6efef2688a8e93221e9739f5d40d254113f71d49e2fb01bb2fb4e3ce2a2"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A383",
+        "introduced_by": "H085",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f62c60c7a0f4231df73a1013e859e77841a58ca4e93bbb0bc742acebfbaf01b5"
       }
     ],
     "provision_revisions": [
@@ -49770,6 +49872,24 @@
         "content_hash": "4beb0cc0844cec5d49774aa359b45a03c489371a782dee05d8f2e4efdcfd9f4e",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A382",
+        "revision_id": "H085",
+        "version": "1.00000",
+        "content_hash": "21f5c6efef2688a8e93221e9739f5d40d254113f71d49e2fb01bb2fb4e3ce2a2",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A383",
+        "revision_id": "H085",
+        "version": "1.00000",
+        "content_hash": "f62c60c7a0f4231df73a1013e859e77841a58ca4e93bbb0bc742acebfbaf01b5",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -54942,6 +55062,26 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A382",
+        "controlling_law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A383",
+        "controlling_law_code": "CODEX_SUBORDINATE_ORDINANCES",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -55868,6 +56008,17 @@
         "previous_hash": "cfeb92d92f98215329b54b2dab598dc2524d85fe29ec8f5f977695505c3f51b8",
         "entry_hash": "888bbfd759afdc1bbfdb84b68d5cab4d295d712bdc7cc9b2618a2ff02ec5cb74",
         "version_epoch": 2
+      },
+      {
+        "sequence": 85,
+        "change_id": "H085",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "non-disruptive-codex-amendment-ordinance-flow",
+        "summary": "Established a non-disruptive Codex amendment ordinance using isolated staging, complete validation, immutable succession, atomic generation publication and fail-safe retention of the prior active snapshot. Version remains E2:1.00000.",
+        "previous_hash": "888bbfd759afdc1bbfdb84b68d5cab4d295d712bdc7cc9b2618a2ff02ec5cb74",
+        "entry_hash": "0177000cbae776ad09624beb83f462666bfa71b438e581b32d658c788a530531",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -56424,14 +56575,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H084",
-        "provision_count": 627,
-        "identity_count": 627,
-        "lineage_count": 627,
+        "history_head": "H085",
+        "provision_count": 629,
+        "identity_count": 629,
+        "lineage_count": 629,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "395568c09d716f4c7663fd9f06fa82c39a697247e5ee43e2ca96a8e8b8fbd325",
-        "identity_root": "053dff52ef4fb7adaca8d1002e6462c9e9bca8aca982db77a62c8e35b35a17e1",
-        "full_root": "62259b3bff27340496a4eef9ff01a3ed5d5522f0a79f065a8a73889f0728e46e",
+        "content_root": "508a02ff2c0bf4135872ee08e0ec493a14722b48903a23da64e64788e103f620",
+        "identity_root": "bf2337ce5277f738a1b46f48d41cb296767de999b8d61d8109ad91c329ef2043",
+        "full_root": "b666b3880f15d6af8fe56403142c0dcbb4ff5269f18cf06f9a260e6ad1cac745",
         "version_epoch": 2
       }
     ],
@@ -61558,6 +61709,24 @@
         "evidence": "roster+identity+lineage+lifecycle+effectivity+successor-scope graph+pending gate report+audit",
         "cleanup": "remove fixtures only;retain closure evidence",
         "isolation_policy": "read-only Codex and non-authoritative graph",
+        "timeout": "2400s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_NON_DISRUPTIVE_CODEX_AMENDMENT",
+        "canonical_name": "non-disruptive-codex-amendment-ordinance-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "Codex amendment transaction and runtime readers",
+        "requirement_ids": "A13|A87|A175|A181|A241|A262|A377|A379|A382|A383",
+        "test_level": "schema+contract+integration+concurrency+failure-injection",
+        "preconditions": "active generation,long-running readers,staged amendment,Chinese representation,concurrent amendments,invalid hashes/references,consumer incompatibility and writable Codex attributes",
+        "fixtures": "failure at every flow step;reader before/during/after publish;partial mirror write;concurrent history heads;read-only restoration;writable unchanged and writable tampered Codex;watcher recursion;pending restart obligation;atomic pointer rollback",
+        "ordered_steps": "keep runtime/system review active;stage and validate;publish atomically;observe generation isolation;separate Codex protection verdict from system review;reject each fault;serialize/rebase concurrency;verify no implementation auto-runs and audit persists",
+        "expected_results": "zero service restart/disconnect;no mixed generation;system review completes despite writable attribute;Codex publication isolated;old/new readers correct;failure leaves active pointer;readonly restored;all attempts audited",
+        "evidence": "generation manifests+reader/system-review traces+separate protection finding+health/channel events+validation/seal reports+rejection/rollback/audit records",
+        "cleanup": "delete rejected staging copies only;retain immutable evidence",
+        "isolation_policy": "isolated staging,review domains,serialized amendment lock and generation fence",
         "timeout": "2400s",
         "introduced_version": "1.00000",
         "retired_version": null
