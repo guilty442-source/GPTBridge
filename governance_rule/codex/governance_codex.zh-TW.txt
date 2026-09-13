@@ -2995,6 +2995,15 @@
         "rule": "PYTHON-ROOT:every governed Python implementation module is classified under exactly one registered internal layer:application|domain|infrastructure; APPLICATION:application/orchestration+application/use_cases own system orchestration,use-case sequencing,transactions,authorization requests and port invocation but no business-rule truth or concrete I/O adapter; DOMAIN:domain/semantic_policy+domain/business_rules own business meaning,invariants,entities,value objects and deterministic policy with no UI/database/filesystem/network/native/framework/process dependency; INFRASTRUCTURE:infrastructure/database+infrastructure/native+infrastructure/filesystem+infrastructure/external_adapters own concrete persistence,C ABI/native bridge,file I/O and governed external adapters but no business judgment or system orchestration; DEPENDENCY-DIRECTION:domain imports neither application nor infrastructure; application imports domain and declared abstract ports only; infrastructure implements declared ports and may import domain value types/application port contracts without importing use-case orchestration; COMPOSITION-ROOT:one registered startup/composition entry wires implementations to ports and contains no domain logic; API/UI:transport adapters call application use cases and never domain persistence directly; SQL:infrastructure database adapters submit bounded set-based SQL under A341; NATIVE:infrastructure native adapters use A339 only; EXTERNAL:all network access remains governed tool/channel path; FILE-LAYOUT:layer directory names are canonical under each registered Python source root and each module has one layer owner; TESTS:domain pure unit tests+application use-case/port tests+infrastructure integration/contract tests+architecture import-cycle/forbidden-edge checker; MIGRATION:inventory existing Python modules>classify by dominant responsibility>split mixed modules>rewrite imports through ports>remove old path in same certified release.",
         "prohibition": "FORBID:fourth/catchall Python layer+common/shared/util as hidden owner+domain importing application/infrastructure/framework+application concrete database/filesystem/native/external calls+infrastructure business policy/orchestration+UI calling repository directly+cross-layer mutable global+runtime path alias hiding wrong layer+temporary duplicate module after migration+release with forbidden import edge or unclassified Python file.",
         "exception": "Package __init__,typed DTO/schema and composition-root files may sit at a registered layer boundary only with an explicit boundary identity,no behavior beyond export/wiring,and checker evidence proving no hidden ownership."
+      },
+      {
+        "position": 343,
+        "provision_id": "A343",
+        "section_index": "16",
+        "subject": "correctness-first-python-first-native-promotion-record-special-law",
+        "rule": "CORE-ORDER:correctness-first>Python authoritative implementation>representative reproducible profile>bottleneck confirmed>C++ optimization candidate>API/behavior/performance comparison>independent acceptance>certified promotion; NEW-FEATURE:begins in Python and cannot begin directly in C++; ADMISSION:C++ native path requires measured CPU hotspot or other declared native necessity with workload+environment+profiler+trace+baseline and expected benefit; RECORD:checker must create and preserve one immutable native-promotion-record before native code admission with required fields capability+python_owner+native_owner+reason+baseline+native_result+fallback+api_parity plus record-id+profile-evidence-hash+workload+environment/toolchain+correctness-oracle+performance-threshold+decision+reviewer+release-id+rollback+timestamps+lineage; EXAMPLE:{capability:vector_similarity,python_owner:vector_service.py,native_owner:vector.cpp,reason:cpu_hotspot,baseline:measured,native_result:measured,fallback:available,api_parity:pass}; CHECKER:not merely profile-present; verifies profile authenticity+representative input+confirmed bottleneck+owner uniqueness+A339 call path+A340 boundary tests+result improvement+fallback viability+API parity+record directory identity; FALLBACK:Python remains correctness oracle and tested available fallback unless an explicit successor proves impossibility; PROMOTION:native becomes performance implementation only and does not acquire business semantics/orchestration; REGRESSION:missing/stale/nonrepresentative evidence,parity failure,benefit below threshold or unsupported platform restores Python path and blocks affected release; RETENTION:record+raw evidence+decision+supersession remain content-addressed and auditable for the lifetime of the native owner.",
+        "prohibition": "FORBID:new feature directly in C+++C++ because faster assertion+profile-exists-only check+synthetic/nonrepresentative profile+missing Python owner+native promotion without bottleneck proof+business semantics migration+API drift+fallback removal without successor proof+benchmark cherry-picking+record overwrite/deletion+release with missing/stale/failed promotion evidence.",
+        "exception": "A capability impossible to implement correctly in Python may enter C++ only through an explicit human-governor successor law containing impossibility proof,interface oracle,fallback/containment plan and all remaining A343 evidence; convenience or anticipated speed is insufficient."
       }
     ],
     "certification_evidence": [
@@ -3750,7 +3759,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H052",
+        "history_head": "H053",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -6480,6 +6489,15 @@
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "native_promotion_record_directory",
+        "required_scope": "every proposed,accepted,rejected,rolled-back and active native capability",
+        "completion_rule": "exact native inventory equals promotion records and every active C++ capability resolves to one Python owner and valid evidence",
+        "acceptance_evidence": "content-addressed inventory diff+profiles+API parity+fallback test+release verdict",
+        "release_gate": "deny-native-admission-and-affected-release-on-gap",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_format_contract": [
@@ -6944,6 +6962,20 @@
         "owner": "permission-sovereign",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_NATIVE_PROMOTION_RECORD",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "capability|python_owner|native_owner|reason|baseline|native_result|fallback|api_parity|profile_evidence_hash|workload|environment_toolchain|correctness_oracle|performance_threshold|decision|reviewer|release_id|rollback|recorded_at|lineage",
+        "required_field_order": "common-envelope>capability>owners>profile>baseline>native-result>parity>fallback>decision>release>rollback>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-declared-optional",
+        "identity_format": "entry-code=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "common-envelope>domain-schema>relationships>profile-authenticity>parity>coverage>content-hash",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -7375,6 +7407,19 @@
         "implementation_state": "mandated-pending-implementation",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_NATIVE_PROMOTION_RECORD",
+        "canonical_name": "native-promotion-record-directory",
+        "owner": "permission-sovereign",
+        "scope": "every proposed and active Python-to-C++ native promotion",
+        "authority_kind": "evidence-and-admission-directory",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|capability|python_owner|native_owner|reason|baseline|native_result|fallback|api_parity|profile_evidence_hash|workload|environment_toolchain|correctness_oracle|performance_threshold|decision|reviewer|release_id|rollback|recorded_at|lineage",
+        "relationships": "architecture-capability|source-owner|profile-evidence|release-certificate|test-flow",
+        "coverage_rule": "zero-gap inventory of every native capability and promotion decision",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_normalization_plan": [
@@ -7619,6 +7664,17 @@
         "activation_gate": "deny-until-zero-gap-proof",
         "owner": "permission-sovereign",
         "introduced_version": "3.21600"
+      },
+      {
+        "directory_code": "DIR_NATIVE_PROMOTION_RECORD",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-until-zero-gap-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_relationship_requirements": [
@@ -11966,6 +12022,12 @@
         "provision_id": "A342",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A343",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12024,14 +12086,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H052",
-        "provision_count": 588,
-        "identity_count": 588,
-        "lineage_count": 588,
+        "history_head": "H053",
+        "provision_count": 589,
+        "identity_count": 589,
+        "lineage_count": 589,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "774503bc0595d39b462e4290b26cb5839d8fb6910ebc0c2ff65e26f4f8d1d493",
-        "identity_root": "b603469de3bc2793704ae264adc6927cf7140879cd8c706f8ccfe52fefc4c163",
-        "full_root": "b670c6af8372e179b5433c6337d65eff4891de969aad93bb00017a7bfc9c769e",
+        "content_root": "b521283694a04f6264ede90f4437f8eaa9538dd544c377a32f13997bf63a5967",
+        "identity_root": "45702103602bc1b899d25644bca6ebd0f53136e4763f4fa12a7a24d558ee6f5b",
+        "full_root": "8243efb7cf3bf6945c527b9e7ac451a42e17d586ec177e9fd0bab15bf513fa04",
         "legacy_history_head": null
       }
     ],
@@ -16058,6 +16120,23 @@
         "previous_state": "declared",
         "verification_owner": "星澄",
         "escalation_rule": "at due-at set escalated and block affected activation plus verified release"
+      },
+      {
+        "obligation_code": "OBL_NATIVE_PROMOTION_RECORD_CHECKER",
+        "declaration_provision": "A343",
+        "implementation_owner": "module-execution-layer",
+        "target_state": "checker creates,validates and preserves a record for every native promotion and blocks invalid promotion/release",
+        "current_state": "mandated",
+        "deadline_rule": "complete before 2026-10-12T15:59:59Z and before next affected verified release, whichever occurs first",
+        "acceptance_evidence": "registered checker tests+representative profile fixtures+tamper/stale/missing evidence failure injection+API parity+fallback+release gate",
+        "noncompliance_effect": "native admission and affected verified release blocked",
+        "waiver_rule": "explicit human-governor successor law only",
+        "introduced_version": "1.00000",
+        "created_at_utc": "2026-09-13T00:00:00Z",
+        "due_at_utc": "2026-10-12T15:59:59Z",
+        "previous_state": "declared",
+        "verification_owner": "星澄",
+        "escalation_rule": "at due-at set escalated and block native admission plus affected verified release"
       }
     ],
     "law_structure_directory": [
@@ -17124,7 +17203,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H052"
+        "value": "H053"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17157,6 +17236,14 @@
       {
         "key": "python_internal_architecture",
         "value": "application|domain|infrastructure"
+      },
+      {
+        "key": "native_promotion_order",
+        "value": "correctness>Python>profile>bottleneck-confirmed>C++ optimization"
+      },
+      {
+        "key": "native_promotion_record_directory",
+        "value": "DIR_NATIVE_PROMOTION_RECORD"
       }
     ],
     "module_assignment_registry": [
@@ -22700,6 +22787,13 @@
         "provision_id": "A342",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A343",
+        "provision_type": "article",
+        "provision_id": "A343",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -26818,6 +26912,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A35|A208|A211|A215|A240|A339|A340"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A343",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A208|A211|A218|A339|A340|A341"
       }
     ],
     "provision_lifecycle_status": [
@@ -31420,6 +31521,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H052+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A343",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H053+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36126,6 +36235,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "f4953a6c729b0206cf5e447a31902a3161e8c4fedf6a6298d2ab99c2189d7b41"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A343",
+        "introduced_by": "H053",
+        "supersedes_id": "A218",
+        "status": "active",
+        "content_hash": "6dc3787698b42753f88563cff1b06714b127363951f4b5e257201bab6e1670c4"
       }
     ],
     "provision_revisions": [
@@ -46811,6 +46928,15 @@
         "content_hash": "f4953a6c729b0206cf5e447a31902a3161e8c4fedf6a6298d2ab99c2189d7b41",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A343",
+        "revision_id": "H053",
+        "version": "1.00000",
+        "content_hash": "6dc3787698b42753f88563cff1b06714b127363951f4b5e257201bab6e1670c4",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -51593,6 +51719,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A343",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -52167,6 +52303,17 @@
         "previous_hash": "5a40b04faa33b834fb3eee2633a9fa8ddb91769413dd57b8b6b885daafd118e1",
         "entry_hash": "08527b626094b3d3e1e896bdca06a2fc031cbafe7471795dfaa46eb320aabb75",
         "version_epoch": 2
+      },
+      {
+        "sequence": 53,
+        "change_id": "H053",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "native-promotion-record-and-python-first-profile-gate",
+        "summary": "Made correctness-first Python-first measured native promotion mandatory; added a normalized Native Promotion Record directory, checker/release hard gate, rollback/fallback and API parity evidence, and a mandated implementation obligation. Version remains E2:1.00000.",
+        "previous_hash": "08527b626094b3d3e1e896bdca06a2fc031cbafe7471795dfaa46eb320aabb75",
+        "entry_hash": "78ee088c51c69cdeca0eff4f0c143032eefa38e798b0de489593666dc0c66504",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -52723,14 +52870,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H052",
-        "provision_count": 588,
-        "identity_count": 588,
-        "lineage_count": 588,
+        "history_head": "H053",
+        "provision_count": 589,
+        "identity_count": 589,
+        "lineage_count": 589,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "774503bc0595d39b462e4290b26cb5839d8fb6910ebc0c2ff65e26f4f8d1d493",
-        "identity_root": "b603469de3bc2793704ae264adc6927cf7140879cd8c706f8ccfe52fefc4c163",
-        "full_root": "b670c6af8372e179b5433c6337d65eff4891de969aad93bb00017a7bfc9c769e",
+        "content_root": "b521283694a04f6264ede90f4437f8eaa9538dd544c377a32f13997bf63a5967",
+        "identity_root": "45702103602bc1b899d25644bca6ebd0f53136e4763f4fa12a7a24d558ee6f5b",
+        "full_root": "8243efb7cf3bf6945c527b9e7ac451a42e17d586ec177e9fd0bab15bf513fa04",
         "version_epoch": 2
       }
     ],
@@ -57277,6 +57424,24 @@
         "isolation_policy": "isolated registry snapshot+no production mutation",
         "timeout": "600s",
         "introduced_version": "3.51600",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_NATIVE_PROMOTION_RECORD_GATE",
+        "canonical_name": "native-promotion-record-release-gate",
+        "owner": "permission-sovereign",
+        "target_entity": "native-promotion-checker",
+        "requirement_ids": "A218|A339|A340|A341|A343",
+        "test_level": "contract+integration+performance+failure-injection",
+        "preconditions": "registered Python owner,C++ candidate and representative workload",
+        "fixtures": "valid+missing+stale+forged+nonrepresentative profiles;parity pass/fail;fallback available/unavailable",
+        "ordered_steps": "run Python correctness oracle>capture baseline profile>confirm bottleneck>build candidate>measure native>verify API parity/fallback/call path>persist immutable record>evaluate release gate",
+        "expected_results": "only complete authentic beneficial parity-preserving records permit native promotion and affected release",
+        "evidence": "content-addressed profiles+record+checker output+release verdict",
+        "cleanup": "remove test artifacts only;retain signed evidence",
+        "isolation_policy": "isolated workload+bounded resources+no production mutation",
+        "timeout": "900s",
+        "introduced_version": "1.00000",
         "retired_version": null
       }
     ],
