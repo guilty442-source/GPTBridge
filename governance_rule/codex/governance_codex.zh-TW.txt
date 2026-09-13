@@ -1,5 +1,5 @@
 {
-  "codex_version": "2026-09-13T23:07:18Z",
+  "codex_version": "2026-09-13T23:17:50Z",
   "tables": {
     "access_actor_classes": [
       {
@@ -3607,6 +3607,33 @@
         "rule": "SUCCESSOR:A397 is superseded. EVIDENCE-TIMESTAMP:this article governs event,evidence,audit and revision times,not version identity. Canonical UTC fields use YYYY-MM-DDTHH:mm:ss.ffffffZ with six fractional digits and uppercase Z. Applicable profiles use occurred_at_utc,recorded_at_utc,observed_at_utc,effective_at_utc,expires_at_utc,source_clock_id,precision,timestamp_status,timestamp_hash,monotonic_sequence,clock_skew_ms,time_zone and utc_offset. STATUS:verified|estimated|corrected|invalid. VERSION-SEPARATION:version_identity is governed by A406 and stored in a different typed field;an evidence timestamp cannot activate or order versions. LEGACY:original values remain and canonical companions plus migration evidence are appended;estimated values never claim original precision. VALIDATION:permission-sovereign validates admissibility while 星澄 independently inspects compliance.",
         "prohibition": "FORBID:evidence timestamp used as version+version identity used as occurrence time+missing fractional precision+naive canonical time+overwrite+fabricated precision+unregistered clock+hidden regression+invalid time blocking unrelated scope.",
         "exception": "A record lacking provable occurrence time uses estimated status;non-expiry is allowed only through its registered profile."
+      },
+      {
+        "position": 411,
+        "provision_id": "A411",
+        "section_index": "1",
+        "subject": "timestamp-version-issuance-and-collision-successor",
+        "rule": "SUCCESSOR:A406 is superseded. VERSION-IDENTITY:new GPTBridge Codex,application,tool,release,contract,schema,ABI,governance-schema and runtime-generation versions use authoritative UTC identities formatted YYYY-MM-DDTHH:mm:ssZ. ISSUE:the registered sealing or activation authority issues exactly one version identity per namespace per UTC second and the new identity must be later than the prior active identity. If another candidate is ready inside the same second,it waits for the next authoritative clock second;monotonic_sequence remains separate evidence and is never appended to or encoded in the version. CHANGE-CLASS:change severity and compatibility class are separate registered fields and never encoded through numeric increments or timestamp manipulation. LEGACY:numeric and semantic versions remain immutable aliases or external dependency evidence only. SEPARATION:A410 governs evidence timestamp envelopes;the version identity is a distinct typed activation field even though it uses UTC syntax. SOURCE:file mtime,Git time,build time,cache time and observed event time are not issuing authorities.",
+        "prohibition": "FORBID:more than one version per namespace per second+composite version unsupported by parser+monotonic sequence embedded in version+new numeric increment+severity encoded in timestamp+fabricated future second+mtime/Git/build/cache-derived version+legacy alias selecting active state.",
+        "exception": "An upstream dependency may retain its external semantic version as descriptive evidence after binding to a local timestamp version identity."
+      },
+      {
+        "position": 412,
+        "provision_id": "A412",
+        "section_index": "1",
+        "subject": "timestamp-version-change-classification-successor",
+        "rule": "SUCCESSOR:A100 and A109 are superseded for current operation. CLASSIFICATION:editorial,clarification,provision-scope,authority-duty,architecture-authority and complete-reconstitution remain change classes ordered by impact,not version increments. Each amendment records change_class_code,criterion,precedence,required review,compatibility effect and timestamp version identity. EVOLUTION:a valid successor has an A411 identity later than the current identity,immutable lineage,content hashes,certification and applicable signatures. No arithmetic is performed on a version and no change class adds a decimal amount. VALIDATION:the permission-sovereign validates identity and evidence;the human amendment authority decides the normative change;星澄 may inspect and challenge but cannot issue the identity. MIGRATION:version_evolution_rules numeric increments are historical evidence marked legacy-retired and timestamp_version_evolution_rules is the current registry.",
+        "prohibition": "FORBID:version addition+decimal increment+floating-point comparison+change severity inferred from timestamp distance+timestamp fabricated to encode class+legacy increment table used for current issuance+automatic classification changing law.",
+        "exception": "Historical revisions retain their original numeric versions and degrees;they are not recalculated."
+      },
+      {
+        "position": 413,
+        "provision_id": "A413",
+        "section_index": "1",
+        "subject": "timestamp-version-ledger-and-recovery-integrity",
+        "rule": "LEDGER:revision_history remains append-only across a version-format migration and cannot be cleared,restarted or replaced. A recovered row is marked corrected or estimated,identifies its source evidence and never claims verified status unless its original signed record is proven. VERSION-MIGRATION:each transition record preserves legacy version,canonical timestamp version,recorded evidence time,previous hash,entry hash and recovery evidence. SEAL:the current seal history_head must equal the latest revision and its timestamp version must equal metadata codex_version and the Chinese artifact codex_version. REGISTRIES:version_evolution_rules is legacy-retired;timestamp_version_evolution_rules is current. FAILURE:missing history,head mismatch,unproven verified recovery,non-increasing timestamp version or active numeric increment is a Codex issue and blocks a new seal without stopping unrelated runtime review.",
+        "prohibition": "FORBID:revision-history deletion+sequence restart+recovered evidence marked verified without proof+seal/head/version mismatch+active numeric increment+silent version migration+rewriting original legacy row.",
+        "exception": "A missing historical record may be represented by an explicit gap finding until evidence supports correction;inventing its content is forbidden."
       }
     ],
     "certification_evidence": [
@@ -4498,6 +4525,17 @@
         "canonical_recorded_at_utc": "2026-09-13T23:07:18.396465Z",
         "timestamp_status": "verified",
         "timestamp_migration_evidence": "H094:authoritative-amendment-clock"
+      },
+      {
+        "version": "2026-09-13T23:17:50Z",
+        "recorded_at_utc": "2026-09-13T23:17:50Z",
+        "recorded_at_local": "2026-09-14T07:17:50+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "timestamp-version-evolution-and-ledger-closure",
+        "version_epoch": 2,
+        "canonical_recorded_at_utc": "2026-09-13T23:17:50.155557Z",
+        "timestamp_status": "verified",
+        "timestamp_migration_evidence": "H095:authoritative-amendment-clock"
       }
     ],
     "codex_version_epochs": [],
@@ -11225,12 +11263,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A100",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A101",
         "effective_version": "1.00000",
         "status": "active"
@@ -11262,12 +11294,6 @@
       {
         "provision_type": "article",
         "provision_id": "A108",
-        "effective_version": "1.00000",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
-        "provision_id": "A109",
         "effective_version": "1.00000",
         "status": "active"
       },
@@ -13745,12 +13771,6 @@
       },
       {
         "provision_type": "article",
-        "provision_id": "A406",
-        "effective_version": "2026-09-13T23:07:18Z",
-        "status": "active"
-      },
-      {
-        "provision_type": "article",
         "provision_id": "A407",
         "effective_version": "2026-09-13T23:07:18Z",
         "status": "active"
@@ -13771,6 +13791,24 @@
         "provision_type": "article",
         "provision_id": "A410",
         "effective_version": "2026-09-13T23:07:18Z",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A411",
+        "effective_version": "2026-09-13T23:17:50Z",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A412",
+        "effective_version": "2026-09-13T23:17:50Z",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A413",
+        "effective_version": "2026-09-13T23:17:50Z",
         "status": "active"
       }
     ],
@@ -18794,10 +18832,6 @@
         "value": "gptbridge-governance-codex-v2026-09-13T15:46:34Z"
       },
       {
-        "key": "version_increment",
-        "value": "0.10000"
-      },
-      {
         "key": "native_tree",
         "value": "native/include|native/bridge|native/core"
       },
@@ -18860,10 +18894,6 @@
       {
         "key": "manual_reset_previous_full_root",
         "value": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223"
-      },
-      {
-        "key": "version_evolution_mode",
-        "value": "natural-highest-degree-after-manual-baseline-reset"
       },
       {
         "key": "current_version_epoch",
@@ -19406,14 +19436,6 @@
         "value": "file+line-range+symbol-or-explained-incomplete"
       },
       {
-        "key": "codex_version",
-        "value": "2026-09-13T23:07:18Z"
-      },
-      {
-        "key": "current_version_identity",
-        "value": "E2:2026-09-13T23:07:18Z"
-      },
-      {
         "key": "version_format",
         "value": "utc-timestamp-iso8601-seconds"
       },
@@ -19424,6 +19446,26 @@
       {
         "key": "legacy_numeric_version_policy",
         "value": "read-only-alias-never-current-authority"
+      },
+      {
+        "key": "version_increment",
+        "value": "retired-not-applicable"
+      },
+      {
+        "key": "version_evolution_mode",
+        "value": "authoritative-timestamp-successor-with-separate-change-class"
+      },
+      {
+        "key": "version_collision_policy",
+        "value": "one-version-per-namespace-per-second-wait-next-second"
+      },
+      {
+        "key": "codex_version",
+        "value": "2026-09-13T23:17:50Z"
+      },
+      {
+        "key": "current_version_identity",
+        "value": "E2:2026-09-13T23:17:50Z"
       }
     ],
     "module_assignment_registry": [
@@ -25401,6 +25443,27 @@
         "provision_id": "A410",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A411",
+        "provision_type": "article",
+        "provision_id": "A411",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A412",
+        "provision_type": "article",
+        "provision_id": "A412",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A413",
+        "provision_type": "article",
+        "provision_id": "A413",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -29995,6 +30058,27 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A46|A79|A86|A200|A243|A274|A390|A406"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A411",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A79|A87|A181|A182|A274|A410|A412"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A412",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A79|A87|A100|A109|A274|A411"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A413",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A46|A79|A80|A87|A274|A390|A411|A412"
       }
     ],
     "provision_lifecycle_status": [
@@ -30017,10 +30101,10 @@
       {
         "provision_type": "article",
         "provision_id": "A100",
-        "lifecycle_state": "active",
+        "lifecycle_state": "superseded",
         "effective_version": "1.00000",
-        "successor_identity": null,
-        "evidence": "H049-normalized-effective-state"
+        "successor_identity": "ARTICLE_A412",
+        "evidence": "H095+timestamp-version-successor"
       },
       {
         "provision_type": "article",
@@ -30073,10 +30157,10 @@
       {
         "provision_type": "article",
         "provision_id": "A109",
-        "lifecycle_state": "active",
+        "lifecycle_state": "superseded",
         "effective_version": "1.00000",
-        "successor_identity": null,
-        "evidence": "H049-normalized-effective-state"
+        "successor_identity": "ARTICLE_A412",
+        "evidence": "H095+timestamp-version-successor"
       },
       {
         "provision_type": "article",
@@ -35105,10 +35189,10 @@
       {
         "provision_type": "article",
         "provision_id": "A406",
-        "lifecycle_state": "active",
+        "lifecycle_state": "superseded",
         "effective_version": "2026-09-13T23:07:18Z",
-        "successor_identity": null,
-        "evidence": "H094+explicit-user-command"
+        "successor_identity": "ARTICLE_A411",
+        "evidence": "H095+timestamp-version-successor"
       },
       {
         "provision_type": "article",
@@ -35141,6 +35225,30 @@
         "effective_version": "2026-09-13T23:07:18Z",
         "successor_identity": null,
         "evidence": "H094+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A411",
+        "lifecycle_state": "active",
+        "effective_version": "2026-09-13T23:17:50Z",
+        "successor_identity": null,
+        "evidence": "H095+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A412",
+        "lifecycle_state": "active",
+        "effective_version": "2026-09-13T23:17:50Z",
+        "successor_identity": null,
+        "evidence": "H095+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A413",
+        "lifecycle_state": "active",
+        "effective_version": "2026-09-13T23:17:50Z",
+        "successor_identity": null,
+        "evidence": "H095+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -36501,7 +36609,7 @@
         "provision_id": "A100",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "ac7dc47be7e3f528322c523d753dc726c42487724f3c94dec494ebfe4ed64bd6"
       },
       {
@@ -36557,7 +36665,7 @@
         "provision_id": "A109",
         "introduced_by": "H001",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "05a742ee845fccc630bb618c4dd6555826a20a89c0be3260ad96d772dc278de3"
       },
       {
@@ -40309,7 +40417,7 @@
         "provision_id": "A406",
         "introduced_by": "H094",
         "supersedes_id": "A395",
-        "status": "active",
+        "status": "superseded",
         "content_hash": "77740547ba51c9526bc1024fc6344a2489fc6733e05bedb8c35ea78bfc0f2b03"
       },
       {
@@ -40343,6 +40451,30 @@
         "supersedes_id": "A397",
         "status": "active",
         "content_hash": "ea6c4ecba32befa54c91f8b4bb955efe026885b32b1a4a7adfa729b058385e02"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A411",
+        "introduced_by": "H095",
+        "supersedes_id": "A406",
+        "status": "active",
+        "content_hash": "2bee1c24906da51a8fc17534a0128e32946736d7346c6de9254d095fde4cf771"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A412",
+        "introduced_by": "H095",
+        "supersedes_id": "A100",
+        "status": "active",
+        "content_hash": "21c45210479a81d45e7a892032548f38b31270269488d4e7d1c464bf20102390"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A413",
+        "introduced_by": "H095",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "ab7eacfd3d791ba6f01c3a643edc0be8b7de0da5b7557d996401afa643584576"
       }
     ],
     "provision_revisions": [
@@ -51640,6 +51772,33 @@
         "content_hash": "ea6c4ecba32befa54c91f8b4bb955efe026885b32b1a4a7adfa729b058385e02",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A411",
+        "revision_id": "H095",
+        "version": "2026-09-13T23:17:50Z",
+        "content_hash": "2bee1c24906da51a8fc17534a0128e32946736d7346c6de9254d095fde4cf771",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A412",
+        "revision_id": "H095",
+        "version": "2026-09-13T23:17:50Z",
+        "content_hash": "21c45210479a81d45e7a892032548f38b31270269488d4e7d1c464bf20102390",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A413",
+        "revision_id": "H095",
+        "version": "2026-09-13T23:17:50Z",
+        "content_hash": "ab7eacfd3d791ba6f01c3a643edc0be8b7de0da5b7557d996401afa643584576",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -57042,6 +57201,36 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "2026-09-13T23:07:18Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A411",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "2026-09-13T23:17:50Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A412",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "2026-09-13T23:17:50Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A413",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "2026-09-13T23:17:50Z"
       }
     ],
     "revision_history": [
@@ -58330,8 +58519,8 @@
         "entry_hash": "b391a22e72cddece0d46123c7bfa38f1e70a50e034cf559e54c0050dc3fba6e6",
         "version_epoch": 2,
         "recorded_at_utc": "2026-09-13T15:45:00.000000Z",
-        "timestamp_status": "verified",
-        "timestamp_migration_evidence": "H092:recovered-from-current-provision-and-transition-evidence"
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H092:recovered-from-current-provision-and-transition-evidence;H095:recovered-row-not-originally-verified"
       },
       {
         "sequence": 93,
@@ -58344,8 +58533,8 @@
         "entry_hash": "141b8f6a3ce9b76148de87ec83710c68e1f34775ae95ef2398c02f05fd2faeee",
         "version_epoch": 2,
         "recorded_at_utc": "2026-09-13T15:46:34.982329Z",
-        "timestamp_status": "verified",
-        "timestamp_migration_evidence": "H093:recovered-from-current-provision-and-transition-evidence"
+        "timestamp_status": "corrected",
+        "timestamp_migration_evidence": "H093:recovered-from-current-provision-and-transition-evidence;H095:recovered-row-not-originally-verified"
       },
       {
         "sequence": 94,
@@ -58360,6 +58549,20 @@
         "recorded_at_utc": "2026-09-13T23:07:18.396465Z",
         "timestamp_status": "verified",
         "timestamp_migration_evidence": "H094:authoritative-amendment-clock"
+      },
+      {
+        "sequence": 95,
+        "change_id": "H095",
+        "version": "2026-09-13T23:17:50Z",
+        "recorded_date": "2026-09-13",
+        "change_scope": "timestamp-version-evolution-and-ledger-closure",
+        "summary": "Retired numeric version increments, established timestamp version issuance and collision rules, separated change classification from identity, and corrected recovered history evidence status.",
+        "previous_hash": "f557548d1c4396895660dc71d5cb1214741d548cd32d2cb5b1ef699687d67be7",
+        "entry_hash": "0017ba2b8d14182c33451413aadf9566a965637c1a0bb50a1ae15dc153df108f",
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-13T23:17:50.155557Z",
+        "timestamp_status": "verified",
+        "timestamp_migration_evidence": "H095:authoritative-amendment-clock"
       }
     ],
     "savings": [
@@ -58936,6 +59139,18 @@
         "content_root": "023879b0c8eb2c0c37fe82aa5c48660836ae9279b1d29be862a0fd65587fa33c",
         "identity_root": "625109e5050fae1fb38db350bc227bd585aae270aaa44e2095037e7b306567f7",
         "full_root": "74b8491ce636d2ac3a13e482c93dff3ccc04a2e6a4c561d329554b2d29067cbc",
+        "version_epoch": 2
+      },
+      {
+        "version": "2026-09-13T23:17:50Z",
+        "history_head": "H095",
+        "provision_count": 653,
+        "identity_count": 653,
+        "lineage_count": 653,
+        "certification_state": "sealed-read-only-pending-human-governor-signature",
+        "content_root": "955ad51790fa49526cc85dc58719084918260930e57e728dad87f641430288d6",
+        "identity_root": "b2e0b151d314907766c83310e55289276dfdde47cbed9d37df29f23cc0042c4d",
+        "full_root": "e0de413acaa27425f09ceea736488a5dafb66dc09dcf3a20ec1ffe1e6faff0ba",
         "version_epoch": 2
       }
     ],
@@ -64831,42 +65046,54 @@
         "degree_code": "editorial",
         "increment": "0.00001",
         "criterion": "spelling-format-or-non-normative-metadata-only",
-        "precedence": 1
+        "precedence": 1,
+        "status": "legacy-retired",
+        "replacement_policy": "timestamp_version_evolution_rules"
       },
       {
         "degree": 2,
         "degree_code": "clarification",
         "increment": "0.00010",
         "criterion": "meaning-clarification-without-scope-duty-or-access-change",
-        "precedence": 2
+        "precedence": 2,
+        "status": "legacy-retired",
+        "replacement_policy": "timestamp_version_evolution_rules"
       },
       {
         "degree": 3,
         "degree_code": "provision-scope",
         "increment": "0.00100",
         "criterion": "normative-scope-condition-exception-or-supersession-change",
-        "precedence": 3
+        "precedence": 3,
+        "status": "legacy-retired",
+        "replacement_policy": "timestamp_version_evolution_rules"
       },
       {
         "degree": 4,
         "degree_code": "authority-duty",
         "increment": "0.01000",
         "criterion": "access-authority-duty-permission-or-responsibility-boundary-change",
-        "precedence": 4
+        "precedence": 4,
+        "status": "legacy-retired",
+        "replacement_policy": "timestamp_version_evolution_rules"
       },
       {
         "degree": 5,
         "degree_code": "architecture-authority",
         "increment": "0.10000",
         "criterion": "system-architecture-governance-rank-or-codex-identity-model-change",
-        "precedence": 5
+        "precedence": 5,
+        "status": "legacy-retired",
+        "replacement_policy": "timestamp_version_evolution_rules"
       },
       {
         "degree": 6,
         "degree_code": "complete-reconstitution",
         "increment": "1.00000",
         "criterion": "complete-codex-reconstitution-or-incompatible-generation-change",
-        "precedence": 6
+        "precedence": 6,
+        "status": "legacy-retired",
+        "replacement_policy": "timestamp_version_evolution_rules"
       }
     ],
     "command_contract_revision_registry": [
@@ -64957,6 +65184,62 @@
         "content_hash": "9de9e280f8f2f3c33079680a50a4d73354dd16ead6507d47e7ad819ec63ea246",
         "status": "active",
         "predecessor_contract_id": null
+      }
+    ],
+    "timestamp_version_evolution_rules": [
+      {
+        "change_class_code": "EDITORIAL",
+        "criterion": "spelling-format-or-non-normative-metadata-only",
+        "precedence": 1,
+        "required_review": "codex-amendment-review",
+        "compatibility_effect": "no-semantic-change",
+        "identity_policy": "next-authoritative-utc-second",
+        "status": "active"
+      },
+      {
+        "change_class_code": "CLARIFICATION",
+        "criterion": "meaning-clarification-without-scope-duty-or-access-change",
+        "precedence": 2,
+        "required_review": "codex-amendment-review",
+        "compatibility_effect": "semantic-compatible",
+        "identity_policy": "next-authoritative-utc-second",
+        "status": "active"
+      },
+      {
+        "change_class_code": "PROVISION_SCOPE",
+        "criterion": "normative-scope-condition-exception-or-supersession-change",
+        "precedence": 3,
+        "required_review": "full-codex-review",
+        "compatibility_effect": "scope-change",
+        "identity_policy": "next-authoritative-utc-second",
+        "status": "active"
+      },
+      {
+        "change_class_code": "AUTHORITY_DUTY",
+        "criterion": "access-authority-duty-permission-or-responsibility-boundary-change",
+        "precedence": 4,
+        "required_review": "full-authority-review",
+        "compatibility_effect": "authority-change",
+        "identity_policy": "next-authoritative-utc-second",
+        "status": "active"
+      },
+      {
+        "change_class_code": "ARCHITECTURE_AUTHORITY",
+        "criterion": "system-architecture-governance-rank-or-identity-model-change",
+        "precedence": 5,
+        "required_review": "full-architecture-review",
+        "compatibility_effect": "architecture-change",
+        "identity_policy": "next-authoritative-utc-second",
+        "status": "active"
+      },
+      {
+        "change_class_code": "COMPLETE_RECONSTITUTION",
+        "criterion": "complete-codex-reconstitution-or-incompatible-generation-change",
+        "precedence": 6,
+        "required_review": "human-governor-explicit-review",
+        "compatibility_effect": "incompatible-generation",
+        "identity_policy": "next-authoritative-utc-second",
+        "status": "active"
       }
     ]
   }
