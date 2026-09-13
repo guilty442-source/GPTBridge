@@ -241,14 +241,86 @@ class SovereignStackExecutor:
             )
             return {}
         try:
-            return await child.start(
+            result = await child.start(
                 **_child_start_kwargs(self.app, child_id)
             )
+            # Recovery is explicit: a previously-failed child that now
+            # starts cleanly clears the parent's consecutive-failure
+            # counter so A322 restart budgets reset.
+            try:
+                parent.record_child_success(child_id)
+            except Exception:
+                pass
+            return result
         except Exception as error:
+            # Feed the parent's consecutive-failure counter so the A322
+            # retry/cancel and quarantine adjudication sees real state.
+            try:
+                parent.record_child_failure(child_id)
+            except Exception:
+                pass
             self._startup_failures.append(
                 {"sub_sovereign": tag, "error": f"{type(error).__name__}: {error}"}
             )
             return {}
+
+    # ------------------------------------------------------------------
+    # Governed single-child restart (decision-layer autonomy entry point)
+    # ------------------------------------------------------------------
+
+    async def restart_child(
+        self, sovereign: Any, child_id: str
+    ) -> dict[str, Any]:
+        """Restart one materialized child under codex-parent authorization.
+
+        The decision-sovereign's supervision loop adjudicates the restart
+        (A322 bounded failure budget); this executor performs the actual
+        materialization check and activation (A63/A64).  Fail-closed: an
+        unknown child, missing codex parent, or refused parent
+        authorization all return ``ok: False`` without side effects.
+        """
+        parent_id = self._codex_parent(child_id)
+        parent = (
+            self._parent_object(sovereign, parent_id) if parent_id else None
+        )
+        if parent is None:
+            return {
+                "ok": False,
+                "child": child_id,
+                "error": f"codex-parent-unavailable:{parent_id}",
+            }
+        registry = getattr(parent, "_sub_sovereigns", None)
+        if registry is None:
+            return {
+                "ok": False,
+                "child": child_id,
+                "error": "parent-registry-unavailable",
+            }
+        child = registry.get(child_id)
+        if child is None:
+            class_name = _CHILD_CLASSES.get(child_id)
+            if class_name is None:
+                return {
+                    "ok": False,
+                    "child": child_id,
+                    "error": f"unknown-child:{child_id}",
+                }
+            try:
+                child_cls = getattr(_sub_sovereigns_module(), class_name)
+                registry[child_id] = child_cls(self.app, parent=parent)
+            except Exception as error:
+                return {
+                    "ok": False,
+                    "child": child_id,
+                    "error": f"rematerialize:{type(error).__name__}: {error}",
+                }
+        await self._start_child(sovereign, child_id, child_id)
+        child = registry.get(child_id)
+        return {
+            "ok": bool(getattr(child, "_started", False)),
+            "child": child_id,
+            "parent": parent_id,
+        }
 
     # ------------------------------------------------------------------
     # Activation sequence
@@ -527,7 +599,14 @@ class SovereignStackExecutor:
             "dependency_state": dependency_state,
             "started_at": _iso_now(),
             "execution_delegation": "governed-executor-only",
-            "sub_sovereigns": sub_sovereign_roles,
+            # A334: this list is the decision-sovereign's own codex children —
+            # children dispatched under other parents are reported separately.
+            "sub_sovereigns": sorted(
+                cid
+                for cid in children_of("decision-sovereign")
+                if cid in getattr(sovereign, "_sub_sovereigns", {})
+            ),
+            "dispatched_sub_sovereigns": sub_sovereign_roles,
             "startup_failures": list(self._startup_failures),
             "peer_systems": {
                 "learning": getattr(learning, "_started", False),

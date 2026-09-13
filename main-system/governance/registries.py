@@ -144,6 +144,28 @@ def successor_of(predecessor_identity: str) -> str | None:
     return None
 
 
+def resolve_sovereign(app: Any, sovereign_id: str) -> Any | None:
+    """Resolve a sovereign identity to its materialized in-process instance.
+
+    Top-level sovereigns are app attributes named after the identity
+    (``decision-sovereign`` -> ``app.decision_sovereign``); sub-sovereigns
+    resolve through their codex-registered single parent's child registry
+    (A334).  Returns ``None`` when the sovereign is not materialized.
+    """
+    if app is None or not sovereign_id:
+        return None
+    direct = getattr(app, sovereign_id.replace("-", "_"), None)
+    if direct is not None:
+        return direct
+    parent_id = parent_of(sovereign_id)
+    if parent_id is None:
+        return None
+    parent = getattr(app, parent_id.replace("-", "_"), None)
+    if parent is None:
+        return None
+    return getattr(parent, "_sub_sovereigns", {}).get(sovereign_id)
+
+
 def hierarchy_status() -> dict[str, Any]:
     """Read-only registry surface for status/reporting."""
     hierarchy = sovereign_hierarchy_registry()
@@ -165,6 +187,7 @@ __all__ = [
     "module_assignment_registry",
     "parent_of",
     "primary_domain_of",
+    "resolve_sovereign",
     "sovereign_hierarchy_registry",
     "successor_of",
     "supersession_registry",

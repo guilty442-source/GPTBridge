@@ -230,10 +230,11 @@ class MaintenanceHealthClassifier:
             return self._component_health.get(component_id)
 
 
-class SystemDecisionSovereign:
-    """System-decision-sovereign: assigns repair objectives.
+class RepairObjectiveAssigner:
+    """Repair-chain-internal repair objective assigner.
 
-    Only assigns repair objectives based on health classification.
+    This is NOT the governance-layer ``decision-sovereign`` (A152/A154).
+    It only assigns repair objectives based on health classification.
     Does NOT execute repairs. Does NOT make permission decisions.
     """
 
@@ -936,7 +937,7 @@ class AutoRepairOrchestrator:
 
         self.audit = _GovernanceAudit(self.repair_root / "audit")
         self.health_classifier = MaintenanceHealthClassifier(project_root, self.audit)
-        self.decision_sovereign = SystemDecisionSovereign(project_root, self.audit)
+        self.decision_sovereign = RepairObjectiveAssigner(project_root, self.audit)
         self.permission_sovereign = RepairPermissionValidator(project_root, auth_service, self.audit)
         self.executor = GovernedExecutor(project_root, self.audit)
         self.verifier = IndependentVerifier(project_root, self.audit)
@@ -1111,7 +1112,7 @@ __all__ = [
     "RepairExecution",
     "LearnedRecipe",
     "MaintenanceHealthClassifier",
-    "SystemDecisionSovereign",
+    "RepairObjectiveAssigner",
     "RepairPermissionValidator",
     "GovernedExecutor",
     "IndependentVerifier",

@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import random
 import sys
 import threading
 import time
@@ -29,21 +30,61 @@ import types
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Optional
+from dataclasses import dataclass, field
 
 from core_system.hot_update_service import PROTECTED_MODULE_PREFIXES
+from core_system.sovereign_utils import _iso_now
 
 POLL_INTERVAL_SECONDS: Final[float] = 1.0
 QUIET_WINDOW_SECONDS: Final[float] = 1.2
 MIN_RELOAD_INTERVAL_SECONDS: Final[float] = 5.0
 MAX_RELOADS_PER_MINUTE: Final[int] = 6
 FAILURE_BACKOFF_SECONDS: Final[float] = 30.0
+# Enhanced stability constants
+MAX_CONSECUTIVE_FAILURES: Final[int] = 3
+HEALTH_CHECK_INTERVAL_SECONDS: Final[float] = 30.0
+CHANNEL_HEALTH_TIMEOUT_SECONDS: Final[float] = 10.0
+MAX_RETRY_ATTEMPTS: Final[int] = 3
+RETRY_BASE_DELAY_SECONDS: Final[float] = 2.0
+RETRY_MAX_DELAY_SECONDS: Final[float] = 60.0
+RETRY_JITTER_FACTOR: Final[float] = 0.3
+IPC_RECONNECT_DELAY_SECONDS: Final[float] = 5.0
 
 # Only main-system code is reloaded.  Independent tools run in their own
 # governed processes and shared-layer is an independent governance
 # jurisdiction (its code is not covered by the main-system hot-update grant),
 # so neither is observed here.
 WATCH_ROOTS: Final[tuple[str, ...]] = ("main-system/src-core",)
+
+@dataclass
+class ChannelHealth:
+    """Health status of the update delivery channel."""
+    is_healthy: bool = True
+    last_check: float = field(default_factory=time.monotonic)
+    consecutive_failures: int = 0
+    last_error: Optional[str] = None
+    last_success: Optional[float] = None
+    ipc_connected: bool = False
+    governance_reachable: bool = False
+
+    def record_success(self) -> None:
+        self.is_healthy = True
+        self.consecutive_failures = 0
+        self.last_error = None
+        self.last_success = time.monotonic()
+        self.last_check = time.monotonic()
+
+    def record_failure(self, error: str) -> None:
+        self.consecutive_failures += 1
+        self.last_error = error
+        self.last_check = time.monotonic()
+        if self.consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+            self.is_healthy = False
+
+    def check_timeout(self) -> bool:
+        """Check if channel health has timed out."""
+        return (time.monotonic() - self.last_check) > CHANNEL_HEALTH_TIMEOUT_SECONDS
 
 _EXCLUDED_TOKEN_DIRS: Final[tuple[str, ...]] = (
     "main-system/runtime",
@@ -74,6 +115,7 @@ class HotReloadWatcher:
         ).resolve()
         self._roots: list[Path] = []
         self._task: asyncio.Task[Any] | None = None
+        self._health_task: asyncio.Task[Any] | None = None
         self._stop = asyncio.Event()
         self._enabled = False
         self._snapshot: dict[str, float] = {}
@@ -82,6 +124,7 @@ class HotReloadWatcher:
         self._last_reload_at = 0.0
         self._backoff_until = 0.0
         self._reload_timestamps: list[float] = []
+        self._channel_health = ChannelHealth()
 
     # ─── lifecycle ────────────────────────────────────────────────────
 
@@ -101,6 +144,11 @@ class HotReloadWatcher:
             self._loop(),
             name="main-system-hot-reload-watcher",
         )
+        # Start channel health monitoring
+        self._health_task = asyncio.create_task(
+            self._health_monitor_loop(),
+            name="hot-reload-channel-health",
+        )
         self._log({"type": "hot_reload_watcher", "enabled": True,
                    "roots": [str(root) for root in self._roots]})
 
@@ -113,6 +161,15 @@ class HotReloadWatcher:
             task.cancel()
             try:
                 await task
+            except asyncio.CancelledError:
+                pass
+        # Stop health monitoring
+        health_task = self._health_task
+        self._health_task = None
+        if health_task is not None and not health_task.done():
+            health_task.cancel()
+            try:
+                await health_task
             except asyncio.CancelledError:
                 pass
 
@@ -351,6 +408,111 @@ class HotReloadWatcher:
                 self._log({"type": "hot_reload_watcher_error",
                            "error": f"{type(error).__name__}: {error}"})
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
+
+    async def _health_monitor_loop(self) -> None:
+        """Monitor update channel health and attempt auto-recovery."""
+        while not self._stop.is_set():
+            try:
+                await self._check_channel_health()
+            except Exception as error:
+                self._log({"type": "hot_reload_watcher_health_error",
+                           "error": f"{type(error).__name__}: {error}"})
+            try:
+                await asyncio.sleep(HEALTH_CHECK_INTERVAL_SECONDS)
+            except asyncio.CancelledError:
+                break
+
+    async def _check_channel_health(self) -> None:
+        """Check health of the update delivery channel (IPC, governance, etc.)."""
+        app = self.app
+        healthy = True
+        errors = []
+
+        # Check IPC connection
+        ipc_connected = False
+        try:
+            if hasattr(app, "_active_ui_shells") and app._active_ui_shells:
+                ipc_connected = True
+        except Exception:
+            pass
+        self._channel_health.ipc_connected = ipc_connected
+        if not ipc_connected:
+            healthy = False
+            errors.append("IPC: no active UI shells")
+
+        # Check governance reachability
+        governance_reachable = False
+        try:
+            governance = getattr(app, "governance", None)
+            if governance is not None:
+                if hasattr(governance, "runtime_integrity_ready"):
+                    governance_reachable = governance.runtime_integrity_ready(max_age_seconds=5)
+                else:
+                    governance_reachable = True
+        except Exception:
+            pass
+        self._channel_health.governance_reachable = governance_reachable
+        if not governance_reachable:
+            healthy = False
+            errors.append("Governance: unreachable")
+
+        # Check decision sovereign
+        decision_sovereign = getattr(app, "decision_sovereign", None)
+        if decision_sovereign is None:
+            healthy = False
+            errors.append("Decision sovereign: missing")
+
+        # Check synchronization sovereign
+        sync_sovereign = getattr(app, "synchronization_sovereign", None)
+        if sync_sovereign is None:
+            healthy = False
+            errors.append("Synchronization sovereign: missing")
+
+        # Update channel health
+        if healthy:
+            self._channel_health.record_success()
+        else:
+            error_msg = "; ".join(errors)
+            self._channel_health.record_failure(error_msg)
+            self._log({
+                "type": "channel_health_degraded",
+                "errors": errors,
+                "consecutive_failures": self._channel_health.consecutive_failures,
+            })
+
+            # Attempt auto-recovery
+            if self._channel_health.consecutive_failures >= 2:
+                await self._attempt_channel_recovery()
+
+    async def _attempt_channel_recovery(self) -> None:
+        """Attempt to recover degraded update channel."""
+        self._log({"type": "channel_recovery_attempt",
+                   "consecutive_failures": self._channel_health.consecutive_failures})
+        app = self.app
+
+        # Try to re-establish governance connection
+        try:
+            governance = getattr(app, "governance", None)
+            if governance is not None and hasattr(governance, "_authentication"):
+                auth = governance._authentication
+                if auth is not None and hasattr(auth, "verify_runtime_integrity"):
+                    auth.verify_runtime_integrity()
+                    self._log({"type": "channel_recovery", "action": "governance_revalidated"})
+        except Exception:
+            pass
+
+        # Reset backoff to allow new attempts
+        self._backoff_until = 0.0
+
+        # Notify decision sovereign of recovery attempt
+        decision_sovereign = getattr(app, "decision_sovereign", None)
+        if decision_sovereign is not None:
+            reporter = getattr(decision_sovereign, "record_certified_update_status", None)
+            if callable(reporter):
+                try:
+                    reporter("channel-recovery", "attempted", timestamp=_iso_now())
+                except Exception:
+                    pass
 
     def _log(self, payload: dict[str, Any]) -> None:
         try:

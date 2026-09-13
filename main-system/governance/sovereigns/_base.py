@@ -71,6 +71,9 @@ class SovereignBase(ABC):
         # Child registry — populated by the governed executor at activation
         # (A334: each sub-sovereign is registered under exactly one parent).
         self._sub_sovereigns: dict[str, Any] = {}
+        # Per-child consecutive-failure counts, fed by the governed
+        # executor and by children reporting through ``report_to_parent``.
+        self._child_failure_counts: dict[str, int] = {}
 
     @property
     def identity(self) -> SovereignIdentity:
@@ -173,6 +176,59 @@ class SovereignBase(ABC):
             verified_basis(("A334", "A130")),
         )
 
+    # ------------------------------------------------------------------
+    # Inter-sovereign coordination (A334 routed delegation)
+    # ------------------------------------------------------------------
+
+    def resolve_sovereign(self, sovereign_id: str) -> Any | None:
+        """Resolve another sovereign instance via the A334 hierarchy."""
+        from ..registries import resolve_sovereign
+
+        return resolve_sovereign(self.app, sovereign_id)
+
+    async def delegate_to(
+        self, target_sovereign_id: str, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """Route a request through the target sovereign's single entry gate.
+
+        The requester is rewritten to this sovereign's identity so the
+        target's A10/A11 gates observe the true sovereign origin; a
+        sub-sovereign target additionally enforces its A334 single-parent
+        check, so only the codex parent can delegate into it.  Fails
+        closed when the target is not materialized or not started.
+        """
+        target = self.resolve_sovereign(target_sovereign_id)
+        if target is None:
+            return refusal_outcome("TARGET_SOVEREIGN_UNAVAILABLE", ("A334",))
+        if not getattr(target, "started", False):
+            return refusal_outcome(
+                "TARGET_SOVEREIGN_NOT_STARTED", ("A10", "A11")
+            )
+        forwarded = SovereignRequest(
+            intent=request.intent,
+            subject=request.subject,
+            requester=self.sovereign_id,
+            payload=request.payload,
+        )
+        return await target.handle(forwarded)
+
+    # ------------------------------------------------------------------
+    # Child failure tracking (shared by all sovereign parents)
+    # ------------------------------------------------------------------
+
+    def record_child_failure(self, child_id: str) -> int:
+        """Record a consecutive child failure; returns the new count."""
+        count = self._child_failure_counts.get(child_id, 0) + 1
+        self._child_failure_counts[child_id] = count
+        return count
+
+    def record_child_success(self, child_id: str) -> None:
+        """Clear the consecutive-failure counter after a child recovers."""
+        self._child_failure_counts.pop(child_id, None)
+
+    def child_failure_count(self, child_id: str) -> int:
+        return self._child_failure_counts.get(child_id, 0)
+
     @abstractmethod
     async def _adjudicate(self, request: SovereignRequest) -> SovereignOutcome:
         """核心裁决逻辑（子类实作）。"""
@@ -233,7 +289,15 @@ class SovereignBase(ABC):
 
     def orchestration_status(self) -> dict[str, Any]:
         """编排层状态（含子系统健康）。"""
-        return {"state": "active" if self._started else "stopped", "owner": self.role}
+        return {
+            "state": "active" if self._started else "stopped",
+            "owner": self.role,
+            "children": {
+                child_id: bool(getattr(child, "started", False))
+                for child_id, child in self._sub_sovereigns.items()
+            },
+            "child_failure_counts": dict(self._child_failure_counts),
+        }
 
     def _iso_now(self) -> str:
         from datetime import datetime, timezone

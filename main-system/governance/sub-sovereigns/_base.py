@@ -26,6 +26,13 @@ class SubSovereignBase(SovereignBase, ABC):
 
     parent_sovereign_id: str = ""
 
+    # A10/A11 explicit intent allowlist — a sub-sovereign only accepts the
+    # coordination intents declared by its adjudication surface; the base
+    # edict-ID check would reject all of them (fail-closed).
+    _INTENT_ALLOWLIST: frozenset[str] = frozenset(
+        {"coordinate", "assign", "manage", "sync", "status"}
+    )
+
     def __init__(self, app: Any | None = None, parent: Any | None = None) -> None:
         super().__init__(app)
         self._parent = parent
@@ -58,11 +65,38 @@ class SubSovereignBase(SovereignBase, ABC):
 
         return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A130", "A284"))
 
+    def _verify_intent(self, intent: str) -> bool:
+        """A10/A11 fail-closed: only declared coordination intents pass."""
+        return intent in self._INTENT_ALLOWLIST
+
     def _verify_parent_authorization(self, request: SovereignRequest) -> bool:
         """A334: each sub-sovereign has exactly one codex-registered parent."""
         from ..registries import parent_of
 
         return request.requester == parent_of(self.sovereign_id)
+
+    def report_to_parent(self, kind: str) -> bool:
+        """Report a lifecycle outcome to the codex-registered parent.
+
+        A334 fail-closed: the report only reaches the single codex parent —
+        ``parent_sovereign_id`` must match ``sovereign_hierarchy_registry``
+        and the parent must be materialized.  ``success``/``recovered``/
+        ``converged`` clear the parent's consecutive-failure counter; any
+        other kind records a failure.  Returns False when delivery failed
+        so the governed executor can treat it explicitly.
+        """
+        from ..registries import parent_of, resolve_sovereign
+
+        if parent_of(self.sovereign_id) != self.parent_sovereign_id:
+            return False
+        parent = resolve_sovereign(self.app, self.parent_sovereign_id)
+        if parent is None:
+            return False
+        if str(kind).casefold() in ("success", "recovered", "converged"):
+            parent.record_child_success(self.sovereign_id)
+        else:
+            parent.record_child_failure(self.sovereign_id)
+        return True
 
     async def _adjudicate_coordinate(self, request: SovereignRequest) -> SovereignOutcome:
         return accepted_outcome(

@@ -58,6 +58,7 @@ in-process services; they never run heavy work in this mother process.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import time
@@ -103,6 +104,15 @@ _TERMINAL_STATUSES: frozenset[str] = frozenset({
     "rolled-back",
     "partial-deferred",
 })
+
+# Autonomous supervision cadence — the decision-sovereign continuously
+# discharges its codex duties without external prodding: it detects
+# children that stopped after activation, adjudicates bounded restarts
+# (A322 budget on the codex parent's failure counter), reconciles
+# certified-update lifecycle records, and keeps its persisted state live.
+_AUTONOMY_INTERVAL_SECONDS = 15.0
+_CHILD_RESTART_BUDGET = 3
+_CHILD_RESTART_COOLDOWN_SECONDS = 60.0
 
 
 class DecisionSovereign(SovereignBase):
@@ -162,6 +172,12 @@ class DecisionSovereign(SovereignBase):
         # operation lifecycle (prepared → authorized → executing →
         # converged/failed) without owning the execution itself.
         self._certified_updates: dict[str, dict[str, Any]] = {}
+        # Autonomous supervision — started in start(), stopped in stop().
+        self._autonomy_task: asyncio.Task[Any] | None = None
+        self._autonomy_stop = asyncio.Event()
+        # Per-child supervision watch: started/stopped transitions, restart
+        # attempts and quarantine markers decided by this sovereign.
+        self._child_supervision: dict[str, dict[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # Child access (registry-backed; materialized by the governed executor)
@@ -500,6 +516,7 @@ class DecisionSovereign(SovereignBase):
         if isinstance(app_registry, dict):
             app_registry.update(self._sub_sovereigns)
         state["sub_sovereigns"] = list(self._sub_sovereigns.keys())
+        self._start_autonomy_loop()
         return state
 
     async def start_sovereign_stack(self) -> bool:
@@ -534,11 +551,237 @@ class DecisionSovereign(SovereignBase):
 
     async def stop(self) -> None:
         """Dispatch deactivation to the governed executor, then stop."""
+        await self._stop_autonomy_loop()
         executor = getattr(self.app, "sovereign_stack_executor", None)
         if executor is not None:
             await executor.deactivate(self)
         self._save_state({"stopped_at": _iso_now()})
         await super().stop()
+
+    # ------------------------------------------------------------------
+    # Autonomous supervision (decision-layer duties, no direct execution)
+    # ------------------------------------------------------------------
+
+    def _start_autonomy_loop(self) -> None:
+        if self._autonomy_task is None or self._autonomy_task.done():
+            self._autonomy_stop.clear()
+            try:
+                self._autonomy_task = asyncio.create_task(
+                    self._autonomy_loop(),
+                    name="decision-sovereign-autonomy",
+                )
+            except RuntimeError:
+                # No running loop — supervision stays off; lifecycle and
+                # handle() entry points remain fully functional.
+                self._autonomy_task = None
+
+    async def _stop_autonomy_loop(self) -> None:
+        task = self._autonomy_task
+        self._autonomy_task = None
+        self._autonomy_stop.set()
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+
+    async def _autonomy_loop(self) -> None:
+        while not self._autonomy_stop.is_set():
+            try:
+                await self._autonomy_tick()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass  # Supervision never crashes the sovereign.
+            try:
+                await asyncio.wait_for(
+                    self._autonomy_stop.wait(),
+                    timeout=_AUTONOMY_INTERVAL_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                continue
+            except asyncio.CancelledError:
+                raise
+
+    async def _autonomy_tick(self) -> None:
+        await self._supervise_children()
+        self._reconcile_certified_updates()
+        self._persist_live_state()
+
+    async def _supervise_children(self) -> None:
+        """Detect stopped children and adjudicate bounded restarts.
+
+        Decision-layer only: the consecutive-failure counter lives on the
+        codex parent (A322), the restart/quarantine decision is made here,
+        and the activation itself is handed to the governed executor
+        (A63/A64).  Only materialized children are supervised —
+        unmaterialized registry entries are the executor's startup concern.
+        """
+        from governance.registries import parent_of, resolve_sovereign
+
+        now = time.monotonic()
+        for child_id, child in self._all_children().items():
+            if bool(getattr(child, "_started", False)):
+                watch = self._child_supervision.get(child_id)
+                if watch is not None and watch.get("state") != "started":
+                    watch["state"] = "started"
+                    watch["recovered_at"] = _iso_now()
+                    watch.pop("quarantined", None)
+                continue
+
+            watch = self._child_supervision.setdefault(
+                child_id, {"state": "started", "restart_attempts": 0}
+            )
+            if watch.get("state") == "started":
+                # started -> stopped transition: feed the codex parent's
+                # consecutive-failure counter (A322).
+                parent_id = parent_of(child_id)
+                parent = (
+                    self
+                    if parent_id == self.sovereign_id
+                    else resolve_sovereign(self.app, parent_id)
+                )
+                if parent is not None:
+                    try:
+                        parent.record_child_failure(child_id)
+                    except Exception:
+                        pass
+                watch["state"] = "stopped"
+                watch["stopped_at"] = _iso_now()
+
+            if watch.get("quarantined"):
+                continue
+            parent_id = parent_of(child_id)
+            parent = (
+                self
+                if parent_id == self.sovereign_id
+                else resolve_sovereign(self.app, parent_id)
+            )
+            if parent is None:
+                continue
+            if (
+                parent.child_failure_count(child_id)
+                > _CHILD_RESTART_BUDGET
+            ):
+                watch["quarantined"] = True
+                watch["quarantined_at"] = _iso_now()
+                continue
+            last_attempt = float(watch.get("last_attempt") or 0.0)
+            if now - last_attempt < _CHILD_RESTART_COOLDOWN_SECONDS:
+                continue
+            executor = getattr(self.app, "sovereign_stack_executor", None)
+            if executor is None:
+                continue
+            watch["last_attempt"] = now
+            watch["restart_attempts"] = (
+                int(watch.get("restart_attempts") or 0) + 1
+            )
+            try:
+                watch["last_result"] = await executor.restart_child(
+                    self, child_id
+                )
+            except Exception as error:
+                watch["last_result"] = {
+                    "ok": False,
+                    "error": f"{type(error).__name__}: {error}",
+                }
+
+    def _reconcile_certified_updates(self) -> None:
+        """Close the A330 feedback loop when the watcher missed a report."""
+        active = {
+            operation_id
+            for operation_id, record in self._certified_updates.items()
+            if record.get("terminal_status") not in _TERMINAL_STATUSES
+        }
+        if not active:
+            return
+        request_path = (
+            self.workspace_root
+            / "main-system"
+            / "runtime"
+            / "state"
+            / "backend-update-request.json"
+        )
+        try:
+            payload = json.loads(request_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return
+        operation = (
+            payload.get("last_update_operation")
+            if isinstance(payload, dict)
+            else None
+        )
+        if not isinstance(operation, dict):
+            return
+        operation_id = str(operation.get("operation_id") or "")
+        status = str(operation.get("status") or "")
+        if operation_id in active and status in _TERMINAL_STATUSES:
+            self.record_certified_update_status(
+                operation_id,
+                status,
+                reconciled_from="backend-update-request.json",
+            )
+
+    def _pending_repair_requests(self) -> int:
+        path = (
+            self.workspace_root
+            / "main-system"
+            / "runtime"
+            / "state"
+            / "repair-requests.json"
+        )
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return 0
+        requests = (
+            payload.get("requests") if isinstance(payload, dict) else payload
+        )
+        if not isinstance(requests, list):
+            return 0
+        return sum(
+            1
+            for item in requests
+            if isinstance(item, dict)
+            and str(item.get("status") or "") == "pending"
+        )
+
+    def _persist_live_state(self) -> None:
+        """Keep decision-sovereign.json live between start and stop.
+
+        Merges into the existing document so the executor's startup
+        report (``startup_failures`` etc.) is preserved.
+        """
+        try:
+            state = self._load_state()
+            state.update(
+                {
+                    "sovereign": "decision-sovereign",
+                    "started": self._started,
+                    "heartbeat_at": _iso_now(),
+                    "autonomy": {
+                        "enabled": True,
+                        "interval_seconds": _AUTONOMY_INTERVAL_SECONDS,
+                        "supervised_children": {
+                            child_id: dict(watch)
+                            for child_id, watch in
+                            self._child_supervision.items()
+                        },
+                        "pending_repair_requests":
+                            self._pending_repair_requests(),
+                        "certified_updates_active": sum(
+                            1
+                            for record in self._certified_updates.values()
+                            if record.get("terminal_status")
+                            not in _TERMINAL_STATUSES
+                        ),
+                    },
+                }
+            )
+            self._save_state(state)
+        except OSError:
+            pass
 
     # ------------------------------------------------------------------
     # Repair decision (A152/A154/E127/E128)
@@ -611,6 +854,8 @@ class DecisionSovereign(SovereignBase):
     # ------------------------------------------------------------------
 
     def status(self) -> dict[str, Any]:
+        from governance.registries import children_of
+
         state = self._load_state()
         maintenance_sovereign = getattr(self.app, "maintenance_sovereign", None)
         permission_sovereign = getattr(self.app, "permission_sovereign", None)
@@ -622,7 +867,14 @@ class DecisionSovereign(SovereignBase):
             "dependency_state": state.get("dependency_state", ""),
             "started_at": state.get("started_at", ""),
             "executor": "governed-executor-only",
+            # A334: this list is this sovereign's own codex children;
+            # sub-sovereigns coordinated under other parents are surfaced
+            # through the named keys below (runtime/resource/data/...).
             "sub_sovereigns": [
+                self._child_status(child_id)
+                for child_id in children_of("decision-sovereign")
+            ],
+            "coordinated_sub_sovereigns": [
                 self._child_status("runtime-state-sync-sub-sovereign"),
                 self._child_status("resource-dependency-sync-sub-sovereign"),
                 self._child_status("data-governance-sub-sovereign"),
@@ -641,6 +893,16 @@ class DecisionSovereign(SovereignBase):
             "health_owner": "health-maintenance-test-sub-sovereign",
             "governance_rules": self.governance_rule_coordination.coordination_status(),
             "certified_updates": self.certified_update_status(),
+            "autonomy": {
+                "enabled": self._autonomy_task is not None
+                and not self._autonomy_task.done(),
+                "supervised_children": len(self._child_supervision),
+                "quarantined": [
+                    child_id
+                    for child_id, watch in self._child_supervision.items()
+                    if watch.get("quarantined")
+                ],
+            },
             "runtime-state-sync": self._child_status("runtime-state-sync-sub-sovereign"),
             "resource-dependency-sync": self._child_status("resource-dependency-sync-sub-sovereign"),
             "data-governance": self._child_status("data-governance-sub-sovereign"),
@@ -678,13 +940,20 @@ class DecisionSovereign(SovereignBase):
         in-process and never mutates governance.  System health determination is
         owned by the health-maintenance sub-sovereign, not by this top sovereign.
         """
+        from governance.registries import children_of
 
         maintenance_sovereign = getattr(self.app, "maintenance_sovereign", None)
         permission_sovereign = getattr(self.app, "permission_sovereign", None)
         return {
             "state": "delegated",
             "owner": self.module_id,
+            # A334: own codex children; coordinated cross-parent children are
+            # surfaced through the named keys and ``subsystems`` below.
             "sub_sovereigns": [
+                self._child_status(child_id, "orchestration_status")
+                for child_id in children_of("decision-sovereign")
+            ],
+            "coordinated_sub_sovereigns": [
                 self._child_status(
                     "runtime-state-sync-sub-sovereign", "orchestration_status"
                 ),

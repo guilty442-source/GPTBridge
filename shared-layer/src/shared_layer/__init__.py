@@ -1,3 +1,4 @@
+from .cache import LRUCache, AsyncCache, cache_key, cached
 from .channel import SharedLayerChannel
 from .request_client import GovernedRequestClient
 from .store import SharedLayerStore
@@ -7,7 +8,9 @@ from .module_locator_repository import ModuleLocatorRepository
 from .startup import SharedLayerStartup, StartupReport
 
 __all__ = (
+    "AsyncCache",
     "GovernedRequestClient",
+    "LRUCache",
     "SharedLayerChannel",
     "SharedLayerStore",
     "PLATFORM_ID",
@@ -19,4 +22,6 @@ __all__ = (
     "ModuleLocatorRepository",
     "SharedLayerStartup",
     "StartupReport",
+    "cache_key",
+    "cached",
 )

@@ -66,6 +66,7 @@ SYSTEM_RESCUE_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
 SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
     {
         "__init__.py",
+        "cache.py",
         "channel.py",
         "directory_snapshot.py",
         "request_client.py",

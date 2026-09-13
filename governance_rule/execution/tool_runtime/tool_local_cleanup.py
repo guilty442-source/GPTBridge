@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import stat as stat_module
+import subprocess
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -145,6 +146,13 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _background_subprocess_kwargs() -> dict[str, int]:
+    if os.name != 'nt':
+        return {}
+    creationflags = int(getattr(subprocess, 'CREATE_NO_WINDOW', 0) or 0)
+    return {'creationflags': creationflags} if creationflags else {}
+
+
 def _clear_readonly_and_retry(
     operation: Any,
     path: str,
@@ -199,17 +207,73 @@ class ToolLocalCleanup:
     def __init__(self, tool_id: str, tool_root: Path | str) -> None:
         self.tool_id = tool_id
         self.tool_root = Path(tool_root).resolve()
+        self._git_tracked: frozenset[str] | None = None
+        self._git_tracked_loaded = False
 
     def _is_protected(self, relative: Path) -> bool:
+        """True when relative is a protected directory or inside one.
+
+        Ancestors of protected paths are NOT protected -- the walk must
+        still descend through them to reach the boundary (runtime
+        itself is walkable; runtime/state and below are not).
+        """
         for protected in PROTECTED_RELATIVE_DIRECTORIES:
-            if relative == Path(protected) or protected.startswith(
-                f"{relative.as_posix()}/"
-            ):
-                return False
+            protected_path = Path(protected)
+            if relative == protected_path or protected_path in relative.parents:
+                return True
         for excluded in EXCLUDED_DIRECTORY_NAMES:
             if excluded in relative.parts:
                 return True
         return False
+
+    def _repo_marker_exists(self) -> bool:
+        for ancestor in (self.tool_root, *self.tool_root.parents):
+            if (ancestor / '.git').exists():
+                return True
+        return False
+
+    def _git_tracked_paths(self) -> frozenset[str] | None:
+        """Tracked paths under tool_root (relative), or None when a
+        worktree exists but tracking cannot be determined -- fail-closed so
+        git-tracked content is never treated as garbage."""
+        if self._git_tracked_loaded:
+            return self._git_tracked
+        self._git_tracked_loaded = True
+        if not self._repo_marker_exists():
+            self._git_tracked = frozenset()
+            return self._git_tracked
+        try:
+            completed = subprocess.run(
+                ['git', '-C', str(self.tool_root), 'ls-files', '-z'],
+                capture_output=True,
+                timeout=10,
+                check=False,
+                **_background_subprocess_kwargs(),
+            )
+            if completed.returncode != 0:
+                self._git_tracked = None
+                return self._git_tracked
+            self._git_tracked = frozenset(
+                item.replace(chr(92), '/')
+                for item in completed.stdout.decode(
+                    'utf-8', errors='surrogateescape'
+                ).split(chr(0))
+                if item
+            )
+        except (OSError, subprocess.SubprocessError):
+            self._git_tracked = None
+        return self._git_tracked
+
+    @staticmethod
+    def _age_days(path: Path, now: float) -> float:
+        try:
+            return max(
+                0.0,
+                (now - path.stat(follow_symlinks=False).st_mtime)
+                / SECONDS_PER_DAY,
+            )
+        except OSError:
+            return 0.0
 
     def _can_sweep_empty(self, relative: Path) -> bool:
         if not relative.parts:
@@ -236,6 +300,8 @@ class ToolLocalCleanup:
         cleaned_directories: list[str] = []
         skipped: list[dict[str, str]] = []
         cleaned_bytes = 0
+        error_count = 0
+        git_tracked = self._git_tracked_paths()
 
         for walk_root, directory_names, file_names in os.walk(
             self.tool_root,
@@ -278,6 +344,28 @@ class ToolLocalCleanup:
                 if matched_rule is not None:
                     if not _inside(candidate, self.tool_root):
                         continue
+                    min_age_days = max(
+                        0.0, float(matched_rule.get("min_age_days") or 0)
+                    )
+                    if self._age_days(candidate, now) < min_age_days:
+                        continue
+                    dir_prefix = f"{relative_dir.as_posix().rstrip(chr(47))}/"
+                    if git_tracked is None:
+                        skipped.append(
+                            {
+                                "path": relative_dir.as_posix(),
+                                "reason": "git protection unavailable",
+                            }
+                        )
+                        continue
+                    if any(item.startswith(dir_prefix) for item in git_tracked):
+                        skipped.append(
+                            {
+                                "path": relative_dir.as_posix(),
+                                "reason": "directory contains git-tracked files",
+                            }
+                        )
+                        continue
                     try:
                         if matched_rule.get("contents_only"):
                             _emit_contents(candidate, self.tool_root)
@@ -289,6 +377,7 @@ class ToolLocalCleanup:
                         _remove_path(candidate)
                         cleaned_directories.append(relative_dir.as_posix())
                     except OSError as error:
+                        error_count += 1
                         skipped.append(
                             {
                                 "path": relative_dir.as_posix(),
@@ -320,26 +409,29 @@ class ToolLocalCleanup:
                 )
                 if rule is None:
                     continue
-                try:
-                    age_days = max(
-                        0.0,
-                        (now - candidate.stat(follow_symlinks=False).st_mtime)
-                        / SECONDS_PER_DAY,
+                relative_file = candidate.relative_to(self.tool_root).as_posix()
+                if git_tracked is None:
+                    skipped.append(
+                        {
+                            "path": relative_file,
+                            "reason": "git protection unavailable",
+                        }
                     )
-                except OSError:
                     continue
+                if relative_file in git_tracked:
+                    continue
+                age_days = self._age_days(candidate, now)
                 if age_days < float(rule["min_age_days"]):
                     continue
                 try:
                     cleaned_bytes += candidate.stat(follow_symlinks=False).st_size
                     _remove_path(candidate)
-                    cleaned_files.append(
-                        candidate.relative_to(self.tool_root).as_posix()
-                    )
+                    cleaned_files.append(relative_file)
                 except OSError as error:
+                    error_count += 1
                     skipped.append(
                         {
-                            "path": candidate.relative_to(self.tool_root).as_posix(),
+                            "path": relative_file,
                             "reason": f"{type(error).__name__}: {error}",
                         }
                     )
@@ -367,6 +459,7 @@ class ToolLocalCleanup:
                 _remove_path(current_raw)
                 cleaned_directories.append(relative.as_posix())
             except OSError as error:
+                error_count += 1
                 skipped.append(
                     {
                         "path": relative.as_posix(),
@@ -375,7 +468,7 @@ class ToolLocalCleanup:
                 )
 
         return LocalCleanupResult(
-            ok=not skipped,
+            ok=error_count == 0,
             operation="local-self-cleanup",
             authority="tool-local",
             version=CLEANUP_VERSION,

@@ -97,41 +97,21 @@ class ShutdownMixin:
                         manifest,
                         tool_dir,
                     )
-                    for _attempt in range(2):
-                        force_closed_process_ids.update(
-                            self._stop_running_source_runtime(source_entry)
-                        )
-                        force_closed_process_ids.update(
-                            self._stop_running_executable(executable_file)
-                        )
-                        force_closed_process_ids.update(
-                            self._stop_running_packaged_backend(tool_dir)
-                        )
-                        force_closed_process_ids.update(
-                            self._stop_running_source_ui(tool_id)
-                        )
-                    remaining_process_ids = sorted(
-                        set(self._running_source_runtime_process_ids(source_entry))
-                        | set(self._running_executable_process_ids(executable_file))
-                        | set(self._running_packaged_backend_process_ids(tool_dir))
-                        | set(self._running_source_ui_process_ids(tool_id))
+                    stopped_ids, remaining_process_ids = await asyncio.to_thread(
+                        self._sweep_and_stop_source_tool_processes,
+                        tool_id,
+                        tool_dir,
+                        source_entry,
+                        executable_file,
                     )
                 else:
-                    for _attempt in range(2):
-                        force_closed_process_ids.update(
-                            self._stop_running_executable(executable_file)
-                        )
-                        force_closed_process_ids.update(
-                            self._stop_running_packaged_backend(tool_dir)
-                        )
-                        force_closed_process_ids.update(
-                            self._stop_running_source_ui(tool_id)
-                        )
-                    remaining_process_ids = sorted(
-                        set(self._running_executable_process_ids(executable_file))
-                        | set(self._running_packaged_backend_process_ids(tool_dir))
-                        | set(self._running_source_ui_process_ids(tool_id))
+                    stopped_ids, remaining_process_ids = await asyncio.to_thread(
+                        self._sweep_and_stop_tool_processes,
+                        tool_id,
+                        tool_dir,
+                        executable_file,
                     )
+                force_closed_process_ids.update(stopped_ids)
             except Exception as error:
                 await self.update_status(tool_id, "running")
                 return {
@@ -179,6 +159,47 @@ class ShutdownMixin:
             "remaining_process_ids": [],
             "message": "Tool process tree force-closed; no background process remains",
         }
+
+    def _sweep_and_stop_source_tool_processes(
+        self,
+        tool_id: str,
+        tool_dir: Path,
+        source_entry: Path,
+        executable_file: Path,
+    ) -> tuple[set[int], list[int]]:
+        # Synchronous PowerShell process sweeps; run via asyncio.to_thread so
+        # a slow sweep cannot stall the main backend event loop.
+        stopped: set[int] = set()
+        for _attempt in range(2):
+            stopped.update(self._stop_running_source_runtime(source_entry))
+            stopped.update(self._stop_running_executable(executable_file))
+            stopped.update(self._stop_running_packaged_backend(tool_dir))
+            stopped.update(self._stop_running_source_ui(tool_id))
+        remaining = sorted(
+            set(self._running_source_runtime_process_ids(source_entry))
+            | set(self._running_executable_process_ids(executable_file))
+            | set(self._running_packaged_backend_process_ids(tool_dir))
+            | set(self._running_source_ui_process_ids(tool_id))
+        )
+        return stopped, remaining
+
+    def _sweep_and_stop_tool_processes(
+        self,
+        tool_id: str,
+        tool_dir: Path,
+        executable_file: Path,
+    ) -> tuple[set[int], list[int]]:
+        stopped: set[int] = set()
+        for _attempt in range(2):
+            stopped.update(self._stop_running_executable(executable_file))
+            stopped.update(self._stop_running_packaged_backend(tool_dir))
+            stopped.update(self._stop_running_source_ui(tool_id))
+        remaining = sorted(
+            set(self._running_executable_process_ids(executable_file))
+            | set(self._running_packaged_backend_process_ids(tool_dir))
+            | set(self._running_source_ui_process_ids(tool_id))
+        )
+        return stopped, remaining
 
     async def shutdown_tool_backend(
         self,

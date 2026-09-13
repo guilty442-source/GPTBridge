@@ -514,29 +514,41 @@ class StartMixin(ToolWatcherMixin):
 
         try:
             if use_source_runtime and source_entry is not None and python_executable is not None:
-                source_environment = self._source_runtime_environment(
-                    tool_id,
-                    tool_dir,
-                    manifest,
-                )
-                process = await asyncio.create_subprocess_exec(
-                    str(python_executable),
-                    "-B",
-                    "-s",
-                    "-E",
-                    "-X",
-                    "utf8",
-                    str(source_entry),
-                    *args,
-                    cwd=str(tool_dir),
-                    stdout=subprocess.DEVNULL,
-                    # Preserve governed runtime failures in the main backend
-                    # diagnostic stream so automatic repair can classify an
-                    # immediate-exit failure instead of reporting a false start.
-                    stderr=None,
-                    env=source_environment,
-                    **_background_subprocess_kwargs(),
-                )
+                # The loopback port is released between allocation and the
+                # child's own bind, leaving a small collision window. If the
+                # runtime exits immediately, respawn once with a freshly
+                # allocated port and session tokens before reporting failure.
+                process = None
+                for _spawn_attempt in range(2):
+                    source_environment = self._source_runtime_environment(
+                        tool_id,
+                        tool_dir,
+                        manifest,
+                    )
+                    process = await asyncio.create_subprocess_exec(
+                        str(python_executable),
+                        "-B",
+                        "-s",
+                        "-E",
+                        "-X",
+                        "utf8",
+                        str(source_entry),
+                        *args,
+                        cwd=str(tool_dir),
+                        stdout=subprocess.DEVNULL,
+                        # Preserve governed runtime failures in the main backend
+                        # diagnostic stream so automatic repair can classify an
+                        # immediate-exit failure instead of reporting a false start.
+                        stderr=None,
+                        env=source_environment,
+                        **_background_subprocess_kwargs(),
+                    )
+                    for _ in range(3):
+                        if process.returncode is not None:
+                            break
+                        await asyncio.sleep(0.1)
+                    if process.returncode is None:
+                        break
                 self._source_runtime_environments[tool_id] = source_environment
             else:
                 process = await asyncio.create_subprocess_exec(

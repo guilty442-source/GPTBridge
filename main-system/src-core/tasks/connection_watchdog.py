@@ -44,7 +44,7 @@ from typing import Any, Final
 from core_system.versioning import component_version
 
 CONNECTION_WATCHDOG_VERSION: Final[str] = component_version("connection-watchdog")
-CONNECTION_PROBE_INTERVAL: Final[float] = 3.0
+CONNECTION_PROBE_INTERVAL: Final[float] = 5.0
 CONNECTION_PROBE_TIMEOUT: Final[float] = 3.0
 CONNECTION_DEAD_THRESHOLD: Final[int] = 2  # consecutive dead probes → disconnected
 CONNECTION_STATE_FILE: Final[str] = "ipc-connection-state.json"
@@ -159,7 +159,7 @@ class ConnectionWatchdog:
             return list(self._events)
 
     def _probe_backend_http(self) -> bool:
-        """Probe the backend HTTP /health endpoint.
+        """Probe the backend HTTP /health endpoint with caching.
 
         The backend is considered HTTP-healthy when the core runtime is
         ready (governance + backend runtime + dependencies) and startup_dead
@@ -173,6 +173,14 @@ class ConnectionWatchdog:
         still carries the full JSON payload, so we must read it rather than
         treating it as a connection failure.
         """
+        # Simple in-memory cache to avoid duplicate probes within the same interval
+        now = time.monotonic()
+        if (
+            hasattr(self, "_http_cache")
+            and now - self._http_cache.get("time", 0) < self.probe_interval
+        ):
+            return self._http_cache.get("result", False)
+
         try:
             request = urllib.request.Request(
                 f"http://127.0.0.1:{self.health_port}/health?brief=1",
@@ -200,17 +208,21 @@ class ConnectionWatchdog:
                 and payload.get("runtime_state") == "ready"
                 and payload.get("governance_ready") is True
             ):
-                return True
+                result = True
             # Core-ready without frontend: governance + backend runtime
             # + dependencies are up, but authenticated IPC is not yet
             # connected.  This is a healthy backend awaiting a user
             # session.
-            return bool(
-                payload.get("governance_ready") is True
-                and payload.get("backend_runtime_ready") is True
-                and payload.get("dependencies_ready") is True
-            )
+            else:
+                result = bool(
+                    payload.get("governance_ready") is True
+                    and payload.get("backend_runtime_ready") is True
+                    and payload.get("dependencies_ready") is True
+                )
+            self._http_cache = {"time": now, "result": result}
+            return result
         except (OSError, ValueError, UnicodeDecodeError, urllib.error.URLError):
+            self._http_cache = {"time": now, "result": False}
             return False
 
     def _check_frontend_connected(self) -> bool:
@@ -219,26 +231,39 @@ class ConnectionWatchdog:
         The IPC server writes connection state to ipc-connections.json.
         If the file doesn't exist or is stale, assume disconnected.
         """
-        if not self._ipc_state_file.is_file():
-            return False
+        # Simple file modification time cache
         try:
-            data = json.loads(self._ipc_state_file.read_text(encoding="utf-8"))
-            active = int(data.get("active_connections", 0))
-            updated_at = str(data.get("updated_at", ""))
-            # Consider stale if older than 20 seconds (aligned with the
-            # backend heartbeat timeout so a dead session is detected promptly).
-            if updated_at:
-                from datetime import datetime as _dt
-                try:
-                    parsed = _dt.fromisoformat(updated_at.replace("Z", "+00:00"))
-                    age = (datetime.now(timezone.utc) - parsed).total_seconds()
-                    if age > 20:
-                        return False
-                except (ValueError, TypeError):
-                    pass
-            return active > 0
-        except (OSError, json.JSONDecodeError, ValueError):
+            mtime = self._ipc_state_file.stat().st_mtime
+            now = time.time()
+            if hasattr(self, '_ipc_cache') and now - self._ipc_cache.get('mtime', 0) < self.probe_interval:
+                return self._ipc_cache.get('result', False)
+        except OSError:
             return False
+
+        if not self._ipc_state_file.is_file():
+            result = False
+        else:
+            try:
+                data = json.loads(self._ipc_state_file.read_text(encoding="utf-8"))
+                active = int(data.get("active_connections", 0))
+                updated_at = str(data.get("updated_at", ""))
+                if updated_at:
+                    from datetime import datetime as _dt
+                    try:
+                        parsed = _dt.fromisoformat(updated_at.replace("Z", "+00:00"))
+                        age = (datetime.now(timezone.utc) - parsed).total_seconds()
+                        if age > 20:
+                            result = False
+                        else:
+                            result = active > 0
+                    except (ValueError, TypeError):
+                        result = active > 0
+                else:
+                    result = active > 0
+            except (OSError, json.JSONDecodeError, ValueError):
+                result = False
+        self._ipc_cache = {'mtime': mtime, 'result': result}
+        return result
 
     def _compute_state(
         self,

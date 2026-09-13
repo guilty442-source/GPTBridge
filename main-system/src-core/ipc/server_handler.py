@@ -145,7 +145,7 @@ async def handler(websocket, app_instance):
         app_instance.command_router is None
         and not getattr(app_instance, "startup_dead", False)
     ):
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.1)
 
     if getattr(app_instance, "startup_dead", False):
         await ui.send_event(

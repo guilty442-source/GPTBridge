@@ -10,6 +10,7 @@ import hashlib
 import json
 import logging
 import os
+import random
 import sys
 import threading
 import time
@@ -23,6 +24,7 @@ from collections import deque
 
 from core_system.hot_update_service import HotUpdateService
 from core_system.active_release import resolve_active_pointer
+from core_system.circuit_breaker import CircuitBreaker, CircuitOpenError
 
 _logger = logging.getLogger("gptbridge.update_manager")
 
@@ -100,6 +102,7 @@ class UpdateHealthMonitor:
         self.register_check("maintenance_ready", self._check_maintenance_ready)
         self.register_check("websocket_connectivity", self._check_websocket)
         self.register_check("governance_audit", self._check_governance_audit)
+        self.register_check("update_channel", self._check_update_channel)
 
     def register_check(self, name: str, check_fn: Callable[[], HealthCheckResult]) -> None:
         """Register a custom health check."""
@@ -363,6 +366,84 @@ class UpdateHealthMonitor:
         except Exception as e:
             return HealthCheckResult(
                 "governance_audit", False, f"Error: {e}",
+                datetime.now(timezone.utc).isoformat(), 0
+            )
+
+    def _check_update_channel(self) -> HealthCheckResult:
+        """Verify the update delivery channel is healthy.
+
+        Checks:
+        - IPC connection to frontend
+        - Governance reachability
+        - Decision sovereign availability
+        - Synchronization sovereign availability
+        - Hot reload watcher running
+        """
+        try:
+            errors = []
+
+            # Check IPC connection
+            ipc_ok = False
+            try:
+                if hasattr(self.app, "_active_ui_shells") and self.app._active_ui_shells:
+                    ipc_ok = True
+            except Exception:
+                pass
+            if not ipc_ok:
+                errors.append("IPC: no active connections")
+
+            # Check governance
+            gov_ok = False
+            try:
+                governance = getattr(self.app, "governance", None)
+                if governance is not None and hasattr(governance, "runtime_integrity_ready"):
+                    gov_ok = governance.runtime_integrity_ready(max_age_seconds=5)
+            except Exception:
+                pass
+            if not gov_ok:
+                errors.append("Governance unreachable")
+
+            # Check decision sovereign
+            dec_ok = hasattr(self.app, "decision_sovereign") and self.app.decision_sovereign is not None
+            if not dec_ok:
+                errors.append("Decision sovereign missing")
+
+            # Check sync sovereign
+            sync_ok = hasattr(self.app, "synchronization_sovereign") and self.app.synchronization_sovereign is not None
+            if not sync_ok:
+                errors.append("Sync sovereign missing")
+
+            # Check hot reload watcher
+            watcher_ok = hasattr(self.app, "hot_reload_watcher") and self.app.hot_reload_watcher is not None
+            if not watcher_ok:
+                errors.append("Hot reload watcher missing")
+
+            # Check UpdateManager circuit breaker (if available)
+            cb_ok = True
+            try:
+                update_manager = getattr(self.app, "update_manager", None)
+                if update_manager and hasattr(update_manager, "_circuit_breaker"):
+                    cb_ok = update_manager._circuit_breaker.is_available()
+            except Exception:
+                pass
+            if not cb_ok:
+                errors.append("Update circuit breaker open")
+
+            if errors:
+                return HealthCheckResult(
+                    "update_channel", False,
+                    f"Channel degraded: {'; '.join(errors)}",
+                    datetime.now(timezone.utc).isoformat(), 0
+                )
+
+            return HealthCheckResult(
+                "update_channel", True, "Update channel healthy",
+                datetime.now(timezone.utc).isoformat(), 0
+            )
+
+        except Exception as e:
+            return HealthCheckResult(
+                "update_channel", False, f"Error: {e}",
                 datetime.now(timezone.utc).isoformat(), 0
             )
 

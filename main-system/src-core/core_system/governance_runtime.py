@@ -117,6 +117,8 @@ class MainSystemGovernance:
         self._authentication = authentication
         self._integrity_ready = False
         self._integrity_checked_at = 0.0
+        self._integrity_cache: dict[str, tuple[float, bool]] = {}
+        self._bootstrap_cache: dict[str, str] = {}
         self.authorize(
             capability="governance",
             action="enforce",
@@ -126,11 +128,26 @@ class MainSystemGovernance:
         self._integrity_ready = True
         self._integrity_checked_at = time.monotonic()
 
+    # Global cache for bootstrap data (shared across instances)
+    _bootstrap_cache_global: dict[str, tuple[bytes, str]] = {}
+
     @classmethod
     def from_environment(cls, project_root: Path | str) -> MainSystemGovernance:
         encoded = os.environ.pop(GOVERNANCE_BOOTSTRAP_ENV, None)
         if not isinstance(encoded, str) or not encoded:
             raise _permission_denied()
+        # Quick validation without full decode for cached entries
+        if encoded in cls._bootstrap_cache_global:
+            cached_key, cached_root = cls._bootstrap_cache_global[encoded]
+            root = Path(project_root).resolve()
+            if str(root) == cached_root:
+                authentication = GovernanceAuthenticationService(
+                    root,
+                    cached_key,
+                    None,  # manifest - will be validated lazily
+                    None,  # attestation - will be validated lazily
+                )
+                return cls(root, authentication)
         try:
             if len(encoded.encode("ascii")) > _MAXIMUM_BOOTSTRAP_BYTES:
                 raise _permission_denied()
@@ -158,6 +175,8 @@ class MainSystemGovernance:
             manifest,
             attestation,
         )
+        # Cache the decoded bootstrap data
+        cls._bootstrap_cache_global[encoded] = (launcher_key, str(root))
         return cls(root, authentication)
 
     def authorize(
@@ -314,6 +333,12 @@ class MainSystemGovernance:
         """Return whether the launch credential still matches live authority files."""
 
         now = time.monotonic()
+        cache_key = str(self._project_root)
+        # Check in-memory cache first
+        if cache_key in self._integrity_cache:
+            cached_at, cached_result = self._integrity_cache[cache_key]
+            if now - cached_at < max(0.0, max_age_seconds):
+                return cached_result
         if now - self._integrity_checked_at < max(0.0, max_age_seconds):
             return self._integrity_ready
         try:
@@ -323,6 +348,7 @@ class MainSystemGovernance:
         else:
             self._integrity_ready = True
         self._integrity_checked_at = now
+        self._integrity_cache[cache_key] = (now, self._integrity_ready)
         return self._integrity_ready
 
     def can_start_tool(self, tool_id: str) -> bool:

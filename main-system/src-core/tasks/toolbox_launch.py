@@ -79,12 +79,12 @@ class LaunchMixin:
         ready = False
         # Local governed runtimes normally publish health in well under a
         # second. Poll more frequently so opening a tool feels immediate while
-        # retaining a bounded five-second allowance for cold starts.
-        for _ in range(300):
+        # retaining a bounded three-second allowance for cold starts.
+        for _ in range(150):
             if await asyncio.to_thread(source_runtime_ready):
                 ready = True
                 break
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.02)
         if not ready:
             return {
                 "ok": False,

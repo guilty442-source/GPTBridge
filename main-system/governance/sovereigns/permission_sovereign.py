@@ -44,7 +44,7 @@ never executes in-process.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from governance_rule.permission_directory.code_rule_directory import code_rule_directory_snapshot
 from governance_rule.execution.codex_repository import load_governance_codex
@@ -69,6 +69,7 @@ from core_system.codex_decision import (
     refusal_outcome,
 )
 from core_system.versioning import refresh_version_cache, version_registry_status
+from core_system.permission_automation import PermissionAutomationOrchestrator
 
 
 def _permission_sovereign():
@@ -152,15 +153,23 @@ class PermissionSovereign(SovereignBase):
         self._compliance_violations: list[dict[str, Any]] = []
         # A10/A22: record of issued permission grants (read-only surface).
         self._issued_grants: dict[str, dict[str, Any]] = {}
+        # Permission automation orchestrator
+        self._automation: Optional[PermissionAutomationOrchestrator] = None
 
-    # ------------------------------------------------------------------
-    # Intent gate (A10/A11 explicit allowlist)
-    # ------------------------------------------------------------------
+    async def start(self) -> dict[str, Any]:
+        """啟動權限主宰與自動化組件。"""
+        state = await super().start()
+        if self._automation is None:
+            self._automation = PermissionAutomationOrchestrator(self)
+        await self._automation.start()
+        state["automation"] = "started"
+        return state
 
-    def _verify_intent(self, intent: str) -> bool:
-        """Override the base-class edict-ID check with this sovereign's
-        explicit intent allowlist (A10/A11 fail-closed)."""
-        return intent in self._INTENT_ALLOWLIST
+    async def stop(self) -> None:
+        """停止權限主宰與自動化組件。"""
+        if self._automation is not None:
+            await self._automation.stop()
+        await super().stop()
 
     def re_certify(self) -> None:
         """Re-certify the permission sovereign after a codex amendment."""
@@ -650,6 +659,12 @@ class PermissionSovereign(SovereignBase):
                 "delegation": "governed-executor-only",
             },
         }
+
+    def automation_status(self) -> dict[str, Any]:
+        """Get automation system status."""
+        if self._automation is not None:
+            return self._automation.get_system_status()
+        return {"automation": "not_initialized"}
 
     def orchestration_status(self) -> dict[str, Any]:
         """Unified subsystem view for the sovereign orchestration report."""

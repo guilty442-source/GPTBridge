@@ -2445,7 +2445,15 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
     governance = GovernanceStub()
     service = ToolboxService(ROOT, governance=governance)
     tool_root = LOCAL_MODEL_ROOT / "model-dialogue"
-    manifest = json.loads((tool_root / "manifest.json").read_text("utf-8"))
+    # star-chat is a declared companion of the local-model host; companion
+    # metadata is intentionally centralized in the host manifest.
+    host_manifest = json.loads((LOCAL_MODEL_ROOT / "manifest.json").read_text("utf-8"))
+    manifest = {
+        **host_manifest,
+        "id": "star-chat",
+        "host_tool_id": "xingcheng",
+        "shared_cache_owner": "xingcheng",
+    }
 
     environment = service._tool_environment("star-chat", tool_root, manifest)
 
@@ -2484,7 +2492,7 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
         (
             ROOT
             / "Standalone tools"
-            / "ai-assistant"
+            / "investment-mobile"
             / "runtime"
             / "cache"
             / "companions"

@@ -19,6 +19,10 @@ class DailyGlobalCleanerService:
     RESPONSE_TIMEOUT_SECONDS = 30 * 60
     MODULE_CLEANUP_COMMAND = "toolbox_run_local_cleanup"
     MODULE_CLEANUP_TIMEOUT_SECONDS = 90
+    # A stopped module's persisted cleanup record only counts as "cleaned"
+    # while it is fresh; beyond this window the module has not actually
+    # self-cleaned recently and the sweep reports it as stale.
+    STALE_RECORD_SECONDS = 2 * 24 * 60 * 60
     # Modules cleaned inside this process; every other manifest-registered
     # module self-cleans through its own governed runtime.
     IN_PROCESS_MODULE_IDS = ("main-system",)
@@ -66,6 +70,32 @@ class DailyGlobalCleanerService:
             encoding="utf-8",
         )
         os.replace(temporary, self.state_path)
+
+    @staticmethod
+    def _parse_iso_epoch(value: object) -> float:
+        try:
+            text = str(value or "").strip()
+            if not text:
+                return 0.0
+            return datetime.fromisoformat(
+                text.replace("Z", "+00:00")
+            ).timestamp()
+        except (TypeError, ValueError, OSError):
+            return 0.0
+
+    def _runtime_ready(self) -> bool:
+        """Cleanup judgment gate: do not delete anything while the runtime
+        reports not-ready (startup in progress, degraded, or unknown)."""
+
+        readiness_path = self.state_path.parent / "runtime-readiness.json"
+        try:
+            payload = json.loads(readiness_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return False
+        snapshot = payload.get("snapshot")
+        if isinstance(snapshot, dict):
+            payload = snapshot
+        return payload.get("overall_ready") is True
 
     @staticmethod
     def _valid_epoch(value: object) -> float:
@@ -337,9 +367,22 @@ class DailyGlobalCleanerService:
 
         started_at = self._iso_now()
         modules: list[dict[str, Any]] = []
+        runtime_ready = self._runtime_ready()
 
         for module_id in self.IN_PROCESS_MODULE_IDS:
             module_root = Path(self.app.project_root) / module_id
+            if not runtime_ready:
+                modules.append(
+                    {
+                        "module_id": module_id,
+                        "mode": "in-process",
+                        "running": True,
+                        "ok": False,
+                        "deferred": True,
+                        "reason": "RUNTIME_NOT_READY",
+                    }
+                )
+                continue
             try:
                 cleanup = await asyncio.to_thread(
                     run_local_cleanup, module_id, module_root
@@ -400,13 +443,27 @@ class DailyGlobalCleanerService:
                 )
                 continue
             last = await asyncio.to_thread(read_local_cleanup_state, tool_dir)
+            recorded_epoch = (
+                self._parse_iso_epoch(last.get("completed_at"))
+                if isinstance(last, dict)
+                else 0.0
+            )
+            stale = (
+                last is None
+                or recorded_epoch <= 0
+                or (time.time() - recorded_epoch) > self.STALE_RECORD_SECONDS
+            )
             modules.append(
                 {
                     "module_id": tool_id,
                     "mode": "last-recorded",
                     "running": False,
-                    "ok": bool(last and last.get("ok")),
+                    "ok": bool(last and last.get("ok")) and not stale,
                     "recorded": last is not None,
+                    "stale": stale,
+                    "reason": (
+                        "STALE_CLEANUP_RECORD" if stale and last else ""
+                    ),
                     "result": last,
                 }
             )
@@ -430,6 +487,16 @@ class DailyGlobalCleanerService:
             "commanded_count": sum(
                 1 for module in modules if module.get("mode") == "commanded"
             ),
+            "deferred_count": sum(
+                1 for module in modules if module.get("deferred")
+            ),
+            "stale_count": sum(
+                1 for module in modules if module.get("stale")
+            ),
+            "failed_count": sum(
+                1 for module in modules if not module.get("ok")
+            ),
+            "runtime_ready": runtime_ready,
             "ok": all(module.get("ok") for module in modules),
             "cleaned_bytes_total": cleaned_bytes_total,
             "modules": modules,
