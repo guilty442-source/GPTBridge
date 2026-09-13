@@ -3184,6 +3184,15 @@
         "rule": "BASELINE:before optimization establish a reproducible FULL scan baseline recording revision,source_file_count,source_bytes,scan_time,parse_time,graph_build_time,gate_time,total_time,peak_memory,cache_size,finding_count,warning_count,failure_count; it is the canonical comparison evidence for incremental work,not an authority over Codex. SCENARIOS:benchmark single .py,.tsx,gptbridge_native.h,vector.cpp,.sql migration,shared contract and policy changes; require incremental work to be less than full work without fixed speed multiplier. GOLDEN:after every incremental run execute or compare against an applicable FULL scan and require exact normalized finding parity by rule,severity,source,target,capability,contract,symbol,result; any omitted or extra governance finding is FAIL regardless of speed. INVALIDATION:maintain reverse dependency closure; a changed dependency invalidates all governed downstream consumers to policy-defined depth. Header changes invalidate dependent translation units,C ABI,binding,CSharp interop,Python native adapter,native artifact and consumer/release compatibility evidence. contract_hash changes invalidate TypeScript+Python contract evidence,ContractParity,consumer and release compatibility. policy_version,parser_version,governance_ir_version,graph_schema_version or checker_version changes invalidate every dependent IR/graph/evidence even when source is unchanged. CACHE-KEY:source_hash+parser_version+governance_ir_version+graph_schema_version+policy_version+checker_version+contract_hash plus applicable resolver/build hashes. CACHE-SAFETY:truncated,wrong-schema,bad-hash,unknown-version or otherwise poisoned cache is discarded and deterministically rebuilt; invalid cache may only reduce speed and can never skip a checker,reduce scope,or produce approval. Cache stores parsed IR,graph fragments,hashes and intermediate evidence only; no permanent approval,waiver or authoritative decision. MODES:FAST=save-time changed file+direct affected scope;PRECOMMIT=changed files+transitive dependencies+required gates;FULL=entire repository+all gates with no reliance on incremental verdict alone. TRIGGERS:save FAST;pre-commit PRECOMMIT;main integration FULL;release FULL+release gates;policy/parser/IR/graph migration FULL. PERFORMANCE-EVIDENCE:revision,mode,changed_files,affected_files,cache_hits,cache_misses,parse_count,reused_count,duration_ms,peak_memory,full_findings_hash,incremental_findings_hash,parity; parity=true is mandatory. ACCEPTANCE:correctness first;incremental findings equal FULL findings;incremental work less than FULL work;unchanged files mostly reused;no fixed 10x requirement. A stale evidence reuse or parity mismatch is CRITICAL and blocks Final Governance.",
         "prohibition": "FORBID:optimizing without FULL baseline+accepting faster incomplete findings+mtime-only validity+non-transitive invalidation+header/contract/policy/parser/checker/schema drift with reused evidence+cache corruption causing skipped checks+cache-held permanent approval+incremental replacing integration/release FULL verification+hardcoded universal speed multiplier+stale evidence classified below CRITICAL.",
         "exception": "A FULL run may reuse verified parse artifacts only when every cache-key component and input provenance matches exactly; it must still cover the entire repository,execute all required gates,and reproduce the canonical normalized findings."
+      },
+      {
+        "position": 364,
+        "provision_id": "A364",
+        "section_index": "16",
+        "subject": "language-governance-schema-v1-stability-freeze-and-regression-corpus",
+        "rule": "PURPOSE:freeze the program-language governance architecture,not GPTBridge feature development. VERSION:Language Governance Schema v1.0.0 governs allowed six languages,canonical roles/extensions,dependency DAG,C ABI,native path,Python fallback,test ownership,Governance IR,GateEvidence and Final Decision model; change to any core structure is a governance-schema change. FROZEN-ROLES:Python=control+semantic+business;TypeScript=presentation+client+build-time;C=stable native ABI;C++=private native performance;CSharp=Windows/.NET adapter;SQL=relational data operations. FROZEN-PATHS:Python>binding/C-ABI>C++;Python>SQL;TypeScript>canonical information layer>Python;Python/C-ABI>CSharp>Windows/.NET. These roles/edges cannot change without Codex-authorized schema version evolution. PUBLIC-API:stable public governance interface is scan()+analyze()+validate()+getEvidence()+getDecision(); parser/cache/graph/AST adapters/incremental resolver/checker implementations are internal and replaceable only with behavior parity. IR-V1:fixed core models SourceUnit,Symbol,CallableSymbol,Dependency,Capability,Contract,NativeBoundary,BuildArtifact,TestEvidence,GateEvidence; optional additive compatible fields require MINOR,removal/rename/type or semantic change requires MAJOR; compatible correction requires PATCH. REGRESSION-CORPUS:retain authored six-language valid fixtures and invalid fixtures for ts-direct-python,public-cpp-abi,duplicate-owner,missing-fallback,abi-break,dependency-cycle,forbidden-extension plus every corrected regression. GOLDEN-DECISIONS:each critical fixture binds immutable input hashes,expected evidence,rule ids,severity and final decision; parser/graph/cache/checker refactor must reproduce them,otherwise human review plus authorized schema change is required. CONVERGENCE:stable path is exclusively SourceIndex>GovernanceIR>LanguageGraph>Checkers; checker filesystem walks,private language classification and private dependency maps are duplicate infrastructure and must transition ACTIVE>DEPRECATED>REMOVED. DEPRECATION:deprecated public APIs remain compatible with explicit warning through at least one MINOR line and may be removed only in MAJOR; registry records state,introduced version,replacement,deprecation version,removal version and consumers. POLICY-INTEGRITY:checker reads Codex-derived policy+IR and emits evidence; checker source cannot invent hidden language rules,waivers or enforcement. BOUNDARY:stable/ is release-blocking only after Codex authorization,complete regression and promotion evidence; experimental/ may observe and emit non-blocking evidence but cannot alter stable evidence,decision or release. FREEZE-GATE:v1 becomes FROZEN/STABLE only after six-language mapping,DAG,IR v1,Evidence v1,Final Decision schema,full/incremental parity,regression corpus,golden decisions,API/ABI compatibility,release pipeline all PASS;zero duplicate filesystem scanners,stale-evidence defects and unresolved CRITICAL findings. Until proven, lifecycle is FREEZE-PENDING and no claim of STABLE is allowed.",
+        "prohibition": "FORBID:changing frozen language role/edge without schema evolution+public consumers depending on internal parser/cache/graph types+unversioned IR/evidence/final-decision break+checker-authored hidden policy+multiple authoritative scan paths+immediate deprecated API removal+experimental checker blocking release+declaring STABLE with missing evidence+golden decision drift accepted automatically.",
+        "exception": "Internal implementation and optional additive schema fields may evolve under PATCH/MINOR compatibility evidence without changing frozen semantics; urgent security containment may disable a component but cannot silently redefine the schema."
       }
     ],
     "certification_evidence": [
@@ -3939,7 +3948,7 @@
         "epoch": 2,
         "baseline_version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H069",
+        "history_head": "H070",
         "predecessor_epoch": 1,
         "predecessor_version": "4.61600",
         "predecessor_full_root": "6b6965bb11fef22ccda6e342a28c1d94fb05e721ce7822f388061eec3a9d4223",
@@ -6714,6 +6723,15 @@
         "release_gate": "deny final approval on missing baseline,stale evidence or parity=false",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
+      },
+      {
+        "directory_name": "language_governance_regression_corpus_directory",
+        "required_scope": "valid fixtures for six languages plus all enumerated invalid and corrected regression cases",
+        "completion_rule": "every fixture has immutable inputs,expected evidence/rules/severity/final decision and schema version",
+        "acceptance_evidence": "old corpus executed by new engine with exact golden decision parity",
+        "release_gate": "deny stable promotion or release on missing/drifting golden result",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
       }
     ],
     "directory_format_contract": [
@@ -7248,6 +7266,20 @@
         "owner": "permission-sovereign",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_LANGUAGE_GOVERNANCE_REGRESSION_CORPUS",
+        "format_version": "directory-format-v1",
+        "common_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version",
+        "domain_fields": "fixture_id|source_language|expected_rules|expected_severity|expected_decision|input_hash|evidence_hash|schema_version|lineage",
+        "required_field_order": "envelope>fixture identity>input hash>expected rules>evidence>decision>schema>lineage",
+        "relationship_storage": "normalized-directory-relationship-row",
+        "null_policy": "explicit-null-only-when-not-applicable-proven",
+        "identity_format": "identity=UPPER_SNAKE;canonical-name=lower-kebab;fields=lower_snake",
+        "validation_order": "identity>input hash>rules>evidence hash>decision>lineage",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_master_catalog": [
@@ -7744,6 +7776,19 @@
         "implementation_state": "mandated-pending-implementation",
         "introduced_version": "1.00000",
         "retired_version": null
+      },
+      {
+        "directory_code": "DIR_LANGUAGE_GOVERNANCE_REGRESSION_CORPUS",
+        "canonical_name": "language-governance-regression-corpus-directory",
+        "owner": "permission-sovereign",
+        "scope": "valid and invalid six-language fixtures plus golden evidence and decisions",
+        "authority_kind": "canonical-test-evidence-non-policy-authority",
+        "required_fields": "entry_code|canonical_name|directory_code|owner|scope|authority_kind|status|revision|content_hash|introduced_version|retired_version|fixture_id|source_language|expected_rules|expected_severity|expected_decision|input_hash|evidence_hash|schema_version|lineage",
+        "relationships": "fixture|source-unit|rule|gate-evidence|final-decision|schema-version",
+        "coverage_rule": "all stable rules and corrected regressions have deterministic PASS/FAIL golden decisions",
+        "implementation_state": "mandated-pending-implementation",
+        "introduced_version": "1.00000",
+        "retired_version": null
       }
     ],
     "directory_normalization_plan": [
@@ -8041,6 +8086,17 @@
         "normalized_relationship_status": "required",
         "plaintext_secret_status": "forbidden",
         "activation_gate": "deny-until-full-baseline-and-golden-parity-proof",
+        "owner": "permission-sovereign",
+        "introduced_version": "1.00000"
+      },
+      {
+        "directory_code": "DIR_LANGUAGE_GOVERNANCE_REGRESSION_CORPUS",
+        "target_format_version": "directory-format-v1",
+        "common_envelope_status": "required",
+        "typed_domain_status": "required",
+        "normalized_relationship_status": "required",
+        "plaintext_secret_status": "forbidden",
+        "activation_gate": "deny-stable-until-complete-golden-corpus-proof",
         "owner": "permission-sovereign",
         "introduced_version": "1.00000"
       }
@@ -12504,6 +12560,12 @@
         "provision_id": "A363",
         "effective_version": "1.00000",
         "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A364",
+        "effective_version": "1.00000",
+        "status": "active"
       }
     ],
     "entity_classification": [
@@ -12562,14 +12624,14 @@
         "version_epoch": 2,
         "version": "1.00000",
         "version_identity": "E2:1.00000",
-        "history_head": "H069",
-        "provision_count": 609,
-        "identity_count": 609,
-        "lineage_count": 609,
+        "history_head": "H070",
+        "provision_count": 610,
+        "identity_count": 610,
+        "lineage_count": 610,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "ceb678970e80e6769eb420469908fb64c31fd8bf481761b4dd906ff8f776a54e",
-        "identity_root": "039af406b4d811b0a83ecfaa38694acecd3ab90496b470cd40ea24e8d5940394",
-        "full_root": "3d4449c086628d6e7883973fe09a3678c3bda25612f7aa4cec5207aae938fc16",
+        "content_root": "c0594589a622c622e9074e8455be621b0562eb4aa9b1ca48f012d47e429e67bd",
+        "identity_root": "ec97e608497c69970d8ca77295d3f2dfe64ef1553ecb8175f7bfc677104e2497",
+        "full_root": "c1f1f7bbeb75e5bd6efb0e710664201e0a90df453f665d44f84b8661c94bd8f6",
         "legacy_history_head": null
       }
     ],
@@ -17696,7 +17758,7 @@
       },
       {
         "key": "last_amendment",
-        "value": "H069"
+        "value": "H070"
       },
       {
         "key": "whole_system_automatic_operation",
@@ -17861,6 +17923,22 @@
       {
         "key": "governance_cache_key_schema",
         "value": "source_hash|parser_version|governance_ir_version|graph_schema_version|policy_version|checker_version|contract_hash"
+      },
+      {
+        "key": "language_governance_schema_version",
+        "value": "1.0.0"
+      },
+      {
+        "key": "language_governance_schema_lifecycle",
+        "value": "FREEZE-PENDING"
+      },
+      {
+        "key": "language_governance_public_api",
+        "value": "scan|analyze|validate|getEvidence|getDecision"
+      },
+      {
+        "key": "language_governance_ir_version",
+        "value": "1"
       }
     ],
     "module_assignment_registry": [
@@ -23551,6 +23629,13 @@
         "provision_id": "A363",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A364",
+        "provision_type": "article",
+        "provision_id": "A364",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -27816,6 +27901,13 @@
         "tier": "special-law",
         "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
         "authority_basis": "A208|A353|A361|A362"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A364",
+        "tier": "special-law",
+        "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "authority_basis": "A208|A211|A215|A353|A354|A355|A361|A362|A363"
       }
     ],
     "provision_lifecycle_status": [
@@ -32586,6 +32678,14 @@
         "effective_version": "1.00000",
         "successor_identity": null,
         "evidence": "H069+explicit-user-command"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A364",
+        "lifecycle_state": "active",
+        "effective_version": "1.00000",
+        "successor_identity": null,
+        "evidence": "H070+explicit-user-command"
       }
     ],
     "provision_lineage": [
@@ -37460,6 +37560,14 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "404699682ef460d53c6d9e1ff7e4552d36111e4644f29b6b054a3368b6e0d410"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A364",
+        "introduced_by": "H070",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "019ed2c52336cbd09c96803867c11c963d0d19d9019139cb4eb8a6542f8ae5f5"
       }
     ],
     "provision_revisions": [
@@ -48334,6 +48442,15 @@
         "content_hash": "404699682ef460d53c6d9e1ff7e4552d36111e4644f29b6b054a3368b6e0d410",
         "certification_status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A364",
+        "revision_id": "H070",
+        "version": "1.00000",
+        "content_hash": "019ed2c52336cbd09c96803867c11c963d0d19d9019139cb4eb8a6542f8ae5f5",
+        "certification_status": "external-signatures-required",
+        "version_epoch": 2
       }
     ],
     "provision_special_law_migration": [
@@ -53326,6 +53443,16 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "1.00000"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A364",
+        "controlling_law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+        "migration_status": "special-governs",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "星澄",
+        "introduced_version": "1.00000"
       }
     ],
     "revision_history": [
@@ -54087,6 +54214,17 @@
         "previous_hash": "ed1c2011bda95261a22fa0f12b367aab6c66fe232c718d5b1da1b8283ef3bb5f",
         "entry_hash": "f76e4cf8ce77120522e980b50a00fe13f1326618b2179c3c8311efe6dfb9b9a9",
         "version_epoch": 2
+      },
+      {
+        "sequence": 70,
+        "change_id": "H070",
+        "version": "1.00000",
+        "recorded_date": "2026-09-13",
+        "change_scope": "language-governance-v1-schema-freeze-and-regression-contract",
+        "summary": "Versioned and froze the Language Governance Schema v1 contract, public governance API, Governance IR v1, regression corpus, golden decisions, deprecation lifecycle, and stable/experimental promotion boundary without freezing product development. Codex version remains E2:1.00000.",
+        "previous_hash": "f76e4cf8ce77120522e980b50a00fe13f1326618b2179c3c8311efe6dfb9b9a9",
+        "entry_hash": "1bbbccb28a49e061da7844964801d4bf5872b3b1a9491bfe811806ce7c93ba94",
+        "version_epoch": 2
       }
     ],
     "savings": [
@@ -54643,14 +54781,14 @@
       },
       {
         "version": "1.00000",
-        "history_head": "H069",
-        "provision_count": 609,
-        "identity_count": 609,
-        "lineage_count": 609,
+        "history_head": "H070",
+        "provision_count": 610,
+        "identity_count": 610,
+        "lineage_count": 610,
         "certification_state": "sealed-read-only-pending-human-governor-signature",
-        "content_root": "ceb678970e80e6769eb420469908fb64c31fd8bf481761b4dd906ff8f776a54e",
-        "identity_root": "039af406b4d811b0a83ecfaa38694acecd3ab90496b470cd40ea24e8d5940394",
-        "full_root": "3d4449c086628d6e7883973fe09a3678c3bda25612f7aa4cec5207aae938fc16",
+        "content_root": "c0594589a622c622e9074e8455be621b0562eb4aa9b1ca48f012d47e429e67bd",
+        "identity_root": "ec97e608497c69970d8ca77295d3f2dfe64ef1553ecb8175f7bfc677104e2497",
+        "full_root": "c1f1f7bbeb75e5bd6efb0e710664201e0a90df453f665d44f84b8661c94bd8f6",
         "version_epoch": 2
       }
     ],
@@ -59388,6 +59526,24 @@
         "cleanup": "delete fixtures and derived cache only;retain evidence",
         "isolation_policy": "isolated generation-fenced content-addressed cache",
         "timeout": "1800s",
+        "introduced_version": "1.00000",
+        "retired_version": null
+      },
+      {
+        "test_flow_code": "TF_LANGUAGE_GOVERNANCE_V1_FREEZE",
+        "canonical_name": "language-governance-v1-freeze-required-cases",
+        "owner": "permission-sovereign",
+        "target_entity": "Language Governance Schema v1 stable pipeline",
+        "requirement_ids": "A204|A205|A208|A211|A215|A218|A219|A220|A264|A361|A362|A363|A364",
+        "test_level": "contract+integration+compatibility+release",
+        "preconditions": "complete regression corpus,full baseline and candidate schema v1.0.0",
+        "fixtures": "six valid language fixtures;invalid direct dependency,public C++ ABI,duplicate owner,missing fallback,ABI break,cycle,forbidden extension;legacy API consumer;experimental checker;full/incremental evidence",
+        "ordered_steps": "run stable public API;compare golden evidence/decisions;verify deprecated lifecycle;verify experimental non-blocking;verify no duplicate scanner;run full/incremental parity,ABI/API and release pipeline",
+        "expected_results": "all freeze criteria PASS;public API compatible;golden decisions unchanged;zero duplicate scans,stale evidence and CRITICAL unresolved;then and only then lifecycle FROZEN/STABLE",
+        "evidence": "schema manifest+API surface+corpus hashes+golden decisions+scan provenance+gate evidence+release decision",
+        "cleanup": "remove generated cache only;retain corpus and decisions",
+        "isolation_policy": "isolated immutable fixtures and derived evidence",
+        "timeout": "2400s",
         "introduced_version": "1.00000",
         "retired_version": null
       }
