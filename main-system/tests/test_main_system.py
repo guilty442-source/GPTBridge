@@ -195,10 +195,16 @@ def _owned_python_files_cached(root_str: str) -> tuple[Path, ...]:
     source_root = tool_root / "src"
     scan_root = source_root if source_root.is_dir() else tool_root
     excluded = {"__pycache__", "build", "data", "dist", "runtime"}
+    # Exclude subdirectories that have their own manifest.json (sub-tools)
+    sub_tool_dirs = {
+        d for d in scan_root.iterdir()
+        if d.is_dir() and (d / "manifest.json").is_file()
+    }
     return tuple(sorted(
         path
         for path in scan_root.rglob("*.py")
         if not excluded.intersection(path.relative_to(scan_root).parts)
+        and not any(path.is_relative_to(d) for d in sub_tool_dirs)
     ))
 
 
@@ -425,6 +431,10 @@ def test_owned_python_sources_do_not_import_sibling_implementations(
         # Model dialogue is a physical child of xingcheng and shares its
         # implementation boundary even though main-system exposes a separate
         # star-chat lifecycle identity.
+        forbidden.discard("star_chat")
+    if tool_id == "model-dialogue":
+        # model-dialogue's runtime entry IS star-chat; it legitimately imports
+        # star_chat.application.service as its own implementation.
         forbidden.discard("star_chat")
     violations: list[str] = []
     for source_path in _owned_python_files(manifest_path.parent):
