@@ -19,6 +19,13 @@
     "disableable": true,
     "unloadable": true
   },
+  "companion_tools": [
+    {
+      "id": "star-chat",
+      "path": "star-chat",
+      "companion_owner": "xingcheng"
+    }
+  ],
   "shared_permission_owner": "local-model",
   "shared_permission_profile": "local-model-platform-v1",
   "shared_cache_owner": "local-model",

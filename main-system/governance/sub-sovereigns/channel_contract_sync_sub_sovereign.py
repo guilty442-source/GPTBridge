@@ -89,6 +89,8 @@ class ChannelContractSyncSubSovereign(SubSovereignBase):
         self._bus_status_fn: Any | None = None
         self._default_tool_startup: dict[str, dict[str, Any]] = {}
         self._default_tools_started = False
+        # Per-target sync bookkeeping for channel contract state.
+        self._sync_state: dict[str, Any] = {}
         # Idle module management
         self._tool_last_activity: dict[str, float] = {}
         self._idle_monitor_task: asyncio.Task[Any] | None = None
@@ -506,6 +508,7 @@ class ChannelContractSyncSubSovereign(SubSovereignBase):
                 "monitored_tools": list(self._tool_last_activity.keys()),
                 "resident_exempt": True,
             },
+            "sync_state": self._sync_state,
             "decision": decision_basis(SYSTEM_INTEGRATION_AUTHORITY),
             "started_at": self._started_at,
             "stopped_at": self._stopped_at,

@@ -252,10 +252,8 @@ class ManifestMixin:
         if self.project_root != self.tools_dir and self.project_root.is_dir():
             scan_dirs.append(self.project_root)
         for scan_dir in scan_dirs:
-            for candidate in scan_dir.iterdir():
-                manifest_path = candidate / "manifest.json"
-                if not candidate.is_dir() or not manifest_path.is_file():
-                    continue
+            for manifest_path in scan_dir.rglob("manifest.json"):
+                candidate = manifest_path.parent
                 # Skip the Standalone tools directory itself when scanning root
                 if scan_dir == self.project_root and candidate == self.tools_dir:
                     continue

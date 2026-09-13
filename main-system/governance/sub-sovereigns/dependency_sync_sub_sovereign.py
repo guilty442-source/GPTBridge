@@ -76,6 +76,8 @@ class DependencySyncSubSovereign(SubSovereignBase):
         self._inventory_path: Path | None = None
         self._manager: ThirdPartyManager | None = None
         self._dependencies: dict[str, dict[str, Any]] = {}
+        # Per-target sync bookkeeping for dependency state.
+        self._sync_state: dict[str, Any] = {}
 
     async def start(
         self,
@@ -236,6 +238,7 @@ class DependencySyncSubSovereign(SubSovereignBase):
                 "running": self._supervision_task is not None and not self._supervision_task.done(),
                 "interval_seconds": self._supervision_interval_seconds,
             },
+            "sync_state": self._sync_state,
             "decision": decision_basis(SYSTEM_THIRD_PARTY_MANAGER_AUTHORITY),
             "started_at": self._started_at,
             "stopped_at": self._stopped_at,

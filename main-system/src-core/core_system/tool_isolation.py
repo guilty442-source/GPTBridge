@@ -655,6 +655,13 @@ class ToolIsolationManager:
                 for tid in tool_ids:
                     if self._stop_event.is_set():
                         break
+                    # Skip entries already marked as crashed or quarantined
+                    # so the monitor does not repeatedly detect the same
+                    # dead process and spam "giving up" every cycle.
+                    with self._lock:
+                        entry = self._entries.get(tid)
+                    if entry is not None and (entry.crashed or entry.quarantined):
+                        continue
                     health = self.check_tool_health(tid)
                     if health.get("status") == "crashed":
                         _logger.warning(

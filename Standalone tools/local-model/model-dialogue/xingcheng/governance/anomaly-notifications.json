@@ -1,0 +1,1202 @@
+[
+  {
+    "notified_at": "2026-09-13T12:04:00.064430Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:00.064430Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:00.064430Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:00.064430Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:00.064430Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:01.577783Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:01.577783Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:01.577783Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:01.577783Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:01.577783Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:10.847015Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:10.847015Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:10.847015Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:10.847015Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:10.847015Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:12.132388Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:12.132388Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:12.132388Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:12.132388Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:12.132388Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:21.510486Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:21.510486Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:21.510486Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:21.510486Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:21.510486Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:22.778370Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:22.778370Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:22.778370Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:22.778370Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:22.778370Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:32.243406Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:32.243406Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:32.243406Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:32.243406Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:32.243406Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:33.529947Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:33.529947Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:33.529947Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:33.529947Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:33.529947Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:44.209641Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:44.209641Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:44.209641Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:44.209641Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:44.209641Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:54.832988Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:54.832988Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:54.832988Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:54.832988Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:04:54.832988Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:05.578830Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:05.578830Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:05.578830Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:05.578830Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:05.578830Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:16.238113Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:16.238113Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:16.238113Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:16.238113Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:16.238113Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:26.826506Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:26.826506Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:26.826506Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:26.826506Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:26.826506Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:37.432791Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:37.432791Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:37.432791Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:37.432791Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:37.432791Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:48.096881Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:48.096881Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:48.096881Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:48.096881Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:48.096881Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:58.679103Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:58.679103Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:58.679103Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:58.679103Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:05:58.679103Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:09.325065Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:09.325065Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:09.325065Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:09.325065Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:09.325065Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:20.021334Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:20.021334Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:20.021334Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:20.021334Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:20.021334Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:30.642495Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:30.642495Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:30.642495Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:30.642495Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:30.642495Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:41.320731Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:41.320731Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:41.320731Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:41.320731Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-13T12:06:41.320731Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  }
+]
