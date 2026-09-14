@@ -1,4 +1,4 @@
-"""Permission Sovereign — Permission Query Adjudication (A6/A10/A22).
+"""Permission Sovereign — Permission Query Adjudication (A436/A10/A22).
 
 Read-only directory surface using the sealed DirectoryAuthoritySnapshot
 and AccessGateway — the sovereign never calls nonexistent governance
@@ -29,21 +29,16 @@ class PermissionQueryMixin:
     app: Any
     _governance_ref: Any
 
-    def _governance(self) -> Any:
-        if self._governance_ref is not None:
-            return self._governance_ref
-        return getattr(self.app, "governance", None)
-
     async def _adjudicate_permission_query(
         self, request: SovereignRequest
     ) -> SovereignOutcome:
-        """A6/A10/A22: permission query — read-only directory surface."""
+        """A436/A10/A22: permission query — read-only directory surface."""
         actor = request.payload.get("actor") or request.requester
         capability = request.payload.get("capability")
         target = request.payload.get("target")
         if not capability or not target:
             return refusal_outcome(
-                "INSUFFICIENT_QUERY_PARAMS", verified_basis("A6", "A10")
+                "INSUFFICIENT_QUERY_PARAMS", verified_basis(("A436", "A10"))
             )
 
         # Resolve from the sealed directory authority snapshot (read-only).
@@ -60,7 +55,7 @@ class PermissionQueryMixin:
                 "basis": basis_text,
                 "source": "identity-permission-snapshot",
             },
-            verified_basis("A6", "A10", "A22"),
+            verified_basis(("A436", "A10", "A22")),
         )
 
     async def _adjudicate_directory_verify(
@@ -76,7 +71,7 @@ class PermissionQueryMixin:
                     "sealed": True,
                 },
             },
-            verified_basis("A7"),
+            verified_basis(("A7",)),
         )
 
     async def _adjudicate_identity_verify(
@@ -99,5 +94,5 @@ class PermissionQueryMixin:
                     "bound_tool_id": identity.bound_tool_id if verified else None,
                 },
             },
-            verified_basis("A39"),
+            verified_basis(("A39",)),
         )

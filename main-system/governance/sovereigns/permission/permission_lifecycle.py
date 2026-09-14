@@ -41,21 +41,21 @@ class PermissionLifecycleMixin:
         """Permission termination — decision-only, appends to ledger."""
         permission_id = request.payload.get("permission_id")
         if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis("A6"))
+            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis(("A436",)))
         if not was_issued(permission_id):
             return refusal_outcome(
-                "PERMISSION_NOT_ISSUED", verified_basis("A6", "A10")
+                "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
             )
         status = current_status(permission_id)
         if status and status.get("status") == "terminated":
             return refusal_outcome(
-                "PERMISSION_ALREADY_TERMINATED", verified_basis("A6")
+                "PERMISSION_ALREADY_TERMINATED", verified_basis(("A436",))
             )
         record_lifecycle(
             operation="terminate",
             permission_id=permission_id,
             requester=request.requester,
-            basis=("A6", "A10", "A22"),
+            basis=("A436", "A10", "A22"),
         )
         self._issued_grants[permission_id] = {
             "status": "terminated",
@@ -68,7 +68,7 @@ class PermissionLifecycleMixin:
                 "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis("A6", "A10", "A22"),
+            verified_basis(("A436", "A10", "A22")),
         )
 
     async def _adjudicate_permission_renew(
@@ -77,16 +77,16 @@ class PermissionLifecycleMixin:
         """Permission renewal — decision-only, appends to ledger."""
         permission_id = request.payload.get("permission_id")
         if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis("A6"))
+            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis(("A436",)))
         if not was_issued(permission_id):
             return refusal_outcome(
-                "PERMISSION_NOT_ISSUED", verified_basis("A6", "A10")
+                "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
             )
         record_lifecycle(
             operation="renew",
             permission_id=permission_id,
             requester=request.requester,
-            basis=("A6", "A10", "A22"),
+            basis=("A436", "A10", "A22"),
         )
         self._issued_grants[permission_id] = {
             "status": "renewed",
@@ -99,7 +99,7 @@ class PermissionLifecycleMixin:
                 "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis("A6", "A10", "A22"),
+            verified_basis(("A436", "A10", "A22")),
         )
 
     async def _adjudicate_permission_restrict(
@@ -109,16 +109,16 @@ class PermissionLifecycleMixin:
         permission_id = request.payload.get("permission_id")
         restrictions = request.payload.get("restrictions", {})
         if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis("A6"))
+            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis(("A436",)))
         if not was_issued(permission_id):
             return refusal_outcome(
-                "PERMISSION_NOT_ISSUED", verified_basis("A6", "A10")
+                "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
             )
         record_lifecycle(
             operation="restrict",
             permission_id=permission_id,
             requester=request.requester,
-            basis=("A6", "A10", "A22"),
+            basis=("A436", "A10", "A22"),
             detail={"restrictions": restrictions},
         )
         self._issued_grants[permission_id] = {
@@ -133,7 +133,7 @@ class PermissionLifecycleMixin:
                 "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis("A6", "A10", "A22"),
+            verified_basis(("A436", "A10", "A22")),
         )
 
     async def _adjudicate_permission_suspend(
@@ -142,16 +142,16 @@ class PermissionLifecycleMixin:
         """Permission suspension — decision-only, appends to ledger."""
         permission_id = request.payload.get("permission_id")
         if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis("A6"))
+            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis(("A436",)))
         if not was_issued(permission_id):
             return refusal_outcome(
-                "PERMISSION_NOT_ISSUED", verified_basis("A6", "A10")
+                "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
             )
         record_lifecycle(
             operation="suspend",
             permission_id=permission_id,
             requester=request.requester,
-            basis=("A6", "A10", "A22"),
+            basis=("A436", "A10", "A22"),
         )
         self._issued_grants[permission_id] = {
             "status": "suspended",
@@ -164,7 +164,7 @@ class PermissionLifecycleMixin:
                 "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis("A6", "A10", "A22"),
+            verified_basis(("A436", "A10", "A22")),
         )
 
     async def _adjudicate_permission_revoke(
@@ -173,16 +173,16 @@ class PermissionLifecycleMixin:
         """Permission revocation — decision-only, appends to ledger."""
         permission_id = request.payload.get("permission_id")
         if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis("A6"))
+            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis(("A436",)))
         if not was_issued(permission_id):
             return refusal_outcome(
-                "PERMISSION_NOT_ISSUED", verified_basis("A6", "A10")
+                "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
             )
         record_lifecycle(
             operation="revoke",
             permission_id=permission_id,
             requester=request.requester,
-            basis=("A6", "A10", "A22"),
+            basis=("A436", "A10", "A22"),
         )
         self._issued_grants[permission_id] = {
             "status": "revoked",
@@ -195,7 +195,7 @@ class PermissionLifecycleMixin:
                 "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis("A6", "A10", "A22"),
+            verified_basis(("A436", "A10", "A22")),
         )
 
     def _iso_now(self) -> str:

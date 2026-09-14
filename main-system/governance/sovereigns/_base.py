@@ -207,8 +207,19 @@ class SovereignBase(ABC):
         return await SovereignExecutionPipeline(self).run(request)
 
     def register_verification_check(self, intent: str, check: Any) -> None:
-        """Register an independent domain check for ``intent`` (A446)."""
+        """Register an independent domain check for ``intent`` (A69)."""
         self._independent_verifier.register(intent, check)
+
+    def _governance(self) -> Any:
+        """The app governance service, or None when unavailable (A6/A10).
+
+        Shared accessor so permission/auth mixins never call an undefined
+        method: the explicit ``_governance_ref`` wins, then ``app.governance``.
+        """
+        ref = getattr(self, "_governance_ref", None)
+        if ref is not None:
+            return ref
+        return getattr(self.app, "governance", None)
 
     def verify_execution_result(
         self, intent: str, executor_actor: str, outcome: SovereignOutcome
@@ -217,7 +228,7 @@ class SovereignBase(ABC):
         return self._independent_verifier.verify(intent, executor_actor, outcome)
 
     async def _verify_requester(self, request: SovereignRequest) -> bool:
-        """验证请求者身份（A10/A11/A116/A121/A174 fail-closed）.
+        """验证请求者身份（A10/A11/A116/A121/A435 fail-closed）.
 
         Delegates to ``_requester_verification.verify_requester`` so the
         fail-closed identity-attestation contract lives in one place.

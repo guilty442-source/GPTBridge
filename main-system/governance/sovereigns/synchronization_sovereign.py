@@ -169,7 +169,7 @@ class SynchronizationSovereign(
         if intent == "sync.decision":
             return await self._adjudicate_sync_decision(request)
 
-        return refusal_outcome("UNKNOWN_INTENT", verified_basis("A10", "A12"))
+        return refusal_outcome("UNKNOWN_INTENT", verified_basis(("A10", "A12")))
 
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest

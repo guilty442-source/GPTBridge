@@ -1,4 +1,4 @@
-"""Permission grant ledger — append-only JSONL persistence (A46/A174).
+"""Permission grant ledger — append-only JSONL persistence (A46/A435).
 
 The permission sovereign's issued grants and lifecycle transitions are
 recorded in an append-only JSON-Lines ledger so they survive restarts,
@@ -28,6 +28,10 @@ _PERMISSION_LEDGER_PATH: Final[Path] = (
 )
 
 PERMISSION_LEDGER_PATH: Final[Path] = _PERMISSION_LEDGER_PATH
+_VIOLATION_LEDGER_PATH: Final[Path] = (
+    _DEFAULT_PROJECT_ROOT / "runtime" / "state" / "permission-violation-ledger.jsonl"
+)
+VIOLATION_LEDGER_PATH: Final[Path] = _VIOLATION_LEDGER_PATH
 
 _LOCK = threading.Lock()
 
@@ -128,6 +132,49 @@ def record_lifecycle(
     return _append_entry(entry, ledger_path)
 
 
+def record_violation(
+    *,
+    sovereign_id: str,
+    violation: dict[str, Any],
+    requester: str,
+    basis: tuple[str, ...] = (),
+    ledger_path: Path = _VIOLATION_LEDGER_PATH,
+) -> int:
+    """Record one compliance violation append-only (A6/A121/A46)."""
+    entry = {
+        "sequence": _next_sequence(ledger_path),
+        "timestamp": _iso_now(),
+        "operation": "violation",
+        "sovereign_id": str(sovereign_id),
+        "requester": str(requester),
+        "violation": dict(violation),
+        "basis": list(basis),
+    }
+    return _append_entry(entry, ledger_path)
+
+
+def load_violations(
+    ledger_path: Path = _VIOLATION_LEDGER_PATH,
+) -> list[dict[str, Any]]:
+    """Return every recorded compliance violation (append-only history)."""
+    if not ledger_path.is_file():
+        return []
+    entries: list[dict[str, Any]] = []
+    try:
+        with ledger_path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    except OSError:
+        return []
+    return entries
+
+
 def load_grant_history(
     permission_id: str, ledger_path: Path = _PERMISSION_LEDGER_PATH
 ) -> list[dict[str, Any]]:
@@ -174,9 +221,12 @@ def was_issued(
 
 __all__ = [
     "PERMISSION_LEDGER_PATH",
+    "VIOLATION_LEDGER_PATH",
     "current_status",
     "load_grant_history",
+    "load_violations",
     "record_grant",
     "record_lifecycle",
+    "record_violation",
     "was_issued",
 ]

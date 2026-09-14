@@ -17,14 +17,14 @@ Auxiliary review group (separate+non-transitive from own-domain power):
 - A138: independent analysis+reasoning over governed global evidence; results advisory-only + traceable.
 - A139: 星澄-SYSTEM-POWER: global-read-only-review + anomaly-classification + user-notification.
 - A140: information layer is the sole provider of filtered system review evidence.
-- A144/A174: 星澄 is the sole auxiliary codex-view exception — official entry, read-only.
+- A144/A435: 星澄 is the sole auxiliary codex-view exception — official entry, read-only.
 - A145: auxiliary duties = reference codex as basis + review all system domains + notify user.
 - Language-review capability: transferred to 星澄 when language-review-sub-sovereign abolished (A334).
 
-Special-law powers (basis A313|A328|A336):
-- A313: all permission-review authority transferred to 星澄.
-- A328: free-entry privilege — confidential read-only inspection of every governed layer.
-- A336: abolished system-programming + language-review sub-sovereign duties transfer to 星澄.
+Special-law powers (basis A319|A330|A337):
+- A319: all permission-review authority transferred to 星澄.
+- A330: free-entry privilege — confidential read-only inspection of every governed layer.
+- A337: abolished system-programming + language-review sub-sovereign duties transfer to 星澄.
   Programming analysis/design/code authoring/refactoring/debugging/tool use/verification and
   language conformance are exclusive native-model capabilities.
   Whole-system automation coordination executor exclusively vested in 星澄.
@@ -87,19 +87,19 @@ class XingchengSovereign(
         # Auxiliary review group (A137-A146, separate+non-transitive)
         "review.global", "review.classify-anomaly", "review.notify-user",
         "review.language", "codex.read", "inspect.layer",
-        # A313: permission-review authority transferred to 星澄
+        # A319: permission-review authority transferred to 星澄
         "review.permission",
-        # A328: free-entry confidential read-only inspection
+        # A330: free-entry confidential read-only inspection
         "inspect.layer",
-        # A336: automatic classification (auxiliary + native model)
+        # A337: automatic classification (auxiliary + native model)
         "classify.intent", "classify.task", "classify.code", "classify.fault",
         "classify.evidence", "classify.result",
-        # A336: star adjudication
+        # A337: star adjudication
         "star.adjudicate-classification",
-        # A336: native-model programming capabilities
+        # A337: native-model programming capabilities
         "program.analyze", "program.design", "program.write", "program.refactor",
         "program.debug", "program.verify", "program.migrate", "program.review-generated",
-        # A336: whole-system automation coordination executor
+        # A337: whole-system automation coordination executor
         "automation.decompose", "automation.schedule", "automation.dispatch",
         "automation.converge", "automation.verify-result", "automation.contain-failure",
     })
@@ -131,7 +131,7 @@ class XingchengSovereign(
         """裁決：自有域完全權力 + 輔助唯讀審查（兩群分立、不可遞移）。"""
         intent = request.intent
 
-        # Auxiliary + special-law groups (A137-A146/A313/A328/A336):
+        # Auxiliary + special-law groups (A137-A146/A319/A330/A337):
         # read-only/advisory, no system effects
         if (
             intent.startswith("review.")
@@ -142,7 +142,7 @@ class XingchengSovereign(
         ):
             return await self.adjudicate_review(request)
 
-        # A336 native-model programming + whole-system automation executor
+        # A337 native-model programming + whole-system automation executor
         if intent.startswith("program.") or intent.startswith("automation."):
             return await self.adjudicate_native_capability(request)
 

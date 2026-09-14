@@ -1,4 +1,4 @@
-"""Official codex entry (A74/A173/A174) — the single read-only codex projection.
+"""Official codex entry (A74/A173/A435) — the single read-only codex projection.
 
 法典依據:
 - A38/A107/A173: the official storage is the single local read-only SQLite
@@ -6,7 +6,7 @@
   the adjudication, citation or machine-governance basis.
 - A74: ALL-CODEX-CITATION enters through ``governance-codex://official``
   with an explicit provision id; resolution is read-only.
-- A174: sovereign authoritative reads carry identity attestation, purpose
+- A435: sovereign authoritative reads carry identity attestation, purpose
   and least provision scope; every attested read requires a per-request
   permission review (entry-owner: permission-sovereign), a single-use
   read session with nonce + expiry, replay protection, and a metadata-only
@@ -24,12 +24,10 @@ reading its own declaration — a self-attested self-declaration session.
 
 from __future__ import annotations
 
-import json
 import secrets
 import threading
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Final
 
 from governance_rule.execution.codex_repository import (
@@ -43,10 +41,6 @@ _REQUEST_PURPOSES: Final[frozenset[str]] = frozenset(
     {"self-declaration", "adjudication", "status"}
 )
 _SESSION_TTL_SECONDS: Final[float] = 30.0
-_CODEX_READ_AUDIT_PATH: Final[Path] = (
-    Path(__file__).resolve().parent / "audit" / "codex_read_audit.jsonl"
-)
-_AUDIT_LOCK = threading.Lock()
 _sessions: dict[str, tuple[str, str, str, str, float]] = {}
 _session_lock = threading.Lock()
 
@@ -73,7 +67,7 @@ def mint_codex_read_session(
     purpose: str,
     provision_id: str,
 ) -> str:
-    """Mint a single-use codex read session (A174 nonce+expiry+single-use).
+    """Mint a single-use codex read session (A435 nonce+expiry+single-use).
 
     The permission sovereign (entry-owner) calls this after completing the
     per-request permission review for an authoritative view.  A sovereign
@@ -104,7 +98,7 @@ def mint_codex_read_session(
 def _consume_session(
     nonce: str, *, sovereign_id: str, requester: str, provision_id: str, purpose: str
 ) -> bool:
-    """Consume a single-use session exactly once (A174 replay protection).
+    """Consume a single-use session exactly once (A435 replay protection).
 
     Returns False for unknown, expired, mismatched or already-consumed
     nonces — a replayed read can never succeed.
@@ -136,24 +130,27 @@ def _record_read_audit(
     purpose: str,
     result: str,
 ) -> None:
-    """Append a metadata-only codex-read audit entry (A174 audit).
+    """Append a metadata-only codex-read audit entry (A174/A435 unified).
 
-    A174 FORBID:content-in-audit — the record carries only identity,
-    scope, purpose and outcome metadata, never codex content, hashes or
-    excerpts.
+    A174 FORBID:content-in-audit — the record carries identity, purpose,
+    scope hash and outcome metadata only, never codex content or raw scope
+    identifiers; the unified entry-state writer hashes the scope and keeps
+    the allowed key set.
     """
-    entry = {
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime()),
-        "entry": OFFICIAL_ENTRY,
-        "requester": str(requester),
-        "sovereign_id": str(sovereign_id),
-        "provision_id": str(provision_id),
-        "purpose": str(purpose),
-        "result": str(result),
-    }
-    _CODEX_READ_AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with _AUDIT_LOCK, _CODEX_READ_AUDIT_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+    from governance_rule.execution import codex_entry_state as _state
+
+    _state.record_session_audit(
+        event="official-read",
+        actor=str(requester),
+        purpose=str(purpose),
+        access_class=_state.ACCESS_REVIEW,
+        scope=frozenset(
+            {f"sovereign:{sovereign_id}", f"provision:{provision_id}"}
+        ),
+        codex_version=None,
+        correlation="",
+        result=str(result),
+    )
 
 
 def _validate_read_request(
@@ -161,7 +158,7 @@ def _validate_read_request(
 ) -> str | None:
     """Return a denial reason string, or None when the request is valid.
 
-    Fail-closed A174 gate: identity attestation, explicit provision id
+    Fail-closed A435 gate: identity attestation, explicit provision id
     (least scope), governed purpose, and a valid single-use session
     (replay-proof, expiry-bound) are all mandatory.
     """
@@ -189,7 +186,7 @@ def official_sovereign(
 ) -> Any | None:
     """Read one sovereign declaration from the official SQLite authority.
 
-    A174 authoritative-view controls (all mandatory, fail-closed):
+    A435 authoritative-view controls (all mandatory, fail-closed):
 
     * ``requester`` — non-empty identity attestation; a bare string is
       never accepted without a bound single-use session.
@@ -201,7 +198,7 @@ def official_sovereign(
       permission sovereign after per-request review (or self-minted for a
       self-declaration); consumed exactly once (replay-proof, expiry-bound).
 
-    A metadata-only audit record is written for every attempt (A174 audit;
+    A metadata-only audit record is written for every attempt (A435 audit;
     content-in-audit is forbidden).  The Chinese language mirror is never
     read here (A38/A173: it has no authority).
     """
@@ -237,7 +234,7 @@ def official_self_declaration(sovereign_id: str) -> Any | None:
     Convenience for the common import-time self-declaration case: the
     sovereign self-mints a single-use session (requester == sovereign_id,
     purpose == "self-declaration", provision_id == sovereign_id) and reads
-    its own declaration through the official entry.  All A174 controls
+    its own declaration through the official entry.  All A435 controls
     (nonce, expiry, single-use, replay protection, audit, explicit
     provision id, non-empty requester) remain enforced.
     """

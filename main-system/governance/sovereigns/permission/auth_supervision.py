@@ -1,6 +1,6 @@
-"""Permission Sovereign — Authorization Routing and Supervision (A6/A10/E4).
+"""Permission Sovereign — Authorization Routing and Supervision (A436/A10/E4).
 
-Two-key authorization boundary (A313): every permission.authorize
+Two-key authorization boundary (A319): every permission.authorize
 adjudication must obtain a current 星澄 (Xingcheng) permission-review
 finding before deciding.  A deny-objection or missing review fails
 closed with a refusal outcome — never an accepted outcome wrapping a
@@ -23,7 +23,7 @@ from core_system.codex_decision import (
     decision_basis,
     verified_basis,
 )
-from core_system.permission_grant_ledger import record_grant
+from core_system.permission_grant_ledger import record_grant, record_violation
 
 
 class PermissionAuthSupervisionMixin:
@@ -35,7 +35,7 @@ class PermissionAuthSupervisionMixin:
     _issued_grants: dict[str, dict[str, Any]]
 
     # ------------------------------------------------------------------
-    # Two-key review (A313): obtain a current 星澄 permission-review finding.
+    # Two-key review (A319): obtain a current 星澄 permission-review finding.
     # ------------------------------------------------------------------
 
     def _request_xingcheng_permission_review(
@@ -62,13 +62,13 @@ class PermissionAuthSupervisionMixin:
             return asyncio.get_event_loop().run_until_complete(
                 xingcheng.adjudicate_review(review_request)
             )
-        except Exception:
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
             return None
 
     def _check_two_key_review(
         self, request: SovereignRequest
     ) -> SovereignOutcome | None:
-        """A313 two-key gate: return a refusal outcome if the 星澄 review
+        """A319 two-key gate: return a refusal outcome if the 星澄 review
         denies or is missing; return None to proceed when the review passes.
 
         Per the dual-key boundary, a missing review (星澄 unavailable) fails
@@ -91,20 +91,20 @@ class PermissionAuthSupervisionMixin:
         )
         if review is None:
             return refusal_outcome(
-                "TWO_KEY_REVIEW_UNAVAILABLE", verified_basis("A313", "A10")
+                "TWO_KEY_REVIEW_UNAVAILABLE", verified_basis(("A319", "A10"))
             )
         finding = review.result.get("finding", "")
         if finding == "deny-objection":
             return refusal_outcome(
-                "TWO_KEY_REVIEW_DENIED", verified_basis("A313", "A10")
+                "TWO_KEY_REVIEW_DENIED", verified_basis(("A319", "A10"))
             )
         if finding == "require-change":
             return refusal_outcome(
-                "TWO_KEY_REVIEW_REQUIRES_CHANGE", verified_basis("A313")
+                "TWO_KEY_REVIEW_REQUIRES_CHANGE", verified_basis(("A319",))
             )
         if finding != "pass":
             return refusal_outcome(
-                "TWO_KEY_REVIEW_NOT_PASSED", verified_basis("A313", "A10")
+                "TWO_KEY_REVIEW_NOT_PASSED", verified_basis(("A319", "A10"))
             )
         return None  # proceed to authorization
 
@@ -211,15 +211,15 @@ class PermissionAuthSupervisionMixin:
         """A10/E4: authorization routing — two-key review then directory decision."""
         governance = self._governance()
         if governance is None:
-            return refusal_outcome("GOVERNANCE_UNAVAILABLE", verified_basis("A10", "E4"))
+            return refusal_outcome("GOVERNANCE_UNAVAILABLE", verified_basis(("A10", "E4")))
 
         params = self._extract_authorize_params(request)
         if params is None:
             return refusal_outcome(
-                "INSUFFICIENT_AUTHORIZATION_PARAMS", verified_basis("A10", "E4")
+                "INSUFFICIENT_AUTHORIZATION_PARAMS", verified_basis(("A10", "E4"))
             )
 
-        # A313: two-key review gate — fail closed on deny/missing.
+        # A319: two-key review gate — fail closed on deny/missing.
         review_refusal = self._check_two_key_review(request)
         if review_refusal is not None:
             return review_refusal
@@ -263,12 +263,12 @@ class PermissionAuthSupervisionMixin:
             )
         except PermissionError:
             return refusal_outcome(
-                "AUTHORIZATION_DENIED", verified_basis("A10", "E4")
+                "AUTHORIZATION_DENIED", verified_basis(("A10", "E4"))
             )
         allowed = bool(getattr(result, "allowed", False)) or bool(result)
         if not allowed:
             return refusal_outcome(
-                "AUTHORIZATION_DENIED", verified_basis("A10", "E4")
+                "AUTHORIZATION_DENIED", verified_basis(("A10", "E4"))
             )
         return self._record_authorized_grant(request, params)
 
@@ -287,10 +287,15 @@ class PermissionAuthSupervisionMixin:
                 data_scope=params["data_scope"],
                 requester=request.requester,
                 review_finding="pass",
-                basis=("A10", "E4", "A313"),
+                basis=("A10", "E4", "A319"),
             )
-        except Exception:
-            pass  # ledger failure must not block the authorization decision
+        except (OSError, ValueError, RuntimeError):
+            # An unrecorded grant may not proceed (A46/A121 fail-closed):
+            # expected ledger failures deny instead of silently degrading.
+            return refusal_outcome(
+                "PERMISSION_LEDGER_UNAVAILABLE",
+                verified_basis(("A10", "A46", "A121")),
+            )
         self._issued_grants[permission_id] = {
             "status": "issued",
             "issued_at": self._iso_now(),
@@ -303,23 +308,37 @@ class PermissionAuthSupervisionMixin:
                 "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis("A10", "E4", "A313"),
+            verified_basis(("A10", "E4", "A319")),
         )
 
     # ------------------------------------------------------------------
-    # Adjudication: permission.supervise (A6)
+    # Adjudication: permission.supervise (A436)
     # ------------------------------------------------------------------
 
     async def _adjudicate_permission_supervise(
         self, request: SovereignRequest
     ) -> SovereignOutcome:
-        """A6: execution compliance supervision — read-only surface."""
+        """A436: execution compliance supervision — read-only surface."""
         governance = self._governance()
         if governance is None:
-            return refusal_outcome("GOVERNANCE_UNAVAILABLE", verified_basis("A6"))
+            return refusal_outcome("GOVERNANCE_UNAVAILABLE", verified_basis(("A436",)))
 
         violations = request.payload.get("violations", [])
         if violations:
+            try:
+                for violation in violations:
+                    record_violation(
+                        sovereign_id=self.sovereign_id,
+                        violation=violation,
+                        requester=request.requester,
+                        basis=("A6", "A121", "A46"),
+                    )
+            except (OSError, ValueError, RuntimeError):
+                # An unrecorded violation may not be accepted (A121/A46).
+                return refusal_outcome(
+                    "VIOLATION_LEDGER_UNAVAILABLE",
+                    verified_basis(("A6", "A121")),
+                )
             self._compliance_violations.extend(violations)
 
         return accepted_outcome(
@@ -328,7 +347,7 @@ class PermissionAuthSupervisionMixin:
                 "violations_recorded": len(violations),
                 "total_violations": len(self._compliance_violations),
             },
-            verified_basis("A6"),
+            verified_basis(("A436",)),
         )
 
     def get_compliance_violations(self) -> list[dict[str, Any]]:
