@@ -28,6 +28,7 @@ from .audit_authority import (
     check_shared_layer_policy,
     check_shared_layer_structure,
     check_third_party_inventory,
+    check_tool_isolation_hardening,
 )
 from .audit_activation import check_activation_states
 from .audit_directories import check_directory_audit
@@ -93,6 +94,7 @@ def audit_runtime_governance(
         lambda r: _collect(check_identity_permissions, r),
         lambda r: _collect(check_main_system_source, r),
         lambda r: _collect(check_shared_layer_structure, r),
+        lambda r: _collect(check_tool_isolation_hardening, r),
         _manifest_pair,
         lambda r: _collect(check_codex_consistency, r),
         lambda r: _collect(check_directory_audit, r),

@@ -166,8 +166,10 @@ class StartSpawnMixin:
                         str(python_executable), "-B", "-s", "-E", "-X", "utf8",
                         str(source_entry), *args,
                         cwd=str(tool_dir),
+                        stdin=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL,
-                        stderr=None,
+                        stderr=subprocess.DEVNULL,
+                        close_fds=True,
                         env=source_environment,
                         **_background_subprocess_kwargs(),
                     )
@@ -182,8 +184,10 @@ class StartSpawnMixin:
                 process = await asyncio.create_subprocess_exec(
                     str(executable_file), *args,
                     cwd=str(tool_dir),
+                    stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    close_fds=True,
                     env=self._tool_environment(
                         tool_id, tool_dir, manifest, start_hidden=background,
                     ),

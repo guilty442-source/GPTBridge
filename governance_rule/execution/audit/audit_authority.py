@@ -437,3 +437,35 @@ def check_shared_layer_structure(root: Path, errors: list[str]) -> None:
                 errors.append(f"shared layer source is missing: {source.name}")
             elif not _is_operating_system_read_only(source):
                 errors.append(f"shared layer source is not read-only: {source.name}")
+
+
+def check_tool_isolation_hardening(root: Path, errors: list[str]) -> None:
+    """Verify tool isolation source contains A266 hardening controls (A266/A121).
+
+    Checks that the tool isolation manager and spawn path enforce:
+    - stdin isolation (DEVNULL) — tools cannot read parent stdin.
+    - close_fds — file descriptors do not leak to child processes.
+    - job assignment verification — failed assignment is audited.
+    - durable isolation audit ledger — registrations are recorded.
+    """
+    isolation_source = (
+        root / "main-system/src-core/core_system/tool_isolation.py"
+    ).read_text(encoding="utf-8")
+    spawn_source = (
+        root / "main-system/src-core/tasks/toolbox_start_spawn.py"
+    ).read_text(encoding="utf-8")
+    required_isolation_controls = (
+        ("_record_isolation_audit", "durable isolation audit ledger"),
+        ("job_assigned", "job assignment verification"),
+        ("job-assignment-failed", "job assignment failure audit"),
+    )
+    for marker, label in required_isolation_controls:
+        if marker not in isolation_source:
+            errors.append(f"tool isolation lacks {label}")
+    required_spawn_controls = (
+        ("stdin=subprocess.DEVNULL", "spawn stdin isolation"),
+        ("close_fds=True", "spawn close_fds"),
+    )
+    for marker, label in required_spawn_controls:
+        if marker not in spawn_source:
+            errors.append(f"tool spawn lacks {label}")

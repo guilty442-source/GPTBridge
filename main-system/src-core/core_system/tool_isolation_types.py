@@ -43,6 +43,8 @@ class ToolIsolationEntry:
     repair_root: str = ""
     # A266: Window host isolation (for Electron tools)
     window_host_pid: int = 0
+    # A266/A121: Job Object assignment verified at registration.
+    job_assigned: bool = False
 
 
 @dataclass

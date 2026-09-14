@@ -8,13 +8,22 @@ details live in submodules:
   * :mod:`core_system.tool_isolation_health` — health monitoring mixin.
 
 Provides process-level isolation for independent tools (A266 compliance).
+
+Hardening (A266/A121/A46):
+- Job assignment is verified: a failed assignment is recorded in the
+  isolation audit ledger and the entry is marked ``job_unassigned`` so
+  consumers can detect uncontained processes.
+- Every registration, job assignment result, and unregister is appended
+  to a durable ``tool-isolation-audit.jsonl`` ledger (A46 ledger-per-action).
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Final
@@ -37,6 +46,36 @@ _logger = logging.getLogger("gptbridge.tool_isolation")
 _CONFIG_RELATIVE: Final[tuple[str, ...]] = (
     "..", "..", "config", "tool-isolation-policy.json",
 )
+
+_AUDIT_LEDGER: Final[Path] = (
+    Path(__file__).resolve().parents[2]
+    / "runtime" / "state" / "tool-isolation-audit.jsonl"
+)
+_AUDIT_LOCK = threading.Lock()
+
+
+def _iso_now() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _record_isolation_audit(
+    *, tool_id: str, event: str, detail: dict[str, Any] | None = None
+) -> None:
+    """Append one isolation event to the durable ledger (A46)."""
+    entry = {
+        "timestamp": _iso_now(),
+        "tool_id": str(tool_id),
+        "event": str(event),
+        "detail": dict(detail) if detail else {},
+    }
+    try:
+        _AUDIT_LEDGER.parent.mkdir(parents=True, exist_ok=True)
+        line = json.dumps(entry, ensure_ascii=False, sort_keys=True, default=str)
+        with _AUDIT_LOCK, _AUDIT_LEDGER.open("a", encoding="utf-8") as handle:
+            handle.write(line + os.linesep)
+            handle.flush()
+    except OSError:
+        pass
 
 
 class ToolIsolationManager(ToolIsolationHealthMixin):
@@ -109,6 +148,7 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
             kill_on_close=policy.kill_on_job_close,
         )
 
+        job_assigned = False
         if job_handle is not None:
             proc_handle = _KERNEL32.OpenProcess(
                 _PROCESS_SET_QUOTA | _PROCESS_TERMINATE,
@@ -116,8 +156,22 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
                 process.pid,
             ) if _KERNEL32 else None
             if proc_handle:
-                _assign_process_to_job(job_handle, proc_handle)
+                job_assigned = _assign_process_to_job(job_handle, proc_handle)
                 _KERNEL32.CloseHandle(proc_handle)
+            if not job_assigned:
+                _record_isolation_audit(
+                    tool_id=tool_id, event="job-assignment-failed",
+                    detail={"pid": process.pid, "memory_limit_mb": policy.memory_limit_mb},
+                )
+                _logger.warning(
+                    "tool_isolation job_assignment_failed tool_id=%s pid=%d",
+                    tool_id, process.pid,
+                )
+        else:
+            _record_isolation_audit(
+                tool_id=tool_id, event="job-object-unavailable",
+                detail={"pid": process.pid},
+            )
 
         runtime_generation = uuid.uuid4().hex[:12]
         project_root = self.project_root
@@ -148,6 +202,7 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
             cache_root=cache_root,
             channel_id=channel_id,
             repair_root=repair_root,
+            job_assigned=job_assigned,
         )
 
         with self._lock:
@@ -155,6 +210,19 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
             if old and old.job_handle and _KERNEL32:
                 _KERNEL32.CloseHandle(old.job_handle)
             self._entries[tool_id] = entry
+
+        _record_isolation_audit(
+            tool_id=tool_id, event="register",
+            detail={
+                "pid": process.pid,
+                "memory_limit_mb": policy.memory_limit_mb,
+                "cpu_percent_limit": policy.cpu_percent_limit,
+                "job_assigned": job_assigned,
+                "network_policy": policy.network_policy,
+                "filesystem_policy": policy.filesystem_policy,
+                "runtime_generation": runtime_generation,
+            },
+        )
 
         _logger.info(
             "tool_isolated tool_id=%s pid=%d memory_limit=%dMB cpu_limit=%d%% "
@@ -171,6 +239,11 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
             entry = self._entries.pop(tool_id, None)
         if entry and entry.job_handle and _KERNEL32:
             _KERNEL32.CloseHandle(entry.job_handle)
+        if entry is not None:
+            _record_isolation_audit(
+                tool_id=tool_id, event="unregister",
+                detail={"pid": entry.pid, "job_assigned": entry.job_assigned},
+            )
 
     def status(self) -> dict[str, Any]:
         """Return isolation manager status for health checks."""
@@ -191,6 +264,7 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
                 "cache_root": e.cache_root,
                 "channel_id": e.channel_id,
                 "repair_root": e.repair_root,
+                "job_assigned": e.job_assigned,
             }
             for tid, e in raw_entries
         }

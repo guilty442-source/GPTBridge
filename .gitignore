@@ -30,6 +30,7 @@ main-system/runtime/state/delegation-audit.jsonl
 main-system/runtime/state/fault-query-audit.jsonl
 main-system/runtime/state/codex-health-actions.jsonl
 main-system/runtime/state/native-capability-tasks.jsonl
+main-system/runtime/state/tool-isolation-audit.jsonl
 main-system/data/automatic-repair/**/*.sqlite3*
 ai-assistant/data/business/
 src-core/runtime/
