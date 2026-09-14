@@ -28,6 +28,7 @@ shared-layer/runtime/governed-process-audit.jsonl
 main-system/runtime/state/permission-grant-ledger.jsonl
 main-system/runtime/state/delegation-audit.jsonl
 main-system/runtime/state/fault-query-audit.jsonl
+main-system/runtime/state/codex-health-actions.jsonl
 main-system/data/automatic-repair/**/*.sqlite3*
 ai-assistant/data/business/
 src-core/runtime/
