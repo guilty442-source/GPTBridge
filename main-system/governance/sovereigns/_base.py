@@ -28,7 +28,13 @@ from core_system.codex_decision import (
     verified_basis,
 )
 
-from ._delegation import consume_delegation, mint_delegation, record_delegation_outcome
+from ._delegation import (
+    attach_delegation_receipt,
+    consume_delegation,
+    mint_delegation,
+    mint_delegation_receipt,
+    record_delegation_outcome,
+)
 from ._requester_verification import (
     _GOVERNED_IN_PROCESS_ACTORS,
     verify_requester as _verify_requester_impl,
@@ -75,6 +81,59 @@ class SovereignIdentity:
             powers=tuple(s.powers),
             prohibitions=tuple(s.prohibitions),
         )
+
+
+def _stamp_delegation(
+    request: SovereignRequest,
+    sovereign_id: str,
+    target_sovereign_id: str,
+) -> SovereignRequest:
+    """Stamp a single-use delegation nonce onto the forwarded request."""
+    payload = dict(request.payload)
+    payload["_delegated_by"] = sovereign_id
+    payload["_delegation_nonce"] = mint_delegation(
+        sovereign_id, target_sovereign_id, request.intent
+    )
+    return SovereignRequest(
+        intent=request.intent,
+        subject=request.subject,
+        requester=sovereign_id,
+        payload=payload,
+    )
+
+
+def _attach_target_receipt(
+    outcome: SovereignOutcome,
+    request: SovereignRequest,
+    sovereign_id: str,
+    target_sovereign_id: str,
+) -> SovereignOutcome:
+    """Attach a verifiable delegation receipt carrying the target's trail."""
+    target_receipts: tuple[dict[str, Any], ...] = ()
+    target_result = outcome.result or {}
+    if isinstance(target_result, dict):
+        summary = target_result.get("execution_receipts")
+        if isinstance(summary, dict):
+            target_receipts = tuple(summary.get("tiers", ()))
+    receipt = mint_delegation_receipt(
+        sovereign_id=sovereign_id,
+        intent=request.intent,
+        requester=request.requester,
+        accepted=outcome.accepted,
+        reason_code=outcome.refusal.reason_code if outcome.refusal else "",
+        execution_mode="delegated-to-target",
+        basis=outcome.basis,
+        target_sovereign=target_sovereign_id,
+        target_receipts=target_receipts,
+    )
+    result = dict(outcome.result or {})
+    result["delegation_receipt"] = receipt.to_dict()
+    return SovereignOutcome(
+        accepted=outcome.accepted,
+        refusal=outcome.refusal,
+        result=result,
+        basis=outcome.basis,
+    )
 
 
 class SovereignBase(ABC):
@@ -270,6 +329,11 @@ class SovereignBase(ABC):
         sub-sovereign target additionally enforces its A334 single-parent
         check, so only the codex parent can delegate into it.  Fails
         closed when the target is not materialized or not started.
+
+        The returned outcome carries a verifiable ``DelegationReceipt`` in
+        ``result["delegation_receipt"]`` with the target's execution
+        receipt trail — so callers can verify the delegation actually
+        reached the target and was processed, not merely declared.
         """
         target = self.resolve_sovereign(target_sovereign_id)
         if target is None:
@@ -278,23 +342,13 @@ class SovereignBase(ABC):
             return refusal_outcome(
                 "TARGET_SOVEREIGN_NOT_STARTED", ("A10", "A11")
             )
-        # Stamp the delegation so the target can verify the request
-        # genuinely passed through this sovereign — a bare
-        # ``requester=<parent>`` string is spoofable by any in-process
-        # caller; the single-use session nonce makes the delegation path
-        # explicit, replay-proof and single-use (A121/A174/A334).
-        payload = dict(request.payload)
-        payload["_delegated_by"] = self.sovereign_id
-        payload["_delegation_nonce"] = mint_delegation(
-            self.sovereign_id, target_sovereign_id, request.intent
+        forwarded = _stamp_delegation(
+            request, self.sovereign_id, target_sovereign_id
         )
-        forwarded = SovereignRequest(
-            intent=request.intent,
-            subject=request.subject,
-            requester=self.sovereign_id,
-            payload=payload,
+        outcome = await target.handle(forwarded)
+        return _attach_target_receipt(
+            outcome, request, self.sovereign_id, target_sovereign_id
         )
-        return await target.handle(forwarded)
 
     # ------------------------------------------------------------------
     # Child failure tracking (shared by all sovereign parents)
@@ -340,6 +394,20 @@ class SovereignBase(ABC):
         return refusal_outcome(
             "EXECUTION_NOT_DELEGATED",
             self.verified_basis("A69", "A121"),
+        )
+
+    def _attach_delegation_receipt(
+        self,
+        decision: SovereignOutcome,
+        request: SovereignRequest,
+        execution_mode: str = "decision-only",
+    ) -> SovereignOutcome:
+        """Mint a verifiable delegation receipt and attach it to the outcome.
+
+        Thin wrapper around ``attach_delegation_receipt`` (A69/A121).
+        """
+        return attach_delegation_receipt(
+            decision, request, self.sovereign_id, execution_mode
         )
 
     # -------------------------------------------------------------------------

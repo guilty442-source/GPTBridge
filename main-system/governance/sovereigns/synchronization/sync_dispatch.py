@@ -54,7 +54,15 @@ class SyncDispatchMixin:
         if not assignment:
             return refusal_outcome("MODULE_UNASSIGNED", verified_basis("A334"))
 
-        child_id = assignment.sub_sovereign
+        child_id = str(
+            assignment.get("managing_sub_sovereign")
+            or assignment.get("sub_sovereign")
+            or ""
+        )
+        if not child_id:
+            return refusal_outcome(
+                "SUB_SOVEREIGN_UNASSIGNED", verified_basis("A334")
+            )
         if child_id not in self._sub_sovereigns:
             return refusal_outcome(
                 "SUB_SOVEREIGN_NOT_MATERIALIZED", verified_basis("A334")

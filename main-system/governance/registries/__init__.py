@@ -149,7 +149,13 @@ def module_assignment(module_architecture_code: str) -> dict[str, str] | None:
 def validate_execution_identity(
     module_architecture_code: str, execution_identity: str
 ) -> bool:
-    """A334: execution_identity must equal the registered module code."""
+    """A334: the presented identity must equal the registered execution identity.
+
+    The caller must present the executing individual's *attested* identity;
+    execution gates refuse requests without an attested identity so this
+    check never degrades into same-value self-attestation of the requested
+    module code (see ``ExecutionMixin._attested_execution_identity``).
+    """
     row = module_assignment(module_architecture_code)
     return row is not None and row.get("execution_identity") == execution_identity
 

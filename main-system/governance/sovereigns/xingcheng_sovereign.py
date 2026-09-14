@@ -65,11 +65,11 @@ _CHECKPOINT_MAX_AGE_HOURS = 72
 
 
 class XingchengSovereign(
-    SovereignBase,
     XingchengReviewMixin,
     XingchengNativeMixin,
     XingchengDomainMixin,
     XingchengAutoMixin,
+    SovereignBase,
 ):
     """星澄主宰：自有域完全權力，隔離於系統決策鏈。"""
 
@@ -189,20 +189,34 @@ class XingchengSovereign(
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
-        """星澄委派執行（A69/A121）。"""
-        return decision
+        """星澄委派執行（A69/A121）。
+
+        星澄 is advisory/read-only (A137-A146).  This hook attests that
+        the adjudication was a pure decision and records the delegation
+        outcome in the audit ledger with a verifiable receipt.
+        """
+        return self._attach_delegation_receipt(decision, request, "advisory-only")
 
     async def start(self) -> dict[str, Any]:
-        """Start the sovereign and auto-loop."""
+        """Start the sovereign (decision-layer only, A297).
+
+        The auto-loop is started separately by start_supervision().
+        """
         await super().start()
-        await self.start_auto_loop()
         return {
             "ok": True,
             "role": self.sovereign_id,
             "started_at": self._iso_now(),
             "owned_domain": self._owned_domain_root,
-            "auto_loop": "started",
         }
+
+    async def start_supervision(self) -> None:
+        """Start the auto-loop (A297 separation)."""
+        await self.start_auto_loop()
+
+    async def stop_supervision(self) -> None:
+        """Stop the auto-loop (A297 separation)."""
+        await self.stop_auto_loop()
 
     async def stop(self) -> None:
         """Stop the sovereign and auto-loop."""

@@ -21,6 +21,22 @@ from .toolbox_constants import (
 class ExecutionMixin:
     """Tool execution request queuing and cancellation via the shared layer."""
 
+    def _attested_execution_identity(self) -> str:
+        """A334: the executing individual's own identity — never an echo.
+
+        The identity is taken from an explicit runtime declaration or from a
+        single-tool execution scope; requests without an attestable executor
+        identity are denied by the gate instead of echoing the requested
+        module code back to itself (same-value self-attestation forbidden).
+        """
+        declared = str(getattr(self, "execution_identity", "") or "").strip()
+        if declared:
+            return declared
+        allowed = getattr(self, "allowed_tool_ids", None)
+        if allowed is not None and len(allowed) == 1:
+            return str(next(iter(allowed))).strip()
+        return ""
+
     def _verify_module_assignment(self, tool_id: str) -> Dict[str, Any] | None:
         """A334 execution gate: the module registry is the machine authority.
 
@@ -32,12 +48,12 @@ class ExecutionMixin:
         module_code = tool_id.upper().replace("-", "_")
         try:
             row = module_assignment(module_code)
-        except Exception:
+        except (OSError, KeyError, ValueError, RuntimeError) as error:
             return {
                 "ok": False,
                 "tool_id": tool_id,
                 "error_code": "MODULE_REGISTRY_UNAVAILABLE",
-                "message": "A334 module-assignment registry is unavailable",
+                "message": f"A334 module-assignment registry is unavailable: {type(error).__name__}",
             }
         if row is None:
             return {
@@ -46,7 +62,15 @@ class ExecutionMixin:
                 "error_code": "MODULE_NOT_IN_REGISTRY",
                 "message": "A334: executable module is not registered",
             }
-        if not validate_execution_identity(module_code, module_code):
+        execution_identity = self._attested_execution_identity()
+        if not execution_identity:
+            return {
+                "ok": False,
+                "tool_id": tool_id,
+                "error_code": "EXECUTION_IDENTITY_NOT_ATTESTED",
+                "message": "A334: executing individual identity is not attested",
+            }
+        if not validate_execution_identity(module_code, execution_identity):
             return {
                 "ok": False,
                 "tool_id": tool_id,

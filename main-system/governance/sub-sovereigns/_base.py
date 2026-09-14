@@ -84,9 +84,11 @@ class SubSovereignBase(SovereignBase, ABC):
         Sub-sovereigns only coordinate/dispatch under parent authority;
         actual work is performed by governed module executors.  The
         adjudication result is a coordination record, not an execution
-        outcome, so there is no execution side-effect to delegate.
+        outcome, so there is no execution side-effect to delegate.  A
+        verifiable delegation receipt is attached so the coordination
+        step is provable, not merely declared (A69/A121).
         """
-        return decision
+        return self._attach_delegation_receipt(decision, request, "sub-sovereign-coordination")
 
     def _verify_intent(self, intent: str) -> bool:
         """A10/A11 fail-closed: only declared coordination intents pass."""

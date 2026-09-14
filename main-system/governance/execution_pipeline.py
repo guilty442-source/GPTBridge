@@ -78,13 +78,30 @@ class SovereignExecutionPipeline:
             gate_details,
         )
         if gate != "allowed":
+            # Refused commands still carry the full tier trail: planning and
+            # executor tiers record the refusal instead of being skipped.
+            ledger.record(
+                ExecutionTier.TASK_PLANNING,
+                self._sovereign.sovereign_id,
+                "not-planned",
+                {"reason": gate},
+            )
+            ledger.record(
+                ExecutionTier.SPECIALIZED_EXECUTOR,
+                "decision-layer",
+                "not-executed",
+                {"reason": gate},
+            )
             return await self._finalize(ledger, request, _refusal(gate))
         decision = await self._sovereign._adjudicate(request)
+        plan_details = _plan(decision, request)
+        plan_details["decision_basis"] = list(decision.basis) if decision.basis else []
+        plan_details["refusal_reason"] = decision.refusal.reason_code if decision.refusal else None
         ledger.record(
             ExecutionTier.TASK_PLANNING,
             self._sovereign.sovereign_id,
             "planned",
-            _plan(decision, request),
+            plan_details,
         )
         if decision.accepted:
             outcome = await self._sovereign._delegate_execution(decision, request)
@@ -151,13 +168,25 @@ class SovereignExecutionPipeline:
                 {"error": str(error)[:200]},
             )
             return _refusal("AUDIT_PUBLICATION_FAILED", ledger, verdict)
+        # A69: require complete receipts, independent verification, and audit publication
         if not outcome.accepted:
             return _with_receipts(outcome, ledger, verdict)
         if not verdict.verified:
             return _refusal("INDEPENDENT_VERIFICATION_FAILED", ledger, verdict)
         if not ledger.complete():
             return _refusal("EXECUTION_TIER_INCOMPLETE", ledger, verdict)
-        return _with_receipts(outcome, ledger, verdict)
+        # Attach verification proof to the result for independent verification traceability
+        result = dict(outcome.result or {})
+        result["execution_receipts"] = ledger.summary()
+        result["verification"] = verdict.to_record()
+        result["independently_verified"] = True
+        result["verifier"] = verdict.verifier
+        return SovereignOutcome(
+            accepted=outcome.accepted,
+            refusal=outcome.refusal,
+            result=result,
+            basis=outcome.basis,
+        )
 
 
 def _request_id(request: SovereignRequest) -> str:
