@@ -31,6 +31,10 @@ from .audit_authority import (
 )
 from .audit_activation import check_activation_states
 from .audit_directories import check_directory_audit
+from .audit_formal_rules import (
+    check_formal_rules,
+    check_implementation_obligations,
+)
 from .audit_manifests import (
     check_tool_identity_registration,
     check_tool_manifests,
@@ -93,6 +97,8 @@ def audit_runtime_governance(
         lambda r: _collect(check_codex_consistency, r),
         lambda r: _collect(check_directory_audit, r),
         lambda r: _collect(check_activation_states, r),
+        lambda r: _collect(check_formal_rules, r),
+        lambda r: _collect(check_implementation_obligations, r),
         lambda r: _collect(check_git_tiers, r),
         lambda r: _collect(check_metadata_contract, r),
         lambda r: _collect(check_reconcile_modules, r),
