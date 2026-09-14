@@ -156,6 +156,29 @@ def _record_read_audit(
         f.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
 
 
+def _validate_read_request(
+    sid: str, actor: str, prov: str, purp: str, session_nonce: str
+) -> str | None:
+    """Return a denial reason string, or None when the request is valid.
+
+    Fail-closed A174 gate: identity attestation, explicit provision id
+    (least scope), governed purpose, and a valid single-use session
+    (replay-proof, expiry-bound) are all mandatory.
+    """
+    if not sid or not actor:
+        return "DENIED_EMPTY_IDENTITY"
+    if prov != sid:
+        return "DENIED_SCOPE_MISMATCH"
+    if purp not in _REQUEST_PURPOSES:
+        return "DENIED_PURPOSE"
+    if not _consume_session(
+        session_nonce, sovereign_id=sid, requester=actor,
+        provision_id=prov, purpose=purp,
+    ):
+        return "DENIED_SESSION_REPLAY_OR_INVALID"
+    return None
+
+
 def official_sovereign(
     sovereign_id: str,
     *,
@@ -186,31 +209,11 @@ def official_sovereign(
     actor = str(requester or "").strip()
     prov = str(provision_id or "").strip()
     purp = str(purpose or "").strip()
-    if not sid or not actor:
+    denial = _validate_read_request(sid, actor, prov, purp, session_nonce)
+    if denial is not None:
         _record_read_audit(
             requester=actor, sovereign_id=sid, provision_id=prov,
-            purpose=purp, result="DENIED_EMPTY_IDENTITY",
-        )
-        return None
-    if prov != sid:
-        _record_read_audit(
-            requester=actor, sovereign_id=sid, provision_id=prov,
-            purpose=purp, result="DENIED_SCOPE_MISMATCH",
-        )
-        return None
-    if purp not in _REQUEST_PURPOSES:
-        _record_read_audit(
-            requester=actor, sovereign_id=sid, provision_id=prov,
-            purpose=purp, result="DENIED_PURPOSE",
-        )
-        return None
-    if not _consume_session(
-        session_nonce, sovereign_id=sid, requester=actor,
-        provision_id=prov, purpose=purp,
-    ):
-        _record_read_audit(
-            requester=actor, sovereign_id=sid, provision_id=prov,
-            purpose=purp, result="DENIED_SESSION_REPLAY_OR_INVALID",
+            purpose=purp, result=denial,
         )
         return None
     codex = load_governance_codex()
