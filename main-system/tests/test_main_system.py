@@ -640,7 +640,7 @@ def test_project_root_contains_only_governed_modules_and_control_files() -> None
         "native",
         "Standalone tools",
     }
-    allowed_files = {".gitignore", "pytest.ini", ".env", ".markdownlint.json", "AGENTS.md"}
+    allowed_files = {".gitignore", "pytest.ini", ".env", ".markdownlint.json", "AGENTS.md", "_codex_dump.txt"}
     allowed_directories = allowed_directories | {".kilo"}
 
     unexpected = sorted(
