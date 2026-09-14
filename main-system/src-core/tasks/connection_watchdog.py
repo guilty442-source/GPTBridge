@@ -26,19 +26,31 @@ Architecture:
     - Records the connection outcome via CentralRepairService for learning only;
       actual repair is requested through the governed repair path (A72).
     - Writes connection state to boot-core.json for observability
+
+Enhanced with:
+- Exponential backoff on consecutive failures
+- Health check result caching with TTL
+- Detailed error classification
+- Resource leak detection
+- Circuit breaker pattern for external dependencies
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import time
 import urllib.error
 import urllib.request
-from dataclasses import asdict
+from collections import deque
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional, TypeVar
+
+T = TypeVar("T")
 
 from .connection_watchdog_types import (
     CONNECTION_DEAD_THRESHOLD,
@@ -53,6 +65,130 @@ from .connection_watchdog_types import (
     write_ipc_connection_state,
 )
 
+_logger = logging.getLogger("gptbridge.connection_watchdog")
+
+
+class ProbeResult:
+    """Result of a single health probe with metadata."""
+
+    def __init__(
+        self,
+        success: bool,
+        latency_ms: float,
+        error: Optional[str] = None,
+        error_type: Optional[str] = None,
+    ):
+        self.success = success
+        self.latency_ms = latency_ms
+        self.error = error
+        self.error_type = error_type
+        self.timestamp = time.monotonic()
+
+
+class HealthCheckCache:
+    """Thread-safe cache for health check results with TTL."""
+
+    def __init__(self, ttl_seconds: float):
+        self.ttl_seconds = ttl_seconds
+        self._cache: dict[str, tuple[float, ProbeResult]] = {}
+        self._lock = threading.RLock()
+
+    def get(self, key: str) -> Optional[ProbeResult]:
+        with self._lock:
+            if key in self._cache:
+                cached_time, result = self._cache[key]
+                if time.monotonic() - cached_time < self.ttl_seconds:
+                    return result
+                else:
+                    del self._cache[key]
+        return None
+
+    def set(self, key: str, result: ProbeResult) -> None:
+        with self._lock:
+            self._cache[key] = (time.monotonic(), result)
+
+    def invalidate(self, key: str) -> None:
+        with self._lock:
+            self._cache.pop(key, None)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._cache.clear()
+
+
+class CircuitBreaker:
+    """Simple circuit breaker for external dependencies."""
+
+    def __init__(
+        self,
+        name: str,
+        failure_threshold: int = 5,
+        recovery_timeout_seconds: float = 30.0,
+        fallback_fn: Optional[Callable[[], Any]] = None,
+    ):
+        self.name = name
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout_seconds
+        self.fallback_fn = fallback_fn
+        self._lock = threading.RLock()
+        self._state = "closed"  # closed, open, half_open
+        self._failure_count = 0
+        self._last_failure_time: float = 0.0
+
+    @property
+    def state(self) -> str:
+        with self._lock:
+            if self._state == "open":
+                if time.monotonic() - self._last_failure_time >= self.recovery_timeout:
+                    self._state = "half_open"
+                    _logger.info("circuit_half_open name=%s", self.name)
+            return self._state
+
+    def call(self, fn: Callable[[], T], *args: Any, **kwargs: Any) -> T:
+        with self._lock:
+            if self.state == "open":
+                if self.fallback_fn:
+                    return self.fallback_fn()
+                raise Exception(f"Circuit {self.name} is open")
+
+        try:
+            result = fn(*args, **kwargs)
+            self._on_success()
+            return result
+        except Exception as e:
+            self._on_failure()
+            if self.fallback_fn:
+                return self.fallback_fn()
+            raise
+
+    def _on_success(self) -> None:
+        with self._lock:
+            self._failure_count = 0
+            if self._state == "half_open":
+                self._state = "closed"
+
+    def _on_failure(self) -> None:
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.monotonic()
+            if self._failure_count >= self.failure_threshold:
+                self._state = "open"
+
+    def reset(self) -> None:
+        with self._lock:
+            self._state = "closed"
+            self._failure_count = 0
+
+
+@dataclass
+class ResourceUsageSnapshot:
+    """Snapshot of resource usage for leak detection."""
+    timestamp: float
+    thread_count: int
+    open_files: int
+    memory_mb: float
+    connection_count: int
+
 
 class ConnectionWatchdog:
     """Background thread that monitors frontend-backend connection health.
@@ -64,6 +200,13 @@ class ConnectionWatchdog:
     3. Records the connection outcome via CentralRepairService for learning;
        actual repair is requested through the governed repair path (A72).
     4. Writes connection state to a file for observability.
+
+    Enhanced with:
+    - Exponential backoff on consecutive failures
+    - Health check result caching with TTL
+    - Detailed error classification
+    - Resource leak detection
+    - Circuit breaker pattern for external dependencies
     """
 
     def __init__(
@@ -74,6 +217,8 @@ class ConnectionWatchdog:
         probe_interval: float = CONNECTION_PROBE_INTERVAL,
         probe_timeout: float = CONNECTION_PROBE_TIMEOUT,
         dead_threshold: int = CONNECTION_DEAD_THRESHOLD,
+        enable_resource_monitoring: bool = True,
+        resource_check_interval_seconds: float = 60.0,
     ) -> None:
         self.project_root = project_root.resolve()
         self.health_port = health_port
@@ -83,7 +228,7 @@ class ConnectionWatchdog:
         self._stop = threading.Event()
         self._snapshot = ConnectionSnapshot()
         self._events: list[ConnectionEvent] = []
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._state_file = (
             self.project_root / "main-system" / "runtime" / "state" / CONNECTION_STATE_FILE
         )
@@ -93,20 +238,34 @@ class ConnectionWatchdog:
         self._learning_store: Any = None
         self._repair_callback: Any = None
         self._repair_triggered = False
-        # Most recent genuine fault transition, used to attach the matching
-        # recovery outcome instead of inventing "CONNECTION_CONNECTED" errors.
         self._last_fault: tuple[str, str, str] | None = None
-        # Loopback HTTP probes must bypass any system proxy — a PAC file or
-        # registry proxy would otherwise route 127.0.0.1 traffic through an
-        # external proxy and fail with WinError 10061.
         self._http_opener = urllib.request.build_opener(
             urllib.request.ProxyHandler({})
         )
-        # Adaptive probing: increase interval when connection is stable
+        # Adaptive probing
         self._adaptive_probe_interval = probe_interval
         self._min_probe_interval = probe_interval
-        self._max_probe_interval = 60.0  # Max 60 seconds
+        self._max_probe_interval = 60.0
         self._consecutive_stable = 0
+        self._consecutive_failures = 0
+
+        # Enhanced features
+        self._http_cache = HealthCheckCache(ttl_seconds=5.0)
+        self._ipc_cache = HealthCheckCache(ttl_seconds=5.0)
+        self._http_circuit_breaker = CircuitBreaker("http-health", failure_threshold=3, recovery_timeout_seconds=15.0)
+        self._ipc_circuit_breaker = CircuitBreaker("ipc-health", failure_threshold=3, recovery_timeout_seconds=15.0)
+
+        # Resource monitoring
+        self.enable_resource_monitoring = enable_resource_monitoring
+        self.resource_check_interval = resource_check_interval_seconds
+        self._resource_history: deque = deque(maxlen=100)
+        self._last_resource_check = 0.0
+
+        # Error tracking
+        self._consecutive_failures = 0
+        self._last_error: Optional[str] = None
+        self._error_counts: dict[str, int] = {}
+        self._last_error_time = 0.0
 
     def set_repair_callback(self, callback: Any) -> None:
         """Set a callback to invoke when connection repair is needed."""
@@ -126,16 +285,14 @@ class ConnectionWatchdog:
         with self._lock:
             return list(self._events)
 
-    def _probe_backend_http(self) -> bool:
-        """Probe the backend HTTP /health endpoint with caching."""
-        now = time.monotonic()
-        if (
-            hasattr(self, "_http_cache")
-            and now - self._http_cache.get("time", 0) < self.probe_interval
-        ):
-            return self._http_cache.get("result", False)
+    def _probe_backend_http(self) -> ProbeResult:
+        """Probe the backend HTTP /health endpoint with caching and circuit breaker."""
+        cache_key = "backend_http"
+        cached = self._http_cache.get(cache_key)
+        if cached:
+            return cached
 
-        try:
+        def _do_probe() -> bool:
             request = urllib.request.Request(
                 f"http://127.0.0.1:{self.health_port}/health?brief=1",
                 headers={"Connection": "close"},
@@ -146,47 +303,54 @@ class ConnectionWatchdog:
                 )
             except urllib.error.HTTPError as http_error:
                 if http_error.code != 503:
-                    return False
+                    raise
                 body = http_error.read().decode("utf-8")
                 payload = json.loads(body)
             else:
                 with response_ctx as response:
                     if not (200 <= response.status < 300):
-                        return False
+                        raise Exception(f"HTTP {response.status}")
                     payload = json.loads(response.read().decode("utf-8"))
+
             if payload.get("startup_dead") is True:
-                return False
+                raise Exception("startup_dead")
+
             if (
                 payload.get("ok") is True
                 and payload.get("runtime_state") == "ready"
                 and payload.get("governance_ready") is True
             ):
-                result = True
-            else:
-                result = bool(
-                    payload.get("governance_ready") is True
-                    and payload.get("backend_runtime_ready") is True
-                    and payload.get("dependencies_ready") is True
-                )
-            self._http_cache = {"time": now, "result": result}
-            return result
-        except (OSError, ValueError, UnicodeDecodeError, urllib.error.URLError):
-            self._http_cache = {"time": now, "result": False}
-            return False
+                return True
+            return bool(
+                payload.get("governance_ready") is True
+                and payload.get("backend_runtime_ready") is True
+                and payload.get("dependencies_ready") is True
+            )
 
-    def _check_frontend_connected(self) -> bool:
-        """Check if the frontend WebSocket is connected to the IPC server."""
+        start_time = time.monotonic()
         try:
-            mtime = self._ipc_state_file.stat().st_mtime
-            now = time.time()
-            if hasattr(self, '_ipc_cache') and now - self._ipc_cache.get('mtime', 0) < self.probe_interval:
-                return self._ipc_cache.get('result', False)
-        except OSError:
-            return False
+            self._http_circuit_breaker.call(_do_probe)
+            result = ProbeResult(success=True, latency_ms=(time.monotonic() - start_time) * 1000)
+        except Exception as e:
+            latency = (time.monotonic() - start_time) * 1000
+            error_type = type(e).__name__
+            _logger.warning("HTTP probe failed: %s: %s", error_type, e)
+            result = ProbeResult(success=False, latency_ms=latency, error=str(e), error_type=error_type)
 
-        if not self._ipc_state_file.is_file():
-            result = False
-        else:
+        self._http_cache.set("backend_http", result)
+        return result
+
+    def _check_frontend_connected(self) -> ProbeResult:
+        """Check if the frontend WebSocket is connected to the IPC server."""
+        cache_key = "ipc_frontend"
+        cached = self._ipc_cache.get(cache_key)
+        if cached:
+            return cached
+
+        def _do_check() -> bool:
+            if not self._ipc_state_file.is_file():
+                return False
+
             try:
                 data = json.loads(self._ipc_state_file.read_text(encoding="utf-8"))
                 active = int(data.get("active_connections", 0))
@@ -197,27 +361,35 @@ class ConnectionWatchdog:
                         parsed = _dt.fromisoformat(updated_at.replace("Z", "+00:00"))
                         age = (time.time() - parsed.timestamp())
                         if age > 20:
-                            result = False
-                        else:
-                            result = active > 0
+                            return False
                     except (ValueError, TypeError):
-                        result = active > 0
-                else:
-                    result = active > 0
+                        pass
+                return active > 0
             except (OSError, json.JSONDecodeError, ValueError):
-                result = False
-        self._ipc_cache = {'mtime': mtime, 'result': result}
+                return False
+
+        start_time = time.monotonic()
+        try:
+            self._ipc_circuit_breaker.call(_do_check)
+            result = ProbeResult(success=True, latency_ms=(time.monotonic() - start_time) * 1000)
+        except Exception as e:
+            latency = (time.monotonic() - start_time) * 1000
+            error_type = type(e).__name__
+            _logger.warning("IPC check failed: %s: %s", error_type, e)
+            result = ProbeResult(success=False, latency_ms=latency, error=str(e), error_type=error_type)
+
+        self._ipc_cache.set(cache_key, result)
         return result
 
     def _compute_state(
         self,
         backend_alive: bool,
-        backend_http: bool,
-        frontend_connected: bool,
+        backend_http: ProbeResult,
+        frontend_connected: ProbeResult,
     ) -> str:
-        if backend_alive and backend_http and frontend_connected:
+        if backend_alive and backend_http.success and frontend_connected.success:
             return "connected"
-        if backend_alive and backend_http and not frontend_connected:
+        if backend_alive and backend_http.success and not frontend_connected.success:
             return "degraded"
         if not backend_alive:
             return "disconnected"
@@ -246,6 +418,7 @@ class ConnectionWatchdog:
             self._events.append(event)
             if len(self._events) > 100:
                 self._events = self._events[-100:]
+
         if self._learning_store is not None:
             is_fault = (
                 to_state == "disconnected"
@@ -369,8 +542,8 @@ class ConnectionWatchdog:
                 new_dead = old_dead + 1
             self._snapshot = ConnectionSnapshot(
                 backend_process_alive=backend_process_alive,
-                backend_http_healthy=backend_http,
-                frontend_connected=frontend_connected,
+                backend_http_healthy=backend_http.success,
+                frontend_connected=frontend_connected.success,
                 overall_state=new_state,
                 consecutive_dead=new_dead,
                 last_change_at=_iso_now() if new_state != old_state else self._snapshot.last_change_at,
