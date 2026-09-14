@@ -35,7 +35,8 @@ from typing import Any, Final
 from governance_rule.execution.codex_reconcile import bounded_lookup
 from governance_rule.execution.codex_repository import (  # noqa: F401
     load_governance_codex,  # test patch seam; runtime reads use bounded_lookup
-)from governance_rule.execution.versioning import validate_loaded_authority_version
+)
+from governance_rule.execution.versioning import validate_loaded_authority_version
 from governance_rule.governance_policy import governance_policy_snapshot
 from governance_rule.permission_directory.directory_authority import (
     directory_authority_snapshot,
