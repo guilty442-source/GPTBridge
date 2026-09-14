@@ -16,7 +16,10 @@ codex ``learning-evidence-sync-sub-sovereign`` identity.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
@@ -24,6 +27,8 @@ from typing import Any, Final
 from ._base import SubSovereignBase
 from governance_rule.execution.codex_official import official_self_declaration
 
+
+_logger = logging.getLogger("gptbridge.sovereign.learning-evidence-sync")
 
 _DECLARATION = official_self_declaration("learning-evidence-sync-sub-sovereign")
 if _DECLARATION is None:
@@ -36,6 +41,9 @@ RECONCILIATION_AUDIT_RELATIVE: Final[tuple[str, ...]] = (
     "learning-fault-reconciliation.jsonl",
 )
 NON_ACTIONABLE_REMEDY: Final[str] = "no-action-required"
+DEFAULT_RECONCILE_INTERVAL_SECONDS: Final[float] = 300.0
+RECONCILE_EVENT_POLL_SECONDS: Final[float] = 5.0
+RECONCILE_INTERVAL_ENV: Final[str] = "GPTBRIDGE_LEARNING_RECONCILE_INTERVAL"
 
 
 class LearningEvidenceSyncSubSovereign(SubSovereignBase):
@@ -46,11 +54,20 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase):
 
     ROLE = sovereign_id
 
-    def __init__(self, app: Any | None = None, parent: Any | None = None) -> None:
+    def __init__(
+        self,
+        app: Any | None = None,
+        parent: Any | None = None,
+        *,
+        reconcile_interval: float | None = None,
+    ) -> None:
         super().__init__(app, parent)
         self._store: Any | None = None
         self._learner: Any | None = None
         self._sync_state: dict[str, Any] = {}
+        self._reconcile_task: asyncio.Task[Any] | None = None
+        self._reconcile_interval = reconcile_interval
+        self._last_reconciliation: dict[str, Any] = {}
 
     async def start(self) -> dict[str, Any]:
         from tasks.repair_learning import RepairLearner, RepairLearningStore
@@ -59,6 +76,7 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase):
         self._store = RepairLearningStore(root / "main-system" / "data" / "automatic-repair")
         self._learner = RepairLearner(self._store)
         self._started = True
+        self._start_reconcile_loop()
         # E173: activation returns a light receipt — analyze_history()
         # runs on demand in status(), not on the startup critical path.
         return {
@@ -68,9 +86,11 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase):
             "duties": list(_DECLARATION.duties),
             "execution": "governed-executor-only",
             "persistence": "repair-learning-sqlite",
+            "reconciliation": "automatic",
         }
 
     async def stop(self) -> None:
+        await self._stop_reconcile_loop()
         self._started = False
 
     def sync_learning_evidence(self, evidence: dict[str, Any]) -> None:
@@ -90,6 +110,10 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase):
             "execution": "governed-executor-only",
             "persistence": "repair-learning-sqlite",
             "analysis": analysis,
+            "reconciliation": dict(self._last_reconciliation),
+            "reconcile_loop": bool(
+                self._reconcile_task is not None and not self._reconcile_task.done()
+            ),
         }
 
     def live_status(self) -> dict[str, Any]:
@@ -308,6 +332,99 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase):
             "learned": learned,
             "remaining": remaining,
         }
+
+
+    # ------------------------------------------------------------------
+    # Automatic reconciliation loop (A310/A322 duty, wired at start)
+    # ------------------------------------------------------------------
+
+    def _interval_seconds(self) -> float:
+        raw: Any = self._reconcile_interval
+        if raw is None:
+            raw = os.environ.get(RECONCILE_INTERVAL_ENV, "")
+        try:
+            value = (
+                float(raw)
+                if str(raw).strip()
+                else DEFAULT_RECONCILE_INTERVAL_SECONDS
+            )
+        except (TypeError, ValueError):
+            value = DEFAULT_RECONCILE_INTERVAL_SECONDS
+        return max(0.0, float(value))
+
+    def _start_reconcile_loop(self) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        if self._reconcile_task is not None and not self._reconcile_task.done():
+            return
+        self._reconcile_task = loop.create_task(self._reconcile_loop())
+
+    async def _stop_reconcile_loop(self) -> None:
+        task = self._reconcile_task
+        self._reconcile_task = None
+        if task is None or task.done():
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
+
+    async def reconcile_once(self) -> dict[str, Any]:
+        """Run one reconciliation pass and record its receipt."""
+        receipt = await asyncio.to_thread(self.reconcile_pending_fault_messages)
+        self._last_reconciliation = {
+            "at": self._iso_now(),
+            "ok": bool(receipt.get("ok")),
+            "removed": len(receipt.get("removed") or []),
+            "learned": len(receipt.get("learned") or []),
+            "remaining": receipt.get("remaining"),
+        }
+        if self._last_reconciliation["removed"]:
+            _logger.info(
+                "learning reconciliation removed %s pending message(s)",
+                self._last_reconciliation["removed"],
+            )
+        return receipt
+
+    async def _wait_for_cycle(self) -> None:
+        """Wait one interval, waking early when the fault surface changes."""
+        event = None
+        try:
+            from core_system.auto_action_policy import fault_change_event
+
+            event = fault_change_event()
+        except Exception:
+            event = None
+        remaining = self._interval_seconds()
+        while True:
+            if event is not None and event.is_set():
+                event.clear()
+                return
+            if remaining <= 0:
+                await asyncio.sleep(0.01)
+                return
+            nap = min(remaining, RECONCILE_EVENT_POLL_SECONDS)
+            await asyncio.sleep(nap)
+            remaining -= nap
+            if remaining <= 0:
+                return
+
+    async def _reconcile_loop(self) -> None:
+        """Boot pass + periodic passes; fault-change events wake it early."""
+        while True:
+            try:
+                if self._started:
+                    await self.reconcile_once()
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:  # automation must never die
+                _logger.warning("learning reconciliation pass failed: %s", error)
+            await self._wait_for_cycle()
 
 
 __all__ = ["LearningEvidenceSyncSubSovereign"]

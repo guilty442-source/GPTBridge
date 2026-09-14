@@ -7,6 +7,7 @@ pending-confirmation messages without touching actionable items.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from datetime import datetime, timedelta, timezone
@@ -197,3 +198,58 @@ def test_remove_pending_actions_rejects_non_pending_items(tmp_path: Path) -> Non
     assert [item["action_id"] for item in read_pending_actions(tmp_path)] == [
         "repair-executing"
     ]
+
+
+@pytest.mark.asyncio
+async def test_reconcile_loop_eliminates_messages_automatically(
+    tmp_path: Path,
+) -> None:
+    _write_actions(tmp_path, [_fallback_action("repair-fallback-auto")])
+    sovereign = LearningEvidenceSyncSubSovereign(
+        _App(tmp_path), reconcile_interval=0.5
+    )
+
+    await sovereign.start()
+    try:
+        deadline = datetime.now(timezone.utc) + timedelta(seconds=5)
+        while datetime.now(timezone.utc) < deadline and read_pending_actions(tmp_path):
+            await asyncio.sleep(0.05)
+        assert read_pending_actions(tmp_path) == []
+        audit_path = (
+            tmp_path
+            / "main-system"
+            / "runtime"
+            / "state"
+            / "learning-fault-reconciliation.jsonl"
+        )
+        entries = [
+            json.loads(line)
+            for line in audit_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        assert entries
+        assert entries[0]["actor"] == "learning-evidence-sync-sub-sovereign"
+        assert "repair-fallback-auto" in entries[0]["removed"]
+        live = sovereign.live_status()
+        assert live["reconcile_loop"] is True
+        assert live["reconciliation"].get("at")
+    finally:
+        await sovereign.stop()
+    assert sovereign._reconcile_task is None
+
+
+@pytest.mark.asyncio
+async def test_stop_is_safe_without_start(tmp_path: Path) -> None:
+    sovereign = LearningEvidenceSyncSubSovereign(_App(tmp_path))
+    await sovereign.stop()
+    assert sovereign._reconcile_task is None
+
+
+def test_reconcile_interval_env_override(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("GPTBRIDGE_LEARNING_RECONCILE_INTERVAL", "0.25")
+    sovereign = LearningEvidenceSyncSubSovereign(_App(tmp_path))
+    assert sovereign._interval_seconds() == 0.25
+    explicit = LearningEvidenceSyncSubSovereign(
+        _App(tmp_path), reconcile_interval=7.5
+    )
+    assert explicit._interval_seconds() == 7.5
