@@ -17,13 +17,15 @@ for _p in (
     str(_ROOT / "main-system"),
     str(_ROOT / "main-system" / "src" / "backend" / "services"),
     str(_ROOT / "Standalone tools" / "local-model" / "src" / "backend" / "services"),
-    str(_ROOT / "Standalone tools" / "global-cleaner" / "src"),
     str(_ROOT / "Standalone tools" / "ai-assistant" / "src"),
     str(_ROOT / "Standalone tools" / "ai-assistant" / "src" / "backend" / "services"),
     str(_ROOT / "Standalone tools" / "ai-collaboration" / "src" / "backend" / "services"),
     str(_ROOT / "Standalone tools" / "file-sorter" / "src" / "backend" / "services"),
     str(_ROOT / "Standalone tools" / "investment-mobile" / "src" / "backend" / "services"),
     str(_ROOT / "Standalone tools" / "vaultly" / "src" / "backend" / "services"),
+    # Own tool path last: insert(0) makes it win over other tools' `backend`
+    # packages (several tools ship a top-level `backend` package).
+    str(_ROOT / "Standalone tools" / "global-cleaner" / "src"),
 ):
     if _p not in sys.path:
         sys.path.insert(0, _p)

@@ -1,9 +1,11 @@
-"""Governance policy dataclass types (A430/E160 split)."""
+"""Frozen dataclass definitions for governance policy (A185 split).
 
+All policy dataclasses live here so ``governance_policy.py`` can focus
+on the sealed policy constant and snapshot reader.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final
 
 
 @dataclass(frozen=True)
@@ -318,3 +320,20 @@ class GovernancePolicy:
     system_responsibilities: SystemResponsibilityPolicy
     replacement_policy: str
     enforcement_role: str
+
+
+__all__ = [
+    "AutomaticRepairPolicy",
+    "GovernanceActivationPolicy",
+    "CodeArchitecturePolicy",
+    "BoundaryEscapePolicy",
+    "PermissionDistributionPolicy",
+    "IdentityAuthenticationPolicy",
+    "IdentifierLabelPolicy",
+    "LocalizationPolicy",
+    "GovernanceWorkflowPolicy",
+    "IndependentToolSeparationPolicy",
+    "SharedLayerPolicy",
+    "SystemResponsibilityPolicy",
+    "GovernancePolicy",
+]
