@@ -37,7 +37,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from governance_rule.permission_directory.code_rule_directory import code_rule_directory_snapshot
-from governance_rule.execution.codex_repository import load_governance_codex
+from governance_rule.execution.codex_official import official_self_declaration
 from governance_rule.permission_directory.governance_policy import governance_policy_snapshot
 from governance_rule.permission_directory.directory_authority import (
     directory_authority_snapshot,
@@ -70,8 +70,10 @@ from .permission.status import PermissionStatusMixin
 
 
 def _permission_sovereign():
-    codex = load_governance_codex()
-    return next((s for s in codex.sovereigns if s.area == "permission"), None)
+    # A74/A174: read the permission-sovereign declaration through the
+    # official entry (governance-codex://official) with a self-attested
+    # single-use session, not a direct load_governance_codex() call.
+    return official_self_declaration("permission-sovereign")
 
 
 _PERMISSION_SOVEREIGN = _permission_sovereign()

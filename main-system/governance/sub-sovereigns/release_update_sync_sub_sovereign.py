@@ -19,10 +19,10 @@ from __future__ import annotations
 from typing import Any
 
 from ._base import SubSovereignBase
-from governance_rule.execution.codex_official import official_sovereign
+from governance_rule.execution.codex_official import official_self_declaration
 
 
-_DECLARATION = official_sovereign("release-update-sync-sub-sovereign", requester="release-update-sync-sub-sovereign", purpose="self-declaration")
+_DECLARATION = official_self_declaration("release-update-sync-sub-sovereign")
 if _DECLARATION is None:
     raise RuntimeError("release update sync sub-sovereign not found in Governance Codex")
 

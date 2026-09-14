@@ -48,7 +48,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from governance_rule.execution.codex_official import official_sovereign
+from governance_rule.execution.codex_official import official_self_declaration
 
 from ._base import SubSovereignBase
 from core_system.maintenance_learning import MaintenanceLearningMixin
@@ -60,7 +60,7 @@ from core_system.maintenance_repair_chain import MaintenanceRepairChainMixin
 from core.health import check_core_health
 
 
-_MAINTENANCE_SOVEREIGN = official_sovereign("health-maintenance-test-sub-sovereign", requester="health-maintenance-test-sub-sovereign", purpose="self-declaration")
+_MAINTENANCE_SOVEREIGN = official_self_declaration("health-maintenance-test-sub-sovereign")
 if _MAINTENANCE_SOVEREIGN is None:
     raise RuntimeError("health maintenance test sub-sovereign not found in Governance Codex")
 

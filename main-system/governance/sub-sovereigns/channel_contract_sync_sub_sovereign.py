@@ -39,7 +39,7 @@ from core_system.sovereign_utils import _iso_now, _suppress
 from governance_rule.execution.tool_runtime.sub_sovereign import (
     SYSTEM_INTEGRATION_AUTHORITY,
 )
-from governance_rule.execution.codex_official import official_sovereign
+from governance_rule.execution.codex_official import official_self_declaration
 
 from .channel_contract.tool_classification import ToolClassificationMixin
 from .channel_contract.idle_management import IdleManagementMixin
@@ -47,7 +47,7 @@ from .channel_contract.contract_status import ContractRegistryMixin
 
 _logger = logging.getLogger("gptbridge.sub_sovereign.channel_contract")
 
-_INTEGRATION_SOVEREIGN = official_sovereign("channel-contract-sync-sub-sovereign", requester="channel-contract-sync-sub-sovereign", purpose="self-declaration")
+_INTEGRATION_SOVEREIGN = official_self_declaration("channel-contract-sync-sub-sovereign")
 if _INTEGRATION_SOVEREIGN is None:
     raise RuntimeError("channel contract sync sub-sovereign not found in Governance Codex")
 

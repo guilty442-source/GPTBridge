@@ -20,10 +20,10 @@ from pathlib import Path
 from typing import Any
 
 from ._base import SubSovereignBase
-from governance_rule.execution.codex_official import official_sovereign
+from governance_rule.execution.codex_official import official_self_declaration
 
 
-_DECLARATION = official_sovereign("learning-evidence-sync-sub-sovereign", requester="learning-evidence-sync-sub-sovereign", purpose="self-declaration")
+_DECLARATION = official_self_declaration("learning-evidence-sync-sub-sovereign")
 if _DECLARATION is None:
     raise RuntimeError("learning evidence sync sub-sovereign not found in Governance Codex")
 
