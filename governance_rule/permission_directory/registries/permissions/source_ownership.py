@@ -71,6 +71,8 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "directory_snapshot.py",
         "request_client.py",
         "store.py",
+        "store_async.py",
+        "store_helpers.py",
         "locator.py",
         "module_locator_repository.py",
         "resource_identity.py",
