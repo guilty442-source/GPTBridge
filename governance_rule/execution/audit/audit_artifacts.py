@@ -6,12 +6,16 @@ import json
 from pathlib import Path
 
 import governance_rule.execution.git_tiers
-from governance_rule.codex import GOVERNANCE_CODEX
-from governance_rule.execution.codex_repository import format_codex_version
+from governance_rule.execution.codex_repository import (
+    format_codex_version,
+    load_governance_codex,
+)
 
 
 def check_codex_consistency(root: Path, errors: list[str]) -> None:
     """Verify the Chinese codex reference is synchronized with the authoritative codex."""
+    # A279 certified tooling: governed repository load, read-only.
+    codex = load_governance_codex()
     chinese_path = root / "governance_rule" / "codex" / "governance_codex.zh-TW.txt"
     try:
         chinese = json.loads(chinese_path.read_text(encoding="utf-8"))
@@ -20,14 +24,14 @@ def check_codex_consistency(root: Path, errors: list[str]) -> None:
         errors.append(f"Chinese codex reference is invalid: {error}")
         chinese, tables = {}, {}
     if str(chinese.get("codex_version")) != format_codex_version(
-        GOVERNANCE_CODEX.codex_version
+        codex.codex_version
     ):
         errors.append("Chinese codex version is not synchronized")
     expected_ids = {
-        "principles": {item.id for item in GOVERNANCE_CODEX.principles},
-        "articles": {item.id for item in GOVERNANCE_CODEX.articles},
-        "edicts": {item.id for item in GOVERNANCE_CODEX.edicts},
-        "sovereigns": {item.id for item in GOVERNANCE_CODEX.sovereigns},
+        "principles": {item.id for item in codex.principles},
+        "articles": {item.id for item in codex.articles},
+        "edicts": {item.id for item in codex.edicts},
+        "sovereigns": {item.id for item in codex.sovereigns},
     }
     for table_name, expected in expected_ids.items():
         key = "sovereign_id" if table_name == "sovereigns" else "provision_id"

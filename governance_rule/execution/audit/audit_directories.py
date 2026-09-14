@@ -7,7 +7,10 @@ import re
 import sqlite3
 from pathlib import Path
 
-from governance_rule.execution.codex_repository import codex_version_units
+from governance_rule.execution.codex_repository import (
+    codex_readonly_connection,
+    codex_version_units,
+)
 
 DIRECTORY_TABLES = {
     "fault_code_directory": "fault_code",
@@ -43,9 +46,10 @@ _UPPER_SNAKE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _KEBAB = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
-def _codex_connection(root: Path) -> sqlite3.Connection:
+def _codex_connection(root: Path):
+    """A279 governed read-only repository connection (certified tooling)."""
     database = root / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
-    return sqlite3.connect(f"file:{database.as_posix()}?mode=ro&immutable=1", uri=True)
+    return codex_readonly_connection(database)
 
 
 def _table_rows(connection: sqlite3.Connection, table: str) -> tuple[list[str], list[dict]]:
