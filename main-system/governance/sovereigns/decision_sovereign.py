@@ -92,7 +92,6 @@ _CHILD_RESTART_COOLDOWN_SECONDS = 60.0
 
 
 class DecisionSovereign(
-    SovereignBase,
     DecisionChildAccessMixin,
     DecisionStartupDispatchMixin,
     DecisionRepairMixin,
@@ -101,6 +100,7 @@ class DecisionSovereign(
     DecisionAutonomyMixin,
     DecisionStatusMixin,
     DecisionStateMixin,
+    SovereignBase,
 ):
     """決策主宰：啟動堆疊裁決/派工、維修決策、子主宰擁有者（不執行）。"""
 

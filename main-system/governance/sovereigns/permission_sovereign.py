@@ -134,10 +134,39 @@ class PermissionSovereign(
         self._directory = None  # 由 governance 注入
         # A6 supervision: record of execution-compliance violations.
         self._compliance_violations: list[dict[str, Any]] = []
-        # A10/A22: record of issued permission grants (read-only surface).
-        self._issued_grants: dict[str, dict[str, Any]] = {}
+        # A10/A22: in-memory cache of issued permission grants, backed by
+        # the append-only ledger (permission_grant_ledger) so grants
+        # survive restarts.  The ledger is the source of truth.
+        self._issued_grants: dict[str, dict[str, Any]] = self._load_grants_from_ledger()
         # Permission automation orchestrator
         self._automation: Optional[PermissionAutomationOrchestrator] = None
+
+    def _load_grants_from_ledger(self) -> dict[str, dict[str, Any]]:
+        """Load the current status of all grants from the append-only ledger."""
+        try:
+            from core_system.permission_grant_ledger import PERMISSION_LEDGER_PATH
+            import json
+            if not PERMISSION_LEDGER_PATH.is_file():
+                return {}
+            grants: dict[str, dict[str, Any]] = {}
+            with PERMISSION_LEDGER_PATH.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    pid = entry.get("permission_id")
+                    if pid:
+                        grants[pid] = {
+                            "status": entry.get("status", "unknown"),
+                            "requester": entry.get("requester", ""),
+                        }
+            return grants
+        except Exception:
+            return {}
 
     # ------------------------------------------------------------------
     # Single-gate adjudication (A10/A11)
