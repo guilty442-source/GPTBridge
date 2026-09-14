@@ -96,12 +96,12 @@ def re_certify_permission_sovereign() -> None:
 
 
 class PermissionSovereign(
-    SovereignBase,
     PermissionQueryMixin,
     PermissionLifecycleMixin,
     PermissionAuthSupervisionMixin,
     PermissionAutomationMixin,
     PermissionStatusMixin,
+    SovereignBase,
 ):
     """權限主宰：權限事務的目錄驅動裁決與唯讀協調面。"""
 

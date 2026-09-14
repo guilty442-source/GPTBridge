@@ -18,10 +18,9 @@ from __future__ import annotations
 from typing import Any
 
 from governance_rule.permission_directory.code_rule_directory import code_rule_directory_snapshot
-from governance_rule.execution.codex_repository import (
-    format_codex_version,
-    load_governance_codex,
-)
+from governance_rule.execution.codex_reconcile import bounded_lookup
+from governance_rule.execution.codex_repository import format_codex_version
+from governance_rule.execution.codex_session import open_review_session
 from governance_rule.permission_directory.governance_policy import (
     DEFAULT_ACTIVE_GOVERNANCE_RULES,
     GOVERNANCE_POLICY,
@@ -44,7 +43,15 @@ class GovernanceRuleCoordination:
     def coordination_status(self) -> dict[str, Any]:
         """Snapshot of the supreme Governance Codex plus legacy detail."""
 
-        codex = load_governance_codex()
+        # A435 REVIEW_SESSION: the coordination surface reads the full
+        # codex projection through the official entry (identity + purpose
+        # + scope + nonce + expiry + metadata-only audit).
+        with open_review_session(
+            "governance-coordination",
+            purpose="coordination",
+            scope=("codex:full",),
+        ) as session:
+            codex = session.snapshot()
         active_rules = self._active_rules()
 
         return {
@@ -128,11 +135,17 @@ class GovernanceRuleCoordination:
     def orchestration_status(self) -> dict[str, Any]:
         """Unified subsystem view for the sovereign orchestration report."""
 
+        identity = bounded_lookup(
+            "governance-coordination",
+            purpose="status",
+            scope=("codex:identity",),
+            reader=lambda ctx: ctx.codex_identity(),
+        )
         return {
             "name": "governance-rules",
             "authority": "codex-supreme",
             "rule_layer": "codex",
-            "codex_version": format_codex_version(load_governance_codex().codex_version),
+            "codex_version": identity["codex_version_text"],
             "active_rule": self._active_rules(),
             "state": "sealed",
             "function": "none",

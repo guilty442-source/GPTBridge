@@ -253,14 +253,20 @@ class StartupSovereignExecutor(StartupExecutorPhasesMixin):
     ) -> ReadinessProof:
         app = self.app
         try:
-            from governance_rule.execution.codex_repository import (
-                format_codex_version,
-                load_governance_codex,
+            # A435 bounded lookup: codex identity tuple only, through the
+            # official entry (never a direct repository read).
+            from governance_rule.execution.codex_reconcile import (
+                bounded_lookup,
             )
 
+            identity = bounded_lookup(
+                "startup-executor",
+                purpose="status",
+                scope=("codex:identity",),
+                reader=lambda ctx: ctx.codex_identity(),
+            )
             codex_identity = (
-                f"{load_governance_codex().schema}:"
-                f"{format_codex_version(load_governance_codex().codex_version)}"
+                f"{identity['schema']}:{identity['codex_version_text']}"
             )
         except Exception:
             codex_identity = "unknown"

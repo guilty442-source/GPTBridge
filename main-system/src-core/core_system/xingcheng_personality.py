@@ -16,18 +16,18 @@ import json
 from pathlib import Path
 from typing import Any
 
-from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.execution.codex_official import official_self_declaration
 
-
-_XINGCHENG_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "xingcheng"),
-    None,
-)
-if _XINGCHENG_SOVEREIGN is None:
-    raise RuntimeError("xingcheng sovereign not found in Governance Codex")
 
 # 人格身份常量 — 來自 Governance Codex
 XINGCHENG_IDENTITY = "星澄"
+
+# A74/A174: 星澄 self-declaration through the official entry single-use
+# session (identity-bound), not a direct codex snapshot import.  The
+# sovereign record is resolved by its registered id — the codex area is
+# ``xingcheng-own-domain``, so an ``area == "xingcheng"`` scan can never
+# match.
+_XINGCHENG_SOVEREIGN = official_self_declaration(XINGCHENG_IDENTITY)
 XINGCHENG_ROLE = _XINGCHENG_SOVEREIGN.id
 XINGCHENG_MODULE_ID = _XINGCHENG_SOVEREIGN.id
 XINGCHENG_RANK = _XINGCHENG_SOVEREIGN.rank

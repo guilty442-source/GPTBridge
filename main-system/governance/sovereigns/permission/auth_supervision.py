@@ -1,4 +1,16 @@
-"""Permission Sovereign — Authorization Routing and Supervision (A6/A10/E4)."""
+"""Permission Sovereign — Authorization Routing and Supervision (A6/A10/E4).
+
+Two-key authorization boundary (A313): every permission.authorize
+adjudication must obtain a current 星澄 (Xingcheng) permission-review
+finding before deciding.  A deny-objection or missing review fails
+closed with a refusal outcome — never an accepted outcome wrapping a
+denied decision.
+
+The authorize parameters are aligned with ``MainSystemGovernance.authorize``
+(capability, action, target, data_scope, target_tool_id, target_version,
+resource_path) — NOT the old (actor, capability, target, scope) shape that
+caused TypeErrors.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +23,7 @@ from core_system.codex_decision import (
     decision_basis,
     verified_basis,
 )
+from core_system.permission_grant_ledger import record_grant
 
 
 class PermissionAuthSupervisionMixin:
@@ -31,27 +44,94 @@ class PermissionAuthSupervisionMixin:
         return datetime.now(timezone.utc).isoformat()
 
     # ------------------------------------------------------------------
+    # Two-key review (A313): obtain a current 星澄 permission-review finding.
+    # ------------------------------------------------------------------
+
+    def _request_xingcheng_permission_review(
+        self, payload: dict[str, Any], requester: str
+    ) -> SovereignOutcome | None:
+        """Request a 星澄 permission-review; return outcome or None on failure.
+
+        Returns the review outcome (with ``finding`` in result) on success,
+        or None if 星澄 is unavailable.  The caller inspects the finding:
+        ``pass`` → proceed; ``deny-objection`` → refuse; ``require-change``
+        → refuse with a change-required reason.
+        """
+        xingcheng = getattr(self.app, "xingcheng_sovereign", None)
+        if xingcheng is None:
+            return None
+        review_request = SovereignRequest(
+            intent="review.permission",
+            subject="permission-authorize",
+            requester=requester,
+            payload=payload,
+        )
+        import asyncio
+        try:
+            return asyncio.get_event_loop().run_until_complete(
+                xingcheng.adjudicate_review(review_request)
+            )
+        except Exception:
+            return None
+
+    def _check_two_key_review(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome | None:
+        """A313 two-key gate: return a refusal outcome if the 星澄 review
+        denies or is missing; return None to proceed when the review passes.
+
+        Per the dual-key boundary, a missing review (星澄 unavailable) fails
+        closed — authorization cannot proceed without the second key.
+        """
+        review_payload = {
+            "actor": request.payload.get("actor") or request.requester,
+            "capability": request.payload.get("capability"),
+            "target": request.payload.get("target"),
+            "scope": request.payload.get("data_scope") or request.payload.get("scope"),
+            "purpose": request.payload.get("purpose") or "authorize",
+            "least_privilege": request.payload.get("least_privilege", "present"),
+            "separation": "present",
+            "expiry": request.payload.get("expiry", "present"),
+            "risk": request.payload.get("risk", "present"),
+            "evidence": request.payload.get("evidence", "present"),
+        }
+        review = self._request_xingcheng_permission_review(
+            review_payload, request.requester
+        )
+        if review is None:
+            return refusal_outcome(
+                "TWO_KEY_REVIEW_UNAVAILABLE", verified_basis("A313", "A10")
+            )
+        finding = review.result.get("finding", "")
+        if finding == "deny-objection":
+            return refusal_outcome(
+                "TWO_KEY_REVIEW_DENIED", verified_basis("A313", "A10")
+            )
+        if finding == "require-change":
+            return refusal_outcome(
+                "TWO_KEY_REVIEW_REQUIRES_CHANGE", verified_basis("A313")
+            )
+        if finding != "pass":
+            return refusal_outcome(
+                "TWO_KEY_REVIEW_NOT_PASSED", verified_basis("A313", "A10")
+            )
+        return None  # proceed to authorization
+
+    # ------------------------------------------------------------------
     # Master-entry: tool lifecycle gating (called by toolbox_process.py)
     # ------------------------------------------------------------------
 
     def authorize_tool_lifecycle(self, tool_id: str, action: str) -> None:
-        """Master-entry for a tool-lifecycle permission decision.
-
-        References the Codex permission decision basis, then delegates the
-        directory-driven adjudication to the governed executor.
-        """
-
+        """Master-entry for a tool-lifecycle permission decision."""
         decision_basis("permission-sovereign")
         governance = self._governance()
         if governance is None or not hasattr(governance, "authorize_tool_lifecycle"):
             from governance_rule.permission_directory.execution.path_guard import permission_denied
-
             raise permission_denied()
         governance.authorize_tool_lifecycle(tool_id, action)
 
     def can_start_tool(self, tool_id: str) -> bool:
         """Master-entry: can a tool start (permission capability gate)."""
-
         decision_basis("permission-sovereign")
         governance = self._governance()
         if governance is None or not hasattr(governance, "can_start_tool"):
@@ -66,34 +146,23 @@ class PermissionAuthSupervisionMixin:
         resource_path: str,
     ) -> None:
         """Master-entry: authorize a versioned (hot) update (E6 gate)."""
-
         decision_basis("hot-update")
         governance = self._governance()
         if governance is None or not hasattr(governance, "authorize_hot_update"):
             from governance_rule.permission_directory.execution.path_guard import permission_denied
-
             raise permission_denied()
         governance.authorize_hot_update(
-            tool_id,
-            action,
-            target_version,
-            resource_path,
+            tool_id, action, target_version, resource_path,
         )
 
     def create_tool_governance_bootstrap(self, tool_id: str) -> str:
-        """Master-entry: mint a governed tool's launch credential.
-
-        References the Codex permission decision basis, then delegates the
-        directory-driven bootstrap minting to the governed executor.
-        """
-
+        """Master-entry: mint a governed tool's launch credential."""
         decision_basis("permission-sovereign")
         governance = self._governance()
         if governance is None or not hasattr(
             governance, "create_tool_governance_bootstrap"
         ):
             from governance_rule.permission_directory.execution.path_guard import permission_denied
-
             raise permission_denied()
         return governance.create_tool_governance_bootstrap(tool_id)
 
@@ -103,19 +172,13 @@ class PermissionAuthSupervisionMixin:
         request_id: str,
         payload: dict[str, Any],
     ) -> None:
-        """Master-entry: submit a shared-layer execution request.
-
-        References the Codex permission decision basis, then delegates the
-        directory-driven adjudication to the governed executor.
-        """
-
+        """Master-entry: submit a shared-layer execution request."""
         decision_basis("permission-sovereign")
         governance = self._governance()
         if governance is None or not hasattr(
             governance, "submit_tool_execution_request"
         ):
             from governance_rule.permission_directory.execution.path_guard import permission_denied
-
             raise permission_denied()
         governance.submit_tool_execution_request(tool_id, request_id, payload)
 
@@ -124,19 +187,13 @@ class PermissionAuthSupervisionMixin:
         tool_id: str,
         request_id: str,
     ) -> bool:
-        """Master-entry: cancel a shared-layer execution request.
-
-        References the Codex permission decision basis, then delegates the
-        directory-driven adjudication to the governed executor.
-        """
-
+        """Master-entry: cancel a shared-layer execution request."""
         decision_basis("permission-sovereign")
         governance = self._governance()
         if governance is None or not hasattr(
             governance, "cancel_tool_execution_request"
         ):
             from governance_rule.permission_directory.execution.path_guard import permission_denied
-
             raise permission_denied()
         return governance.cancel_tool_execution_request(tool_id, request_id)
 
@@ -145,55 +202,117 @@ class PermissionAuthSupervisionMixin:
         tool_id: str,
         request_id: str,
     ) -> dict[str, Any] | None:
-        """Master-entry: consume a shared-layer execution response.
-
-        References the Codex permission decision basis, then delegates the
-        directory-driven adjudication to the governed executor.
-        """
-
+        """Master-entry: consume a shared-layer execution response."""
         decision_basis("permission-sovereign")
         governance = self._governance()
         if governance is None or not hasattr(governance, "tool_execution_response"):
             from governance_rule.permission_directory.execution.path_guard import permission_denied
-
             raise permission_denied()
         return governance.tool_execution_response(tool_id, request_id)
 
     # ------------------------------------------------------------------
-    # Adjudication: permission.authorize (A10/E4)
+    # Adjudication: permission.authorize (A10/E4) — with two-key review
     # ------------------------------------------------------------------
 
     async def _adjudicate_permission_authorize(
         self, request: SovereignRequest
     ) -> SovereignOutcome:
-        """A10/E4: authorization routing — decision-only, delegates to DirectoryAuthority."""
+        """A10/E4: authorization routing — two-key review then directory decision."""
         governance = self._governance()
         if governance is None:
             return refusal_outcome("GOVERNANCE_UNAVAILABLE", verified_basis("A10", "E4"))
 
-        actor = request.payload.get("actor")
+        params = self._extract_authorize_params(request)
+        if params is None:
+            return refusal_outcome(
+                "INSUFFICIENT_AUTHORIZATION_PARAMS", verified_basis("A10", "E4")
+            )
+
+        # A313: two-key review gate — fail closed on deny/missing.
+        review_refusal = self._check_two_key_review(request)
+        if review_refusal is not None:
+            return review_refusal
+
+        return await self._execute_authorization(governance, request, params)
+
+    def _extract_authorize_params(
+        self, request: SovereignRequest
+    ) -> dict[str, Any] | None:
+        """Extract and validate authorize parameters from the request payload."""
         capability = request.payload.get("capability")
         target = request.payload.get("target")
-        scope = request.payload.get("scope")
+        if not capability or not target:
+            return None
+        return {
+            "capability": capability,
+            "action": request.payload.get("action", "execute"),
+            "target": target,
+            "data_scope": request.payload.get("data_scope")
+            or request.payload.get("scope") or "none",
+            "target_tool_id": request.payload.get("target_tool_id"),
+            "target_version": request.payload.get("target_version"),
+            "resource_path": request.payload.get("resource_path"),
+            "actor": request.payload.get("actor") or request.requester,
+            "permission_id": request.payload.get("permission_id"),
+        }
 
-        if not all([actor, capability, target]):
-            return refusal_outcome("INSUFFICIENT_AUTHORIZATION_PARAMS", verified_basis("A10", "E4"))
+    async def _execute_authorization(
+        self, governance: Any, request: SovereignRequest, params: dict[str, Any]
+    ) -> SovereignOutcome:
+        """Delegate to the governed executor and classify the outcome."""
+        try:
+            result = governance.authorize(
+                capability=params["capability"],
+                action=params["action"],
+                target=params["target"],
+                data_scope=params["data_scope"],
+                target_tool_id=params["target_tool_id"],
+                target_version=params["target_version"],
+                resource_path=params["resource_path"],
+            )
+        except PermissionError:
+            return refusal_outcome(
+                "AUTHORIZATION_DENIED", verified_basis("A10", "E4")
+            )
+        allowed = bool(getattr(result, "allowed", False)) or bool(result)
+        if not allowed:
+            return refusal_outcome(
+                "AUTHORIZATION_DENIED", verified_basis("A10", "E4")
+            )
+        return self._record_authorized_grant(request, params)
 
-        result = governance.authorize(
-            actor=actor,
-            capability=capability,
-            target=target,
-            scope=scope,
-        )
-
+    def _record_authorized_grant(
+        self, request: SovereignRequest, params: dict[str, Any]
+    ) -> SovereignOutcome:
+        """Record the issued grant in the ledger and return the accepted outcome."""
+        permission_id = params.get("permission_id") or f"perm-{record_grant.__module__}"
+        try:
+            record_grant(
+                permission_id=permission_id,
+                actor=params["actor"],
+                capability=params["capability"],
+                target=params["target"],
+                action=params["action"],
+                data_scope=params["data_scope"],
+                requester=request.requester,
+                review_finding="pass",
+                basis=("A10", "E4", "A313"),
+            )
+        except Exception:
+            pass  # ledger failure must not block the authorization decision
+        self._issued_grants[permission_id] = {
+            "status": "issued",
+            "issued_at": self._iso_now(),
+            "requester": request.requester,
+        }
         return accepted_outcome(
             {
                 "action": "permission.authorize",
-                "decision": "allowed" if result.allowed else "denied",
-                "basis": result.basis,
+                "decision": "allowed",
+                "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis("A10", "E4"),
+            verified_basis("A10", "E4", "A313"),
         )
 
     # ------------------------------------------------------------------
@@ -208,7 +327,6 @@ class PermissionAuthSupervisionMixin:
         if governance is None:
             return refusal_outcome("GOVERNANCE_UNAVAILABLE", verified_basis("A6"))
 
-        # Surface compliance violations
         violations = request.payload.get("violations", [])
         if violations:
             self._compliance_violations.extend(violations)

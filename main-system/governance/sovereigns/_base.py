@@ -16,8 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-from governance_rule.codex import GOVERNANCE_CODEX
-from governance_rule.execution.codex_repository import load_governance_codex
+from governance_rule.execution.codex_reconcile import bounded_lookup
 from core_system.codex_decision import (
     DecisionBasis,
     SovereignOutcome,
@@ -51,19 +50,26 @@ class SovereignIdentity:
 
     @classmethod
     def from_codex(cls, sovereign_id: str) -> "SovereignIdentity":
-        for s in GOVERNANCE_CODEX.sovereigns:
-            if s.id == sovereign_id:
-                return cls(
-                    sovereign_id=s.id,
-                    name=s.name,
-                    area=s.area,
-                    rank=s.rank,
-                    basis=s.basis,
-                    duties=tuple(s.duties),
-                    powers=tuple(s.powers),
-                    prohibitions=tuple(s.prohibitions),
-                )
-        raise KeyError(f"Sovereign {sovereign_id!r} not found in Codex")
+        # A435 BOUNDED_MACHINE_LOOKUP: identity/status/binding resolution
+        # through the official entry, scoped to this one sovereign record.
+        s = bounded_lookup(
+            sovereign_id,
+            purpose="adjudication",
+            scope=(f"sovereign:{sovereign_id}",),
+            reader=lambda ctx: ctx.sovereign(sovereign_id),
+        )
+        if s is None:
+            raise KeyError(f"Sovereign {sovereign_id!r} not found in Codex")
+        return cls(
+            sovereign_id=s.id,
+            name=s.name,
+            area=s.area,
+            rank=s.rank,
+            basis=s.basis,
+            duties=tuple(s.duties),
+            powers=tuple(s.powers),
+            prohibitions=tuple(s.prohibitions),
+        )
 
 
 class SovereignBase(ABC):

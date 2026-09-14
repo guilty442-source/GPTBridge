@@ -80,7 +80,6 @@ _MAX_CHILD_RESTARTS = 3
 
 
 class SynchronizationSovereign(
-    SovereignBase,
     SyncChildAccessMixin,
     SyncDispatchMixin,
     SyncChildLifecycleMixin,
@@ -88,6 +87,7 @@ class SynchronizationSovereign(
     SyncA322DecisionMixin,
     SyncAutonomyMixin,
     SyncStatusMixin,
+    SovereignBase,
 ):
     """同步主宰：專門決策，協調各類同步子主宰，A330例外執行。"""
 

@@ -13,9 +13,10 @@ import stat
 from pathlib import Path
 from typing import Any
 
-from governance_rule.execution.codex_repository import (
-    CODEX_DATABASE_PATH,
-    load_governance_codex,
+from governance_rule.execution.codex_reconcile import bounded_lookup
+from governance_rule.execution.codex_repository import CODEX_DATABASE_PATH
+from governance_rule.execution.codex_session import (
+    revoke_codex_read_contexts,
 )
 from shared_layer.runtime_gateway import InformationChannelGateway
 
@@ -57,7 +58,16 @@ async def _amendment_executor(command: str, payload: dict[str, Any]) -> tuple[st
     _restore_read_only(target)
 
     new_version = payload.get("new_version", "unknown")
-    load_governance_codex()
+    # A435: an amendment invalidates every outstanding read context —
+    # sessions bound to the old codex version are revoked, then the new
+    # authority is verified through one bounded official-entry lookup.
+    revoke_codex_read_contexts()
+    bounded_lookup(
+        "codex-amendment-executor",
+        purpose="amendment-verification",
+        scope=("codex:identity",),
+        reader=lambda ctx: ctx.codex_identity(),
+    )
 
     return "applied", {
         "amendment_id": payload.get("amendment_id"),
@@ -71,7 +81,15 @@ async def _amendment_consumer(command: str, payload: dict[str, Any]) -> tuple[st
     if command != "codex.applied":
         return "ignored", {"reason": "unhandled command"}
 
-    load_governance_codex()
+    # A435: codex.applied invalidates all read contexts (version binding)
+    # before consumers re-certify against the new authority.
+    revoke_codex_read_contexts()
+    bounded_lookup(
+        "codex-amendment-executor",
+        purpose="amendment-verification",
+        scope=("codex:identity",),
+        reader=lambda ctx: ctx.codex_identity(),
+    )
     re_certify_permission_sovereign()
     return "reloaded", {"amendment_id": payload.get("amendment_id")}
 

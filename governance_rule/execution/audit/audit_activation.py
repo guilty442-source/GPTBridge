@@ -16,7 +16,10 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from governance_rule.execution.codex_repository import load_governance_codex
+from governance_rule.execution.codex_repository import (
+    codex_readonly_connection,
+    load_governance_codex,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 CODEX_PATH = PROJECT_ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
@@ -49,16 +52,18 @@ def check_activation_states(root: Path, errors: list[str]) -> None:
 
     retired = _retired_sovereign_ids()
     warnings: list[str] = []
-    conn: sqlite3.Connection | None = None
     try:
-        conn = sqlite3.connect(str(codex_path))
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT architecture_code, target_root, current_state, "
-            "required_state, legacy_root, verification_owner, "
-            "old_root_deletion_state FROM architecture_activation_states"
-        )
-        for row in cursor.fetchall():
+        # A279 certified tooling: the audit reads the official codex
+        # through the governed read-only repository interface only.
+        with codex_readonly_connection(codex_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT architecture_code, target_root, current_state, "
+                "required_state, legacy_root, verification_owner, "
+                "old_root_deletion_state FROM architecture_activation_states"
+            )
+            rows = cursor.fetchall()
+        for row in rows:
             arch_code, target_root, current_state, _required, legacy_root, verification_owner, old_root_deletion = row
 
             # 1. verification_owner must not be a retired sovereign
@@ -87,9 +92,6 @@ def check_activation_states(root: Path, errors: list[str]) -> None:
                     )
     except sqlite3.Error as error:
         errors.append(f"activation states audit failed: {error}")
-    finally:
-        if conn is not None:
-            conn.close()
 
     # Print warnings to stderr so they are visible without blocking commits.
     for warning in warnings:

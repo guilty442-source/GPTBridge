@@ -66,7 +66,6 @@ _SERVING_STATES = frozenset({"serving", "ready", "active", "converged"})
 
 
 class SystemRuntimeSovereign(
-    SovereignBase,
     SystemRuntimeChildAccessMixin,
     SystemRuntimeIntentMixin,
     SystemRuntimeChildLifecycleMixin,
@@ -75,6 +74,7 @@ class SystemRuntimeSovereign(
     SystemRuntimeAutonomyMixin,
     SystemRuntimeStatusMixin,
     SystemRuntimeStateMixin,
+    SovereignBase,
 ):
     """系統運行主宰：進程存活、運行完整性、平台服務決策。"""
 

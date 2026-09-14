@@ -65,9 +65,17 @@ class StartupExecutorPhasesMixin:
             from core_system.governance_runtime import MainSystemGovernance
 
             app.governance = MainSystemGovernance.from_environment(app.project_root)
-        from governance_rule.execution.codex_repository import load_governance_codex
+        # A435: read the official codex identity through the official
+        # entry bounded lookup — never a direct repository call.
+        from governance_rule.execution.codex_reconcile import bounded_lookup
 
-        codex = await asyncio.to_thread(load_governance_codex)
+        identity = await asyncio.to_thread(
+            bounded_lookup,
+            "startup-executor",
+            purpose="status",
+            scope=("codex:identity",),
+            reader=lambda ctx: ctx.codex_identity(),
+        )
         integrity = False
         try:
             integrity = bool(app.governance.runtime_integrity_ready())
@@ -75,7 +83,7 @@ class StartupExecutorPhasesMixin:
             integrity = False
         if not integrity:
             raise RuntimeError("official-codex-integrity-unverified")
-        record.detail["codex_version"] = codex.codex_version
+        record.detail["codex_version"] = identity["codex_version"]
         self._conditions["official-codex-valid"] = True  # type: ignore[attr-defined]
 
     async def _phase_load_permission_directory(self, record: PhaseRecord) -> None:

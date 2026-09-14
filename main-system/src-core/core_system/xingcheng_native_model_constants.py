@@ -6,14 +6,13 @@
 
 from __future__ import annotations
 
-from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.execution.codex_official import official_self_declaration
 
 from .xingcheng_personality import XINGCHENG_MODULE_ID
 
-_XINGCHENG_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.area == "xingcheng"),
-    None,
-)
+# A74/A174: 星澄 self-declaration through the official entry single-use
+# session — resolved by sovereign identity, not an area scan.
+_XINGCHENG_SOVEREIGN = official_self_declaration(XINGCHENG_MODULE_ID)
 if _XINGCHENG_SOVEREIGN is None:
     raise RuntimeError("xingcheng sovereign not found in Governance Codex")
 

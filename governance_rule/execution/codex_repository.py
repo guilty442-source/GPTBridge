@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Final
+from typing import Final, Iterator
 
 
 CODEX_VERSION_UNIT: Final[int] = 100_000
@@ -150,6 +151,7 @@ class GovernanceCodex:
     savings: CodexSavings | None = None
     sovereigns: tuple[CodexSovereign, ...] = field(default_factory=tuple)
     directories: dict[str, tuple[CodexDirectoryRow, ...]] = field(default_factory=dict)
+    registries: dict[str, tuple[CodexDirectoryRow, ...]] = field(default_factory=dict)
 
 
 CODEX_DATABASE_PATH = (
@@ -158,20 +160,45 @@ CODEX_DATABASE_PATH = (
 CODEX_DATABASE = CODEX_DATABASE_PATH
 
 
-def _load_codex_directories(
-    connection: sqlite3.Connection,
-) -> dict[str, tuple[CodexDirectoryRow, ...]]:
-    """Read every authoritative ``*_directory`` table (A223-A227/A228) read-only.
+@contextmanager
+def codex_readonly_connection(
+    path: Path | str = CODEX_DATABASE_PATH,
+) -> Iterator[sqlite3.Connection]:
+    """A279 governed repository connection for certified tooling.
 
-    Directories are permission-sovereign-owned identity registries inside the
-    codex; this session only makes their registered content available to
-    governed readers, never writes.
+    Certified tooling (the governance audit) may read the official machine
+    codex through this governed repository interface; viewers and runtime
+    consumers must instead enter through ``governance-codex://official``
+    (``codex_official`` / ``codex_session``).  The connection is opened
+    read-only/immutable, held only for the ``with`` block, and always
+    closed on exit — it never grants file mutation authority.
+    """
+    target = Path(path)
+    connection = sqlite3.connect(
+        f"file:{target.as_posix()}?mode=ro&immutable=1", uri=True
+    )
+    try:
+        yield connection
+    finally:
+        connection.close()
+
+
+def _load_codex_tables(
+    connection: sqlite3.Connection,
+    suffix: str,
+) -> dict[str, tuple[CodexDirectoryRow, ...]]:
+    """Read every authoritative ``*{suffix}`` table read-only.
+
+    Directories (``*_directory``) are permission-sovereign-owned identity
+    registries; registries (``*_registry``) are the machine authority for
+    hierarchy/assignment/supersession bindings (A334).  Both are registered
+    non-content identity/status/binding data — never written here.
     """
     tables = [
         row[0]
         for row in connection.execute(
             "SELECT name FROM sqlite_master"
-            " WHERE type='table' AND name LIKE '%_directory' ORDER BY name"
+            f" WHERE type='table' AND name LIKE '%{suffix}' ORDER BY name"
         )
     ]
     directories: dict[str, tuple[CodexDirectoryRow, ...]] = {}
@@ -190,6 +217,18 @@ def _load_codex_directories(
             rows.append(CodexDirectoryRow(fields))
         directories[table] = tuple(rows)
     return directories
+
+
+def _load_codex_directories(
+    connection: sqlite3.Connection,
+) -> dict[str, tuple[CodexDirectoryRow, ...]]:
+    return _load_codex_tables(connection, "_directory")
+
+
+def _load_codex_registries(
+    connection: sqlite3.Connection,
+) -> dict[str, tuple[CodexDirectoryRow, ...]]:
+    return _load_codex_tables(connection, "_registry")
 
 
 _codex_cache: dict[tuple[str, int, int], GovernanceCodex] = {}
@@ -283,9 +322,23 @@ def _load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
             savings=CodexSavings(*(savings[key] for key in ("mutability", "function", "amendment", "overriding_authority", "interpretation", "conflict_resolution"))),
             sovereigns=tuple(CodexSovereign(row["sovereign_id"], row["name"], row["area"], row["rank"], lists["sovereign_duties"][row["sovereign_id"]], lists["sovereign_powers"][row["sovereign_id"]], lists["sovereign_prohibitions"][row["sovereign_id"]], row["basis"]) for row in connection.execute("SELECT * FROM sovereigns ORDER BY position")),
             directories=_load_codex_directories(connection),
+            registries=_load_codex_registries(connection),
         )
     finally:
         connection.close()
 
 
-GOVERNANCE_CODEX = load_governance_codex()
+def __getattr__(name: str):
+    """Lazy compatibility for certified tooling only (A279/A435).
+
+    ``GOVERNANCE_CODEX`` was once an eager import-time snapshot — an
+    uncontrolled full codex read.  It is no longer bound eagerly; this
+    hook resolves it on demand through the same governed repository load
+    so certified tooling and test discovery keep working.  Runtime
+    viewers must not use it: they enter through
+    ``governance-codex://official`` (``codex_official``/``codex_session``)
+    with identity, purpose, scope, session and audit.
+    """
+    if name == "GOVERNANCE_CODEX":
+        return load_governance_codex()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

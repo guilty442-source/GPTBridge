@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
-from governance_rule.execution.codex_repository import load_governance_codex
+from governance_rule.execution.codex_reconcile import bounded_lookup
 from governance_rule.execution.versioning import validate_loaded_authority_version
 from governance_rule.governance_policy import governance_policy_snapshot
 from governance_rule.permission_directory.directory_authority import (
@@ -193,7 +193,15 @@ class AuthorityReanchorService:
                 defer("governance audit failed")
                 return
             try:
-                load_governance_codex()
+                # A435 bounded lookup: codex identity only — verifies the
+                # authority loads at the current version through the
+                # official entry rather than a direct repository read.
+                bounded_lookup(
+                    "authority-reanchor-service",
+                    purpose="status",
+                    scope=("codex:identity",),
+                    reader=lambda ctx: ctx.codex_identity(),
+                )
                 validate_loaded_authority_version()
             except Exception as error:
                 defer(f"codex-invalid: {type(error).__name__}: {error}")

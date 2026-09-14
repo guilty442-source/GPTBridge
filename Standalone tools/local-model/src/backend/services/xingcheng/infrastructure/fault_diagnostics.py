@@ -162,10 +162,25 @@ class FaultDiagnostics:
     # Governed directory reads (read-only codex)
     # ------------------------------------------------------------------
 
-    def _codex_connection(self) -> sqlite3.Connection:
-        return sqlite3.connect(
-            f"file:{self.codex_path.as_posix()}?mode=ro&immutable=1",
-            uri=True,
+    def _codex_read(
+        self,
+        scope: tuple[str, ...],
+        reader: "Any",
+    ) -> Any:
+        """One bounded official-entry codex read (A435).
+
+        Direct SQLite access to the codex is denied: fault diagnostics
+        enters through ``governance-codex://official`` as the governed
+        ``xingcheng-fault-diagnostics`` actor with purpose ``diagnostics``
+        and a least scope of registered non-content directories/registries.
+        """
+        from governance_rule.execution.codex_reconcile import bounded_lookup
+
+        return bounded_lookup(
+            "xingcheng-fault-diagnostics",
+            purpose="diagnostics",
+            scope=scope,
+            reader=reader,
         )
 
     def fault_code_directory(self) -> list[dict[str, Any]]:
@@ -173,26 +188,24 @@ class FaultDiagnostics:
         if not self.codex_path.is_file():
             return []
         try:
-            with self._codex_connection() as db:
-                rows = db.execute(
-                    "SELECT fault_code, canonical_name, domain, severity, "
-                    "meaning, trigger, retryability, remediation "
-                    "FROM fault_code_directory"
-                ).fetchall()
+            rows = self._codex_read(
+                ("directory:fault_code_directory",),
+                lambda ctx: ctx.directory("fault_code_directory"),
+            )
             return [
                 {
-                    "fault_code": str(row[0]),
-                    "canonical_name": str(row[1] or ""),
-                    "domain": str(row[2] or ""),
-                    "severity": str(row[3] or ""),
-                    "meaning": str(row[4] or ""),
-                    "trigger": str(row[5] or ""),
-                    "retryability": str(row[6] or ""),
-                    "remediation": str(row[7] or ""),
+                    "fault_code": str(row.get("fault_code") or ""),
+                    "canonical_name": str(row.get("canonical_name") or ""),
+                    "domain": str(row.get("domain") or ""),
+                    "severity": str(row.get("severity") or ""),
+                    "meaning": str(row.get("meaning") or ""),
+                    "trigger": str(row.get("trigger") or ""),
+                    "retryability": str(row.get("retryability") or ""),
+                    "remediation": str(row.get("remediation") or ""),
                 }
                 for row in rows
             ]
-        except sqlite3.Error:
+        except (sqlite3.Error, PermissionError, KeyError, TypeError):
             return []
 
     def maintenance_manuals(self) -> list[dict[str, Any]]:
@@ -200,34 +213,35 @@ class FaultDiagnostics:
         if not self.codex_path.is_file():
             return []
         try:
-            with self._codex_connection() as db:
-                rows = db.execute(
-                    "SELECT manual_code, target_entity, applicable_fault_codes, "
-                    "diagnosis, preconditions, ordered_steps, verification, "
-                    "rollback, stop_conditions, risk_level, required_permission "
-                    "FROM maintenance_manual_directory"
-                ).fetchall()
+            rows = self._codex_read(
+                ("directory:maintenance_manual_directory",),
+                lambda ctx: ctx.directory("maintenance_manual_directory"),
+            )
             return [
                 {
-                    "manual_code": str(row[0]),
-                    "target_entity": str(row[1] or ""),
+                    "manual_code": str(row.get("manual_code") or ""),
+                    "target_entity": str(row.get("target_entity") or ""),
                     "applicable_fault_codes": [
                         code
-                        for code in str(row[2] or "").split("|")
+                        for code in str(
+                            row.get("applicable_fault_codes") or ""
+                        ).split("|")
                         if code
                     ],
-                    "diagnosis": str(row[3] or ""),
-                    "preconditions": str(row[4] or ""),
-                    "ordered_steps": str(row[5] or ""),
-                    "verification": str(row[6] or ""),
-                    "rollback": str(row[7] or ""),
-                    "stop_conditions": str(row[8] or ""),
-                    "risk_level": str(row[9] or ""),
-                    "required_permission": str(row[10] or ""),
+                    "diagnosis": str(row.get("diagnosis") or ""),
+                    "preconditions": str(row.get("preconditions") or ""),
+                    "ordered_steps": str(row.get("ordered_steps") or ""),
+                    "verification": str(row.get("verification") or ""),
+                    "rollback": str(row.get("rollback") or ""),
+                    "stop_conditions": str(row.get("stop_conditions") or ""),
+                    "risk_level": str(row.get("risk_level") or ""),
+                    "required_permission": str(
+                        row.get("required_permission") or ""
+                    ),
                 }
                 for row in rows
             ]
-        except sqlite3.Error:
+        except (sqlite3.Error, PermissionError, KeyError, TypeError):
             return []
 
     # ------------------------------------------------------------------
@@ -381,20 +395,23 @@ class FaultDiagnostics:
         if not self.codex_path.is_file():
             return {}
         try:
-            with self._codex_connection() as db:
-                rows = db.execute(
-                    "SELECT module_architecture_code, managing_sub_sovereign, "
-                    "decision_authority FROM module_assignment_registry "
-                    "WHERE status = 'active'"
-                ).fetchall()
+            rows = self._codex_read(
+                ("registry:module_assignment_registry",),
+                lambda ctx: ctx.registry("module_assignment_registry"),
+            )
             return {
-                str(row[0]): {
-                    "managing_sub_sovereign": str(row[1] or ""),
-                    "decision_authority": str(row[2] or ""),
+                str(row.get("module_architecture_code") or ""): {
+                    "managing_sub_sovereign": str(
+                        row.get("managing_sub_sovereign") or ""
+                    ),
+                    "decision_authority": str(
+                        row.get("decision_authority") or ""
+                    ),
                 }
                 for row in rows
+                if row.get("status") == "active"
             }
-        except sqlite3.Error:
+        except (sqlite3.Error, PermissionError, KeyError, TypeError):
             return {}
 
     def _symptom_entities(self, text: str) -> dict[str, list[str]]:

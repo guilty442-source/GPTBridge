@@ -19,7 +19,6 @@ callers provide only a request, never a transport handle.
 from __future__ import annotations
 
 import asyncio
-import sqlite3
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -89,14 +88,26 @@ class CommandContractResolver:
         codes: set[str] = set()
         loaded = False
         try:
-            uri = f"file:{self._db.as_posix()}?mode=ro&immutable=1"
-            conn = sqlite3.connect(uri, uri=True)
-            for row in conn.execute("SELECT command_code FROM command_code_directory"):
-                codes.add(str(row[0]))
-            conn.close()
+            # A435/A224: command-code membership is non-content registered
+            # data read through the official entry as a bounded lookup —
+            # the information layer never opens the codex DB directly.
+            from governance_rule.execution.codex_reconcile import (
+                bounded_lookup,
+            )
+
+            codes = bounded_lookup(
+                "information-layer",
+                purpose="contract-gate",
+                scope=("directory:command_code_directory",),
+                reader=lambda ctx: {
+                    str(row.get("command_code", ""))
+                    for row in ctx.directory("command_code_directory")
+                },
+            )
+            codes.discard("")
             loaded = True
         except Exception:
-            pass  # fail-open on database error; audit gate still records
+            pass  # fail-open on read error; audit gate still records
         if loaded:
             self._cache = codes
             self._signature = signature

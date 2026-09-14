@@ -51,7 +51,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from governance_rule.codex import GOVERNANCE_CODEX
+from governance_rule.execution.codex_official import official_self_declaration
 from ._base import SovereignBase, SovereignOutcome, SovereignRequest
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 from core_system.governance_rule_coordination import GovernanceRuleCoordination
@@ -69,10 +69,9 @@ from .decision.status import DecisionStatusMixin
 from .decision.state import DecisionStateMixin
 
 
-_DECISION_SOVEREIGN = next(
-    (s for s in GOVERNANCE_CODEX.sovereigns if s.id == "decision-sovereign"),
-    None,
-)
+# A74/A174: self-declaration through the official entry single-use
+# session, not a direct codex snapshot import.
+_DECISION_SOVEREIGN = official_self_declaration("decision-sovereign")
 if _DECISION_SOVEREIGN is None:
     raise RuntimeError("decision sovereign not found in Governance Codex")
 

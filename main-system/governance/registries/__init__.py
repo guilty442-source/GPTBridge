@@ -8,57 +8,45 @@
   覆寫或分歧於正式註冊表。
 
 本模組是執行期唯讀投影：所有父子關係、主要域、模組指派與執行
-身分一律直接讀取法典資料庫（唯讀模式），不維護任何手寫映射。
+身分一律經由 ``governance-codex://official`` 的受控 bounded 查找
+讀取法典註冊表（A435 BOUNDED_MACHINE_LOOKUP），不維護任何手寫
+映射，也不直接開啟 SQLite。
 """
 
 from __future__ import annotations
 
-import sqlite3
 from functools import lru_cache
-from pathlib import Path
-from typing import Any, Final
+from typing import Any
 
-from governance_rule.execution.codex_repository import CODEX_DATABASE_PATH
+from governance_rule.execution.codex_reconcile import bounded_lookup
 
 
 # ---------------------------------------------------------------------------
-# Codex-backed registry access (A334 machine authority, read-only)
+# Codex-backed registry access (A334 machine authority, official entry)
 # ---------------------------------------------------------------------------
+
+# A435 bounded-codex-proxy actor for this governed component.
+_ACTOR = "governance-registries"
 
 
 @lru_cache(maxsize=1)
 def _registries() -> dict[str, tuple[dict[str, str], ...]]:
-    """Load every ``*_registry`` table from the codex DB, read-only."""
-    if not Path(CODEX_DATABASE_PATH).exists():
-        return {}
-    uri = f"file:{Path(CODEX_DATABASE_PATH).as_posix()}?mode=ro"
-    connection = sqlite3.connect(uri, uri=True)
+    """Load every ``*_registry`` table through the official entry.
+
+    The cache holds only typed non-content registry rows plus metadata —
+    permitted by A435 (caches must not carry codex rule text).
+    """
     try:
-        tables = [
-            row[0]
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master"
-                " WHERE type='table' AND name LIKE '%_registry' ORDER BY name"
-            )
-        ]
-        loaded: dict[str, tuple[dict[str, str], ...]] = {}
-        for table in tables:
-            columns = [
-                column[1]
-                for column in connection.execute(f"PRAGMA table_info({table})")
-            ]
-            rows = tuple(
-                dict(zip(columns, row))
-                for row in connection.execute(
-                    f"SELECT {', '.join(columns)} FROM {table} ORDER BY 1"
-                )
-            )
-            loaded[table] = tuple(
-                {key: str(value) for key, value in row.items()} for row in rows
-            )
-        return loaded
-    finally:
-        connection.close()
+        return bounded_lookup(
+            _ACTOR,
+            purpose="coordination",
+            scope=("registry:*",),
+            reader=lambda ctx: {
+                name: ctx.registry(name) for name in ctx.registry_names()
+            },
+        )
+    except PermissionError:
+        return {}
 
 
 def _registry(name: str) -> tuple[dict[str, str], ...]:

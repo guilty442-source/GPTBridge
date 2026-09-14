@@ -20,10 +20,24 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
-from governance_rule.execution.codex_repository import (
-    format_codex_version,
-    load_governance_codex,
+from governance_rule.execution.codex_repository import format_codex_version
+from governance_rule.execution.codex_session import (
+    CodexReadSession,
+    open_review_session,
 )
+
+# A435 REVIEW_SESSION: the decision layer enters the codex through the
+# official entry as the governed ``decision-layer`` proxy actor — never a
+# direct repository read.  Each session carries identity, purpose
+# (adjudication), least scope, nonce, expiry and metadata-only audit.
+_DECISION_ACTOR = "decision-layer"
+_DECISION_PURPOSE = "adjudication"
+
+
+def _review(scope: tuple[str, ...]) -> CodexReadSession:
+    return open_review_session(
+        _DECISION_ACTOR, purpose=_DECISION_PURPOSE, scope=scope
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -47,20 +61,8 @@ def provision_text(reference: str) -> str:
     """
     if not is_provision_token(reference):
         raise ValueError(f"invalid provision token {reference!r}")
-    kind, _number = reference[0], reference[1:]
-    if kind == "A":
-        for article in load_governance_codex().articles:
-            if article.id == reference:
-                return article.rule
-    if kind == "E":
-        for edict in load_governance_codex().edicts:
-            if edict.id == reference:
-                return edict.edict
-    if kind == "P":
-        for principle in load_governance_codex().principles:
-            if principle.id == reference:
-                return principle.statement
-    raise KeyError(f"unknown provision {reference!r}")
+    with _review((f"provision:{reference}",)) as session:
+        return session.provision_text(reference)
 
 
 @dataclass(frozen=True)
@@ -94,8 +96,10 @@ def verified_basis(references: Iterable[str]) -> DecisionBasis:
     for reference in references:
         if not is_provision_token(reference):
             raise ValueError(f"non-token basis: {reference!r}")
-        provision_text(reference)  # raises KeyError if not found
         tokens.append(reference)
+    with _review(tuple(f"provision:{r}" for r in tokens)) as session:
+        for reference in tokens:
+            session.provision_text(reference)  # raises KeyError if not found
     return DecisionBasis(tuple(tokens))
 
 
@@ -151,32 +155,19 @@ def accepted_outcome(result: dict[str, Any], basis: tuple[str, ...]) -> Sovereig
 # Codex edict indexing (existing production interface)
 # ---------------------------------------------------------------------------
 
-def _by_area() -> dict[str, list[dict[str, str]]]:
-    """Index Codex edicts by area (pure, read-only)."""
-
-    indexed: dict[str, list[dict[str, str]]] = {}
-    for edict in load_governance_codex().edicts:
-        area = edict.area
-        indexed.setdefault(area, []).append(
-            {
-                "id": edict.id,
-                "edict": edict.edict,
-                "immutability": edict.immutability,
-            }
-        )
-    return indexed
-
-
 def codex_edicts(area: str) -> list[dict[str, str]]:
     """Return the Codex edicts governing the given area (decision basis)."""
 
-    return _by_area().get(area, [])
+    with _review((f"edicts:{area}",)) as session:
+        return session.edicts(area)
 
 
-def _sovereign_for_area(area: str) -> dict[str, Any] | None:
+def _sovereign_for_area(
+    session: CodexReadSession, area: str
+) -> dict[str, Any] | None:
     """Return the sovereign sub-law for the given area, if any."""
 
-    for sovereign in load_governance_codex().sovereigns:
+    for sovereign in session.sovereigns():
         if sovereign.area == area:
             return {
                 "id": sovereign.id,
@@ -198,17 +189,19 @@ def decision_basis(area: str) -> dict[str, Any]:
     sovereign sub-law is included when available.
     """
 
-    edicts = codex_edicts(area)
-    codex_snapshot = load_governance_codex()
-    return {
-        "decision_source": "codex",
-        "codex_schema": codex_snapshot.schema,
-        "codex_version": format_codex_version(codex_snapshot.codex_version),
-        "authority_rank": codex_snapshot.preamble.authority_rank,
-        "area": area,
-        "edicts": edicts,
-        "sovereign": _sovereign_for_area(area),
-    }
+    with _review(
+        (f"edicts:{area}", "sovereign:*", "codex:identity")
+    ) as session:
+        identity = session.codex_identity()
+        return {
+            "decision_source": "codex",
+            "codex_schema": identity["schema"],
+            "codex_version": identity["codex_version_text"],
+            "authority_rank": identity["authority_rank"],
+            "area": area,
+            "edicts": session.edicts(area),
+            "sovereign": _sovereign_for_area(session, area),
+        }
 
 
 __all__ = [
