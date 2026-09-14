@@ -202,7 +202,7 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock()
 
 if (!hasSingleInstanceLock) {
   // Another instance already holds the lock. Exit immediately without
-  // waiting for the ready event ?”app.quit() may not fire before-quit
+  // waiting for the ready event ?'app.quit() may not fire before-quit
   // handlers when the app hasn't finished initializing yet.
   reportRuntimeEvent('main.single-instance.exiting')
   app.exit(0)
@@ -234,7 +234,7 @@ if (!hasSingleInstanceLock) {
       // Show the window FIRST so the startup page appears immediately.
       // Backend startup (boot_core spawn) runs in the background and does
       // not block the UI.  A60: the launcher does NOT generate governance
-      // bootstrap material ?”boot_core generates its own fresh token per
+      // bootstrap material ?'boot_core generates its own fresh token per
       // spawn.  The launcher only spawns boot_core and tracks its liveness.
       await createWindow()
       startMainRendererWatch()
@@ -286,7 +286,7 @@ if (process.env.GPTBRIDGE_RENDERER_DEV_URL) {
 }
 
 // Complete-close contract: closing the last window fully terminates the
-// application ?”embedded sessions, renderer watchers, the managed backend
+// application ?'embedded sessions, renderer watchers, the managed backend
 // (boot_core + main.py), and the Electron process itself.  The path is
 // idempotent: window-all-closed, before-quit, and repeated quit attempts
 // all converge on a single shared shutdown.
@@ -300,7 +300,7 @@ function shutdownApplication(): void {
     stopEmbeddedBrowserBridge()
     stopMainRendererWatch()
     if (shouldManageBackend) {
-      // Backend shutdown is awaited but bounded ?”a stalled graceful stop
+      // Backend shutdown is awaited but bounded ?'a stalled graceful stop
       // must never leave the UI running as a detached orphan.
       await Promise.race([
         stopBackend(),
@@ -321,7 +321,7 @@ function shutdownApplication(): void {
 
 app.on('window-all-closed', () => {
   // Closing the last window closes the whole application on every
-  // platform ?”no dock-resident or detached backend remains.
+  // platform ?'no dock-resident or detached backend remains.
   shutdownApplication()
 })
 
