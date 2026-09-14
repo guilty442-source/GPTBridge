@@ -1,4 +1,4 @@
-"""Xingcheng Sovereign — Native Capability Module (A336).
+"""Xingcheng Sovereign — Native Capability Module (A337).
 
 Programming analysis/design/authoring/refactoring/debugging/verification/
 migration/generated-code review are exclusive native-model capabilities.
@@ -18,7 +18,7 @@ from core_system.codex_decision import accepted_outcome, refusal_outcome
 
 _logger = logging.getLogger("gptbridge.sovereign.xingcheng.native")
 
-# A336: authorization modes for automation executor
+# A337: authorization modes for automation executor
 _AUTOMATION_AUTHORIZATION_MODES = frozenset({"user-command", "codex-mandate"})
 
 
@@ -35,7 +35,7 @@ class XingchengNativeMixin:
         self._automation_tasks = {}
 
     def _automation_authorized(self, request: SovereignRequest) -> bool:
-        """A336: automation requires explicit user command or codex mandate."""
+        """A337: automation requires explicit user command or codex mandate."""
         authorization = request.payload.get("authorization")
         if not isinstance(authorization, dict):
             return False
@@ -43,14 +43,14 @@ class XingchengNativeMixin:
         return mode in _AUTOMATION_AUTHORIZATION_MODES and bool(authorization.get("reference"))
 
     async def adjudicate_native_capability(self, request: SovereignRequest) -> SovereignOutcome:
-        """Route A336 native-model programming + automation intents."""
+        """Route A337 native-model programming + automation intents."""
         intent = request.intent
         if intent.startswith("program."):
             return await self._adjudicate_program(request)
         return await self._adjudicate_automation(request)
 
     async def _adjudicate_program(self, request: SovereignRequest) -> SovereignOutcome:
-        """A336 NATIVE-CAPABILITY: programming analysis/design/authoring/refactoring/
+        """A337 NATIVE-CAPABILITY: programming analysis/design/authoring/refactoring/
         debugging/verification/migration/generated-code review.
         """
         op = request.intent.split(".", 1)[1]
@@ -59,7 +59,7 @@ class XingchengNativeMixin:
         if output_path:
             resolved_output = self._resolve_in_domain(str(output_path))
             if resolved_output is None:
-                return refusal_outcome("CROSS_ROOT_MUTATION", self.verified_basis("A336"))
+                return refusal_outcome("CROSS_ROOT_MUTATION", self.verified_basis("A337"))
         task_id = f"program-{len(self._program_tasks) + 1}"
         task = {
             "task_id": task_id,
@@ -79,13 +79,13 @@ class XingchengNativeMixin:
                 "executor": "xingcheng-native-model",
                 "boundary": "no-permission-grant+no-routing-evidence-alteration+no-direct-channel-operation",
             },
-            self.verified_basis("A336"),
+            self.verified_basis("A337"),
         )
 
     async def _adjudicate_automation(self, request: SovereignRequest) -> SovereignOutcome:
-        """A336 AUTOMATION-EXECUTOR: whole-system automation coordination."""
+        """A337 AUTOMATION-EXECUTOR: whole-system automation coordination."""
         if not self._automation_authorized(request):
-            return refusal_outcome("AUTOMATION_AUTHORIZATION_REQUIRED", self.verified_basis("A336"))
+            return refusal_outcome("AUTOMATION_AUTHORIZATION_REQUIRED", self.verified_basis("A337"))
         intent = request.intent
         if intent == "automation.decompose":
             return self._automation_decompose(request)
@@ -110,14 +110,14 @@ class XingchengNativeMixin:
         }
         return accepted_outcome(
             {"task_id": task_id, "state": "decomposed", "steps": len(steps)},
-            self.verified_basis("A336"),
+            self.verified_basis("A337"),
         )
 
     def _automation_task_or_refusal(self, request: SovereignRequest):
         task_id = str(request.payload.get("task_id") or "")
         task = self._automation_tasks.get(task_id)
         if task is None:
-            return refusal_outcome("UNKNOWN_AUTOMATION_TASK", self.verified_basis("A336"))
+            return refusal_outcome("UNKNOWN_AUTOMATION_TASK", self.verified_basis("A337"))
         return task
 
     def _automation_schedule(self, request: SovereignRequest) -> SovereignOutcome:
@@ -137,7 +137,7 @@ class XingchengNativeMixin:
                 "state": "scheduled",
                 "scheduled_steps": len(task["schedule"]),
             },
-            self.verified_basis("A336"),
+            self.verified_basis("A337"),
         )
 
     def _automation_dispatch(self, request: SovereignRequest) -> SovereignOutcome:
@@ -147,7 +147,7 @@ class XingchengNativeMixin:
         step_index = request.payload.get("step_index")
         steps = task.get("schedule") or task["steps"]
         if not isinstance(step_index, int) or step_index < 0 or step_index >= len(steps):
-            return refusal_outcome("INVALID_STEP_INDEX", self.verified_basis("A336"))
+            return refusal_outcome("INVALID_STEP_INDEX", self.verified_basis("A337"))
         steps[step_index]["state"] = "dispatched"
         steps[step_index]["dispatched_at"] = self._iso_now()
         task["state"] = "in-progress"
@@ -158,7 +158,7 @@ class XingchengNativeMixin:
                 "handoff": "typed",
                 "state": "dispatched",
             },
-            self.verified_basis("A336"),
+            self.verified_basis("A337"),
         )
 
     def _automation_converge(self, request: SovereignRequest) -> SovereignOutcome:
@@ -170,7 +170,7 @@ class XingchengNativeMixin:
         task["state"] = "converged" if converged else task["state"]
         return accepted_outcome(
             {"task_id": request.payload.get("task_id"), "converged": converged, "step_states": states},
-            self.verified_basis("A336"),
+            self.verified_basis("A337"),
         )
 
     def _automation_verify(self, request: SovereignRequest) -> SovereignOutcome:
@@ -179,13 +179,13 @@ class XingchengNativeMixin:
             return task
         evidence = request.payload.get("evidence")
         if not evidence:
-            return refusal_outcome("MISSING_RESULT_EVIDENCE", self.verified_basis("A336"))
+            return refusal_outcome("MISSING_RESULT_EVIDENCE", self.verified_basis("A337"))
         task["result_evidence"] = evidence
         task["state"] = "verified"
         task["verified_at"] = self._iso_now()
         return accepted_outcome(
             {"task_id": request.payload.get("task_id"), "state": "verified"},
-            self.verified_basis("A336"),
+            self.verified_basis("A337"),
         )
 
     def _automation_contain(self, request: SovereignRequest) -> SovereignOutcome:
@@ -201,5 +201,5 @@ class XingchengNativeMixin:
         }
         return accepted_outcome(
             {"task_id": request.payload.get("task_id"), "state": "contained", "failure_propagation": "halted"},
-            self.verified_basis("A336"),
+            self.verified_basis("A337"),
         )

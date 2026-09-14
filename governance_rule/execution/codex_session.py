@@ -5,7 +5,7 @@
   BOUNDED_MACHINE_LOOKUP | REVIEW_SESSION | XINGCHENG_CHINESE_REVIEW.
   This module implements the three real read classes; self-declaration
   performs no codex read (reconciliation lives in ``codex_reconcile``).
-- A174: ENTRY governance-codex://official only; permission-sovereign owns
+- A435: ENTRY governance-codex://official only; permission-sovereign owns
   the entry; every view carries identity attestation + purpose + least
   provision scope + nonce + expiry + session + audit; RESPONSE is typed,
   version-identified and requested-scope-only; ALL-OTHER denied.
@@ -20,7 +20,7 @@ A session is bound to (actor, purpose, scope, nonce, expiry, codex version,
 revocation generation); expiry, revocation or a codex version change kills
 it (A435).  Bounded contexts accumulate reads into a bounded batch digest
 flushed as one metadata-only audit record; review sessions audit each read
-individually.  Audit never carries codex content (A174 content-in-audit
+individually.  Audit never carries codex content (A435 content-in-audit
 forbidden).
 """
 
@@ -59,7 +59,7 @@ def _review_request(actor: str, purpose: str, access_class: str) -> str | None:
     if purpose not in _state.GOVERNED_PURPOSES:
         return "CODEX_PURPOSE_REQUIRED"
     if access_class == ACCESS_CHINESE:
-        # A173/A174: 星澄 bypasses permission review only; identity must
+        # A173/A435: 星澄 bypasses permission review only; identity must
         # still be the registered 星澄 identity.
         return None if actor in _state.XINGCHENG_IDS else "CODEX_CHINESE_DENIED"
     try:
@@ -85,7 +85,7 @@ def _review_request(actor: str, purpose: str, access_class: str) -> str | None:
 
 
 class CodexReadSession:
-    """A controlled official-entry read session (A174/A435).
+    """A controlled official-entry read session (A435).
 
     Instances come from ``open_codex_session`` / ``open_bounded_context`` /
     ``open_chinese_review_session`` only.  Every read is checked against
@@ -384,7 +384,7 @@ def open_codex_session(
 ) -> CodexReadSession:
     """Open a controlled codex read session through the official entry.
 
-    Per-request permission review (A174): actor eligibility is checked
+    Per-request permission review (A435): actor eligibility is checked
     against the registered sovereign set plus governed component actors;
     星澄's Chinese review is permission-review exempt but identity-bound.
     Every denial is audited; every session carries nonce + expiry + the
@@ -409,7 +409,7 @@ def open_codex_session(
             codex_version=None, correlation="", result=denial,
         )
         raise PermissionError(denial)
-    # A174 two-key boundary: privileged review/amendment opens require a
+    # A435 two-key boundary: privileged review/amendment opens require a
     # single-use grant countersigned by a distinct registered sovereign.
     if _dual_key.requires_dual_key(access_class, purpose, parsed_scope):
         if not dual_key_grant:

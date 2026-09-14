@@ -203,10 +203,6 @@ class MaintenanceStatusMixin:
     # Helpers for accessing module-level constants without circular imports
     # ------------------------------------------------------------------
 
-    def _maintenance_responsibilities(self):
-        from governance.sub_sovereigns.health_maintenance_test_sub_sovereign import MAINTENANCE_RESPONSIBILITIES
-        return MAINTENANCE_RESPONSIBILITIES
-
     def _maintenance_area(self):
         from governance.sub_sovereigns.health_maintenance_test_sub_sovereign import _MAINTENANCE_SOVEREIGN
         return _MAINTENANCE_SOVEREIGN.area

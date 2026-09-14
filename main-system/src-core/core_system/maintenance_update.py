@@ -196,11 +196,3 @@ class MaintenanceUpdateMixin:
         if not callable(apply):
             raise RuntimeError("third-party sovereign does not expose apply_approved_auto_updates")
         return await apply(approval_token=approval_token, only_available=only_available)
-
-    # ------------------------------------------------------------------
-    # Helper for accessing module-level constant without circular import
-    # ------------------------------------------------------------------
-
-    def _maintenance_area(self):
-        from governance.sub_sovereigns.health_maintenance_test_sub_sovereign import _MAINTENANCE_SOVEREIGN
-        return _MAINTENANCE_SOVEREIGN.area

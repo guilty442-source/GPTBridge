@@ -22,13 +22,13 @@ _REVIEW_FORBIDDEN_KEYS = frozenset({
     "system_target", "operation", "target_path",
 })
 
-# A313: aspects examined for every permission request
+# A319: aspects examined for every permission request
 _PERMISSION_REVIEW_ASPECTS = (
     "codex", "identity", "scope", "purpose",
     "least-privilege", "separation", "expiry", "risk", "current-evidence",
 )
 
-# A336: deterministic classification categories
+# A337: deterministic classification categories
 _CLASSIFY_KINDS = (
     "intent", "task", "code", "fault", "evidence", "result",
 )
@@ -263,7 +263,7 @@ class XingchengReviewMixin:
         return findings
 
     async def _adjudicate_codex_read(self, request: SovereignRequest) -> SovereignOutcome:
-        """A144/A174: 星澄-only official-entry codex read (review basis)."""
+        """A144/A435: 星澄-only official-entry codex read (review basis)."""
         scope = request.payload.get("scope") or "global-review"
         return accepted_outcome(
             {
@@ -274,11 +274,11 @@ class XingchengReviewMixin:
                 "audit": True,
                 "permission_review": "exempt",
             },
-            self.verified_basis("A174", "A144", "A145"),
+            self.verified_basis("A435", "A144", "A145"),
         )
 
     async def _adjudicate_permission_review(self, request: SovereignRequest) -> SovereignOutcome:
-        """A313: independent privileged read-only examination of permission request."""
+        """A319: independent privileged read-only examination of permission request."""
         payload = request.payload
         aspects: dict[str, str] = {}
         aspects["codex"] = "present" if payload.get("basis") or payload.get("codex_ref") else "missing"
@@ -326,11 +326,11 @@ class XingchengReviewMixin:
                 "expiry": payload.get("expiry"),
                 "note": "decision-sovereign may decide only after current 星澄 review",
             },
-            self.verified_basis("A313"),
+            self.verified_basis("A319"),
         )
 
     async def _adjudicate_inspect(self, request: SovereignRequest) -> SovereignOutcome:
-        """A328: free-entry confidential read-only inspection."""
+        """A330: free-entry confidential read-only inspection."""
         layer = str(request.payload.get("layer") or "unspecified")
         inspection_id = f"inspect-{len(self._reviews) + 1}"
         view: dict[str, Any] = {}
@@ -364,14 +364,14 @@ class XingchengReviewMixin:
                 "continuity": "inspection-cannot-interrupt-or-alter-state",
                 "view": view,
             },
-            self.verified_basis("A328"),
+            self.verified_basis("A330"),
         )
 
     async def _adjudicate_classify(self, request: SovereignRequest) -> SovereignOutcome:
-        """A336: deterministic auxiliary classification."""
+        """A337: deterministic auxiliary classification."""
         kind = request.intent.split(".", 1)[1]
         if kind not in _CLASSIFY_KINDS:
-            return refusal_outcome("UNKNOWN_CLASSIFY_KIND", self.verified_basis("A336"))
+            return refusal_outcome("UNKNOWN_CLASSIFY_KIND", self.verified_basis("A337"))
         item = request.payload.get("item")
         normalized = self._normalize_classification_input(kind, item)
         record = {
@@ -388,7 +388,7 @@ class XingchengReviewMixin:
                 "classifier": "auxiliary-deterministic",
                 "semantic_judgment": "native-model-exclusive",
             },
-            self.verified_basis("A336"),
+            self.verified_basis("A337"),
         )
 
     def _normalize_classification_input(self, kind: str, item: Any) -> dict[str, Any]:
@@ -417,7 +417,7 @@ class XingchengReviewMixin:
         return {"kind": kind, "raw": text[:200], "normalized": lowered[:200]}
 
     async def _adjudicate_star_classification(self, request: SovereignRequest) -> SovereignOutcome:
-        """A336 STAR-ADJUDICATION: resolve auxiliary vs native-model classification."""
+        """A337 STAR-ADJUDICATION: resolve auxiliary vs native-model classification."""
         auxiliary = request.payload.get("auxiliary") or {}
         native = request.payload.get("native") or {}
         conflict = auxiliary != native
@@ -433,5 +433,5 @@ class XingchengReviewMixin:
         self._reviews[finding["finding_id"]] = {"kind": "star-adjudication", **finding}
         return accepted_outcome(
             {"action": "star-adjudication", "finding": finding},
-            self.verified_basis("A336"),
+            self.verified_basis("A337"),
         )

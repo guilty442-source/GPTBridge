@@ -1,6 +1,6 @@
 """Shared state for the official codex entry (A435 access classes).
 
-法典依據: A174/A435 — the official entry keeps one governed vocabulary
+法典依據: A435 — the official entry keeps one governed vocabulary
 (access classes, purposes, scope grammar, actor registers), one
 metadata-only audit sink and one revocation generation.  Both the session
 engine (``codex_session``) and the self-declaration reconciler
@@ -8,7 +8,7 @@ engine (``codex_session``) and the self-declaration reconciler
 
 Audit is content-free by construction: records carry identity, purpose,
 access class, a scope hash, codex version, correlation id and result only
-(A174 FORBID:content-in-audit).
+(A435 FORBID:content-in-audit).
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ AUDIT_PATH: Final[Path] = (
 _AUDIT_LOCK = threading.Lock()
 
 # ---------------------------------------------------------------------------
-# Persistent entry state (A174/A435): revocation generation, minted session
+# Persistent entry state (A435): revocation generation, minted session
 # nonces, and dual-key grants survive restarts so replay and revocation
 # evidence cannot be lost by a process boundary.  The store is atomic
 # (tmp+replace) and fail-closed: an unreadable or corrupt store denies all
@@ -181,7 +181,7 @@ def record_session_audit(
     result: str,
     request_count: int = 0,
 ) -> None:
-    """Append a metadata-only audit record (A174 content-in-audit denied)."""
+    """Append a metadata-only audit record (A435 content-in-audit denied)."""
     entry = {
         "timestamp": utc_now(),
         "entry": "governance-codex://official",

@@ -134,37 +134,6 @@ class XingchengAutoMixin:
             except asyncio.CancelledError:
                 break
 
-    def _observe_domain(self) -> dict[str, Any]:
-        self._auto_metrics["observe_cycles"] += 1
-        self._auto_metrics["last_auto_cycle"] = self._iso_now()
-        root = Path(self._owned_domain_root)
-        return {
-            "observed_at": self._iso_now(),
-            "domain_root": str(root),
-            "exists": root.exists(),
-            "db_size_bytes": sum(f.stat().st_size for f in root.rglob("*.sqlite3") if f.is_file()),
-            "model_dir_size_bytes": sum(f.stat().st_size for f in root.rglob("*") if f.is_file()),
-        }
-
-    def _analyze_domain(self, snapshot: dict[str, Any]) -> list[dict[str, Any]]:
-        self._auto_metrics["analyze_cycles"] += 1
-        anomalies: list[dict[str, Any]] = []
-        db_size = snapshot.get("db_size_bytes", 0)
-        if db_size > 500 * 1024 * 1024:
-            anomalies.append({"type": "db-size", "severity": "warning", "detail": f"{db_size} bytes"})
-        return anomalies
-
-    def _manage_domain(self) -> list[dict[str, Any]]:
-        actions = []
-        # Domain maintenance would go here
-        return actions
-
-    async def _notify_anomalies(self) -> None:
-        if not self._pending_anomalies:
-            return
-        self._auto_metrics["channel_notifications"] += 1
-        self._pending_anomalies.clear()
-
     def auto_status(self) -> dict[str, Any]:
         return {
             "running": self._auto_loop_task is not None and not self._auto_loop_task.done(),
