@@ -403,7 +403,14 @@ class InformationChannelGateway:
         future: asyncio.Future[tuple[str, dict[str, Any]]],
         result: Any,
     ) -> None:
-        verdict = verify_handler_result(result)
+        # Handlers return a ``(event_name, result_dict)`` pair — the A69
+        # contract verification applies to the result mapping only.
+        payload_result = (
+            result[1]
+            if isinstance(result, tuple) and len(result) == 2
+            else result
+        )
+        verdict = verify_handler_result(payload_result)
         try:
             self._emit_audit(
                 envelope,
@@ -427,7 +434,7 @@ class InformationChannelGateway:
                 ),
             )
             return
-        output = dict(result)
+        output = dict(payload_result)
         output["verification"] = verdict.to_record()
         self._resolve(future, (f"{envelope.command}_result", output))
 
