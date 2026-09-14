@@ -1,19 +1,19 @@
 """store — governed PostgreSQL transport (codex A8/A44/A49 + E30/E35).
 
-The shared-layer request channel is now backed by ``gptbridge_transport.tool_request``
-in the PostgreSQL central index.  The implementation uses ``pg_notify`` for
-channel-level alerts and ``SELECT ... FOR UPDATE SKIP LOCKED`` for safe
+The shared-layer request channel is now backed by ````gptbridge_transport.tool_request````
+in the PostgreSQL central index.  The implementation uses ````pg_notify```` for
+channel-level alerts and ````SELECT ... FOR UPDATE SKIP LOCKED```` for safe
 concurrent claim operations.
 
-``LocalSharedLayerStore`` remains available as a local fallback, but the default
-``SharedLayerStore`` is the PostgreSQL variant.
+````LocalSharedLayerStore```` remains available as a local fallback, but the default
+````SharedLayerStore```` is the PostgreSQL variant.
 """
 
 from __future__ import annotations
 
-import json
 import os
-from datetime import datetime, timezone
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Final
 
@@ -28,56 +28,115 @@ from governance_rule.permission_directory.execution.path_guard import (
 )
 
 from .local.sqlite_store import LocalSharedLayerStore
-
-_CHANNELS: Final[frozenset[str]] = frozenset({"system", "ai"})
-_MAX_ID: Final[int] = 256
-_MAX_BYTES: Final[int] = 1_048_576
-_QUERY_TIMEOUT: Final[float] = 10.0
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def _decode(value: str | None) -> Any:
-    if value is None:
-        return None
-    try:
-        return json.loads(value)
-    except (TypeError, ValueError):
-        return value
+from .store_async import PostgresStoreAsyncMixin
+from .store_helpers import (
+    _CHANS,
+    _MAX_BYTES,
+    _MAX_ID,
+    _POOL_MAX_CONN,
+    _POOL_MIN_CONN,
+    _POOL_TIMEOUT,
+    _QUERY_TIMEOUT,
+    decode as _decode,
+    encode_json as _json,
+    normalize_id as _id,
+    now_iso as _now_iso,
+)
 
 
-def _json(value: Any) -> str:
-    try:
-        encoded = json.dumps(
-            value,
-            ensure_ascii=False,
-            allow_nan=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        )
-    except (TypeError, ValueError) as exc:
-        raise permission_denied() from exc
-    if len(encoded.encode("utf-8")) > _MAX_BYTES:
-        raise permission_denied()
-    return encoded
+class _ConnectionPool:
+    """Thread-safe psycopg connection pool."""
+
+    def __init__(self, dsn: str, min_conn: int, max_conn: int, timeout: float) -> None:
+        self._dsn = dsn
+        self._min = min_conn
+        self._max = max_conn
+        self._timeout = timeout
+        self._pool: list[Any] = []
+        self._in_use: set[int] = set()
+        self._lock = threading.Lock()
+        self._closed = False
+        import psycopg
+        # Pre-create minimum connections
+        for _ in range(min_conn):
+            conn = psycopg.connect(
+                dsn,
+                row_factory=psycopg.rows.dict_row,
+                connect_timeout=_QUERY_TIMEOUT,
+                autocommit=False,
+            )
+            self._pool.append(conn)
+
+    @contextmanager
+    def acquire(self):
+        conn = None
+        try:
+            with self._lock:
+                if self._closed:
+                    raise RuntimeError("pool closed")
+                if self._pool:
+                    conn = self._pool.pop()
+                elif len(self._in_use) < self._max:
+                    import psycopg
+                    conn = psycopg.connect(
+                        self._dsn,
+                        row_factory=psycopg.rows.dict_row,
+                        connect_timeout=_QUERY_TIMEOUT,
+                        autocommit=False,
+                    )
+                else:
+                    # Wait for a connection to be released
+                    pass
+                if conn is not None:
+                    self._in_use.add(id(conn))
+                    yield conn
+                    return
+            # Wait for a connection
+            import time
+            start = time.monotonic()
+            while time.monotonic() - start < self._timeout:
+                with self._lock:
+                    if self._pool:
+                        conn = self._pool.pop()
+                        self._in_use.add(id(conn))
+                        yield conn
+                        return
+                time.sleep(0.01)
+            raise TimeoutError("connection pool exhausted")
+        finally:
+            if conn is not None:
+                with self._lock:
+                    self._in_use.discard(id(conn))
+                    if not self._closed and len(self._pool) < self._min:
+                        self._pool.append(conn)
+                    else:
+                        try:
+                            conn.close()
+                        except Exception:
+                            pass
+
+    def close_all(self) -> None:
+        with self._lock:
+            self._closed = True
+            for conn in self._pool:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._pool.clear()
+            self._in_use.clear()
 
 
-def _id(value: str) -> str:
-    normalized = str(value or "").strip()
-    if not normalized or len(normalized) > _MAX_ID or "\x00" in normalized:
-        raise permission_denied()
-    return normalized
-
-
-class PostgresSharedLayerStore:
+class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
     """Governed PostgreSQL transport backed by gptbridge_transport.tool_request.
 
-    Channel subscribers may LISTEN on ``tool_request_<channel_id>``; new rows
+    Channel subscribers may LISTEN on ````tool_request_<channel_id>````; new rows
     are announced with pg_notify.  Concurrent claim operations use FOR UPDATE
     SKIP LOCKED so multiple executors can safely share one table.
     """
+
+    _pool: _ConnectionPool | None = None
+    _pool_lock = threading.Lock()
 
     def __init__(
         self,
@@ -90,7 +149,7 @@ class PostgresSharedLayerStore:
         self._authentication = authentication
         self._project_root = Path(project_root).resolve()
         self._channel_id = str(channel_id or "").strip().casefold()
-        if self._channel_id not in _CHANNELS:
+        if self._channel_id not in _CHANS:
             raise permission_denied()
         policy = directory_authority_snapshot().shared_layer_access_policy
         declared = (
@@ -102,6 +161,7 @@ class PostgresSharedLayerStore:
             raise permission_denied()
         self._resource_path = declared
         self._dsn = self._build_dsn()
+        self._ensure_pool()
 
     def _build_dsn(self) -> str:
         try:
@@ -114,14 +174,22 @@ class PostgresSharedLayerStore:
         except Exception as exc:
             raise permission_denied() from exc
 
-    def _connect(self) -> Any:
-        import psycopg
+    @classmethod
+    def _ensure_pool(cls) -> None:
+        if cls._pool is None:
+            with cls._pool_lock:
+                if cls._pool is None:
+                    # DSN is needed; defer actual creation to first instance
+                    pass
 
-        return psycopg.connect(
-            self._dsn,
-            row_factory=psycopg.rows.dict_row,
-            connect_timeout=_QUERY_TIMEOUT,
-        )
+    def _get_pool(self) -> _ConnectionPool:
+        if PostgresSharedLayerStore._pool is None:
+            with PostgresSharedLayerStore._pool_lock:
+                if PostgresSharedLayerStore._pool is None:
+                    PostgresSharedLayerStore._pool = _ConnectionPool(
+                        self._dsn, _POOL_MIN_CONN, _POOL_MAX_CONN, _POOL_TIMEOUT
+                    )
+        return PostgresSharedLayerStore._pool
 
     def _authorize(self, token: str, action: str, target_tool_id: str) -> str:
         claims = self._authentication.authenticate_token(token)
@@ -165,7 +233,8 @@ class PostgresSharedLayerStore:
         payload: Any,
     ) -> None:
         actor = self._authorize(token, "request", target_tool_id)
-        with self._connect() as connection:
+        pool = self._get_pool()
+        with pool.acquire() as connection:
             connection.execute(
                 "INSERT INTO gptbridge_transport.tool_request "
                 "(channel_id, request_id, requester_actor, target_tool_id, payload, status, created_at, updated_at) "
@@ -191,7 +260,8 @@ class PostgresSharedLayerStore:
         target_tool_id: str,
     ) -> bool:
         actor = self._authorize(token, "cancel-request", target_tool_id)
-        with self._connect() as connection:
+        pool = self._get_pool()
+        with pool.acquire() as connection:
             cursor = connection.execute(
                 "UPDATE gptbridge_transport.tool_request "
                 "SET status='cancelled', updated_at=now() "
@@ -218,7 +288,8 @@ class PostgresSharedLayerStore:
         target_tool_id: str,
     ) -> bool:
         self._authorize(token, "claim", target_tool_id)
-        with self._connect() as connection:
+        pool = self._get_pool()
+        with pool.acquire() as connection:
             row = connection.execute(
                 "SELECT status FROM gptbridge_transport.tool_request "
                 "WHERE channel_id=%s AND request_id=%s AND target_tool_id=%s",
@@ -237,7 +308,8 @@ class PostgresSharedLayerStore:
         target_tool_id: str,
     ) -> dict[str, Any] | None:
         actor = self._authorize(token, "consume-response", target_tool_id)
-        with self._connect() as connection:
+        pool = self._get_pool()
+        with pool.acquire() as connection:
             connection.execute("BEGIN")
             row = connection.execute(
                 "SELECT status, response, progress FROM gptbridge_transport.tool_request "
@@ -274,7 +346,8 @@ class PostgresSharedLayerStore:
         progress: Any,
     ) -> bool:
         self._authorize(token, "respond", target_tool_id)
-        with self._connect() as connection:
+        pool = self._get_pool()
+        with pool.acquire() as connection:
             cursor = connection.execute(
                 "UPDATE gptbridge_transport.tool_request "
                 "SET progress=%s, updated_at=now() "
@@ -297,7 +370,8 @@ class PostgresSharedLayerStore:
         target_tool_id: str,
     ) -> dict[str, Any] | None:
         self._authorize(token, "process", target_tool_id)
-        with self._connect() as connection:
+        pool = self._get_pool()
+        with pool.acquire() as connection:
             connection.execute("BEGIN")
             row = connection.execute(
                 "SELECT request_id, requester_actor, payload FROM gptbridge_transport.tool_request "
@@ -335,7 +409,8 @@ class PostgresSharedLayerStore:
         response: Any,
     ) -> bool:
         self._authorize(token, "respond", target_tool_id)
-        with self._connect() as connection:
+        pool = self._get_pool()
+        with pool.acquire() as connection:
             cursor = connection.execute(
                 "UPDATE gptbridge_transport.tool_request "
                 "SET status='completed', response=%s, updated_at=now() "
@@ -353,6 +428,7 @@ class PostgresSharedLayerStore:
                 self._notify(connection, request_id)
             connection.commit()
             return completed
+
 
     def status(self) -> dict[str, Any]:
         return {
