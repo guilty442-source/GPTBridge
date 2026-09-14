@@ -371,6 +371,41 @@ def test_official_sovereign_requires_single_use_session() -> None:
     assert first is not None and replay is None
 
 
+@pytest.mark.asyncio
+async def test_xingcheng_execution_intents_dispatch_to_governed_executor() -> None:
+    from governance.sovereigns.xingcheng_sovereign import XingchengSovereign
+
+    calls: list[str] = []
+
+    async def executor(request):
+        calls.append(request.intent)
+        return {"executed": True, "intent": request.intent}
+
+    wired = XingchengSovereign(SimpleNamespace(xingcheng_executor=executor))
+    assert wired.app is not None, "sovereign __init__ must not drop the host app"
+    decision = accepted_outcome({"action": "domain.execute"}, ("A20",))
+    request = _request(intent="domain.execute")
+
+    outcome = await wired._delegate_execution(decision, request)
+    assert outcome.accepted is True
+    assert calls == ["domain.execute"]
+    assert (
+        outcome.result["delegation_receipt"]["execution_mode"] == "governed-executor"
+    )
+
+    advisory = await wired._delegate_execution(decision, _request(intent="domain.observe"))
+    assert (
+        advisory.result["delegation_receipt"]["execution_mode"] == "advisory-only"
+    )
+
+    unwired = XingchengSovereign()
+    unavailable = await unwired._delegate_execution(decision, request)
+    assert (
+        unavailable.result["delegation_receipt"]["execution_mode"]
+        == "xingcheng-runtime-unavailable"
+    )
+
+
 def test_violation_ledger_is_persistent(tmp_path: Path) -> None:
     ledger = tmp_path / "violations.jsonl"
     permission_grant_ledger.record_violation(

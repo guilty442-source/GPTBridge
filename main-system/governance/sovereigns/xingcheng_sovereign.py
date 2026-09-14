@@ -36,6 +36,7 @@ Full-automation upgrade (A20):
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -76,6 +77,16 @@ class XingchengSovereign(
     sovereign_id = "星澄"
 
     # A10/A11 explicit intent allowlist — adjudicated intents explicitly
+    _EXECUTION_INTENTS: frozenset[str] = frozenset(
+        {
+            "domain.execute",
+            "domain.write",
+            "domain.delete",
+            "domain.configure",
+            "channel.coordinate",
+        }
+    )
+
     _INTENT_ALLOWLIST: frozenset[str] = frozenset({
         # Owned-domain powers (A20)
         "domain.observe", "domain.analyze", "domain.reason", "domain.decide",
@@ -116,12 +127,6 @@ class XingchengSovereign(
             self._project_root / _OWNED_DOMAIN_ROOT
         ).as_posix()
         self._isolated = True
-
-        # Initialize mixin states
-        XingchengReviewMixin.__init__(self)
-        XingchengNativeMixin.__init__(self)
-        XingchengDomainMixin.__init__(self)
-        XingchengAutoMixin.__init__(self)
 
     def _verify_intent(self, intent: str) -> bool:
         """A10/A11 fail-closed: only declared intents pass."""
@@ -189,13 +194,52 @@ class XingchengSovereign(
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
-        """星澄委派執行（A446/A121）。
+        """星澄執行出口（A336/A337/A446）。
 
-        星澄 is advisory/read-only (A137-A146).  This hook attests that
-        the adjudication was a pure decision and records the delegation
-        outcome in the audit ledger with a verifiable receipt.
+        Advisory/decision intents keep the advisory-only attestation;
+        execution intents (owned-domain execute/write/delete/configure and
+        automation coordination) dispatch to the host-provided governed
+        executor and return its outcome with a verifiable delegation receipt.
+        Without a wired executor the outcome is attested
+        ``xingcheng-runtime-unavailable`` — fail-closed evidence, never a
+        silent decision echo (A336: automation executor vested in 星澄).
         """
+        if decision.accepted and request.intent in self._EXECUTION_INTENTS:
+            executor = self._governed_executor()
+            if executor is None:
+                return self._attach_delegation_receipt(
+                    decision, request, "xingcheng-runtime-unavailable"
+                )
+            result = executor(request)
+            if inspect.isawaitable(result):
+                result = await result
+            if isinstance(result, SovereignOutcome):
+                outcome = result
+            elif isinstance(result, dict):
+                outcome = accepted_outcome(result, decision.basis)
+            else:
+                outcome = refusal_outcome(
+                    "GOVERNED_EXECUTOR_INVALID_RESULT",
+                    self.verified_basis("A336", "A69"),
+                )
+            return self._attach_delegation_receipt(
+                outcome, request, "governed-executor"
+            )
         return self._attach_delegation_receipt(decision, request, "advisory-only")
+
+    def _governed_executor(self) -> Any:
+        """The native-model/governed executor provided by the host app (A336).
+
+        Contract: a callable ``executor(request) -> SovereignOutcome | dict``
+        (sync or async).  Absence means the native runtime is not wired; the
+        caller then records ``xingcheng-runtime-unavailable`` instead of
+        pretending the decision executed.
+        """
+        for name in ("xingcheng_executor", "governed_executor", "execute_xingcheng"):
+            candidate = getattr(self.app, name, None)
+            if callable(candidate):
+                return candidate
+        return None
 
     async def start(self) -> dict[str, Any]:
         """Start the sovereign (decision-layer only, A297).
