@@ -98,10 +98,6 @@ class DecisionStartupDispatchMixin:
         self._save_state({"stopped_at": _iso_now()})
         await super().stop()
 
-    def _iso_now(self) -> str:
-        from datetime import datetime, timezone
-        return datetime.now(timezone.utc).isoformat()
-
     def _save_state(self, payload: dict[str, Any]) -> None:
         import json
         import os

@@ -33,8 +33,7 @@ class DecisionStatusMixin:
         state = self._load_state()
         maintenance_sovereign = getattr(self.app, "maintenance_sovereign", None)
         permission_sovereign = getattr(self.app, "permission_sovereign", None)
-        return {
-            "sovereign": "decision-sovereign",
+        return self._with_status_schema({
             "platform_id": self.platform_id,
             "module_id": self.module_id,
             "owned_by": self.module_id,
@@ -88,7 +87,7 @@ class DecisionStatusMixin:
                 if permission_sovereign is not None
                 else {"enabled": False}
             ),
-        }
+        })
 
     def live_status(self) -> dict[str, Any]:
         base = self.status()

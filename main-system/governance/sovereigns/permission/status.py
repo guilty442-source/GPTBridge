@@ -17,13 +17,11 @@ class PermissionStatusMixin:
     _started: bool
 
     def status(self) -> dict[str, Any]:
-        return {
-            "sovereign": "permission-sovereign",
-            "started": self._started,
+        return self._with_status_schema({
             "issued_grants": len(self._issued_grants),
             "compliance_violations": len(self._compliance_violations),
             "automation": self._get_automation_status(),
-        }
+        })
 
     def live_status(self) -> dict[str, Any]:
         base = self.status()

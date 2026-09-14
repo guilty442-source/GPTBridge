@@ -197,7 +197,3 @@ class PermissionLifecycleMixin:
             },
             verified_basis(("A436", "A10", "A22")),
         )
-
-    def _iso_now(self) -> str:
-        from datetime import datetime, timezone
-        return datetime.now(timezone.utc).isoformat()

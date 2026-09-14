@@ -20,8 +20,7 @@ class SyncStatusMixin:
     def status(self) -> dict[str, Any]:
         from governance.registries import children_of
 
-        return {
-            "sovereign": "synchronization-sovereign",
+        return self._with_status_schema({
             "sub_sovereigns": [
                 self._child_status(child_id)
                 for child_id in children_of("synchronization-sovereign")
@@ -37,7 +36,7 @@ class SyncStatusMixin:
                     if watch.get("quarantined")
                 ],
             },
-        }
+        })
 
     def live_status(self) -> dict[str, Any]:
         base = self.status()

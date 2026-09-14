@@ -21,8 +21,7 @@ class SystemRuntimeStatusMixin:
     def status(self) -> dict[str, Any]:
         from governance.registries import children_of
 
-        return {
-            "sovereign": "system-runtime-sovereign",
+        return self._with_status_schema({
             "runtime_state": self._runtime_state,
             "sub_sovereigns": [
                 self._child_status(child_id)
@@ -39,7 +38,7 @@ class SystemRuntimeStatusMixin:
                     if watch.get("quarantined")
                 ],
             },
-        }
+        })
 
     def live_status(self) -> dict[str, Any]:
         base = self.status()

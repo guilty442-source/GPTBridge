@@ -57,10 +57,6 @@ class XingchengReviewMixin:
         self._reviews = {}
         self._pending_anomalies = []
 
-    def _iso_now(self) -> str:
-        from datetime import datetime, timezone
-        return datetime.now(timezone.utc).isoformat()
-
     def _verify_review_read_only(self, request: SovereignRequest) -> SovereignOutcome | None:
         """Fail-closed: auxiliary review must be read-only."""
         forbidden = _REVIEW_FORBIDDEN_KEYS.intersection(

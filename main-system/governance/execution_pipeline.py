@@ -224,6 +224,7 @@ def _with_receipts(
     verdict: VerificationVerdict,
 ) -> SovereignOutcome:
     result = dict(outcome.result or {})
+    result["schema"] = "gptbridge.sovereign-outcome/v1"
     result["execution_receipts"] = ledger.summary()
     result["verification"] = verdict.to_record()
     return SovereignOutcome(
@@ -241,7 +242,7 @@ def _refusal(
 ) -> SovereignOutcome:
     tokens = _GATE_BASIS.get(reason, ("A446", "A121"))
     basis = verified_basis(tokens)
-    result: dict[str, Any] = {}
+    result: dict[str, Any] = {"schema": "gptbridge.sovereign-outcome/v1"}
     if ledger is not None:
         result["execution_receipts"] = ledger.summary()
     if verdict is not None:

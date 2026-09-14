@@ -39,6 +39,7 @@ from .audit_protected import (
     check_forbidden_legacy,
     check_protected_sources,
 )
+from .audit_runtime_contracts import check_runtime_contracts
 from .audit_self_health import _verify_self_health_test_files
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -84,6 +85,7 @@ def audit_runtime_governance(
         lambda r: _collect(check_repair_policy, r),
         lambda r: _collect(check_protected_sources, r),
         lambda r: _collect(check_forbidden_legacy, r),
+        lambda r: _collect(check_runtime_contracts, r),
         lambda r: _collect(check_identity_permissions, r),
         lambda r: _collect(check_main_system_source, r),
         lambda r: _collect(check_shared_layer_structure, r),

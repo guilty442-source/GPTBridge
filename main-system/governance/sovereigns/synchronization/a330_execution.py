@@ -37,9 +37,6 @@ class SyncA330ExecutionMixin:
         super().__init__(*args, **kwargs)
         self._certified_update_operations = {}
 
-    def _iso_now(self) -> str:
-        return datetime.now(timezone.utc).isoformat()
-
     async def _adjudicate_a330_certified_update(
         self, request: SovereignRequest
     ) -> SovereignOutcome:

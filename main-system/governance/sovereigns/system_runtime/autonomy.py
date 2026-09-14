@@ -183,9 +183,6 @@ class SystemRuntimeAutonomyMixin:
                     "error": f"{type(error).__name__}: {error}",
                 }
 
-    def _iso_now(self) -> str:
-        return datetime.now(timezone.utc).isoformat()
-
     def _persist_live_state(self) -> None:
         """Keep live state persisted."""
         try:

@@ -705,9 +705,41 @@ class FaultDiagnostics:
             [entry["fault_code"] for entry in matched]
         )
         evidence = self.runtime_state_evidence()
+        events = self.outbox_tail()
         localization = self.localize_fault(
             text, evidence=evidence, matched=matched, manuals=manuals
         )
+        permission_chain = [
+            {
+                "manual_code": manual["manual_code"],
+                "required_permission": manual["required_permission"],
+                "stop_conditions": manual["stop_conditions"],
+            }
+            for manual in manuals
+            if manual.get("required_permission")
+        ]
+        evidence_chain = [
+            {"kind": "fault-code", "ref": entry["fault_code"], "source": "fault_code_directory"}
+            for entry in matched
+        ] + [
+            {"kind": "manual", "ref": manual["manual_code"], "source": "maintenance_manual_directory"}
+            for manual in manuals
+        ] + [
+            {
+                "kind": "runtime-state",
+                "ref": name,
+                "source": "runtime_state_evidence",
+                "available": bool(payload.get("available", True)),
+            }
+            for name, payload in evidence.items()
+        ] + [
+            {
+                "kind": "state-event",
+                "ref": "recent_state_events",
+                "source": "outbox_tail",
+                "count": len(events),
+            }
+        ]
         return {
             "ok": True,
             "schema": "xingcheng-fault-diagnosis/v1",
@@ -716,6 +748,8 @@ class FaultDiagnostics:
             "matched_fault_codes": matched,
             "matched_fault_code_ids": [m["fault_code"] for m in matched],
             "maintenance_manuals": manuals,
+            "permission_chain": permission_chain,
+            "evidence_chain": evidence_chain,
             "suggested_ordered_steps": [
                 {
                     "manual_code": manual["manual_code"],
@@ -731,7 +765,7 @@ class FaultDiagnostics:
                 for manual in manuals
             ],
             "runtime_evidence": evidence,
-            "recent_state_events": self.outbox_tail(),
+            "recent_state_events": events,
             "authority": {
                 "mode": "diagnosis-read-only",
                 "execution": False,

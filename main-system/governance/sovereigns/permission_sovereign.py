@@ -142,6 +142,12 @@ class PermissionSovereign(
         # Permission automation orchestrator
         self._automation: Optional[PermissionAutomationOrchestrator] = None
 
+    def _governance(self) -> Any:
+        """Owned by PermissionSovereign (mixin fallback lives on the base)."""
+        if self._governance_ref is not None:
+            return self._governance_ref
+        return getattr(self.app, "governance", None)
+
     def _load_grants_from_ledger(self) -> dict[str, dict[str, Any]]:
         """Load the current status of all grants from the append-only ledger."""
         try:
@@ -244,15 +250,6 @@ class PermissionSovereign(
         governance = self._governance()
         if governance is not None and hasattr(governance, "re_certify"):
             governance.re_certify()
-
-    def _governance(self) -> Any:
-        if self._governance_ref is not None:
-            return self._governance_ref
-        return getattr(self.app, "governance", None)
-
-    def _iso_now(self) -> str:
-        from datetime import datetime, timezone
-        return datetime.now(timezone.utc).isoformat()
 
 
 __all__ = ["PERMISSION_SOVEREIGN_RESPONSIBILITIES", "PermissionSovereign", "re_certify_permission_sovereign"]
