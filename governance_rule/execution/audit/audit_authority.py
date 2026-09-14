@@ -21,8 +21,10 @@ from governance_rule.permission_directory.registries.permissions.identity_permis
 from governance_rule.permission_directory.registries.permissions.source_ownership import (
     source_ownership_errors,
 )
-from governance_rule.codex import GOVERNANCE_CODEX
-from governance_rule.execution.codex_repository import CODEX_VERSION_UNIT
+from governance_rule.execution.codex_repository import (
+    CODEX_VERSION_UNIT,
+    load_governance_codex,
+)
 
 
 def check_authority_policy(root: Path, errors: list[str]) -> None:
@@ -31,7 +33,7 @@ def check_authority_policy(root: Path, errors: list[str]) -> None:
     code_rules = code_rule_directory_snapshot()
     directory = directory_authority_snapshot()
 
-    if GOVERNANCE_CODEX.codex_version < CODEX_VERSION_UNIT:
+    if load_governance_codex().codex_version < CODEX_VERSION_UNIT:
         errors.append("governance codex version must include the unified architecture policy")
     if policy.authority != "governance-codex-v1.32010-derived-enforcement-policy":
         errors.append("governance policy must remain the codex-v1.32010-derived enforcement projection")
