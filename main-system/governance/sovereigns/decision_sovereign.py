@@ -53,6 +53,7 @@ from typing import Any
 
 from governance_rule.execution.codex_official import official_self_declaration
 from ._base import SovereignBase, SovereignOutcome, SovereignRequest
+from ._delegation import record_delegation_outcome
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 from core_system.governance_rule_coordination import GovernanceRuleCoordination
 from core_system.repair_decision_chain import RepairDecisionChain
@@ -185,8 +186,19 @@ class DecisionSovereign(
 
         This sovereign is decision-only (A297). Execution is dispatched
         inside ``_adjudicate`` through the governed repair decision chain
-        and through ``delegate_to`` for A330 certified updates.
+        and through ``delegate_to`` for A330 certified updates.  This hook
+        attests that the adjudication was a pure decision and records the
+        delegation outcome in the audit ledger.
         """
+        record_delegation_outcome(
+            sovereign_id=self.sovereign_id,
+            intent=request.intent,
+            requester=request.requester,
+            accepted=decision.accepted,
+            reason_code=decision.refusal.reason_code if decision.refusal else "",
+            execution_mode="decision-only",
+            basis=decision.basis,
+        )
         return decision
 
     # ------------------------------------------------------------------
@@ -194,14 +206,26 @@ class DecisionSovereign(
     # ------------------------------------------------------------------
 
     async def start(self) -> dict[str, Any]:
-        """Mark the Decision Sovereign active and surface its children."""
+        """Mark the Decision Sovereign active and surface its children.
+
+        Decision-layer initialization only (A297): the supervision loop is
+        started separately by ``start_supervision()``.
+        """
         state = await super().start()
         app_registry = getattr(self.app, "_sub_sovereigns", None)
         if isinstance(app_registry, dict):
             app_registry.update(self._sub_sovereigns)
         state["sub_sovereigns"] = list(self._sub_sovereigns.keys())
-        self._start_autonomy_loop()
         return state
+
+    async def start_supervision(self) -> None:
+        """Start the autonomous supervision loop (A297 separation)."""
+        self._start_autonomy_loop()
+
+    async def stop_supervision(self) -> None:
+        """Stop the autonomous supervision loop (A297 separation)."""
+        if hasattr(self, "_stop_autonomy_loop"):
+            await self._stop_autonomy_loop()
 
 
 __all__ = ["DECISION_SOVEREIGN_RESPONSIBILITIES", "DecisionSovereign"]
