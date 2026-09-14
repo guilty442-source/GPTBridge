@@ -38,10 +38,17 @@ class PermissionAuthSupervisionMixin:
     # Two-key review (A319): obtain a current 星澄 permission-review finding.
     # ------------------------------------------------------------------
 
-    def _request_xingcheng_permission_review(
+    async def _request_xingcheng_permission_review(
         self, payload: dict[str, Any], requester: str
     ) -> SovereignOutcome | None:
         """Request a 星澄 permission-review; return outcome or None on failure.
+
+        The review goes through 星澄's governed single-gate ``handle`` so
+        the second-key review itself carries A446 receipts, requester
+        verification and audit publication — never a raw mixin call.
+        The sovereign's own identity is proven by a single-use delegation
+        session (``_delegation_nonce``), since a bare sovereign-identity
+        string is unverifiable and rejected.
 
         Returns the review outcome (with ``finding`` in result) on success,
         or None if 星澄 is unavailable.  The caller inspects the finding:
@@ -51,49 +58,58 @@ class PermissionAuthSupervisionMixin:
         xingcheng = getattr(self.app, "xingcheng_sovereign", None)
         if xingcheng is None:
             return None
+        child_id = str(getattr(xingcheng, "sovereign_id", "") or "星澄")
+        from .._delegation import mint_delegation
+
+        nonce = mint_delegation(
+            "permission-sovereign", child_id, "review.permission"
+        )
         review_request = SovereignRequest(
             intent="review.permission",
             subject="permission-authorize",
-            requester=requester,
-            payload=payload,
+            requester="permission-sovereign",
+            payload={**payload, "_delegation_nonce": nonce},
         )
-        import asyncio
         try:
-            return asyncio.get_event_loop().run_until_complete(
-                xingcheng.adjudicate_review(review_request)
-            )
+            return await xingcheng.handle(review_request)
         except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
             return None
 
-    def _check_two_key_review(
-        self, request: SovereignRequest
+    async def _check_two_key_review(
+        self,
+        request: SovereignRequest,
+        *,
+        capability: str | None = None,
+        target: str | None = None,
+        purpose: str | None = None,
     ) -> SovereignOutcome | None:
         """A319 two-key gate: return a refusal outcome if the 星澄 review
         denies or is missing; return None to proceed when the review passes.
 
         Per the dual-key boundary, a missing review (星澄 unavailable) fails
         closed — authorization cannot proceed without the second key.
+        Review aspects are forwarded as actually supplied: absent evidence
+        is marked ``missing``, never fabricated as ``present``.
         """
-        review_payload = {
+        review_payload: dict[str, Any] = {
             "actor": request.payload.get("actor") or request.requester,
-            "capability": request.payload.get("capability"),
-            "target": request.payload.get("target"),
+            "capability": capability or request.payload.get("capability"),
+            "target": target or request.payload.get("target"),
             "scope": request.payload.get("data_scope") or request.payload.get("scope"),
-            "purpose": request.payload.get("purpose") or "authorize",
-            "least_privilege": request.payload.get("least_privilege", "present"),
-            "separation": "present",
-            "expiry": request.payload.get("expiry", "present"),
-            "risk": request.payload.get("risk", "present"),
-            "evidence": request.payload.get("evidence", "present"),
+            "purpose": purpose or request.payload.get("purpose") or "authorize",
+            "basis": request.payload.get("basis") or request.payload.get("codex_ref"),
         }
-        review = self._request_xingcheng_permission_review(
+        for aspect in ("least_privilege", "separation", "expiry", "risk", "evidence"):
+            review_payload[aspect] = request.payload.get(aspect, "missing")
+        review = await self._request_xingcheng_permission_review(
             review_payload, request.requester
         )
         if review is None:
             return refusal_outcome(
                 "TWO_KEY_REVIEW_UNAVAILABLE", verified_basis(("A319", "A10"))
             )
-        finding = review.result.get("finding", "")
+        result = review.result if isinstance(review.result, dict) else {}
+        finding = result.get("finding", "")
         if finding == "deny-objection":
             return refusal_outcome(
                 "TWO_KEY_REVIEW_DENIED", verified_basis(("A319", "A10"))
@@ -218,9 +234,16 @@ class PermissionAuthSupervisionMixin:
             return refusal_outcome(
                 "INSUFFICIENT_AUTHORIZATION_PARAMS", verified_basis(("A10", "E4"))
             )
+        # FORBID:self-grant — the permission sovereign may not authorize
+        # itself; permission matters touching the sovereign's own identity
+        # are denied before any review is requested.
+        if str(params["actor"]).strip() == self.sovereign_id:
+            return refusal_outcome(
+                "SELF_GRANT_DENIED", verified_basis(("A10", "E4"))
+            )
 
         # A319: two-key review gate — fail closed on deny/missing.
-        review_refusal = self._check_two_key_review(request)
+        review_refusal = await self._check_two_key_review(request)
         if review_refusal is not None:
             return review_refusal
 
@@ -244,7 +267,8 @@ class PermissionAuthSupervisionMixin:
             "target_version": request.payload.get("target_version"),
             "resource_path": request.payload.get("resource_path"),
             "actor": request.payload.get("actor") or request.requester,
-            "permission_id": request.payload.get("permission_id"),
+            # permission_id deliberately NOT taken from the payload —
+            # E4 PERM-ID:sovereign-managed; a module must not self-issue.
         }
 
     async def _execute_authorization(
@@ -265,7 +289,12 @@ class PermissionAuthSupervisionMixin:
             return refusal_outcome(
                 "AUTHORIZATION_DENIED", verified_basis(("A10", "E4"))
             )
-        allowed = bool(getattr(result, "allowed", False)) or bool(result)
+        if isinstance(result, dict):
+            allowed = bool(result.get("allowed"))
+        else:
+            allowed = result is not None and bool(
+                getattr(result, "allowed", True)
+            )
         if not allowed:
             return refusal_outcome(
                 "AUTHORIZATION_DENIED", verified_basis(("A10", "E4"))
@@ -275,8 +304,15 @@ class PermissionAuthSupervisionMixin:
     def _record_authorized_grant(
         self, request: SovereignRequest, params: dict[str, Any]
     ) -> SovereignOutcome:
-        """Record the issued grant in the ledger and return the accepted outcome."""
-        permission_id = params.get("permission_id") or f"perm-{record_grant.__module__}"
+        """Record the issued grant in the ledger and return the accepted outcome.
+
+        E4 PERM-ID:sovereign-managed — the permission id is minted here,
+        never taken from the request payload (FORBID:module-self-issue-
+        permission-id).
+        """
+        import secrets
+
+        permission_id = f"perm-{secrets.token_hex(8)}"
         try:
             record_grant(
                 permission_id=permission_id,

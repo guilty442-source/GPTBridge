@@ -29,7 +29,12 @@ from core_system.permission_grant_ledger import (
 
 
 class PermissionLifecycleMixin:
-    """Permission termination, renewal, restriction, suspension, revocation."""
+    """Permission termination, renewal, restriction, suspension, revocation.
+
+    Every lifecycle adjudication passes the A319 two-key gate: a current
+    星澄 permission-review finding is mandatory before the ledger append
+    (FORBID:unreviewed-permission-mutation).
+    """
 
     app: Any
     _governance_ref: Any
@@ -51,6 +56,16 @@ class PermissionLifecycleMixin:
             return refusal_outcome(
                 "PERMISSION_ALREADY_TERMINATED", verified_basis(("A436",))
             )
+        # A319: every permission lifecycle mutation requires a current
+        # 星澄 review finding (the two-key boundary is not issue-only).
+        review_refusal = await self._check_two_key_review(
+            request,
+            capability=f"permission.terminate",
+            target=permission_id,
+            purpose="terminate",
+        )
+        if review_refusal is not None:
+            return review_refusal
         record_lifecycle(
             operation="terminate",
             permission_id=permission_id,
@@ -82,6 +97,16 @@ class PermissionLifecycleMixin:
             return refusal_outcome(
                 "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
             )
+        # A319: every permission lifecycle mutation requires a current
+        # 星澄 review finding (the two-key boundary is not issue-only).
+        review_refusal = await self._check_two_key_review(
+            request,
+            capability=f"permission.renew",
+            target=permission_id,
+            purpose="renew",
+        )
+        if review_refusal is not None:
+            return review_refusal
         record_lifecycle(
             operation="renew",
             permission_id=permission_id,
@@ -114,6 +139,16 @@ class PermissionLifecycleMixin:
             return refusal_outcome(
                 "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
             )
+        # A319: every permission lifecycle mutation requires a current
+        # 星澄 review finding (the two-key boundary is not issue-only).
+        review_refusal = await self._check_two_key_review(
+            request,
+            capability=f"permission.restrict",
+            target=permission_id,
+            purpose="restrict",
+        )
+        if review_refusal is not None:
+            return review_refusal
         record_lifecycle(
             operation="restrict",
             permission_id=permission_id,
@@ -147,6 +182,16 @@ class PermissionLifecycleMixin:
             return refusal_outcome(
                 "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
             )
+        # A319: every permission lifecycle mutation requires a current
+        # 星澄 review finding (the two-key boundary is not issue-only).
+        review_refusal = await self._check_two_key_review(
+            request,
+            capability=f"permission.suspend",
+            target=permission_id,
+            purpose="suspend",
+        )
+        if review_refusal is not None:
+            return review_refusal
         record_lifecycle(
             operation="suspend",
             permission_id=permission_id,
@@ -178,6 +223,16 @@ class PermissionLifecycleMixin:
             return refusal_outcome(
                 "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
             )
+        # A319: every permission lifecycle mutation requires a current
+        # 星澄 review finding (the two-key boundary is not issue-only).
+        review_refusal = await self._check_two_key_review(
+            request,
+            capability=f"permission.revoke",
+            target=permission_id,
+            purpose="revoke",
+        )
+        if review_refusal is not None:
+            return review_refusal
         record_lifecycle(
             operation="revoke",
             permission_id=permission_id,

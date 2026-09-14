@@ -95,7 +95,9 @@ class SovereignExecutionPipeline:
             return await self._finalize(ledger, request, _refusal(gate))
         decision = await self._sovereign._adjudicate(request)
         plan_details = _plan(decision, request)
-        plan_details["decision_basis"] = list(decision.basis) if decision.basis else []
+        plan_details["decision_basis"] = (
+            list(getattr(decision.basis, "references", decision.basis) or ())
+        )
         plan_details["refusal_reason"] = decision.refusal.reason_code if decision.refusal else None
         ledger.record(
             ExecutionTier.TASK_PLANNING,

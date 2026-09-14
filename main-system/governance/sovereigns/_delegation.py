@@ -199,6 +199,14 @@ __all__ = [
 ]
 
 
+def _basis_references(basis: Any) -> tuple[str, ...]:
+    """Normalize a basis value (DecisionBasis or iterable) to a reference tuple."""
+    refs = getattr(basis, "references", None)
+    if refs is not None:
+        return tuple(refs)
+    return tuple(basis) if basis else ()
+
+
 def record_delegation_outcome(
     *,
     sovereign_id: str,
@@ -224,7 +232,7 @@ def record_delegation_outcome(
         "accepted": bool(accepted),
         "reason_code": str(reason_code),
         "execution_mode": str(execution_mode),
-        "basis": list(basis),
+        "basis": list(_basis_references(basis)),
         "process_id": _process_id,
         "timestamp": _iso_now(),
     })
@@ -334,7 +342,7 @@ def mint_delegation_receipt(
     timestamp = _iso_now()
     content_hash = _compute_receipt_hash(
         sovereign_id, intent, requester, execution_mode,
-        accepted, reason_code, basis, target_sovereign,
+        accepted, reason_code, _basis_references(basis), target_sovereign,
         target_receipts, receipt_id, timestamp,
     )
     receipt = DelegationReceipt(
@@ -345,7 +353,7 @@ def mint_delegation_receipt(
         execution_mode=str(execution_mode),
         accepted=bool(accepted),
         reason_code=str(reason_code),
-        basis=tuple(basis),
+        basis=_basis_references(basis),
         target_sovereign=str(target_sovereign),
         target_receipts=tuple(target_receipts),
         content_hash=content_hash,

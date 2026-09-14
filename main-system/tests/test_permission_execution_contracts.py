@@ -26,6 +26,7 @@ from core_system import permission_grant_ledger  # noqa: E402
 from core_system.codex_decision import (  # noqa: E402
     SovereignRequest,
     accepted_outcome,
+    refusal_outcome,
 )
 from governance.registries import (  # noqa: E402
     module_assignment_registry,
@@ -60,8 +61,88 @@ class _AuthHarness(PermissionAuthSupervisionMixin, SovereignBase):
     async def _adjudicate(self, request):
         raise NotImplementedError
 
-    def _request_xingcheng_permission_review(self, payload, requester):
+    async def _request_xingcheng_permission_review(self, payload, requester):
         return None
+
+
+def test_two_key_review_gate_fail_closed_semantics() -> None:
+    """A319: absent/denied/changed findings refuse; only ``pass`` proceeds."""
+    import asyncio
+    from governance.sovereigns.permission.auth_supervision import (
+        PermissionAuthSupervisionMixin,
+    )
+
+    class _ReviewHarness(PermissionAuthSupervisionMixin):
+        def __init__(self, finding: str | None) -> None:
+            self.app = SimpleNamespace()
+            self.sovereign_id = "permission-sovereign"
+            self._finding = finding
+
+        async def _request_xingcheng_permission_review(self, payload, requester):
+            if self._finding is None:
+                return None
+            return accepted_outcome({"finding": self._finding}, ("A319",))
+
+        def verified_basis(self, *refs):
+            return tuple(refs)
+
+    req = _request(intent="permission.authorize", capability="c", target="t")
+    assert asyncio.run(_ReviewHarness("pass")._check_two_key_review(req)) is None
+    denied = asyncio.run(_ReviewHarness("deny-objection")._check_two_key_review(req))
+    assert denied is not None and denied.refusal.reason_code == "TWO_KEY_REVIEW_DENIED"
+    missing = asyncio.run(_ReviewHarness(None)._check_two_key_review(req))
+    assert missing.refusal.reason_code == "TWO_KEY_REVIEW_UNAVAILABLE"
+    other = asyncio.run(_ReviewHarness("unknown")._check_two_key_review(req))
+    assert other.refusal.reason_code == "TWO_KEY_REVIEW_NOT_PASSED"
+
+
+@pytest.mark.asyncio
+async def test_permission_lifecycle_requires_two_key_review(monkeypatch) -> None:
+    """A319: renew/restrict/suspend/revoke/terminate refuse without 星澄 review."""
+    from governance.sovereigns.permission.permission_lifecycle import (
+        PermissionLifecycleMixin,
+    )
+    import core_system.permission_grant_ledger as ledger
+
+    class _LifecycleHarness(PermissionLifecycleMixin):
+        def __init__(self) -> None:
+            self.app = SimpleNamespace()
+            self.sovereign_id = "permission-sovereign"
+            self._issued_grants = {}
+
+        def verified_basis(self, *refs):
+            return tuple(refs)
+
+        async def _check_two_key_review(self, request, **kwargs):
+            return refusal_outcome("TWO_KEY_REVIEW_UNAVAILABLE", ("A319", "A10"))
+
+        def _iso_now(self):
+            return "t"
+
+    # Force the ledger to report the grant as issued so the review gate is
+    # the deciding control under test.
+    import governance.sovereigns.permission.permission_lifecycle as plc
+
+    monkeypatch.setattr(plc, "was_issued", lambda pid: True)
+    monkeypatch.setattr(plc, "current_status", lambda pid: {"status": "issued"})
+    harness = _LifecycleHarness()
+    req = _request(intent="permission.revoke", permission_id="perm-x")
+    outcome = await harness._adjudicate_permission_revoke(req)
+    assert outcome.accepted is False
+    assert outcome.refusal.reason_code == "TWO_KEY_REVIEW_UNAVAILABLE"
+
+    # With a passing review the same request proceeds to the ledger append.
+    class _PassingHarness(_LifecycleHarness):
+        async def _check_two_key_review(self, request, **kwargs):
+            return None
+
+    recorded: list[dict] = []
+    monkeypatch.setattr(
+        plc, "record_lifecycle", lambda **kw: recorded.append(kw) or 1
+    )
+    outcome = await _PassingHarness()._adjudicate_permission_revoke(req)
+    assert outcome.accepted is True
+    assert recorded and recorded[0]["operation"] == "revoke"
 
 
 @pytest.mark.asyncio
