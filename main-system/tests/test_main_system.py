@@ -2511,16 +2511,11 @@ async def test_resident_services_are_usable_without_showing_permission_denied() 
 def test_companion_tool_cache_is_owned_by_host_tool() -> None:
     governance = GovernanceStub()
     service = ToolboxService(ROOT, governance=governance)
-    tool_root = LOCAL_MODEL_ROOT / "model-dialogue"
-    # star-chat is a declared companion of the local-model host; companion
-    # metadata is intentionally centralized in the host manifest.
-    host_manifest = json.loads(_read_text_cached(str((LOCAL_MODEL_ROOT / "manifest.json"))))
-    manifest = {
-        **host_manifest,
-        "id": "star-chat",
-        "host_tool_id": "xingcheng",
-        "shared_cache_owner": "xingcheng",
-    }
+    tool_root = LOCAL_MODEL_ROOT / "model-dialogue" / "star-chat"
+    # star-chat is a declared companion of the local-model host running on
+    # the xingcheng runtime; its own manifest carries the runtime-owner
+    # declaration the bootstrap-binding check requires.
+    manifest = json.loads(_read_text_cached(str((tool_root / "manifest.json"))))
 
     environment = service._tool_environment("star-chat", tool_root, manifest)
 

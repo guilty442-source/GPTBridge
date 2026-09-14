@@ -255,10 +255,20 @@ class EnvironmentMixin:
         child_env["TMPDIR"] = str(isolated_temp_root)
         if self.governance is None:
             raise PermissionError("PERMISSION_DENIED")
-        bootstrap_tool_id = governance_tool_id or tool_id
+        # A334: the bootstrap token binds the sealed-registry identity that
+        # actually claims the shared-layer channel — companion -> declared
+        # runtime owner -> governed nested identity — never the raw
+        # requested tool id and never a caller-chosen foreign identity.
+        owner = self._runtime_owner_tool_id(tool_id, manifest)
+        channel_bound = self._governed_runtime_tool_id(owner)
+        if (
+            governance_tool_id is not None
+            and str(governance_tool_id).strip() != channel_bound
+        ):
+            raise PermissionError("PERMISSION_DENIED")
         child_env[_TOOL_GOVERNANCE_BOOTSTRAP_ENV] = (
             self.permission_sovereign.create_tool_governance_bootstrap(
-                bootstrap_tool_id
+                channel_bound
             )
         )
         child_env["GPTBRIDGE_GOVERNANCE_PROJECT_ROOT"] = str(

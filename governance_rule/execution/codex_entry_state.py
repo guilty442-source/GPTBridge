@@ -109,14 +109,37 @@ def _empty_state() -> dict[str, Any]:
 
 
 def _load_state() -> dict[str, Any]:
-    """Read the persisted entry state; fail closed when corrupt."""
+    """Read the persisted entry state; fail closed when corrupt.
+
+    Retries the brief window in which ``os.replace`` swap makes the path
+    resolve as missing, and tolerates a concurrent writer's transient
+    share conflict; genuinely corrupt content still denies (fail-closed).
+    """
     path = _state_path()
-    if not path.is_file():
-        return _empty_state()
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        raise PermissionError(f"CODEX_STATE_CORRUPT:{error.__class__.__name__}")
+    last_os_error: OSError | None = None
+    for _attempt in range(5):
+        try:
+            if not path.is_file():
+                return _empty_state()
+            data = json.loads(path.read_text(encoding="utf-8"))
+            break
+        except FileNotFoundError:
+            time.sleep(0.01)
+            continue
+        except OSError as error:
+            last_os_error = error
+            time.sleep(0.01)
+            continue
+        except (UnicodeError, json.JSONDecodeError) as error:
+            raise PermissionError(
+                f"CODEX_STATE_CORRUPT:{error.__class__.__name__}"
+            )
+    else:
+        raise PermissionError(
+            f"CODEX_STATE_UNAVAILABLE:{last_os_error.__class__.__name__}"
+            if last_os_error is not None
+            else "CODEX_STATE_UNAVAILABLE"
+        )
     if not isinstance(data, dict) or not isinstance(
         data.get("revocation_generation"), int
     ):
@@ -128,20 +151,42 @@ def _load_state() -> dict[str, Any]:
 
 
 def _store_state(state: dict[str, Any]) -> None:
-    """Atomically persist entry state; fail closed when unavailable."""
+    """Atomically persist entry state; fail closed when unavailable.
+
+    The temporary file is unique per process and thread so concurrent
+    writers (e.g. the live system and a test worker) never swap a
+    half-written shared temp file into place.
+    """
     path = _state_path()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_suffix(".tmp")
-        temporary.write_text(
-            json.dumps(state, ensure_ascii=False, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(temporary, path)
     except OSError as error:
         raise PermissionError(
             f"CODEX_STATE_UNAVAILABLE:{error.__class__.__name__}"
         )
+    payload = json.dumps(state, ensure_ascii=False, sort_keys=True) + "\n"
+    temporary = path.with_name(
+        f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+    )
+    last_error: OSError | None = None
+    for attempt in range(5):
+        try:
+            temporary.write_text(payload, encoding="utf-8")
+            os.replace(temporary, path)
+            return
+        except OSError as error:
+            last_error = error
+            time.sleep(0.02 * (attempt + 1))
+        finally:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+    raise PermissionError(
+        f"CODEX_STATE_UNAVAILABLE:{last_error.__class__.__name__}"
+        if last_error is not None
+        else "CODEX_STATE_UNAVAILABLE"
+    )
 
 
 def mutate_entry_state(mutator: Any) -> Any:
@@ -198,9 +243,28 @@ def record_session_audit(
     try:
         AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
         with _AUDIT_LOCK, AUDIT_PATH.open("a", encoding="utf-8") as handle:
-            handle.write(
-                json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n"
-            )
+            if os.name == "nt":
+                # Cross-process byte-range lock: two processes appending to
+                # the same ledger must never interleave a record.
+                import msvcrt
+
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                try:
+                    handle.seek(0, 2)
+                    handle.write(
+                        json.dumps(entry, ensure_ascii=False, sort_keys=True)
+                        + "\n"
+                    )
+                    handle.flush()
+                finally:
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                handle.write(
+                    json.dumps(entry, ensure_ascii=False, sort_keys=True)
+                    + "\n"
+                )
     except OSError:
         pass
 
