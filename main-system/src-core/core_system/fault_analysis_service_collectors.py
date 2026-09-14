@@ -38,7 +38,7 @@ class FaultAnalysisCollectorsMixin:
         return faults
 
     def _collect_repair_learning(self) -> list[FaultSummary]:
-        """Collect repair learning records (error signatures + outcomes)."""
+        """Collect repair outcome history (current learning-store schema)."""
         faults: list[FaultSummary] = []
         db_path = self._repair_root / "repair-learning.sqlite3"
         if not db_path.is_file():
@@ -49,33 +49,35 @@ class FaultAnalysisCollectorsMixin:
             )
             try:
                 rows = connection.execute(
-                    "SELECT signature_hash, error_class, message_pattern, "
-                    "failure_code, file_context, target_tool_id, "
-                    "outcome, attempted_action, timestamp "
-                    "FROM repair_learning ORDER BY timestamp DESC LIMIT 200"
+                    "SELECT outcome_id, signature_hash, remedy, ok, "
+                    "detail_json, recorded_at FROM repair_outcomes "
+                    "WHERE ok = 0 ORDER BY recorded_at DESC LIMIT 200"
                 ).fetchall()
             except sqlite3.OperationalError:
                 rows = []
             finally:
                 connection.close()
-            for row in rows:
-                sig, err_class, msg_pattern, fail_code, file_ctx, tool_id, outcome, action, ts = row
+            for outcome_id, sig, remedy, ok, detail_json, recorded_at in rows:
+                detail: dict[str, Any] = {}
+                try:
+                    parsed = json.loads(detail_json or "{}")
+                    if isinstance(parsed, dict):
+                        detail = parsed
+                except (TypeError, ValueError):
+                    detail = {}
+                failure_code = str(detail.get("failure_code") or "")
                 faults.append(FaultSummary(
-                    fault_id=f"learning-{sig}",
+                    fault_id=f"outcome-{outcome_id}",
                     fault_type="repair-learning",
-                    source=f"tool:{tool_id or 'unknown'}",
-                    timestamp=str(ts or ""),
-                    severity=self._severity_from_code(str(fail_code)),
-                    error_class=str(err_class or ""),
-                    error_message=str(msg_pattern or ""),
-                    target_entity=str(tool_id or ""),
-                    repair_action=str(action or ""),
-                    repair_outcome=self._normalize_outcome(str(outcome or "")),
-                    raw_evidence={
-                        "signature_hash": sig,
-                        "failure_code": fail_code,
-                        "file_context": file_ctx,
-                    },
+                    source=f"tool:{detail.get('target_tool_id') or 'unknown'}",
+                    timestamp=str(recorded_at or ""),
+                    severity=self._severity_from_code(failure_code),
+                    error_class=str(detail.get("error_class") or sig or ""),
+                    error_message=str(detail.get("message") or ""),
+                    target_entity=str(detail.get("target_tool_id") or ""),
+                    repair_action=str(remedy or ""),
+                    repair_outcome="failure",
+                    raw_evidence=detail,
                 ))
         except Exception as exc:
             _logger.debug("fault_analysis_learning_skip err=%s", exc)

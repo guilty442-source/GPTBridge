@@ -142,19 +142,168 @@
     "source": "learned"
   },
   {
-    "recipe_id": "learned-b39b602eadd80dee",
-    "name": "Learned repair for CONNECTION_DEGRADED in ipc/connection",
+    "recipe_id": "current-layout-import-failure",
+    "name": "Import failure after module moves (current layout)",
     "failure_signatures": [
-      "CONNECTION_DEGRADED",
-      "CONNECTION_DEGRADED"
+      "STARTUP_CRASH",
+      "ModuleNotFoundError",
+      "ImportError",
+      "NameError"
     ],
-    "remedy": "connection-watchdog",
+    "remedy": "align imports with the current layout: backend packages live under main-system/src-core/<pkg> and main-system/governance/<pkg>; use absolute package imports (e.g. from governance.registries import ...) or the correct relative depth; missing stdlib imports (hashlib) are added at module top; never reference removed legacy roots (platform_tools/, file-sorter/src)",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": false,
+    "architecture": {
+      "backend": "main-system/src-core/<package>",
+      "governance": "main-system/governance/<package>",
+      "tools": "Standalone tools/<tool_id>/src",
+      "codex": "governance_rule/",
+      "shared_layer": "shared-layer/src"
+    },
+    "source": "learned",
+    "recorded_at": "2026-09-14T16:14:56+0800",
+    "learned_at": "2026-09-14T16:14:56+0800",
+    "occurrence_count": 1,
+    "success_rate": 1.0
+  },
+  {
+    "recipe_id": "current-layout-canonical-roots",
+    "name": "Canonical path resolution for the current layout (A278/A280)",
+    "failure_signatures": [
+      "MODULE_NOT_FOUND",
+      "RUNTIME_PATH_NOT_FOUND",
+      "SOURCE_UI_UNAVAILABLE",
+      "EXECUTABLE_MISSING"
+    ],
+    "remedy": "resolve canonical roots: independent tools under Standalone tools/<tool_id>; resident services at the project root (governance_rule/, shared-layer/); tool state under <tool>/runtime/{state,settings}; tool renderers under main-system/dist-ui/independent-tools/<tool_id>/renderer",
     "owner": "main-system",
     "automatic": true,
     "runtime_only": true,
-    "learned_at": "2026-09-13T12:57:14.842176+00:00",
-    "occurrence_count": 200,
-    "success_rate": 0.05,
+    "architecture": {
+      "independent_tool_root": "Standalone tools/<tool_id>",
+      "resident_roots": [
+        "governance_rule",
+        "shared-layer"
+      ],
+      "tool_renderer": "main-system/dist-ui/independent-tools/<tool_id>/renderer"
+    },
+    "source": "learned",
+    "recorded_at": "2026-09-14T16:14:56+0800",
+    "learned_at": "2026-09-14T16:14:56+0800",
+    "occurrence_count": 1,
+    "success_rate": 1.0
+  },
+  {
+    "recipe_id": "learned-79315166ea24f469",
+    "name": "Learned repair for ModuleNotFoundError in main-system/governance/sovereigns/synchronization/autonomy.py",
+    "failure_signatures": [
+      "ModuleNotFoundError",
+      "CODE_REPAIR_APPLIED"
+    ],
+    "remedy": "align-relative-import-depth",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-14T08:28:17.470899+00:00",
+    "occurrence_count": 2,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-960156cd06984b49",
+    "name": "Learned repair for ModuleNotFoundError in main-system/governance/sovereigns/synchronization/child_lifecycle.py",
+    "failure_signatures": [
+      "ModuleNotFoundError",
+      "CODE_REPAIR_APPLIED"
+    ],
+    "remedy": "align-relative-import-depth",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-14T08:28:17.489531+00:00",
+    "occurrence_count": 2,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-5bd3d524203a3130",
+    "name": "Learned repair for ModuleNotFoundError in main-system/governance/sovereigns/synchronization/status.py",
+    "failure_signatures": [
+      "ModuleNotFoundError",
+      "CODE_REPAIR_APPLIED"
+    ],
+    "remedy": "align-relative-import-depth",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-14T08:28:17.535270+00:00",
+    "occurrence_count": 2,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-902e215e76047dcd",
+    "name": "Learned repair for ModuleNotFoundError in main-system/governance/sovereigns/synchronization/status.py",
+    "failure_signatures": [
+      "ModuleNotFoundError",
+      "CODE_REPAIR_APPLIED"
+    ],
+    "remedy": "use-absolute-package-import",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-14T08:28:17.631953+00:00",
+    "occurrence_count": 2,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-21fe74b45a12a3b1",
+    "name": "Learned repair for ModuleNotFoundError in main-system/governance/sovereigns/synchronization/child_access.py",
+    "failure_signatures": [
+      "ModuleNotFoundError",
+      "CODE_REPAIR_APPLIED"
+    ],
+    "remedy": "use-absolute-package-import",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-14T08:28:17.650542+00:00",
+    "occurrence_count": 2,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-945f20a4d1ed04b0",
+    "name": "Learned repair for ModuleNotFoundError in main-system/governance/sovereigns/synchronization/child_lifecycle.py",
+    "failure_signatures": [
+      "ModuleNotFoundError",
+      "CODE_REPAIR_APPLIED"
+    ],
+    "remedy": "use-absolute-package-import",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-14T08:28:17.669259+00:00",
+    "occurrence_count": 2,
+    "success_rate": 1.0,
+    "source": "learned"
+  },
+  {
+    "recipe_id": "learned-a445ad5b1f783e98",
+    "name": "Learned repair for ModuleNotFoundError in main-system/governance/sovereigns/synchronization/autonomy.py",
+    "failure_signatures": [
+      "ModuleNotFoundError",
+      "CODE_REPAIR_APPLIED"
+    ],
+    "remedy": "use-absolute-package-import",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-14T08:28:17.687937+00:00",
+    "occurrence_count": 2,
+    "success_rate": 1.0,
     "source": "learned"
   }
 ]

@@ -99,7 +99,7 @@ GLOBAL_CLEANER_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
     group_id=IDENTITY_GROUP_GLOBAL_CLEANER,
     actor="governance/tool/global-cleaner",
     bound_tool_id="global-cleaner",
-    bound_roots=("global-cleaner",),
+    bound_roots=("Standalone tools/global-cleaner",),
     manifest_binding=ManifestBinding(
         required=True,
         path_template="Standalone tools/global-cleaner/manifest.json",
@@ -135,19 +135,26 @@ def _business_tool_identity(
     identity_code: str,
     language_name: str,
     codename: str,
-    physical_root: str | None = None,
+    root_template: str | None = None,
+    manifest_template: str | None = None,
     code_scope: str = "tool-root-only",
     database_scope: str = "tool-database-only",
 ) -> CapabilityIdentity:
-    owner_root = str(physical_root or tool_id).strip()
+    # A278/A280: independent tools live under "Standalone tools/"; nested
+    # tools (xingcheng, model-dialogue) declare their own canonical root
+    # inside their physical owner while remaining their own identity.
+    tool_root = str(root_template or f"Standalone tools/{tool_id}").strip()
+    manifest_path = str(
+        manifest_template or f"{tool_root}/manifest.json"
+    ).strip()
     return CapabilityIdentity(
         group_id=group_id,
         actor=f"governance/tool/{tool_id}",
         bound_tool_id=tool_id,
-        bound_roots=(owner_root,),
+        bound_roots=(tool_root,),
         manifest_binding=ManifestBinding(
             required=True,
-            path_template=f"{owner_root}/manifest.json",
+            path_template=manifest_path,
             tool_id_field="id",
             maximum_bytes=1_048_576,
             required_capabilities=(),
@@ -196,7 +203,7 @@ XINGCHENG_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     identity_code="X00001",
     language_name="xingcheng",
     codename="NEBULA",
-    physical_root="local-model",
+    root_template="Standalone tools/local-model/xingcheng",
     code_scope="project-source-excluding-governance-rule",
     database_scope=(
         "opaque-central-index-read-and-xingcheng-internal-read-write"
@@ -229,7 +236,7 @@ MODEL_DIALOGUE_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     identity_code="D00001",
     language_name="model_dialogue",
     codename="DIALOGUE",
-    physical_root="local-model",
+    root_template="Standalone tools/local-model/model-dialogue",
 )
 del _business_tool_identity
 
@@ -237,7 +244,7 @@ SYSTEM_RESCUE_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
     group_id=IDENTITY_GROUP_SYSTEM_RESCUE,
     actor="governance/tool/system-rescue",
     bound_tool_id="system-rescue",
-    bound_roots=("system-rescue",),
+    bound_roots=("Standalone tools/system-rescue",),
     manifest_binding=ManifestBinding(
         required=True,
         path_template="Standalone tools/system-rescue/manifest.json",

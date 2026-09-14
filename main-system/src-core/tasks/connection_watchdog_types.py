@@ -16,8 +16,8 @@ from typing import Any, Final
 from core_system.versioning import component_version
 
 CONNECTION_WATCHDOG_VERSION: Final[str] = component_version("connection-watchdog")
-CONNECTION_PROBE_INTERVAL: Final[float] = 5.0
-CONNECTION_PROBE_TIMEOUT: Final[float] = 3.0
+CONNECTION_PROBE_INTERVAL: Final[float] = 15.0
+CONNECTION_PROBE_TIMEOUT: Final[float] = 5.0
 CONNECTION_DEAD_THRESHOLD: Final[int] = 2  # consecutive dead probes → disconnected
 CONNECTION_STATE_FILE: Final[str] = "ipc-connection-state.json"
 # Allow a single transient probe failure without counting toward the dead

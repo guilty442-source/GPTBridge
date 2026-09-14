@@ -1,11 +1,11 @@
-"""Automated backend hot-reload watcher — facade.
+"""Automated backend hot-reload watcher ??facade.
 
 This module provides the HotReloadWatcher class.  Implementation
 details live in submodules:
 
-  * :mod:`tasks.hot_reload_watcher_constants` — constants, ChannelHealth.
-  * :mod:`tasks.hot_reload_watcher_health` — health monitoring mixin.
-  * :mod:`tasks.hot_reload_watcher_reload` — reload request mixin.
+  * :mod:`tasks.hot_reload_watcher_constants` ??constants, ChannelHealth.
+  * :mod:`tasks.hot_reload_watcher_health` ??health monitoring mixin.
+  * :mod:`tasks.hot_reload_watcher_reload` ??reload request mixin.
 
 Watches the governed backend source root and, once file changes quiet
 down, requests a module-scoped hot-reload through the maintenance
@@ -62,8 +62,13 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
         self._backoff_until = 0.0
         self._reload_timestamps: list[float] = []
         self._channel_health = ChannelHealth()
+        # Adaptive polling: start at base interval, increase when stable
+        self._adaptive_poll_interval = POLL_INTERVAL_SECONDS
+        self._min_poll_interval = POLL_INTERVAL_SECONDS
+        self._max_poll_interval = 60.0  # Max 60 seconds
+        self._consecutive_no_changes = 0
 
-    # ─── lifecycle ────────────────────────────────────────────────────
+    # ??? lifecycle ????????????????????????????????????????????????????
 
     async def start(self) -> None:
         if self._task is not None and not self._task.done():
@@ -77,6 +82,8 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
         self._pending = {}
         self._enabled = True
         self._stop.clear()
+        self._adaptive_poll_interval = self._min_poll_interval
+        self._consecutive_no_changes = 0
         self._task = asyncio.create_task(
             self._loop(),
             name="main-system-hot-reload-watcher",
@@ -89,8 +96,11 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
                    "roots": [str(root) for root in self._roots]})
 
     async def stop(self) -> None:
+        """Stop the watcher and cleanup resources gracefully."""
         self._enabled = False
         self._stop.set()
+
+        # Cancel the main loop task
         task = self._task
         self._task = None
         if task is not None and not task.done():
@@ -99,6 +109,8 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
                 await task
             except asyncio.CancelledError:
                 pass
+
+        # Cancel the health monitor task
         health_task = self._health_task
         self._health_task = None
         if health_task is not None and not health_task.done():
@@ -108,7 +120,13 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
             except asyncio.CancelledError:
                 pass
 
-    # ─── observation ──────────────────────────────────────────────────
+        # Clear pending state
+        self._pending.clear()
+        self._snapshot.clear()
+
+        _logger.info("HotReloadWatcher stopped gracefully")
+
+    # ??? observation ??????????????????????????????????????????????????
 
     def _resolve_roots(self) -> None:
         for relative in WATCH_ROOTS:
@@ -179,7 +197,7 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
             return token_path
         return None
 
-    # ─── main loop ────────────────────────────────────────────────────
+    # ??? main loop ????????????????????????????????????????????????????
 
     async def _loop(self) -> None:
         while not self._stop.is_set():
@@ -193,10 +211,21 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
                             changed = list(self._pending.keys())
                             if await self._maybe_reload(changed):
                                 self._pending = {}
+                                # Reset adaptive interval on reload
+                                self._adaptive_poll_interval = self._min_poll_interval
+                                self._consecutive_no_changes = 0
+                else:
+                    # No pending changes - increase interval when stable
+                    self._consecutive_no_changes += 1
+                    if self._consecutive_no_changes >= 3:
+                        self._adaptive_poll_interval = min(
+                            self._adaptive_poll_interval * 1.5,
+                            self._max_poll_interval,
+                        )
             except Exception as error:
                 self._log({"type": "hot_reload_watcher_error",
                            "error": f"{type(error).__name__}: {error}"})
-            await asyncio.sleep(POLL_INTERVAL_SECONDS)
+            await asyncio.sleep(self._adaptive_poll_interval)
 
     def _log(self, payload: dict[str, Any]) -> None:
         try:

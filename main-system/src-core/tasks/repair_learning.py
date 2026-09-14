@@ -268,9 +268,61 @@ class RepairLearningStore:
             connection.close()
 
 
+def learning_database_root(project_root: str | Path) -> Path:
+    """Canonical repair-learning store root inside the main system."""
+    return Path(project_root) / "main-system" / "data" / "automatic-repair"
+
+
+def record_code_repair(
+    project_root: str | Path,
+    *,
+    file_path: str,
+    error_class: str,
+    message: str,
+    remedy: str,
+    ok: bool,
+    run_id: str = "",
+    failure_code: str = "CODE_REPAIR",
+    target_tool_id: str = "main-system",
+    extra_detail: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Record one code-repair attempt so the learner learns code fixes.
+
+    The signature groups by error class + normalized message + file basename,
+    so repeats of the same code failure teach the learner the remedy that
+    actually fixed it; promotion follows the normal threshold/success rules.
+    """
+    store = RepairLearningStore(learning_database_root(project_root))
+    learner = RepairLearner(store)
+    signature = ErrorSignature(
+        signature_hash=_normalize_error_signature(
+            error_class, message, file_path=file_path
+        ),
+        error_class=error_class,
+        message_pattern=str(message)[:300],
+        failure_code=failure_code,
+        file_context=str(file_path),
+        target_tool_id=target_tool_id,
+    )
+    outcome = RepairOutcome(
+        run_id=run_id or uuid4().hex,
+        signature_hash=signature.signature_hash,
+        remedy=remedy,
+        ok=bool(ok),
+        detail={
+            "scope": "code",
+            "file": str(file_path),
+            "error_class": error_class,
+            "failure_code": failure_code,
+            "target_tool_id": target_tool_id,
+            **(extra_detail or {}),
+        },
+    )
+    return learner.learn_from_outcome(signature, outcome)
+
+
 class RepairLearner:
     """Analyzes repair history and auto-generates recipes from patterns."""
-
     def __init__(self, store: RepairLearningStore) -> None:
         self.store = store
 
@@ -412,4 +464,6 @@ __all__ = [
     "RepairLearningStore",
     "RepairOutcome",
     "_normalize_error_signature",
+    "learning_database_root",
+    "record_code_repair",
 ]

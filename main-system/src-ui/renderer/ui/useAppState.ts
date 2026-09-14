@@ -4,7 +4,7 @@ import {
   startStartupPipeline,
 } from '@/services/RuntimeServiceManager'
 import { useBackendSocket } from '@/hooks/useBackendSocket'
-import type { RuntimeStatusPayload } from '@/ui/sovereign/SovereignDashboard'
+import type { RuntimeStatusPayload } from '@/ui/sovereign/runtimeStatusTypes'
 import { mainSystemLocale } from '@/locales/main-system'
 import {
   applyRuntimeStatusReport,

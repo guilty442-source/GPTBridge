@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { RuntimeStatusPayload } from '@/ui/sovereign/SovereignDashboard'
+import type { RuntimeStatusPayload } from '@/ui/sovereign/runtimeStatusTypes'
 import {
   getRuntimeStatusState,
   subscribeRuntimeStatus,
@@ -7,7 +7,7 @@ import {
 
 /**
  * Subscribe to one runtime-status field.  The component re-renders only
- * when that field changes — modular refresh, never a whole-UI update.
+ * when that field changes —modular refresh, never a whole-UI update.
  */
 export function useRuntimeStatusField<K extends keyof RuntimeStatusPayload>(
   key: K

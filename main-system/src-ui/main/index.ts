@@ -13,6 +13,10 @@ import {
   registerEmbeddedBrowser,
   closeAllSessions,
 } from './embedded-browser'
+import {
+  startEmbeddedBrowserBridge,
+  stopEmbeddedBrowserBridge,
+} from './embedded-browser-bridge'
 import { registerIpcHandlers } from './ipcHandlers'
 
 let mainWindow: BrowserWindow | null = null
@@ -107,6 +111,9 @@ async function createWindow(): Promise<void> {
   // Register embedded browser so tools can use in-app BrowserView
   // instead of launching external Chrome/Edge (A44/E30 + A49/E35).
   registerEmbeddedBrowser(mainWindow)
+  // Publish the loopback bridge so tool UIs and tool Python backends reach
+  // the same embedded-browser session store without a second browser stack.
+  startEmbeddedBrowserBridge()
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return
@@ -152,8 +159,14 @@ async function createWindow(): Promise<void> {
 
 function startMainRendererWatch() {
   const paths = getRuntimePathLibrary()
-  if (!paths.rendererEntryHtml || !fs.existsSync(paths.rendererEntryHtml)) return
-  fs.watchFile(paths.rendererEntryHtml, { interval: 500 }, () => {
+  const watchedEntries = [paths.rendererEntryHtml, paths.preloadEntry].filter(
+    (entry): entry is string => Boolean(entry) && fs.existsSync(entry)
+  )
+  if (watchedEntries.length === 0) return
+  // A rebuilt renderer entry or preload must apply without restarting the
+  // app: reload the window (preload re-runs on every load) with a short
+  // debounce so a multi-file build lands as one reload.
+  const scheduleReload = () => {
     if (!mainWindow || mainWindow.isDestroyed()) return
     if (mainRendererReloadTimer) {
       clearTimeout(mainRendererReloadTimer)
@@ -162,8 +175,14 @@ function startMainRendererWatch() {
     mainRendererReloadTimer = setTimeout(() => {
       if (!mainWindow || mainWindow.isDestroyed()) return
       mainWindow.webContents.reloadIgnoringCache()
+      reportRuntimeEvent('renderer.hot-reload', {
+        rendererEntryHtml: paths.rendererEntryHtml,
+      })
     }, 500)
-  })
+  }
+  for (const entry of watchedEntries) {
+    fs.watchFile(entry, { interval: 500 }, scheduleReload)
+  }
 }
 
 function stopMainRendererWatch() {
@@ -172,8 +191,10 @@ function stopMainRendererWatch() {
     mainRendererReloadTimer = null
   }
   const paths = getRuntimePathLibrary()
-  if (paths.rendererEntryHtml) {
-    fs.unwatchFile(paths.rendererEntryHtml)
+  for (const entry of [paths.rendererEntryHtml, paths.preloadEntry]) {
+    if (entry) {
+      fs.unwatchFile(entry)
+    }
   }
 }
 
@@ -181,7 +202,7 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock()
 
 if (!hasSingleInstanceLock) {
   // Another instance already holds the lock. Exit immediately without
-  // waiting for the ready event â€” app.quit() may not fire before-quit
+  // waiting for the ready event ?”app.quit() may not fire before-quit
   // handlers when the app hasn't finished initializing yet.
   reportRuntimeEvent('main.single-instance.exiting')
   app.exit(0)
@@ -213,7 +234,7 @@ if (!hasSingleInstanceLock) {
       // Show the window FIRST so the startup page appears immediately.
       // Backend startup (boot_core spawn) runs in the background and does
       // not block the UI.  A60: the launcher does NOT generate governance
-      // bootstrap material â€” boot_core generates its own fresh token per
+      // bootstrap material ?”boot_core generates its own fresh token per
       // spawn.  The launcher only spawns boot_core and tracks its liveness.
       await createWindow()
       startMainRendererWatch()
@@ -265,7 +286,7 @@ if (process.env.GPTBRIDGE_RENDERER_DEV_URL) {
 }
 
 // Complete-close contract: closing the last window fully terminates the
-// application â€” embedded sessions, renderer watchers, the managed backend
+// application ?”embedded sessions, renderer watchers, the managed backend
 // (boot_core + main.py), and the Electron process itself.  The path is
 // idempotent: window-all-closed, before-quit, and repeated quit attempts
 // all converge on a single shared shutdown.
@@ -276,9 +297,10 @@ function shutdownApplication(): void {
   if (shutdownPromise) return
   shutdownPromise = (async () => {
     closeAllSessions()
+    stopEmbeddedBrowserBridge()
     stopMainRendererWatch()
     if (shouldManageBackend) {
-      // Backend shutdown is awaited but bounded â€” a stalled graceful stop
+      // Backend shutdown is awaited but bounded ?”a stalled graceful stop
       // must never leave the UI running as a detached orphan.
       await Promise.race([
         stopBackend(),
@@ -299,7 +321,7 @@ function shutdownApplication(): void {
 
 app.on('window-all-closed', () => {
   // Closing the last window closes the whole application on every
-  // platform â€” no dock-resident or detached backend remains.
+  // platform ?”no dock-resident or detached backend remains.
   shutdownApplication()
 })
 

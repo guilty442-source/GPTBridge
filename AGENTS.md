@@ -161,8 +161,9 @@ Implementation: `governance_rule/execution/git_tiers/automation_supervisor.py`.
 # Python syntax check
 python -c "import ast; ast.parse(open('file.py', encoding='utf-8').read())"
 
-# Full test suite
-python -m pytest -q -p no:cacheprovider
+# Full test suite (bounded workers from pytest.ini keep local load low;
+# cache is written to the managed global-cleaner temp directory)
+main-system\.venv\Scripts\python.exe -m pytest -q
 
 # Governance audit
 python -m governance_rule.execution.audit

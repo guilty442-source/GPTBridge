@@ -434,7 +434,64 @@ def self_repair_sources(project_root: Path, *, record: bool = True) -> dict[str,
     }
     run["database"] = str(store.record("main-system", run))
     report["recorded_run"] = run["database"]
+    # Code-repair learning: every probed code fault teaches the learner the
+    # error class, the file it lives in, and the remedy that fixed it (or
+    # failed to).  Repeated code faults then promote learned code recipes.
+    _record_code_repair_learning(project_root, report)
     return report
+
+
+def _record_code_repair_learning(
+    project_root: Path,
+    report: dict[str, Any],
+) -> None:
+    try:
+        from tasks.repair_learning import record_code_repair
+    except Exception:
+        return
+    problems = {
+        str(entry.get("file") or ""): entry
+        for entry in report.get("problems") or []
+        if isinstance(entry, dict)
+    }
+    repaired = {
+        str(entry.get("file") or "")
+        for entry in report.get("repaired_files") or []
+        if isinstance(entry, dict)
+    }
+    run_id = str(report.get("run_id") or "")
+    for file_path, problem in problems.items():
+        if not file_path:
+            continue
+        try:
+            record_code_repair(
+                project_root,
+                file_path=file_path,
+                error_class=str(problem.get("error") or "SyntaxError"),
+                message=str(problem.get("message") or ""),
+                remedy=(
+                    "column-0-indentation-recovery"
+                    if file_path in repaired
+                    else "source-repair-unresolved"
+                ),
+                ok=file_path in repaired,
+                run_id=run_id,
+                failure_code=str(report.get("failure_code") or FAILURE_CODE),
+                extra_detail={
+                    "indentation_family": bool(problem.get("indentation_family")),
+                    "repaired_lines": next(
+                        (
+                            entry.get("repaired_lines") or []
+                            for entry in report.get("repaired_files") or []
+                            if isinstance(entry, dict)
+                            and str(entry.get("file") or "") == file_path
+                        ),
+                        [],
+                    ),
+                },
+            )
+        except Exception:
+            continue
 
 
 def _cli() -> int:

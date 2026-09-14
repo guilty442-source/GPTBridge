@@ -1,3 +1,16 @@
+// GOVERNANCE_CONFLICT (A206)
+//
+// This C# launcher has been replaced by Python equivalents (A206):
+// - start.py replaces start.ps1 (called by C++ launcher)
+// - install.py replaces install.ps1 (compiles C++ or C# fallback)
+// - firewall_whitelist.py replaces firewall_whitelist.ps1
+//
+// Per A206: C# ONLY for Windows-specific .NET/CLR/WinRT/COM integration
+// that cannot be provided by existing Python/TypeScript/C/C++ owner without-loss.
+// The Python scripts provide identical functionality without requiring C#.
+//
+// Original content archived for reference only. Do not compile.
+
 // GPTBridgeLauncher.cs — C# port of GPTBridgeLauncher.cpp.
 //
 // Compiled by install.ps1 with csc.exe (.NET Framework) when MSVC is

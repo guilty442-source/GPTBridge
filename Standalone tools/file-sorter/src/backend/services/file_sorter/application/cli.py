@@ -43,6 +43,7 @@ from .cli_organize import (
     preview_organize_files,
     run_enabled_profiles_once,
     scan_after_keyword_addition,
+    select_scan_target,
 )
 from ..infrastructure.cleanup import recycle_exact_duplicate_candidates
 from .cli_entry import create_argument_parser, main, print_rules
@@ -81,6 +82,7 @@ __all__ = [
     "resolve_target_dir",
     "run_enabled_profiles_once",
     "scan_after_keyword_addition",
+    "select_scan_target",
     "update_keyword",
     "upsert_keywords",
     "write_custom_rules",

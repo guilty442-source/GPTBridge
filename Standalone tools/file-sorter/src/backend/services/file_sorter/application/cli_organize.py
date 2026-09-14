@@ -432,6 +432,70 @@ def organize_files(
 
 
 
+def _disable_other_scan_targets(
+    active_profile_id: str,
+    *,
+    state_root: str | Path | None,
+) -> None:
+    """Keep exactly one active scan target: the folder the user selected.
+
+    Selecting a folder makes it the scanned folder; every other profile stops
+    its background classification so a stale selection can never keep scanning.
+    """
+
+    for other in list_profiles(state_root=state_root):
+        if other.profile_id == active_profile_id or not other.enabled:
+            continue
+        try:
+            save_profile(other, enabled=False)
+        except SorterV2Error:
+            continue
+
+
+
+def select_scan_target(
+    target_dir: str | Path,
+    *,
+    state_root: str | Path | None = None,
+    profile: str | None = None,
+) -> ProfileSnapshot:
+    """Follow the user's folder selection as the scanned folder.
+
+    When background classification is already active for some folder, moving
+    the selection to another folder switches the single active scan target to
+    that folder.  Nothing is enabled while every profile is off: enabling
+    automatic moves stays an explicit user decision.
+    """
+
+    if _uses_explicit_legacy_rules_path():
+        raise FileSorterError("Profiles require the V2 user state repository.")
+    snapshot = _load_profile_snapshot(
+        target_dir,
+        state_root=state_root,
+        profile=profile,
+    )
+    if snapshot.enabled:
+        return snapshot
+    others_enabled = any(
+        other.enabled
+        for other in list_profiles(state_root=state_root)
+        if other.profile_id != snapshot.profile_id
+    )
+    if not others_enabled:
+        return snapshot
+    try:
+        saved = save_profile(
+            snapshot,
+            enabled=True,
+            acknowledge_migration_review=snapshot.migration_required_review,
+        )
+    except SorterV2Error as error:
+        raise FileSorterError(str(error)) from error
+    _disable_other_scan_targets(saved.profile_id, state_root=state_root)
+    return saved
+
+
+
 def configure_profile_enabled(
     target_dir: str | Path,
     enabled: bool,
@@ -447,7 +511,7 @@ def configure_profile_enabled(
         profile=profile,
     )
     try:
-        return save_profile(
+        saved = save_profile(
             snapshot,
             enabled=enabled,
             acknowledge_migration_review=(
@@ -456,6 +520,9 @@ def configure_profile_enabled(
         )
     except SorterV2Error as error:
         raise FileSorterError(str(error)) from error
+    if enabled:
+        _disable_other_scan_targets(saved.profile_id, state_root=state_root)
+    return saved
 
 
 

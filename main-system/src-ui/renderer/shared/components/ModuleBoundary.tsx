@@ -1,4 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { mainSystemLocale } from '@/locales/main-system'
+
+const mb = mainSystemLocale.moduleBoundary
 
 type ModuleBoundaryProps = {
   name: string
@@ -32,7 +35,7 @@ export class ModuleBoundary extends Component<
       return (
         <div className="module-fault" role="status" data-testid={`module-fault-${this.props.name}`}>
           <strong>{this.props.name}</strong>
-          <span>此模組暫時無法顯示；其他模組不受影響。</span>
+          <span>{mb.fallbackMessage}</span>
         </div>
       )
     }

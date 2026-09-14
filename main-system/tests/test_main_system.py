@@ -2661,6 +2661,9 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
     watcher = "\n".join(
         path.read_text("utf-8")
         for path in sorted((root / "src-core" / "tasks").glob("hot_reload_watcher*.py"))
+    ) + "\n".join(
+        path.read_text("utf-8")
+        for path in sorted((root / "src-core" / "tasks" / "hot_reload_watcher").glob("*.py"))
     )
     update = "\n".join(
         path.read_text("utf-8")
@@ -2729,12 +2732,19 @@ def test_backend_gateway_and_watcher_use_atomic_ab_handover() -> None:
     watcher = "\n".join(
         path.read_text("utf-8")
         for path in sorted((root / "src-core" / "tasks").glob("hot_reload_watcher*.py"))
+    ) + "\n".join(
+        path.read_text("utf-8")
+        for path in sorted((root / "src-core" / "tasks" / "hot_reload_watcher").glob("*.py"))
     )
     update = "\n".join(
         path.read_text("utf-8")
         for path in sorted((root / "src-core" / "core_system").glob("hot_update_service*.py"))
     )
     handlers = (root / "src-core" / "ipc" / "handlers.py").read_text("utf-8")
+    command_router = "\n".join(
+        path.read_text("utf-8")
+        for path in sorted((root / "src-core" / "ipc" / "command_router").glob("*.py"))
+    )
 
     assert "class BackendGateway" in gateway
     assert "BACKEND_GENERATION_PORTS" in boot
@@ -2750,7 +2760,7 @@ def test_backend_gateway_and_watcher_use_atomic_ab_handover() -> None:
     assert "def prepare_generation(" in update
     assert "This performs no live-module mutation" in update
     assert "standby_validation=True" in watcher
-    assert "await watcher._maybe_reload(changed_paths)" in handlers
+    assert "await watcher._maybe_reload(changed_paths)" in command_router
     assert "runtime_sovereign.execute_hot_reload" not in handlers
 
 

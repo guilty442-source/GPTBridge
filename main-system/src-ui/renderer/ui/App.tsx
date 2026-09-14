@@ -9,12 +9,15 @@ import { useAppState } from '@/ui/useAppState'
 import { XingchengDrawer } from '@/ui/AppXingchengDrawer'
 import { CapacityDrawer } from '@/ui/AppCapacityDrawer'
 import { ModuleBoundary } from '@/shared/components/ModuleBoundary'
+import { useRuntimeStatusField } from '@/shared/hooks/useRuntimeStatusField'
+import type { GlobalFaults } from '@/ui/sovereign/runtimeStatusTypes'
 import '../App.css'
 
 const t = mainSystemLocale.product
 const tp = mainSystemLocale.thirdParty
 const xr = mainSystemLocale.xingchengReport
 const app = mainSystemLocale.app
+const tb = mainSystemLocale.toolbox
 
 function displayVersion(value: string): string {
   const match = /^(\d+)\.(\d+)(?:\.\d+)?$/.exec(value.trim())
@@ -68,6 +71,10 @@ export default function App() {
     return { running, issues, total: toolboxTools.length }
   }, [toolboxTools])
 
+  const globalFaults = useRuntimeStatusField('global_faults') as
+    | GlobalFaults
+    | undefined
+
   const xingchengReview = useMemo(() => {
     if (backendSocket.status === 'Connecting' || backendSocket.status === 'Repairing') {
       return { tone: 'warning' as const, state: xr.reviewing, detail: xr.reviewingDetail, issues: [{ id: 'backend-reconnecting', source: xr.informationLayer, title: xr.backendInterrupted, detail: `${xr.reviewingDetail}：${backendSocket.status}`, status: xr.autoRepairing }] }
@@ -77,6 +84,27 @@ export default function App() {
     }
     if (!maintenanceReady) {
       return { tone: 'warning' as const, state: xr.healthAnomaly, detail: xr.healthDetail, issues: [{ id: 'maintenance-not-ready', source: xr.maintenanceSovereign, title: xr.maintenanceNotReady, detail: xr.maintenanceNotReadyDetail, status: xr.monitoring }] }
+    }
+    // Global fault tracking: Xingcheng reports faults from every module,
+    // not only the tool cards below.
+    const unresolvedFaults = Number(globalFaults?.unresolved || 0)
+    if (globalFaults && unresolvedFaults > 0) {
+      const issues = (globalFaults.recent_faults || []).slice(0, 5).map((fault, index) => ({
+        id: `global-fault-${String(fault.fault_id || index)}`,
+        source: String(fault.source || xr.globalFaultsTitle),
+        title: String(fault.error_class || fault.fault_type || xr.toolError),
+        detail: String(fault.error_message || xr.noFurtherDetail),
+        status: String(fault.repair_outcome || 'pending'),
+      }))
+      const severity = Object.entries(globalFaults.severity_distribution || {})
+        .map(([key, count]) => `${key} ${count}`)
+        .join('、')
+      return {
+        tone: 'warning' as const,
+        state: xr.globalFaultsState.replace('{count}', String(unresolvedFaults)),
+        detail: severity || xr.globalFaultsHint,
+        issues,
+      }
     }
     const affected = toolboxTools
       .filter((tool) => tool.status === 'error' || (tool.launchable !== false && tool.runtimeAvailable === false))
@@ -96,7 +124,7 @@ export default function App() {
       }
     }
     return { tone: 'ok' as const, state: xr.normal, detail: xr.normalDetail, issues: [] }
-  }, [backendSocket.status, connected, maintenanceReady, toolboxTools])
+  }, [backendSocket.status, connected, globalFaults, maintenanceReady, toolboxTools])
 
   const connection = connected
     ? { label: xr.systemNormal, detail: xr.normalDetail, tone: 'online' as const }
@@ -246,7 +274,7 @@ export default function App() {
           </button>
         </section>
 
-        <ModuleBoundary name="工具箱">
+        <ModuleBoundary name={tb.title}>
           <ToolboxEntry
             tools={toolboxTools}
             connected={operational}
@@ -273,6 +301,8 @@ export default function App() {
           switchBusy={switchBusy}
           onConfirm={confirmPendingAction}
           onSwitch={setAutomationSwitch}
+          sendCommand={sendCommand}
+          waitForIpcEvent={waitForIpcEvent}
         />
       </ModuleBoundary>
 

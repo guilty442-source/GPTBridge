@@ -27,7 +27,7 @@ _RUNTIME_STATE_ROOT: Final[tuple[str, ...]] = (
     "main-system", "runtime", "state",
 )
 _SYSTEM_RESCUE_ROOT: Final[tuple[str, ...]] = (
-    "system-rescue", "data",
+    "Standalone tools", "system-rescue", "data",
 )
 _QUARANTINE_DIR: Final[tuple[str, ...]] = (
     "main-system", "runtime", "state", "tool-crash-quarantine",

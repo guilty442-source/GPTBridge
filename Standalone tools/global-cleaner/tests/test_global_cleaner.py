@@ -1652,8 +1652,10 @@ class _IntegrityAuthentication:
 def _runtime(authentication: _IntegrityAuthentication) -> MainSystemGovernance:
     runtime = MainSystemGovernance.__new__(MainSystemGovernance)
     runtime._authentication = authentication
+    runtime._project_root = Path.cwd()
     runtime._integrity_ready = True
     runtime._integrity_checked_at = 0.0
+    runtime._integrity_cache = {}
     return runtime
 
 

@@ -102,6 +102,11 @@ class ConnectionWatchdog:
         self._http_opener = urllib.request.build_opener(
             urllib.request.ProxyHandler({})
         )
+        # Adaptive probing: increase interval when connection is stable
+        self._adaptive_probe_interval = probe_interval
+        self._min_probe_interval = probe_interval
+        self._max_probe_interval = 60.0  # Max 60 seconds
+        self._consecutive_stable = 0
 
     def set_repair_callback(self, callback: Any) -> None:
         """Set a callback to invoke when connection repair is needed."""
@@ -395,14 +400,26 @@ class ConnectionWatchdog:
         return snapshot
 
     def run(self, backend_alive_fn: Any) -> None:
-        """Background loop: probe connection health periodically."""
+        """Background loop: probe connection health periodically with adaptive interval."""
         while not self._stop.is_set():
             try:
                 alive = bool(backend_alive_fn())
-                self.probe_once(backend_process_alive=alive)
+                snapshot = self.probe_once(backend_process_alive=alive)
+                # Adaptive interval: increase when connection is stable (connected state)
+                if snapshot.overall_state == "connected":
+                    self._consecutive_stable += 1
+                    if self._consecutive_stable >= 3:
+                        self._adaptive_probe_interval = min(
+                            self._adaptive_probe_interval * 1.5,
+                            self._max_probe_interval,
+                        )
+                else:
+                    # Reset on any non-connected state
+                    self._consecutive_stable = 0
+                    self._adaptive_probe_interval = self._min_probe_interval
             except Exception:
                 pass
-            if self._stop.wait(timeout=self.probe_interval):
+            if self._stop.wait(timeout=self._adaptive_probe_interval):
                 break
 
     def stop(self) -> None:

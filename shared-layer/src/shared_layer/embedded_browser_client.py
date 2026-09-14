@@ -12,8 +12,10 @@ Governance: A44/E30 (four-functions-local) + A49/E35 (formal-tools-local).
 from __future__ import annotations
 
 import json
+import os
 import socket
 import uuid
+from pathlib import Path
 from typing import Any
 
 
@@ -103,7 +105,9 @@ class EmbeddedBrowserClient:
         })
         return int(result.get("closed") or 0)
 
-    def _call_ipc(self, channel: str, args: dict[str, Any]) -> dict[str, Any]:
+    def _call_ipc(
+        self, channel: str, args: dict[str, Any]
+    ) -> dict[str, Any] | list[Any]:
         """Call an IPC handler in the Electron main process.
 
         In the current architecture, this goes through the main system's
@@ -125,13 +129,72 @@ class EmbeddedBrowserClient:
 
     def _bridge_call(
         self, channel: str, args: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Actual bridge implementation — overridden in production."""
-        # In production, this connects to the main system's IPC bridge.
-        # For now, return a structured response indicating the module
-        # is loaded but needs the Electron bridge to be connected.
-        # The main system's python-backend.ts handles the actual forwarding.
-        raise ConnectionError("EMBEDDED_BROWSER_BRIDGE_NOT_CONNECTED")
+    ) -> dict[str, Any] | list[Any]:
+        """Call the Electron-main embedded-browser bridge over loopback.
+
+        The main Electron process publishes ``{host, port, token}`` to the
+        runtime state file while it runs; tool backends POST to it.  The
+        endpoint stays on 127.0.0.1 and requires the per-launch token, so no
+        unauthenticated caller can drive a browser session.
+        """
+        import urllib.error
+        import urllib.request
+
+        state_path = self._bridge_state_path()
+        if state_path is None:
+            raise ConnectionError("EMBEDDED_BROWSER_BRIDGE_NOT_PUBLISHED")
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise ConnectionError("EMBEDDED_BROWSER_BRIDGE_STATE_INVALID") from error
+        host = str(state.get("host") or "127.0.0.1")
+        port = int(state.get("port") or 0)
+        token = str(state.get("token") or "")
+        if port <= 0 or not token:
+            raise ConnectionError("EMBEDDED_BROWSER_BRIDGE_STATE_INVALID")
+        request = urllib.request.Request(
+            f"http://{host}:{port}/invoke",
+            data=json.dumps({"channel": channel, "args": args}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-GPTBridge-Bridge-Token": token,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=15) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError, ValueError) as error:
+            raise ConnectionError("EMBEDDED_BROWSER_BRIDGE_UNAVAILABLE") from error
+        if isinstance(payload, list):
+            return payload
+        if not isinstance(payload, dict):
+            return {"ok": False, "message": "BRIDGE_RESPONSE_INVALID"}
+        return payload
+
+    @staticmethod
+    def _bridge_state_path() -> Path | None:
+        """Locate the published bridge state file inside the workspace."""
+
+        candidates: list[Path] = []
+        environment_root = os.environ.get(
+            "GPTBRIDGE_GOVERNANCE_PROJECT_ROOT"
+        ) or os.environ.get("GPTBRIDGE_PROJECT_ROOT")
+        if environment_root:
+            candidates.append(Path(environment_root))
+        # shared-layer/src/shared_layer/embedded_browser_client.py
+        candidates.append(Path(__file__).resolve().parents[3])
+        for root in candidates:
+            state_path = (
+                root
+                / "main-system"
+                / "runtime"
+                / "state"
+                / "embedded-browser-bridge.json"
+            )
+            if state_path.is_file():
+                return state_path
+        return None
 
 
 # ---------------------------------------------------------------------------

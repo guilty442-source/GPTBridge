@@ -64,9 +64,20 @@ class UpdateManager:
 
         # Configuration
         self.auto_update_enabled = True
-        self.check_interval_seconds = 60.0  # Check for updates every 60s
+        self.check_interval_seconds = 300.0  # Check for updates every 5 minutes (was 60s)
         self.max_concurrent_updates = 1
         self.health_check_timeout = 30.0
+
+        # Adaptive interval: increase when stable, decrease when changes detected
+        self._adaptive_interval = self.check_interval_seconds
+        self._consecutive_no_changes = 0
+        self._max_adaptive_interval = 1800.0  # 30 minutes
+        self._min_adaptive_interval = 60.0    # 1 minute
+
+        # Circuit breaker for consecutive failures
+        self._consecutive_failures = 0
+        self._circuit_breaker_threshold = 5
+        self._circuit_open_until = 0.0
 
         # Metrics
         self._update_count = 0
@@ -270,10 +281,26 @@ class UpdateManager:
         """Automatic update checking loop.
 
         Detects source-file changes by comparing SHA-256 hashes against
-        the last-known set.
+        the last-known set. Uses adaptive intervals and circuit breaker.
         """
+        import time
         while not self._stop_auto.is_set():
             try:
+                # Circuit breaker: if too many consecutive failures, back off
+                if self._consecutive_failures >= self._circuit_breaker_threshold:
+                    if time.time() < self._circuit_open_until:
+                        _logger.warning(
+                            "Auto-update circuit breaker open, waiting %.0fs",
+                            self._circuit_open_until - time.time(),
+                        )
+                        await asyncio.sleep(60)
+                        continue
+                    else:
+                        # Reset circuit breaker after timeout
+                        self._consecutive_failures = 0
+                        self._circuit_open_until = 0
+                        _logger.info("Auto-update circuit breaker reset")
+
                 # User-confirmation gate: refresh the hash baseline but do
                 # not emit automatic updates while execution is disabled.
                 from core_system.auto_action_policy import (
@@ -282,13 +309,13 @@ class UpdateManager:
 
                 if not automatic_update_execution_allowed():
                     await asyncio.to_thread(self._detect_source_changes)
-                    await asyncio.sleep(self.check_interval_seconds)
+                    await asyncio.sleep(self._adaptive_interval)
                     continue
 
                 # Pre-update health check — only trigger updates when healthy.
                 health = await self.health.run_all_checks()
                 if not all(h.passed for h in health.values()):
-                    await asyncio.sleep(self.check_interval_seconds)
+                    await asyncio.sleep(self._adaptive_interval)
                     continue
 
                 # Detect source changes by comparing hashes.
@@ -299,6 +326,9 @@ class UpdateManager:
                         len(changed),
                         ", ".join(sorted(changed)[:8]),
                     )
+                    # Reset adaptive interval on changes
+                    self._consecutive_no_changes = 0
+                    self._adaptive_interval = self._min_adaptive_interval
                     # Route through the hot_reload_watcher.
                     watcher = getattr(self.app, "hot_reload_watcher", None)
                     if watcher is not None:
@@ -321,12 +351,23 @@ class UpdateManager:
                         )
                 else:
                     _logger.debug("Auto-update check completed — no changes")
+                    # Adaptive interval: increase when stable
+                    self._consecutive_no_changes += 1
+                    if self._consecutive_no_changes >= 3:
+                        self._adaptive_interval = min(
+                            self._adaptive_interval * 1.5,
+                            self._max_adaptive_interval,
+                        )
 
             except Exception as e:
                 _logger.error(f"Auto-update check failed: {e}")
+                self._consecutive_failures += 1
+                if self._consecutive_failures >= self._circuit_breaker_threshold:
+                    self._circuit_open_until = time.time() + 300  # 5 minutes
+                    _logger.warning("Auto-update circuit breaker opened for 5 minutes")
 
             try:
-                await asyncio.sleep(self.check_interval_seconds)
+                await asyncio.sleep(self._adaptive_interval)
             except asyncio.CancelledError:
                 break
 

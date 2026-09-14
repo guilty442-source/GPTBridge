@@ -1,94 +1,32 @@
 import { useMemo } from 'react'
 import { mainSystemLocale } from '@/locales/main-system'
 import './sovereign.css'
+import type {
+  PendingActionApproval,
+  AutomationSwitches,
+  GlobalFault,
+  GlobalFaultPattern,
+  GlobalFaults,
+  PendingActionCardinality,
+  RuntimeStatusPayload,
+  SovereignSnapshot,
+} from './runtimeStatusTypes'
+
+// Re-export for backward compatibility with existing imports.
+export type {
+  PendingActionApproval,
+  AutomationSwitches,
+  GlobalFault,
+  GlobalFaultPattern,
+  GlobalFaults,
+  PendingActionCardinality,
+  RuntimeStatusPayload,
+  SovereignSnapshot,
+}
 
 const t = mainSystemLocale.sovereign
 
-interface CodexSnapshot {
-  authority?: unknown
-  rule_layer?: unknown
-  codex_schema?: unknown
-  codex_version?: unknown
-  authority_rank?: unknown
-  binding_scope?: unknown
-  function?: unknown
-  mutability?: unknown
-  amendment?: unknown
-  interpretation?: unknown
-  sections?: Array<Record<string, unknown>>
-  principles?: Array<Record<string, unknown>>
-  articles?: Array<Record<string, unknown>>
-  edicts?: Array<Record<string, unknown>>
-  active_rule?: unknown
-}
-
-interface XingchengSnapshot {
-  module_id?: unknown
-  rank?: unknown
-  kind?: unknown
-  mode?: unknown
-  authority?: Record<string, unknown>
-  powers?: { empowered?: unknown; prohibited?: unknown }
-}
-
-interface SovereignSnapshot {
-  owned_by?: unknown
-  dependency_state?: unknown
-  executor?: unknown
-  health_owner?: unknown
-  started_at?: unknown
-  sub_sovereigns?: Array<Record<string, unknown>>
-  peer_systems?: { xingcheng?: XingchengSnapshot }
-  governance_rules?: CodexSnapshot
-  permission?: Record<string, unknown>
-}
-
-export interface PendingActionApproval {
-  action_id?: string
-  kind?: string
-  summary?: string
-  detail?: Record<string, unknown>
-  status?: string
-  created_at?: string
-  updated_at?: string
-  fault_id?: string
-  update_id?: string
-  scope?: string
-  target?: string
-  proposed_method?: string
-  risk?: string
-  rollback?: string
-  expires_at?: string
-  evidence_digest?: string
-}
-
-export interface AutomationSwitches {
-  automatic_repair_enabled?: boolean
-  automatic_update_enabled?: boolean
-  updated_at?: string
-  updated_by?: string
-}
-
-export interface PendingActionCardinality {
-  mode?: string
-  unresolved?: number
-  fault_count?: number
-  update_count?: number
-  total_actionable?: number
-}
-
 import { useRuntimeStatusField } from '@/shared/hooks/useRuntimeStatusField'
-
-export interface RuntimeStatusPayload {
-  maintenance_ready?: boolean
-  decision_sovereign?: SovereignSnapshot
-  pending_actions?: PendingActionApproval[]
-  pending_action_count?: number
-  automation_switches?: AutomationSwitches
-  pending_action_cardinality?: PendingActionCardinality
-  authority_reanchor?: Record<string, unknown>
-  automation_modules?: Array<Record<string, unknown>>
-}
 
 const ROLE_LABELS: Record<string, string> = {
   'runtime-sovereign': 'roleRuntime',

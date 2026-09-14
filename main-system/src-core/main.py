@@ -421,7 +421,7 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
                         crash_info["exit_code"] = entry.process.returncode
                     notifier.push_tool_crash_event(tool_id, crash_info, loop=loop)
                 iso_mgr.register_crash_callback(_on_crash)
-            iso_mgr.start_monitor()
+            iso_mgr.start_monitor(interval=30.0, light=True)
         except Exception as error:
             self._record_startup_failure("tool_isolation_monitor", error)
         self._mark_startup_phase("main_runtime_ready")

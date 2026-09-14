@@ -13,20 +13,20 @@ from typing import Any, Final, Optional
 
 from core_system.hot_update_service import PROTECTED_MODULE_PREFIXES
 
-POLL_INTERVAL_SECONDS: Final[float] = 3.0
-QUIET_WINDOW_SECONDS: Final[float] = 1.2
-MIN_RELOAD_INTERVAL_SECONDS: Final[float] = 5.0
-MAX_RELOADS_PER_MINUTE: Final[int] = 6
-FAILURE_BACKOFF_SECONDS: Final[float] = 30.0
+POLL_INTERVAL_SECONDS: Final[float] = 10.0
+QUIET_WINDOW_SECONDS: Final[float] = 2.0
+MIN_RELOAD_INTERVAL_SECONDS: Final[float] = 10.0
+MAX_RELOADS_PER_MINUTE: Final[int] = 3
+FAILURE_BACKOFF_SECONDS: Final[float] = 60.0
 # Enhanced stability constants
 MAX_CONSECUTIVE_FAILURES: Final[int] = 3
-HEALTH_CHECK_INTERVAL_SECONDS: Final[float] = 30.0
-CHANNEL_HEALTH_TIMEOUT_SECONDS: Final[float] = 10.0
+HEALTH_CHECK_INTERVAL_SECONDS: Final[float] = 60.0
+CHANNEL_HEALTH_TIMEOUT_SECONDS: Final[float] = 20.0
 MAX_RETRY_ATTEMPTS: Final[int] = 3
-RETRY_BASE_DELAY_SECONDS: Final[float] = 2.0
-RETRY_MAX_DELAY_SECONDS: Final[float] = 60.0
+RETRY_BASE_DELAY_SECONDS: Final[float] = 5.0
+RETRY_MAX_DELAY_SECONDS: Final[float] = 120.0
 RETRY_JITTER_FACTOR: Final[float] = 0.3
-IPC_RECONNECT_DELAY_SECONDS: Final[float] = 5.0
+IPC_RECONNECT_DELAY_SECONDS: Final[float] = 10.0
 
 # Only main-system code is reloaded.
 WATCH_ROOTS: Final[tuple[str, ...]] = ("main-system/src-core",)

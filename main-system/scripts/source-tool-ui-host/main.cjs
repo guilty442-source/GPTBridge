@@ -68,6 +68,7 @@ if (!hasSingleInstanceLock) app.quit()
 
 let mainWindow = null
 let reloadTimer = null
+let hostRestartTimer = null
 
 function showWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return
@@ -105,10 +106,14 @@ function createWindow() {
 }
 
 function startRendererWatch() {
-  // Hot-reload: when the built renderer entry is overwritten by a fresh
-  // `vite build`, reload the tool window without restarting the whole app.
-  if (!fs.existsSync(rendererEntry)) return
-  fs.watchFile(rendererEntry, { interval: 500 }, () => {
+  // Hot-reload: when the built renderer entry or this host's preload is
+  // overwritten by a fresh build, reload the tool window without restarting
+  // the whole app.  A host main-file change replaces the host process itself.
+  const preloadEntry = path.join(__dirname, 'preload.cjs')
+  const watchedEntries = [rendererEntry, preloadEntry].filter((entry) =>
+    fs.existsSync(entry)
+  )
+  const scheduleReload = () => {
     if (!mainWindow || mainWindow.isDestroyed()) return
     if (reloadTimer) {
       clearTimeout(reloadTimer)
@@ -117,8 +122,44 @@ function startRendererWatch() {
     reloadTimer = setTimeout(() => {
       if (!mainWindow || mainWindow.isDestroyed()) return
       mainWindow.webContents.reloadIgnoringCache()
+      console.log('[tool-ui-host] renderer.hot-reload', toolId)
     }, 500)
-  })
+  }
+  for (const entry of watchedEntries) {
+    fs.watchFile(entry, { interval: 500 }, scheduleReload)
+  }
+
+  const hostEntry = path.join(__dirname, 'main.cjs')
+  if (fs.existsSync(hostEntry)) {
+    fs.watchFile(hostEntry, { interval: 500 }, () => {
+      if (hostRestartTimer) {
+        clearTimeout(hostRestartTimer)
+        hostRestartTimer = null
+      }
+      hostRestartTimer = setTimeout(() => {
+        hostRestartTimer = null
+        try {
+          const { spawn } = require('node:child_process')
+          if (typeof app.releaseSingleInstanceLock === 'function') {
+            app.releaseSingleInstanceLock()
+          }
+          const replacement = spawn(process.execPath, process.argv.slice(1), {
+            cwd: process.cwd(),
+            env: process.env,
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true,
+          })
+          replacement.unref()
+          console.log('[tool-ui-host] host.hot-restart', toolId)
+        } catch (error) {
+          console.log('[tool-ui-host] host.hot-restart-failed', String(error))
+          return
+        }
+        app.exit(0)
+      }, 800)
+    })
+  }
 }
 
 function stopRendererWatch() {
@@ -126,7 +167,13 @@ function stopRendererWatch() {
     clearTimeout(reloadTimer)
     reloadTimer = null
   }
+  if (hostRestartTimer) {
+    clearTimeout(hostRestartTimer)
+    hostRestartTimer = null
+  }
   fs.unwatchFile(rendererEntry)
+  fs.unwatchFile(path.join(__dirname, 'preload.cjs'))
+  fs.unwatchFile(path.join(__dirname, 'main.cjs'))
 }
 
 ipcMain.handle('app:ensure-backend-started', async () => ({
@@ -134,6 +181,86 @@ ipcMain.handle('app:ensure-backend-started', async () => ({
   managed: true,
   runtimeMode: 'governed-source',
 }))
+
+// Embedded browser: the BrowserView session store lives in the main-system
+// Electron process.  This host proxies the tool window's requests to that
+// process over its token-guarded loopback bridge.
+const EMBEDDED_BROWSER_CHANNELS = [
+  'create',
+  'navigate',
+  'execute',
+  'show',
+  'hide',
+  'close',
+  'resize',
+  'list',
+  'url',
+  'close-module',
+]
+
+function callEmbeddedBrowserBridge(channel, args) {
+  return new Promise((resolve) => {
+    let state = null
+    try {
+      const statePath = path.join(
+        workspaceRoot,
+        'main-system',
+        'runtime',
+        'state',
+        'embedded-browser-bridge.json'
+      )
+      state = JSON.parse(fs.readFileSync(statePath, 'utf8'))
+    } catch {
+      resolve({ ok: false, message: 'EMBEDDED_BROWSER_BRIDGE_UNAVAILABLE' })
+      return
+    }
+    const port = Number(state && state.port)
+    const token = String((state && state.token) || '')
+    const host = String((state && state.host) || '127.0.0.1')
+    if (!Number.isInteger(port) || port <= 0 || port > 65535 || !token) {
+      resolve({ ok: false, message: 'EMBEDDED_BROWSER_BRIDGE_INVALID' })
+      return
+    }
+    const body = JSON.stringify({ channel, args })
+    const request = require('node:http').request(
+      {
+        host,
+        port,
+        path: '/invoke',
+        method: 'POST',
+        timeout: 15_000,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+          'X-GPTBridge-Bridge-Token': token,
+        },
+      },
+      (response) => {
+        const chunks = []
+        response.on('data', (chunk) => chunks.push(chunk))
+        response.on('end', () => {
+          try {
+            resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')))
+          } catch {
+            resolve({ ok: false, message: 'EMBEDDED_BROWSER_BRIDGE_RESPONSE_INVALID' })
+          }
+        })
+      }
+    )
+    request.on('timeout', () => request.destroy())
+    request.on('error', () =>
+      resolve({ ok: false, message: 'EMBEDDED_BROWSER_BRIDGE_UNAVAILABLE' })
+    )
+    request.write(body)
+    request.end()
+  })
+}
+
+for (const operation of EMBEDDED_BROWSER_CHANNELS) {
+  ipcMain.handle(`embedded-browser:${operation}`, (_event, args = {}) =>
+    callEmbeddedBrowserBridge(`embedded-browser:${operation}`, args || {})
+  )
+}
 
 ipcMain.handle('app:get-backend-session', async () => ({
   token: String(backendSessionUrl?.searchParams.get('token') || ''),

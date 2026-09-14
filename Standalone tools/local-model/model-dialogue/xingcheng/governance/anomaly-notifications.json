@@ -1,51 +1,6 @@
 [
   {
-    "notified_at": "2026-09-13T23:00:44.043720Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "synchronization-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "synchronization-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:00:44.043720Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "星澄",
-      "state": "started",
-      "detail": null,
-      "location": "星澄"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:00:54.069588Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "missing-critical-directories",
-      "severity": "warning",
-      "detail": "missing: ['identity', 'permissions', 'runtime']"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:00:54.069588Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-overall",
-      "state": "fully-automated",
-      "detail": null,
-      "location": "system-overall"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:00:54.069588Z",
+    "notified_at": "2026-09-14T06:51:21.069790Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -57,7 +12,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:00:54.069588Z",
+    "notified_at": "2026-09-14T06:51:21.069790Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -69,19 +24,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:00:54.069588Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:00:54.069588Z",
+    "notified_at": "2026-09-14T06:51:21.069790Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -93,7 +36,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:00:54.069588Z",
+    "notified_at": "2026-09-14T06:51:21.069790Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -105,7 +48,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:04.075348Z",
+    "notified_at": "2026-09-14T06:51:31.072485Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -114,7 +57,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:04.075348Z",
+    "notified_at": "2026-09-14T06:51:31.072485Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -126,7 +69,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:04.075348Z",
+    "notified_at": "2026-09-14T06:51:31.072485Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -138,7 +81,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:04.075348Z",
+    "notified_at": "2026-09-14T06:51:31.072485Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -150,19 +93,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:04.075348Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:01:04.075348Z",
+    "notified_at": "2026-09-14T06:51:31.072485Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -174,7 +105,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:04.075348Z",
+    "notified_at": "2026-09-14T06:51:31.072485Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -186,7 +117,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:14.105955Z",
+    "notified_at": "2026-09-14T06:51:41.097671Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -195,7 +126,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:14.105955Z",
+    "notified_at": "2026-09-14T06:51:41.097671Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -207,7 +138,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:14.105955Z",
+    "notified_at": "2026-09-14T06:51:41.097671Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -219,7 +150,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:14.105955Z",
+    "notified_at": "2026-09-14T06:51:41.098671Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -231,19 +162,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:14.105955Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:01:14.105955Z",
+    "notified_at": "2026-09-14T06:51:41.098671Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -255,7 +174,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:14.105955Z",
+    "notified_at": "2026-09-14T06:51:41.098671Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -267,7 +186,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:24.135248Z",
+    "notified_at": "2026-09-14T06:51:51.118337Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -276,7 +195,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:24.135248Z",
+    "notified_at": "2026-09-14T06:51:51.118337Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -288,7 +207,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:24.135248Z",
+    "notified_at": "2026-09-14T06:51:51.118337Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -300,7 +219,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:24.135248Z",
+    "notified_at": "2026-09-14T06:51:51.118337Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -312,19 +231,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:24.135248Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:01:24.135248Z",
+    "notified_at": "2026-09-14T06:51:51.118337Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -336,7 +243,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:24.135248Z",
+    "notified_at": "2026-09-14T06:51:51.118337Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -348,7 +255,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:34.133637Z",
+    "notified_at": "2026-09-14T06:52:01.142582Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -357,7 +264,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:34.133637Z",
+    "notified_at": "2026-09-14T06:52:01.142582Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -369,7 +276,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:34.133637Z",
+    "notified_at": "2026-09-14T06:52:01.142582Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -381,7 +288,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:34.133637Z",
+    "notified_at": "2026-09-14T06:52:01.142582Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -393,19 +300,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:34.133637Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:01:34.133637Z",
+    "notified_at": "2026-09-14T06:52:01.142582Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -417,7 +312,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:34.133637Z",
+    "notified_at": "2026-09-14T06:52:01.142582Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -429,7 +324,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:44.147784Z",
+    "notified_at": "2026-09-14T06:52:11.154368Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -438,7 +333,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:44.147784Z",
+    "notified_at": "2026-09-14T06:52:11.154368Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -450,7 +345,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:44.147784Z",
+    "notified_at": "2026-09-14T06:52:11.154368Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -462,7 +357,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:44.147784Z",
+    "notified_at": "2026-09-14T06:52:11.154368Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -474,19 +369,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:44.147784Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:01:44.147784Z",
+    "notified_at": "2026-09-14T06:52:11.154368Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -498,7 +381,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:44.147784Z",
+    "notified_at": "2026-09-14T06:52:11.154368Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -510,7 +393,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:54.165543Z",
+    "notified_at": "2026-09-14T06:52:21.172067Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -519,7 +402,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:54.165543Z",
+    "notified_at": "2026-09-14T06:52:21.172067Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -531,7 +414,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:54.165543Z",
+    "notified_at": "2026-09-14T06:52:21.172067Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -543,7 +426,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:54.165543Z",
+    "notified_at": "2026-09-14T06:52:21.172067Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -555,19 +438,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:54.165543Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:01:54.165543Z",
+    "notified_at": "2026-09-14T06:52:21.172067Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -579,7 +450,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:01:54.165543Z",
+    "notified_at": "2026-09-14T06:52:21.172067Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -591,7 +462,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:04.182262Z",
+    "notified_at": "2026-09-14T06:52:31.180877Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -600,7 +471,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:04.182262Z",
+    "notified_at": "2026-09-14T06:52:31.180877Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -612,7 +483,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:04.182262Z",
+    "notified_at": "2026-09-14T06:52:31.180877Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -624,7 +495,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:04.182262Z",
+    "notified_at": "2026-09-14T06:52:31.180877Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -636,19 +507,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:04.182262Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:02:04.182262Z",
+    "notified_at": "2026-09-14T06:52:31.180877Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -660,7 +519,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:04.182262Z",
+    "notified_at": "2026-09-14T06:52:31.180877Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -672,7 +531,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:14.195297Z",
+    "notified_at": "2026-09-14T06:52:41.186262Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -681,7 +540,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:14.195297Z",
+    "notified_at": "2026-09-14T06:52:41.186262Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -693,7 +552,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:14.195297Z",
+    "notified_at": "2026-09-14T06:52:41.186262Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -705,7 +564,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:14.195297Z",
+    "notified_at": "2026-09-14T06:52:41.186262Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -717,19 +576,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:14.195297Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:02:14.195297Z",
+    "notified_at": "2026-09-14T06:52:41.186262Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -741,7 +588,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:14.195297Z",
+    "notified_at": "2026-09-14T06:52:41.186262Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -753,7 +600,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:24.221019Z",
+    "notified_at": "2026-09-14T06:52:51.202142Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -762,7 +609,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:24.221019Z",
+    "notified_at": "2026-09-14T06:52:51.202142Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -774,7 +621,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:24.221019Z",
+    "notified_at": "2026-09-14T06:52:51.202142Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -786,7 +633,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:24.221019Z",
+    "notified_at": "2026-09-14T06:52:51.202142Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -798,19 +645,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:24.221019Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:02:24.221019Z",
+    "notified_at": "2026-09-14T06:52:51.202142Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -822,7 +657,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:24.221019Z",
+    "notified_at": "2026-09-14T06:52:51.202142Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -834,7 +669,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:34.247427Z",
+    "notified_at": "2026-09-14T06:53:01.227414Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -843,7 +678,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:34.247427Z",
+    "notified_at": "2026-09-14T06:53:01.227414Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -855,7 +690,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:34.247427Z",
+    "notified_at": "2026-09-14T06:53:01.227414Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -867,7 +702,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:34.247427Z",
+    "notified_at": "2026-09-14T06:53:01.227414Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -879,19 +714,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:34.247427Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:02:34.247427Z",
+    "notified_at": "2026-09-14T06:53:01.227414Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -903,7 +726,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:34.247427Z",
+    "notified_at": "2026-09-14T06:53:01.227414Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -915,7 +738,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:44.282692Z",
+    "notified_at": "2026-09-14T06:53:11.247614Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -924,7 +747,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:44.282692Z",
+    "notified_at": "2026-09-14T06:53:11.247614Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -936,7 +759,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:44.282692Z",
+    "notified_at": "2026-09-14T06:53:11.247614Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -948,7 +771,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:44.282692Z",
+    "notified_at": "2026-09-14T06:53:11.247614Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -960,19 +783,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:44.282692Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:02:44.282692Z",
+    "notified_at": "2026-09-14T06:53:11.247614Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -984,7 +795,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:44.282692Z",
+    "notified_at": "2026-09-14T06:53:11.247614Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -996,7 +807,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:54.298904Z",
+    "notified_at": "2026-09-14T06:53:21.275856Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -1005,7 +816,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:54.298904Z",
+    "notified_at": "2026-09-14T06:53:21.275856Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -1017,7 +828,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:54.298904Z",
+    "notified_at": "2026-09-14T06:53:21.275856Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -1029,7 +840,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:54.298904Z",
+    "notified_at": "2026-09-14T06:53:21.275856Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -1041,19 +852,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:54.298904Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:02:54.298904Z",
+    "notified_at": "2026-09-14T06:53:21.275856Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -1065,7 +864,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:02:54.298904Z",
+    "notified_at": "2026-09-14T06:53:21.275856Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -1077,7 +876,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:03:04.326018Z",
+    "notified_at": "2026-09-14T06:53:31.294412Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "missing-critical-directories",
@@ -1086,7 +885,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:03:04.326018Z",
+    "notified_at": "2026-09-14T06:53:31.294412Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -1098,7 +897,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:03:04.326018Z",
+    "notified_at": "2026-09-14T06:53:31.294412Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -1110,7 +909,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:03:04.326018Z",
+    "notified_at": "2026-09-14T06:53:31.294412Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -1122,19 +921,7 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:03:04.326018Z",
-    "channel": "information-layer",
-    "anomaly": {
-      "type": "global-review-finding",
-      "severity": "warning",
-      "component": "system-runtime-sovereign",
-      "state": "started",
-      "detail": null,
-      "location": "system-runtime-sovereign"
-    }
-  },
-  {
-    "notified_at": "2026-09-13T23:03:04.326018Z",
+    "notified_at": "2026-09-14T06:53:31.294412Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",
@@ -1146,7 +933,214 @@
     }
   },
   {
-    "notified_at": "2026-09-13T23:03:04.326018Z",
+    "notified_at": "2026-09-14T06:53:31.294412Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:41.319880Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "missing-critical-directories",
+      "severity": "warning",
+      "detail": "missing: ['identity', 'permissions', 'runtime']"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:41.319880Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:41.319880Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:41.319880Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:41.319880Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:41.319880Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:51.338736Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "missing-critical-directories",
+      "severity": "warning",
+      "detail": "missing: ['identity', 'permissions', 'runtime']"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:51.338736Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:51.338736Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:51.338736Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:51.338736Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:53:51.338736Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "星澄",
+      "state": "started",
+      "detail": null,
+      "location": "星澄"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:54:01.358583Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "missing-critical-directories",
+      "severity": "warning",
+      "detail": "missing: ['identity', 'permissions', 'runtime']"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:54:01.358583Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "system-overall",
+      "state": "fully-automated",
+      "detail": null,
+      "location": "system-overall"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:54:01.358583Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "decision-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:54:01.358583Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "permission-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:54:01.358583Z",
+    "channel": "information-layer",
+    "anomaly": {
+      "type": "global-review-finding",
+      "severity": "warning",
+      "component": "synchronization-sovereign",
+      "state": "started",
+      "detail": null,
+      "location": "synchronization-sovereign"
+    }
+  },
+  {
+    "notified_at": "2026-09-14T06:54:01.358583Z",
     "channel": "information-layer",
     "anomaly": {
       "type": "global-review-finding",

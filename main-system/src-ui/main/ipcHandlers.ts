@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { getBackendSessionDescriptor } from './ipcSession'
+import { registerEmbeddedBrowserIpc } from './embedded-browser'
 import { getRuntimePathLibrary } from './pathLibrary'
 import {
   ensureBackendStarted,
@@ -58,7 +59,6 @@ export function registerIpcHandlers(
   mainWindowGetter: () => BrowserWindow | null
 ): void {
   // Embedded browser IPC (replaces external Playwright/Chrome/Edge)
-  const { registerEmbeddedBrowserIpc } = require('./embedded-browser')
   registerEmbeddedBrowserIpc()
 
   ipcMain.handle('app:get-status', async () => {

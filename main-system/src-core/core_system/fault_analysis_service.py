@@ -265,9 +265,9 @@ class FaultAnalysisService(FaultAnalysisCollectorsMixin):
             )
             try:
                 rows = connection.execute(
-                    "SELECT signature_hash, error_class, message_pattern, "
-                    "failure_code, remedy_hint, promotion_count, created_at "
-                    "FROM learned_recipes ORDER BY promotion_count DESC LIMIT 50"
+                    "SELECT recipe_id, name, failure_signatures_json, remedy, "
+                    "owner, learned_at, occurrence_count, success_rate "
+                    "FROM learned_recipes ORDER BY occurrence_count DESC LIMIT 50"
                 ).fetchall()
             except sqlite3.OperationalError:
                 rows = []
@@ -278,10 +278,11 @@ class FaultAnalysisService(FaultAnalysisCollectorsMixin):
                     "signature_hash": r[0],
                     "error_class": r[1],
                     "message_pattern": r[2],
-                    "failure_code": r[3],
-                    "remedy_hint": r[4],
-                    "promotion_count": r[5],
-                    "created_at": r[6],
+                    "failure_code": r[4],
+                    "remedy_hint": r[3],
+                    "promotion_count": r[6],
+                    "created_at": r[5],
+                    "success_rate": r[7],
                 }
                 for r in rows
             ]

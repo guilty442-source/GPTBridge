@@ -183,7 +183,32 @@
     "confirming": "確認中…",
     "confirmedDone": "已執行",
     "confirmedFailed": "執行失敗",
-    "confirmQueueFailed": "指令未送出，請稍後再試。"
+    "confirmQueueFailed": "指令未送出，請稍後再試。",
+    "globalFaultsTitle": "全域故障追蹤",
+    "globalFaultsHint": "唯讀彙整全系統故障證據；偵測與分析持續運作，不執行修復。",
+    "globalFaultsTracked": "追蹤中",
+    "globalFaultsUnresolved": "未解決",
+    "globalFaultsSources": "來源",
+    "globalFaultsPatterns": "重複模式",
+    "globalFaultsRecent": "最近故障",
+    "globalFaultsEmpty": "目前沒有故障證據。",
+    "globalFaultsRefresh": "重新分析",
+    "globalFaultsLoading": "分析中…",
+    "globalFaultsFailed": "無法取得全域故障資料",
+    "globalFaultsDetailFailed": "無法取得故障明細",
+    "globalFaultsSeverity": "嚴重度",
+    "globalFaultsOutcome": "修復結果",
+    "globalFaultsOccurrences": "次",
+    "globalFaultsTrend": "趨勢",
+    "globalFaultsSuccessRate": "成功率",
+    "globalFaultsAffected": "受影響",
+    "globalFaultsLastSeen": "最後出現",
+    "globalFaultsTarget": "目標",
+    "globalFaultsClass": "錯誤類別",
+    "globalFaultsMessage": "訊息",
+    "globalFaultsAction": "建議動作",
+    "globalFaultsClose": "關閉明細",
+    "globalFaultsState": "全域故障 {count} 處"
   },
   "thirdParty": {
     "eyebrow": "第三方軟體管理",
@@ -319,5 +344,8 @@
     "noGrant": "無授予權",
     "noOverride": "無覆寫權",
     "delegatedToExecutor": "已交由受治理執行器"
+  },
+  "moduleBoundary": {
+    "fallbackMessage": "此模組暫時無法顯示；其他模組不受影響。"
   }
 }

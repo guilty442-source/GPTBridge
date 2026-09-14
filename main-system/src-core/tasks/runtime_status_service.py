@@ -7,6 +7,54 @@ from typing import Any
 _STATUS_CACHE_TTL_SECONDS: float = 1.0
 _status_cache: dict[int, tuple[float, dict[str, Any]]] = {}
 
+# Global fault tracking for Xingcheng: aggregating fault evidence reads many
+# small databases and journals, so the projection is cached and every push
+# reuses it until the TTL expires.
+_GLOBAL_FAULT_TTL_SECONDS: float = 10.0
+_global_fault_cache: dict[str, Any] = {"at": 0.0, "payload": None}
+
+
+def _global_fault_summary(recent_limit: int = 20) -> dict[str, Any] | None:
+    """Return the cached global fault projection (never raises)."""
+
+    now = time.monotonic()
+    cached = _global_fault_cache.get("payload")
+    cached_at = float(_global_fault_cache.get("at") or 0.0)
+    if isinstance(cached, dict) and now - cached_at < _GLOBAL_FAULT_TTL_SECONDS:
+        return cached
+    try:
+        from core_system.fault_analysis_service import get_fault_analysis_service
+
+        service = get_fault_analysis_service()
+        faults = service.collect_all_faults(limit=recent_limit)
+        patterns = service.detect_patterns(faults)
+        severity: dict[str, int] = {}
+        source: dict[str, int] = {}
+        unresolved = 0
+        quarantined = 0
+        for fault in faults:
+            severity[fault.severity] = severity.get(fault.severity, 0) + 1
+            source[fault.source] = source.get(fault.source, 0) + 1
+            if fault.repair_outcome in ("pending", "failure"):
+                unresolved += 1
+            elif fault.repair_outcome == "quarantined":
+                quarantined += 1
+        payload = {
+            "tracked": len(faults),
+            "unresolved": unresolved + quarantined,
+            "quarantined": quarantined,
+            "severity_distribution": severity,
+            "source_distribution": source,
+            "top_patterns": [pattern.as_dict() for pattern in patterns[:3]],
+            "recent_faults": [fault.as_dict() for fault in faults[:5]],
+            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        }
+        _global_fault_cache["at"] = now
+        _global_fault_cache["payload"] = payload
+        return payload
+    except Exception:
+        return cached if isinstance(cached, dict) else None
+
 
 class RuntimeStatusService:
     """Read-only status for the main program.
@@ -119,6 +167,10 @@ class RuntimeStatusService:
             result["automation_modules"] = module_automation_status(self.app)
         except Exception:
             pass
+        # Global fault tracking (Xingcheng global review): all modules.
+        global_faults = _global_fault_summary()
+        if global_faults is not None:
+            result["global_faults"] = global_faults
         return result
 
     def startup_status(self) -> dict[str, Any]:
@@ -206,5 +258,9 @@ class RuntimeStatusService:
                 result["authority_reanchor"] = reanchor.get_status()
             except Exception:
                 pass
+        # Global fault tracking (Xingcheng global review): all modules.
+        global_faults = _global_fault_summary(recent_limit=50)
+        if global_faults is not None:
+            result["global_faults"] = global_faults
         _status_cache[cache_key] = (now, result)
         return dict(result)

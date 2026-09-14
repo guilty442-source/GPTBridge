@@ -22,16 +22,6 @@ Edicts:
 - E4: OWNER:permission-sovereign; SCOPE:all-permission-matters; ACTIONS:manage-issue-terminate-supervise; PERM-ID:sovereign-managed; EXEC:none; BASIS:codex
 - E111: PERMISSION-SOVEREIGN:independent+special-status+not-subordinate; NAME+DUTIES+POWERS:unchanged; OTHER-SOVEREIGNS:request-only-via-information-layer; BASIS:codex-only
 
-  * role                    = permission-sovereign
-  * authority               = permission-management-and-granting
-  * scope                   = all permission-related matters
-  * management_binding      = codex-bound (per the Governance Codex only)
-  * grants                  = true (may grant)
-  * terminates              = true (may terminate)
-  * permission_ids          = all modules managed by this sovereign
-  * execution               = false (no execution power)
-  * supervision             = supervises execution compliance
-
 The implementation was merged from ``core_system.permission_sovereign`` so
 the active path keeps its directory-driven authorization master-entry
 surface while operating under the governance-layer sovereign identity.
@@ -71,6 +61,13 @@ from core_system.codex_decision import (
 from core_system.versioning import refresh_version_cache, version_registry_status
 from core_system.permission_automation import PermissionAutomationOrchestrator
 
+# Sub-modules
+from .permission.permission_query import PermissionQueryMixin
+from .permission.permission_lifecycle import PermissionLifecycleMixin
+from .permission.auth_supervision import PermissionAuthSupervisionMixin
+from .permission.automation import PermissionAutomationMixin
+from .permission.status import PermissionStatusMixin
+
 
 def _permission_sovereign():
     codex = load_governance_codex()
@@ -85,14 +82,7 @@ PERMISSION_SOVEREIGN_RESPONSIBILITIES = _PERMISSION_SOVEREIGN.duties
 
 
 def re_certify_permission_sovereign() -> None:
-    """Reload the codex and update the permission sovereign authority.
-
-    Also refreshes all directory caches under the permission sovereign's
-    management so the directory registry reflects the current authority
-    state after a codex amendment.  Sealed directory snapshots are frozen
-    at module load time and are re-read on the next process restart; the
-    version registry cache is cleared immediately.
-    """
+    """Reload the codex and update the permission sovereign authority."""
 
     global _PERMISSION_SOVEREIGN, PERMISSION_SOVEREIGN_RESPONSIBILITIES
     _PERMISSION_SOVEREIGN = _permission_sovereign()
@@ -103,30 +93,21 @@ def re_certify_permission_sovereign() -> None:
     refresh_version_cache()
 
 
-class PermissionSovereign(SovereignBase):
-    """權限主宰：權限事務的目錄驅動裁決與唯讀協調面。
-
-    Owns every permission concern per the Governance Codex ONLY (codex-bound):
-    permission management, granting, termination, each module's permission
-    IDENTIFIERS, and supervision of execution compliance — while holding no
-    execution power itself.  Every decision references the Governance Codex
-    (area ``permission``); it does not own its decision source.  It exposes
-    approved identifiers, actors, capabilities, actions, targets and
-    data-scopes from the sealed directory plus the Codex's permission decision
-    basis.
-
-    Per A127, this is an ``independent-special-authority-sovereign`` — it is
-    NOT under the decision sovereign.
-    """
+class PermissionSovereign(
+    SovereignBase,
+    PermissionQueryMixin,
+    PermissionLifecycleMixin,
+    PermissionAuthSupervisionMixin,
+    PermissionAutomationMixin,
+    PermissionStatusMixin,
+):
+    """權限主宰：權限事務的目錄驅動裁決與唯讀協調面。"""
 
     sovereign_id = "permission-sovereign"
 
     ROLE = _PERMISSION_SOVEREIGN.id
 
-    # A10/A11 explicit intent allowlist — the base-class ``_verify_intent``
-    # checks edict IDs (article tokens like E4, E111), not the kebab-case
-    # intent strings used by callers.  List every intent this sovereign
-    # adjudicates explicitly (fail-closed, A10/A11).
+    # A10/A11 explicit intent allowlist
     _INTENT_ALLOWLIST: frozenset[str] = frozenset({
         # Permission queries and termination (A6/A10/A22)
         "permission.query",
@@ -156,28 +137,6 @@ class PermissionSovereign(SovereignBase):
         # Permission automation orchestrator
         self._automation: Optional[PermissionAutomationOrchestrator] = None
 
-    async def start(self) -> dict[str, Any]:
-        """啟動權限主宰與自動化組件。"""
-        state = await super().start()
-        if self._automation is None:
-            self._automation = PermissionAutomationOrchestrator(self)
-        await self._automation.start()
-        state["automation"] = "started"
-        return state
-
-    async def stop(self) -> None:
-        """停止權限主宰與自動化組件。"""
-        if self._automation is not None:
-            await self._automation.stop()
-        await super().stop()
-
-    def re_certify(self) -> None:
-        """Re-certify the permission sovereign after a codex amendment."""
-        re_certify_permission_sovereign()
-        governance = self._governance()
-        if governance is not None and hasattr(governance, "re_certify"):
-            governance.re_certify()
-
     # ------------------------------------------------------------------
     # Single-gate adjudication (A10/A11)
     # ------------------------------------------------------------------
@@ -202,806 +161,54 @@ class PermissionSovereign(SovereignBase):
             return await self._adjudicate_directory_verify(request)
         if intent == "identity.verify":
             return await self._adjudicate_identity_verify(request)
-        if intent == "permission.supervise":
-            return await self._adjudicate_permission_supervise(request)
         if intent == "permission.authorize":
             return await self._adjudicate_permission_authorize(request)
+        if intent == "permission.supervise":
+            return await self._adjudicate_permission_supervise(request)
 
-        return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A6", "A7", "A10"))
+        return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A10", "A12"))
 
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
         """權限主宰委派執行（A69/A121）。
 
-        The permission-sovereign is decision-only: it adjudicates
-        directory/identity/permission queries and records grant
-        lifecycle events (terminate/renew/restrict/suspend/revoke) in its
-        issued-grants ledger.  These are pure adjudications with no
-        execution side-effect — the sovereign does not execute, only
-        adjudicates (A297).  This hook attests that the accepted outcome
-        is a decision record, not an execution result.
+        This sovereign is decision-only (A127/E111).  Execution is delegated
+        to DirectoryAuthority / Authentication / governed-executor.
         """
         return decision
 
-    async def _adjudicate_permission_query(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A10: 顯式允許清單，無顯式授權即拒絕。
-
-        Validates the actor/capability/target against the sealed directory
-        snapshot.  Returns the directory-driven verdict — accepted only
-        when every component is in the approved allowlist.
-        """
-        actor = request.payload.get("actor")
-        capability = request.payload.get("capability")
-        target = request.payload.get("target")
-        data_scope = request.payload.get("data_scope")
-
-        if not all([actor, capability, target]):
-            return refusal_outcome("MISSING_PARAMETERS", self.verified_basis("A10", "A7"))
-
-        # A7: directory-driven verification against the sealed snapshot.
-        directory = code_rule_directory_snapshot()
-        actor_ok = actor in directory.approved_actor_names
-        capability_ok = capability in directory.approved_capability_names
-        target_ok = target in directory.approved_target_names
-        data_scope_ok = (
-            data_scope is None
-            or data_scope in directory.approved_data_scope_names
-        )
-        if not (actor_ok and capability_ok and target_ok and data_scope_ok):
-            failures = []
-            if not actor_ok:
-                failures.append(f"actor:{actor}")
-            if not capability_ok:
-                failures.append(f"capability:{capability}")
-            if not target_ok:
-                failures.append(f"target:{target}")
-            if not data_scope_ok:
-                failures.append(f"data_scope:{data_scope}")
-            return refusal_outcome(
-                "NOT_IN_ALLOWLIST",
-                self.verified_basis("A10", "A7"),
-            )
-
-        return accepted_outcome(
-            {
-                "query": {
-                    "actor": actor,
-                    "capability": capability,
-                    "target": target,
-                    "data_scope": data_scope,
-                },
-                "mode": "explicit-allowlist",
-                "source": "permission-directory",
-                "verified": True,
-                "note": "permission-sovereign does not execute, only adjudicates",
-            },
-            self.verified_basis("A10", "A7", "A6"),
-        )
-
-    async def _adjudicate_permission_terminate(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A22: 權限終止權威屬於權限主宰。"""
-        permission_id = request.payload.get("permission_id")
-        if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A22"))
-
-        # A22: only the permission sovereign may terminate; record the
-        # termination in the issued-grants ledger.
-        grant = self._issued_grants.pop(permission_id, None)
-        return accepted_outcome(
-            {
-                "terminated": permission_id,
-                "had_active_grant": grant is not None,
-                "authority": "permission-sovereign",
-                "basis": "codex+directory",
-            },
-            self.verified_basis("A22", "A6"),
-        )
-
-    async def _adjudicate_permission_renew(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A6: 權限更新。"""
-        permission_id = request.payload.get("permission_id")
-        if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A6"))
-        return accepted_outcome(
-            {
-                "renewed": permission_id,
-                "authority": "permission-sovereign",
-            },
-            self.verified_basis("A6", "A10"),
-        )
-
-    async def _adjudicate_permission_restrict(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A6: 權限限制。"""
-        permission_id = request.payload.get("permission_id")
-        if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A6"))
-        return accepted_outcome(
-            {
-                "restricted": permission_id,
-                "authority": "permission-sovereign",
-            },
-            self.verified_basis("A6", "A10"),
-        )
-
-    async def _adjudicate_permission_suspend(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A6: 權限暫停。"""
-        permission_id = request.payload.get("permission_id")
-        if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A6"))
-        return accepted_outcome(
-            {
-                "suspended": permission_id,
-                "authority": "permission-sovereign",
-            },
-            self.verified_basis("A6", "A10"),
-        )
-
-    async def _adjudicate_permission_revoke(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A22: 權限撤銷（永久終止）。"""
-        permission_id = request.payload.get("permission_id")
-        if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A22"))
-        grant = self._issued_grants.pop(permission_id, None)
-        return accepted_outcome(
-            {
-                "revoked": permission_id,
-                "had_active_grant": grant is not None,
-                "authority": "permission-sovereign",
-            },
-            self.verified_basis("A22", "A6"),
-        )
-
-    async def _adjudicate_directory_verify(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A7: 目錄驅動模式 — 驗證 entry_type/entry_id 在目錄中。"""
-        entry_type = request.payload.get("entry_type")
-        entry_id = request.payload.get("entry_id")
-
-        if not entry_type or not entry_id:
-            return refusal_outcome("MISSING_PARAMETERS", self.verified_basis("A7"))
-
-        # A7: verify against the sealed directory snapshot.
-        directory = code_rule_directory_snapshot()
-        type_to_set = {
-            "tool_id": directory.approved_tool_ids,
-            "actor": directory.approved_actor_names,
-            "capability": directory.approved_capability_names,
-            "action": directory.approved_action_names,
-            "target": directory.approved_target_names,
-            "data_scope": directory.approved_data_scope_names,
-        }
-        approved_set = type_to_set.get(entry_type)
-        if approved_set is None:
-            return refusal_outcome(
-                "UNKNOWN_ENTRY_TYPE",
-                self.verified_basis("A7"),
-            )
-        if entry_id not in approved_set:
-            return refusal_outcome(
-                "NOT_IN_DIRECTORY",
-                self.verified_basis("A7", "A42"),
-            )
-
-        return accepted_outcome(
-            {
-                "verified": True,
-                "entry_type": entry_type,
-                "entry_id": entry_id,
-                "mode": "directory-driven",
-            },
-            self.verified_basis("A7", "A42"),
-        )
-
-    async def _adjudicate_identity_verify(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A39: 行為者身份驗證。
-
-        Validates the actor_class against the codex-declared set and
-        checks the identity against the identity-group registry.
-        """
-        actor_class = request.payload.get("actor_class")
-        identity = request.payload.get("identity")
-
-        if not actor_class or not identity:
-            return refusal_outcome("MISSING_PARAMETERS", self.verified_basis("A39"))
-
-        if actor_class not in {"human-operator", "governed-app", "sovereign", "星澄"}:
-            return refusal_outcome("INVALID_ACTOR_CLASS", self.verified_basis("A39"))
-
-        # A39: verify identity against the identity-group registry.
-        identities = identity_group_snapshot()
-        identity_ok = any(
-            ident.identity_code == identity or ident.actor == identity
-            for ident in identities.identities
-        )
-        if not identity_ok:
-            return refusal_outcome(
-                "IDENTITY_NOT_REGISTERED",
-                self.verified_basis("A39", "A10"),
-            )
-
-        return accepted_outcome(
-            {"verified": True, "actor_class": actor_class, "identity": identity},
-            self.verified_basis("A39", "A10"),
-        )
-
-    async def _adjudicate_permission_supervise(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A6: 監督執行合規 — 記錄違規並回報。"""
-        violation = request.payload.get("violation")
-        if not violation:
-            return refusal_outcome("MISSING_VIOLATION", self.verified_basis("A6"))
-        # Record the compliance violation for supervision (A6).
-        record = {
-            "violation": violation,
-            "actor": request.payload.get("actor", ""),
-            "capability": request.payload.get("capability", ""),
-            "target": request.payload.get("target", ""),
-            "recorded_at": self._iso_now(),
-        }
-        self._compliance_violations.append(record)
-        # Keep only the last 100 violations.
-        if len(self._compliance_violations) > 100:
-            self._compliance_violations = self._compliance_violations[-100:]
-        return accepted_outcome(
-            {
-                "supervised": True,
-                "violation_recorded": True,
-                "total_violations": len(self._compliance_violations),
-            },
-            self.verified_basis("A6"),
-        )
-
-    async def _adjudicate_permission_authorize(
-        self, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """A10/E4: 授權路由 — 驗證授權請求並記錄授予。
-
-        This is the sovereign-gate counterpart of the master-entry
-        ``authorize()`` method.  It validates the request against the
-        sealed directory, records the grant in the ledger, and returns
-        the authorization decision.  Actual execution is delegated to
-        the governed executor.
-        """
-        actor = request.payload.get("actor")
-        capability = request.payload.get("capability")
-        target = request.payload.get("target")
-        data_scope = request.payload.get("data_scope")
-        if not all([actor, capability, target]):
-            return refusal_outcome("MISSING_PARAMETERS", self.verified_basis("A10"))
-
-        # A313: authorization may only proceed after a current 星澄
-        # permission review; a deny-objection finding cannot be
-        # overridden absent an explicit human-governor successor law.
-        review = request.payload.get("xingcheng_review")
-        if not isinstance(review, dict) or not review.get("finding"):
-            # Producer wiring: request the review from 星澄 through its
-            # single entry gate so the chain is fail-closed and audited.
-            review_outcome = await self.delegate_to(
-                "星澄",
-                SovereignRequest(
-                    intent="review.permission",
-                    subject=request.subject,
-                    requester=self.sovereign_id,
-                    payload=dict(request.payload),
-                ),
-            )
-            if not review_outcome.accepted:
-                return refusal_outcome(
-                    "XINGCHENG_REVIEW_REQUIRED", self.verified_basis("A313")
-                )
-            review = review_outcome.result or {}
-        finding = str(review.get("finding"))
-        if finding == "deny-objection":
-            return refusal_outcome(
-                "DENY_OBJECTION_NOT_OVERRIDABLE", self.verified_basis("A313")
-            )
-        if finding != "pass":
-            return refusal_outcome(
-                "XINGCHENG_REVIEW_NOT_PASSED", self.verified_basis("A313")
-            )
-
-        # A7: directory-driven verification.
-        directory = code_rule_directory_snapshot()
-        if actor not in directory.approved_actor_names:
-            return refusal_outcome("ACTOR_NOT_APPROVED", self.verified_basis("A10", "A7"))
-        if capability not in directory.approved_capability_names:
-            return refusal_outcome("CAPABILITY_NOT_APPROVED", self.verified_basis("A10", "A7"))
-        if target not in directory.approved_target_names:
-            return refusal_outcome("TARGET_NOT_APPROVED", self.verified_basis("A10", "A7"))
-        if data_scope and data_scope not in directory.approved_data_scope_names:
-            return refusal_outcome("DATA_SCOPE_NOT_APPROVED", self.verified_basis("A10", "A7"))
-        # Record the grant.
-        grant_id = f"grant-{actor}-{capability}-{target}"
-        self._issued_grants[grant_id] = {
-            "actor": actor,
-            "capability": capability,
-            "target": target,
-            "data_scope": data_scope,
-            "issued_at": self._iso_now(),
-        }
-        return accepted_outcome(
-            {
-                "authorized": True,
-                "grant_id": grant_id,
-                "execution": "delegated-to-governed-executor",
-            },
-            self.verified_basis("A10", "E4", "A6"),
-        )
-
-    def set_directory(self, directory: Any) -> None:
-        """設定權限目錄（生產層注入）。"""
-        self._directory = directory
-
     # ------------------------------------------------------------------
-    # Coordination surface
+    # Lifecycle
     # ------------------------------------------------------------------
 
-    def directory_registry_status(self) -> dict[str, Any]:
-        """Unified directory registry snapshot governed by the permission sovereign.
+    async def start(self) -> dict[str, Any]:
+        """啟動權限主宰與自動化組件。"""
+        state = await super().start()
+        await self.start_automation()
+        state["automation"] = "started"
+        return state
 
-        ALL directory classes are converged under the permission sovereign's
-        management.  This surfaces every sealed directory and registry as a
-        single coordinated view:
+    async def stop(self) -> None:
+        """停止權限主宰與自動化組件。"""
+        await self.stop_automation()
+        await super().stop()
 
-          * code_rule_directory  — approved tool ids, actors, capabilities,
-            actions, targets, data scopes, path roots
-          * directory_authority  — authority/code version policies, key
-            management, access policies, repair boundaries
-          * identity_groups      — registered capability identities per module
-          * identity_permissions — identity-to-permission bindings
-          * capability_boundaries — capability and repair boundaries
-          * governance_policy    — sealed governance policy collection
-          * version_registry     — code version policy + current version
-        """
-
-        code_rules = code_rule_directory_snapshot()
-        authority = directory_authority_snapshot()
-        identities = identity_group_snapshot()
-        permissions = identity_permission_snapshot()
-        capabilities, repair_boundaries = capability_boundary_snapshot()
-        policy = governance_policy_snapshot()
-        version = version_registry_status()
-
-        return {
-            "authority": "permission-sovereign",
-            "managed_directories": [
-                "code-rule-directory",
-                "directory-authority",
-                "identity-groups",
-                "identity-permissions",
-                "capability-boundaries",
-                "governance-policy",
-                "version-registry",
-            ],
-            "code_rule_directory": {
-                "managing_authority": code_rules.managing_authority,
-                "approved_tool_ids": list(code_rules.approved_tool_ids),
-                "approved_actor_names": list(code_rules.approved_actor_names),
-                "approved_capability_names": list(code_rules.approved_capability_names),
-                "approved_action_names": list(code_rules.approved_action_names),
-                "approved_target_names": list(code_rules.approved_target_names),
-                "approved_data_scope_names": list(code_rules.approved_data_scope_names),
-                "initial_code_version": code_rules.initial_code_version,
-            },
-            "directory_authority": {
-                "authority_version_policy": {
-                    "current_version": authority.authority_version_policy.current_version,
-                    "initial_version": authority.authority_version_policy.initial_version,
-                    "version_source": "codex",
-                },
-                "code_version_policy": {
-                    "initial_version": authority.code_version_policy.initial_version,
-                    "version_source": "codex",
-                    "scope": authority.code_version_policy.scope,
-                },
-            },
-            "identity_groups": {
-                "registered_count": len(identities.identities),
-                "groups": [
-                    {
-                        "actor": ident.actor,
-                        "tool_id": ident.bound_tool_id,
-                        "group_id": ident.group_id,
-                        "identity_code": ident.identity_code,
-                    }
-                    for ident in identities.identities
-                ],
-            },
-            "identity_permissions": {
-                "binding_count": len(permissions),
-            },
-            "capability_boundaries": {
-                "capability_count": len(capabilities),
-                "repair_boundary_count": len(repair_boundaries),
-            },
-            "governance_policy": {
-                "authority_version": policy.authority_version,
-                "managing_authority": policy.authority,
-            },
-            "version_registry": version,
-        }
-
-    def version_registry_status(self) -> dict[str, Any]:
-        """Version directory snapshot governed by the permission sovereign.
-
-        The version registry is converged under the permission sovereign's
-        management: the ``CodeVersionPolicy`` from the permission directory
-        is the authority basis, and the current version is resolved from
-        ``main-system/package.json`` under that policy.
-        """
-
-        return version_registry_status()
-
-    def coordination_status(self) -> dict[str, Any]:
-        """Snapshot of the permission sovereign (owner of permission matters)."""
-
-        directory = code_rule_directory_snapshot()
-        decision = decision_basis(_PERMISSION_SOVEREIGN.area)
-
-        return {
-            "role": self.ROLE,
-            "authority": "permission-management-and-granting",
-            "scope": "all-permission-related-matters",
-            "management_binding": "codex-bound-per-codex-only",
-            "directory_source": "directory-authority-driven",
-            "decision_source": decision["decision_source"],
-            "codex_version": decision["codex_version"],
-            "directory_registry": self.directory_registry_status(),
-            "version_registry": self.version_registry_status(),
-            "grant": True,
-            "terminate": True,
-            "permission_ids": "all-modules-managed-by-permission-sovereign",
-            "identity_groups": {
-                "supervision": "every-module-must-own-dedicated-identity-group",
-                "violation_policy": "denied",
-                "registered": [
-                    {
-                        "actor": identity.actor,
-                        "tool_id": identity.bound_tool_id,
-                        "group_id": identity.group_id,
-                        "identity_code": identity.identity_code,
-                        "language_name": identity.language_name,
-                        "codename": identity.codename,
-                    }
-                    for identity in identity_group_snapshot().identities
-                ],
-            },
-            "execution": False,
-            "supervision": "supervises-execution-compliance",
-            "self_grant": False,
-            "direct_execution": False,
-            "delegation_of_self_execution": False,
-            "inheritance": False,
-            "privilege_expansion": False,
-            "termination_basis": "directive-data-scope-and-governance-codex",
-            "grant_scope": "actor-capability-action-target-and-data-scope",
-            "approved": {
-                "actors": list(directory.approved_actor_names),
-                "capabilities": list(directory.approved_capability_names),
-                "actions": list(directory.approved_action_names),
-                "targets": list(directory.approved_target_names),
-                "data_scopes": list(directory.approved_data_scope_names),
-            },
-            "enforcement": "managed-execution-programs-enforce-but-have-no-authority",
-            "decision": decision,
-            "master_entry": {
-                "delegable": self.can_authorize(),
-                "delegation": "governed-executor-only",
-            },
-        }
-
-    def automation_status(self) -> dict[str, Any]:
-        """Get automation system status."""
-        if self._automation is not None:
-            return self._automation.get_system_status()
-        return {"automation": "not_initialized"}
-
-    def orchestration_status(self) -> dict[str, Any]:
-        """Unified subsystem view for the sovereign orchestration report."""
-
-        return {
-            "name": "permission",
-            "role": self.ROLE,
-            "authority": "permission-management-and-granting",
-            "scope": "all-permission-related-matters",
-            "management_binding": "codex-bound-per-codex-only",
-            "state": "governing",
-            "grant": True,
-            "terminate": True,
-            "permission_ids": "all-modules-managed-by-permission-sovereign",
-            "execution": False,
-            "supervision": True,
-            "decision_source": "governance-codex",
-            "delegation": "governed-executor-only",
-            "directory_registry": self.directory_registry_status(),
-            "version_registry": self.version_registry_status(),
-            "supervision_status": self.supervision_status(),
-            "decision": decision_basis(_PERMISSION_SOVEREIGN.area),
-        }
-
-    # ------------------------------------------------------------------
-    # Authorization master-entry (permission gateway)
-    # ------------------------------------------------------------------
-    #
-    # All permission-related authorization passes through this permission
-    # sovereign.  The sovereign references the Governance Codex for its
-    # decision basis and DELEGATES the actual directory-driven adjudication to
-    # the governed executor (the app's MainSystemGovernance); it never executes
-    # in-process itself.
+    def re_certify(self) -> None:
+        """Re-certify the permission sovereign after a codex amendment."""
+        re_certify_permission_sovereign()
+        governance = self._governance()
+        if governance is not None and hasattr(governance, "re_certify"):
+            governance.re_certify()
 
     def _governance(self) -> Any:
         if self._governance_ref is not None:
             return self._governance_ref
         return getattr(self.app, "governance", None)
 
-    def can_authorize(self) -> bool:
-        governance = self._governance()
-        return bool(governance is not None and hasattr(governance, "authorize"))
-
-    def authorize(
-        self,
-        *,
-        capability: str,
-        action: str,
-        target: str,
-        data_scope: str,
-        target_tool_id: str | None = None,
-        target_version: str | None = None,
-        resource_path: str | None = None,
-    ) -> Any:
-        """Master-entry for a permission authorization decision.
-
-        References the Codex permission decision basis, then delegates the
-        directory-driven adjudication to the governed executor.  Raises
-        PermissionError if not delegable.  Records the grant in the
-        sovereign's ledger for supervision (A6).
-        """
-
-        decision = decision_basis(_PERMISSION_SOVEREIGN.area)
-        governance = self._governance()
-        if governance is None or not hasattr(governance, "authorize"):
-            from governance_rule.permission_directory.execution.path_guard import permission_denied
-
-            raise permission_denied()
-        result = governance.authorize(
-            capability=capability,
-            action=action,
-            target=target,
-            data_scope=data_scope,
-            target_tool_id=target_tool_id,
-            target_version=target_version,
-            resource_path=resource_path,
-        )
-        # A6: record the grant for supervision.
-        grant_id = f"grant-{capability}-{action}-{target}"
-        self._issued_grants[grant_id] = {
-            "capability": capability,
-            "action": action,
-            "target": target,
-            "data_scope": data_scope,
-            "target_tool_id": target_tool_id,
-            "target_version": target_version,
-            "resource_path": resource_path,
-            "issued_at": self._iso_now(),
-            "via": "master-entry",
-        }
-        return result
-
-    def authorize_tool_lifecycle(self, tool_id: str, action: str) -> None:
-        """Master-entry for a tool-lifecycle permission decision.
-
-        References the Codex permission decision basis, then delegates the
-        directory-driven adjudication to the governed executor.
-        """
-
-        decision_basis(_PERMISSION_SOVEREIGN.area)
-        governance = self._governance()
-        if governance is None or not hasattr(governance, "authorize_tool_lifecycle"):
-            from governance_rule.permission_directory.execution.path_guard import permission_denied
-
-            raise permission_denied()
-        governance.authorize_tool_lifecycle(tool_id, action)
-
-    def can_start_tool(self, tool_id: str) -> bool:
-        """Master-entry: can a tool start (permission capability gate)."""
-
-        decision_basis(_PERMISSION_SOVEREIGN.area)
-        governance = self._governance()
-        if governance is None or not hasattr(governance, "can_start_tool"):
-            return False
-        return bool(governance.can_start_tool(tool_id))
-
-    def authorize_hot_update(
-        self,
-        tool_id: str,
-        action: str,
-        target_version: str,
-        resource_path: str,
-    ) -> None:
-        """Master-entry: authorize a versioned (hot) update (E6 gate)."""
-
-        decision_basis("hot-update")
-        governance = self._governance()
-        if governance is None or not hasattr(governance, "authorize_hot_update"):
-            from governance_rule.permission_directory.execution.path_guard import permission_denied
-
-            raise permission_denied()
-        governance.authorize_hot_update(
-            tool_id,
-            action,
-            target_version,
-            resource_path,
-        )
-
-    def create_tool_governance_bootstrap(self, tool_id: str) -> str:
-        """Master-entry: mint a governed tool's launch credential.
-
-        References the Codex permission decision basis, then delegates the
-        directory-driven bootstrap minting to the governed executor.
-        """
-
-        decision_basis(_PERMISSION_SOVEREIGN.area)
-        governance = self._governance()
-        if governance is None or not hasattr(
-            governance, "create_tool_governance_bootstrap"
-        ):
-            from governance_rule.permission_directory.execution.path_guard import permission_denied
-
-            raise permission_denied()
-        return governance.create_tool_governance_bootstrap(tool_id)
-
-    def submit_tool_execution_request(
-        self,
-        tool_id: str,
-        request_id: str,
-        payload: dict[str, Any],
-    ) -> None:
-        """Master-entry: submit a shared-layer execution request.
-
-        References the Codex permission decision basis, then delegates the
-        directory-driven adjudication to the governed executor.
-        """
-
-        decision_basis(_PERMISSION_SOVEREIGN.area)
-        governance = self._governance()
-        if governance is None or not hasattr(
-            governance, "submit_tool_execution_request"
-        ):
-            from governance_rule.permission_directory.execution.path_guard import permission_denied
-
-            raise permission_denied()
-        governance.submit_tool_execution_request(tool_id, request_id, payload)
-
-    def cancel_tool_execution_request(
-        self,
-        tool_id: str,
-        request_id: str,
-    ) -> bool:
-        """Master-entry: cancel a shared-layer execution request.
-
-        References the Codex permission decision basis, then delegates the
-        directory-driven adjudication to the governed executor.
-        """
-
-        decision_basis(_PERMISSION_SOVEREIGN.area)
-        governance = self._governance()
-        if governance is None or not hasattr(
-            governance, "cancel_tool_execution_request"
-        ):
-            from governance_rule.permission_directory.execution.path_guard import permission_denied
-
-            raise permission_denied()
-        return governance.cancel_tool_execution_request(tool_id, request_id)
-
-    def tool_execution_response(
-        self,
-        tool_id: str,
-        request_id: str,
-    ) -> dict[str, Any] | None:
-        """Master-entry: consume a shared-layer execution response.
-
-        References the Codex permission decision basis, then delegates the
-        directory-driven adjudication to the governed executor.
-        """
-
-        decision_basis(_PERMISSION_SOVEREIGN.area)
-        governance = self._governance()
-        if governance is None or not hasattr(governance, "tool_execution_response"):
-            from governance_rule.permission_directory.execution.path_guard import permission_denied
-
-            raise permission_denied()
-        return governance.tool_execution_response(tool_id, request_id)
-
-    def master_entry_status(self) -> dict[str, Any]:
-        """Descriptive status of the permission authorization master-entry."""
-
-        return {
-            "role": self.ROLE,
-            "scope": "all-permission-related-matters",
-            "entry": "permission-sovereign-authorization-master-entry",
-            "delegation": "governed-executor-only",
-            "decision_source": "governance-codex",
-            "delegable": self.can_authorize(),
-            "surface": [
-                "authorize",
-                "authorize_tool_lifecycle",
-                "can_start_tool",
-                "authorize_hot_update",
-                "create_tool_governance_bootstrap",
-                "submit_tool_execution_request",
-                "cancel_tool_execution_request",
-                "tool_execution_response",
-            ],
-            "decision": decision_basis(_PERMISSION_SOVEREIGN.area),
-        }
-
-    # ------------------------------------------------------------------
-    # A6 supervision surface
-    # ------------------------------------------------------------------
-
-    def supervision_status(self) -> dict[str, Any]:
-        """A6: execution-compliance supervision status.
-
-        Reports recorded compliance violations and the issued-grants
-        ledger.  Read-only — the sovereign supervises but does not
-        execute or enforce.
-        """
-        return {
-            "authority": "permission-sovereign",
-            "basis": "A6",
-            "compliance_violations": list(self._compliance_violations),
-            "violation_count": len(self._compliance_violations),
-            "issued_grants": dict(self._issued_grants),
-            "active_grant_count": len(self._issued_grants),
-            "supervision": "supervises-execution-compliance",
-            "execution": False,
-        }
-
-    def record_compliance_violation(
-        self,
-        violation: str,
-        *,
-        actor: str = "",
-        capability: str = "",
-        target: str = "",
-    ) -> None:
-        """A6: record an execution-compliance violation.
-
-        Called by the governed executor or other sovereigns when a
-        compliance violation is detected.  The sovereign records it
-        for supervision; it does not enforce or execute.
-        """
-        record = {
-            "violation": violation,
-            "actor": actor,
-            "capability": capability,
-            "target": target,
-            "recorded_at": self._iso_now(),
-        }
-        self._compliance_violations.append(record)
-        if len(self._compliance_violations) > 100:
-            self._compliance_violations = self._compliance_violations[-100:]
+    def _iso_now(self) -> str:
+        from datetime import datetime, timezone
+        return datetime.now(timezone.utc).isoformat()
 
 
-__all__ = [
-    "PERMISSION_SOVEREIGN_RESPONSIBILITIES",
-    "PermissionSovereign",
-    "re_certify_permission_sovereign",
-]
+__all__ = ["PERMISSION_SOVEREIGN_RESPONSIBILITIES", "PermissionSovereign", "re_certify_permission_sovereign"]

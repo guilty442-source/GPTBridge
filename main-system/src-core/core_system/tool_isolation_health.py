@@ -24,8 +24,11 @@ _logger = logging.getLogger("gptbridge.tool_isolation")
 class ToolIsolationHealthMixin:
     """Health monitoring, crash containment, and shutdown methods."""
 
-    def check_tool_health(self, tool_id: str) -> dict[str, Any]:
-        """Check the health of a single tool. Returns a status dict."""
+    def check_tool_health(self, tool_id: str, *, light: bool = False) -> dict[str, Any]:
+        """Check the health of a single tool. Returns a status dict.
+
+        When light=True, only checks if the process is alive (no psutil CPU/memory).
+        """
         with self._lock:
             entry = self._entries.get(tool_id)
             limits = (
@@ -45,6 +48,16 @@ class ToolIsolationHealthMixin:
                     "status": "crashed",
                     "pid": entry.pid,
                     "exit_code": entry.process.returncode,
+                    "restart_count": restart_count,
+                }
+            if light:
+                with self._lock:
+                    if self._entries.get(tool_id) is entry:
+                        entry.last_health_check = time.monotonic()
+                return {
+                    "tool_id": tool_id,
+                    "status": "healthy",
+                    "pid": entry.pid,
                     "restart_count": restart_count,
                 }
             cpu = proc.cpu_percent(interval=None)
@@ -229,11 +242,18 @@ class ToolIsolationHealthMixin:
             tool_ids = list(self._entries.keys())
         return [self.shutdown_tool(tid, timeout) for tid in tool_ids]
 
-    def start_monitor(self, interval: float = 5.0) -> None:
-        """Start a background thread that periodically checks tool health."""
+    def start_monitor(self, interval: float = 30.0, *, light: bool = True) -> None:
+        """Start a background thread that periodically checks tool health.
+
+        Args:
+            interval: Check interval in seconds (default 30s).
+            light: If True, use light checks (process alive only). If False, use
+                   full psutil CPU/memory checks.
+        """
         if self._monitor_thread is not None and self._monitor_thread.is_alive():
             return
         self._stop_event.clear()
+        self._monitor_light = light
         self._monitor_thread = threading.Thread(
             target=self._monitor_loop,
             args=(interval,),
@@ -241,7 +261,7 @@ class ToolIsolationHealthMixin:
             daemon=True,
         )
         self._monitor_thread.start()
-        _logger.info("tool_isolation_monitor_started interval=%.1fs", interval)
+        _logger.info("tool_isolation_monitor_started interval=%.1fs light=%s", interval, light)
 
     def stop_monitor(self) -> None:
         """Stop the health monitoring background thread."""
@@ -272,6 +292,7 @@ class ToolIsolationHealthMixin:
 
     def _monitor_loop(self, interval: float) -> None:
         """Background health check loop — detects crashes and notifies."""
+        light = getattr(self, "_monitor_light", True)
         while not self._stop_event.is_set():
             try:
                 with self._lock:
@@ -283,7 +304,7 @@ class ToolIsolationHealthMixin:
                         entry = self._entries.get(tid)
                     if entry is not None and (entry.crashed or entry.quarantined):
                         continue
-                    health = self.check_tool_health(tid)
+                    health = self.check_tool_health(tid, light=light)
                     if health.get("status") == "crashed":
                         if self._superseded_by_newer_generation():
                             with self._lock:

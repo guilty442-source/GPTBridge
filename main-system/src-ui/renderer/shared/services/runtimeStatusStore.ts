@@ -1,5 +1,5 @@
 /**
- * Runtime status store — modular, per-field subscriptions.
+ * Runtime status store —modular, per-field subscriptions.
  *
  * The backend owns the refresh and pushes compact health reports.  Reports
  * are applied here field by field; only subscribers of a field that
@@ -7,7 +7,7 @@
  * indicator, capacity, sovereign dashboard) refresh independently instead
  * of re-rendering the whole UI.
  */
-import type { RuntimeStatusPayload } from '@/ui/sovereign/SovereignDashboard'
+import type { RuntimeStatusPayload } from '@/ui/sovereign/runtimeStatusTypes'
 
 type RuntimeStatusKey = keyof RuntimeStatusPayload
 type Listener = () => void
@@ -42,7 +42,7 @@ function isEqual(a: unknown, b: unknown): boolean {
 
 /**
  * Apply a partial report.  Fields that did not change are ignored, and
- * listeners are notified only for fields that changed — this is what keeps
+ * listeners are notified only for fields that changed —this is what keeps
  * the refresh modular instead of a whole-UI update.
  */
 export function applyRuntimeStatusReport(

@@ -8,6 +8,16 @@ const allowedInvokeChannels = new Set([
   'dialog:validate-folder',
   'dialog:create-file',
   'dialog:open-file',
+  'embedded-browser:create',
+  'embedded-browser:navigate',
+  'embedded-browser:execute',
+  'embedded-browser:show',
+  'embedded-browser:hide',
+  'embedded-browser:close',
+  'embedded-browser:resize',
+  'embedded-browser:list',
+  'embedded-browser:url',
+  'embedded-browser:close-module',
 ])
 
 function invoke(channel, ...args) {

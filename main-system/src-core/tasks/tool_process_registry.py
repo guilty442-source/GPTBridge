@@ -59,8 +59,10 @@ def _powershell_process_ids(command: str, environment: dict[str, str]) -> list[i
 
 
 # ------------------------------------------------------------------
-# Batched process snapshot (single PowerShell call for all tools)
+# Batched process snapshot (single native pass for all tools)
 # ------------------------------------------------------------------
+
+_SNAPSHOT_PROCESS_NAMES = frozenset({"python.exe", "pythonw.exe", "electron.exe"})
 
 _BATCH_PROCESS_COMMAND = (
     "Get-CimInstance Win32_Process | "
@@ -72,10 +74,46 @@ _BATCH_PROCESS_COMMAND = (
 )
 
 
-def _snapshot_processes() -> list[dict[str, Any]]:
-    """Return all python/pythonw/electron processes in a single PowerShell call."""
-    if os.name != "nt":
-        return []
+def _snapshot_processes_native() -> list[dict[str, Any]] | None:
+    """Fast process snapshot via psutil; ``None`` when psutil is unavailable.
+
+    PowerShell/CIM enumeration costs 1-3 seconds per call and dominated every
+    toolbox status refresh; psutil inspects the same process table natively in
+    a few milliseconds.  The PowerShell path stays as a fallback.
+    """
+    try:
+        import psutil
+    except ImportError:
+        return None
+    snapshot: list[dict[str, Any]] = []
+    for proc in psutil.process_iter(["pid", "name"]):
+        try:
+            info = proc.info
+            name = str(info.get("name") or "")
+            if name.lower() not in _SNAPSHOT_PROCESS_NAMES:
+                continue
+            try:
+                command_line = " ".join(proc.cmdline())
+            except (psutil.AccessDenied, psutil.ZombieProcess):
+                command_line = ""
+            try:
+                executable_path = str(proc.exe() or "")
+            except (psutil.AccessDenied, psutil.ZombieProcess):
+                executable_path = ""
+            snapshot.append(
+                {
+                    "pid": int(info.get("pid") or 0),
+                    "name": name,
+                    "command_line": command_line,
+                    "executable_path": executable_path,
+                }
+            )
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+    return snapshot
+
+
+def _snapshot_processes_powershell() -> list[dict[str, Any]]:
     try:
         completed = _run_hidden_subprocess(
             [
@@ -115,6 +153,16 @@ def _snapshot_processes() -> list[dict[str, Any]]:
             }
         )
     return result
+
+
+def _snapshot_processes() -> list[dict[str, Any]]:
+    """Return all python/pythonw/electron processes in a single pass."""
+    if os.name != "nt":
+        return []
+    native = _snapshot_processes_native()
+    if native is not None:
+        return native
+    return _snapshot_processes_powershell()
 
 
 def _match_process_to_tool(

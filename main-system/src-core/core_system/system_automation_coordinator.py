@@ -70,6 +70,15 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
 
         self._last_system_health: dict[str, Any] = {}
         self._pending_routes: list[dict[str, Any]] = []
+        # Circuit breaker for cascade failure prevention
+        self._consecutive_errors = 0
+        self._circuit_breaker_threshold = 5
+        self._circuit_open_until = 0.0
+        # Adaptive interval: increase when system is healthy
+        self._adaptive_interval = _COORDINATOR_INTERVAL_SECONDS
+        self._min_interval = _COORDINATOR_INTERVAL_SECONDS
+        self._max_interval = 300.0  # Max 5 minutes
+        self._consecutive_healthy = 0
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -119,20 +128,45 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
     # ------------------------------------------------------------------
 
     async def _coordination_loop(self) -> None:
-        """Background loop: periodic cross-sovereign coordination."""
+        """Background loop: periodic cross-sovereign coordination with circuit breaker and adaptive interval."""
+        import time
         while self._running and not self._stop_event.is_set():
             try:
+                # Circuit breaker check
+                if self._consecutive_errors >= self._circuit_breaker_threshold:
+                    if time.time() < self._circuit_open_until:
+                        _logger.warning(
+                            "SystemAutomationCoordinator circuit breaker open, waiting %.0fs",
+                            self._circuit_open_until - time.time(),
+                        )
+                        await asyncio.sleep(60)
+                        continue
+                    else:
+                        # Reset circuit breaker after timeout
+                        self._consecutive_errors = 0
+                        self._circuit_open_until = 0.0
+                        _logger.info("SystemAutomationCoordinator circuit breaker reset")
+
                 await self._coordination_cycle()
+                # Success - reset error count
+                self._consecutive_errors = 0
             except asyncio.CancelledError:
                 raise
             except Exception as error:
+                self._consecutive_errors += 1
+                if self._consecutive_errors >= self._circuit_breaker_threshold:
+                    self._circuit_open_until = time.time() + 300  # 5 minutes
+                    _logger.warning(
+                        "SystemAutomationCoordinator circuit breaker opened for 5 minutes after %d errors",
+                        self._consecutive_errors,
+                    )
                 _logger.warning(
                     "system automation coordination error: %s", error
                 )
             try:
                 await asyncio.wait_for(
                     self._stop_event.wait(),
-                    timeout=_COORDINATOR_INTERVAL_SECONDS,
+                    timeout=self._adaptive_interval,
                 )
             except asyncio.TimeoutError:
                 continue
@@ -158,6 +192,17 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
             self._metrics["degradation_escalations"] += 1
             self._metrics["last_degradation"] = degradation.get("type", "")
             self._pending_routes.append(degradation)
+            # Reset adaptive interval on degradation
+            self._consecutive_healthy = 0
+            self._adaptive_interval = self._min_interval
+        else:
+            # System is healthy - increase interval
+            self._consecutive_healthy += 1
+            if self._consecutive_healthy >= 3:
+                self._adaptive_interval = min(
+                    self._adaptive_interval * 1.5,
+                    self._max_interval,
+                )
 
         await self._route_pending_degradations()
         self._emit_xingcheng_evidence(health)

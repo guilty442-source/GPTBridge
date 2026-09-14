@@ -60,6 +60,7 @@ from .cli_organize import (
     organize_files,
     preview_organize_files,
     run_enabled_profiles_once,
+    select_scan_target,
 )
 from .cli_paths import (
     is_absolute_destination,
@@ -225,6 +226,14 @@ def create_argument_parser() -> argparse.ArgumentParser:
         help="Enable or disable background runs for the target/profile.",
     )
     parser.add_argument(
+        "--select-scan-target",
+        action="store_true",
+        help=(
+            "Make the selected folder the single active scan target while "
+            "background classification is already active."
+        ),
+    )
+    parser.add_argument(
         "--set-duplicate-trash-enabled",
         choices=("true", "false"),
         help="Opt in or out of exact-duplicate recycling for the target/profile.",
@@ -262,6 +271,24 @@ def main() -> int:
             snapshot = configure_profile_enabled(
                 target,
                 args.set_profile_enabled == "true",
+                state_root=state_root,
+                profile=args.profile,
+            )
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "type": "file-sorter-profile",
+                        "profile": snapshot.to_dict(include_rules=False),
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 0
+
+        if args.select_scan_target:
+            snapshot = select_scan_target(
+                target,
                 state_root=state_root,
                 profile=args.profile,
             )

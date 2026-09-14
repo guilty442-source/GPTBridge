@@ -114,6 +114,7 @@ const SORTER_FLAGS = {
   history: '--history-json',
   profiles: '--profiles-json',
   setProfileEnabled: '--set-profile-enabled',
+  selectScanTarget: '--select-scan-target',
   setDuplicateTrashEnabled: '--set-duplicate-trash-enabled',
 } as const
 
@@ -691,7 +692,37 @@ export function FileSorterWindowApp() {
 
   const chooseTarget = async () => {
     const folder = await selectFolder()
-    if (folder) updateTargetDir(folder, true)
+    if (!folder) return
+    updateTargetDir(folder, true)
+    const trimmed = folder.trim()
+    if (!trimmed || !backendConnected) return
+    // Follow the selection: while background classification is already
+    // active, the selected folder becomes the single scanned folder.  No
+    // automatic move is enabled while every profile is off — the explicit
+    // automation toggle stays the only way to turn it on.
+    const selectionVersion = profileSelectionVersionRef.current + 1
+    profileSelectionVersionRef.current = selectionVersion
+    void requestToolRun([trimmed, SORTER_FLAGS.selectScanTarget], {
+      mode: 'mutation',
+      timeoutMs: SHORT_REQUEST_TIMEOUT_MS,
+    })
+      .then((result) => {
+        if (profileSelectionVersionRef.current !== selectionVersion) return
+        if (result.ok !== true) return
+        const profile = parseProfileState(result.stdout, trimmed)
+        if (!profile || typeof profile.enabled !== 'boolean') return
+        setAutoOrganizeFiles(profile.enabled === true)
+        if (profile.enabled === true) {
+          setAutoOrganizeStatus(
+            '已將掃描目標切換為此資料夾；背景自動分類持續啟用'
+          )
+        } else {
+          setAutoOrganizeStatus('此資料夾的自動分類設定為關閉')
+        }
+      })
+      .catch(() => {
+        // The explicit automation toggle remains the authoritative control.
+      })
   }
 
   const changeAutoOrganizeFiles = (enabled: boolean) => {

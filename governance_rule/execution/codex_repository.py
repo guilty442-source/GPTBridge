@@ -240,6 +240,20 @@ def load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
     return codex
 
 
+def _normalized_codex_schema(schema: str, codex_version: int) -> str:
+    """Keep the declared schema bound to the current codex version.
+
+    The stored schema embeds the version it was written with; the codex text
+    is updated independently (timestamp version), so the loader re-anchors the
+    version suffix instead of trusting a stale copy.
+    """
+    declared = str(schema or "").strip()
+    base = declared.rsplit("-v", 1)[0].strip() if "-v" in declared else ""
+    if not base:
+        base = "gptbridge-governance-codex"
+    return f"{base}-v{format_codex_version(codex_version)}"
+
+
 def _load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
     connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro&immutable=1", uri=True)
     connection.row_factory = sqlite3.Row
@@ -257,9 +271,10 @@ def _load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
             }
             for table in ("sovereign_duties", "sovereign_powers", "sovereign_prohibitions")
         }
+        codex_version = codex_version_units(metadata["codex_version"])
         return GovernanceCodex(
-            schema=metadata["schema"],
-            codex_version=codex_version_units(metadata["codex_version"]),
+            schema=_normalized_codex_schema(metadata["schema"], codex_version),
+            codex_version=codex_version,
             preamble=CodexPreamble(*(preamble[key] for key in ("title", "authority_rank", "issuance", "binding_scope"))),
             sections=tuple(CodexSection(row["section_index"], row["title"], row["summary"]) for row in connection.execute("SELECT * FROM sections ORDER BY position")),
             principles=tuple(CodexPrinciple(row["provision_id"], row["statement"], bool(row["binding"])) for row in connection.execute("SELECT * FROM principles ORDER BY position")),

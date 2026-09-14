@@ -34,6 +34,7 @@ const OFFLINE_QUEUE_MUTATION_FLAGS = new Set([
   '--folder',
   '--new-keyword',
   '--remove-keyword',
+  '--select-scan-target',
   '--set-profile-enabled',
   '--undo-last',
   '--update-keyword',
