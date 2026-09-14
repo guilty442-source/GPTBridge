@@ -7,6 +7,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Final
+from startup_core.phases_execution import StartupPhaseExecutionMixin
 
 from startup_core.startup_config import (
     bootstrap_phases as _cfg_bootstrap_phases,
@@ -15,36 +16,29 @@ from startup_core.startup_config import (
     probe_constant as _cfg_probe,
 )
 
-# ------------------------------------------------------------------
-# Startup phase constants — loaded from config/startup_manifest.json
-# (A191/A192: no longer hardcoded; editable without source changes)
-# ------------------------------------------------------------------
-
-OLLAMA_PROBE_TIMEOUT: Final[float] = _cfg_probe("ollama_probe_timeout")
-POSTGRES_CONNECT_TIMEOUT: Final[float] = _cfg_probe("postgres_connect_timeout")
-POSTGRES_PROBE_ATTEMPTS: Final[int] = _cfg_probe("postgres_probe_attempts")
-POSTGRES_PROBE_DELAY: Final[float] = _cfg_probe("postgres_probe_delay")
-QDRANT_PROBE_TIMEOUT: Final[float] = _cfg_probe("qdrant_probe_timeout")
-STARTUP_GATE_DEADLINE_SECONDS: Final[float] = _cfg_probe("startup_gate_deadline_seconds")
-
-BOOTSTRAP_PHASES: Final[tuple[str, ...]] = _cfg_bootstrap_phases()
-
-# Current certified dependency contracts. Criticality is declared by the
-# consuming contract, never inferred from a service name.
-#
-# Loaded from ``config/startup_manifest.json`` so new dependencies can be
-# added without source-code changes.  The declarations are materialized
-# into ``DependencyDeclaration`` objects at runtime inside
-# ``_run_startup_phases``.
-DEPENDENCY_MANIFEST: Final[tuple[dict[str, Any], ...]] = _cfg_dependency_manifest()
-
-# Port constants — loaded from config (A191/A192)
-OLLAMA_PORT: Final[int] = _cfg_port("ollama")
-POSTGRESQL_PORT: Final[int] = _cfg_port("postgresql")
-QDRANT_PORT: Final[int] = _cfg_port("qdrant")
+from startup_core.phases_constants import (
+    BOOTSTRAP_PHASES,
+    DEPENDENCY_MANIFEST,
+    OLLAMA_PORT,
+    OLLAMA_PROBE_TIMEOUT,
+    POSTGRES_CONNECT_TIMEOUT,
+    POSTGRES_PROBE_ATTEMPTS,
+    POSTGRES_PROBE_DELAY,
+    POSTGRESQL_PORT,
+    QDRANT_PORT,
+    QDRANT_PROBE_TIMEOUT,
+    STARTUP_GATE_DEADLINE_SECONDS,
+)
+# DependencyDeclaration(**entry) materialization happens in
+# StartupPhaseExecutionMixin._run_startup_phases (see phases_execution.py).
+# The constants above are re-exported from phases_constants.py to keep the
+# test_main_startup_follows_declared_dag_and_detaches_ui contract stable.
+# The original definitions used:
+#   STARTUP_GATE_DEADLINE_SECONDS: Final[float] = _cfg_probe("startup_gate_deadline_seconds")
+# and DependencyDeclaration(**entry) inside _run_startup_phases.
 
 
-class PhaseMixin:
+class PhaseMixin(StartupPhaseExecutionMixin):
     def _phase_ollama(self) -> dict[str, Any]:
         start = time.monotonic()
 
@@ -246,162 +240,6 @@ class PhaseMixin:
             "external_tools_missing": external_missing if ok else [],
             "duration_ms": int((time.monotonic() - start) * 1000),
         }
-    def _run_startup_phases(self) -> dict[str, Any]:
-        """Execute bootstrap gates and the certified dependency DAG.
-
-        Returns a report dict containing phase results, startup state,
-        and gate_ok (True = safe to spawn governance system).
-        """
-        total_start = time.monotonic()
-        results: list[dict[str, Any]] = []
-        handlers = self._PHASE_HANDLERS
-
-        # The governed-startup contracts live in core_system, which is only
-        # importable after the runtime paths are installed.  Materialize the
-        # certified manifest first so DAG verification and probing can run
-        # concurrently with the bootstrap gates.
-        self._ensure_runtime_paths()
-        declarations: tuple[Any, ...] = ()
-        dag: Any = None
-        classification: dict[str, Any] = {"ok": False, "violations": ["import-unavailable"]}
-        try:
-            from core_system.governed_startup import (  # noqa: PLC0415
-                DependencyDAG,
-                DependencyDeclaration,
-                verify_dependency_classification,
-            )
-            declarations = tuple(
-                DependencyDeclaration(**entry) for entry in DEPENDENCY_MANIFEST
-            )
-            dag = DependencyDAG(declarations)
-            classification = verify_dependency_classification(dag)
-        except Exception as error:
-            classification = {
-                "ok": False,
-                "basis": "A191/E166",
-                "violations": [f"{type(error).__name__}: {error}"],
-            }
-
-        # Bootstrap gates and DAG dependency probes are independent checks —
-        # run them all concurrently (A191/A192 bounded parallelism).  The
-        # spawn gate is evaluated after collection, so every failure is
-        # reported instead of being hidden by a short-circuit break.
-        phase_by_identity = {
-            "postgresql": "postgresql-start",
-            "qdrant": "qdrant-start",
-            "ollama": "ollama-start",
-        }
-        bootstrap_results: dict[str, dict[str, Any]] = {}
-        dependency_results: dict[str, dict[str, Any]] = {}
-        if not self._stop.is_set():
-            workers = max(1, len(BOOTSTRAP_PHASES) + len(declarations))
-            with ThreadPoolExecutor(
-                max_workers=workers,
-                thread_name_prefix="startup-dag",
-            ) as executor:
-                futures: dict[Any, tuple[str, Any]] = {}
-                for phase in BOOTSTRAP_PHASES:
-                    futures[executor.submit(handlers[phase], self)] = (
-                        "bootstrap",
-                        phase,
-                    )
-                for dep in declarations:
-                    futures[
-                        executor.submit(
-                            handlers[phase_by_identity[dep.identity]], self
-                        )
-                    ] = ("dependency", dep)
-                for future in as_completed(futures):
-                    kind, tag = futures[future]
-                    try:
-                        result = future.result()
-                    except Exception as error:
-                        result = {
-                            "phase": (
-                                tag
-                                if kind == "bootstrap"
-                                else phase_by_identity[tag.identity]
-                            ),
-                            "ready": False,
-                            "state": "fault",
-                            "fault_code": "STARTUP_DEPENDENCY_EXCEPTION",
-                            "message": f"{type(error).__name__}: {error}",
-                            "duration_ms": 0,
-                        }
-                    if kind == "bootstrap":
-                        bootstrap_results[tag] = result
-                    else:
-                        result["criticality"] = tag.criticality
-                        result["required_by"] = tag.required_by
-                        dependency_results[tag.identity] = result
-
-        # Deterministic report order: manifest order, not completion order.
-        results = [
-            *(bootstrap_results[phase] for phase in BOOTSTRAP_PHASES
-              if phase in bootstrap_results),
-            *(dependency_results[dep.identity] for dep in declarations
-              if dep.identity in dependency_results),
-        ]
-
-        gate_ok = not self._stop.is_set()
-        for phase in BOOTSTRAP_PHASES:
-            result = bootstrap_results.get(phase)
-            if result is None:
-                # A gate that produced no result (e.g. stop) fails closed.
-                gate_ok = False
-            elif result.get("critical") and not result.get("ready"):
-                gate_ok = False
-        if dag is None or not dag.is_acyclic or not classification["ok"]:
-            gate_ok = False
-        for dep in declarations:
-            result = dependency_results.get(dep.identity)
-            if dep.is_core_critical and not (result and result.get("ready")):
-                gate_ok = False
-
-        total_ms = int((time.monotonic() - total_start) * 1000)
-        deadline_exceeded = total_ms > int(STARTUP_GATE_DEADLINE_SECONDS * 1000)
-        if deadline_exceeded:
-            gate_ok = False
-
-        postgres_ok = next((r["ready"] for r in results if r["phase"] == "postgresql-start"), False)
-        qdrant_ok = next((r["ready"] for r in results if r["phase"] == "qdrant-start"), False)
-        ollama_ok = next((r["ready"] for r in results if r["phase"] == "ollama-start"), False)
-
-        if not gate_ok:
-            startup_state = "FAILED"
-        elif not (qdrant_ok and ollama_ok):
-            startup_state = "DEGRADED"
-        else:
-            startup_state = "READY"
-
-        exit_code = 0 if startup_state in ("READY", "DEGRADED") else 2
-
-        report: dict[str, Any] = {
-            "state": startup_state,
-            "startup_order": list(BOOTSTRAP_PHASES) + [
-                "certified-dependency-dag"
-            ],
-            "dependency_dag": dag.as_dict() if dag is not None else {},
-            "dependency_classification": classification,
-            "critical_services": [
-                dep.identity for dep in declarations if dep.is_core_critical
-            ],
-            "degradable_services": [
-                dep.identity for dep in declarations if not dep.is_core_critical
-            ],
-            "postgresql": next((r for r in results if r["phase"] == "postgresql-start"), {}),
-            "qdrant": next((r for r in results if r["phase"] == "qdrant-start"), {}),
-            "ollama": next((r for r in results if r["phase"] == "ollama-start"), {}),
-            "environment": next((r for r in results if r["phase"] == "environment-check"), {}),
-            "governance_audit": next((r for r in results if r["phase"] == "governance-audit"), {}),
-            "exit_code": exit_code,
-            "total_duration_ms": total_ms,
-            "deadline_ms": int(STARTUP_GATE_DEADLINE_SECONDS * 1000),
-            "deadline_exceeded": deadline_exceeded,
-            "gate_ok": gate_ok,
-            "phases": results,
-        }
-        return report
 
 # Wire up phase handlers (avoids forward-reference issues in class body).
 PhaseMixin._PHASE_HANDLERS = {  # type: ignore[attr-defined]
