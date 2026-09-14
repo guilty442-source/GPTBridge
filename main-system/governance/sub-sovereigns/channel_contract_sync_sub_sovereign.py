@@ -63,10 +63,10 @@ IDLE_MONITOR_INTERVAL_SECONDS = 60.0
 
 
 class ChannelContractSyncSubSovereign(
-    SubSovereignBase,
     ToolClassificationMixin,
     IdleManagementMixin,
     ContractRegistryMixin,
+    SubSovereignBase,
 ):
     """In-process sub-sovereign responsible for information-channel governance."""
 

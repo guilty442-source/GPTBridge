@@ -29,7 +29,7 @@ def _retired_sovereign_ids() -> set[str]:
     """Return the set of sovereign_ids whose rank indicates retirement."""
     try:
         codex = load_governance_codex()
-    except Exception:
+    except (OSError, ValueError, KeyError, RuntimeError, ImportError, sqlite3.Error):
         return set()
     retired: set[str] = set()
     for sovereign in codex.sovereigns:

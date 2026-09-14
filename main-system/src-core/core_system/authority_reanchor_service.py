@@ -45,6 +45,18 @@ from governance_rule.permission_directory.execution.path_guard import (
     resolve_project_path,
 )
 
+# Expected exception types for fail-closed handling
+_AUTHORIZATION_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    RuntimeError,
+    ImportError,
+    PermissionError,
+    json.JSONDecodeError,
+    subprocess.TimeoutExpired,
+)
+
 AUTHORITY_REANCHOR_VERSION: Final[str] = "1.0.0"
 POLL_INTERVAL_SECONDS: Final[float] = 3.0
 STABILITY_DELAY_SECONDS: Final[float] = 2.0
@@ -112,7 +124,7 @@ class AuthorityReanchorService:
             digest, _paths = self._snapshot()
             self._baseline = digest
             self._status.update(state="anchored", anchored_at=_iso_now())
-        except Exception as error:  # never block startup
+        except _AUTHORIZATION_ERRORS as error:  # never block startup
             self._status.update(
                 state="error", last_error=f"{type(error).__name__}: {error}"
             )
@@ -157,7 +169,7 @@ class AuthorityReanchorService:
         while not self._stop.is_set():
             try:
                 self._probe_once()
-            except Exception as error:  # best-effort; never crash
+            except _AUTHORIZATION_ERRORS as error:  # best-effort; never crash
                 self._status.update(
                     last_error=f"{type(error).__name__}: {error}"
                 )
@@ -206,7 +218,7 @@ class AuthorityReanchorService:
                     reader=lambda ctx: ctx.codex_identity(),
                 )
                 validate_loaded_authority_version()
-            except Exception as error:
+            except _AUTHORIZATION_ERRORS as error:
                 defer(f"codex-invalid: {type(error).__name__}: {error}")
                 return
             try:
@@ -215,7 +227,7 @@ class AuthorityReanchorService:
                 )
 
                 re_certify_permission_sovereign()
-            except Exception as error:
+            except _AUTHORIZATION_ERRORS as error:
                 defer(
                     f"permission-recertify-failed: {type(error).__name__}: {error}"
                 )
@@ -228,7 +240,7 @@ class AuthorityReanchorService:
                 return
             try:
                 reanchor()
-            except Exception as error:
+            except _AUTHORIZATION_ERRORS as error:
                 defer(f"reanchor-failed: {type(error).__name__}: {error}")
                 return
             ready = getattr(governance, "runtime_integrity_ready", None)
@@ -236,7 +248,7 @@ class AuthorityReanchorService:
                 if callable(ready) and not ready(max_age_seconds=0):
                     defer("post-reanchor-integrity-check-failed")
                     return
-            except Exception as error:
+            except _AUTHORIZATION_ERRORS as error:
                 defer(f"post-check-error: {type(error).__name__}: {error}")
                 return
 
@@ -272,7 +284,7 @@ class AuthorityReanchorService:
                 creationflags=creationflags,
             )
             return completed.returncode == 0
-        except Exception:
+        except _AUTHORIZATION_ERRORS:
             return False
 
     # ── observability ─────────────────────────────────────────────────

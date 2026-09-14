@@ -65,7 +65,7 @@ def _review_request(actor: str, purpose: str, access_class: str) -> str | None:
         sovereign_ids = frozenset(
             str(s.id) for s in load_governance_codex().sovereigns
         )
-    except Exception:
+    except (OSError, ValueError, KeyError, RuntimeError, ImportError, AttributeError):
         return "CODEX_UNAVAILABLE"
     if access_class == ACCESS_REVIEW:
         if actor in sovereign_ids or actor in _state.REVIEW_COMPONENT_ACTORS:
