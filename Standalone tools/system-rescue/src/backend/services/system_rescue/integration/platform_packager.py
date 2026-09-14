@@ -102,6 +102,8 @@ def _run_packager_cli(
             *arguments,
             "--json",
         ],
+        requester="system-rescue/platform-packager",
+        permission_token="system-rescue-packager-token",
         timeout_seconds=float(timeout_seconds),
         cwd=PACKAGER_CLI.parent,
         environment=environment,

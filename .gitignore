@@ -24,6 +24,7 @@ runtime/
 governance_rule/execution/audit/git_tier_audit.jsonl
 governance_rule/execution/audit/codex_read_audit.jsonl
 governance_rule/runtime/sovereign_execution_audit.jsonl
+shared-layer/runtime/governed-process-audit.jsonl
 main-system/runtime/state/permission-grant-ledger.jsonl
 main-system/runtime/state/delegation-audit.jsonl
 main-system/data/automatic-repair/**/*.sqlite3*
