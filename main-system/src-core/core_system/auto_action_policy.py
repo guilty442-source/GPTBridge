@@ -29,7 +29,7 @@ import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Iterable
 
 AUTOMATIC_REPAIR_SWITCH: Final[str] = "automatic_repair_enabled"
 AUTOMATIC_UPDATE_SWITCH: Final[str] = "automatic_update_enabled"
@@ -362,6 +362,42 @@ def update_pending_action_status(
     return updated
 
 
+def remove_pending_actions(
+    project_root: str | Path,
+    action_ids: Iterable[str],
+    *,
+    actor: str = "",
+    reason: str = "",
+) -> list[str]:
+    """Remove reconciled pending items from the user-facing queue.
+
+    Used only for items already reconciled as non-actionable evidence
+    (expired or unclassifiable); removal is attributable via ``actor`` and
+    ``reason`` and wakes the report loop so the Xingcheng surface refreshes.
+    Actionable or confirmed items are never touched by this helper.
+    """
+    wanted = {str(value).strip() for value in action_ids if str(value).strip()}
+    if not wanted:
+        return []
+    actions = read_pending_actions(project_root)
+    removed = [
+        str(action.get("action_id"))
+        for action in actions
+        if str(action.get("action_id")) in wanted
+        and action.get("status") == "awaiting-confirmation"
+    ]
+    if not removed:
+        return []
+    remaining = [
+        action
+        for action in actions
+        if str(action.get("action_id")) not in set(removed)
+    ]
+    _write_pending_actions(project_root, remaining)
+    notify_fault_change()
+    return removed
+
+
 __all__ = [
     "AUTOMATIC_REPAIR_SWITCH",
     "AUTOMATIC_UPDATE_SWITCH",
@@ -380,6 +416,7 @@ __all__ = [
     "read_automation_switches",
     "read_pending_actions",
     "record_pending_action",
+    "remove_pending_actions",
     "set_automation_switch",
     "switch_enabled_for_kind",
     "switch_for_kind",
