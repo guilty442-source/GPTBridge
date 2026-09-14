@@ -26,11 +26,13 @@ delegation session is rejected (A121/A174 fail-closed).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import secrets
 import threading
 import time
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
@@ -186,7 +188,15 @@ def _audit_consume_failed(
     _append_audit(entry)
 
 
-__all__ = ["consume_delegation", "mint_delegation", "record_delegation_outcome"]
+__all__ = [
+    "DelegationReceipt",
+    "attach_delegation_receipt",
+    "consume_delegation",
+    "mint_delegation",
+    "mint_delegation_receipt",
+    "record_delegation_outcome",
+    "verify_delegation_receipt",
+]
 
 
 def record_delegation_outcome(
@@ -218,3 +228,194 @@ def record_delegation_outcome(
         "process_id": _process_id,
         "timestamp": _iso_now(),
     })
+
+
+# ---------------------------------------------------------------------------
+# Verifiable delegation receipts (A69/A121 behavioral evidence)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DelegationReceipt:
+    """Verifiable proof that a sovereign delegation step occurred.
+
+    Unlike a bare ``"execution": "delegated-to-governed-executor"`` string
+    declaration, a receipt carries a unique ID, a content hash, and is
+    recorded in the append-only delegation audit ledger — so any caller
+    can verify the delegation actually happened by checking the ledger.
+    """
+
+    receipt_id: str
+    sovereign_id: str
+    intent: str
+    requester: str
+    execution_mode: str
+    accepted: bool
+    reason_code: str
+    basis: tuple[str, ...] = ()
+    target_sovereign: str = ""
+    target_receipts: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    content_hash: str = ""
+    process_id: int = 0
+    timestamp: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "receipt_id": self.receipt_id,
+            "sovereign_id": self.sovereign_id,
+            "intent": self.intent,
+            "requester": self.requester,
+            "execution_mode": self.execution_mode,
+            "accepted": self.accepted,
+            "reason_code": self.reason_code,
+            "basis": list(self.basis),
+            "target_sovereign": self.target_sovereign,
+            "target_receipts": list(self.target_receipts),
+            "content_hash": self.content_hash,
+            "process_id": self.process_id,
+            "timestamp": self.timestamp,
+        }
+
+
+def _compute_receipt_hash(
+    sovereign_id: str,
+    intent: str,
+    requester: str,
+    execution_mode: str,
+    accepted: bool,
+    reason_code: str,
+    basis: tuple[str, ...],
+    target_sovereign: str,
+    target_receipts: tuple[dict[str, Any], ...],
+    receipt_id: str,
+    timestamp: str,
+) -> str:
+    """SHA-256 content hash so a receipt cannot be tampered with."""
+    content = json.dumps(
+        {
+            "receipt_id": receipt_id,
+            "sovereign_id": sovereign_id,
+            "intent": intent,
+            "requester": requester,
+            "execution_mode": execution_mode,
+            "accepted": accepted,
+            "reason_code": reason_code,
+            "basis": list(basis),
+            "target_sovereign": target_sovereign,
+            "target_receipts": list(target_receipts),
+            "timestamp": timestamp,
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def mint_delegation_receipt(
+    *,
+    sovereign_id: str,
+    intent: str,
+    requester: str,
+    accepted: bool,
+    reason_code: str = "",
+    execution_mode: str = "decision-only",
+    basis: tuple[str, ...] = (),
+    target_sovereign: str = "",
+    target_receipts: tuple[dict[str, Any], ...] = (),
+) -> DelegationReceipt:
+    """Mint a verifiable delegation receipt and record it in the ledger.
+
+    The receipt is the behavioral evidence that the delegation step
+    actually occurred — not a comment or a string field declaration.
+    The receipt's content hash is recorded in the audit ledger so any
+    caller can later verify the receipt is genuine and unmodified.
+    """
+    receipt_id = secrets.token_hex(16)
+    timestamp = _iso_now()
+    content_hash = _compute_receipt_hash(
+        sovereign_id, intent, requester, execution_mode,
+        accepted, reason_code, basis, target_sovereign,
+        target_receipts, receipt_id, timestamp,
+    )
+    receipt = DelegationReceipt(
+        receipt_id=receipt_id,
+        sovereign_id=str(sovereign_id),
+        intent=str(intent),
+        requester=str(requester),
+        execution_mode=str(execution_mode),
+        accepted=bool(accepted),
+        reason_code=str(reason_code),
+        basis=tuple(basis),
+        target_sovereign=str(target_sovereign),
+        target_receipts=tuple(target_receipts),
+        content_hash=content_hash,
+        process_id=_process_id,
+        timestamp=timestamp,
+    )
+    _append_audit({
+        "event": "delegation-receipt",
+        **receipt.to_dict(),
+    })
+    return receipt
+
+
+def verify_delegation_receipt(receipt: DelegationReceipt) -> bool:
+    """Verify a delegation receipt against its content hash.
+
+    Returns True when the receipt's content hash matches its fields,
+    proving the receipt has not been tampered with.  The receipt's
+    presence in the audit ledger can be confirmed by searching for its
+    ``receipt_id`` in the delegation audit file.
+    """
+    expected = _compute_receipt_hash(
+        receipt.sovereign_id, receipt.intent, receipt.requester,
+        receipt.execution_mode, receipt.accepted, receipt.reason_code,
+        receipt.basis, receipt.target_sovereign, receipt.target_receipts,
+        receipt.receipt_id, receipt.timestamp,
+    )
+    return expected == receipt.content_hash
+
+
+def attach_delegation_receipt(
+    decision: Any,
+    request: Any,
+    sovereign_id: str,
+    execution_mode: str = "decision-only",
+) -> Any:
+    """Mint a verifiable delegation receipt and attach it to the outcome.
+
+    This replaces bare ``"execution": "delegated-to-governed-executor"``
+    string declarations with a verifiable receipt that carries a unique
+    ID, content hash, and ledger record (A69/A121 behavioral evidence).
+    The receipt is also recorded via ``record_delegation_outcome`` for
+    the audit trail.
+    """
+    from core_system.codex_decision import SovereignOutcome
+
+    reason_code = decision.refusal.reason_code if decision.refusal else ""
+    receipt = mint_delegation_receipt(
+        sovereign_id=sovereign_id,
+        intent=request.intent,
+        requester=request.requester,
+        accepted=decision.accepted,
+        reason_code=reason_code,
+        execution_mode=execution_mode,
+        basis=decision.basis,
+    )
+    record_delegation_outcome(
+        sovereign_id=sovereign_id,
+        intent=request.intent,
+        requester=request.requester,
+        accepted=decision.accepted,
+        reason_code=reason_code,
+        execution_mode=execution_mode,
+        basis=decision.basis,
+    )
+    result = dict(decision.result or {})
+    result["delegation_receipt"] = receipt.to_dict()
+    return SovereignOutcome(
+        accepted=decision.accepted,
+        refusal=decision.refusal,
+        result=result,
+        basis=decision.basis,
+    )

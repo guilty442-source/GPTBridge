@@ -190,16 +190,7 @@ class DecisionSovereign(
         attests that the adjudication was a pure decision and records the
         delegation outcome in the audit ledger.
         """
-        record_delegation_outcome(
-            sovereign_id=self.sovereign_id,
-            intent=request.intent,
-            requester=request.requester,
-            accepted=decision.accepted,
-            reason_code=decision.refusal.reason_code if decision.refusal else "",
-            execution_mode="decision-only",
-            basis=decision.basis,
-        )
-        return decision
+        return self._attach_delegation_receipt(decision, request, "decision-only")
 
     # ------------------------------------------------------------------
     # Lifecycle (decision-layer only; activation is executor work)

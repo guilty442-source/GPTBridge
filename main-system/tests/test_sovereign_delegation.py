@@ -121,7 +121,7 @@ async def test_sub_sovereign_delegate_execution_returns_decision() -> None:
     decision = accepted_outcome({"coordinated": True}, ("A130",))
     result = await sub._delegate_execution(decision, _make_request())
     assert result.accepted is True
-    assert result is decision
+    assert "delegation_receipt" in result.result
 
 
 @pytest.mark.asyncio
@@ -131,7 +131,8 @@ async def test_decision_sovereign_delegate_execution_returns_decision() -> None:
         DecisionSovereign.__new__(DecisionSovereign), decision, _make_request()
     )
     assert result.accepted is True
-    assert result is decision
+    assert "delegation_receipt" in result.result
+    assert result.result["delegation_receipt"]["content_hash"]
 
 
 @pytest.mark.asyncio
@@ -141,7 +142,8 @@ async def test_permission_sovereign_delegate_execution_returns_decision() -> Non
         PermissionSovereign.__new__(PermissionSovereign), decision, _make_request()
     )
     assert result.accepted is True
-    assert result is decision
+    assert "delegation_receipt" in result.result
+    assert result.result["delegation_receipt"]["content_hash"]
 
 
 @pytest.mark.asyncio
@@ -153,7 +155,8 @@ async def test_synchronization_sovereign_delegate_execution_returns_decision() -
         _make_request(),
     )
     assert result.accepted is True
-    assert result is decision
+    assert "delegation_receipt" in result.result
+    assert result.result["delegation_receipt"]["content_hash"]
 
 
 @pytest.mark.asyncio
@@ -165,7 +168,8 @@ async def test_system_runtime_sovereign_delegate_execution_returns_decision() ->
         _make_request(),
     )
     assert result.accepted is True
-    assert result is decision
+    assert "delegation_receipt" in result.result
+    assert result.result["delegation_receipt"]["content_hash"]
 
 
 @pytest.mark.asyncio
@@ -175,7 +179,8 @@ async def test_xingcheng_sovereign_delegate_execution_returns_decision() -> None
         XingchengSovereign.__new__(XingchengSovereign), decision, _make_request()
     )
     assert result.accepted is True
-    assert result is decision
+    assert "delegation_receipt" in result.result
+    assert result.result["delegation_receipt"]["content_hash"]
 
 
 def test_base_docstring_cites_a69_a121_not_a63_a64() -> None:

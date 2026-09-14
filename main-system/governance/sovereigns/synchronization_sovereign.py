@@ -183,16 +183,7 @@ class SynchronizationSovereign(
         audit ledger.
         """
         execution_mode = "A330-certified-update" if request.intent == "A330.certified-update" else "decision-only"
-        record_delegation_outcome(
-            sovereign_id=self.sovereign_id,
-            intent=request.intent,
-            requester=request.requester,
-            accepted=decision.accepted,
-            reason_code=decision.refusal.reason_code if decision.refusal else "",
-            execution_mode=execution_mode,
-            basis=decision.basis,
-        )
-        return decision
+        return self._attach_delegation_receipt(decision, request, execution_mode)
 
     # ------------------------------------------------------------------
     # Lifecycle
