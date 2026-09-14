@@ -2,6 +2,8 @@
 
 Contains the probe_version, execute_update, and execute_auto_updates
 methods extracted from ThirdPartyManager.
+
+Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 """
 from __future__ import annotations
 
