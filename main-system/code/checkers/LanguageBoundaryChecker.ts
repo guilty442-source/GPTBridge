@@ -35,11 +35,11 @@ export interface CrossBoundaryRule {
   reason: string;
 }
 
-// Canonical language configuration per A203, A211, A215, A264
+// Canonical language configuration per A219, A211, A215, A264
 export const LANGUAGE_POLICY: LanguagePolicy = {
   allowedLanguages: ['Python', 'TypeScript', 'C', 'C++', 'CSharp', 'SQL'],
   canonicalRoles: new Map([
-    // A203, A211
+    // A219, A211
     ['Python', 'system-control+semantic/business logic+orchestration+governed-workflow+adapter-coordination'],
     ['TypeScript', 'UI presentation/client+contract+transport+type-safety+governance-checker'],
     ['C', 'public native interface only+stable ABI'],

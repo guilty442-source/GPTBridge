@@ -207,11 +207,11 @@ class SovereignBase(ABC):
         return await SovereignExecutionPipeline(self).run(request)
 
     def register_verification_check(self, intent: str, check: Any) -> None:
-        """Register an independent domain check for ``intent`` (A69)."""
+        """Register an independent domain check for ``intent`` (A446)."""
         self._independent_verifier.register(intent, check)
 
     def _governance(self) -> Any:
-        """The app governance service, or None when unavailable (A6/A10).
+        """The app governance service, or None when unavailable (A436/A10).
 
         Shared accessor so permission/auth mixins never call an undefined
         method: the explicit ``_governance_ref`` wins, then ``app.governance``.

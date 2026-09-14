@@ -140,7 +140,7 @@ def record_violation(
     basis: tuple[str, ...] = (),
     ledger_path: Path = _VIOLATION_LEDGER_PATH,
 ) -> int:
-    """Record one compliance violation append-only (A6/A121/A46)."""
+    """Record one compliance violation append-only (A436/A121/A46)."""
     entry = {
         "sequence": _next_sequence(ledger_path),
         "timestamp": _iso_now(),

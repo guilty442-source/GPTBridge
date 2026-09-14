@@ -3,7 +3,7 @@
 Per the Governance Codex (A18), Xingcheng is a local-native model with
 top-orchestrator rank.  Its identity layer manages the model's role declaration
 and identity binding — it does NOT manage system permission IDs (those are
-owned by the permission-sovereign per A23).
+owned by the permission-sovereign per A436).
 """
 
 from __future__ import annotations

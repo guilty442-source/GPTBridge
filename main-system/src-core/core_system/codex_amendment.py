@@ -75,7 +75,7 @@ async def _amendment_executor(command: str, payload: dict[str, Any]) -> tuple[st
     # sessions bound to the old codex version are revoked, then the new
     # authority is verified through one bounded official-entry lookup.
     revoke_codex_read_contexts()
-    # A174 two-key boundary: amendment verification requires a grant
+    # A435 two-key boundary: amendment verification requires a grant
     # countersigned by the entry owner (permission-sovereign).
     bounded_lookup(
         "codex-amendment-executor",

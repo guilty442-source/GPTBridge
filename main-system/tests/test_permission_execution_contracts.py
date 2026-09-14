@@ -2,7 +2,7 @@
 
 Covers the determinable runtime defects: authorize keyword alignment,
 registry dict routing, A334 attested execution identity, sovereign MRO
-status reachability, A174 codex-entry session controls, persistent
+status reachability, A435 codex-entry session controls, persistent
 violation/delegation ledgers.
 """
 
@@ -253,12 +253,12 @@ def test_violation_ledger_is_persistent(tmp_path: Path) -> None:
     )
     permission_grant_ledger.record_violation(
         sovereign_id="permission-sovereign",
-        violation={"code": "A69"},
+        violation={"code": "A446"},
         requester="requester",
         ledger_path=ledger,
     )
     entries = permission_grant_ledger.load_violations(ledger)
-    assert [e["violation"]["code"] for e in entries] == ["A121", "A69"]
+    assert [e["violation"]["code"] for e in entries] == ["A121", "A446"]
     assert [e["sequence"] for e in entries] == [1, 2]
 
 

@@ -3,7 +3,7 @@
 -- Codex basis:
 --   A436/E4   — Permission: owner=permission-sovereign; actions=manage/issue/terminate/supervise.
 --   A7      — Permission-directory: directory-driven; defines role/capability/action/target/data-scope.
---   A23/E4  — Permission-identifiers: permission-ID=sovereign-managed; FORBID: module-self-issue.
+--   A436/E4  — Permission-identifiers: permission-ID=sovereign-managed; FORBID: module-self-issue.
 --   A42/E28 — Directory-write: permission-sovereign-decision + governed-executor execution;
 --              store=data-governance-sub-sovereign-declared.
 --   A39/E25 — Actors: human-operator/governed-app/sovereign/xingcheng; identity verified at entry.
@@ -11,7 +11,7 @@
 --
 -- This schema stores identity and permission-directory records that drive the
 -- permission-sovereign's issue/terminate/supervise cycle.  Modules MUST NOT
--- self-issue or mutate their own identity rows (A23 FORBID).
+-- self-issue or mutate their own identity rows (A436 FORBID).
 
 CREATE SCHEMA IF NOT EXISTS gptbridge_identity;
 

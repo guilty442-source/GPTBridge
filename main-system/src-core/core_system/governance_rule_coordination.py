@@ -47,7 +47,7 @@ class GovernanceRuleCoordination:
         # A435 REVIEW_SESSION: the coordination surface reads the full
         # codex projection through the official entry (identity + purpose
         # + scope + nonce + expiry + metadata-only audit).
-        # A174 two-key boundary: a full-codex snapshot is privileged and
+        # A435 two-key boundary: a full-codex snapshot is privileged and
         # requires a grant countersigned by the entry owner.
         grant = mint_dual_key_grant(
             operation="codex-open:review-session",

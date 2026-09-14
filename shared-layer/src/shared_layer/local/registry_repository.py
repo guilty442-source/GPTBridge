@@ -1,6 +1,6 @@
 """registry_repository — codex-native local resource registry cache on sqlite3.
 
-Stdlib-only local cache for module-private resource locators (A35/E21 +
+Stdlib-only local cache for module-private resource locators (A219/E21 +
 A37/E23 + A44/E30).  The canonical central registry lives in PostgreSQL;
 this repository is a bounded, owner-private cache and must not be treated as
 authoritative outside its module scope.

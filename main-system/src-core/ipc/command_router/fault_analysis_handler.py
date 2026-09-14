@@ -1,11 +1,11 @@
-"""Command Router — Fault Analysis Handler (A137-A146/A174/A6500).
+"""Command Router — Fault Analysis Handler (A137-A146/A435/A6500).
 
 法典依據:
 - A137: authenticated read-only evidence projection is the only system interface.
 - A138: independent analysis+reasoning over governed global evidence; advisory-only.
 - A139: 星澄-SYSTEM-POWER: global-read-only-review + anomaly-classification.
 - A140: information layer is the sole provider of filtered system review evidence.
-- A174: 星澄 is the sole auxiliary codex-view exception — official entry, read-only.
+- A435: 星澄 is the sole auxiliary codex-view exception — official entry, read-only.
 - A6500: codex-authorized global review authority.
 
 Hardening controls:

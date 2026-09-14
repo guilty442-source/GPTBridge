@@ -1,4 +1,4 @@
-"""Official-entry authorization tests (A174/A435) — real decisions, not smoke.
+"""Official-entry authorization tests (A435) — real decisions, not smoke.
 
 Covers persisted entry state (revocation generation, session nonces, grant
 records, replay protection), the two-key boundary for privileged opens
@@ -351,7 +351,7 @@ def test_chinese_mirror_xingcheng_only(entry_state: Path) -> None:
 
 
 def test_audit_records_are_metadata_only() -> None:
-    """Audit entries carry identity/purpose/scope-hash/result only (A174)."""
+    """Audit entries carry identity/purpose/scope-hash/result only (A435)."""
     allowed = {
         "timestamp", "entry", "event", "actor", "purpose", "access_class",
         "scope_hash", "codex_version", "correlation", "result",

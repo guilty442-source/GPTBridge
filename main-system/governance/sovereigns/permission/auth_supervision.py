@@ -331,13 +331,13 @@ class PermissionAuthSupervisionMixin:
                         sovereign_id=self.sovereign_id,
                         violation=violation,
                         requester=request.requester,
-                        basis=("A6", "A121", "A46"),
+                        basis=("A436", "A121", "A46"),
                     )
             except (OSError, ValueError, RuntimeError):
                 # An unrecorded violation may not be accepted (A121/A46).
                 return refusal_outcome(
                     "VIOLATION_LEDGER_UNAVAILABLE",
-                    verified_basis(("A6", "A121")),
+                    verified_basis(("A436", "A121")),
                 )
             self._compliance_violations.extend(violations)
 

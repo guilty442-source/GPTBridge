@@ -1,7 +1,7 @@
 """module_locator — codex-native owning-module locator map on sqlite3.
 
 Stdlib-only replacement for ``shared_layer.module_locator_repository
-.ModuleLocatorRepository`` (A35/E21 + A37/E23).  Same contract: owning-module
+.ModuleLocatorRepository`` (A219/E21 + A37/E23).  Same contract: owning-module
 only, never stored in the central index.
 """
 

@@ -1,9 +1,9 @@
-"""Dual-key authorization for privileged official-entry operations (A174).
+"""Dual-key authorization for privileged official-entry operations (A435).
 
 法典依據:
-- A174: the official entry is owned by the permission-sovereign; privileged
+- A435: the official entry is owned by the permission-sovereign; privileged
   review / amendment operations must not proceed on a single actor's word.
-- A313-style two-key boundary: one key requests, a distinct registered
+- A319-style two-key boundary: one key requests, a distinct registered
   sovereign key countersigns.  A missing or stale countersignature fails
   closed — the operation simply does not open.
 
@@ -11,7 +11,7 @@ A dual-key grant is a single-use, expiry-bound, version-bound token minted
 through ``mint_dual_key_grant`` and consumed by the official entry through
 ``verify_dual_key_grant``.  Grant records persist in the governed entry
 state store, so replay protection survives restarts; every mint, consume
-and denial emits a metadata-only audit record (no codex content, A174).
+and denial emits a metadata-only audit record (no codex content, A435).
 
 Privileged triggers (``requires_dual_key``): ``codex:full`` snapshots and
 the ``amendment-verification`` purpose.  星澄's Chinese review is exempt —

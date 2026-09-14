@@ -1,7 +1,7 @@
 """authorization — codex-native local authorization on sqlite3.
 
 Stdlib-only replacement for ``shared_layer.access_gateway.postgres
-.PostgresAuthorization`` (A35/E21 + A37/E23).  The authorization checks are
+.PostgresAuthorization`` (A219/E21 + A37/E23).  The authorization checks are
 data-driven from the local central registry instead of PostgreSQL RLS; the
 semantics (explicit allow, no implicit disclosure) are unchanged.
 """

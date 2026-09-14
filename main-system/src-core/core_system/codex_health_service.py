@@ -1,8 +1,7 @@
-"""Codex health evidence chain — verifies the complete governance health (A174/A435/A46/A121).
+"""Codex health evidence chain — verifies the complete governance health (A435/A46/A121).
 
 法典依據:
-- A174: official entry controls (identity, purpose, scope, nonce, expiry, audit).
-- A435: access-class session engine; revocation generation; dual-key grants.
+- A435: official entry controls (identity, purpose, scope, nonce, expiry, audit) + access-class session engine; revocation generation; dual-key grants.
 - A46: ledger-per-action — every action carries an audit ledger entry.
 - A121: boundary enforcement + audit ledger + deny-on-violation.
 - A173: single local read-only SQLite authority; Chinese mirror is 星澄-only.
@@ -104,14 +103,14 @@ def _check_codex_authority() -> HealthLink:
                 "sovereign_count": len(codex.sovereigns),
                 "version_ok": version_ok,
             },
-            basis=("A173", "A174"),
+            basis=("A173", "A435"),
         )
     except Exception as error:
         return HealthLink(
             name="codex-authority",
             passed=False,
             evidence={"error": type(error).__name__},
-            basis=("A173", "A174"),
+            basis=("A173", "A435"),
         )
 
 
@@ -136,21 +135,21 @@ def _check_entry_state() -> HealthLink:
                 "consumed_nonces": len(consumed),
                 "state_path_exists": ENTRY_STATE_PATH.is_file(),
             },
-            basis=("A174", "A435"),
+            basis=("A435",),
         )
     except PermissionError as error:
         return HealthLink(
             name="entry-state",
             passed=False,
             evidence={"error": str(error)},
-            basis=("A174", "A435"),
+            basis=("A435",),
         )
     except Exception as error:
         return HealthLink(
             name="entry-state",
             passed=False,
             evidence={"error": type(error).__name__},
-            basis=("A174", "A435"),
+            basis=("A435",),
         )
 
 
@@ -174,14 +173,14 @@ def _check_session_health() -> HealthLink:
                 "expired_sessions": expired,
                 "consumed_nonces": len(state.get("consumed_nonces", {})),
             },
-            basis=("A174", "A435"),
+            basis=("A435",),
         )
     except Exception as error:
         return HealthLink(
             name="session-health",
             passed=False,
             evidence={"error": type(error).__name__},
-            basis=("A174", "A435"),
+            basis=("A435",),
         )
 
 
@@ -220,7 +219,7 @@ def _check_governance_audit() -> HealthLink:
                 "error_count": len(errors),
                 "errors": errors[:5] if errors else [],
             },
-            basis=("A46", "A121", "A174"),
+            basis=("A46", "A121", "A435"),
         )
     except Exception as error:
         return HealthLink(
@@ -249,14 +248,14 @@ def _check_integrity_manifest(project_root: Path) -> HealthLink:
                 "authority_file_count": len(authority_files),
                 "missing_files": missing,
             },
-            basis=("A173", "A174"),
+            basis=("A173", "A435"),
         )
     except Exception as error:
         return HealthLink(
             name="integrity-manifest",
             passed=False,
             evidence={"error": type(error).__name__},
-            basis=("A173", "A174"),
+            basis=("A173", "A435"),
         )
 
 

@@ -1,7 +1,7 @@
 """database — codex-native local storage settings and health.
 
 Stdlib-only local sqlite helpers for module-private state, transport and
-bounded degraded fallback (A35/E21 + A37/E23 + A44/E30).  PostgreSQL is the
+bounded degraded fallback (A219/E21 + A37/E23 + A44/E30).  PostgreSQL is the
 canonical central structured-data engine; these sqlite records are
 module-owned, never authoritative, and must be reconciled with the central
 store.

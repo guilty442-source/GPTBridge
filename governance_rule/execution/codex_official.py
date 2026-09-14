@@ -130,9 +130,9 @@ def _record_read_audit(
     purpose: str,
     result: str,
 ) -> None:
-    """Append a metadata-only codex-read audit entry (A174/A435 unified).
+    """Append a metadata-only codex-read audit entry (A435 unified).
 
-    A174 FORBID:content-in-audit — the record carries identity, purpose,
+    A435 FORBID:content-in-audit — the record carries identity, purpose,
     scope hash and outcome metadata only, never codex content or raw scope
     identifiers; the unified entry-state writer hashes the scope and keeps
     the allowed key set.
