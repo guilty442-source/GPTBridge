@@ -33,6 +33,7 @@ import logging
 from typing import Any
 
 from ._base import SovereignBase, SovereignOutcome, SovereignRequest
+from ._delegation import record_delegation_outcome
 from core_system.codex_decision import (
     accepted_outcome,
     refusal_outcome,
@@ -178,7 +179,19 @@ class SynchronizationSovereign(
         This sovereign is decision-only except for A330 certified update
         execution.  The delegate_to calls inside _adjudicate already
         dispatch execution to the governed executor or sub-sovereigns.
+        This hook attests that and records the delegation outcome in the
+        audit ledger.
         """
+        execution_mode = "A330-certified-update" if request.intent == "A330.certified-update" else "decision-only"
+        record_delegation_outcome(
+            sovereign_id=self.sovereign_id,
+            intent=request.intent,
+            requester=request.requester,
+            accepted=decision.accepted,
+            reason_code=decision.refusal.reason_code if decision.refusal else "",
+            execution_mode=execution_mode,
+            basis=decision.basis,
+        )
         return decision
 
     # ------------------------------------------------------------------

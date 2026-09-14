@@ -53,6 +53,7 @@ from governance_rule.permission_directory.registries.permissions.identity_permis
 )
 
 from ._base import SovereignBase, SovereignOutcome, SovereignRequest
+from ._delegation import record_delegation_outcome
 from core_system.codex_decision import (
     accepted_outcome,
     decision_basis,
@@ -205,8 +206,19 @@ class PermissionSovereign(
         """權限主宰委派執行（A69/A121）。
 
         This sovereign is decision-only (A127/E111).  Execution is delegated
-        to DirectoryAuthority / Authentication / governed-executor.
+        to DirectoryAuthority / Authentication / governed-executor.  This
+        hook attests that the adjudication was a pure decision and records
+        the delegation outcome in the audit ledger.
         """
+        record_delegation_outcome(
+            sovereign_id=self.sovereign_id,
+            intent=request.intent,
+            requester=request.requester,
+            accepted=decision.accepted,
+            reason_code=decision.refusal.reason_code if decision.refusal else "",
+            execution_mode="decision-only",
+            basis=decision.basis,
+        )
         return decision
 
     # ------------------------------------------------------------------
@@ -214,11 +226,21 @@ class PermissionSovereign(
     # ------------------------------------------------------------------
 
     async def start(self) -> dict[str, Any]:
-        """啟動權限主宰與自動化組件。"""
+        """啟動權限主宰（決策層初始化，A297）。
+
+        Decision-layer initialization only: the automation loop is started
+        separately by ``start_supervision()``.
+        """
         state = await super().start()
-        await self.start_automation()
-        state["automation"] = "started"
         return state
+
+    async def start_supervision(self) -> None:
+        """Start the permission automation loop (A297 separation)."""
+        await self.start_automation()
+
+    async def stop_supervision(self) -> None:
+        """Stop the permission automation loop (A297 separation)."""
+        await self.stop_automation()
 
     async def stop(self) -> None:
         """停止權限主宰與自動化組件。"""

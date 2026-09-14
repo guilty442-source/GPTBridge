@@ -34,6 +34,7 @@ AuthorizeFn = Callable[[str, str, str], bool] | None
 _UNKNOWN_COMMAND: Final[str] = "UNKNOWN_COMMAND_CODE"
 _INVALID_ENVELOPE: Final[str] = "INVALID_INFORMATION_CHANNEL_ENVELOPE"
 _RATE_EXCEEDED: Final[str] = "RATE_LIMIT_EXCEEDED"
+_CONTRACT_UNAVAILABLE: Final[str] = "CONTRACT_GATE_UNAVAILABLE"
 
 # Rate-limiter defaults (A177 RATE gate).
 _DEFAULT_RATE_CAPACITY: Final[int] = 30
@@ -123,9 +124,12 @@ class CommandContractResolver:
                     ):
                         codes.add(str(row[0]))
             loaded = True
-        except Exception:
-            pass  # fail-open on read error; audit gate still records
+        except (OSError, ImportError, KeyError, ValueError, RuntimeError) as error:
+            # Record the failure explicitly — never a silent pass; when no
+            # last-known-good cache exists the gate denies (fail-closed).
+            self._load_error = f"{type(error).__name__}: {str(error)[:160]}"
         if loaded:
+            self._load_error = ""
             self._cache = codes
             self._signature = signature
             return self._cache
@@ -133,6 +137,10 @@ class CommandContractResolver:
         if self._cache is not None:
             return self._cache
         return codes
+
+    def load_error(self) -> str:
+        """Last contract-directory read failure ("" when healthy)."""
+        return self._load_error
 
     def is_registered(self, command: str) -> bool:
         """Return True if *command* (UPPERCASE or kebab-case) is registered."""
@@ -191,6 +199,50 @@ class RateLimiter:
 
 
 # ---------------------------------------------------------------------------
+# A121/A46 audit publication + A69 independent result verification
+# ---------------------------------------------------------------------------
+
+
+class AuditPublicationError(RuntimeError):
+    """An action may not complete unrecorded (A121/A46); callers deny."""
+
+
+@dataclass(frozen=True)
+class ResultVerification:
+    """Independent contract verification of a handler result (A69)."""
+
+    verified: bool
+    verifier: str
+    reasons: tuple[str, ...] = ()
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "verified": self.verified,
+            "verifier": self.verifier,
+            "reasons": list(self.reasons),
+        }
+
+
+def verify_handler_result(result: Any) -> ResultVerification:
+    """Contract-verify a handler result; never trusts a self-declared ok."""
+    verifier = "shared-layer/result-verifier"
+    reasons: list[str] = []
+    if not isinstance(result, Mapping):
+        reasons.append("RESULT_NOT_MAPPING")
+    else:
+        ok = result.get("ok")
+        if not isinstance(ok, bool):
+            reasons.append("RESULT_OK_FLAG_MISSING")
+        if "verification" in result:
+            reasons.append("EXECUTOR_SELF_DECLARED_VERIFICATION")
+        if ok is False and not str(result.get("error_code", "")).strip():
+            reasons.append("FAILURE_WITHOUT_ERROR_CODE")
+        if ok is True and str(result.get("error_code", "")).strip():
+            reasons.append("SUCCESS_WITH_ERROR_CODE")
+    return ResultVerification(not reasons, verifier, tuple(reasons))
+
+
+# ---------------------------------------------------------------------------
 # A177 information-layer gateway
 # ---------------------------------------------------------------------------
 
@@ -238,32 +290,32 @@ class InformationChannelGateway:
         """Route a governed command through the A177 gate pipeline."""
         envelope = self._validate_envelope(sender, destination, command, payload)
 
-        # A224 contract gate
-        if self._contract is not None and not self._contract.is_registered(command):
-            self._emit_audit(envelope, ok=False, error=_UNKNOWN_COMMAND)
-            return f"{command}_result", {
-                "ok": False,
-                "error_code": _UNKNOWN_COMMAND,
-                "message": f"Command '{command}' is not registered in command_code_directory",
-            }
+        # A224 contract gate — fail closed when the directory is unreadable
+        if self._contract is not None:
+            if self._contract.load_error():
+                return self._deny(
+                    envelope,
+                    _CONTRACT_UNAVAILABLE,
+                    f"command_code_directory unreadable: {self._contract.load_error()}",
+                )
+            if not self._contract.is_registered(command):
+                return self._deny(
+                    envelope,
+                    _UNKNOWN_COMMAND,
+                    f"Command '{command}' is not registered in command_code_directory",
+                )
 
         # A177 authorization gate
         if self._authorize is not None and not self._authorize(sender, destination, command):
-            self._emit_audit(envelope, ok=False, error="PERMISSION_DENIED")
-            return f"{command}_result", {
-                "ok": False,
-                "error_code": "PERMISSION_DENIED",
-                "message": "Authorization denied for this command",
-            }
+            return self._deny(
+                envelope, "PERMISSION_DENIED", "Authorization denied for this command"
+            )
 
         # A177 rate gate
         if not self._rate_limiter.allow(sender):
-            self._emit_audit(envelope, ok=False, error=_RATE_EXCEEDED)
-            return f"{command}_result", {
-                "ok": False,
-                "error_code": _RATE_EXCEEDED,
-                "message": "Rate limit exceeded for this sender",
-            }
+            return self._deny(
+                envelope, _RATE_EXCEEDED, "Rate limit exceeded for this sender"
+            )
 
         loop = asyncio.get_running_loop()
         future: asyncio.Future[tuple[str, dict[str, Any]]] = loop.create_future()
@@ -286,42 +338,138 @@ class InformationChannelGateway:
             raise PermissionError(_INVALID_ENVELOPE)
         return GovernedCommandEnvelope(sender, destination, command, dict(payload))
 
+    def _deny(
+        self,
+        envelope: GovernedCommandEnvelope,
+        code: str,
+        message: str,
+    ) -> tuple[str, dict[str, Any]]:
+        """Audited denial; an unrecordable denial becomes an audit failure."""
+        try:
+            self._emit_audit(envelope, ok=False, error=code)
+        except AuditPublicationError as error:
+            code, message = "AUDIT_PUBLICATION_FAILED", str(error)
+        return (
+            f"{envelope.command}_result",
+            {"ok": False, "error_code": code, "message": message},
+        )
+
     def _emit_audit(
         self,
         envelope: GovernedCommandEnvelope,
         *,
         ok: bool,
         error: str = "",
+        verification: Mapping[str, Any] | None = None,
     ) -> None:
+        """Mandatory audit publication (A121/A46); raises when unrecorded."""
         if self._audit is None:
-            return
-        self._audit(
-            {
-                "transport_owner": "shared-layer",
-                "channel": "system",
-                "sender": envelope.sender,
-                "destination": envelope.destination,
-                "command": envelope.command,
-                "ok": ok,
-                "error_code": error,
-                "timestamp": _utc_now_iso(),  # A200
-            }
-        )
+            raise AuditPublicationError("AUDIT_SINK_REQUIRED")
+        record: dict[str, Any] = {
+            "transport_owner": "shared-layer",
+            "channel": "system",
+            "sender": envelope.sender,
+            "destination": envelope.destination,
+            "command": envelope.command,
+            "ok": ok,
+            "error_code": error,
+            "timestamp": _utc_now_iso(),  # A200
+        }
+        if verification is not None:
+            record["verification"] = dict(verification)
+        try:
+            self._audit(record)
+        except Exception as error_exc:
+            raise AuditPublicationError(
+                f"audit sink failed: {type(error_exc).__name__}: {str(error_exc)[:160]}"
+            ) from error_exc
 
     async def _run(self) -> None:
         while not self._queue.empty():
             envelope, future = await self._queue.get()
             try:
-                self._emit_audit(envelope, ok=True)
                 result = await self._handler(envelope.command, envelope.payload)
-                if not future.done():
-                    future.set_result(result)
+                self._deliver(envelope, future, result)
             except Exception as error:
-                self._emit_audit(envelope, ok=False, error=type(error).__name__)
-                if not future.done():
-                    future.set_exception(error)
+                # Handler failure: recorded with full detail and re-raised —
+                # never downgraded to a generic success or refusal.
+                self._fail(envelope, future, error)
             finally:
                 self._queue.task_done()
+
+    def _deliver(
+        self,
+        envelope: GovernedCommandEnvelope,
+        future: asyncio.Future[tuple[str, dict[str, Any]]],
+        result: Any,
+    ) -> None:
+        verdict = verify_handler_result(result)
+        try:
+            self._emit_audit(
+                envelope,
+                ok=verdict.verified,
+                error="" if verdict.verified else "RESULT_VERIFICATION_FAILED",
+                verification=verdict.to_record(),
+            )
+        except AuditPublicationError as error:
+            self._resolve(
+                future,
+                self._deny_payload(envelope, "AUDIT_PUBLICATION_FAILED", str(error)),
+            )
+            return
+        if not verdict.verified:
+            self._resolve(
+                future,
+                self._deny_payload(
+                    envelope,
+                    "RESULT_VERIFICATION_FAILED",
+                    ";".join(verdict.reasons),
+                ),
+            )
+            return
+        output = dict(result)
+        output["verification"] = verdict.to_record()
+        self._resolve(future, (f"{envelope.command}_result", output))
+
+    def _fail(
+        self,
+        envelope: GovernedCommandEnvelope,
+        future: asyncio.Future[tuple[str, dict[str, Any]]],
+        error: Exception,
+    ) -> None:
+        detail = f"{type(error).__name__}: {str(error)[:200]}"
+        try:
+            self._emit_audit(
+                envelope,
+                ok=False,
+                error=type(error).__name__,
+                verification={"detail": detail},
+            )
+        except AuditPublicationError:
+            # The audit sink itself is failing; the caller is still told the
+            # original failure (never a silent success or downgrade).
+            detail += " (audit sink unavailable)"
+        if not future.done():
+            future.set_exception(error)
+
+    @staticmethod
+    def _deny_payload(
+        envelope: GovernedCommandEnvelope,
+        code: str,
+        message: str,
+    ) -> tuple[str, dict[str, Any]]:
+        return (
+            f"{envelope.command}_result",
+            {"ok": False, "error_code": code, "message": message},
+        )
+
+    @staticmethod
+    def _resolve(
+        future: asyncio.Future[tuple[str, dict[str, Any]]],
+        value: tuple[str, dict[str, Any]],
+    ) -> None:
+        if not future.done():
+            future.set_result(value)
 
 
 __all__ = [

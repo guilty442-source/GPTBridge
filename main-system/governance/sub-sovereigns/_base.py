@@ -153,7 +153,9 @@ class SubSovereignBase(SovereignBase, ABC):
             return False
         try:
             claims = auth_service.authenticate_token(token)
-        except Exception:
+        except (ValueError, KeyError, PermissionError, RuntimeError, ImportError):
+            # Expected authentication failures deny (fail-closed); unexpected
+            # programming errors must surface instead of being downgraded.
             return False
         if claims.actor != parent:
             return False

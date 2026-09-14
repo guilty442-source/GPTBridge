@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Any
 
 from ._base import SovereignBase, SovereignOutcome, SovereignRequest
+from ._delegation import record_delegation_outcome
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 
 # Sub-modules

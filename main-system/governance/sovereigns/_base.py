@@ -28,7 +28,12 @@ from core_system.codex_decision import (
     verified_basis,
 )
 
-from ._delegation import consume_delegation, mint_delegation
+from ._delegation import consume_delegation, mint_delegation, record_delegation_outcome
+from ._requester_verification import (
+    _GOVERNED_IN_PROCESS_ACTORS,
+    verify_requester as _verify_requester_impl,
+)
+from ..independent_verifier import IndependentVerifier, VerificationVerdict
 
 # Lazy import to avoid circular dependency
 from typing import TYPE_CHECKING
@@ -88,6 +93,9 @@ class SovereignBase(ABC):
         # Per-child consecutive-failure counts, fed by the governed
         # executor and by children reporting through ``report_to_parent``.
         self._child_failure_counts: dict[str, int] = {}
+        # A69 independent verifier — never the work step; domain checks may
+        # be registered by subclasses via ``register_verification_check``.
+        self._independent_verifier = IndependentVerifier()
 
     @property
     def identity(self) -> SovereignIdentity:
@@ -126,95 +134,36 @@ class SovereignBase(ABC):
     # -------------------------------------------------------------------------
 
     async def handle(self, request: SovereignRequest) -> SovereignOutcome:
-        """单一决策入口：裁决 -> 授权 -> 委派执行。
+        """单一决策入口：裁决 -> 授权 -> 委派执行（全阶段 A69 receipts）。
 
-        Per A10/A11: explicit allowlist, fail-closed.
-        Per A69/A121: execution is delegated to a governed executor and
-        independently verified; the sovereign never self-executes.
+        Every request flows through ``SovereignExecutionPipeline`` so all six
+        A69 tiers are receipted (dispatch-intake, authorization gate,
+        task-planning, specialized-executor, result-verification,
+        audit-publication); the executor never self-declares success — the
+        independent verifier and the mandatory audit publication decide —
+        and any missing receipt fails closed.
         """
-        # 1. Verify requester identity via capability token (A10/A11/A116)
-        if not await self._verify_requester(request):
-            return refusal_outcome("UNAUTHORIZED_REQUESTER", ("A10", "A11"))
+        from ..execution_pipeline import SovereignExecutionPipeline
 
-        # 2. Verify intent against codex edicts
-        if not self._verify_intent(request.intent):
-            return refusal_outcome("UNAUTHORIZED_INTENT", ("A10", "A12"))
+        return await SovereignExecutionPipeline(self).run(request)
 
-        # 3. Make decision (pure adjudication)
-        decision = await self._adjudicate(request)
+    def register_verification_check(self, intent: str, check: Any) -> None:
+        """Register an independent domain check for ``intent`` (A69)."""
+        self._independent_verifier.register(intent, check)
 
-        # 4. If accepted, delegate execution to governed executor.
-        #    The base default is fail-closed (A69/A121): a subclass MUST
-        #    override ``_delegate_execution`` to either dispatch to a real
-        #    governed executor or explicitly attest that the adjudication
-        #    was a pure decision with no execution side-effect.
-        if decision.accepted:
-            return await self._delegate_execution(decision, request)
-        return decision
+    def verify_execution_result(
+        self, intent: str, executor_actor: str, outcome: SovereignOutcome
+    ) -> VerificationVerdict:
+        """Independent verification of an executor result (A69/A121)."""
+        return self._independent_verifier.verify(intent, executor_actor, outcome)
 
     async def _verify_requester(self, request: SovereignRequest) -> bool:
-        """验证请求者身份（A10/A11/A116/A121/A174）。
+        """验证请求者身份（A10/A11/A116/A121/A174 fail-closed）.
 
-        Identity proofs accepted, fail-closed:
-
-        - ``capability_token`` present → it MUST verify through the
-          governance authentication service, its ``actor`` claim must equal
-          ``request.requester`` and its capability must cover the request
-          (an invalid or mismatched token always denies).
-        - ``_delegation_nonce`` present → it MUST be an unconsumed,
-          unexpired single-use delegation session minted by another
-          sovereign for this sovereign and intent (A174 single-use; a
-          replayed or forged nonce denies).
-        - self-adjudication (``requester == sovereign_id``) is accepted.
-        - a sovereign-identity claim without a token or a valid single-use
-          delegation session is rejected — a bare string is unverifiable.
-        - other in-process automation actors (governance coordinator,
-          startup/governed executors) keep their governed in-process actor
-          path; they never claim a sovereign identity.
+        Delegates to ``_requester_verification.verify_requester`` so the
+        fail-closed identity-attestation contract lives in one place.
         """
-        if not isinstance(request.requester, str) or not request.requester:
-            return False
-
-        token = request.payload.get("capability_token")
-        if token is not None:
-            if not isinstance(token, str) or not token:
-                return False
-            claims = self._authenticate_token_claims(request, token)
-            if claims is None:
-                return False
-            request.payload["_verified_claims"] = {
-                "actor": claims.actor,
-                "bound_tool_id": claims.bound_tool_id,
-                "identity_group": claims.identity_group,
-                "capability": claims.capability,
-                "action": claims.action,
-                "target": claims.target,
-            }
-            return True
-
-        nonce = request.payload.get("_delegation_nonce")
-        if isinstance(nonce, str) and nonce:
-            if consume_delegation(
-                nonce,
-                parent=request.requester,
-                child=self.sovereign_id,
-                intent=request.intent,
-            ):
-                request.payload["_verified_delegation"] = {
-                    "parent": request.requester,
-                    "child": self.sovereign_id,
-                    "intent": request.intent,
-                }
-                return True
-            return False
-
-        if request.requester == self.sovereign_id:
-            return True
-
-        if self._claims_sovereign_identity(request.requester):
-            return False
-
-        return True
+        return _verify_requester_impl(self, request)
 
     def _authenticate_token_claims(
         self, request: SovereignRequest, token: str
@@ -232,7 +181,9 @@ class SovereignBase(ABC):
             return None
         try:
             claims = auth_service.authenticate_token(token)
-        except Exception:
+        except (ValueError, KeyError, PermissionError, RuntimeError, ImportError):
+            # Expected authentication failures deny (fail-closed); unexpected
+            # programming errors must surface instead of being downgraded.
             return None
         # The token must prove the requester identity — ``bound_tool_id``
         # belongs to the *requester's* attestation, never to the target
@@ -420,6 +371,21 @@ class SovereignBase(ABC):
 
     async def _on_start(self) -> None:
         """子类覆写：启动时的额外初始化。"""
+        pass
+
+    async def start_supervision(self) -> None:
+        """Start observation/supervision loops (A297 separation).
+
+        The sovereign's ``start()`` only initializes the decision layer.
+        Supervision/automation loops are started separately by the
+        governed executor calling this method after ``start()`` returns,
+        so the decision/observe boundary is explicit: the sovereign
+        decides, the executor starts the observation work.
+        """
+        pass
+
+    async def stop_supervision(self) -> None:
+        """Stop observation/supervision loops (A297 separation)."""
         pass
 
     async def _on_stop(self) -> None:

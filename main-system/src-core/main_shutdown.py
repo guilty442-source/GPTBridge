@@ -109,6 +109,10 @@ class GPTBridgeAppShutdownMixin:
             self.decision_sovereign,  # type: ignore[attr-defined]
         ):
             try:
+                await _sovereign.stop_supervision()
+            except Exception:
+                pass
+            try:
                 await _sovereign.stop()
             except Exception:
                 pass

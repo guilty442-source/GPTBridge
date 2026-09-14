@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from ._base import SovereignBase, SovereignOutcome, SovereignRequest
+from ._delegation import record_delegation_outcome
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 
 from ..registries import (
@@ -169,8 +170,18 @@ class SystemRuntimeSovereign(
         """系統運行主宰委派執行（A69/A121）。
 
         This sovereign is decision-only (A28).  Execution is delegated
-        to governed executor / sub-sovereigns via delegate_to.
+        to governed executor / sub-sovereigns via delegate_to.  This hook
+        attests that and records the delegation outcome in the audit ledger.
         """
+        record_delegation_outcome(
+            sovereign_id=self.sovereign_id,
+            intent=request.intent,
+            requester=request.requester,
+            accepted=decision.accepted,
+            reason_code=decision.refusal.reason_code if decision.refusal else "",
+            execution_mode="decision-only",
+            basis=decision.basis,
+        )
         return decision
 
     # ------------------------------------------------------------------
@@ -178,14 +189,25 @@ class SystemRuntimeSovereign(
     # ------------------------------------------------------------------
 
     async def start(self) -> dict[str, Any]:
-        """啟動系統運行主宰與自動化迴路。"""
+        """啟動系統運行主宰（決策層初始化，A297）。
+
+        Decision-layer initialization only: the supervision loop is
+        started separately by ``start_supervision()``.
+        """
         state = await super().start()
         app_registry = getattr(self.app, "_sub_sovereigns", None)
         if isinstance(app_registry, dict):
             app_registry.update(self._sub_sovereigns)
         state["sub_sovereigns"] = list(self._sub_sovereigns.keys())
-        self._start_autonomy_loop()
         return state
+
+    async def start_supervision(self) -> None:
+        """Start the autonomous supervision loop (A297 separation)."""
+        self._start_autonomy_loop()
+
+    async def stop_supervision(self) -> None:
+        """Stop the autonomous supervision loop (A297 separation)."""
+        await self._stop_autonomy_loop()
 
     async def stop(self) -> None:
         """停止自動化迴路。"""

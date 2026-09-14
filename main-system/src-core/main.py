@@ -303,6 +303,24 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
         except Exception as error:
             self._record_startup_failure("decision_sovereign", error)
 
+        # Start supervision/automation loops separately (A297 separation:
+        # sovereigns decide; the governed executor starts observation work).
+        supervision_tasks = [
+            self.permission_sovereign.start_supervision(),
+            self.system_runtime_sovereign.start_supervision(),
+            self.synchronization_sovereign.start_supervision(),
+            self.xingcheng_sovereign.start_supervision(),
+        ]
+        try:
+            await asyncio.gather(*supervision_tasks, return_exceptions=True)
+        except Exception as error:
+            self._record_startup_failure("sovereign_supervision_start", error)
+
+        try:
+            await self.decision_sovereign.start_supervision()
+        except Exception as error:
+            self._record_startup_failure("decision_sovereign_supervision", error)
+
         # Start the system-wide automation coordinator after all
         # sovereigns are started.  The coordinator aggregates health
         # and routes cross-sovereign degradation; it does not start
