@@ -152,7 +152,10 @@ export function XingchengDrawer({
     setFaultBusy(true)
     setFaultMessage('')
     try {
-      const sent = sendCommand('app:get-fault-analysis', { query: 'overview' })
+      const sent = sendCommand('app:get-fault-analysis', {
+        query: 'overview',
+        requester: 'ui-xingcheng-drawer',
+      })
       if (!sent.ok) {
         setFaultMessage(sent.message || xr.globalFaultsFailed)
         return
@@ -198,6 +201,7 @@ export function XingchengDrawer({
       const sent = sendCommand('app:get-fault-analysis', {
         query: 'detail',
         fault_id: faultId,
+        requester: 'ui-xingcheng-drawer',
       })
       if (!sent.ok) {
         setFaultMessage(sent.message || xr.globalFaultsDetailFailed)

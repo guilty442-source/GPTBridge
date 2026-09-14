@@ -27,6 +27,7 @@ governance_rule/runtime/sovereign_execution_audit.jsonl
 shared-layer/runtime/governed-process-audit.jsonl
 main-system/runtime/state/permission-grant-ledger.jsonl
 main-system/runtime/state/delegation-audit.jsonl
+main-system/runtime/state/fault-query-audit.jsonl
 main-system/data/automatic-repair/**/*.sqlite3*
 ai-assistant/data/business/
 src-core/runtime/
