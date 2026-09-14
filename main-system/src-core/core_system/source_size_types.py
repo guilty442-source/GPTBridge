@@ -1,4 +1,4 @@
-"""Source size types and constants — A185/E160.
+"""Source size types and constants — A430/E160.
 
 Default limits, exception categories, and the SourceSizeMeasurement
 dataclass.  This module has no imports from report, measurement,
@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Final
 
 # ---------------------------------------------------------------------------
-# Default limits (A185: DEFAULT-LIMITS)
+# Default limits (A430: DEFAULT-LIMITS)
 # ---------------------------------------------------------------------------
 
 MODULE_LINE_LIMIT: Final[int] = 500
@@ -20,16 +20,16 @@ CLASS_LINE_LIMIT: Final[int] = 300
 PUBLIC_ENTRY_LIMIT: Final[int] = 3
 CALLABLES_LIMIT: Final[int] = 12
 
-# A185: WARNING — 80% of any limit
+# A430: WARNING — 80% of any limit
 WARNING_THRESHOLD: Final[float] = 0.80
 
-# A185: FILE-TYPES — source file extensions subject to size limits
+# A430: FILE-TYPES — source file extensions subject to size limits
 SOURCE_FILE_EXTENSIONS: Final[frozenset[str]] = frozenset({
     ".py", ".pyi", ".ts", ".tsx", ".js", ".jsx",
     ".c", ".h", ".cpp", ".hpp", ".inl", ".cs", ".sql",
 })
 
-# A185: EXCEPTION-CATEGORIES
+# A430: EXCEPTION-CATEGORIES
 EXCEPTION_CATEGORIES: Final[tuple[str, ...]] = (
     "auto-generated",
     "pure-data-table",

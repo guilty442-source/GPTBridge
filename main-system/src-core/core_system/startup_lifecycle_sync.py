@@ -2,7 +2,7 @@
 
 Verification functions for backend-frontend projection synchronization and
 window host process continuity.  Split from ``startup_lifecycle`` for
-A185/E160 source-size compliance.
+A430/E160 source-size compliance.
 """
 
 from __future__ import annotations

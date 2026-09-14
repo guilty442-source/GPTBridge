@@ -52,7 +52,7 @@ class CleanupRetentionSyncSubSovereign(SubSovereignBase):
             info = {"info": info}
         try:
             record = self.sync_cleanup_retention(info)
-        except Exception:
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
             self.report_to_parent("failure")
             return refusal_outcome("SYNC_FAILED", self.verified_basis("A322"))
         self.report_to_parent("success")

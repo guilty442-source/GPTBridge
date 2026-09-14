@@ -15,7 +15,7 @@ Sessions exist only for WebSocket connections that already passed
 are therefore enforced before any event leaves the outbox.
 
 The durable store lives in :mod:`tasks.state_outbox_store` (split for
-A185/E160 source-size compliance).
+A430/E160 source-size compliance).
 """
 
 from __future__ import annotations

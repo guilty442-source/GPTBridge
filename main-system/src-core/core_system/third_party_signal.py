@@ -1,7 +1,7 @@
 """Third-party startup deadline check and signal — A199/E173.
 
 Signal production and deadline verification extracted from
-third_party_governance for source-size compliance (A185/E160).
+third_party_governance for source-size compliance (A430/E160).
 Signals are read-only; they never mutate state.
 """
 

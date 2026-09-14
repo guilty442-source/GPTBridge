@@ -1,6 +1,6 @@
 """Repair permission validator — repair-chain-internal scope validation.
 
-This is NOT the governance-layer ``permission-sovereign`` (A6/E4).
+This is NOT the governance-layer ``permission-sovereign`` (A436/E4).
 It is a repair-chain-internal validator that checks the repair
 objective's actor and scope before the governance-layer permission
 sovereign's ``authorize()`` master-entry is called.
@@ -25,12 +25,12 @@ from core_system.auto_repair_chain_types import (
 class RepairPermissionValidator:
     """Repair-specific permission validator.
 
-    This is NOT the governance-layer ``permission-sovereign`` (A6/E4).
+    This is NOT the governance-layer ``permission-sovereign`` (A436/E4).
     It is a repair-chain-internal validator that checks the repair
     objective's actor and scope before the governance-layer permission
     sovereign's ``authorize()`` master-entry is called.  The governance-
     layer sovereign remains the sole authority for permission matters
-    (A6); this class only pre-validates the repair-specific scope.
+    (A436); this class only pre-validates the repair-specific scope.
     """
 
     def __init__(self, project_root: Path, auth_service: GovernanceAuthenticationService, audit: GovernanceAudit):

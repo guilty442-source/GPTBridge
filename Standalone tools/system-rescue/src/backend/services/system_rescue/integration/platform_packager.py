@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-try:  # information-layer-owned process adapter (A177)
+try:  # information-layer-owned process adapter (A447)
     from shared_layer.process_control import GovernedProcessAdapter
 except ImportError:  # pragma: no cover - fail closed when the layer is absent
     GovernedProcessAdapter = None  # type: ignore[assignment]
@@ -66,7 +66,7 @@ def _run_packager_cli(
 ) -> dict[str, Any]:
     """Delegate to the main-system central packager under governance.
 
-    A177: the cross-process call runs through the information-layer-owned
+    A447: the cross-process call runs through the information-layer-owned
     ``GovernedProcessAdapter`` (allowlisted interpreter + bounded timeout +
     audit record), never through a direct subprocess control channel.
     """

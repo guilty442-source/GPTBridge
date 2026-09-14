@@ -1,7 +1,7 @@
 """Startup lifecycle — signals (A192-E170).
 
 Signal functions for projection gaps and window host status.  Split from
-``startup_lifecycle`` for A185/E160 source-size compliance.
+``startup_lifecycle`` for A430/E160 source-size compliance.
 """
 
 from __future__ import annotations

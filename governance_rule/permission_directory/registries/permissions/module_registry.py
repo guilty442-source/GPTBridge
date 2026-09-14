@@ -1,6 +1,6 @@
-"""Source-structure module registry — A185/E160 MANAGED-DIRECTORIES.
+"""Source-structure module registry — A430/E160 MANAGED-DIRECTORIES.
 
-Per A185/E160: ``MANAGED-DIRECTORIES:module-registry+source-owner-registry+
+Per A430/E160: ``MANAGED-DIRECTORIES:module-registry+source-owner-registry+
 canonical-folder/layer-registry+top-level-root-allowlist+tool-source-root-
 registry+test-source-registry+generated-artifact-registry+source-size-
 exception-registry`` and ``DIRECTORY-OWNER:permission-sovereign exclusively
@@ -8,7 +8,7 @@ manages operational source-structure-directories``.
 
 This registry lists all codex-implementation submodules in
 ``main-system/src-core/core_system/`` that were split to comply with
-A185/E160 source-size limits.  Each entry records the canonical path,
+A430/E160 source-size limits.  Each entry records the canonical path,
 module group, role, codex basis, and sovereign owner.
 
 This is a declarative registry only — it contains no executable logic.
@@ -22,7 +22,7 @@ from typing import Final
 
 @dataclass(frozen=True)
 class ModuleRegistryEntry:
-    """A single module registry entry (A185: module-registry)."""
+    """A single module registry entry (A430: module-registry)."""
 
     path: str
     module_group: str
@@ -46,13 +46,13 @@ MODULE_REGISTRY: Final[tuple[ModuleRegistryEntry, ...]] = (
     ModuleRegistryEntry("main-system/src-core/core_system/tool_separation_verify.py", "tool_separation", "verify", "A184/E159", "permission-sovereign"),
     ModuleRegistryEntry("main-system/src-core/core_system/tool_separation_signal.py", "tool_separation", "signal", "A184/E159", "permission-sovereign"),
     ModuleRegistryEntry("main-system/src-core/core_system/tool_separation_aggregate.py", "tool_separation", "aggregate", "A184/E159", "permission-sovereign"),
-    # source_size (A185/E160)
-    ModuleRegistryEntry("main-system/src-core/core_system/source_size.py", "source_size", "facade", "A185/E160", "permission-sovereign"),
-    ModuleRegistryEntry("main-system/src-core/core_system/source_size_types.py", "source_size", "types", "A185/E160", "permission-sovereign"),
-    ModuleRegistryEntry("main-system/src-core/core_system/source_size_report.py", "source_size", "report", "A185/E160", "permission-sovereign"),
-    ModuleRegistryEntry("main-system/src-core/core_system/source_size_measure.py", "source_size", "measure", "A185/E160", "permission-sovereign"),
-    ModuleRegistryEntry("main-system/src-core/core_system/source_size_verify.py", "source_size", "verify", "A185/E160", "permission-sovereign"),
-    ModuleRegistryEntry("main-system/src-core/core_system/source_size_signal.py", "source_size", "signal", "A185/E160", "permission-sovereign"),
+    # source_size (A430/E160)
+    ModuleRegistryEntry("main-system/src-core/core_system/source_size.py", "source_size", "facade", "A430/E160", "permission-sovereign"),
+    ModuleRegistryEntry("main-system/src-core/core_system/source_size_types.py", "source_size", "types", "A430/E160", "permission-sovereign"),
+    ModuleRegistryEntry("main-system/src-core/core_system/source_size_report.py", "source_size", "report", "A430/E160", "permission-sovereign"),
+    ModuleRegistryEntry("main-system/src-core/core_system/source_size_measure.py", "source_size", "measure", "A430/E160", "permission-sovereign"),
+    ModuleRegistryEntry("main-system/src-core/core_system/source_size_verify.py", "source_size", "verify", "A430/E160", "permission-sovereign"),
+    ModuleRegistryEntry("main-system/src-core/core_system/source_size_signal.py", "source_size", "signal", "A430/E160", "permission-sovereign"),
     # view_access (A186/E161)
     ModuleRegistryEntry("main-system/src-core/core_system/view_access.py", "view_access", "facade", "A186/E161", "permission-sovereign"),
     ModuleRegistryEntry("main-system/src-core/core_system/view_access_types.py", "view_access", "types", "A186/E161", "permission-sovereign"),
@@ -108,7 +108,7 @@ def module_registry_snapshot() -> dict[str, object]:
     return {
         "authority": "permission-sovereign",
         "directory_entry": "permission-directory://source-structure",
-        "basis": "A185/E160",
+        "basis": "A430/E160",
         "total_modules": len(MODULE_REGISTRY),
         "module_groups": len(groups),
         "groups": {k: sorted(v) for k, v in sorted(groups.items())},

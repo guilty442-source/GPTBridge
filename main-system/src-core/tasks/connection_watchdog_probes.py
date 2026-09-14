@@ -1,4 +1,4 @@
-"""Connection watchdog — probe infrastructure (A185 sub-module).
+"""Connection watchdog — probe infrastructure (A430 sub-module).
 
 Extracted from ``connection_watchdog.py``: ``ProbeResult``,
 ``HealthCheckCache``, ``CircuitBreaker`` and ``ResourceUsageSnapshot``

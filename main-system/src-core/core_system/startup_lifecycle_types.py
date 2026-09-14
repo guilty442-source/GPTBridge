@@ -1,7 +1,7 @@
 """Startup lifecycle — types and constants (A192-E170).
 
 Constants and data structures for the startup lifecycle.  Split from
-``startup_lifecycle`` for A185/E160 source-size compliance.
+``startup_lifecycle`` for A430/E160 source-size compliance.
 """
 
 from __future__ import annotations

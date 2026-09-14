@@ -1,5 +1,5 @@
 /**
- * OwnershipPolicy.ts ?”Module ownership and assignment policy (A325/A356).
+ * OwnershipPolicy.ts ?ï¿½Module ownership and assignment policy (A325/A356).
  *
  * Immutable data only. Defines how modules are assigned to sub-sovereigns.
  */
@@ -278,7 +278,7 @@ export const OWNERSHIP_ASSIGNMENTS: OwnershipAssignment[] = [
     layer: 'channel-api',
   },
 
-  // Native Layer (A212/A213/A221)
+  // Native Layer (A219/A220/A221)
   {
     modulePattern: 'native/core/*',
     owner: 'xingcheng-sovereign',

@@ -1,7 +1,7 @@
 """Root containment signal functions — A201/E175, A202/E176.
 
 Signal production extracted from root_containment for source-size
-compliance (A185/E160).  Signals are read-only; they never mutate state.
+compliance (A430/E160).  Signals are read-only; they never mutate state.
 """
 
 from __future__ import annotations

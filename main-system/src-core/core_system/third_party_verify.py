@@ -1,7 +1,7 @@
 """Third-party verification functions — A197/E171, A198/E172, A199/E173.
 
 Verification logic extracted from third_party_governance for source-size
-compliance (A185/E160).  All functions are read-only verification.
+compliance (A430/E160).  All functions are read-only verification.
 """
 
 from __future__ import annotations

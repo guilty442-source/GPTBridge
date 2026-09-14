@@ -1,5 +1,5 @@
 """Single-use in-process delegation sessions with audit, generation ID,
-and process boundary proof (A121/A174).
+and process boundary proof (A121/A435).
 
 A sovereign that delegates a request to another sovereign mints a
 single-use session bound to ``(parent, child, intent)`` and attaches its
@@ -21,7 +21,7 @@ This is the identity attestation available to sovereign actors, which are
 not permission-directory identities: the permission-managed
 ``capability_token`` path remains mandatory whenever a token is presented,
 and a sovereign-identity claim without a token or a valid single-use
-delegation session is rejected (A121/A174 fail-closed).
+delegation session is rejected (A121/A435 fail-closed).
 """
 
 from __future__ import annotations
@@ -84,7 +84,7 @@ def _append_audit(entry: dict[str, Any]) -> None:
 
 
 def mint_delegation(parent: str, child: str, intent: str) -> str:
-    """Mint a single-use delegation session nonce (A174 single-use).
+    """Mint a single-use delegation session nonce (A435 single-use).
 
     The session carries a generation ID and process boundary proof so
     a nonce from a previous process or generation cannot be consumed.

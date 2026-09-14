@@ -124,7 +124,7 @@ class BootCore(
                     pass
 
     # --------------------------------------------------------------
-    # supervise loop (split into sub-methods for A185 function limit)
+    # supervise loop (split into sub-methods for A430 function limit)
     # --------------------------------------------------------------
 
     def run(self, args: list[str]) -> int:

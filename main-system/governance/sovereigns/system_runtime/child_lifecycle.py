@@ -74,7 +74,7 @@ class SystemRuntimeChildLifecycleMixin:
 
         try:
             self.record_child_failure(child_id)
-        except Exception:
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
             pass
 
         return accepted_outcome(

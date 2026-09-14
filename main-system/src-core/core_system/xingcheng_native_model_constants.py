@@ -10,7 +10,7 @@ from governance_rule.execution.codex_official import official_self_declaration
 
 from .xingcheng_personality import XINGCHENG_MODULE_ID
 
-# A74/A174: 星澄 self-declaration through the official entry single-use
+# A74/A435: 星澄 self-declaration through the official entry single-use
 # session — resolved by sovereign identity, not an area scan.
 _XINGCHENG_SOVEREIGN = official_self_declaration(XINGCHENG_MODULE_ID)
 if _XINGCHENG_SOVEREIGN is None:

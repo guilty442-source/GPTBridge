@@ -1,4 +1,4 @@
-"""Permission lifecycle manager — A6/A10/A11/A22.
+"""Permission lifecycle manager — A436/A10/A11/A22.
 
 負責：
 1. 權限授予的自動續期、過期處理、撤銷
@@ -158,7 +158,7 @@ class PermissionLifecycleManager:
         """自動續期權限授予。
 
         續期是權限事務 — 委派給權限主宰的 ``permission.renew`` 裁決
-        （A10/A11 完整閘門 + A313 星澄審查），不自作決定。裁決被拒
+        （A10/A11 完整閘門 + A319 星澄審查），不自作決定。裁決被拒
         或主宰不可用時 fail-closed 標記過期。
         """
         try:

@@ -1,4 +1,4 @@
-"""Governance policy dataclass types (A185/E160 split)."""
+"""Governance policy dataclass types (A430/E160 split)."""
 
 from __future__ import annotations
 

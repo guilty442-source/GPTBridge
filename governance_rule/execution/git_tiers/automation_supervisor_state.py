@@ -1,7 +1,7 @@
 """Supervisor state directory, registry, logging, and stop/status helpers.
 
 Owns the shared ``.git/gptbridge-automation`` state directory layout and the
-registry file so the facade and the supervision loop stay small (A185/E160).
+registry file so the facade and the supervision loop stay small (A430/E160).
 """
 
 from __future__ import annotations

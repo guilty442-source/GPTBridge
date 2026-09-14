@@ -1,7 +1,7 @@
 """Deadlock-free governed startup — verification (A192/E167, A191/E166).
 
 Verification functions and the dependency DAG data structure.  Split from
-``governed_startup`` for A185/E160 source-size compliance.
+``governed_startup`` for A430/E160 source-size compliance.
 """
 
 from __future__ import annotations

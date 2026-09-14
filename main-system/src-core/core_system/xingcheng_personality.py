@@ -22,7 +22,7 @@ from governance_rule.execution.codex_official import official_self_declaration
 # 人格身份常量 — 來自 Governance Codex
 XINGCHENG_IDENTITY = "星澄"
 
-# A74/A174: 星澄 self-declaration through the official entry single-use
+# A74/A435: 星澄 self-declaration through the official entry single-use
 # session (identity-bound), not a direct codex snapshot import.  The
 # sovereign record is resolved by its registered id — the codex area is
 # ``xingcheng-own-domain``, so an ``area == "xingcheng"`` scan can never

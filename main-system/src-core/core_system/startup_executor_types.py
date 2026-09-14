@@ -1,4 +1,4 @@
-"""Startup Sovereign executor — result types (split for A185/E160 size).
+"""Startup Sovereign executor — result types (split for A430/E160 size).
 
 Dataclasses for per-phase evidence and generation results, split from
 ``startup_executor`` to keep each source file under 500 lines.

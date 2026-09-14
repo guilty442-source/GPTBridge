@@ -71,7 +71,7 @@ from .permission.status import PermissionStatusMixin
 
 
 def _permission_sovereign():
-    # A74/A174: read the permission-sovereign declaration through the
+    # A74/A435: read the permission-sovereign declaration through the
     # official entry (governance-codex://official) with a self-attested
     # single-use session, not a direct load_governance_codex() call.
     return official_self_declaration("permission-sovereign")
@@ -112,7 +112,7 @@ class PermissionSovereign(
 
     # A10/A11 explicit intent allowlist
     _INTENT_ALLOWLIST: frozenset[str] = frozenset({
-        # Permission queries and termination (A6/A10/A22)
+        # Permission queries and termination (A436/A10/A22)
         "permission.query",
         "permission.terminate",
         "permission.renew",
@@ -123,7 +123,7 @@ class PermissionSovereign(
         "directory.verify",
         # Identity verification (A39)
         "identity.verify",
-        # Execution compliance supervision (A6)
+        # Execution compliance supervision (A436)
         "permission.supervise",
         # Authorization routing (A10/E4)
         "permission.authorize",
@@ -133,7 +133,7 @@ class PermissionSovereign(
         super().__init__(app)
         self._governance_ref: Any = governance
         self._directory = None  # 由 governance 注入
-        # A6 supervision: record of execution-compliance violations.
+        # A436 supervision: record of execution-compliance violations.
         self._compliance_violations: list[dict[str, Any]] = []
         # A10/A22: in-memory cache of issued permission grants, backed by
         # the append-only ledger (permission_grant_ledger) so grants
@@ -166,7 +166,7 @@ class PermissionSovereign(
                             "requester": entry.get("requester", ""),
                         }
             return grants
-        except Exception:
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
             return {}
 
     # ------------------------------------------------------------------

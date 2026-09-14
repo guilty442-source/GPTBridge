@@ -1,4 +1,4 @@
-"""Hot-reload watcher reload request mixin — refactored for A185 compliance.
+"""Hot-reload watcher reload request mixin — refactored for A430 compliance.
 
 Provides the _maybe_reload method and decision-sovereign feedback
 loop for the HotReloadWatcher class.

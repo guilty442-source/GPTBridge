@@ -1,4 +1,4 @@
-"""Types and dataclasses for permission automation — A6/A10/A11/A22.
+"""Types and dataclasses for permission automation — A436/A10/A11/A22.
 
 This module contains all enums and dataclasses used by the permission
 automation submodules.  No imports from other permission-automation

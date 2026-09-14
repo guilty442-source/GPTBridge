@@ -1,7 +1,7 @@
 """Root containment verification functions — A201/E175, A202/E176.
 
 Verification logic extracted from root_containment for source-size
-compliance (A185/E160).  All functions are read-only path verification.
+compliance (A430/E160).  All functions are read-only path verification.
 """
 
 from __future__ import annotations

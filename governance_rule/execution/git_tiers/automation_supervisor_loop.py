@@ -1,7 +1,7 @@
 """Supervision loop and per-worktree watcher management.
 
 Spawns one self-commit watcher subprocess per registered worktree with
-bounded restart backoff (A170/A178), runs the conflict-safe synchronizer on
+bounded restart backoff (A441/A178), runs the conflict-safe synchronizer on
 a cadence, and exits cleanly when the lock file is removed.
 """
 

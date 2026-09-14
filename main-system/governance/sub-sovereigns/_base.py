@@ -118,7 +118,7 @@ class SubSovereignBase(SovereignBase, ABC):
         if request.payload.get("_delegated_by") != parent:
             return False
 
-        # A121/A174: the delegation must carry a single-use session nonce
+        # A121/A435: the delegation must carry a single-use session nonce
         # minted by the parent — a bare ``_delegated_by`` string is
         # forgeable by any in-process caller and replayable.  The entry
         # gate (``_verify_requester``) consumes the nonce and records the

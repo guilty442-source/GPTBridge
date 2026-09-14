@@ -70,7 +70,7 @@ from .decision.status import DecisionStatusMixin
 from .decision.state import DecisionStateMixin
 
 
-# A74/A174: self-declaration through the official entry single-use
+# A74/A435: self-declaration through the official entry single-use
 # session, not a direct codex snapshot import.
 _DECISION_SOVEREIGN = official_self_declaration("decision-sovereign")
 if _DECISION_SOVEREIGN is None:

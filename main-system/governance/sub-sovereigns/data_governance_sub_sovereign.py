@@ -181,7 +181,7 @@ class DataGovernanceSubSovereign(SubSovereignBase):
             return None
         try:
             return bool(checker())
-        except Exception:
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
             return None
 
     def _structured_data_status(self) -> dict[str, Any]:
@@ -213,7 +213,7 @@ class DataGovernanceSubSovereign(SubSovereignBase):
         if self._task_queue is not None and hasattr(self._task_queue, "pending_recovery"):
             try:
                 recovery = self._task_queue.pending_recovery() or []
-            except Exception:
+            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
                 recovery = []
         executors = self._maintenance_executor_status()
         return {
@@ -244,7 +244,7 @@ class DataGovernanceSubSovereign(SubSovereignBase):
             return {}
         try:
             return status()
-        except Exception:
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
             return {}
 
     def _data_directory_report(self) -> dict[str, Any]:
@@ -253,7 +253,7 @@ class DataGovernanceSubSovereign(SubSovereignBase):
             return {}
         try:
             return checker(getattr(self.app, "project_root", None))
-        except Exception:
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
             return {"error": "data-health-checker-unavailable"}
 
 

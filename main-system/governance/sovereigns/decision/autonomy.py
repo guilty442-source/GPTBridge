@@ -59,7 +59,7 @@ class DecisionAutonomyMixin:
                 await self._autonomy_tick()
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
                 pass
             try:
                 await asyncio.wait_for(
@@ -103,7 +103,7 @@ class DecisionAutonomyMixin:
                 if parent is not None:
                     try:
                         parent.record_child_failure(child_id)
-                    except Exception:
+                    except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
                         pass
                 watch["state"] = "stopped"
                 watch["stopped_at"] = _iso_now()
@@ -132,7 +132,7 @@ class DecisionAutonomyMixin:
             watch["restart_attempts"] = int(watch.get("restart_attempts") or 0) + 1
             try:
                 watch["last_result"] = await executor.restart_child(self, child_id)
-            except Exception as error:
+            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError) as error:
                 watch["last_result"] = {
                     "ok": False,
                     "error": f"{type(error).__name__}: {error}",

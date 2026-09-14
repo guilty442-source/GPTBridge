@@ -7,7 +7,7 @@ details live in submodules:
   * :mod:`core_system.fault_analysis_service_collectors` — collectors mixin.
 
 Read-only fault evidence aggregation and pattern detection for Xingcheng
-(A174/A6500 codex-authorized global review authority).
+(A435/A6500 codex-authorized global review authority).
 """
 
 from __future__ import annotations

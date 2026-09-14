@@ -329,7 +329,7 @@ class DirectoryMasterCatalog:
         # Group 3: Identity & permission (A235)
         self._populate_identity_permission(catalog)
 
-        # Group 4: Information layer & channels (A236)
+        # Group 4: Information layer & channels (A326)
         self._populate_information_layer(catalog)
 
         # Group 5: Startup & runtime (A237)
@@ -444,7 +444,7 @@ class DirectoryMasterCatalog:
         ))
 
     def _populate_information_layer(self, catalog: MasterCatalog) -> None:
-        """A236: Information layer channels."""
+        """A326: Information layer channels."""
         catalog.add_entry(DirectoryEntry(
             class_id=DirectoryClass.INFO_CHANNEL,
             domain=DirectoryDomain.INFORMATION_LAYER,

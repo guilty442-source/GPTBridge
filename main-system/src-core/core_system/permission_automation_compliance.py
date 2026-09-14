@@ -1,4 +1,4 @@
-"""Compliance monitor — A6 execution compliance monitoring.
+"""Compliance monitor — A436 execution compliance monitoring.
 
 負責：
 1. 持續監控執行合規性
@@ -196,7 +196,7 @@ class ComplianceMonitor:
 
         權限主宰帳本（``_issued_grants``）中的授予若其 actor/能力已不在
         封印身份權限目錄內，記為 medium 違規 — 帳本與目錄漂移屬於
-        執行合規監督範圍（A6）。
+        執行合規監督範圍（A436）。
         """
         issued = getattr(self.permission_sovereign, "_issued_grants", None)
         if not issued:

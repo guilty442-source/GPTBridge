@@ -1,6 +1,6 @@
-"""Source size verification functions — A185/E160.
+"""Source size verification functions — A430/E160.
 
-Verifies source files and directories against A185/E160 size limits and
+Verifies source files and directories against A430/E160 size limits and
 builds typed violation reports.
 """
 
@@ -28,7 +28,7 @@ from core_system.source_size_types import (
 def _build_size_violations(
     path: Path, m: SourceSizeMeasurement,
 ) -> list[SizeViolation]:
-    """Build violation list from a measurement (A185/E160)."""
+    """Build violation list from a measurement (A430/E160)."""
     violations: list[SizeViolation] = []
     if m.module_exceeds:
         violations.append(SizeViolation(
@@ -72,7 +72,7 @@ def verify_source_size(
     entry_limit: int = PUBLIC_ENTRY_LIMIT,
     callables_limit: int = CALLABLES_LIMIT,
 ) -> SizeReport:
-    """Verify a source file against A185/E160 size limits."""
+    """Verify a source file against A430/E160 size limits."""
     measurement = measure_source(
         path,
         module_limit=module_limit,
@@ -105,7 +105,7 @@ def verify_source_directory(
     entry_limit: int = PUBLIC_ENTRY_LIMIT,
     callables_limit: int = CALLABLES_LIMIT,
 ) -> dict[str, Any]:
-    """Verify all source files in a directory tree against A185/E160 limits.
+    """Verify all source files in a directory tree against A430/E160 limits.
 
     Returns a dict with ``ok``, ``checked``, ``violations``, ``warnings``,
     and ``basis``.
@@ -139,7 +139,7 @@ def verify_source_directory(
 
     return {
         "ok": len(all_violations) == 0,
-        "basis": "A185/E160",
+        "basis": "A430/E160",
         "checked": len(reports),
         "violations": all_violations,
         "warnings": all_warnings,

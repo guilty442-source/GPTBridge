@@ -15,7 +15,7 @@ The :class:`AutoRepairOrchestrator` and the factory function
 entry point.
 
 Key governance rules enforced:
-- A258: No overwrite/reset preservation boundary
+- A261: No overwrite/reset preservation boundary
 - A259: Exact root-cause evidence > preserve > exact decision/permission/programming-review proof > smallest deterministic targeted patch > post-hash/diff/tests/audit/stability
 - A261: Smallest targeted patch plan
 - Learning-system-sovereign: verified-repeatable-recipes-only via maintenance-governed-executor

@@ -1,7 +1,7 @@
 """Deadlock-free governed startup — signals (A192/E167).
 
 Signal functions for startup failure and status.  Split from
-``governed_startup`` for A185/E160 source-size compliance.
+``governed_startup`` for A430/E160 source-size compliance.
 """
 
 from __future__ import annotations

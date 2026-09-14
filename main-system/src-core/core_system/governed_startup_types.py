@@ -1,7 +1,7 @@
 """Deadlock-free governed startup — types and constants (A192/E167, A191/E166).
 
 Constants and data structures for the startup sequence.  Split from
-``governed_startup`` for A185/E160 source-size compliance.
+``governed_startup`` for A430/E160 source-size compliance.
 
 A191/A192: phase lists, criticality classes, and ready-conditions are
 loaded from ``config/startup_manifest.json`` via

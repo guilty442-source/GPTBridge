@@ -1,13 +1,13 @@
-"""Information-layer-owned adapter for governed CLI process control (A177).
+"""Information-layer-owned adapter for governed CLI process control (A447).
 
-A177 forbids domain or presentation code from opening a direct subprocess
+A447 forbids domain or presentation code from opening a direct subprocess
 control channel: cross-process communication must pass through an
 information-layer-owned adapter that enforces an executable allowlist and
 a bounded timeout, and records every invocation.  ``GovernedProcessAdapter``
 is that adapter — callers may only drive the exact executables they
 registered, and each run leaves a durable, content-hashed audit record.
 
-Hardening (A177/A121/A46):
+Hardening (A447/A121/A46):
 - ``audit_trail`` is persisted to an append-only JSONL ledger with SHA-256
   content hashes so records survive process restarts and cannot be tampered
   with silently.
@@ -71,7 +71,7 @@ def _iso_now() -> str:
 
 @dataclass(frozen=True)
 class HealthSignal:
-    """Adapter health summary for observability (A177)."""
+    """Adapter health summary for observability (A447)."""
 
     total_invocations: int = 0
     successful: int = 0
@@ -127,7 +127,7 @@ def _persist_audit(ledger_path: Path, record: dict[str, Any]) -> None:
 def _validate_environment(
     environment: Mapping[str, str] | None,
 ) -> dict[str, str] | None:
-    """Strip environment keys not in the allowlist (A177 fail-closed)."""
+    """Strip environment keys not in the allowlist (A447 fail-closed)."""
     if environment is None:
         return None
     return {
@@ -183,7 +183,7 @@ class GovernedProcessAdapter:
 
     @property
     def health(self) -> HealthSignal:
-        """Adapter health signal for observability (A177)."""
+        """Adapter health signal for observability (A447)."""
         return self._health
 
     def run_json(
@@ -312,7 +312,7 @@ class GovernedProcessAdapter:
         return report
 
     def _check_rate(self, requester: str) -> bool:
-        """Per-requester rate limit (A177)."""
+        """Per-requester rate limit (A447)."""
         with self._lock:
             bucket = self._rate_buckets.get(requester)
             if bucket is None:

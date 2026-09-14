@@ -64,9 +64,9 @@ class IndependentVerifier:
                 evidence["checks"]["stability"] = result
                 all_passed = all_passed and result
 
-        # 2. A166/A258: NO snapshot/hash comparison for verification
+        # 2. A166/A261: NO snapshot/hash comparison for verification
         # Pre/post hashes are recorded for audit trail only, not used for decisions
-        evidence["checks"]["snapshot_comparison"] = "prohibited_by_A166_A258"
+        evidence["checks"]["snapshot_comparison"] = "prohibited_by_A166_A261"
 
         # 3. Verify no uncommitted changes lost
         uncommitted_preserved = not self._has_uncommitted_loss(plan.preimage_hashes.keys())

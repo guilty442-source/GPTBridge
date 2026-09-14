@@ -1,10 +1,10 @@
-"""Dynamic-First Configuration — A386/A389 Implementation.
+"""Dynamic-First Configuration — A386/A409 Implementation.
 
 A386: DEFAULT:DYNAMIC-FIRST. Every value that may vary by machine, environment, worktree,
 module, generation, release, capacity or deployment is referenced by a typed canonical
 code registry or governed environment binding.
 
-A389: ONLY-HARDCODE-ALLOWANCE: the only literal runtime/deployment value permitted to be
+A409: ONLY-HARDCODE-ALLOWANCE: the only literal runtime/deployment value permitted to be
 hardcoded is a timestamp value created for an immutable event, revision or evidence record.
 
 This module provides:
@@ -346,7 +346,7 @@ class DynamicConfigRegistry:
 
 
 class TimestampHardcodeValidator:
-    """A389: Enforce ONLY-HARDCODE-ALLOWANCE for timestamps only."""
+    """A409: Enforce ONLY-HARDCODE-ALLOWANCE for timestamps only."""
 
     # Patterns that are allowed to be hardcoded
     ALLOWED_TIMESTAMP_PATTERNS = [

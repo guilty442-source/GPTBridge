@@ -1,10 +1,10 @@
-"""Connection watchdog — probe and audit mixins (A185 sub-module).
+"""Connection watchdog — probe and audit mixins (A430 sub-module).
 
 Extracted from ``connection_watchdog.py``: the probe methods
 (``_probe_backend_http``, ``_check_frontend_connected``, ``_compute_state``)
 and the audit methods (``_record_event``, ``_record_learning``,
 ``_write_state``) are composed into the ``ConnectionWatchdog`` class via
-mixins to keep the class under the A185 300-effective-line limit.
+mixins to keep the class under the A430 300-effective-line limit.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ _logger = logging.getLogger("gptbridge.connection_watchdog")
 
 
 class ConnectionProbeMixin:
-    """HTTP and IPC health probe methods (A185 sub-module)."""
+    """HTTP and IPC health probe methods (A430 sub-module)."""
 
     def _probe_backend_http(self) -> bool:
         """Probe the backend HTTP /health endpoint with caching and circuit breaker."""
@@ -139,7 +139,7 @@ class ConnectionProbeMixin:
 
 
 class ConnectionAuditMixin:
-    """Event recording, learning and state persistence (A185 sub-module)."""
+    """Event recording, learning and state persistence (A430 sub-module)."""
 
     def _record_event(
         self,

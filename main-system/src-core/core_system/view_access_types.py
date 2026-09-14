@@ -57,7 +57,7 @@ VIEW_LEVELS: Final[tuple[str, ...]] = (
     "V3",  # owner-scoped detail and nonsecret diagnostics
     "V4",  # authorized cross-domain diagnostic and redacted audit evidence
     "V5",  # restricted security/integrity/incident evidence
-    "VC",  # authoritative codex view (A174)
+    "VC",  # authoritative codex view (A435)
 )
 
 VIEW_LEVEL_DEFAULT: Final[str] = "V0"

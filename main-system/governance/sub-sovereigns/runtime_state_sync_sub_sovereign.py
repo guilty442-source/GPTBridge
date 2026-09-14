@@ -143,7 +143,7 @@ class RuntimeStateSyncSubSovereign(SubSovereignBase):
             try:
                 await send(event, payload)
                 count += 1
-            except Exception:
+            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
                 pass
         return count
 

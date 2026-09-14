@@ -64,7 +64,7 @@ class SystemRuntimeAutonomyMixin:
                 await self._auto_tick()
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
                 pass
             try:
                 await asyncio.sleep(self._auto_loop_interval)
@@ -146,7 +146,7 @@ class SystemRuntimeAutonomyMixin:
                 if parent is not None:
                     try:
                         parent.record_child_failure(child_id)
-                    except Exception:
+                    except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
                         pass
                 watch["state"] = "stopped"
                 watch["stopped_at"] = self._iso_now()
@@ -177,7 +177,7 @@ class SystemRuntimeAutonomyMixin:
             self._auto_metrics["child_retries_triggered"] += 1
             try:
                 watch["last_result"] = await executor.restart_child(self, child_id)
-            except Exception as error:
+            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError) as error:
                 watch["last_result"] = {
                     "ok": False,
                     "error": f"{type(error).__name__}: {error}",

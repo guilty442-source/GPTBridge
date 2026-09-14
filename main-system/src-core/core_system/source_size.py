@@ -1,6 +1,6 @@
-"""Source size limits and directory authority — A185/E160.
+"""Source size limits and directory authority — A430/E160.
 
-Per A185 (source-size-and-permission-managed-directory-control) and E160
+Per A430 (source-size-and-permission-managed-directory-control) and E160
 (source-size-directory-authority), handwritten source modules must obey
 bounded size limits, and the Permission Sovereign exclusively manages the
 source-structure directory registries.

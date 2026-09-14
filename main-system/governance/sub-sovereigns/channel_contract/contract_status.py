@@ -136,7 +136,7 @@ class ContractRegistryMixin:
             return 0
         try:
             tasks = app._command_tasks
-        except Exception:
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
             return 0
         if isinstance(tasks, dict):
             return len(tasks)
@@ -216,7 +216,7 @@ class ContractRegistryMixin:
         if queue is not None and hasattr(queue, "pending_recovery"):
             try:
                 recovery = queue.pending_recovery() or []
-            except Exception:
+            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
                 recovery = []
         return {
             "duty": "coordinate-message-routing",

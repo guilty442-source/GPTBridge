@@ -1,7 +1,7 @@
 """Root containment constants and dataclasses — A201/E175, A202/E176.
 
 Types and constants extracted from root_containment for source-size
-compliance (A185/E160).  This module holds no verification or signal logic.
+compliance (A430/E160).  This module holds no verification or signal logic.
 """
 
 from __future__ import annotations

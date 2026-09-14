@@ -103,14 +103,14 @@ the physical state artefact location, not a sovereign or module.
 The `main-system/src-core/core_system/` directory contains governance
 implementation modules registered in the codex `module_registry` table
 (v1.02000).  Each module group is split into submodules to comply with
-A185/E160 source-size limits (≤3 public entrypoints, ≤12 authored
+A430/E160 source-size limits (≤3 public entrypoints, ≤12 authored
 callables, ≤500 effective lines per module).
 
 | Module Group | Codex Basis | Submodules | Roles |
 |---|---|---|---|
 | `active_release` | A181/E156, A182/E157 | 7 | facade, types, persistence, ledger, verify, status, mismatch |
 | `tool_separation` | A184/E159 | 5 | facade, types, verify, signal, aggregate |
-| `source_size` | A185/E160 | 6 | facade, types, report, measure, verify, signal |
+| `source_size` | A430/E160 | 6 | facade, types, report, measure, verify, signal |
 | `view_access` | A186/E161 | 4 | facade, types, verify, signal |
 | `validation_chain` | A187/E162 | 4 | facade, types, verify, signal |
 | `sovereign_collaboration` | A188/E163 | 4 | facade, types, verify, signal |

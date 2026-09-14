@@ -14,7 +14,7 @@ The :class:`PermissionAutomationOrchestrator` remains here as the
 unified entry point.
 
 法典依據:
-- A6: permission-sovereign supervises execution compliance
+- A436: permission-sovereign supervises execution compliance
 - A10/A11: explicit allowlist, fail-closed
 - A22: permission termination authority
 - A39: actor identity verification

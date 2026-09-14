@@ -82,7 +82,7 @@ class RepairCoordinator(RepairCoordinatorRequestsMixin):
             / "state"
             / "repair-coordination.json"
         )
-        # A257-A261: Auto-repair orchestrator for governance-compliant repair chain
+        # A261: Auto-repair orchestrator for governance-compliant repair chain
         self._orchestrator: AutoRepairOrchestrator | None = None
         if auth_service is not None:
             self._orchestrator = create_auto_repair_orchestrator(project_root, auth_service)
@@ -267,7 +267,7 @@ class RepairCoordinator(RepairCoordinatorRequestsMixin):
         This method acquires the coordination lock (FORBID:duplicate-repair-owner),
         records the request + decision proof to the information layer, and
         either executes the repair (crash case) or processes through the
-        governance-compliant auto-repair chain (A257-A261).
+        governance-compliant auto-repair chain (A261).
         """
         report: dict[str, Any] = {
             "governed": True,
@@ -294,7 +294,7 @@ class RepairCoordinator(RepairCoordinatorRequestsMixin):
             "signal_only": signal_only or repair_executor is None,
         }
 
-        # Use the governance-compliant auto-repair chain (A257-A261)
+        # Use the governance-compliant auto-repair chain (A261)
         if self._orchestrator is not None:
             # Create health signal from the failure
             signal = HealthSignal(

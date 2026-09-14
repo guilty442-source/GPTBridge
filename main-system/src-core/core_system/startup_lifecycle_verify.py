@@ -1,7 +1,7 @@
 """Startup lifecycle — verification (A192-E170).
 
 Verification functions for startup sovereign capabilities, entry launcher,
-and readiness handoff.  Split from ``startup_lifecycle`` for A185/E160
+and readiness handoff.  Split from ``startup_lifecycle`` for A430/E160
 source-size compliance.
 """
 

@@ -1,6 +1,6 @@
-"""Sovereign requester verification helpers (A10/A11/A116/A121/A174).
+"""Sovereign requester verification helpers (A10/A11/A116/A121/A435).
 
-Extracted from ``SovereignBase`` to satisfy A185 class-size limits while
+Extracted from ``SovereignBase`` to satisfy A430 class-size limits while
 keeping the fail-closed identity-attestation contract in one place.
 """
 
@@ -49,7 +49,7 @@ def verify_token_requester(
 def verify_delegation_nonce(
     sovereign: Any, request: Any, nonce: str
 ) -> bool:
-    """Verify a single-use delegation nonce (A174 single-use)."""
+    """Verify a single-use delegation nonce (A435 single-use)."""
     if not consume_delegation(
         nonce,
         parent=request.requester,
@@ -66,7 +66,7 @@ def verify_delegation_nonce(
 
 
 def verify_requester(sovereign: Any, request: Any) -> bool:
-    """Verify a requester's identity (A10/A11/A116/A121/A174 fail-closed).
+    """Verify a requester's identity (A10/A11/A116/A121/A435 fail-closed).
 
     Identity proofs accepted, fail-closed:
 
@@ -75,7 +75,7 @@ def verify_requester(sovereign: Any, request: Any) -> bool:
       ``request.requester`` and its capability must cover the request.
     - ``_delegation_nonce`` present → it MUST be an unconsumed, unexpired
       single-use delegation session minted by another sovereign for this
-      sovereign and intent (A174 single-use; replayed/forged denies).
+      sovereign and intent (A435 single-use; replayed/forged denies).
     - self-adjudication (``requester == sovereign_id``) is accepted.
     - a sovereign-identity claim without a token or a valid single-use
       delegation session is rejected — a bare string is unverifiable.

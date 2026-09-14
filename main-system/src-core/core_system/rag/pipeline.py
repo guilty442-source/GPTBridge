@@ -1,7 +1,7 @@
 """RAG Pipeline — Canonical RAG path implementation (A371-A374).
 
 A371: DEFAULT-PATH: source content > qdrant dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
-A372: Binding order: 1 QDRANT_CANONICAL_RUNTIME > 2 PostgreSQL metadata/FTS/index_state > 3 Python domain model
+A374: Binding order: 1 QDRANT_CANONICAL_RUNTIME > 2 PostgreSQL metadata/FTS/index_state > 3 Python domain model
 A373: CANONICAL-TAKEOVER: normal read/write must prove Qdrant dense retrieval and PostgreSQL metadata/FTS/index_state are the live path
 A374: INDEX-STATE: every indexed resource/chunk records embedding_model, embedding_dimension, chunk_size, chunk_overlap, indexed_at_utc
 """
@@ -87,7 +87,7 @@ class RagPipelineConfig:
 
 
 class QdrantCanonicalRuntime:
-    """A372 Step 1: QDRANT_CANONICAL_RUNTIME - makes healthy Qdrant the proven default dense read/write executor."""
+    """A374 Step 1: QDRANT_CANONICAL_RUNTIME - makes healthy Qdrant the proven default dense read/write executor."""
 
     def __init__(self, config: RagPipelineConfig) -> None:
         self.config = config
@@ -190,7 +190,7 @@ class QdrantCanonicalRuntime:
 
 
 class PostgreSQLMetadataAuthority:
-    """A372 Step 2: PostgreSQL metadata/FTS/index_state - the live authority path."""
+    """A374 Step 2: PostgreSQL metadata/FTS/index_state - the live authority path."""
 
     def __init__(self, dsn: str) -> None:
         self.dsn = dsn
@@ -344,7 +344,7 @@ class PostgreSQLMetadataAuthority:
 
 
 class PythonDomainModel:
-    """A372 Step 3: Python domain model - sole production owner of typed results."""
+    """A374 Step 3: Python domain model - sole production owner of typed results."""
 
     def __init__(self, config: RagPipelineConfig) -> None:
         self.config = config
@@ -389,7 +389,7 @@ class CanonicalRagPipeline:
 
     DEFAULT-PATH: source content > qdrant dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
 
-    Binding order (A372):
+    Binding order (A374):
     1. QDRANT_CANONICAL_RUNTIME (Qdrant dense retrieval)
     2. PostgreSQL metadata/FTS/index_state (live authority)
     3. Python domain model (sole production owner)
@@ -405,7 +405,7 @@ class CanonicalRagPipeline:
         self._initialized = False
 
     async def initialize(self) -> bool:
-        """Initialize all canonical components in order (A372)."""
+        """Initialize all canonical components in order (A374)."""
         _logger.info("CanonicalRagPipeline: initializing...")
 
         # Step 1: Qdrant canonical runtime

@@ -1,5 +1,5 @@
 /**
- * LanguageBoundaryChecker.ts ?”Language Boundary Gate (A348/A351/A352/A353).
+ * LanguageBoundaryChecker.ts ?ï¿½Language Boundary Gate (A348/A351/A352/A353).
  *
  * VERDICT: exactly PASS | WARN | FAIL
  * TRIGGERS: save > pre-commit > integration > release
@@ -56,7 +56,7 @@ export const LANGUAGE_POLICY: LanguagePolicy = {
   ],
 };
 
-// Canonical file extensions per A55, A209, A215
+// Canonical file extensions per A215
 export const CANONICAL_EXTENSIONS = {
   Python: ['.py', '.pyi', '.pyx'],
   TypeScript: ['.ts', '.tsx', '.d.ts'],
@@ -216,7 +216,7 @@ export class LanguageBoundaryChecker {
     if (!isAllowed && !normalized.includes('node_modules') && !normalized.includes('.venv')) {
       return {
         rule: 'directory_valid',
-        message: `${language} file in unauthorized directory: ${filePath} (A214/A215/A266)`,
+        message: `${language} file in unauthorized directory: ${filePath} (A221/A215/A266)`,
         severity: 'error',
       };
     }

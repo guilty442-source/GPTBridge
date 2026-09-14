@@ -13,7 +13,7 @@ Per Governance Codex A195:
     committed-at}``.
 
 The publisher lives in :mod:`tasks.state_outbox`; this module holds the
-durable store only (split for A185/E160 source-size compliance).
+durable store only (split for A430/E160 source-size compliance).
 """
 
 from __future__ import annotations

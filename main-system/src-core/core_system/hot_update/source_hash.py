@@ -1,4 +1,4 @@
-"""Hot-update source hash tracking — split from HotUpdateService for A185 compliance."""
+"""Hot-update source hash tracking — split from HotUpdateService for A430 compliance."""
 
 from __future__ import annotations
 

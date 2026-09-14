@@ -361,7 +361,7 @@ class GovernedToolRuntime:
             listener_task = asyncio.create_task(
                 self._listen_for_notifications(notify_queue)
             )
-        except Exception:
+        except (RuntimeError, ValueError, TypeError):
             listener_task = None
         while not self.shutdown_event.is_set():
             request = None
@@ -376,7 +376,7 @@ class GovernedToolRuntime:
                         request_channel = candidate_channel
                         active_channel_id = channel_id
                         break
-            except Exception:
+            except (RuntimeError, ValueError, TypeError):
                 # Temporary SQLite/WAL contention must not permanently stop
                 # the governed worker while its health endpoint stays online.
                 await asyncio.sleep(0.5)
@@ -457,7 +457,7 @@ class GovernedToolRuntime:
                     # can only correlate the response with the id registered
                     # in waiters.
                     result["request_id"] = request_id
-            except Exception:
+            except (RuntimeError, ValueError, TypeError):
                 # Preserve request correlation on governed failures. Clients
                 # waiting for toolbox_run_tool_result can then fail promptly.
                 event = f"{command}_result" if command else "error"
@@ -474,7 +474,7 @@ class GovernedToolRuntime:
                 await asyncio.to_thread(request_channel.respond, request_id, result)
                 if active_channel_id is not None:
                     self._record_channel_health(active_channel_id, ok=True)
-            except Exception:
+            except (RuntimeError, ValueError, TypeError):
                 event = f"{command}_result" if command else "error"
                 if active_channel_id is not None:
                     self._record_channel_health(active_channel_id, ok=False)
@@ -536,7 +536,7 @@ class GovernedToolRuntime:
                     "COMMAND_RECEIVED",
                     {"command": command, "status": "processing"},
                 )
-            except Exception:
+            except (RuntimeError, ValueError, TypeError):
                 await self.send(
                     websocket,
                     f"{command}_result" if command else "error",
@@ -559,7 +559,7 @@ class GovernedToolRuntime:
                 self.tool_root,
                 clear_pycache=self.self_repair_clear_pycache,
             )
-        except Exception as error:  # never block boot on self repair
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError) as error:  # never block boot on self repair
             result = {
                 "ok": False,
                 "operation": "local-self-repair",
@@ -596,7 +596,7 @@ class GovernedToolRuntime:
                 self.tool_id,
                 self.tool_root,
             )
-        except Exception as error:  # never block boot on local cleanup
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError) as error:  # never block boot on local cleanup
             result = {
                 "ok": False,
                 "operation": "local-self-cleanup",

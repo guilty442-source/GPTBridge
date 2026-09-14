@@ -1,5 +1,5 @@
 /**
- * LanguagePolicy.ts ?”Canonical language policy (A203/A211/A215/A354).
+ * LanguagePolicy.ts ?ï¿½Canonical language policy (A219/A211/A215/A354).
  *
  * Immutable data only. Single source of truth for language governance.
  */

@@ -1,6 +1,6 @@
 """Packager processes — facade re-exporting the split submodules.
 
-Original module split per A185/A68 into:
+Original module split per A430/A68 into:
 - packager_processes_probe.py (process probes, restart, stop-for-upgrade)
 - packager_processes_paths.py (standalone paths, workspace instance id)
 - packager_processes_shutdown.py (verified packaged backend shutdown)

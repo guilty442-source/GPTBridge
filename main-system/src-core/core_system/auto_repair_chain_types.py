@@ -1,4 +1,4 @@
-"""Types and dataclasses for the automatic repair chain — A258/A259/A261.
+"""Types and dataclasses for the automatic repair chain — A261/A259.
 
 This module contains all enums, dataclasses, and the internal audit
 trail used by the repair chain submodules.  It has no imports from
@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 
 class HealthState(Enum):
-    """System health states per codex A258."""
+    """System health states per codex A261."""
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     RECOVERING = "recovering"
@@ -42,7 +42,7 @@ class VerificationResult(Enum):
 
 @dataclass(frozen=True)
 class HealthSignal:
-    """Typed health signal per codex A258."""
+    """Typed health signal per codex A261."""
     component_id: str
     dimension: str  # governance-integrity, process-survival, runtime-readiness, etc.
     state: HealthState

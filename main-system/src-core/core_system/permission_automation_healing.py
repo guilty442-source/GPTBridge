@@ -1,4 +1,4 @@
-"""Self-healing manager — A170 component health and auto-repair.
+"""Self-healing manager — A441 component health and auto-repair.
 
 負責：
 1. 檢測權限主宰組件健康狀態

@@ -1,4 +1,4 @@
-"""Source size report dataclasses — A185/E160.
+"""Source size report dataclasses — A430/E160.
 
 SizeViolation and SizeReport dataclasses for source size verification
 results.  This module imports from the types module only (no circular
@@ -15,7 +15,7 @@ from core_system.source_size_types import SourceSizeMeasurement
 
 @dataclass(frozen=True)
 class SizeViolation:
-    """A typed source size violation signal (A185/E160)."""
+    """A typed source size violation signal (A430/E160)."""
 
     dimension: str
     path: str

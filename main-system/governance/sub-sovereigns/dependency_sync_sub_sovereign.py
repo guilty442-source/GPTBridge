@@ -111,7 +111,7 @@ class DependencySyncSubSovereign(SubSovereignBase):
         async def _initial_probe() -> None:
             try:
                 await asyncio.to_thread(self._manager.probe_all_versions)
-            except Exception:
+            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
                 pass
 
         if self._initial_probe_task is None:
@@ -304,7 +304,7 @@ class DependencySyncSubSovereign(SubSovereignBase):
                 if self._manager is not None:
                     self._manager.probe_all_versions()
                     self._manager.check_all_for_updates()
-            except Exception:
+            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
                 pass  # Supervision must never crash the sub-sovereign.
             await asyncio.sleep(self._supervision_interval_seconds)
 

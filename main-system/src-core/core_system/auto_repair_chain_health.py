@@ -1,4 +1,4 @@
-"""Maintenance health classifier — A258 health classification only.
+"""Maintenance health classifier — A261 health classification only.
 
 SCOPE: health monitoring, data-integrity-check, presentation
 FORBID: maintenance-code-change, maintenance-permission, parallel-owner, mutation-without-proof

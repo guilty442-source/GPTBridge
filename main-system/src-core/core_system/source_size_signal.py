@@ -1,4 +1,4 @@
-"""Source size signal functions — A185/E160.
+"""Source size signal functions — A430/E160.
 
 Information-layer signal payloads for source size violations.  These
 functions produce signal dicts that must be routed through the information
@@ -15,9 +15,9 @@ from core_system.source_size_report import SizeReport
 def size_violation_signal(
     report: SizeReport,
 ) -> dict[str, Any]:
-    """Produce an information-layer signal for a size violation (A185/E160).
+    """Produce an information-layer signal for a size violation (A430/E160).
 
-    Per A185: ``BLOCK:exceed-limit-before-merge+release+startup-activation-of-
+    Per A430: ``BLOCK:exceed-limit-before-merge+release+startup-activation-of-
     changed-module``.  This function produces the signal payload that must be
     routed through the information layer; it never performs file mutation,
     split, or directory update.
@@ -25,7 +25,7 @@ def size_violation_signal(
     return {
         "signal_type": "source-size-violation",
         "authority": "signal-only",
-        "basis": "A185/E160",
+        "basis": "A430/E160",
         "path": report.path,
         "ok": report.ok,
         "violations": [v.as_dict() for v in report.violations],

@@ -34,7 +34,7 @@ Enhanced with:
 - Resource leak detection
 - Circuit breaker pattern for external dependencies
 
-The module is decomposed into single-responsibility sub-modules (A185):
+The module is decomposed into single-responsibility sub-modules (A430):
   * ``connection_watchdog_types`` — dataclasses, constants, IPC state writer
   * ``connection_watchdog_probes`` — ProbeResult, HealthCheckCache, CircuitBreaker
   * ``connection_watchdog_mixins`` — ConnectionProbeMixin, ConnectionAuditMixin

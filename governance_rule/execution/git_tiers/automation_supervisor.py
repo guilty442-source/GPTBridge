@@ -20,7 +20,7 @@ force-updates, never resolves conflicts automatically, and never deletes
 refs.  All git writes flow through ``GitRepository.run`` with
 ``confirmed=True`` and are recorded in the tier audit ledger.
 
-Sub-modules (A185/E160):
+Sub-modules (A430/E160):
   * ``automation_supervisor_state`` — state dir, registry, stop/status
   * ``automation_supervisor_loop`` — watcher supervision + sync loop
   * ``automation_supervisor_persistence`` — Task Scheduler / Run key

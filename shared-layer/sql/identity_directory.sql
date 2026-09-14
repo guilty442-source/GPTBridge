@@ -1,7 +1,7 @@
 -- identity_directory.sql — Identity directory for permission-sovereign governance.
 --
 -- Codex basis:
---   A6/E4   — Permission: owner=permission-sovereign; actions=manage/issue/terminate/supervise.
+--   A436/E4   — Permission: owner=permission-sovereign; actions=manage/issue/terminate/supervise.
 --   A7      — Permission-directory: directory-driven; defines role/capability/action/target/data-scope.
 --   A23/E4  — Permission-identifiers: permission-ID=sovereign-managed; FORBID: module-self-issue.
 --   A42/E28 — Directory-write: permission-sovereign-decision + governed-executor execution;

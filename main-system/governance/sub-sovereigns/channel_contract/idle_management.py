@@ -55,7 +55,7 @@ class IdleManagementMixin:
                     "background": True,
                 }
             )
-        except Exception:
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
             return False
 
         if result.get("ok") is True:
@@ -124,7 +124,7 @@ class IdleManagementMixin:
         async def _stop_one(tid: str) -> str | None:
             try:
                 await toolbox.stop_tool({"tool_id": tid})
-            except Exception:
+            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
                 return None
             return tid
 

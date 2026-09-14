@@ -1,6 +1,6 @@
-"""Source size measurement functions — A185/E160.
+"""Source size measurement functions — A430/E160.
 
-Effective line counting and source file measurement against A185 default
+Effective line counting and source file measurement against A430 default
 limits.
 """
 
@@ -85,7 +85,7 @@ def measure_python_source(
     entry_limit: int = PUBLIC_ENTRY_LIMIT,
     callables_limit: int = CALLABLES_LIMIT,
 ) -> SourceSizeMeasurement:
-    """Measure a Python source file against A185 default limits."""
+    """Measure a Python source file against A430 default limits."""
     source = path.read_text(encoding="utf-8")
     total_lines, callables = _count_effective_lines_python(source)
 

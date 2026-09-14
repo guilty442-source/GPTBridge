@@ -1,7 +1,7 @@
 """Third-party governance constants and dataclasses — A197/E171, A198/E172, A199/E173.
 
 Types and constants extracted from third_party_governance for source-size
-compliance (A185/E160).  This module holds no verification or signal logic.
+compliance (A430/E160).  This module holds no verification or signal logic.
 """
 
 from __future__ import annotations
