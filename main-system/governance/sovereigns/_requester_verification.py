@@ -84,6 +84,11 @@ def verify_requester(sovereign: Any, request: Any) -> bool:
     """
     if not isinstance(request.requester, str) or not request.requester:
         return False
+    # Proof stamps are set ONLY by the verification layer; a caller may not
+    # present a pre-stamped ``_verified_delegation``/``_verified_claims``
+    # (forgery surface — A121/A435 fail-closed).
+    request.payload.pop("_verified_delegation", None)
+    request.payload.pop("_verified_claims", None)
     token = request.payload.get("capability_token")
     if token is not None:
         return verify_token_requester(sovereign, request, token)

@@ -41,6 +41,20 @@ class SyncA330ExecutionMixin:
         self, request: SovereignRequest
     ) -> SovereignOutcome:
         """A330: execute certified update after certification proof passes."""
+        # A330/A152/A154: the sole execution exception may only be reached
+        # through the decision layer — certification is adjudicated by
+        # decision-sovereign, which delegates here with a verified
+        # single-use nonce. A direct caller (even a governed actor) cannot
+        # self-declare certification; the payload flag alone is not proof.
+        verified_delegation = request.payload.get("_verified_delegation")
+        if not isinstance(verified_delegation, dict) or (
+            verified_delegation.get("parent") != "decision-sovereign"
+        ):
+            return refusal_outcome(
+                "CERTIFICATION_AUTHORITY_MISSING",
+                verified_basis(("A330", "A152", "A154")),
+            )
+
         update_type = request.payload.get("update_type")
         if not update_type:
             return refusal_outcome("MISSING_UPDATE_TYPE", verified_basis(("A330",)))

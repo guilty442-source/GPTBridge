@@ -190,3 +190,128 @@ def test_base_docstring_cites_a69_a121_not_a63_a64() -> None:
     assert "A121" in source
     assert "A63:" not in source
     assert "A64:" not in source
+
+
+def _a330_payload(**overrides) -> dict:
+    payload = {
+        "update_type": "backend",
+        "certified": True,
+        "update_set": ["module-a"],
+        "artifact_hashes": {"module-a": "sha256:deadbeef"},
+        "operation_id": "op-delegation-test",
+    }
+    payload.update(overrides)
+    return payload
+
+
+@pytest.mark.asyncio
+async def test_a330_certified_update_requires_decision_sovereign_delegation() -> None:
+    """A330 execution exception: a governed actor cannot self-declare
+    certification — the payload flag alone is not proof (A330/A152/A154)."""
+    sovereign = SynchronizationSovereign(app=SimpleNamespace())
+    outcome = await sovereign.handle(
+        SovereignRequest(
+            intent="A330.certified-update",
+            subject="backend-update",
+            requester="governed-executor",
+            payload=_a330_payload(),
+        )
+    )
+    assert outcome.accepted is False
+    assert outcome.refusal is not None
+    assert outcome.refusal.reason_code == "CERTIFICATION_AUTHORITY_MISSING"
+
+
+@pytest.mark.asyncio
+async def test_forged_verified_delegation_stamp_is_stripped() -> None:
+    """A caller must not smuggle a pre-stamped ``_verified_delegation``
+    proof past the entry gate (A121/A435 fail-closed)."""
+    sovereign = SynchronizationSovereign(app=SimpleNamespace())
+    outcome = await sovereign.handle(
+        SovereignRequest(
+            intent="A330.certified-update",
+            subject="backend-update",
+            requester="governed-executor",
+            payload=_a330_payload(
+                _verified_delegation={
+                    "parent": "decision-sovereign",
+                    "child": "synchronization-sovereign",
+                    "intent": "A330.certified-update",
+                }
+            ),
+        )
+    )
+    assert outcome.accepted is False
+    assert outcome.refusal is not None
+    assert outcome.refusal.reason_code == "CERTIFICATION_AUTHORITY_MISSING"
+
+
+@pytest.mark.asyncio
+async def test_decision_sovereign_delegation_passes_a330_authority_gate() -> None:
+    """A verified decision-sovereign delegation reaches the A330 gate —
+    with ``update_type`` absent the refusal is the field check, proving the
+    authority gate itself passed."""
+    from governance.sovereigns._delegation import mint_delegation
+
+    nonce = mint_delegation(
+        "decision-sovereign",
+        "synchronization-sovereign",
+        "A330.certified-update",
+    )
+    sovereign = SynchronizationSovereign(app=SimpleNamespace())
+    outcome = await sovereign.handle(
+        SovereignRequest(
+            intent="A330.certified-update",
+            subject="backend-update",
+            requester="decision-sovereign",
+            payload=_a330_payload(
+                _delegated_by="decision-sovereign",
+                _delegation_nonce=nonce,
+                update_type=None,
+            ),
+        )
+    )
+    assert outcome.accepted is False
+    assert outcome.refusal is not None
+    assert outcome.refusal.reason_code == "MISSING_UPDATE_TYPE"
+
+
+@pytest.mark.asyncio
+async def test_replayed_delegation_nonce_denied_at_entry() -> None:
+    """A consumed delegation nonce cannot authorize a second request
+    (A435 single-use)."""
+    from governance.sovereigns._delegation import mint_delegation
+
+    nonce = mint_delegation(
+        "decision-sovereign",
+        "synchronization-sovereign",
+        "A330.certified-update",
+    )
+    sovereign = SynchronizationSovereign(app=SimpleNamespace())
+    first = await sovereign.handle(
+        SovereignRequest(
+            intent="A330.certified-update",
+            subject="backend-update",
+            requester="decision-sovereign",
+            payload=_a330_payload(
+                _delegated_by="decision-sovereign",
+                _delegation_nonce=nonce,
+                update_type=None,
+            ),
+        )
+    )
+    assert first.refusal.reason_code == "MISSING_UPDATE_TYPE"
+    second = await sovereign.handle(
+        SovereignRequest(
+            intent="A330.certified-update",
+            subject="backend-update",
+            requester="decision-sovereign",
+            payload=_a330_payload(
+                _delegated_by="decision-sovereign",
+                _delegation_nonce=nonce,
+                update_type=None,
+            ),
+        )
+    )
+    assert second.accepted is False
+    assert second.refusal.reason_code == "UNAUTHORIZED_REQUESTER"
