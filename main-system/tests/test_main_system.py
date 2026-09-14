@@ -1,4 +1,4 @@
-﻿"""main-system consolidated test suite (A57/E43)
+"""main-system consolidated test suite (A57/E43)
 
 One managed test file per module, maintained by the
 maintenance sovereign for self-health (self-test collection).
