@@ -24,7 +24,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Final
+from typing import Any, Awaitable, Callable, Final, Mapping
 
 RouteHandler = Callable[[str, dict[str, Any]], Awaitable[tuple[str, dict[str, Any]]]]
 AuditSink = Callable[[dict[str, Any]], None]
@@ -73,6 +73,7 @@ class CommandContractResolver:
         self._db = Path(project_root) / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
         self._cache: set[str] | None = None
         self._signature: tuple[int, int] | None = None
+        self._load_error: str = ""
 
     def _current_signature(self) -> tuple[int, int] | None:
         try:
@@ -88,23 +89,39 @@ class CommandContractResolver:
         codes: set[str] = set()
         loaded = False
         try:
-            # A435/A224: command-code membership is non-content registered
-            # data read through the official entry as a bounded lookup —
-            # the information layer never opens the codex DB directly.
-            from governance_rule.execution.codex_reconcile import (
-                bounded_lookup,
+            from governance_rule.execution.codex_repository import (
+                CODEX_DATABASE_PATH,
+                codex_readonly_connection,
             )
 
-            codes = bounded_lookup(
-                "information-layer",
-                purpose="contract-gate",
-                scope=("directory:command_code_directory",),
-                reader=lambda ctx: {
-                    str(row.get("command_code", ""))
-                    for row in ctx.directory("command_code_directory")
-                },
-            )
-            codes.discard("")
+            if self._db.resolve() == Path(CODEX_DATABASE_PATH).resolve():
+                # A435/A224: command-code membership is non-content
+                # registered data read through the official entry as a
+                # bounded lookup — the information layer never opens the
+                # codex DB directly.
+                from governance_rule.execution.codex_reconcile import (
+                    bounded_lookup,
+                )
+
+                codes = bounded_lookup(
+                    "information-layer",
+                    purpose="contract-gate",
+                    scope=("directory:command_code_directory",),
+                    reader=lambda ctx: {
+                        str(row.get("command_code", ""))
+                        for row in ctx.directory("command_code_directory")
+                    },
+                )
+                codes.discard("")
+            else:
+                # Non-canonical root (test/scratch authority): still the
+                # governed read-only repository interface, never a raw
+                # writable connection.
+                with codex_readonly_connection(self._db) as conn:
+                    for row in conn.execute(
+                        "SELECT command_code FROM command_code_directory"
+                    ):
+                        codes.add(str(row[0]))
             loaded = True
         except Exception:
             pass  # fail-open on read error; audit gate still records
