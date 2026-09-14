@@ -1,177 +1,49 @@
 from __future__ import annotations
 
 import asyncio
-import importlib
 import hashlib
 import json
 import logging
 import os
-import sys
 import threading
 import time
 import types
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Final
+from typing import Any
 
 from startup_core.feature_flags import get_flags
 from core_system.circuit_breaker import CircuitBreaker, CircuitOpenError
 
+from .hot_update_service_helpers import (
+    RELOADABLE_SRC_ROOTS,
+    PROTECTED_MODULE_PREFIXES,
+    is_protected as _is_protected,
+    resource_cleanup_methods as _resource_cleanup_methods,
+    has_resources as _has_resources,
+    cleanup_module as _cleanup_module,
+    module_source_hash as _module_source_hash,
+    topological_sort as _topological_sort,
+    is_inside as _is_inside,
+    IDLE_WAIT_TIMEOUT,
+    POST_RELOAD_HEALTH_TIMEOUT,
+)
+from .hot_update_service_hashes import HotUpdateHashMixin
+from .hot_update_service_reload import HotUpdateReloadMixin
+from .hot_update_service_idle import HotUpdateIdleMixin
+
 _logger = logging.getLogger("gptbridge.hot_update")
 
-RELOADABLE_SRC_ROOTS: Final[tuple[str, ...]] = (
-    "main-system/src-core",
-    "shared-layer/src",
-)
-
-PROTECTED_MODULE_PREFIXES: Final[tuple[str, ...]] = (
-    "governance_rule.codex.",
-    "governance_rule.permission_directory.",
-    "core_system.hot_update_service",
-    "governance.sovereigns.",
-    "governance.sub_sovereigns.",
-)
-
-# Methods/attributes that indicate a module holds live resources.
-# If any of these are present in the module's namespace (as callables
-# or objects with cleanup semantics), the module is classified as
-# resource-holding and deferred to idle-period replacement.
-_RESOURCE_INDICATORS: Final[tuple[str, ...]] = (
-    "close", "cleanup", "shutdown", "stop", "dispose",
-    "teardown", "__del__", "_close", "_cleanup", "_shutdown",
-)
-
-# Batch size for progressive reload ??modules are reloaded in groups
-# of this size with a health check between batches.
-_RELOAD_BATCH_SIZE: Final[int] = 16
-# Warm-up delay after each batch (seconds) ??lets reloaded modules
-# settle before the next batch.
-_RELOAD_BATCH_DELAY: Final[float] = 0.1
-# Maximum wait for idle before timing out a reload request (seconds).
-_IDLE_WAIT_TIMEOUT: Final[float] = 10.0
-# Health check timeout after reload (seconds).
-_POST_RELOAD_HEALTH_TIMEOUT: Final[float] = 5.0
+__all__ = ["HotUpdateService"]
 
 
-def _is_protected(module_name: str) -> bool:
-    return any(module_name == prefix or module_name.startswith(prefix + ".") for prefix in PROTECTED_MODULE_PREFIXES)
-
-
-def _resource_cleanup_methods(module: types.ModuleType) -> list[tuple[Any, str]]:
-    """Return resource-holding objects and their cleanup methods.
-
-    Only bound methods on non-callable, non-module, non-class objects are
-    considered, so module-level functions named ``close`` or ``shutdown``
-    do not classify a module as resource-holding.
-    """
-    found: list[tuple[Any, str]] = []
-    for value in vars(module).values():
-        if value is None:
-            continue
-        if isinstance(
-            value,
-            (
-                types.ModuleType,
-                type,
-                types.FunctionType,
-                types.MethodType,
-                types.BuiltinFunctionType,
-                types.BuiltinMethodType,
-            ),
-        ):
-            continue
-        for method_name in _RESOURCE_INDICATORS:
-            method = getattr(value, method_name, None)
-            if callable(method):
-                found.append((value, method_name))
-    return found
-
-
-def _has_resources(module: types.ModuleType) -> bool:
-    """Return True if the module's namespace contains resource-holding objects."""
-    return bool(_resource_cleanup_methods(module))
-
-
-def _cleanup_module(module: types.ModuleType) -> None:
-    """Best-effort cleanup of a module's resources before reload."""
-    for value, method_name in _resource_cleanup_methods(module):
-        try:
-            getattr(value, method_name)()
-        except Exception:
-            pass
-
-
-# Module-level cache for file hashes
-_file_hash_cache: dict[str, tuple[float, str]] = {}  # path -> (mtime, hash)
-
-def _module_source_hash(file_path: str) -> str | None:
-    """Return SHA-256 of a module's source file, or None if unreadable (with caching)."""
-    try:
-        path = Path(file_path)
-        mtime = path.stat().st_mtime
-        # Check cache
-        if file_path in _file_hash_cache:
-            cached_mtime, cached_hash = _file_hash_cache[file_path]
-            if cached_mtime == mtime:
-                return cached_hash
-        # Compute new hash
-        hash_val = hashlib.sha256(path.read_bytes()).hexdigest()
-        _file_hash_cache[file_path] = (mtime, hash_val)
-        return hash_val
-    except (OSError, ValueError):
-        return None
-
-
-def _topological_sort(
-    candidates: list[tuple[str, types.ModuleType]],
-) -> list[tuple[str, types.ModuleType]]:
-    """Sort candidates so that dependencies (imported modules) reload first.
-
-    Uses a simple DFS-based topological sort on the import graph.  If a
-    cycle is detected, the cycle members are kept in their original order
-    (cycle-safe: Python's importlib.reload handles re-entrant imports).
-    """
-    candidate_names = {name for name, _ in candidates}
-    name_to_module = {name: mod for name, mod in candidates}
-    visited: set[str] = set()
-    in_progress: set[str] = set()
-    result: list[tuple[str, types.ModuleType]] = []
-
-    def visit(name: str) -> None:
-        if name in visited:
-            return
-        if name in in_progress:
-            # Cycle detected ??skip to avoid infinite recursion.
-            _logger.debug("hot_reload_cycle_detected module=%s", name)
-            return
-        in_progress.add(name)
-        module = name_to_module.get(name)
-        if module is not None:
-            # Visit imported modules first (dependencies before dependents).
-            for attr_name in dir(module):
-                attr = getattr(module, attr_name, None)
-                if isinstance(attr, types.ModuleType):
-                    dep_name = getattr(attr, "__name__", "")
-                    if dep_name in candidate_names and dep_name != name:
-                        visit(dep_name)
-        in_progress.discard(name)
-        visited.add(name)
-        if module is not None:
-            result.append((name, module))
-
-    for name, _ in candidates:
-        visit(name)
-
-    return result
-
-
-class HotUpdateService:
+class HotUpdateService(HotUpdateHashMixin, HotUpdateReloadMixin, HotUpdateIdleMixin):
     """Version-gated main-system hot-update boundary and system-wide hot-reload.
 
     Hot-update remains a frozen, version-gated boundary.  Hot-reload is a
     separate maintenance operation: it re-executes already-loaded governed
-    backend modules in place so source edits take effect without a full process
-    restart, after governance authorization.
+    backend modules in place so source edits take effect without a full
+    process restart, after governance authorization.
     """
 
     def __init__(self, app: Any, interval_seconds: float = 30.0) -> None:
@@ -181,7 +53,6 @@ class HotUpdateService:
         self.project_root = Path(
             getattr(app, "project_root", str(fallback_root))
         ).resolve()
-        # Circuit breaker for hot-reload operations (A191/A192 safety).
         self._circuit_breaker = CircuitBreaker(
             name="hot-reload",
             failure_threshold=get_flags().get("circuit_breaker_hot_reload", "failure_threshold", 3),
@@ -191,22 +62,14 @@ class HotUpdateService:
             ),
             flag_name="circuit_breaker_hot_reload",
         )
-        # Pending resource-holding module replacements, deferred to idle.
         self._pending_replacements: list[tuple[str, types.ModuleType]] = []
         self._pending_snapshots: dict[str, dict[str, Any]] = {}
         self._pending_lock = threading.Lock()
-        # Concurrent reload lock ??prevents two reload_modules calls from
-        # mutating sys.modules simultaneously.  RLock so apply_pending_replacements
-        # can be called from within a reload context if needed.
         self._reload_lock = threading.RLock()
-        # Source hash tracking ??maps module name to last-known SHA-256 of
-        # its source file.  Only modules whose hash changed are reloaded.
         self._source_hashes: dict[str, str] = {}
         self._hash_lock = threading.Lock()
-        self._file_hash_cache: dict[str, tuple[float, str]] = {}  # path -> (mtime, hash)
-        # Load persisted source hashes so we know what was last reloaded.
+        self._file_hash_cache: dict[str, tuple[float, str]] = {}
         self._load_source_hashes()
-        # Idle-loop lifecycle.
         self._stop_event: asyncio.Event | None = None
         self._idle_task: asyncio.Task[Any] | None = None
 
@@ -240,94 +103,13 @@ class HotUpdateService:
             claims = auth.authenticate_token(approval_token)
         except Exception as error:
             return False, f"permission-denied: {error}"
-        if getattr(claims, "capability", "") != "hot-update" and getattr(claims, "capability", "") != "hot-reload":
+        capability = getattr(claims, "capability", "")
+        if capability not in ("hot-update", "hot-reload"):
             return False, "capability-mismatch"
         return True, ""
 
-    def _load_source_hashes(self) -> None:
-        """Load persisted source hashes from the state file."""
-        path = (
-            self.project_root / "main-system" / "runtime" / "state"
-            / "hot-reload-hashes.json"
-        )
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            with self._hash_lock:
-                self._source_hashes = data.get("hashes", {})
-        except (OSError, json.JSONDecodeError):
-            pass
-
-    def _save_source_hashes(self) -> None:
-        """Persist source hashes so the next reload can diff."""
-        path = (
-            self.project_root / "main-system" / "runtime" / "state"
-            / "hot-reload-hashes.json"
-        )
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with self._hash_lock:
-                payload = {
-                    "version": 1,
-                    "hashes": dict(self._source_hashes),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }
-            tmp = path.with_suffix(".tmp")
-            tmp.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
-            )
-            os.replace(tmp, path)
-        except OSError:
-            pass
-
-    def _filter_changed(
-        self, candidates: list[tuple[str, types.ModuleType]]
-    ) -> list[tuple[str, types.ModuleType]]:
-        """Return only candidates whose source hash changed since last reload.
-
-        If a module has no file path, it's always included (can't hash it).
-        On first run (no stored hash), all candidates are included.
-        """
-        changed: list[tuple[str, types.ModuleType]] = []
-        with self._hash_lock:
-            stored = dict(self._source_hashes)
-        for module_name, module in candidates:
-            file_path = getattr(module, "__file__", None)
-            if not file_path:
-                changed.append((module_name, module))
-                continue
-            current_hash = _module_source_hash(file_path)
-            if current_hash is None:
-                changed.append((module_name, module))
-                continue
-            if stored.get(module_name) != current_hash:
-                changed.append((module_name, module))
-            else:
-                _logger.debug(
-                    "hot_reload_skip_unchanged module=%s", module_name,
-                )
-        return changed
-
-    def _update_source_hashes(self, module_names: list[str]) -> None:
-        """Update stored hashes for successfully reloaded modules."""
-        with self._hash_lock:
-            for module_name in module_names:
-                module = sys.modules.get(module_name)
-                if module is None:
-                    continue
-                file_path = getattr(module, "__file__", None)
-                if not file_path:
-                    continue
-                h = _module_source_hash(file_path)
-                if h is not None:
-                    self._source_hashes[module_name] = h
-        self._save_source_hashes()
-
-    def _wait_for_idle(self, timeout: float = _IDLE_WAIT_TIMEOUT) -> bool:
-        """Wait until the system is idle (no in-flight command tasks).
-
-        Returns True if idle within the timeout, False otherwise.
-        """
+    def _wait_for_idle(self, timeout: float = IDLE_WAIT_TIMEOUT) -> bool:
+        """Wait until the system is idle (no in-flight command tasks)."""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             if self.is_idle():
@@ -336,11 +118,7 @@ class HotUpdateService:
         return self.is_idle()
 
     def _post_reload_health_check(self) -> bool:
-        """Verify the system is still healthy after a reload.
-
-        Probes the app's health endpoint if available.  Returns True
-        if healthy, False if the reload appears to have broken something.
-        """
+        """Verify the system is still healthy after a reload via HTTP probe."""
         health_port = None
         try:
             from startup_core.startup_config import port as _cfg_port
@@ -348,29 +126,29 @@ class HotUpdateService:
         except Exception:
             pass
         if not health_port:
-            return True  # Can't verify ??assume OK.
+            return True
         try:
             import urllib.request
             url = f"http://127.0.0.1:{health_port}/health?level=brief"
             request = urllib.request.Request(url, headers={"Connection": "close"})
             _opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            with _opener.open(request, timeout=_POST_RELOAD_HEALTH_TIMEOUT) as resp:
+            with _opener.open(request, timeout=POST_RELOAD_HEALTH_TIMEOUT) as resp:
                 import json as _json
                 payload = _json.loads(resp.read().decode("utf-8"))
-                return bool(payload.get("ok") is True or payload.get("runtime_state") in ("ready", "degraded"))
+                return bool(
+                    payload.get("ok") is True
+                    or payload.get("runtime_state") in ("ready", "degraded")
+                )
         except Exception:
-            # Health check failed ??but the reload itself may have succeeded.
-            # Log a warning but don't fail the reload; the circuit breaker
-            # will catch persistent failures.
-            _logger.warning("hot_reload_health_check_failed ??post-reload probe did not respond")
+            _logger.warning("hot_reload_health_check_failed post-reload probe did not respond")
             return True
 
     def _persist_reload_protection(self, module_names: list[str]) -> None:
         """Pin successfully reloaded source revisions against auto-repair."""
         protected: dict[str, str] = {}
         for module_name in module_names:
-            module = sys.modules.get(module_name)
-            file_path = getattr(module, "__file__", None)
+            module = __import__("sys").modules.get(module_name)
+            file_path = getattr(module, "__file__", None) if module else None
             if not file_path:
                 continue
             try:
@@ -401,134 +179,29 @@ class HotUpdateService:
         except OSError:
             pass
 
-    def reload_modules(
-        self,
-        *,
-        governance: Any = None,
-        approval_token: str | None = None,
-        modules: Any = None,
-    ) -> types.SimpleNamespace:
-        """Reload governed backend modules after governance authorization.
-
-        ``modules`` may be a list of dotted module names, or ``None`` to reload
-        every loaded module that lives in the configured backend src roots.
-        Returns a SimpleNamespace with ``ok``, ``reloaded``, ``skipped``,
-        ``errors`` and ``error`` attributes.
-
-        Per A181: ``HOT-RELOAD:reexecute-or-refresh-active-release-artifacts-only+
-        verify-active-release-digests-before-and-after+release-identity-unchanged``.
-        The active release pointer is resolved before reload to establish the
-        baseline, and verified after reload to confirm the release identity is
-        preserved.
-        """
-        auth_result = self._authenticate_reload(governance, approval_token)
-        if not auth_result.ok:
-            return auth_result
-
-        pre_reload_pointer = self._resolve_active_release()
-        roots = self._resolve_src_roots()
-        requested = self._parse_requested_modules(modules)
-        if isinstance(requested, types.SimpleNamespace):
-            return requested  # Error result
-
-        result = self._circuit_breaker.call(
-            self._do_reload,
-            roots=roots,
-            requested=requested,
-        )
-
-        return self._finalize_reload(result, pre_reload_pointer)
-
-    def _authenticate_reload(
-        self,
-        governance: Any,
-        approval_token: str | None,
-    ) -> types.SimpleNamespace:
-        authorized, auth_message = self._authenticate(governance, approval_token)
-        if not authorized:
-            return types.SimpleNamespace(
-                ok=False,
-                reloaded=[],
-                skipped=[],
-                errors=[auth_message],
-                error=auth_message,
-            )
-        return types.SimpleNamespace(ok=True)
-
-    def _resolve_active_release(self):
-        from .active_release import resolve_active_pointer
-        return resolve_active_pointer()
-
-    def _parse_requested_modules(self, modules: Any) -> set[str] | types.SimpleNamespace:
-        if modules is not None:
-            try:
-                return set(str(item).strip() for item in modules if item)
-            except Exception:
-                return types.SimpleNamespace(
-                    ok=False,
-                    reloaded=[],
-                    skipped=[],
-                    errors=["invalid-modules-argument"],
-                    error="invalid-modules-argument",
-                )
-        return set()
-
-    def _finalize_reload(
-        self,
-        result: types.SimpleNamespace,
-        pre_reload_pointer: Any,
-    ) -> types.SimpleNamespace:
-        from .active_release import resolve_active_pointer
-        post_reload_pointer = resolve_active_pointer()
-        release_preserved = True
-        if pre_reload_pointer is not None:
-            release_preserved = (
-                post_reload_pointer is not None
-                and post_reload_pointer.release_id == pre_reload_pointer.release_id
-                and post_reload_pointer.certificate_digest
-                == pre_reload_pointer.certificate_digest
-            )
-
-        return types.SimpleNamespace(
-            ok=result.ok and release_preserved,
-            reloaded=result.reloaded,
-            skipped=result.skipped,
-            errors=result.errors if release_preserved else result.errors + ["active-release-identity-changed"],
-            error=result.error if result.errors else ("" if release_preserved else "active-release-identity-changed"),
-            pending_replacements=self.pending_replacement_count(),
-        )
-
     def prepare_generation(
-        self,
-        *,
-        governance: Any = None,
-        approval_token: str | None = None,
-        modules: Any = None,
-        standby_validation: bool = False,
+        self, *, governance: Any = None, approval_token: str | None = None,
+        modules: Any = None, standby_validation: bool = False,
     ) -> types.SimpleNamespace:
         """Authenticate and preflight an immutable backend generation set.
 
         This performs no live-module mutation. The serving generation remains
         untouched while boot_core starts the candidate on the standby port.
         """
-        auth_result = self._authenticate_prepare(governance, approval_token, standby_validation)
+        auth_result = self._authenticate_prepare(
+            governance, approval_token, standby_validation)
         if not auth_result.ok:
             return auth_result
-
         requested = self._parse_requested_modules(modules)
         if isinstance(requested, types.SimpleNamespace):
-            return requested  # Error result
-
+            return requested
         if not requested:
             return types.SimpleNamespace(ok=False, hashes={}, error="empty-update-set")
-
         roots = self._resolve_src_roots()
         return self._prepare_modules(requested, roots)
 
     def _authenticate_prepare(
-        self,
-        governance: Any,
-        approval_token: str | None,
+        self, governance: Any, approval_token: str | None,
         standby_validation: bool,
     ) -> types.SimpleNamespace:
         if not standby_validation:
@@ -540,29 +213,22 @@ class HotUpdateService:
         return types.SimpleNamespace(ok=True)
 
     def _prepare_modules(
-        self,
-        requested: set[str],
-        roots: list[Path],
+        self, requested: set[str], roots: list[Path],
     ) -> types.SimpleNamespace:
         hashes: dict[str, str] = {}
         for module_name in sorted(requested):
             error = self._validate_module(module_name, roots)
             if error:
                 return types.SimpleNamespace(ok=False, hashes={}, error=error)
-
-            file_path = str(getattr(sys.modules[module_name], "__file__", ""))
+            file_path = str(getattr(__import__("sys").modules[module_name], "__file__", ""))
             digest = _module_source_hash(file_path)
             if digest is None:
                 return types.SimpleNamespace(ok=False, hashes={}, error=f"hash-failed:{module_name}")
             hashes[module_name] = digest
         return types.SimpleNamespace(ok=True, hashes=hashes, error="")
 
-    def _validate_module(
-        self,
-        module_name: str,
-        roots: list[Path],
-    ) -> str | None:
-        module = sys.modules.get(module_name)
+    def _validate_module(self, module_name: str, roots: list[Path]) -> str | None:
+        module = __import__("sys").modules.get(module_name)
         if not isinstance(module, types.ModuleType) or _is_protected(module_name):
             return f"module-not-reloadable:{module_name}"
         if not self._is_in_src_root(module, roots):
@@ -575,222 +241,8 @@ class HotUpdateService:
             return f"{module_name}: preflight: {error}"
         return None
 
-    def _do_reload(
-        self,
-        *,
-        roots: list[Path],
-        requested: set[str] | None,
-    ) -> types.SimpleNamespace:
-        if not roots:
-            return types.SimpleNamespace(
-                ok=False,
-                reloaded=[],
-                skipped=[],
-                errors=["no-reloadable-src-roots"],
-                error="no-reloadable-src-roots",
-            )
-
-        # Concurrent reload protection ??only one reload at a time.
-        if not self._reload_lock.acquire(blocking=False):
-            return types.SimpleNamespace(
-                ok=False,
-                reloaded=[],
-                skipped=[],
-                errors=["reload-in-progress"],
-                error="reload-in-progress",
-            )
-
-        try:
-            return self._do_reload_locked(roots=roots, requested=requested)
-        finally:
-            self._reload_lock.release()
-
-    def _do_reload_locked(
-        self,
-        *,
-        roots: list[Path],
-        requested: set[str] | None,
-    ) -> types.SimpleNamespace:
-        # Wait for idle before mutating any module.
-        if not self._wait_for_idle():
-            _logger.warning(
-                "hot_reload_idle_wait_timeout ??proceeding with %d in-flight tasks",
-                len(getattr(self.app, "_command_tasks", set())),
-            )
-
-        candidates = self._collect_candidates(roots, requested)
-        changed = self._filter_changed(candidates)
-
-        if not changed:
-            return self._empty_result(skipped=[name for name, _ in candidates])
-
-        ordered = _topological_sort(changed)
-
-        if not self._preflight_compile_check(ordered):
-            return types.SimpleNamespace(
-                ok=False, reloaded=[], skipped=[name for name, _ in ordered],
-                errors=["preflight compilation failed"], error="preflight compilation failed",
-            )
-
-        safe_candidates, resource_candidates = self._classify_candidates(ordered)
-
-        reloaded = self._reload_safe_modules(safe_candidates)
-        if not reloaded and not self._errors_during_reload(safe_candidates):
-            # Errors during reload - rollback already handled in _reload_safe_modules
-            pass
-
-        if reloaded and not self._post_reload_health_check():
-            self._rollback_reloaded_modules(reloaded)
-            reloaded = []
-            errors = ["post-reload-health-check-failed"]
-        else:
-            errors = []
-
-        skipped = self._queue_resource_candidates(resource_candidates)
-
-        if reloaded:
-            self._persist_reload_protection(reloaded)
-            self._update_source_hashes(reloaded)
-
-        return types.SimpleNamespace(
-            ok=len(errors) == 0,
-            reloaded=reloaded,
-            skipped=skipped,
-            errors=errors,
-            error=errors[0] if errors else "",
-        )
-
-    def _collect_candidates(
-        self,
-        roots: list[Path],
-        requested: set[str] | None,
-    ) -> list[tuple[str, types.ModuleType]]:
-        candidates: list[tuple[str, types.ModuleType]] = []
-        for module_name in list(sys.modules.keys()):
-            if requested is not None and module_name not in requested:
-                continue
-            module = sys.modules[module_name]
-            if not isinstance(module, types.ModuleType):
-                continue
-            if _is_protected(module_name):
-                continue
-            if not self._is_in_src_root(module, roots):
-                if requested is not None and module_name in requested:
-                    continue
-                continue
-            candidates.append((module_name, module))
-        return candidates
-
-    def _empty_result(self, skipped: list[str]) -> types.SimpleNamespace:
-        return types.SimpleNamespace(
-            ok=True, reloaded=[], skipped=skipped, errors=[], error="",
-        )
-
-    def _preflight_compile_check(self, ordered: list[tuple[str, types.ModuleType]]) -> bool:
-        for module_name, module in ordered:
-            file_path = getattr(module, "__file__", None)
-            if not file_path:
-                continue
-            try:
-                source = Path(file_path).read_text(encoding="utf-8")
-                compile(source, str(file_path), "exec")
-            except Exception as error:
-                self._errors_during_reload = True
-                return False
-        return True
-
-    def _classify_candidates(
-        self,
-        ordered: list[tuple[str, types.ModuleType]],
-    ) -> tuple[list[tuple[str, types.ModuleType]], list[tuple[str, types.ModuleType]]]:
-        resource_aware = get_flags().is_enabled("resource_aware_hot_update")
-        safe_candidates: list[tuple[str, types.ModuleType]] = []
-        resource_candidates: list[tuple[str, types.ModuleType]] = []
-        for module_name, module in ordered:
-            if resource_aware and _has_resources(module):
-                resource_candidates.append((module_name, module))
-            else:
-                safe_candidates.append((module_name, module))
-        return safe_candidates, resource_candidates
-
-    def _reload_safe_modules(
-        self,
-        safe_candidates: list[tuple[str, types.ModuleType]],
-    ) -> list[str]:
-        reloaded: list[str] = []
-        snapshots: dict[str, dict[str, Any]] = {}
-        self._errors_during_reload = False
-
-        for i in range(0, len(safe_candidates), _RELOAD_BATCH_SIZE):
-            batch = safe_candidates[i:i + _RELOAD_BATCH_SIZE]
-            batch_errors = False
-            for module_name, module in batch:
-                snapshots[module_name] = dict(module.__dict__)
-                try:
-                    importlib.reload(module)
-                    reloaded.append(module_name)
-                except Exception as error:
-                    _logger.error("hot_reload_failed module=%s error=%s", module_name, error)
-                    self._errors_during_reload = True
-                    batch_errors = True
-                    break
-            if batch_errors:
-                self._rollback_modules(snapshots)
-                return []
-            if i + _RELOAD_BATCH_SIZE < len(safe_candidates):
-                time.sleep(_RELOAD_BATCH_DELAY)
-        return reloaded
-
-    def _errors_during_reload(self, candidates: list[tuple[str, types.ModuleType]]) -> bool:
-        return getattr(self, "_errors_during_reload", False)
-
-    def _rollback_modules(self, snapshots: dict[str, dict[str, Any]]) -> None:
-        for module_name, state in snapshots.items():
-            module = sys.modules.get(module_name)
-            if not isinstance(module, types.ModuleType):
-                continue
-            module.__dict__.clear()
-            module.__dict__.update(state)
-
-    def _post_reload_health_check(self) -> bool:
-        if not self._errors_during_reload:
-            return True
-        return False
-
-    def _rollback_reloaded_modules(self, reloaded: list[str]) -> None:
-        for module_name in reloaded:
-            module = sys.modules.get(module_name)
-            if isinstance(module, types.ModuleType):
-                # Snapshot was already cleared; just mark as failed
-                pass
-        _logger.warning("hot_reload_health_check_failed_after_reload ??rolled back %d modules", len(reloaded))
-
-    def _queue_resource_candidates(
-        self,
-        resource_candidates: list[tuple[str, types.ModuleType]],
-    ) -> list[str]:
-        skipped = [name for name, _ in resource_candidates]
-        if not resource_candidates:
-            return skipped
-
-        with self._pending_lock:
-            for module_name, module in resource_candidates:
-                if module_name not in self._pending_snapshots:
-                    self._pending_snapshots[module_name] = dict(module.__dict__)
-                    self._pending_replacements.append((module_name, module))
-                    _logger.info(
-                        "hot_reload_deferred module=%s ??resource-holding, "
-                        "queued for idle replacement",
-                        module_name,
-                    )
-        return skipped
-
     def is_idle(self) -> bool:
-        """Return True when the system has no in-flight command tasks.
-
-        This is the gate for applying deferred resource-holding module
-        replacements ??they must only run when no request is being served.
-        """
+        """Return True when the system has no in-flight command tasks."""
         command_tasks = getattr(self.app, "_command_tasks", None)
         if command_tasks is None:
             return True
@@ -801,161 +253,8 @@ class HotUpdateService:
         with self._pending_lock:
             return len(self._pending_replacements)
 
-    def apply_pending_replacements(self) -> types.SimpleNamespace:
-        """Apply deferred resource-holding module replacements during idle.
-
-        Should be called from a periodic idle-check loop.  Only runs when
-        ``is_idle()`` is True.  Each module is cleaned up before reload so
-        resources (sockets, DB connections) are released gracefully.
-
-        Returns a SimpleNamespace with ``applied``, ``errors``, and
-        ``skipped`` attributes.
-        """
-        if not self.is_idle():
-            return types.SimpleNamespace(
-                applied=[], errors=[], skipped=[], idle=False,
-            )
-
-        # Concurrent reload protection.
-        if not self._reload_lock.acquire(blocking=False):
-            return types.SimpleNamespace(
-                applied=[], errors=[], skipped=[], idle=True,
-                error="reload-in-progress",
-            )
-
-        try:
-            return self._apply_pending_locked()
-        finally:
-            self._reload_lock.release()
-
-    def _apply_pending_locked(self) -> types.SimpleNamespace:
-        applied: list[str] = []
-        errors: list[str] = []
-        skipped: list[str] = []
-
-        with self._pending_lock:
-            pending = list(self._pending_replacements)
-            self._pending_replacements.clear()
-
-        for module_name, old_module in pending:
-            # Re-check: the module may have been reloaded by another path.
-            current = sys.modules.get(module_name)
-            if current is None or current is not old_module:
-                skipped.append(module_name)
-                continue
-            try:
-                # Graceful cleanup before reload.
-                _cleanup_module(current)
-                importlib.reload(current)
-                applied.append(module_name)
-                _logger.info(
-                    "hot_reload_applied_deferred module=%s", module_name,
-                )
-            except Exception as error:
-                errors.append(f"{module_name}: {error}")
-                # Roll back to the snapshot.
-                snapshot = self._pending_snapshots.pop(module_name, None)
-                if snapshot and isinstance(current, types.ModuleType):
-                    current.__dict__.clear()
-                    current.__dict__.update(snapshot)
-
-        # Clean up snapshots for successfully applied modules.
-        for name in applied:
-            self._pending_snapshots.pop(name, None)
-
-        if applied:
-            self._persist_reload_protection(applied)
-            self._update_source_hashes(applied)
-            # Post-reload health verification.
-            if not self._post_reload_health_check():
-                _logger.warning(
-                    "hot_reload_health_check_failed_after_deferred ??"
-                    "applied modules may need attention",
-                )
-
-        return types.SimpleNamespace(
-            applied=applied,
-            errors=errors,
-            skipped=skipped,
-            idle=True,
-        )
-
-    async def _idle_loop(self) -> None:
-        """Periodically apply deferred resource-holding module replacements.
-
-        Runs only when the system is idle and there are pending resource-holding
-        module replacements.  This prevents half-replaced modules from being used
-        by in-flight requests.
-        """
-        while True:
-            if self._stop_event is not None and self._stop_event.is_set():
-                break
-            try:
-                if self.pending_replacement_count() > 0 and self.is_idle():
-                    await asyncio.to_thread(self.apply_pending_replacements)
-            except Exception:
-                # Best-effort: never let the idle loop die.
-                pass
-            try:
-                await asyncio.sleep(self.interval_seconds)
-            except asyncio.CancelledError:
-                break
-
-    async def start(self) -> None:
-        """Begin the idle-period deferred-replacement loop."""
-        if self._idle_task is not None and not self._idle_task.done():
-            return
-        self._stop_event = asyncio.Event()
-        self._idle_task = asyncio.create_task(
-            self._idle_loop(),
-            name="hot-update-idle-loop",
-        )
-
-    async def stop(self) -> None:
-        """Cancel the idle-period deferred-replacement loop and cleanup resources."""
-        # Stop the idle loop
-        if self._idle_task is not None:
-            if self._stop_event is not None:
-                self._stop_event.set()
-            self._idle_task.cancel()
-            try:
-                await self._idle_task
-            except asyncio.CancelledError:
-                pass
-            self._idle_task = None
-            self._stop_event = None
-
-        # Apply any pending deferred replacements before shutdown
-        if self.pending_replacement_count() > 0:
-            try:
-                self.apply_pending_replacements()
-            except Exception as e:
-                _logger.warning("Error applying pending replacements during shutdown: %s", e)
-
-        # Cleanup any pending snapshots
-        self._pending_snapshots.clear()
-        self._pending_replacements.clear()
-
-        # Stop the circuit breaker
-        if hasattr(self, '_circuit_breaker'):
-            self._circuit_breaker.reset()
-
     async def _apply(
-        self,
-        _plan: dict[str, Any],
-        *,
-        repairs_completed: bool = False,
+        self, _plan: dict[str, Any], *, repairs_completed: bool = False,
     ) -> None:
         del repairs_completed
         raise PermissionError("PERMISSION_DENIED")
-
-
-def _is_inside(candidate: Path, root: Path) -> bool:
-    try:
-        candidate.resolve(strict=False).relative_to(root.resolve())
-        return True
-    except (OSError, RuntimeError, ValueError):
-        return False
-
-
-__all__ = ["HotUpdateService"]

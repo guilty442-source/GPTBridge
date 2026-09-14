@@ -1,9 +1,8 @@
-"""Helper functions and constants for hot_update_service — A181/A182/A183.
+"""Shared helpers for HotUpdateService and its mixins (A185 split).
 
-Provides protected-module checks, resource detection, source hashing,
-and topological sorting for the hot-reload subsystem.
+Module-level functions and constants used by the hot-update service
+and its mixin modules, kept here to avoid circular imports.
 """
-
 from __future__ import annotations
 
 import hashlib
@@ -27,33 +26,28 @@ PROTECTED_MODULE_PREFIXES: Final[tuple[str, ...]] = (
     "governance.sub_sovereigns.",
 )
 
-# Methods/attributes that indicate a module holds live resources.
 _RESOURCE_INDICATORS: Final[tuple[str, ...]] = (
     "close", "cleanup", "shutdown", "stop", "dispose",
     "teardown", "__del__", "_close", "_cleanup", "_shutdown",
 )
 
-# Batch size for progressive reload.
 _RELOAD_BATCH_SIZE: Final[int] = 16
-# Warm-up delay after each batch (seconds).
 _RELOAD_BATCH_DELAY: Final[float] = 0.1
-# Maximum wait for idle before timing out a reload request (seconds).
 _IDLE_WAIT_TIMEOUT: Final[float] = 10.0
-# Health check timeout after reload (seconds).
 _POST_RELOAD_HEALTH_TIMEOUT: Final[float] = 5.0
 
-
-def _is_protected(module_name: str) -> bool:
-    return any(module_name == prefix or module_name.startswith(prefix + ".") for prefix in PROTECTED_MODULE_PREFIXES)
+_file_hash_cache: dict[str, tuple[float, str]] = {}
 
 
-def _resource_cleanup_methods(module: types.ModuleType) -> list[tuple[Any, str]]:
-    """Return resource-holding objects and their cleanup methods.
+def is_protected(module_name: str) -> bool:
+    return any(
+        module_name == prefix or module_name.startswith(prefix + ".")
+        for prefix in PROTECTED_MODULE_PREFIXES
+    )
 
-    Only bound methods on non-callable, non-module, non-class objects are
-    considered, so module-level functions named ``close`` or ``shutdown``
-    do not classify a module as resource-holding.
-    """
+
+def resource_cleanup_methods(module: types.ModuleType) -> list[tuple[Any, str]]:
+    """Return resource-holding objects and their cleanup methods."""
     found: list[tuple[Any, str]] = []
     for value in vars(module).values():
         if value is None:
@@ -61,11 +55,8 @@ def _resource_cleanup_methods(module: types.ModuleType) -> list[tuple[Any, str]]
         if isinstance(
             value,
             (
-                types.ModuleType,
-                type,
-                types.FunctionType,
-                types.MethodType,
-                types.BuiltinFunctionType,
+                types.ModuleType, type, types.FunctionType,
+                types.MethodType, types.BuiltinFunctionType,
                 types.BuiltinMethodType,
             ),
         ):
@@ -77,34 +68,27 @@ def _resource_cleanup_methods(module: types.ModuleType) -> list[tuple[Any, str]]
     return found
 
 
-def _has_resources(module: types.ModuleType) -> bool:
-    """Return True if the module's namespace contains resource-holding objects."""
-    return bool(_resource_cleanup_methods(module))
+def has_resources(module: types.ModuleType) -> bool:
+    return bool(resource_cleanup_methods(module))
 
 
-def _cleanup_module(module: types.ModuleType) -> None:
-    """Best-effort cleanup of a module's resources before reload."""
-    for value, method_name in _resource_cleanup_methods(module):
+def cleanup_module(module: types.ModuleType) -> None:
+    for value, method_name in resource_cleanup_methods(module):
         try:
             getattr(value, method_name)()
         except Exception:
             pass
 
 
-# Module-level cache for file hashes
-_file_hash_cache: dict[str, tuple[float, str]] = {}  # path -> (mtime, hash)
-
-def _module_source_hash(file_path: str) -> str | None:
-    """Return SHA-256 of a module's source file, or None if unreadable (with caching)."""
+def module_source_hash(file_path: str) -> str | None:
+    """Return SHA-256 of a module's source file, or None if unreadable."""
     try:
         path = Path(file_path)
         mtime = path.stat().st_mtime
-        # Check cache
         if file_path in _file_hash_cache:
             cached_mtime, cached_hash = _file_hash_cache[file_path]
             if cached_mtime == mtime:
                 return cached_hash
-        # Compute new hash
         hash_val = hashlib.sha256(path.read_bytes()).hexdigest()
         _file_hash_cache[file_path] = (mtime, hash_val)
         return hash_val
@@ -112,15 +96,10 @@ def _module_source_hash(file_path: str) -> str | None:
         return None
 
 
-def _topological_sort(
+def topological_sort(
     candidates: list[tuple[str, types.ModuleType]],
 ) -> list[tuple[str, types.ModuleType]]:
-    """Sort candidates so that dependencies (imported modules) reload first.
-
-    Uses a simple DFS-based topological sort on the import graph.  If a
-    cycle is detected, the cycle members are kept in their original order
-    (cycle-safe: Python's importlib.reload handles re-entrant imports).
-    """
+    """Sort candidates so dependencies reload first (DFS-based)."""
     candidate_names = {name for name, _ in candidates}
     name_to_module = {name: mod for name, mod in candidates}
     visited: set[str] = set()
@@ -131,13 +110,11 @@ def _topological_sort(
         if name in visited:
             return
         if name in in_progress:
-            # Cycle detected — skip to avoid infinite recursion.
             _logger.debug("hot_reload_cycle_detected module=%s", name)
             return
         in_progress.add(name)
         module = name_to_module.get(name)
         if module is not None:
-            # Visit imported modules first (dependencies before dependents).
             for attr_name in dir(module):
                 attr = getattr(module, attr_name, None)
                 if isinstance(attr, types.ModuleType):
@@ -151,11 +128,10 @@ def _topological_sort(
 
     for name, _ in candidates:
         visit(name)
-
     return result
 
 
-def _is_inside(candidate: Path, root: Path) -> bool:
+def is_inside(candidate: Path, root: Path) -> bool:
     try:
         candidate.resolve(strict=False).relative_to(root.resolve())
         return True
@@ -166,16 +142,16 @@ def _is_inside(candidate: Path, root: Path) -> bool:
 __all__ = [
     "RELOADABLE_SRC_ROOTS",
     "PROTECTED_MODULE_PREFIXES",
-    "_RESOURCE_INDICATORS",
-    "_RELOAD_BATCH_SIZE",
-    "_RELOAD_BATCH_DELAY",
-    "_IDLE_WAIT_TIMEOUT",
-    "_POST_RELOAD_HEALTH_TIMEOUT",
-    "_is_protected",
-    "_resource_cleanup_methods",
-    "_has_resources",
-    "_cleanup_module",
-    "_module_source_hash",
-    "_topological_sort",
-    "_is_inside",
+    "RESOURCE_INDICATORS",
+    "RELOAD_BATCH_SIZE",
+    "RELOAD_BATCH_DELAY",
+    "IDLE_WAIT_TIMEOUT",
+    "POST_RELOAD_HEALTH_TIMEOUT",
+    "is_protected",
+    "resource_cleanup_methods",
+    "has_resources",
+    "cleanup_module",
+    "module_source_hash",
+    "topological_sort",
+    "is_inside",
 ]
