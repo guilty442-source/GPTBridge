@@ -14,11 +14,6 @@ class PermissionAutomationMixin:
     _automation: Optional[PermissionAutomationOrchestrator]
     _governance_ref: Any
 
-    def _governance(self) -> Any:
-        if self._governance_ref is not None:
-            return self._governance_ref
-        return getattr(self.app, "governance", None)
-
     async def start_automation(self) -> dict[str, Any]:
         """Start the permission automation orchestrator."""
         if self._automation is None:

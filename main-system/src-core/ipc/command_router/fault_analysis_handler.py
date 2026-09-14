@@ -39,12 +39,12 @@ from typing import Any, Mapping
 
 
 _QUERY_ALLOWLIST: frozenset[str] = frozenset(
-    {"overview", "patterns", "knowledge", "component", "detail"}
+    {"overview", "patterns", "knowledge", "component", "detail", "codex-health"}
 )
 
 # Queries safe for broadcast to all connected UI clients.
 _BROADCAST_SAFE_QUERIES: frozenset[str] = frozenset(
-    {"overview", "patterns", "knowledge"}
+    {"overview", "patterns", "knowledge", "codex-health"}
 )
 
 # Queries that may expose per-fault detail; require scope confirmation.
@@ -163,6 +163,10 @@ class FaultAnalysisHandler:
         payload: Mapping[str, Any],
     ) -> dict[str, Any]:
         """Collect the fault evidence for the given query type."""
+        if query == "codex-health":
+            from core_system.codex_health_service import collect_codex_health_evidence
+            project_root = getattr(self.app, "project_root", None) or Path.cwd()
+            return await asyncio.to_thread(collect_codex_health_evidence, Path(project_root))
         if query == "overview":
             return await asyncio.to_thread(service.system_health_overview)
         if query == "patterns":

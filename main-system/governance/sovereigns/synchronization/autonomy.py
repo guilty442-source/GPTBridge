@@ -123,7 +123,3 @@ class SyncAutonomyMixin:
                     "ok": False,
                     "error": f"{type(error).__name__}: {error}",
                 }
-
-    def _iso_now(self) -> str:
-        from datetime import datetime, timezone
-        return datetime.now(timezone.utc).isoformat()

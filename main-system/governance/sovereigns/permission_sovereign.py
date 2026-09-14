@@ -203,7 +203,7 @@ class PermissionSovereign(
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
-        """權限主宰委派執行（A69/A121）。
+        """權限主宰委派執行（A446/A121）。
 
         This sovereign is decision-only (A127/E111).  Execution is delegated
         to DirectoryAuthority / Authentication / governed-executor.  This

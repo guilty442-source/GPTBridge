@@ -35,11 +35,6 @@ class PermissionLifecycleMixin:
     _governance_ref: Any
     _issued_grants: dict[str, dict[str, Any]]
 
-    def _governance(self) -> Any:
-        if self._governance_ref is not None:
-            return self._governance_ref
-        return getattr(self.app, "governance", None)
-
     async def _adjudicate_permission_terminate(
         self, request: SovereignRequest
     ) -> SovereignOutcome:

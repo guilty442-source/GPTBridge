@@ -182,7 +182,7 @@ class DecisionSovereign(
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
-        """決策主宰委派執行（A69/A121）。
+        """決策主宰委派執行（A446/A121）。
 
         This sovereign is decision-only (A297). Execution is dispatched
         inside ``_adjudicate`` through the governed repair decision chain

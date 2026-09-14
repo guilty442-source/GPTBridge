@@ -33,9 +33,12 @@ def bounded_lookup(
     purpose: str,
     scope: tuple[str, ...],
     reader: Callable[[CodexReadSession], Any],
+    dual_key_grant: str | None = None,
 ) -> Any:
     """One-shot bounded lookup: open context, run ``reader``, close."""
-    with open_bounded_context(actor, purpose=purpose, scope=scope) as context:
+    with open_bounded_context(
+        actor, purpose=purpose, scope=scope, dual_key_grant=dual_key_grant
+    ) as context:
         return reader(context)
 
 

@@ -174,7 +174,7 @@ class SynchronizationSovereign(
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
-        """同步主宰委派執行（A69/A121）。
+        """同步主宰委派執行（A446/A121）。
 
         This sovereign is decision-only except for A330 certified update
         execution.  The delegate_to calls inside _adjudicate already

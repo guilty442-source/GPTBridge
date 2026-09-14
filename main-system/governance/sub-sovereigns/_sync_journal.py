@@ -19,7 +19,7 @@ from typing import Any
 class SyncJournalError(RuntimeError):
     """Raised when a sync record cannot be durably recorded or audited.
 
-    A121/A69 fail-closed: a sync that cannot be persisted or audited must
+    A121/A446 fail-closed: a sync that cannot be persisted or audited must
     surface as a failure — never as a silent success.
     """
 
@@ -87,7 +87,7 @@ class SyncJournal:
         """Publish the sync as an A195 outbox state event (audit chain).
 
         When a publisher is present, a failed publication raises so the sync
-        is reported as refused rather than silently accepted (A121/A69).
+        is reported as refused rather than silently accepted (A121/A446).
         The durable journal entry itself remains the record of last resort
         for standalone/test contexts without a publisher.
         """

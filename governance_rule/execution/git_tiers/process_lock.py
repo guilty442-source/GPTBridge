@@ -20,7 +20,7 @@ def pid_alive(pid: int) -> bool:
         raise LockBusyError(f"pid probe unavailable ({exc})") from exc
     try:
         return psutil.pid_exists(pid)
-    except Exception:
+    except (OSError, ValueError, RuntimeError):
         return False
 
 

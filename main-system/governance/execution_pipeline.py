@@ -1,7 +1,7 @@
-"""A69 execution pipeline — every sovereign request runs all six tiers.
+"""A446 execution pipeline — every sovereign request runs all six tiers.
 
 法典依據:
-- A69: EXECUTION-LAYER-TIERS: dispatch-intake > authorization-and-governance-gate
+- A446: EXECUTION-LAYER-TIERS: dispatch-intake > authorization-and-governance-gate
   > task-planning > specialized-executor > result-verification
   > state-event-audit-publication; FORBID: tier-skip +
   executor-self-authorize + executor-self-dispatch + work-step-self-verify +
@@ -47,17 +47,17 @@ _ROUTE_ONLY_EXECUTION = frozenset(
     {"", "none", "decision-layer", "delegated-to-governed-executor"}
 )
 _GATE_BASIS: Mapping[str, tuple[str, ...]] = {
-    "UNAUTHORIZED_REQUESTER": ("A10", "A11", "A69"),
-    "UNAUTHORIZED_INTENT": ("A10", "A12", "A69"),
-    "AUTHORIZATION_GATE_ERROR": ("A11", "A69", "A121"),
-    "AUDIT_PUBLICATION_FAILED": ("A46", "A69", "A121"),
-    "INDEPENDENT_VERIFICATION_FAILED": ("A69", "A121"),
-    "EXECUTION_TIER_INCOMPLETE": ("A69", "A121"),
+    "UNAUTHORIZED_REQUESTER": ("A10", "A11", "A446"),
+    "UNAUTHORIZED_INTENT": ("A10", "A12", "A446"),
+    "AUTHORIZATION_GATE_ERROR": ("A11", "A446", "A121"),
+    "AUDIT_PUBLICATION_FAILED": ("A46", "A446", "A121"),
+    "INDEPENDENT_VERIFICATION_FAILED": ("A446", "A121"),
+    "EXECUTION_TIER_INCOMPLETE": ("A446", "A121"),
 }
 
 
 class SovereignExecutionPipeline:
-    """Run one request through all A69 tiers; success requires every receipt."""
+    """Run one request through all A446 tiers; success requires every receipt."""
 
     def __init__(self, sovereign: Any) -> None:
         self._sovereign = sovereign
@@ -168,7 +168,7 @@ class SovereignExecutionPipeline:
                 {"error": str(error)[:200]},
             )
             return _refusal("AUDIT_PUBLICATION_FAILED", ledger, verdict)
-        # A69: require complete receipts, independent verification, and audit publication
+        # A446: require complete receipts, independent verification, and audit publication
         if not outcome.accepted:
             return _with_receipts(outcome, ledger, verdict)
         if not verdict.verified:
@@ -239,7 +239,7 @@ def _refusal(
     ledger: ExecutionReceiptLedger | None = None,
     verdict: VerificationVerdict | None = None,
 ) -> SovereignOutcome:
-    tokens = _GATE_BASIS.get(reason, ("A69", "A121"))
+    tokens = _GATE_BASIS.get(reason, ("A446", "A121"))
     basis = verified_basis(tokens)
     result: dict[str, Any] = {}
     if ledger is not None:

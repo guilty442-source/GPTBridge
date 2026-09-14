@@ -34,15 +34,6 @@ class PermissionAuthSupervisionMixin:
     _compliance_violations: list[dict[str, Any]]
     _issued_grants: dict[str, dict[str, Any]]
 
-    def _governance(self) -> Any:
-        if self._governance_ref is not None:
-            return self._governance_ref
-        return getattr(self.app, "governance", None)
-
-    def _iso_now(self) -> str:
-        from datetime import datetime, timezone
-        return datetime.now(timezone.utc).isoformat()
-
     # ------------------------------------------------------------------
     # Two-key review (A313): obtain a current 星澄 permission-review finding.
     # ------------------------------------------------------------------

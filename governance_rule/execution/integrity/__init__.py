@@ -39,8 +39,8 @@ def _pinned_authority_sources() -> tuple[str, ...]:
     """Authority files whose bytes are pinned into the launch manifest.
 
     A382 (non-disruptive amendment): runtime-mutable authority data declared
-    by ``policy.runtime_mutable_authority_files`` — the live codex database
-    and its mirror — publishes new generations atomically while the system
+    by `policy.runtime_mutable_authority_files` -- the live codex database
+    and its mirror -- publishes new generations atomically while the system
     keeps running, so their bytes are excluded from pinning; their integrity
     is carried by the codex's own seal manifest and revision hash chain.
     """
@@ -175,7 +175,7 @@ class AuthorityIntegrityGuard:
         self._manifest = manifest
         try:
             self.verify()
-        except Exception:
+        except (OSError, ValueError, KeyError, RuntimeError, PermissionError):
             self._manifest = previous
             raise
 

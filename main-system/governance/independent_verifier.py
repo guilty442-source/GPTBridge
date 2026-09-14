@@ -1,7 +1,7 @@
-"""A69 independent result verification — the verifier is never the work step.
+"""A446 independent result verification — the verifier is never the work step.
 
 法典依據:
-- A69: VERIFY: independent-from-work-step;
+- A446: VERIFY: independent-from-work-step;
   FORBID: work-step-self-verify + executor result accepted without
   independent verification.
 - A297/A5: the decision actor is never the execution actor or the sole
@@ -45,7 +45,7 @@ class VerificationVerdict:
 
 
 class IndependentVerifier:
-    """Contract verifier independent from the executor (A69).
+    """Contract verifier independent from the executor (A446).
 
     Default checks never trust a self-declared success: the result must
     carry a codex basis, must not announce its own verification, and any

@@ -209,7 +209,7 @@ def record_delegation_outcome(
     execution_mode: str = "decision-only",
     basis: tuple[str, ...] = (),
 ) -> None:
-    """Record the outcome of a sovereign's delegation step (A69/A121).
+    """Record the outcome of a sovereign's delegation step (A446/A121).
 
     Every ``_delegate_execution`` call must record its outcome so the
     delegation path is auditable: whether execution was dispatched to a
@@ -231,7 +231,7 @@ def record_delegation_outcome(
 
 
 # ---------------------------------------------------------------------------
-# Verifiable delegation receipts (A69/A121 behavioral evidence)
+# Verifiable delegation receipts (A446/A121 behavioral evidence)
 # ---------------------------------------------------------------------------
 
 
@@ -386,7 +386,7 @@ def attach_delegation_receipt(
 
     This replaces bare ``"execution": "delegated-to-governed-executor"``
     string declarations with a verifiable receipt that carries a unique
-    ID, content hash, and ledger record (A69/A121 behavioral evidence).
+    ID, content hash, and ledger record (A446/A121 behavioral evidence).
     The receipt is also recorded via ``record_delegation_outcome`` for
     the audit trail.
     """

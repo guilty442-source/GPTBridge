@@ -86,7 +86,7 @@ class SubSovereignBase(SovereignBase, ABC):
         adjudication result is a coordination record, not an execution
         outcome, so there is no execution side-effect to delegate.  A
         verifiable delegation receipt is attached so the coordination
-        step is provable, not merely declared (A69/A121).
+        step is provable, not merely declared (A446/A121).
         """
         return self._attach_delegation_receipt(decision, request, "sub-sovereign-coordination")
 

@@ -66,10 +66,3 @@ class SystemRuntimeStatusMixin:
                 "metrics": dict(self._auto_metrics),
             },
         }
-
-    def _child_status(self, child_id: str, method: str = "live_status") -> dict[str, Any]:
-        child = getattr(self, "_sub_sovereigns", {}).get(child_id)
-        if child is None:
-            return {"role": child_id, "enabled": False, "materialized": False}
-        reporter = getattr(child, method, None)
-        return reporter() if callable(reporter) else {"role": child_id}

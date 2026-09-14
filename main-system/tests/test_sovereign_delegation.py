@@ -1,6 +1,6 @@
 """Focused tests for SovereignBase._delegate_execution fail-closed behavior.
 
-Verifies A69/A121: the generic sovereign entry point must not silently
+Verifies A446/A121: the generic sovereign entry point must not silently
 echo an adjudication result as if execution succeeded.  The base class
 fails closed by default; every concrete sovereign must override
 ``_delegate_execution`` to either dispatch to a governed executor or
@@ -102,7 +102,7 @@ async def test_base_delegate_execution_returns_refusal() -> None:
 def test_every_sovereign_overrides_delegate_execution(cls: type) -> None:
     """Every concrete sovereign must override ``_delegate_execution``."""
     assert _has_override(cls, "_delegate_execution"), (
-        f"{cls.__name__} must override _delegate_execution (A69/A121)"
+        f"{cls.__name__} must override _delegate_execution (A446/A121)"
     )
 
 
@@ -184,9 +184,9 @@ async def test_xingcheng_sovereign_delegate_execution_returns_decision() -> None
 
 
 def test_base_docstring_cites_a69_a121_not_a63_a64() -> None:
-    """The base-class docstring must cite the real codex articles (A69/A121)."""
+    """The base-class docstring must cite the real codex articles (A446/A121)."""
     source = inspect.getsource(SovereignBase)
-    assert "A69" in source
+    assert "A446" in source
     assert "A121" in source
     assert "A63:" not in source
     assert "A64:" not in source

@@ -8,6 +8,15 @@ from pathlib import Path
 from typing import Any
 
 
+# Runtime readiness state file (information-layer, A67).
+_READINESS_STATE_RELATIVE = (
+    "main-system",
+    "runtime",
+    "state",
+    "runtime-readiness.json",
+)
+
+
 class SystemRuntimeStateMixin:
     """State persistence for runtime-readiness.json."""
 
@@ -36,6 +45,3 @@ class SystemRuntimeStateMixin:
             encoding="utf-8",
         )
         os.replace(temporary, readiness_path)
-
-    def _iso_now(self) -> str:
-        return datetime.now(timezone.utc).isoformat()

@@ -2,7 +2,7 @@
 
 法典依据:
 - A12: SOVEREIGN-DECISION: ADJUDICATION-SOURCE:codex; APPLIES:runtime/maintenance/permission-sovereigns; 星澄:outside-decision-chain
-- A69: EXECUTION-LAYER-TIERS:dispatch-intake>authorization-and-governance-gate>task-planning>specialized-executor>result-verification>state-event-audit-publication; CONTROL:sub-sovereign; WORK:specialized-module-executor; VERIFY:independent-from-work-step
+- A446: EXECUTION-LAYER-TIERS:dispatch-intake>authorization-and-governance-gate>task-planning>specialized-executor>result-verification>state-event-audit-publication; CONTROL:sub-sovereign; WORK:specialized-module-executor; VERIFY:independent-from-work-step
 - A121: BOUNDARY-ENFORCEMENT:governance-gate+audit-ledger+deny-on-violation; MECHANISM:pre-execution-verify+post-execution-audit+violation-stop-record-adjudicate
 - A297: TOP-LEVEL-SOVEREIGNS: EXECUTION-POWER:none; SEPARATION:decision actor cannot be execution actor or sole final verifier
 - A74: ALL-CODEX-CITATION: enter-through-governance-codex://official
@@ -152,7 +152,7 @@ class SovereignBase(ABC):
         # Per-child consecutive-failure counts, fed by the governed
         # executor and by children reporting through ``report_to_parent``.
         self._child_failure_counts: dict[str, int] = {}
-        # A69 independent verifier — never the work step; domain checks may
+        # A446 independent verifier — never the work step; domain checks may
         # be registered by subclasses via ``register_verification_check``.
         self._independent_verifier = IndependentVerifier()
 
@@ -193,10 +193,10 @@ class SovereignBase(ABC):
     # -------------------------------------------------------------------------
 
     async def handle(self, request: SovereignRequest) -> SovereignOutcome:
-        """单一决策入口：裁决 -> 授权 -> 委派执行（全阶段 A69 receipts）。
+        """单一决策入口：裁决 -> 授权 -> 委派执行（全阶段 A446 receipts）。
 
         Every request flows through ``SovereignExecutionPipeline`` so all six
-        A69 tiers are receipted (dispatch-intake, authorization gate,
+        A446 tiers are receipted (dispatch-intake, authorization gate,
         task-planning, specialized-executor, result-verification,
         audit-publication); the executor never self-declares success — the
         independent verifier and the mandatory audit publication decide —
@@ -207,13 +207,13 @@ class SovereignBase(ABC):
         return await SovereignExecutionPipeline(self).run(request)
 
     def register_verification_check(self, intent: str, check: Any) -> None:
-        """Register an independent domain check for ``intent`` (A69)."""
+        """Register an independent domain check for ``intent`` (A446)."""
         self._independent_verifier.register(intent, check)
 
     def verify_execution_result(
         self, intent: str, executor_actor: str, outcome: SovereignOutcome
     ) -> VerificationVerdict:
-        """Independent verification of an executor result (A69/A121)."""
+        """Independent verification of an executor result (A446/A121)."""
         return self._independent_verifier.verify(intent, executor_actor, outcome)
 
     async def _verify_requester(self, request: SovereignRequest) -> bool:
@@ -375,12 +375,12 @@ class SovereignBase(ABC):
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
-        """委派执行给受治理执行器（A69/A121）。
+        """委派执行给受治理执行器（A446/A121）。
 
         Fail-closed default: a sovereign that does not override this hook
         cannot claim successful execution.  Returning the bare adjudication
         result would mask the absence of execution behind an accepted
-        outcome, violating A69 (EXECUTION-LAYER-TIERS requires a real
+        outcome, violating A446 (EXECUTION-LAYER-TIERS requires a real
         specialized-executor step) and A121 (post-execution-audit must
         record an actual execution, not a decision echo).
 
@@ -393,7 +393,7 @@ class SovereignBase(ABC):
         """
         return refusal_outcome(
             "EXECUTION_NOT_DELEGATED",
-            self.verified_basis("A69", "A121"),
+            self.verified_basis("A446", "A121"),
         )
 
     def _attach_delegation_receipt(
@@ -404,7 +404,7 @@ class SovereignBase(ABC):
     ) -> SovereignOutcome:
         """Mint a verifiable delegation receipt and attach it to the outcome.
 
-        Thin wrapper around ``attach_delegation_receipt`` (A69/A121).
+        Thin wrapper around ``attach_delegation_receipt`` (A446/A121).
         """
         return attach_delegation_receipt(
             decision, request, self.sovereign_id, execution_mode

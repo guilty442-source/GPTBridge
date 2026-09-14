@@ -15,10 +15,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import threading
 import time
 from pathlib import Path
-from typing import Final, Iterable
+from typing import Any, Final, Iterable
 
 
 ACCESS_BOUNDED: Final[str] = "bounded-machine-lookup"
@@ -79,8 +80,83 @@ AUDIT_PATH: Final[Path] = (
     Path(__file__).resolve().parent / "audit" / "codex_read_audit.jsonl"
 )
 _AUDIT_LOCK = threading.Lock()
-_REVOCATION_LOCK = threading.Lock()
-_revocation_generation = 0
+
+# ---------------------------------------------------------------------------
+# Persistent entry state (A174/A435): revocation generation, minted session
+# nonces, and dual-key grants survive restarts so replay and revocation
+# evidence cannot be lost by a process boundary.  The store is atomic
+# (tmp+replace) and fail-closed: an unreadable or corrupt store denies all
+# new entry operations (already-minted sessions deny on their next check).
+# ---------------------------------------------------------------------------
+
+ENTRY_STATE_PATH: Final[Path] = AUDIT_PATH.parent / "codex_entry_state.json"
+_ENTRY_STATE_ENV: Final[str] = "GPTBRIDGE_CODEX_ENTRY_STATE"
+_STATE_LOCK = threading.Lock()
+
+
+def _state_path() -> Path:
+    override = os.environ.get(_ENTRY_STATE_ENV, "").strip()
+    return Path(override) if override else ENTRY_STATE_PATH
+
+
+def _empty_state() -> dict[str, Any]:
+    return {
+        "revocation_generation": 0,
+        "sessions": {},
+        "grants": {},
+        "consumed_nonces": {},
+    }
+
+
+def _load_state() -> dict[str, Any]:
+    """Read the persisted entry state; fail closed when corrupt."""
+    path = _state_path()
+    if not path.is_file():
+        return _empty_state()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise PermissionError(f"CODEX_STATE_CORRUPT:{error.__class__.__name__}")
+    if not isinstance(data, dict) or not isinstance(
+        data.get("revocation_generation"), int
+    ):
+        raise PermissionError("CODEX_STATE_CORRUPT:schema")
+    for key in ("sessions", "grants", "consumed_nonces"):
+        if not isinstance(data.get(key), dict):
+            data[key] = {}
+    return data
+
+
+def _store_state(state: dict[str, Any]) -> None:
+    """Atomically persist entry state; fail closed when unavailable."""
+    path = _state_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(state, ensure_ascii=False, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+    except OSError as error:
+        raise PermissionError(
+            f"CODEX_STATE_UNAVAILABLE:{error.__class__.__name__}"
+        )
+
+
+def mutate_entry_state(mutator: Any) -> Any:
+    """Load state, apply ``mutator`` and persist atomically under lock."""
+    with _STATE_LOCK:
+        state = _load_state()
+        result = mutator(state)
+        _store_state(state)
+        return result
+
+
+def read_entry_state() -> dict[str, Any]:
+    """Consistent snapshot of the persisted entry state (fail closed)."""
+    with _STATE_LOCK:
+        return _load_state()
 
 
 def utc_now() -> str:
@@ -131,14 +207,56 @@ def record_session_audit(
 
 def revoke_codex_read_contexts() -> None:
     """Revoke every outstanding context/session (amendment, recertify)."""
-    global _revocation_generation
-    with _REVOCATION_LOCK:
-        _revocation_generation += 1
+    def _bump(state: dict[str, Any]) -> int:
+        state["revocation_generation"] += 1
+        return state["revocation_generation"]
+
+    mutate_entry_state(_bump)
 
 
 def current_revocation() -> int:
-    with _REVOCATION_LOCK:
-        return _revocation_generation
+    return int(read_entry_state()["revocation_generation"])
+
+
+def register_session_nonce(
+    *,
+    nonce: str,
+    actor: str,
+    purpose: str,
+    access_class: str,
+    scope: frozenset[str],
+    codex_version: int,
+    generation: int,
+    expires_at: float,
+) -> None:
+    """Persist a minted session record (nonce uniqueness + lifecycle)."""
+    def _register(state: dict[str, Any]) -> None:
+        sessions = state["sessions"]
+        if nonce in sessions or nonce in state["consumed_nonces"]:
+            raise PermissionError("CODEX_NONCE_REPLAY")
+        sessions[nonce] = {
+            "actor": str(actor),
+            "purpose": str(purpose),
+            "access_class": str(access_class),
+            "scope_hash": scope_hash(scope),
+            "codex_version": int(codex_version),
+            "generation": int(generation),
+            "expires_at": float(expires_at),
+            "closed": False,
+        }
+
+    mutate_entry_state(_register)
+
+
+def close_session_nonce(nonce: str) -> None:
+    """Mark a persisted session record closed (consumed, single-use)."""
+    def _close(state: dict[str, Any]) -> None:
+        record = state["sessions"].get(str(nonce))
+        if record is not None:
+            record["closed"] = True
+        state["consumed_nonces"][str(nonce)] = utc_now()
+
+    mutate_entry_state(_close)
 
 
 def parse_scope(scope: Iterable[str]) -> frozenset[str]:
@@ -164,13 +282,18 @@ __all__ = [
     "DEFAULT_CONTEXT_TTL",
     "DEFAULT_SESSION_TTL",
     "DIGEST_FLUSH_BOUND",
+    "ENTRY_STATE_PATH",
     "GOVERNED_PURPOSES",
     "REVIEW_COMPONENT_ACTORS",
     "VALID_SCOPE_KINDS",
     "XINGCHENG_IDS",
+    "close_session_nonce",
     "current_revocation",
+    "mutate_entry_state",
     "parse_scope",
+    "read_entry_state",
     "record_session_audit",
+    "register_session_nonce",
     "revoke_codex_read_contexts",
     "scope_hash",
     "utc_now",

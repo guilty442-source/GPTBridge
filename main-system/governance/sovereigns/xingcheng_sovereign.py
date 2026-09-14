@@ -189,7 +189,7 @@ class XingchengSovereign(
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
-        """星澄委派執行（A69/A121）。
+        """星澄委派執行（A446/A121）。
 
         星澄 is advisory/read-only (A137-A146).  This hook attests that
         the adjudication was a pure decision and records the delegation

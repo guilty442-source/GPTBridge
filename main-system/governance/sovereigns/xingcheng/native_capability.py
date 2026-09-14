@@ -29,13 +29,10 @@ class XingchengNativeMixin:
     _automation_tasks: dict[str, dict[str, Any]]
     _owned_domain_root: str
 
-    def __init__(self) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
         self._program_tasks = {}
         self._automation_tasks = {}
-
-    def _iso_now(self) -> str:
-        from datetime import datetime, timezone
-        return datetime.now(timezone.utc).isoformat()
 
     def _automation_authorized(self, request: SovereignRequest) -> bool:
         """A336: automation requires explicit user command or codex mandate."""

@@ -1,7 +1,7 @@
-"""A69 execution-tier receipts — universal per-request pipeline evidence.
+"""A446 execution-tier receipts — universal per-request pipeline evidence.
 
 法典依據:
-- A69: EXECUTION-LAYER-TIERS: dispatch-intake > authorization-and-governance-gate
+- A446: EXECUTION-LAYER-TIERS: dispatch-intake > authorization-and-governance-gate
   > task-planning > specialized-executor > result-verification
   > state-event-audit-publication; VERIFY: independent-from-work-step;
   FORBID: tier-skip + executor-self-authorize + executor-self-dispatch +
@@ -40,7 +40,7 @@ def _utc_now() -> str:
 
 
 class ReceiptError(RuntimeError):
-    """Fail-closed receipt violation (A69/A121)."""
+    """Fail-closed receipt violation (A446/A121)."""
 
 
 class ExecutionTier(str, Enum):
@@ -76,7 +76,7 @@ class ExecutionReceipt:
 
 
 class ExecutionReceiptLedger:
-    """Ordered six-tier receipt ledger (A69); violations fail closed."""
+    """Ordered six-tier receipt ledger (A446); violations fail closed."""
 
     def __init__(self, request_id: str, requester: str) -> None:
         self.request_id = str(request_id or "").strip() or "unidentified"
@@ -103,7 +103,7 @@ class ExecutionReceiptLedger:
             and self.executor_actor
             and actor_value == self.executor_actor
         ):
-            raise ReceiptError("work-step-self-verify forbidden (A69)")
+            raise ReceiptError("work-step-self-verify forbidden (A446)")
         receipt = ExecutionReceipt(
             request_id=self.request_id,
             tier=tier,

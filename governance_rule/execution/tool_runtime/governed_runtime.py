@@ -314,7 +314,7 @@ class GovernedToolRuntime:
                     continue
                 try:
                     stamp = await asyncio.to_thread(probe)
-                except Exception:
+                except (OSError, ValueError, RuntimeError, TypeError, AttributeError):
                     stamp = None
                 if stamp is None:
                     continue

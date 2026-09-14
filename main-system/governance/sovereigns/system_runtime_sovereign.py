@@ -167,7 +167,7 @@ class SystemRuntimeSovereign(
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
-        """系統運行主宰委派執行（A69/A121）。
+        """系統運行主宰委派執行（A446/A121）。
 
         This sovereign is decision-only (A28).  Execution is delegated
         to governed executor / sub-sovereigns via delegate_to.  This hook

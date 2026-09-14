@@ -52,7 +52,8 @@ class XingchengReviewMixin:
     _reviews: dict[str, dict[str, Any]]
     _pending_anomalies: list[dict[str, Any]]
 
-    def __init__(self) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
         self._reviews = {}
         self._pending_anomalies = []
 

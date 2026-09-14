@@ -20,6 +20,7 @@ from typing import Any
 from governance_rule.permission_directory.code_rule_directory import code_rule_directory_snapshot
 from governance_rule.execution.codex_reconcile import bounded_lookup
 from governance_rule.execution.codex_repository import format_codex_version
+from governance_rule.execution.codex_dual_key import mint_dual_key_grant
 from governance_rule.execution.codex_session import open_review_session
 from governance_rule.permission_directory.governance_policy import (
     DEFAULT_ACTIVE_GOVERNANCE_RULES,
@@ -46,10 +47,21 @@ class GovernanceRuleCoordination:
         # A435 REVIEW_SESSION: the coordination surface reads the full
         # codex projection through the official entry (identity + purpose
         # + scope + nonce + expiry + metadata-only audit).
+        # A174 two-key boundary: a full-codex snapshot is privileged and
+        # requires a grant countersigned by the entry owner.
+        grant = mint_dual_key_grant(
+            operation="codex-open:review-session",
+            primary_actor="governance-coordination",
+            secondary_actor="permission-sovereign",
+            purpose="coordination",
+            scope=("codex:full",),
+            access_class="review-session",
+        )
         with open_review_session(
             "governance-coordination",
             purpose="coordination",
             scope=("codex:full",),
+            dual_key_grant=grant,
         ) as session:
             codex = session.snapshot()
         active_rules = self._active_rules()

@@ -13,6 +13,7 @@ import stat
 from pathlib import Path
 from typing import Any
 
+from governance_rule.execution.codex_dual_key import mint_dual_key_grant
 from governance_rule.execution.codex_reconcile import bounded_lookup
 from governance_rule.execution.codex_repository import CODEX_DATABASE_PATH
 from governance_rule.execution.codex_session import (
@@ -32,6 +33,18 @@ def _make_writable(path: Path) -> None:
     """Lift read-only bit so the file can be replaced."""
     current = path.stat().st_mode if path.is_file() else 0
     os.chmod(path, current | stat.S_IWRITE)
+
+
+def _amendment_grant() -> str:
+    """Mint the dual-key grant for one amendment-verification read."""
+    return mint_dual_key_grant(
+        operation="codex-open:bounded-machine-lookup",
+        primary_actor="codex-amendment-executor",
+        secondary_actor="permission-sovereign",
+        purpose="amendment-verification",
+        scope=("codex:identity",),
+        access_class="bounded-machine-lookup",
+    )
 
 
 async def _amendment_executor(command: str, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -62,11 +75,14 @@ async def _amendment_executor(command: str, payload: dict[str, Any]) -> tuple[st
     # sessions bound to the old codex version are revoked, then the new
     # authority is verified through one bounded official-entry lookup.
     revoke_codex_read_contexts()
+    # A174 two-key boundary: amendment verification requires a grant
+    # countersigned by the entry owner (permission-sovereign).
     bounded_lookup(
         "codex-amendment-executor",
         purpose="amendment-verification",
         scope=("codex:identity",),
         reader=lambda ctx: ctx.codex_identity(),
+        dual_key_grant=_amendment_grant(),
     )
 
     return "applied", {
@@ -89,6 +105,7 @@ async def _amendment_consumer(command: str, payload: dict[str, Any]) -> tuple[st
         purpose="amendment-verification",
         scope=("codex:identity",),
         reader=lambda ctx: ctx.codex_identity(),
+        dual_key_grant=_amendment_grant(),
     )
     re_certify_permission_sovereign()
     return "reloaded", {"amendment_id": payload.get("amendment_id")}

@@ -30,6 +30,7 @@ import secrets
 import time
 from typing import Any, Iterable
 
+from governance_rule.execution import codex_dual_key as _dual_key
 from governance_rule.execution import codex_entry_state as _state
 from governance_rule.execution.codex_repository import (
     CODEX_DATABASE_PATH,
@@ -110,6 +111,14 @@ class CodexReadSession:
         self._expires = time.monotonic() + max(1.0, float(ttl_seconds))
         self._generation = _state.current_revocation()
         self._codex_version = load_governance_codex().codex_version
+        # Persist the minted session (nonce uniqueness + lifecycle evidence);
+        # a corrupt or unavailable state store fails the open closed.
+        _state.register_session_nonce(
+            nonce=self._nonce, actor=actor, purpose=purpose,
+            access_class=access_class, scope=scope,
+            codex_version=self._codex_version, generation=self._generation,
+            expires_at=time.time() + max(1.0, float(ttl_seconds)),
+        )
         self._closed = False
         self._digest: list[tuple[int, str]] = []
         self._digest_seq = 0
@@ -143,6 +152,10 @@ class CodexReadSession:
         if self._closed:
             return
         self._closed = True
+        try:
+            _state.close_session_nonce(self._nonce)
+        except PermissionError:
+            pass
         if self._access_class == ACCESS_BOUNDED:
             self._flush_digest("CLOSED")
         else:
@@ -367,6 +380,7 @@ def open_codex_session(
     scope: Iterable[str],
     access_class: str = ACCESS_REVIEW,
     ttl_seconds: float = _DEFAULT_SESSION_TTL,
+    dual_key_grant: str | None = None,
 ) -> CodexReadSession:
     """Open a controlled codex read session through the official entry.
 
@@ -395,6 +409,23 @@ def open_codex_session(
             codex_version=None, correlation="", result=denial,
         )
         raise PermissionError(denial)
+    # A174 two-key boundary: privileged review/amendment opens require a
+    # single-use grant countersigned by a distinct registered sovereign.
+    if _dual_key.requires_dual_key(access_class, purpose, parsed_scope):
+        if not dual_key_grant:
+            _state.record_session_audit(
+                event="session-open", actor=actor, purpose=purpose,
+                access_class=access_class, scope=parsed_scope,
+                codex_version=None, correlation="",
+                result="CODEX_DUAL_KEY_REQUIRED",
+            )
+            raise PermissionError("CODEX_DUAL_KEY_REQUIRED")
+        _dual_key.verify_dual_key_grant(
+            dual_key_grant,
+            operation=f"codex-open:{access_class}",
+            actor=actor, purpose=purpose, scope=parsed_scope,
+            access_class=access_class,
+        )
     return CodexReadSession(
         actor=actor, purpose=purpose, scope=parsed_scope,
         access_class=access_class, ttl_seconds=ttl_seconds,
@@ -407,11 +438,13 @@ def open_bounded_context(
     purpose: str,
     scope: Iterable[str],
     ttl_seconds: float = _DEFAULT_CONTEXT_TTL,
+    dual_key_grant: str | None = None,
 ) -> CodexReadSession:
     """BOUNDED_MACHINE_LOOKUP context (A435): non-content exact lookups."""
     return open_codex_session(
         actor, purpose=purpose, scope=scope,
         access_class=ACCESS_BOUNDED, ttl_seconds=ttl_seconds,
+        dual_key_grant=dual_key_grant,
     )
 
 
@@ -421,11 +454,13 @@ def open_review_session(
     purpose: str,
     scope: Iterable[str],
     ttl_seconds: float = _DEFAULT_SESSION_TTL,
+    dual_key_grant: str | None = None,
 ) -> CodexReadSession:
     """REVIEW_SESSION (A435): rule text / evidence / citation reads."""
     return open_codex_session(
         actor, purpose=purpose, scope=scope,
         access_class=ACCESS_REVIEW, ttl_seconds=ttl_seconds,
+        dual_key_grant=dual_key_grant,
     )
 
 

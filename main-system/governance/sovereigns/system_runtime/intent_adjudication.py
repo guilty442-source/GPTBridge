@@ -83,17 +83,3 @@ class SystemRuntimeIntentMixin:
             {"health_coordination": "no-health-child"},
             self.verified_basis("A28"),
         )
-
-    def _resolve_runtime_child(self, intent: str) -> tuple[str | None, Any | None]:
-        intent_map = {
-            "runtime.readiness": "startup-sub-sovereign",
-            "runtime.health": "health-maintenance-test-sub-sovereign",
-        }
-        child_id = intent_map.get(intent)
-        if child_id is None:
-            return None, None
-        from governance.registries import validate_child_parent
-        if not validate_child_parent(child_id, self.sovereign_id):
-            return None, None
-        child = getattr(self, "_sub_sovereigns", {}).get(child_id)
-        return child_id, child

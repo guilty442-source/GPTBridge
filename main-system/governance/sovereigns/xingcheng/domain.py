@@ -28,7 +28,8 @@ class XingchengDomainMixin:
     _last_snapshot: dict[str, Any]
     _pending_anomalies: list[dict[str, Any]]
 
-    def __init__(self) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
         self._auto_metrics = {
             "observe_cycles": 0, "analyze_cycles": 0, "reason_cycles": 0,
             "manage_cycles": 0, "health_checks": 0, "anomalies_detected": 0,
@@ -38,10 +39,6 @@ class XingchengDomainMixin:
         }
         self._last_snapshot = {}
         self._pending_anomalies = []
-
-    def _iso_now(self) -> str:
-        from datetime import datetime, timezone
-        return datetime.now(timezone.utc).isoformat()
 
     def _resolve_in_domain(self, raw_path: str | None) -> Path | None:
         """Resolve path under owned domain root. Returns None if escapes domain."""

@@ -26,7 +26,8 @@ class XingchengAutoMixin:
     _last_snapshot: dict[str, Any]
     _pending_anomalies: list[dict[str, Any]]
 
-    def __init__(self) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
         self._auto_loop_task = None
         self._auto_loop_interval = 10.0
         self._auto_enabled = True
@@ -39,10 +40,6 @@ class XingchengAutoMixin:
         }
         self._last_snapshot = {}
         self._pending_anomalies = []
-
-    def _iso_now(self) -> str:
-        from datetime import datetime, timezone
-        return datetime.now(timezone.utc).isoformat()
 
     async def _adjudicate_auto_observe(self, request: SovereignRequest) -> SovereignOutcome:
         snapshot = self._observe_domain()

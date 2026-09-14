@@ -33,7 +33,8 @@ class SyncA330ExecutionMixin:
     workspace_root: Path
     _certified_update_operations: dict[str, dict[str, Any]]
 
-    def __init__(self) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
         self._certified_update_operations = {}
 
     def _iso_now(self) -> str:
