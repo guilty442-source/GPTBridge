@@ -22,6 +22,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Final
 
+from .fault_diagnostics_aux import FaultDiagnosticsAuxMixin
 from .fault_diagnostics_evidence import FaultDiagnosticsEvidenceMixin
 from .fault_diagnostics_localize import FaultDiagnosticsLocalizeMixin
 from .fault_diagnostics_data import (
@@ -32,6 +33,7 @@ from .fault_diagnostics_data import (
 
 
 class FaultDiagnostics(
+    FaultDiagnosticsAuxMixin,
     FaultDiagnosticsEvidenceMixin,
     FaultDiagnosticsLocalizeMixin,
 ):

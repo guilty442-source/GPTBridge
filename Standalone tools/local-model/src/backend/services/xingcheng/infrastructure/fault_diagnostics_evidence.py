@@ -13,11 +13,16 @@ from .fault_diagnostics_data import (
     _MAX_MANUALS,
     _MAX_MATCHED_CODES,
     _MAX_OUTBOX_EVENTS,
+    _MAX_PENDING_ACTIONS,
     _MAX_REPAIR_REQUESTS,
+    _PENDING_ACTION_KEYS,
     _READINESS_FLAG_LOCATIONS,
     _READINESS_KEYS,
     _RUNTIME_STATE_FILES,
+    _STATE_KEY_WHITELISTS,
+    _SWITCH_KEYS,
     _UPPER_SNAKE_TOKEN,
+    _WATCHER_KEYS,
     _read_json_bounded,
 )
 
@@ -149,6 +154,18 @@ class FaultDiagnosticsEvidenceMixin:
         scored.sort(key=lambda item: (-item[0], item[1]["fault_code"]))
         return [entry for _score, entry in scored[: max(1, limit)]]
 
+    def directory_entries_by_code(
+        self, fault_codes: list[str]
+    ) -> list[dict[str, Any]]:
+        """Directory rows for exact fault codes (e.g. learned signatures)."""
+        wanted = {str(code).strip() for code in fault_codes if str(code).strip()}
+        if not wanted:
+            return []
+        return [
+            entry for entry in self.fault_code_directory()
+            if entry["fault_code"] in wanted
+        ]
+
     def manuals_for(
         self,
         fault_codes: list[str],
@@ -167,42 +184,83 @@ class FaultDiagnosticsEvidenceMixin:
 
     def runtime_state_evidence(self) -> dict[str, Any]:
         """Bounded snapshots of main-system runtime state files."""
-        evidence: dict[str, Any] = {}
-        for name in _RUNTIME_STATE_FILES:
-            path = self.state_dir / name
-            if not path.is_file():
-                evidence[name] = {"available": False}
-                continue
-            data = _read_json_bounded(path)
-            if data is None:
-                evidence[name] = {"available": False, "error": "unreadable"}
-                continue
-            # Live state payloads nest under "snapshot" — flatten one level
-            # so key whitelists match the actual schema.
-            if isinstance(data, dict) and isinstance(data.get("snapshot"), dict):
-                data = {**data["snapshot"], "updated_at": data.get("updated_at")}
-            if name == "boot-core.json" and isinstance(data, dict):
-                evidence[name] = {
-                    key: data[key] for key in _BOOT_CORE_KEYS if key in data
-                } or {"available": True}
-            elif name == "runtime-readiness.json" and isinstance(data, dict):
-                evidence[name] = {
-                    key: data[key] for key in _READINESS_KEYS if key in data
-                } or {"available": True}
-            elif name == "ipc-connection-state.json" and isinstance(data, dict):
-                evidence[name] = {
-                    key: data[key] for key in _IPC_STATE_KEYS if key in data
-                } or {"available": True}
-            elif name == "repair-requests.json":
-                if isinstance(data, list):
-                    evidence[name] = {"recent": data[-_MAX_REPAIR_REQUESTS:]}
-                else:
-                    evidence[name] = data
-            else:
-                evidence[name] = data if isinstance(data, dict) else {
-                    "available": True
-                }
-        return evidence
+        return {
+            name: self._state_file_snapshot(name)
+            for name in _RUNTIME_STATE_FILES
+        }
+
+    def _state_file_snapshot(self, name: str) -> Any:
+        path = self.state_dir / name
+        if not path.is_file():
+            return {"available": False}
+        data = _read_json_bounded(path)
+        if data is None:
+            return {"available": False, "error": "unreadable"}
+        # Live state payloads nest under "snapshot" — flatten one level
+        # so key whitelists match the actual schema.
+        if isinstance(data, dict) and isinstance(data.get("snapshot"), dict):
+            data = {**data["snapshot"], "updated_at": data.get("updated_at")}
+        return self._project_state_payload(name, data)
+
+    def _project_state_payload(self, name: str, data: Any) -> Any:
+        if name == "repair-requests.json":
+            if isinstance(data, list):
+                return {"recent": data[-_MAX_REPAIR_REQUESTS:]}
+            return data
+        if name == "pending-actions.json" and isinstance(data, list):
+            recent = [
+                self._pending_action_projection(item)
+                for item in data
+                if isinstance(item, dict)
+            ][-_MAX_PENDING_ACTIONS:]
+            return {
+                "recent": recent,
+                "awaiting_count": sum(
+                    1
+                    for item in recent
+                    if item.get("status") == "awaiting-confirmation"
+                ),
+            }
+        if name == "startup-generation.json" and isinstance(data, dict):
+            return self._startup_projection(data)
+        keys = _STATE_KEY_WHITELISTS.get(name)
+        if keys and isinstance(data, dict):
+            return {key: data[key] for key in keys if key in data} or {
+                "available": True
+            }
+        return data if isinstance(data, dict) else {"available": True}
+
+    @staticmethod
+    def _pending_action_projection(item: dict[str, Any]) -> dict[str, Any]:
+        projected = {
+            key: item[key] for key in _PENDING_ACTION_KEYS if key in item
+        }
+        detail = item.get("detail")
+        if isinstance(detail, dict):
+            projected["detail"] = {
+                key: detail[key]
+                for key in ("failure_code", "owner")
+                if key in detail
+            }
+        return projected
+
+    @staticmethod
+    def _startup_projection(data: dict[str, Any]) -> dict[str, Any]:
+        """Project startup-generation state to the fault-relevant fields."""
+        result = data.get("result") if isinstance(data.get("result"), dict) else {}
+        phases = result.get("phases")
+        failed_phases = [
+            str(phase.get("phase_id") or "")
+            for phase in phases
+            if isinstance(phase, dict) and phase.get("ok") is False
+        ] if isinstance(phases, list) else []
+        return {
+            "role": str(data.get("role") or ""),
+            "generation_id": str(result.get("generation_id") or ""),
+            "ok": result.get("ok"),
+            "failed_phases": failed_phases,
+            "updated_at": data.get("updated_at"),
+        }
 
     def outbox_tail(
         self,
@@ -241,12 +299,17 @@ class FaultDiagnosticsEvidenceMixin:
             return []
 
     def _evidence_anomalies(
-        self, evidence: dict[str, Any]
+        self,
+        evidence: dict[str, Any],
+        aux: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Evaluate live runtime evidence for abnormal signals.
 
         Each anomaly carries the governed entity it localizes to and a
         weight reflecting how directly it indicates a current fault.
+        ``aux`` carries the auxiliary evidence pack produced by
+        :meth:`auxiliary_evidence` (pending actions, watcher, startup,
+        quarantine, repair-learning).
         """
         anomalies: list[dict[str, Any]] = []
 
@@ -266,6 +329,8 @@ class FaultDiagnosticsEvidenceMixin:
         self._repair_request_anomalies(
             evidence.get("repair-requests.json"), add
         )
+        if aux:
+            self._aux_anomalies(aux, add)
         return anomalies
 
     @staticmethod

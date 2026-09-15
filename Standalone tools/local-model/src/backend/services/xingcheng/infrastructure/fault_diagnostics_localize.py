@@ -76,6 +76,7 @@ class FaultDiagnosticsLocalizeMixin:
         evidence: dict[str, Any] | None = None,
         matched: list[dict[str, Any]] | None = None,
         manuals: list[dict[str, Any]] | None = None,
+        aux: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Rank governed suspect locations for a fault symptom.
 
@@ -101,7 +102,7 @@ class FaultDiagnosticsLocalizeMixin:
             )
 
         index = self._module_owner_index()
-        anomalies = self._evidence_anomalies(evidence)
+        anomalies = self._evidence_anomalies(evidence, aux)
         ranked, confidence = self._rank_suspects(
             symptom, index, anomalies, matched, manuals
         )
@@ -234,15 +235,51 @@ class FaultDiagnosticsLocalizeMixin:
         evidence — never guesses and never executes repairs.
         """
         text = str(symptom or "").strip()[:2_000]
+        evidence = self.runtime_state_evidence()
+        aux = self._auxiliary_evidence(evidence)
         matched = self.match_fault_codes(text)
+        # The backend log tail carries the actual emitted error text —
+        # UPPER_SNAKE tokens there are concrete fault-code evidence, not
+        # symptom guesses, so they merge into the directory match.
+        log_codes = self.match_fault_codes(
+            " ".join(self.log_fault_tokens(aux.get("boot_log") or {}))
+        )
+        # Recurring learned signatures are already concrete fault codes —
+        # pull their directory rows directly rather than fuzzy-matching.
+        learning = aux.get("repair_learning") or {}
+        learned_codes = self.directory_entries_by_code(
+            [
+                str(s.get("failure_code") or "")
+                for s in learning.get("recurring_signatures") or []
+                if isinstance(s, dict)
+            ]
+        )
+        for entry in learned_codes:
+            entry["match_source"] = "repair-learning"
+        matched = self._merge_matches(matched, log_codes + learned_codes)
         manuals = self.manuals_for(
             [entry["fault_code"] for entry in matched]
         )
-        evidence = self.runtime_state_evidence()
         events = self.outbox_tail()
         localization = self.localize_fault(
-            text, evidence=evidence, matched=matched, manuals=manuals
+            text, evidence=evidence, matched=matched, manuals=manuals,
+            aux=aux,
         )
+        return self._diagnosis_pack(
+            text, matched, manuals, evidence, events, aux, localization
+        )
+
+    def _diagnosis_pack(
+        self,
+        text: str,
+        matched: list[dict[str, Any]],
+        manuals: list[dict[str, Any]],
+        evidence: dict[str, Any],
+        events: list[dict[str, Any]],
+        aux: dict[str, Any],
+        localization: dict[str, Any],
+    ) -> dict[str, Any]:
+        learning = aux.get("repair_learning") or {}
         permission_chain = [
             {
                 "manual_code": manual["manual_code"],
@@ -269,13 +306,76 @@ class FaultDiagnosticsLocalizeMixin:
             ],
             "runtime_evidence": evidence,
             "recent_state_events": events,
-            "authority": {
-                "mode": "diagnosis-read-only",
-                "execution": False,
-                "repair_owner": "main-system-central-repair",
-                "repair_channel": "governed-execution-channel",
-                "governance_source_access": "direct-read-only-authoritative",
-            },
+            "log_errors": (aux.get("boot_log") or {}).get("lines") or [],
+            "quarantined_tools": aux.get("quarantined_tools") or [],
+            "recurring_fault_signatures": (
+                learning.get("recurring_signatures") or []
+            ),
+            "recent_repair_failures": learning.get("recent_failures") or [],
+            "automation_context": self._automation_context(evidence),
+            "authority": self._diagnosis_authority(),
+        }
+
+    @staticmethod
+    def _diagnosis_authority() -> dict[str, Any]:
+        return {
+            "mode": "diagnosis-read-only",
+            "execution": False,
+            "repair_owner": "main-system-central-repair",
+            "repair_channel": "governed-execution-channel",
+            "governance_source_access": "direct-read-only-authoritative",
+        }
+
+    def _auxiliary_evidence(self, evidence: dict[str, Any]) -> dict[str, Any]:
+        """Auxiliary live evidence pack for anomaly evaluation."""
+        pending = evidence.get("pending-actions.json")
+        pending_recent = (
+            pending.get("recent")
+            if isinstance(pending, dict)
+            else None
+        )
+        return {
+            "boot_log": self.boot_log_tail(),
+            "quarantined_tools": self.quarantined_tools(),
+            "repair_learning": self.repair_learning_tail(),
+            "pending_actions": pending_recent if isinstance(pending_recent, list) else [],
+            "watcher": evidence.get("hot-reload-watcher.json"),
+            "startup": evidence.get("startup-generation.json"),
+        }
+
+    @staticmethod
+    def _merge_matches(
+        symptom_matches: list[dict[str, Any]],
+        log_matches: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Merge log-derived directory matches after symptom matches."""
+        merged = list(symptom_matches)
+        seen = {entry["fault_code"] for entry in merged}
+        for entry in log_matches:
+            if entry["fault_code"] not in seen:
+                merged.append(
+                    {**entry, "match_source": entry.get("match_source") or "boot-output.log"}
+                )
+                seen.add(entry["fault_code"])
+        for entry in merged:
+            entry.setdefault("match_source", "symptom")
+        return merged
+
+    @staticmethod
+    def _automation_context(evidence: dict[str, Any]) -> dict[str, Any]:
+        """Whether automatic repair/update is frozen — explains why a
+        known fault may be waiting rather than self-healing."""
+        switches = evidence.get("automation-switches.json")
+        if not isinstance(switches, dict) or switches.get("available") is False:
+            return {}
+        return {
+            "automatic_repair_enabled": switches.get("automatic_repair_enabled"),
+            "automatic_update_enabled": switches.get("automatic_update_enabled"),
+            "pending_awaiting_count": (
+                evidence.get("pending-actions.json") or {}
+            ).get("awaiting_count", 0)
+            if isinstance(evidence.get("pending-actions.json"), dict)
+            else 0,
         }
 
     @staticmethod

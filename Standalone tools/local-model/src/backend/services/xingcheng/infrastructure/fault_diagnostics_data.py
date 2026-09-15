@@ -37,6 +37,25 @@ _MAX_REPAIR_REQUESTS: Final[int] = 5
 _MAX_OUTBOX_EVENTS: Final[int] = 10
 _MAX_MATCHED_CODES: Final[int] = 5
 _MAX_MANUALS: Final[int] = 4
+_MAX_PENDING_ACTIONS: Final[int] = 6
+_MAX_QUARANTINE_ENTRIES: Final[int] = 10
+_MAX_ERROR_SIGNATURES: Final[int] = 6
+_MAX_RECENT_OUTCOMES: Final[int] = 8
+_MAX_LOG_TAIL_BYTES: Final[int] = 32_000
+_MAX_LOG_LINES: Final[int] = 20
+
+_QUARANTINE_DIR_NAME: Final[str] = "tool-crash-quarantine"
+_REPAIR_LEARNING_RELATIVE: Final[tuple[str, ...]] = (
+    "main-system", "data", "automatic-repair", "repair-learning.sqlite3",
+)
+
+# Lines worth surfacing from a raw log tail — explicit severities, Python
+# failure frames, and UPPER_SNAKE fault tokens.
+_LOG_SIGNAL_PATTERN: Final = re.compile(
+    r"error|fatal|exception|traceback|failed|degraded|mismatch|timeout|"
+    r"crash|unavailable|denied|refus",
+    re.IGNORECASE,
+)
 
 _FAULT_KEYWORDS: Final[tuple[str, ...]] = (
     "故障", "錯誤", "失敗", "異常", "當機", "斷線", "連不上", "連線中斷",
@@ -56,6 +75,10 @@ _RUNTIME_STATE_FILES: Final[tuple[str, ...]] = (
     "ipc-connection-state.json",
     "repair-coordination.json",
     "repair-requests.json",
+    "pending-actions.json",
+    "automation-switches.json",
+    "hot-reload-watcher.json",
+    "startup-generation.json",
 )
 
 # Keys surfaced per state file — bounded, no raw secrets.  State files
@@ -76,6 +99,31 @@ _IPC_STATE_KEYS: Final[tuple[str, ...]] = (
     "overall_state", "consecutive_dead", "probe_count", "last_change_at",
     "updated_at",
 )
+_PENDING_ACTION_KEYS: Final[tuple[str, ...]] = (
+    "action_id", "kind", "summary", "status", "fault_id", "target",
+    "created_at", "updated_at",
+)
+_SWITCH_KEYS: Final[tuple[str, ...]] = (
+    "automatic_repair_enabled", "automatic_update_enabled",
+    "updated_at", "updated_by",
+)
+_WATCHER_KEYS: Final[tuple[str, ...]] = (
+    "type", "action", "consecutive_failures", "errors", "recorded_at",
+    "updated_at",
+)
+_QUARANTINE_KEYS: Final[tuple[str, ...]] = (
+    "tool_id", "pid", "exit_code", "restart_count", "timestamp",
+    "reason", "error",
+)
+
+# State files whose payload is a plain dict filtered to a key whitelist.
+_STATE_KEY_WHITELISTS: Final[dict[str, tuple[str, ...]]] = {
+    "boot-core.json": _BOOT_CORE_KEYS,
+    "runtime-readiness.json": _READINESS_KEYS,
+    "ipc-connection-state.json": _IPC_STATE_KEYS,
+    "automation-switches.json": _SWITCH_KEYS,
+    "hot-reload-watcher.json": _WATCHER_KEYS,
+}
 
 # ------------------------------------------------------------------
 # Fault localization vocabulary
@@ -106,6 +154,20 @@ _LOCATION_ALIASES: Final[dict[str, tuple[str, ...]]] = {
     ),
     "frontend": (
         "electron", "視窗", "前端", "畫面", "介面", "視窗關閉",
+    ),
+    "tool-runtime": (
+        "工具", "tool", "crash", "崩潰", "當機", "隔離", "quarantine",
+        "起不來", "閃退",
+    ),
+    "dependency-set": (
+        "依賴", "dependency", "postgres", "qdrant", "ollama",
+        "資料庫", "服務未啟動",
+    ),
+    "update-channel": (
+        "更新", "update", "hot-reload", "熱更新", "版本",
+    ),
+    "assistant-panel": (
+        "待確認", "pending", "面板", "確認",
     ),
 }
 
