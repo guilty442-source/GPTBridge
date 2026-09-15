@@ -87,5 +87,9 @@ main-system/launcher/state/*
 **/tests/
 **/scripts/
 
+# Python bytecode caches (never source-of-record; regenerable artifacts)
+__pycache__/
+*.py[cod]
+
 # Runtime-generated governance evidence projections (星澄 A137/A139)
 **/governance/system-evidence.json
