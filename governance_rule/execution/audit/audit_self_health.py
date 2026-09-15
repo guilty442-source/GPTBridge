@@ -28,6 +28,7 @@ SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
         "governance_rule/tests/test_governance_health.py",
         # ── shared-layer (central SQL index + channel) ────────────────
         "shared-layer/tests/test_shared_layer.py",
+        "shared-layer/tests/test_shared_layer_sub_sovereign.py",
         # ── local-model / xingcheng (native model platform) ──────────
         "Standalone tools/local-model/tests/test_xingcheng_layering.py",
         "Standalone tools/local-model/tests/test_model_registry_part1.py",
@@ -79,6 +80,11 @@ SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
         "Standalone tools/vaultly/tests/test_vaultly.py",
         # ── file-sorter (governed file sorting) ──────────────────────
         "Standalone tools/file-sorter/tests/test_file_sorter.py",
+        "Standalone tools/file-sorter/tests/test_file_sorter_automation.py",
+        "Standalone tools/file-sorter/tests/test_file_sorter_cleanup.py",
+        "Standalone tools/file-sorter/tests/test_file_sorter_metadata_v2.py",
+        "Standalone tools/file-sorter/tests/test_file_sorter_ui.py",
+        "Standalone tools/file-sorter/tests/test_file_sorter_v2.py",
         # ── system-rescue (central repair + packaging) ───────────────
         "Standalone tools/system-rescue/tests/test_system_rescue.py",
         # ── investment-mobile (mobile channel) ───────────────────────
