@@ -1,19 +1,46 @@
-"""Path validation, state root resolution, and profile identity utilities."""
+"""Durable, no-overwrite file operations and per-target state for File Sorter.
+
+The module intentionally has no dependency on ``main.py``.  This keeps the
+transaction and profile repository usable by a future background service.
+"""
 
 from __future__ import annotations
 
+import errno
 import hashlib
+import json
 import os
 import re
+import shutil
+import stat as stat_module
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from ._constants import (
-    DEFAULT_EXCLUDE,
-    DEFAULT_INCLUDE,
+
+
+
+from .sorter_types import (
+    OrganizePlan,
+    PlanOperation,
+    STATE_ROOT_ENV,
     SorterV2Error,
-    _SAFE_ID_RE,
+    TOOL_ROOT,
 )
+
+
+def _plan_expired(plan: OrganizePlan) -> bool:
+    try:
+        expires_at = datetime.fromisoformat(plan.expires_at.replace("Z", "+00:00"))
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+    except (AttributeError, ValueError):
+        return True
+    return expires_at.astimezone(timezone.utc) <= datetime.now(timezone.utc)
 
 
 def resolve_state_root(explicit: str | Path | None = None) -> Path:
@@ -21,11 +48,11 @@ def resolve_state_root(explicit: str | Path | None = None) -> Path:
 
     from . import sorter_engine
 
-    tool_root = sorter_engine.TOOL_ROOT
+    tool_root = Path(sorter_engine.TOOL_ROOT)
     configured = (
         str(explicit)
         if explicit is not None
-        else os.environ.get("FILE_SORTER_STATE_ROOT", "").strip()
+        else os.environ.get(STATE_ROOT_ENV, "").strip()
     )
     candidate = (
         Path(configured).expanduser().resolve()
@@ -58,6 +85,41 @@ def profile_path(
 ) -> Path:
     profile_id = profile_id_for(target_dir, profile)
     return resolve_state_root(state_root) / "profiles" / profile_id / "profile.json"
+
+
+def _clean_patterns(
+    values: Iterable[object] | None,
+    *,
+    default: Sequence[str],
+) -> tuple[str, ...]:
+    if values is None:
+        return tuple(default)
+    cleaned = tuple(str(item).strip() for item in values if str(item).strip())
+    return cleaned
+
+
+def _clean_rule_dicts(
+    rules: Iterable[Mapping[str, Any]],
+) -> tuple[dict[str, str], ...]:
+    cleaned: list[dict[str, str]] = []
+    for item in rules:
+        keyword = str(item.get("keyword", "")).strip()
+        folder = str(item.get("folder", "")).strip()
+        if not keyword or not folder:
+            continue
+        folder_path = Path(folder).expanduser()
+        if (
+            folder_path.is_absolute()
+            or folder in {".", ".."}
+            or folder_path.name != folder
+            or "/" in folder
+            or "\\" in folder
+        ):
+            raise SorterV2Error(
+                "Profile destination rules must name one direct child folder."
+            )
+        cleaned.append({"keyword": keyword, "folder": folder})
+    return tuple(cleaned)
 
 
 def _is_link_or_reparse(path: Path) -> bool:
@@ -192,56 +254,12 @@ def _validated_state_document_path(
     return requested
 
 
-def _clean_patterns(
-    values: Iterable[object] | None,
-    *,
-    default: Sequence[str],
-) -> tuple[str, ...]:
-    if values is None:
-        return tuple(default)
-    cleaned = tuple(str(item).strip() for item in values if str(item).strip())
-    return cleaned
-
-
-def _clean_rule_dicts(
-    rules: Iterable[Mapping[str, Any]],
-) -> tuple[dict[str, str], ...]:
-    cleaned: list[dict[str, str]] = []
-    for item in rules:
-        keyword = str(item.get("keyword", "")).strip()
-        folder = str(item.get("folder", "")).strip()
-        if not keyword or not folder:
-            continue
-        folder_path = Path(folder).expanduser()
-        if (
-            folder_path.is_absolute()
-            or folder in {".", ".."}
-            or folder_path.name != folder
-            or "/" in folder
-            or "\\" in folder
-        ):
-            raise SorterV2Error(
-                "Profile destination rules must name one direct child folder."
-            )
-        cleaned.append({"keyword": keyword, "folder": folder})
-    return tuple(cleaned)
-
-
-def _validated_id(value: str, label: str) -> str:
-    cleaned = str(value).strip()
-    if not _SAFE_ID_RE.fullmatch(cleaned):
-        raise SorterV2Error(f"Invalid {label}: {value}")
-    return cleaned
-
-
 def _validate_operation_paths(
     target: Path,
     operation: PlanOperation,
     *,
     allow_missing_source: bool = False,
 ) -> tuple[Path, Path]:
-    from ._models import PlanOperation  # noqa: F811 — type hint only
-
     target = _validated_target_directory(target)
     source = Path(operation.source)
     destination = Path(operation.destination)
@@ -327,8 +345,6 @@ def _validate_journal_operation_paths(
     journal: Mapping[str, Any],
     operation: Mapping[str, Any],
 ) -> tuple[Path, Path, Path | None]:
-    from ._models import PlanOperation
-
     target_text = str(journal.get("target_dir", "")).strip()
     if not target_text:
         raise SorterV2Error("Journal does not contain a target directory.")

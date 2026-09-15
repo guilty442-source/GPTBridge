@@ -1,17 +1,39 @@
-"""File metadata capture, serialization, and verification."""
+"""Durable, no-overwrite file operations and per-target state for File Sorter.
+
+The module intentionally has no dependency on ``main.py``.  This keeps the
+transaction and profile repository usable by a future background service.
+"""
 
 from __future__ import annotations
 
 import errno
 import hashlib
+import json
 import os
+import re
+import shutil
 import stat as stat_module
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from ._constants import SorterV2Error
-from ._io_utils import sha256_file
-from ._models import FileFingerprint, PlanOperation, _FileMetadata
-from ._paths import _is_link_or_reparse
+
+
+
+from .sorter_paths import (
+    _is_link_or_reparse,
+)
+from .sorter_types import (
+    FileFingerprint,
+    PlanOperation,
+    SorterV2Error,
+    _FileMetadata,
+    sha256_file,
+)
 
 
 def _fingerprint(path: Path) -> FileFingerprint:
@@ -34,6 +56,16 @@ def _ensure_source_unchanged(source: Path, operation: PlanOperation) -> None:
         raise SorterV2Error(f"Source unavailable: {source}: {error}") from error
     if actual != _expected_fingerprint(operation):
         raise SorterV2Error(f"Source changed after preview: {source}")
+
+
+def _fsync_file(path: Path) -> None:
+    # Windows rejects fsync on a descriptor opened read-only.  A linked source
+    # may itself be read-only, so durability is best effort in that case.
+    try:
+        with path.open("r+b") as stream:
+            os.fsync(stream.fileno())
+    except OSError:
+        pass
 
 
 def _windows_alternate_streams(
@@ -150,7 +182,7 @@ def _capture_file_metadata(path: Path) -> _FileMetadata:
     )
 
 
-def _file_metadata_to_dict(value: _FileMetadata) -> dict[str, object]:
+def _file_metadata_to_dict(value: _FileMetadata) -> dict[str, Any]:
     return {
         "mtime_ns": value.mtime_ns,
         "permissions": value.permissions,
@@ -174,10 +206,8 @@ def _file_metadata_to_dict(value: _FileMetadata) -> dict[str, object]:
     }
 
 
-def _file_metadata_from_dict(value: object) -> _FileMetadata | None:
-    from typing import Mapping as _Mapping
-
-    if not isinstance(value, _Mapping):
+def _file_metadata_from_dict(value: Any) -> _FileMetadata | None:
+    if not isinstance(value, Mapping):
         return None
     alternate_value = value.get("alternate_streams")
     alternate_streams: tuple[tuple[str, int, str], ...] | None
@@ -186,7 +216,7 @@ def _file_metadata_from_dict(value: object) -> _FileMetadata | None:
     elif isinstance(alternate_value, list):
         parsed: list[tuple[str, int, str]] = []
         for item in alternate_value:
-            if not isinstance(item, _Mapping):
+            if not isinstance(item, Mapping):
                 return None
             parsed.append(
                 (
@@ -205,7 +235,7 @@ def _file_metadata_from_dict(value: object) -> _FileMetadata | None:
     elif isinstance(extended_value, list):
         extended_parsed: list[tuple[str, str]] = []
         for item in extended_value:
-            if not isinstance(item, _Mapping):
+            if not isinstance(item, Mapping):
                 return None
             extended_parsed.append(
                 (
@@ -262,3 +292,56 @@ def _verify_file_metadata(
         raise SorterV2Error(
             f"{label} metadata verification failed ({', '.join(mismatches)}): {path}"
         )
+
+
+def _copy_windows_exclusive(source: Path, destination: Path) -> None:
+    import ctypes
+    from ctypes import wintypes
+
+    copy_file = ctypes.WinDLL("kernel32", use_last_error=True).CopyFileW
+    copy_file.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.BOOL]
+    copy_file.restype = wintypes.BOOL
+    if copy_file(str(source), str(destination), True):
+        return
+    error = ctypes.get_last_error()
+    if error in {80, 183}:
+        raise FileExistsError(error, os.strerror(error), str(destination))
+    raise ctypes.WinError(error)
+
+
+def _set_windows_file_attributes(path: Path, attributes: int) -> None:
+    import ctypes
+    from ctypes import wintypes
+
+    set_attributes = ctypes.WinDLL(
+        "kernel32",
+        use_last_error=True,
+    ).SetFileAttributesW
+    set_attributes.argtypes = [wintypes.LPCWSTR, wintypes.DWORD]
+    set_attributes.restype = wintypes.BOOL
+    if not set_attributes(str(path), attributes):
+        raise ctypes.WinError(ctypes.get_last_error())
+
+
+def _unlink_file_preserving_failure(path: Path, *, missing_ok: bool = False) -> None:
+    """Delete a file, temporarily clearing Windows read-only when necessary."""
+
+    try:
+        path.unlink(missing_ok=missing_ok)
+        return
+    except PermissionError:
+        if os.name != "nt" or not path.exists():
+            raise
+
+    attributes = getattr(path.stat(), "st_file_attributes", None)
+    readonly = 0x1
+    if attributes is None or not (int(attributes) & readonly):
+        raise PermissionError(f"Cannot delete file: {path}")
+    original_attributes = int(attributes)
+    _set_windows_file_attributes(path, original_attributes & ~readonly)
+    try:
+        path.unlink(missing_ok=missing_ok)
+    except BaseException:
+        if path.exists():
+            _set_windows_file_attributes(path, original_attributes)
+        raise

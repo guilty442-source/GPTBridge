@@ -1,30 +1,52 @@
-"""Profile load, save, and list operations."""
+"""Durable, no-overwrite file operations and per-target state for File Sorter.
+
+The module intentionally has no dependency on ``main.py``.  This keeps the
+transaction and profile repository usable by a future background service.
+"""
 
 from __future__ import annotations
 
+import errno
+import hashlib
 import json
+import os
+import re
+import shutil
+import stat as stat_module
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from ._constants import (
-    DEFAULT_EXCLUDE,
-    DEFAULT_INCLUDE,
-    DEFAULT_QUIET_SECONDS,
-    SCHEMA_VERSION,
-    RuleConflictError,
-    SorterV2Error,
+
+
+
+from .sorter_locks import (
+    _ExclusiveFileLock,
+    _atomic_write_json,
 )
-from ._io_utils import _atomic_write_json
-from ._locking import _ExclusiveFileLock
-from ._models import ProfileSnapshot, _utc_now
-from ._paths import (
+from .sorter_paths import (
     _clean_patterns,
     _clean_rule_dicts,
     _same_path_identity,
+    _state_category_root,
     _validated_state_document_path,
     _validated_target_directory,
     profile_id_for,
     profile_path,
+)
+from .sorter_types import (
+    DEFAULT_EXCLUDE,
+    DEFAULT_INCLUDE,
+    DEFAULT_QUIET_SECONDS,
+    ProfileSnapshot,
+    RuleConflictError,
+    SCHEMA_VERSION,
+    SorterV2Error,
+    _utc_now,
 )
 
 
@@ -294,8 +316,6 @@ def list_profiles(
     *,
     state_root: str | Path | None = None,
 ) -> list[ProfileSnapshot]:
-    from ._paths import _state_category_root
-
     try:
         profiles_dir = _state_category_root(state_root, "profiles")
     except SorterV2Error:

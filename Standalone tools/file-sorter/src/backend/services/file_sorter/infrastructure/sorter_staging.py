@@ -1,83 +1,53 @@
-"""Durable file copy, move, and publish operations."""
+"""Durable, no-overwrite file operations and per-target state for File Sorter.
+
+The module intentionally has no dependency on ``main.py``.  This keeps the
+transaction and profile repository usable by a future background service.
+"""
 
 from __future__ import annotations
 
 import errno
+import hashlib
+import json
 import os
+import re
 import shutil
+import stat as stat_module
+import threading
+import time
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from ._constants import SorterV2Error
-from ._file_metadata import (
+
+
+
+from .sorter_journal import (
+    _Journal,
+)
+from .sorter_locks import (
+    _fsync_directory,
+)
+from .sorter_metadata import (
     _capture_file_metadata,
+    _copy_windows_exclusive,
     _ensure_source_unchanged,
     _file_metadata_to_dict,
+    _fsync_file,
+    _unlink_file_preserving_failure,
     _verify_file_metadata,
 )
-from ._io_utils import (
-    _fsync_directory,
-    _fsync_file,
-    sha256_file,
-)
-from ._paths import (
+from .sorter_paths import (
     _is_link_or_reparse,
     _validate_operation_paths,
 )
-
-
-def _copy_windows_exclusive(source: Path, destination: Path) -> None:
-    import ctypes
-    from ctypes import wintypes
-
-    copy_file = ctypes.WinDLL("kernel32", use_last_error=True).CopyFileW
-    copy_file.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.BOOL]
-    copy_file.restype = wintypes.BOOL
-    if copy_file(str(source), str(destination), True):
-        return
-    error = ctypes.get_last_error()
-    if error in {80, 183}:
-        raise FileExistsError(error, os.strerror(error), str(destination))
-    raise ctypes.WinError(error)
-
-
-def _set_windows_file_attributes(path: Path, attributes: int) -> None:
-    import ctypes
-    from ctypes import wintypes
-
-    set_attributes = ctypes.WinDLL(
-        "kernel32",
-        use_last_error=True,
-    ).SetFileAttributesW
-    set_attributes.argtypes = [wintypes.LPCWSTR, wintypes.DWORD]
-    set_attributes.restype = wintypes.BOOL
-    if not set_attributes(str(path), attributes):
-        raise ctypes.WinError(ctypes.get_last_error())
-
-
-def _unlink_file_preserving_failure(path: Path, *, missing_ok: bool = False) -> None:
-    """Delete a file, temporarily clearing Windows read-only when necessary."""
-
-    try:
-        path.unlink(missing_ok=missing_ok)
-        return
-    except PermissionError:
-        if os.name != "nt" or not path.exists():
-            raise
-
-    attributes = getattr(path.stat(), "st_file_attributes", None)
-    readonly = 0x1
-    if attributes is None or not (int(attributes) & readonly):
-        raise PermissionError(f"Cannot delete file: {path}")
-    original_attributes = int(attributes)
-    _set_windows_file_attributes(path, original_attributes & ~readonly)
-    try:
-        path.unlink(missing_ok=missing_ok)
-    except BaseException:
-        if path.exists():
-            _set_windows_file_attributes(path, original_attributes)
-        raise
+from .sorter_types import (
+    PlanOperation,
+    SorterV2Error,
+    sha256_file,
+)
 
 
 def _copy_file_exclusive_preserving_metadata(
@@ -164,13 +134,10 @@ def _publish_staging(stage: Path, destination: Path) -> None:
 def _staged_move(
     source: Path,
     destination: Path,
-    operation: Any,
-    journal: Any,
+    operation: PlanOperation,
+    journal: _Journal,
     index: int,
 ) -> str:
-    from ._models import PlanOperation  # noqa: F401 — type hint compatibility
-    from ._journal import _Journal  # noqa: F401 — type hint compatibility
-
     _validate_operation_paths(source.parent, operation)
     source_metadata = _capture_file_metadata(source)
     stage_name = (
@@ -257,8 +224,8 @@ def _staged_move(
 def _same_volume_move(
     source: Path,
     destination: Path,
-    operation: Any,
-    journal: Any,
+    operation: PlanOperation,
+    journal: _Journal,
     index: int,
 ) -> str:
     _validate_operation_paths(source.parent, operation)

@@ -1,21 +1,37 @@
-"""Cross-process file and directory locking primitives."""
+"""Durable, no-overwrite file operations and per-target state for File Sorter.
+
+The module intentionally has no dependency on ``main.py``.  This keeps the
+transaction and profile repository usable by a future background service.
+"""
 
 from __future__ import annotations
 
+import errno
 import hashlib
+import json
 import os
+import re
+import shutil
+import stat as stat_module
+import threading
 import time
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from ._constants import (
+
+
+
+from .sorter_paths import (
+    _validated_target_directory,
+)
+from .sorter_types import (
+    SorterV2Error,
     _TARGET_LOCKS_GUARD,
     _TARGET_LOCKS_HELD,
-    SorterV2Error,
 )
-from ._io_utils import _fsync_directory
-from ._paths import _validated_target_directory
 
 
 def _lock_owner_alive(path: Path) -> bool | None:
@@ -294,6 +310,8 @@ class _TargetDirectoryLock:
             import ctypes
             from ctypes import wintypes
 
+            handle = self._mutex_handle
+            self._mutex_handle = None
             kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
             release_mutex = kernel32.ReleaseMutex
             release_mutex.argtypes = [wintypes.HANDLE]
@@ -301,8 +319,6 @@ class _TargetDirectoryLock:
             close_handle = kernel32.CloseHandle
             close_handle.argtypes = [wintypes.HANDLE]
             close_handle.restype = wintypes.BOOL
-            handle = self._mutex_handle
-            self._mutex_handle = None
             try:
                 release_mutex(handle)
             finally:
@@ -316,3 +332,35 @@ class _TargetDirectoryLock:
                 fcntl.flock(descriptor, fcntl.LOCK_UN)
             finally:
                 os.close(descriptor)
+
+
+def _fsync_directory(path: Path) -> None:
+    try:
+        descriptor = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(descriptor)
+    except OSError:
+        pass
+    finally:
+        os.close(descriptor)
+
+
+def _atomic_write_json(path: Path, value: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    created = False
+    try:
+        with temporary.open("x", encoding="utf-8", newline="\n") as stream:
+            created = True
+            json.dump(value, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        created = False
+        _fsync_directory(path.parent)
+    finally:
+        if created:
+            temporary.unlink(missing_ok=True)

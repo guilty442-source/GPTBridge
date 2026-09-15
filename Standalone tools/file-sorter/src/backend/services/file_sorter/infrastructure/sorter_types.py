@@ -1,16 +1,62 @@
-"""Data models and time utilities for the durable sorter engine."""
+"""Durable, no-overwrite file operations and per-target state for File Sorter.
+
+The module intentionally has no dependency on ``main.py``.  This keeps the
+transaction and profile repository usable by a future background service.
+"""
 
 from __future__ import annotations
 
+import errno
+import hashlib
+import json
+import os
+import re
+import shutil
+import stat as stat_module
+import threading
+import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from ._constants import (
-    DEFAULT_PLAN_TTL_SECONDS,
-    SCHEMA_VERSION,
+
+
+STATE_ROOT_ENV = "FILE_SORTER_STATE_ROOT"
+JOURNAL_RETENTION_DAYS_ENV = "FILE_SORTER_JOURNAL_RETENTION_DAYS"
+TOOL_ROOT = Path(__file__).resolve().parents[5]
+SCHEMA_VERSION = 1
+DEFAULT_QUIET_SECONDS = 2.0
+DEFAULT_PLAN_TTL_SECONDS = 15 * 60
+DEFAULT_JOURNAL_RETENTION_DAYS = 0
+DEFAULT_INCLUDE = ("*",)
+DEFAULT_EXCLUDE: tuple[str, ...] = ()
+PARTIAL_SUFFIXES = (
+    ".crdownload",
+    ".download",
+    ".partial",
+    ".part",
+    ".tmp",
+    ".temp",
+    ".opdownload",
 )
+TERMINAL_TRANSACTION_STATES = {
+    "committed",
+    "undone",
+    "undo_failed",
+}
+_SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{7,127}$")
+_TARGET_LOCKS_GUARD = threading.RLock()
+_TARGET_LOCKS_HELD: set[str] = set()
+
+
+class SorterV2Error(Exception):
+    """Base error for durable sorter operations."""
+
+
+class RuleConflictError(SorterV2Error):
+    """Raised when a profile revision changed during an update."""
 
 
 @dataclass(frozen=True)
@@ -237,11 +283,19 @@ def _utc_after(seconds: float, *, base: str | None = None) -> str:
     ).isoformat()
 
 
-def _plan_expired(plan: OrganizePlan) -> bool:
-    try:
-        expires_at = datetime.fromisoformat(plan.expires_at.replace("Z", "+00:00"))
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-    except (AttributeError, ValueError):
-        return True
-    return expires_at.astimezone(timezone.utc) <= datetime.now(timezone.utc)
+def _validated_id(value: str, label: str) -> str:
+    cleaned = str(value).strip()
+    if not _SAFE_ID_RE.fullmatch(cleaned):
+        raise SorterV2Error(f"Invalid {label}: {value}")
+    return cleaned
+
+
+def sha256_file(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        while True:
+            chunk = stream.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()

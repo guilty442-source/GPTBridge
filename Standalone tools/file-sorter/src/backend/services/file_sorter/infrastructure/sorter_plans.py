@@ -1,31 +1,50 @@
-"""Plan creation, persistence, and state pruning."""
+"""Durable, no-overwrite file operations and per-target state for File Sorter.
+
+The module intentionally has no dependency on ``main.py``.  This keeps the
+transaction and profile repository usable by a future background service.
+"""
 
 from __future__ import annotations
 
+import errno
+import hashlib
 import json
 import os
+import re
+import shutil
+import stat as stat_module
+import threading
+import time
 import uuid
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from ._constants import (
-    DEFAULT_JOURNAL_RETENTION_DAYS,
-    JOURNAL_RETENTION_DAYS_ENV,
-    SCHEMA_VERSION,
-    TERMINAL_TRANSACTION_STATES,
-    SorterV2Error,
+
+
+
+from .sorter_locks import (
+    _atomic_write_json,
 )
-from ._io_utils import _atomic_write_json
-from ._models import OrganizePlan, PlanOperation, SkippedFile, _plan_expired, _utc_now
-from ._paths import (
+from .sorter_paths import (
+    _plan_expired,
     _same_path_identity,
     _state_category_root,
-    _validated_id,
+    _validate_operation_paths,
     _validated_state_document_path,
     _validated_target_directory,
-    _validate_operation_paths,
     resolve_state_root,
+)
+from .sorter_types import (
+    DEFAULT_JOURNAL_RETENTION_DAYS,
+    JOURNAL_RETENTION_DAYS_ENV,
+    OrganizePlan,
+    PlanOperation,
+    SkippedFile,
+    SorterV2Error,
+    TERMINAL_TRANSACTION_STATES,
+    _validated_id,
 )
 
 

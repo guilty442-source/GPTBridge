@@ -1,4 +1,8 @@
-"""Atomic I/O, file hashing, and stability checking utilities."""
+"""Durable, no-overwrite file operations and per-target state for File Sorter.
+
+The module intentionally has no dependency on ``main.py``.  This keeps the
+transaction and profile repository usable by a future background service.
+"""
 
 from __future__ import annotations
 
@@ -6,71 +10,29 @@ import errno
 import hashlib
 import json
 import os
+import re
+import shutil
+import stat as stat_module
+import threading
 import time
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Mapping
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from ._constants import (
-    DEFAULT_QUIET_SECONDS,
-    PARTIAL_SUFFIXES,
-    SorterV2Error,
+
+
+
+from .sorter_paths import (
+    _is_link_or_reparse,
 )
-from ._models import FileFingerprint, StabilityResult
-from ._paths import _is_link_or_reparse
-
-
-def _fsync_directory(path: Path) -> None:
-    try:
-        descriptor = os.open(path, os.O_RDONLY)
-    except OSError:
-        return
-    try:
-        os.fsync(descriptor)
-    except OSError:
-        pass
-    finally:
-        os.close(descriptor)
-
-
-def _atomic_write_json(path: Path, value: Mapping[object, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    created = False
-    try:
-        with temporary.open("x", encoding="utf-8", newline="\n") as stream:
-            created = True
-            json.dump(value, stream, ensure_ascii=False, indent=2)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        created = False
-        _fsync_directory(path.parent)
-    finally:
-        if created:
-            temporary.unlink(missing_ok=True)
-
-
-def _fsync_file(path: Path) -> None:
-    # Windows rejects fsync on a descriptor opened read-only.  A linked source
-    # may itself be read-only, so durability is best effort in that case.
-    try:
-        with path.open("r+b") as stream:
-            os.fsync(stream.fileno())
-    except OSError:
-        pass
-
-
-def sha256_file(path: str | Path) -> str:
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as stream:
-        while True:
-            chunk = stream.read(1024 * 1024)
-            if not chunk:
-                break
-            digest.update(chunk)
-    return digest.hexdigest()
+from .sorter_types import (
+    DEFAULT_QUIET_SECONDS,
+    FileFingerprint,
+    PARTIAL_SUFFIXES,
+    StabilityResult,
+)
 
 
 def is_partial_file(path: str | Path) -> bool:
