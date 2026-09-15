@@ -19,6 +19,12 @@ from packager_inventory import (
     _persist_package_document,
     _sha256_regular_file,
 )
+from packager_distribution_helpers import (
+    _validate_staged_distribution,
+    _collect_live_distribution_info,
+    _persist_promotion_journal,
+    _handle_promotion_rollback,
+)
 
 
 def _synchronize_distribution_files_in_place(
@@ -245,94 +251,25 @@ def promote_staged_distribution(
     staged_dist: Path,
     dist_dir: Path,
 ) -> Path | None:
-    staged_dist = Path(os.path.abspath(staged_dist))
+    staged_dist = _validate_staged_distribution(staged_dist)
     dist_dir = Path(os.path.abspath(dist_dir))
     package_root = staged_dist.parent
-    if (
-        not staged_dist.exists()
-        or _is_link_or_reparse(staged_dist)
-        or staged_dist.resolve(strict=True) != staged_dist
-    ):
-        raise RuntimeError(f"Staged distribution is unsafe: {staged_dist}")
     staged_inventory = _inventory_package_tree(staged_dist)
     previous_dist = package_root / "previous-dist"
     failed_dist = package_root / "failed-new-dist"
     journal_path = package_root / "promotion-journal.json"
 
-    had_live_dist = dist_dir.exists() or dist_dir.is_symlink()
-    previous_inventory: dict[str, Any] | None = None
-    previous_metadata: dict[str, Any] = {}
-    unknown_live_app_paths: list[str] = []
-    unknown_live_runtime_paths: list[str] = []
-    if had_live_dist:
-        if (
-            _is_link_or_reparse(dist_dir)
-            or not dist_dir.is_dir()
-            or dist_dir.resolve(strict=True) != dist_dir
-        ):
-            raise RuntimeError(f"Live distribution is unsafe: {dist_dir}")
-        previous_inventory = _inventory_package_tree(dist_dir)
-        live_app = dist_dir / "resources" / "app"
-        metadata_path = live_app / PACKAGE_METADATA_NAME
-        if metadata_path.is_file() and not _is_link_or_reparse(metadata_path):
-            try:
-                previous_metadata = json.loads(
-                    metadata_path.read_text(encoding="utf-8")
-                )
-            except (OSError, ValueError, json.JSONDecodeError):
-                previous_metadata = {}
-        owned_payload_paths = {
-            f"resources/app/{relative_path}"
-            for relative_path in (
-                previous_metadata.get("payload_files")
-                if isinstance(previous_metadata.get("payload_files"), dict)
-                else {}
-            )
-        }
-        previous_file_paths = {
-            str(entry["path"])
-            for entry in previous_inventory["entries"]
-            if entry.get("type") == "file"
-        }
-        unknown_live_app_paths = sorted(
-            relative_path
-            for relative_path in previous_file_paths
-            if relative_path.startswith("resources/app/")
-            and relative_path not in owned_payload_paths
-            and relative_path
-            != f"resources/app/{PACKAGE_METADATA_NAME}"
-        )
-        staged_file_paths = {
-            str(entry["path"])
-            for entry in staged_inventory["entries"]
-            if entry.get("type") == "file"
-        }
-        unknown_live_runtime_paths = sorted(
-            relative_path
-            for relative_path in previous_file_paths
-            if not relative_path.startswith("resources/app/")
-            and relative_path not in staged_file_paths
-        )
+    live_info = _collect_live_distribution_info(dist_dir, staged_inventory)
+    had_live_dist = live_info["had_live_dist"]
+    previous_inventory = live_info["previous_inventory"]
+    previous_metadata = live_info["previous_metadata"]
+    unknown_live_app_paths = live_info["unknown_live_app_paths"]
+    unknown_live_runtime_paths = live_info["unknown_live_runtime_paths"]
 
-    _persist_package_document(
-        journal_path,
-        {
-            "format_version": 1,
-            "status": "prepared",
-            "operation_id": package_root.name,
-            "prepared_at_utc": datetime.now(timezone.utc).isoformat(),
-            "staged_dist": str(staged_dist),
-            "live_dist": str(dist_dir),
-            "previous_dist": str(previous_dist),
-            "staged_tree_digest": staged_inventory["tree_digest"],
-            "previous_tree_digest": (
-                previous_inventory["tree_digest"]
-                if previous_inventory is not None
-                else ""
-            ),
-            "unknown_live_app_paths": unknown_live_app_paths,
-            "unknown_live_runtime_paths": unknown_live_runtime_paths,
-        },
+    _persist_promotion_journal(
+        journal_path, package_root, staged_dist, dist_dir,
+        previous_dist, staged_inventory, previous_inventory,
+        unknown_live_app_paths, unknown_live_runtime_paths,
     )
 
     moved_previous = False
@@ -419,57 +356,7 @@ def promote_staged_distribution(
         )
         return None
     except BaseException as error:
-        rollback_errors: list[str] = []
-        if installed_new and dist_dir.exists():
-            try:
-                if failed_dist.exists() or failed_dist.is_symlink():
-                    failed_dist = package_root / (
-                        f"failed-new-dist-{uuid.uuid4().hex}"
-                    )
-                os.replace(dist_dir, failed_dist)
-            except BaseException as rollback_error:
-                rollback_errors.append(
-                    f"preserve failed new distribution: {rollback_error}"
-                )
-        if moved_previous:
-            try:
-                if previous_dist.exists() and not dist_dir.exists():
-                    os.replace(previous_dist, dist_dir)
-                elif not dist_dir.exists():
-                    raise FileNotFoundError(
-                        f"Previous distribution is missing: {previous_dist}"
-                    )
-            except BaseException as rollback_error:
-                rollback_errors.append(
-                    f"restore previous distribution: {rollback_error}"
-                )
-        try:
-            _persist_package_document(
-                package_root / "promotion-aborted.json",
-                {
-                    "format_version": 1,
-                    "status": (
-                        "rollback-incomplete"
-                        if rollback_errors
-                        else "aborted-and-rolled-back"
-                    ),
-                    "aborted_at_utc": datetime.now(timezone.utc).isoformat(),
-                    "error": str(error),
-                    "rollback_errors": rollback_errors,
-                    "live_dist": str(dist_dir),
-                    "previous_dist": str(previous_dist),
-                    "failed_new_dist": (
-                        str(failed_dist) if failed_dist.exists() else ""
-                    ),
-                },
-            )
-        except BaseException as journal_error:
-            rollback_errors.append(f"persist abort journal: {journal_error}")
-        if rollback_errors:
-            raise PromotionRecoveryRequired(
-                "Distribution update failed and recovery is incomplete: "
-                + "; ".join(rollback_errors),
-                recovery_root=package_root,
-                rollback_errors=rollback_errors,
-            ) from error
-        raise
+        _handle_promotion_rollback(
+            error, installed_new, moved_previous,
+            dist_dir, failed_dist, previous_dist, package_root,
+        )
