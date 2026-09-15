@@ -10,10 +10,8 @@
 
 from __future__ import annotations
 
-import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Mapping
 
 from governance_rule.execution.codex_reconcile import bounded_lookup
@@ -35,16 +33,18 @@ from ._delegation import (
     mint_delegation_receipt,
     record_delegation_outcome,
 )
-from ._requester_verification import (
-    _GOVERNED_IN_PROCESS_ACTORS,
-    verify_requester as _verify_requester_impl,
+from .mixins import (
+    AuthMixin,
+    ChildRegistryMixin,
+    CodexMixin,
+    DelegationMixin,
+    ExecutionMixin,
+    FailureTrackingMixin,
+    LifecycleMixin,
+    StatusMixin,
+    VerificationMixin,
 )
 from ..independent_verifier import IndependentVerifier, VerificationVerdict
-
-# Lazy import to avoid circular dependency
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from governance_rule.execution.authentication import GovernanceAuthenticationService
 
 
 @dataclass(frozen=True)
@@ -83,78 +83,36 @@ class SovereignIdentity:
         )
 
 
-def _stamp_delegation(
-    request: SovereignRequest,
-    sovereign_id: str,
-    target_sovereign_id: str,
-) -> SovereignRequest:
-    """Stamp a single-use delegation nonce onto the forwarded request."""
-    payload = dict(request.payload)
-    payload["_delegated_by"] = sovereign_id
-    payload["_delegation_nonce"] = mint_delegation(
-        sovereign_id, target_sovereign_id, request.intent
-    )
-    return SovereignRequest(
-        intent=request.intent,
-        subject=request.subject,
-        requester=sovereign_id,
-        payload=payload,
-    )
-
-
-def _attach_target_receipt(
-    outcome: SovereignOutcome,
-    request: SovereignRequest,
-    sovereign_id: str,
-    target_sovereign_id: str,
-) -> SovereignOutcome:
-    """Attach a verifiable delegation receipt carrying the target's trail."""
-    target_receipts: tuple[dict[str, Any], ...] = ()
-    target_result = outcome.result or {}
-    if isinstance(target_result, dict):
-        summary = target_result.get("execution_receipts")
-        if isinstance(summary, dict):
-            target_receipts = tuple(summary.get("tiers", ()))
-    receipt = mint_delegation_receipt(
-        sovereign_id=sovereign_id,
-        intent=request.intent,
-        requester=request.requester,
-        accepted=outcome.accepted,
-        reason_code=outcome.refusal.reason_code if outcome.refusal else "",
-        execution_mode="delegated-to-target",
-        basis=outcome.basis,
-        target_sovereign=target_sovereign_id,
-        target_receipts=target_receipts,
-    )
-    result = dict(outcome.result or {})
-    result["delegation_receipt"] = receipt.to_dict()
-    return SovereignOutcome(
-        accepted=outcome.accepted,
-        refusal=outcome.refusal,
-        result=result,
-        basis=outcome.basis,
-    )
-
-
-class SovereignBase(ABC):
-    """主宰底座：单一入口 gate、法典引用、唯经委派之执行出口。"""
+class SovereignBase(
+    CodexMixin,
+    AuthMixin,
+    ChildRegistryMixin,
+    DelegationMixin,
+    FailureTrackingMixin,
+    ExecutionMixin,
+    LifecycleMixin,
+    StatusMixin,
+    VerificationMixin,
+    ABC,
+):
+    """主宰底座：单一入口 gate、法典引用、唯经委派之执行出口（A446/A121）。"""
 
     sovereign_id: str = ""
 
     def __init__(self, app: Any | None = None) -> None:
-        self.app = app
+        self._app = app
         self._identity = SovereignIdentity.from_codex(self.sovereign_id)
-        self._started = False
-        self._state: dict[str, Any] = {}
-        # Child registry — populated by the governed executor at activation
-        # (A334: each sub-sovereign is registered under exactly one parent).
-        self._sub_sovereigns: dict[str, Any] = {}
-        # Per-child consecutive-failure counts, fed by the governed
-        # executor and by children reporting through ``report_to_parent``.
-        self._child_failure_counts: dict[str, int] = {}
-        # A446 independent verifier — never the work step; domain checks may
-        # be registered by subclasses via ``register_verification_check``.
-        self._independent_verifier = IndependentVerifier()
+        # Mixin initialization is handled by cooperative __init__ via super()
+        # Ensure mixin state is initialized
+        self._sub_sovereigns = getattr(self, '_sub_sovereigns', {})
+        self._child_failure_counts = getattr(self, '_child_failure_counts', {})
+        self._state = getattr(self, '_state', {})
+        self._started = getattr(self, '_started', False)
+        self._independent_verifier = getattr(self, '_independent_verifier', IndependentVerifier())
+
+    @property
+    def app(self) -> Any:
+        return self._app
 
     @property
     def identity(self) -> SovereignIdentity:
@@ -171,22 +129,6 @@ class SovereignBase(ABC):
     @property
     def started(self) -> bool:
         return self._started
-
-    # -------------------------------------------------------------------------
-    # Codex decision basis
-    # -------------------------------------------------------------------------
-
-    def edicts(self) -> list[dict[str, str]]:
-        """取得管辖领域的法典敕令（决策依据）。"""
-        return codex_edicts(self.area)
-
-    def basis(self) -> dict[str, Any]:
-        """取得完整决策基础（法典+主宰子法）。"""
-        return decision_basis(self.area)
-
-    def verified_basis(self, *refs: str) -> DecisionBasis:
-        """验证并返回决策依据 token。"""
-        return verified_basis(refs)
 
     # -------------------------------------------------------------------------
     # Single entry gate (A63/A64)
@@ -206,313 +148,10 @@ class SovereignBase(ABC):
 
         return await SovereignExecutionPipeline(self).run(request)
 
-    def register_verification_check(self, intent: str, check: Any) -> None:
-        """Register an independent domain check for ``intent`` (A446)."""
-        self._independent_verifier.register(intent, check)
-
-    def _governance(self) -> Any:
-        """The app governance service, or None when unavailable (A436/A10).
-
-        Shared accessor so permission/auth mixins never call an undefined
-        method: the explicit ``_governance_ref`` wins, then ``app.governance``.
-        """
-        ref = getattr(self, "_governance_ref", None)
-        if ref is not None:
-            return ref
-        return getattr(self.app, "governance", None)
-
-    def verify_execution_result(
-        self, intent: str, executor_actor: str, outcome: SovereignOutcome
-    ) -> VerificationVerdict:
-        """Independent verification of an executor result (A446/A121)."""
-        return self._independent_verifier.verify(intent, executor_actor, outcome)
-
-    async def _verify_requester(self, request: SovereignRequest) -> bool:
-        """验证请求者身份（A10/A11/A116/A121/A435 fail-closed）.
-
-        Delegates to ``_requester_verification.verify_requester`` so the
-        fail-closed identity-attestation contract lives in one place.
-        """
-        return _verify_requester_impl(self, request)
-
-    def _authenticate_token_claims(
-        self, request: SovereignRequest, token: str
-    ) -> Any | None:
-        """Verify a capability token against this sovereign's request scope."""
-        auth = getattr(self.app, "governance_auth", None) or getattr(
-            self.app, "governance", None
-        )
-        if auth is None:
-            return None
-        auth_service = getattr(auth, "authentication", None) or getattr(
-            auth, "authentication_service", None
-        )
-        if auth_service is None:
-            return None
-        try:
-            claims = auth_service.authenticate_token(token)
-        except (ValueError, KeyError, PermissionError, RuntimeError, ImportError):
-            # Expected authentication failures deny (fail-closed); unexpected
-            # programming errors must surface instead of being downgraded.
-            return None
-        # The token must prove the requester identity — ``bound_tool_id``
-        # belongs to the *requester's* attestation, never to the target
-        # sovereign.
-        if claims.actor != request.requester:
-            return None
-        if claims.capability not in {
-            "sovereign.request",
-            f"{self.area}.request",
-            request.intent,
-        }:
-            return None
-        return claims
-
-    def _claims_sovereign_identity(self, requester: str) -> bool:
-        """True when the requester string names a sovereign identity."""
-        value = str(requester or "").strip()
-        if not value:
-            return False
-        if value.endswith(("-sovereign", "-sub-sovereign")):
-            return True
-        from ..registries import parent_of, resolve_sovereign
-
-        if parent_of(value) is not None:
-            return True
-        return resolve_sovereign(self.app, value) is not None
-
-    def _verify_intent(self, intent: str) -> bool:
-        """验证意图是否在管辖敕令范围内。"""
-        allowed = {e["id"] for e in self.edicts()}
-        return intent in allowed or intent.startswith("governance.")
-
-    # ------------------------------------------------------------------
-    # Sub-sovereign registry + A334 parent-authority adjudication
-    # ------------------------------------------------------------------
-
-    def register_sub_sovereign(self, name: str, sovereign: Any) -> None:
-        self._sub_sovereigns[name] = sovereign
-
-    def get_sub_sovereign(self, name: str) -> Any | None:
-        return self._sub_sovereigns.get(name)
-
-    def authorize_child_activation(self, child_identity: str) -> SovereignOutcome:
-        """A334: adjudicate whether this sovereign may dispatch a child start.
-
-        Fail-closed: the child must be registered in this sovereign's
-        registry AND the codex ``sovereign_hierarchy_registry`` must declare
-        this sovereign as the child's single parent.
-        """
-        from ..registries import parent_of
-
-        child = self._sub_sovereigns.get(child_identity)
-        if child is None:
-            return refusal_outcome("CHILD_NOT_REGISTERED", ("A334", "A130"))
-        if parent_of(child_identity) != self.sovereign_id:
-            return refusal_outcome("NOT_CODEX_PARENT", ("A334",))
-        return accepted_outcome(
-            {
-                "child": child_identity,
-                "parent": self.sovereign_id,
-                "dispatch": "authorized",
-                "execution": "delegated-to-governed-executor",
-            },
-            verified_basis(("A334", "A130")),
-        )
-
-    # ------------------------------------------------------------------
-    # Inter-sovereign coordination (A334 routed delegation)
-    # ------------------------------------------------------------------
-
-    def resolve_sovereign(self, sovereign_id: str) -> Any | None:
-        """Resolve another sovereign instance via the A334 hierarchy."""
-        from ..registries import resolve_sovereign
-
-        return resolve_sovereign(self.app, sovereign_id)
-
-    async def delegate_to(
-        self, target_sovereign_id: str, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """Route a request through the target sovereign's single entry gate.
-
-        The requester is rewritten to this sovereign's identity so the
-        target's A10/A11 gates observe the true sovereign origin; a
-        sub-sovereign target additionally enforces its A334 single-parent
-        check, so only the codex parent can delegate into it.  Fails
-        closed when the target is not materialized or not started.
-
-        The returned outcome carries a verifiable ``DelegationReceipt`` in
-        ``result["delegation_receipt"]`` with the target's execution
-        receipt trail — so callers can verify the delegation actually
-        reached the target and was processed, not merely declared.
-        """
-        target = self.resolve_sovereign(target_sovereign_id)
-        if target is None:
-            return refusal_outcome("TARGET_SOVEREIGN_UNAVAILABLE", ("A334",))
-        if not getattr(target, "started", False):
-            return refusal_outcome(
-                "TARGET_SOVEREIGN_NOT_STARTED", ("A10", "A11")
-            )
-        forwarded = _stamp_delegation(
-            request, self.sovereign_id, target_sovereign_id
-        )
-        outcome = await target.handle(forwarded)
-        return _attach_target_receipt(
-            outcome, request, self.sovereign_id, target_sovereign_id
-        )
-
-    # ------------------------------------------------------------------
-    # Child failure tracking (shared by all sovereign parents)
-    # ------------------------------------------------------------------
-
-    def record_child_failure(self, child_id: str) -> int:
-        """Record a consecutive child failure; returns the new count."""
-        count = self._child_failure_counts.get(child_id, 0) + 1
-        self._child_failure_counts[child_id] = count
-        return count
-
-    def record_child_success(self, child_id: str) -> None:
-        """Clear the consecutive-failure counter after a child recovers."""
-        self._child_failure_counts.pop(child_id, None)
-
-    def child_failure_count(self, child_id: str) -> int:
-        return self._child_failure_counts.get(child_id, 0)
-
     @abstractmethod
     async def _adjudicate(self, request: SovereignRequest) -> SovereignOutcome:
         """核心裁决逻辑（子类实作）。"""
         ...
-
-    async def _delegate_execution(
-        self, decision: SovereignOutcome, request: SovereignRequest
-    ) -> SovereignOutcome:
-        """委派执行给受治理执行器（A446/A121）。
-
-        Fail-closed default: a sovereign that does not override this hook
-        cannot claim successful execution.  Returning the bare adjudication
-        result would mask the absence of execution behind an accepted
-        outcome, violating A446 (EXECUTION-LAYER-TIERS requires a real
-        specialized-executor step) and A121 (post-execution-audit must
-        record an actual execution, not a decision echo).
-
-        Subclasses MUST override this hook to do one of:
-          * dispatch the decision to a registered governed executor,
-            run independent verification, and record the audit trail; or
-          * attest that the adjudication was a pure decision / query with
-            no execution side-effect (e.g. permission.query, runtime.status)
-            and return the decision unchanged with that attestation recorded.
-        """
-        return refusal_outcome(
-            "EXECUTION_NOT_DELEGATED",
-            self.verified_basis("A446", "A121"),
-        )
-
-    def _attach_delegation_receipt(
-        self,
-        decision: SovereignOutcome,
-        request: SovereignRequest,
-        execution_mode: str = "decision-only",
-    ) -> SovereignOutcome:
-        """Mint a verifiable delegation receipt and attach it to the outcome.
-
-        Thin wrapper around ``attach_delegation_receipt`` (A446/A121).
-        """
-        return attach_delegation_receipt(
-            decision, request, self.sovereign_id, execution_mode
-        )
-
-    # -------------------------------------------------------------------------
-    # Lifecycle
-    # -------------------------------------------------------------------------
-
-    async def start(self) -> dict[str, Any]:
-        """启动主宰（决策层初始化，不执行业务逻辑）。"""
-        if self._started:
-            return {"role": self.role, "status": "already_started"}
-
-        self._state = {
-            "role": self.role,
-            "area": self.area,
-            "started_at": self._iso_now(),
-            "execution_delegation": "governed-executor-only",
-        }
-        self._started = True
-        await self._on_start()
-        return self._state
-
-    async def stop(self) -> None:
-        """停止主宰。"""
-        if not self._started:
-            return
-        await self._on_stop()
-        self._started = False
-        self._state = {"stopped_at": self._iso_now()}
-
-    async def _on_start(self) -> None:
-        """子类覆写：启动时的额外初始化。"""
-        pass
-
-    async def start_supervision(self) -> None:
-        """Start observation/supervision loops (A297 separation).
-
-        The sovereign's ``start()`` only initializes the decision layer.
-        Supervision/automation loops are started separately by the
-        governed executor calling this method after ``start()`` returns,
-        so the decision/observe boundary is explicit: the sovereign
-        decides, the executor starts the observation work.
-        """
-        pass
-
-    async def stop_supervision(self) -> None:
-        """Stop observation/supervision loops (A297 separation)."""
-        pass
-
-    async def _on_stop(self) -> None:
-        """子类覆写：停止时的清理。"""
-        pass
-
-    def status(self) -> dict[str, Any]:
-        """状态回报（唯读）。"""
-        return self._with_status_schema()
-
-    def live_status(self) -> dict[str, Any]:
-        """即时状态（供编排层查询）。"""
-        return self.status()
-
-    def orchestration_status(self) -> dict[str, Any]:
-        """编排层状态（含子系统健康）。"""
-        return {
-            "state": "active" if self._started else "stopped",
-            "owner": self.role,
-            "children": {
-                child_id: bool(getattr(child, "started", False))
-                for child_id, child in self._sub_sovereigns.items()
-            },
-            "child_failure_counts": dict(self._child_failure_counts),
-        }
-
-    def _iso_now(self) -> str:
-        from datetime import datetime, timezone
-        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-    def _with_status_schema(self, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Canonical sovereign-status schema (single shape across sovereigns).
-
-        Common keys: schema marker, role/sovereign identity, area, started;
-        domain-specific surfaces extend the same payload instead of inventing
-        a new shape, so consumers can branch on ``schema``.
-        """
-        result: dict[str, Any] = {
-            "schema": "gptbridge.sovereign-status/v1",
-            "role": self.sovereign_id,
-            "sovereign": self.sovereign_id,
-            "area": self.area,
-            "started": self._started,
-            **dict(self._state),
-        }
-        if payload:
-            result.update(payload)
-        return result
 
 
 __all__ = ["SovereignBase", "SovereignIdentity"]
