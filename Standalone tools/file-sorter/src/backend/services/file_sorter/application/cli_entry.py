@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from typing import Iterable
@@ -41,6 +40,8 @@ from ..infrastructure.sorter_engine import (
 from ..infrastructure.cleanup import (
     DEFAULT_ANALYSIS_SPEED,
     DEFAULT_SIMILAR_VIDEO_THRESHOLD,
+    print_progress_event,
+    run_cleanup_scan,
 )
 from .cli_constants import (
     FOLDERS_JSON_PREFIX,
@@ -55,11 +56,13 @@ from .cli_keywords import (
 )
 from .cli_models import FileSorterError, KeywordRule, OrganizeResult
 from .cli_organize import (
+    apply_organize_plan,
     configure_duplicate_trash_enabled,
     configure_profile_enabled,
     organize_files,
     preview_organize_files,
     run_enabled_profiles_once,
+    scan_after_keyword_addition,
     select_scan_target,
 )
 from .cli_paths import (
@@ -73,9 +76,11 @@ from .cli_paths import (
 )
 from .cli_rules import (
     _migrate_existing_profile_rules,
+    get_rules_path,
     read_custom_rules,
     write_custom_rules,
 )
+from .cli_entry_parser import create_argument_parser
 
 
 def print_rules(rules: Iterable[KeywordRule]) -> None:
@@ -90,161 +95,379 @@ def print_rules(rules: Iterable[KeywordRule]) -> None:
 
 
 
-def create_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="使用資料夾名稱與自訂關鍵字，將檔案安全歸檔到對應子資料夾。"
+def _print_profile_snapshot(snapshot: ProfileSnapshot) -> int:
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "type": "file-sorter-profile",
+                "profile": snapshot.to_dict(include_rules=False),
+            },
+            ensure_ascii=False,
+        )
     )
-    parser.add_argument("target_dir", nargs="?", default=".", help="要整理的目標目錄")
-    parser.add_argument(
-        "--add-keyword",
-        action="append",
-        default=[],
-        help="追加關鍵字，可重複指定",
+    return 0
+
+
+
+def _handle_profiles_json(args, state_root) -> int | None:
+    if not args.profiles_json:
+        return None
+    payload = {
+        "ok": True,
+        "type": "file-sorter-profiles",
+        "state_root": str(resolve_state_root(state_root)),
+        "profiles": [
+            snapshot.to_dict(include_rules=False)
+            for snapshot in list_profiles(state_root=state_root)
+        ],
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+    return 0
+
+
+
+def _handle_set_profile_enabled(args, target, state_root) -> int | None:
+    if args.set_profile_enabled is None:
+        return None
+    snapshot = configure_profile_enabled(
+        target,
+        args.set_profile_enabled == "true",
+        state_root=state_root,
+        profile=args.profile,
     )
-    parser.add_argument("--folder", help="追加關鍵字要分類到的子資料夾")
-    parser.add_argument("--update-keyword", help="要修改的現有程式碼關鍵字")
-    parser.add_argument("--new-keyword", help="修改後的新關鍵字")
-    parser.add_argument(
-        "--upsert-keyword",
-        action="append",
-        default=[],
-        help="新增或更新關鍵字；已存在時自動改用指定分類資料夾。",
+    return _print_profile_snapshot(snapshot)
+
+
+
+def _handle_select_scan_target(args, target, state_root) -> int | None:
+    if not args.select_scan_target:
+        return None
+    snapshot = select_scan_target(
+        target,
+        state_root=state_root,
+        profile=args.profile,
     )
-    parser.add_argument(
-        "--list-keywords",
-        action="store_true",
-        help="顯示目前所有有效關鍵字規則",
+    return _print_profile_snapshot(snapshot)
+
+
+
+def _handle_set_duplicate_trash_enabled(args, target, state_root) -> int | None:
+    if args.set_duplicate_trash_enabled is None:
+        return None
+    snapshot = configure_duplicate_trash_enabled(
+        target,
+        args.set_duplicate_trash_enabled == "true",
+        state_root=state_root,
+        profile=args.profile,
     )
-    parser.add_argument(
-        "--list-folders",
-        action="store_true",
-        help="掃描並顯示目前所有第一層子資料夾",
+    return _print_profile_snapshot(snapshot)
+
+
+
+def _handle_history_json(args, target, state_root) -> int | None:
+    if not args.history_json:
+        return None
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "type": "file-sorter-history",
+                "history": transaction_history(
+                    state_root=state_root,
+                    target_dir=target,
+                ),
+            },
+            ensure_ascii=False,
+        )
     )
-    parser.add_argument(
-        "--list-source-files",
-        action="store_true",
-        help="列出目前目標資料夾根目錄中可整理的檔案，供自動偵測使用。",
+    return 0
+
+
+
+def _handle_recover(args, target, state_root) -> int | None:
+    if not args.recover:
+        return None
+    recovery = recover_transactions(
+        state_root=state_root,
+        target_dir=target,
     )
-    parser.add_argument(
-        "--cleanup-scan",
-        action="store_true",
-        help="執行合併後的清理掃描，不包含完全重複檔或相似圖片偵測。",
+    payload = {
+        "ok": all(not item.get("errors") for item in recovery),
+        "type": "file-sorter-recovery-result",
+        "recovered": recovery,
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+    return 0 if payload["ok"] else 1
+
+
+
+def _handle_prune_state(args, state_root) -> int | None:
+    if not args.prune_state:
+        return None
+    payload = {
+        "ok": True,
+        "type": "file-sorter-prune-result",
+        **prune_state(state_root=state_root),
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+    return 0
+
+
+
+def _handle_undo_last(args, target, state_root) -> int | None:
+    if not args.undo_last:
+        return None
+    try:
+        payload = undo_last_transaction(
+            target,
+            state_root=state_root,
+        )
+    except SorterV2Error as error:
+        raise FileSorterError(str(error)) from error
+    print(json.dumps(payload, ensure_ascii=False))
+    return 0 if payload["ok"] else 1
+
+
+
+def _handle_apply_plan(args, target, state_root) -> int | None:
+    if not args.apply_plan:
+        return None
+    payload = apply_organize_plan(
+        args.apply_plan,
+        target_dir=target,
+        state_root=state_root,
+        profile=args.profile,
     )
-    parser.add_argument(
-        "--image-cleanup",
-        action="store_true",
-        help="列出橫向或非直式圖片候選。",
+    print(json.dumps(payload, ensure_ascii=False))
+    return 0 if payload["ok"] else 1
+
+
+
+def _handle_preview(args, target, state_root) -> int | None:
+    if not (args.preview_json or args.dry_run):
+        return None
+    plan = preview_organize_files(
+        target,
+        quiet_seconds=(
+            DEFAULT_QUIET_SECONDS
+            if args.quiet_seconds is None
+            else args.quiet_seconds
+        ),
+        state_root=state_root,
+        profile=args.profile,
+        persist=True,
     )
-    parser.add_argument(
-        "--similar-image-analysis",
-        action="store_true",
-        help="使用 MiniCPM-V 分析相似圖片。",
+    print(json.dumps(plan.to_dict(), ensure_ascii=False))
+    return 0
+
+
+
+def _handle_cleanup_scan(args, target) -> int | None:
+    if not args.cleanup_scan:
+        return None
+    selected_cleanup = bool(
+        args.image_cleanup
+        or args.similar_image_analysis
+        or args.video_cleanup
+        or args.similar_video_analysis
     )
-    parser.add_argument(
-        "--video-cleanup",
-        action="store_true",
-        help="列出影片問題候選。",
-    )
-    parser.add_argument(
-        "--similar-video-analysis",
-        action="store_true",
-        help="保留的相似影片偵測功能。",
-    )
-    parser.add_argument(
-        "--similar-video-threshold",
-        type=int,
-        default=DEFAULT_SIMILAR_VIDEO_THRESHOLD,
-        help="相似影片門檻，1 到 100。",
-    )
-    parser.add_argument(
-        "--analysis-speed",
-        type=int,
-        default=DEFAULT_ANALYSIS_SPEED,
-        help="分析速度，1 到 100；越高採樣越少。",
-    )
-    parser.add_argument("--no-parallel-analysis", action="store_true")
-    parser.add_argument("--model-temperature", type=float, default=0.0)
-    parser.add_argument("--model-top-p", type=float, default=0.9)
-    parser.add_argument("--model-context-window", type=int, default=8192)
-    parser.add_argument("--model-max-output-tokens", type=int, default=512)
-    parser.add_argument(
-        "--state-root",
-        help="V2 state root (or set FILE_SORTER_STATE_ROOT).",
-    )
-    parser.add_argument("--profile", help="Optional named profile for this target.")
-    parser.add_argument(
-        "--quiet-seconds",
-        "--quiet-period",
-        dest="quiet_seconds",
-        type=float,
-        default=None,
-        help="Require an unchanged modification time for this many seconds.",
-    )
-    parser.add_argument(
-        "--preview-json",
-        action="store_true",
-        help="Persist and print a structured no-change organization plan.",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Alias for --preview-json.",
-    )
-    parser.add_argument(
-        "--apply-plan",
-        metavar="PLAN_ID",
-        help="Apply a previously persisted plan after revalidation.",
-    )
-    parser.add_argument(
-        "--undo-last",
-        action="store_true",
-        help="Undo the newest committed transaction for the target.",
-    )
-    parser.add_argument(
-        "--history-json",
-        action="store_true",
-        help="Print transaction history as JSON.",
-    )
-    parser.add_argument(
-        "--recover",
-        action="store_true",
-        help="Recover interrupted transactions without overwriting files.",
-    )
-    parser.add_argument(
-        "--prune-state",
-        action="store_true",
-        help="Remove expired plans and configured old terminal journals.",
-    )
-    parser.add_argument(
-        "--profiles-json",
-        action="store_true",
-        help="Print all V2 profile configurations as JSON.",
-    )
-    parser.add_argument(
-        "--set-profile-enabled",
-        choices=("true", "false"),
-        help="Enable or disable background runs for the target/profile.",
-    )
-    parser.add_argument(
-        "--select-scan-target",
-        action="store_true",
-        help=(
-            "Make the selected folder the single active scan target while "
-            "background classification is already active."
+    report = run_cleanup_scan(
+        target,
+        image_cleanup=bool(args.image_cleanup),
+        similar_image_analysis=bool(args.similar_image_analysis),
+        video_cleanup=bool(
+            args.video_cleanup
+            or args.similar_video_analysis
+            or not selected_cleanup
+        ),
+        similar_video_analysis=bool(
+            args.similar_video_analysis
+        ),
+        similar_video_threshold=args.similar_video_threshold,
+        analysis_speed=args.analysis_speed,
+        parallel_analysis=not bool(args.no_parallel_analysis),
+        model_temperature=args.model_temperature,
+        model_top_p=args.model_top_p,
+        model_context_window=args.model_context_window,
+        model_max_output_tokens=args.model_max_output_tokens,
+        progress_event_callback=(
+            print_progress_event if args.progress_jsonl else None
         ),
     )
-    parser.add_argument(
-        "--set-duplicate-trash-enabled",
-        choices=("true", "false"),
-        help="Opt in or out of exact-duplicate recycling for the target/profile.",
+    print(json.dumps(report, ensure_ascii=False, indent=2 if args.json else None))
+    return 0 if report.get("ok") is not False else 1
+
+
+
+def _print_rules_saved(target, state_root, profile) -> None:
+    print(
+        f"File Sorter 分類規則已儲存（非主系統治理規則）："
+        f"{get_rules_path(target, state_root=state_root, profile=profile)}"
     )
-    parser.add_argument("--json", action="store_true", help="輸出 JSON 報告。")
-    parser.add_argument(
-        "--progress-jsonl",
-        action="store_true",
-        help="輸出清理掃描進度事件。",
+
+
+
+def _print_keyword_scan_result(target, state_root) -> None:
+    scan_report = scan_after_keyword_addition(
+        target,
+        state_root=state_root,
     )
-    return parser
+    if scan_report is None:
+        print("新關鍵字已儲存；此工作區目前無法執行自動掃描。")
+        return
+    print(
+        "新關鍵字已觸發即時掃描："
+        f"移動 {int(scan_report.get('moved_count', 0))} 個檔案，"
+        f"等待穩定確認 "
+        f"{int(scan_report.get('waiting_for_second_observation_count', 0))} 個。"
+    )
+
+
+
+def _handle_upsert_keyword(args, target, state_root) -> int | None:
+    if not args.upsert_keyword:
+        return None
+    if not args.folder:
+        raise FileSorterError("新增或更新關鍵字時必須指定分類資料夾。")
+    upsert_result = upsert_keywords(
+        target,
+        args.upsert_keyword,
+        args.folder,
+        state_root=state_root,
+        profile=args.profile,
+    )
+    for rule in upsert_result.added:
+        print(f"已新增關鍵字「{rule.keyword}」→「{rule.folder}」")
+    for rule in upsert_result.updated:
+        print(f"已更新既有關鍵字「{rule.keyword}」→「{rule.folder}」")
+    for rule in upsert_result.unchanged:
+        print(f"關鍵字已存在，沿用分類「{rule.keyword}」→「{rule.folder}」")
+    _print_rules_saved(target, state_root, args.profile)
+    if upsert_result.added:
+        _print_keyword_scan_result(target, state_root)
+    return 0
+
+
+
+def _handle_add_keyword(args, target, state_root) -> int | None:
+    if not args.add_keyword:
+        return None
+    if not args.folder:
+        raise FileSorterError("追加關鍵字時必須指定分類資料夾。")
+    added_rules = add_keywords(
+        target,
+        args.add_keyword,
+        args.folder,
+        state_root=state_root,
+        profile=args.profile,
+    )
+    for rule in added_rules:
+        print(f"已追加關鍵字「{rule.keyword}」→「{rule.folder}」")
+    _print_rules_saved(target, state_root, args.profile)
+    return 0
+
+
+
+def _handle_update_keyword(args, target, state_root) -> int | None:
+    if not args.update_keyword:
+        return None
+    if not args.new_keyword:
+        raise FileSorterError("修改關鍵字時必須指定新關鍵字。")
+    updated_rule = update_keyword(
+        target,
+        args.update_keyword,
+        args.new_keyword,
+        args.folder,
+        state_root=state_root,
+        profile=args.profile,
+    )
+    print(f"已修改程式碼關鍵字「{args.update_keyword}」→「{updated_rule.keyword}」")
+    print(f"分類資料夾：「{updated_rule.folder}」")
+    _print_rules_saved(target, state_root, args.profile)
+    return 0
+
+
+
+def _handle_list_folders(args, target) -> int | None:
+    if not args.list_folders:
+        return None
+    folders = list_destination_folders(target)
+    print(f"{FOLDERS_JSON_PREFIX}{json.dumps(folders, ensure_ascii=False)}")
+    print(f"掃描完成：找到 {len(folders)} 個第一層子資料夾。")
+    return 0
+
+
+
+def _handle_list_source_files(args, target) -> int | None:
+    if not args.list_source_files:
+        return None
+    source_files = list_source_files(target)
+    print(f"{SOURCE_FILES_JSON_PREFIX}{json.dumps(source_files, ensure_ascii=False)}")
+    print(f"掃描完成：找到 {len(source_files)} 個待整理檔案。")
+    return 0
+
+
+
+def _handle_list_keywords(args, target, state_root) -> int | None:
+    if not args.list_keywords:
+        return None
+    print_rules(
+        build_keyword_rules(
+            target,
+            state_root=state_root,
+            profile=args.profile,
+        )
+    )
+    return 0
+
+
+
+def _run_default_organize(args, target, state_root) -> int:
+    print(f"開始整理目錄：{target}")
+    result = organize_files(
+        target,
+        quiet_seconds=0.0 if args.quiet_seconds is None else args.quiet_seconds,
+        state_root=state_root,
+        profile=args.profile,
+    )
+    for warning in result.warnings:
+        print(f"警告：{warning}", file=sys.stderr)
+    for error in result.errors:
+        print(f"錯誤：{error}", file=sys.stderr)
+    print(
+        f"歸檔完成：移動 {result.moved_count} 個檔案，"
+        f"未匹配 {result.unmatched_count} 個檔案，錯誤 {len(result.errors)} 個。"
+    )
+    return 1 if result.errors else 0
+
+
+
+def _dispatch_command(args, target, state_root) -> int | None:
+    handlers = (
+        lambda: _handle_profiles_json(args, state_root),
+        lambda: _handle_set_profile_enabled(args, target, state_root),
+        lambda: _handle_select_scan_target(args, target, state_root),
+        lambda: _handle_set_duplicate_trash_enabled(args, target, state_root),
+        lambda: _handle_history_json(args, target, state_root),
+        lambda: _handle_recover(args, target, state_root),
+        lambda: _handle_prune_state(args, state_root),
+        lambda: _handle_undo_last(args, target, state_root),
+        lambda: _handle_apply_plan(args, target, state_root),
+        lambda: _handle_preview(args, target, state_root),
+        lambda: _handle_cleanup_scan(args, target),
+        lambda: _handle_upsert_keyword(args, target, state_root),
+        lambda: _handle_add_keyword(args, target, state_root),
+        lambda: _handle_update_keyword(args, target, state_root),
+        lambda: _handle_list_folders(args, target),
+        lambda: _handle_list_source_files(args, target),
+        lambda: _handle_list_keywords(args, target, state_root),
+    )
+    for handler in handlers:
+        result = handler()
+        if result is not None:
+            return result
+    return None
 
 
 
@@ -252,294 +475,10 @@ def main() -> int:
     args = create_argument_parser().parse_args()
     try:
         target = resolve_target_dir(args.target_dir)
-        state_root = args.state_root
-
-        if args.profiles_json:
-            payload = {
-                "ok": True,
-                "type": "file-sorter-profiles",
-                "state_root": str(resolve_state_root(state_root)),
-                "profiles": [
-                    snapshot.to_dict(include_rules=False)
-                    for snapshot in list_profiles(state_root=state_root)
-                ],
-            }
-            print(json.dumps(payload, ensure_ascii=False))
-            return 0
-
-        if args.set_profile_enabled is not None:
-            snapshot = configure_profile_enabled(
-                target,
-                args.set_profile_enabled == "true",
-                state_root=state_root,
-                profile=args.profile,
-            )
-            print(
-                json.dumps(
-                    {
-                        "ok": True,
-                        "type": "file-sorter-profile",
-                        "profile": snapshot.to_dict(include_rules=False),
-                    },
-                    ensure_ascii=False,
-                )
-            )
-            return 0
-
-        if args.select_scan_target:
-            snapshot = select_scan_target(
-                target,
-                state_root=state_root,
-                profile=args.profile,
-            )
-            print(
-                json.dumps(
-                    {
-                        "ok": True,
-                        "type": "file-sorter-profile",
-                        "profile": snapshot.to_dict(include_rules=False),
-                    },
-                    ensure_ascii=False,
-                )
-            )
-            return 0
-
-        if args.set_duplicate_trash_enabled is not None:
-            snapshot = configure_duplicate_trash_enabled(
-                target,
-                args.set_duplicate_trash_enabled == "true",
-                state_root=state_root,
-                profile=args.profile,
-            )
-            print(
-                json.dumps(
-                    {
-                        "ok": True,
-                        "type": "file-sorter-profile",
-                        "profile": snapshot.to_dict(include_rules=False),
-                    },
-                    ensure_ascii=False,
-                )
-            )
-            return 0
-
-        if args.history_json:
-            print(
-                json.dumps(
-                    {
-                        "ok": True,
-                        "type": "file-sorter-history",
-                        "history": transaction_history(
-                            state_root=state_root,
-                            target_dir=target,
-                        ),
-                    },
-                    ensure_ascii=False,
-                )
-            )
-            return 0
-
-        if args.recover:
-            recovery = recover_transactions(
-                state_root=state_root,
-                target_dir=target,
-            )
-            payload = {
-                "ok": all(not item.get("errors") for item in recovery),
-                "type": "file-sorter-recovery-result",
-                "recovered": recovery,
-            }
-            print(json.dumps(payload, ensure_ascii=False))
-            return 0 if payload["ok"] else 1
-
-        if args.prune_state:
-            payload = {
-                "ok": True,
-                "type": "file-sorter-prune-result",
-                **prune_state(state_root=state_root),
-            }
-            print(json.dumps(payload, ensure_ascii=False))
-            return 0
-
-        if args.undo_last:
-            try:
-                payload = undo_last_transaction(
-                    target,
-                    state_root=state_root,
-                )
-            except SorterV2Error as error:
-                raise FileSorterError(str(error)) from error
-            print(json.dumps(payload, ensure_ascii=False))
-            return 0 if payload["ok"] else 1
-
-        if args.apply_plan:
-            payload = apply_organize_plan(
-                args.apply_plan,
-                target_dir=target,
-                state_root=state_root,
-                profile=args.profile,
-            )
-            print(json.dumps(payload, ensure_ascii=False))
-            return 0 if payload["ok"] else 1
-
-        if args.preview_json or args.dry_run:
-            plan = preview_organize_files(
-                target,
-                quiet_seconds=(
-                    DEFAULT_QUIET_SECONDS
-                    if args.quiet_seconds is None
-                    else args.quiet_seconds
-                ),
-                state_root=state_root,
-                profile=args.profile,
-                persist=True,
-            )
-            print(json.dumps(plan.to_dict(), ensure_ascii=False))
-            return 0
-
-        if args.cleanup_scan:
-            selected_cleanup = bool(
-                args.image_cleanup
-                or args.similar_image_analysis
-                or args.video_cleanup
-                or args.similar_video_analysis
-            )
-            report = run_cleanup_scan(
-                target,
-                image_cleanup=bool(args.image_cleanup),
-                similar_image_analysis=bool(args.similar_image_analysis),
-                video_cleanup=bool(
-                    args.video_cleanup
-                    or args.similar_video_analysis
-                    or not selected_cleanup
-                ),
-                similar_video_analysis=bool(
-                    args.similar_video_analysis
-                ),
-                similar_video_threshold=args.similar_video_threshold,
-                analysis_speed=args.analysis_speed,
-                parallel_analysis=not bool(args.no_parallel_analysis),
-                model_temperature=args.model_temperature,
-                model_top_p=args.model_top_p,
-                model_context_window=args.model_context_window,
-                model_max_output_tokens=args.model_max_output_tokens,
-                progress_event_callback=(
-                    print_progress_event if args.progress_jsonl else None
-                ),
-            )
-            print(json.dumps(report, ensure_ascii=False, indent=2 if args.json else None))
-            return 0 if report.get("ok") is not False else 1
-
-        if args.upsert_keyword:
-            if not args.folder:
-                raise FileSorterError("新增或更新關鍵字時必須指定分類資料夾。")
-            upsert_result = upsert_keywords(
-                target,
-                args.upsert_keyword,
-                args.folder,
-                state_root=state_root,
-                profile=args.profile,
-            )
-            for rule in upsert_result.added:
-                print(f"已新增關鍵字「{rule.keyword}」→「{rule.folder}」")
-            for rule in upsert_result.updated:
-                print(f"已更新既有關鍵字「{rule.keyword}」→「{rule.folder}」")
-            for rule in upsert_result.unchanged:
-                print(f"關鍵字已存在，沿用分類「{rule.keyword}」→「{rule.folder}」")
-            print(
-                f"File Sorter 分類規則已儲存（非主系統治理規則）："
-                f"{get_rules_path(target, state_root=state_root, profile=args.profile)}"
-            )
-            if upsert_result.added:
-                scan_report = scan_after_keyword_addition(
-                    target,
-                    state_root=state_root,
-                )
-                if scan_report is None:
-                    print("新關鍵字已儲存；此工作區目前無法執行自動掃描。")
-                else:
-                    print(
-                        "新關鍵字已觸發即時掃描："
-                        f"移動 {int(scan_report.get('moved_count', 0))} 個檔案，"
-                        f"等待穩定確認 "
-                        f"{int(scan_report.get('waiting_for_second_observation_count', 0))} 個。"
-                    )
-            return 0
-        if args.add_keyword:
-            if not args.folder:
-                raise FileSorterError("追加關鍵字時必須指定分類資料夾。")
-            added_rules = add_keywords(
-                target,
-                args.add_keyword,
-                args.folder,
-                state_root=state_root,
-                profile=args.profile,
-            )
-            for rule in added_rules:
-                print(f"已追加關鍵字「{rule.keyword}」→「{rule.folder}」")
-            print(
-                f"File Sorter 分類規則已儲存（非主系統治理規則）："
-                f"{get_rules_path(target, state_root=state_root, profile=args.profile)}"
-            )
-            return 0
-
-        if args.update_keyword:
-            if not args.new_keyword:
-                raise FileSorterError("修改關鍵字時必須指定新關鍵字。")
-            updated_rule = update_keyword(
-                target,
-                args.update_keyword,
-                args.new_keyword,
-                args.folder,
-                state_root=state_root,
-                profile=args.profile,
-            )
-            print(f"已修改程式碼關鍵字「{args.update_keyword}」→「{updated_rule.keyword}」")
-            print(f"分類資料夾：「{updated_rule.folder}」")
-            print(
-                f"File Sorter 分類規則已儲存（非主系統治理規則）："
-                f"{get_rules_path(target, state_root=state_root, profile=args.profile)}"
-            )
-            return 0
-
-        if args.list_folders:
-            folders = list_destination_folders(target)
-            print(f"{FOLDERS_JSON_PREFIX}{json.dumps(folders, ensure_ascii=False)}")
-            print(f"掃描完成：找到 {len(folders)} 個第一層子資料夾。")
-            return 0
-
-        if args.list_source_files:
-            source_files = list_source_files(target)
-            print(f"{SOURCE_FILES_JSON_PREFIX}{json.dumps(source_files, ensure_ascii=False)}")
-            print(f"掃描完成：找到 {len(source_files)} 個待整理檔案。")
-            return 0
-
-        if args.list_keywords:
-            print_rules(
-                build_keyword_rules(
-                    target,
-                    state_root=state_root,
-                    profile=args.profile,
-                )
-            )
-            return 0
-
-        print(f"開始整理目錄：{target}")
-        result = organize_files(
-            target,
-            quiet_seconds=0.0 if args.quiet_seconds is None else args.quiet_seconds,
-            state_root=state_root,
-            profile=args.profile,
-        )
-        for warning in result.warnings:
-            print(f"警告：{warning}", file=sys.stderr)
-        for error in result.errors:
-            print(f"錯誤：{error}", file=sys.stderr)
-        print(
-            f"歸檔完成：移動 {result.moved_count} 個檔案，"
-            f"未匹配 {result.unmatched_count} 個檔案，錯誤 {len(result.errors)} 個。"
-        )
-        return 1 if result.errors else 0
+        result = _dispatch_command(args, target, args.state_root)
+        if result is not None:
+            return result
+        return _run_default_organize(args, target, args.state_root)
     except FileSorterError as error:
         print(f"錯誤：{error}", file=sys.stderr)
         return 2

@@ -127,6 +127,65 @@ def upsert_keywords(
 
 
 
+def _validated_update_keywords(
+    current_keyword: str,
+    new_keyword: str,
+) -> tuple[str, str, str]:
+    current_normalized = normalize_match_text(current_keyword)
+    new_cleaned = str(new_keyword).strip()
+    new_normalized = normalize_match_text(new_cleaned)
+    if not current_normalized:
+        raise FileSorterError("目前關鍵字不可為空白。")
+    if not new_cleaned or not new_normalized:
+        raise FileSorterError("新關鍵字不可為空白。")
+    return current_normalized, new_cleaned, new_normalized
+
+
+def _update_destination(
+    target: Path,
+    folder: str | None,
+    current_rule: KeywordRule,
+) -> tuple[str, Path]:
+    folder_text = folder.strip() if folder and folder.strip() else current_rule.folder
+    return folder_text, resolve_destination_dir(target, folder_text)
+
+
+def _current_rule_for_update(
+    custom_rules: Iterable[KeywordRule],
+    *,
+    current_normalized: str,
+    current_keyword: str,
+) -> KeywordRule:
+    rule = next(
+        (
+            item
+            for item in custom_rules
+            if normalize_match_text(item.keyword) == current_normalized
+        ),
+        None,
+    )
+    if rule is None:
+        raise FileSorterError(f"找不到可修改的程式碼關鍵字：{current_keyword}")
+    return rule
+
+
+def _conflicting_update_rule(
+    custom_rules: Iterable[KeywordRule],
+    *,
+    new_normalized: str,
+    current_normalized: str,
+) -> KeywordRule | None:
+    return next(
+        (
+            rule
+            for rule in custom_rules
+            if normalize_match_text(rule.keyword) == new_normalized
+            and normalize_match_text(rule.keyword) != current_normalized
+        ),
+        None,
+    )
+
+
 def update_keyword(
     target_dir: str | Path,
     current_keyword: str,
@@ -137,52 +196,34 @@ def update_keyword(
     profile: str | None = None,
 ) -> KeywordRule:
     target = resolve_target_dir(target_dir)
-    current_normalized = normalize_match_text(current_keyword)
-    new_cleaned = str(new_keyword).strip()
-    new_normalized = normalize_match_text(new_cleaned)
-    if not current_normalized:
-        raise FileSorterError("目前關鍵字不可為空白。")
-    if not new_cleaned or not new_normalized:
-        raise FileSorterError("新關鍵字不可為空白。")
+    current_normalized, new_cleaned, new_normalized = _validated_update_keywords(
+        current_keyword,
+        new_keyword,
+    )
 
     custom_rules, revision = _read_rules_and_revision(
         target,
         state_root=state_root,
         profile=profile,
     )
-    current_rule = next(
-        (
-            rule
-            for rule in custom_rules
-            if normalize_match_text(rule.keyword) == current_normalized
-        ),
-        None,
+    current_rule = _current_rule_for_update(
+        custom_rules,
+        current_normalized=current_normalized,
+        current_keyword=current_keyword,
     )
-    if current_rule is None:
-        raise FileSorterError(f"找不到可修改的程式碼關鍵字：{current_keyword}")
 
-    destination = resolve_destination_dir(
-        target,
-        folder.strip() if folder and folder.strip() else current_rule.folder,
-    )
-    conflicting_rule = next(
-        (
-            rule
-            for rule in custom_rules
-            if normalize_match_text(rule.keyword) == new_normalized
-            and normalize_match_text(rule.keyword) != current_normalized
-        ),
-        None,
+    folder_text, destination = _update_destination(target, folder, current_rule)
+    conflicting_rule = _conflicting_update_rule(
+        custom_rules,
+        new_normalized=new_normalized,
+        current_normalized=current_normalized,
     )
     if conflicting_rule is not None:
         raise FileSorterError(f"新關鍵字已存在：{conflicting_rule.keyword}")
 
     updated_rule = KeywordRule(
         keyword=new_cleaned,
-        folder=destination_rule_value(
-            folder.strip() if folder and folder.strip() else current_rule.folder,
-            destination,
-        ),
+        folder=destination_rule_value(folder_text, destination),
     )
     updated_rules = [
         updated_rule
@@ -191,11 +232,8 @@ def update_keyword(
         for rule in custom_rules
     ]
     write_custom_rules(
-        updated_rules,
-        target,
-        state_root=state_root,
-        profile=profile,
-        expected_revision=revision,
+        updated_rules, target, state_root=state_root,
+        profile=profile, expected_revision=revision,
     )
     return updated_rule
 
