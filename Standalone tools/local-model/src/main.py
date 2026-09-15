@@ -14,6 +14,7 @@ _ROOT = Path(
 ).resolve()
 sys.path.insert(0, str(_ROOT))
 sys.path.insert(0, str(_ROOT / "shared-layer" / "src"))
+sys.path.insert(0, str(_ROOT / "main-system" / "src-core"))
 
 from backend.services.xingcheng.application.service import LocalAiService
 

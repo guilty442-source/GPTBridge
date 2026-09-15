@@ -21,7 +21,7 @@ from typing import Any, AsyncIterator, Optional
 
 import psycopg
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+from qdrant_client.http.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, MatchAny
 
 from shared_layer.metadata_contract import (
     FIELD_CONTENT_HASH,
@@ -117,18 +117,21 @@ class QdrantCanonicalRuntime:
             self._healthy = False
             return False
 
-    async def ensure_collection(self) -> bool:
+    async def ensure_collection(self, dimension: Optional[int] = None) -> bool:
         """Ensure the canonical collection exists with correct vector config."""
         if not self._healthy or self.client is None:
             return False
+        size = int(dimension or self.config.embedding_dimension or 0)
         try:
             collections = self.client.get_collections()
             names = {c.name for c in collections.collections}
             if self.config.collection_name not in names:
+                if size <= 0:
+                    return False
                 self.client.create_collection(
                     collection_name=self.config.collection_name,
                     vectors_config=VectorParams(
-                        size=self.config.embedding_dimension,
+                        size=size,
                         distance=Distance.COSINE,
                     ),
                 )
@@ -157,6 +160,7 @@ class QdrantCanonicalRuntime:
         self,
         query_vector: list[float],
         module_id: Optional[str] = None,
+        module_ids: Optional[tuple[str, ...]] = None,
         top_k: Optional[int] = None,
         score_threshold: Optional[float] = None,
     ) -> list[dict[str, Any]]:
@@ -165,13 +169,17 @@ class QdrantCanonicalRuntime:
             return []
         try:
             query_filter = None
-            if module_id:
+            if module_ids:
+                query_filter = Filter(
+                    must=[FieldCondition(key="module_id", match=MatchAny(any=list(module_ids)))]
+                )
+            elif module_id:
                 query_filter = Filter(
                     must=[FieldCondition(key="module_id", match=MatchValue(value=module_id))]
                 )
-            results = self.client.search(
+            response = self.client.query_points(
                 collection_name=self.config.collection_name,
-                query_vector=query_vector,
+                query=query_vector,
                 query_filter=query_filter,
                 limit=top_k or self.config.top_k,
                 score_threshold=score_threshold or self.config.score_threshold,
@@ -184,7 +192,7 @@ class QdrantCanonicalRuntime:
                     "score": hit.score,
                     "payload": hit.payload,
                 }
-                for hit in results
+                for hit in response.points
             ]
         except Exception as exc:
             _logger.error("QdrantCanonicalRuntime: search failed: %s", exc)

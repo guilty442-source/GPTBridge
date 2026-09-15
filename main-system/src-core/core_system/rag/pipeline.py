@@ -12,6 +12,8 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
+import sqlite3
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -48,6 +50,20 @@ INDEX_STATE_FIELDS = (
 
 from .rag_qdrant import IndexState, QdrantCanonicalRuntime, RagPipelineConfig, RagQueryResult
 from .rag_metadata import PostgreSQLMetadataAuthority
+from .runtime_state import (
+    CanonicalCheckError,
+    CrossStoreOutbox,
+    OutboxStep,
+    QueueOperation,
+    QueueStatus,
+    RagRuntimeState,
+    RagRuntimeStateMachine,
+    ReconciliationQueue,
+    ReconciliationQueueItem,
+    SagaResult,
+    TombstoneGuard,
+    TransitionError,
+)
 
 
 
@@ -118,9 +134,39 @@ class CanonicalRagPipeline:
         self.postgresql = PostgreSQLMetadataAuthority(config.postgresql_dsn)
         self.domain_model = PythonDomainModel(config)
         self._initialized = False
+        # A374: runtime state machine.  The durable queue is backed by a
+        # local SQLite store for the in-process authority; the canonical
+        # PostgreSQL queue is mirrored by PostgreSQLMetadataAuthority when
+        # PostgreSQL is healthy.  The TombstoneGuard is the in-memory
+        # authoritative view; PostgreSQL is the durable tombstone store.
+        self._queue_db = sqlite3.connect(
+            ":memory:", check_same_thread=False
+        )
+        self._queue_db.row_factory = sqlite3.Row
+        self._queue = ReconciliationQueue(self._queue_db)
+        self._tombstone = TombstoneGuard()
+        self._outbox = CrossStoreOutbox(self._queue, self._tombstone)
+        self._state_machine = RagRuntimeStateMachine(
+            self._queue, self._tombstone, self._outbox
+        )
+
+    @property
+    def state(self) -> RagRuntimeState:
+        """A374: current runtime state."""
+        return self._state_machine.state
+
+    @property
+    def state_machine(self) -> RagRuntimeStateMachine:
+        return self._state_machine
 
     async def initialize(self) -> bool:
-        """Initialize all canonical components in order (A374)."""
+        """Initialize all canonical components in order (A374).
+
+        After initialization, evaluate the A374 startup readiness gate:
+        STARTING -> CANONICAL only when Qdrant + PostgreSQL are healthy,
+        the authoritative index_state matches, and the reconciliation queue
+        is complete.  Otherwise STARTING -> DEGRADED.
+        """
         _logger.info("CanonicalRagPipeline: initializing...")
 
         # Step 1: Qdrant canonical runtime
@@ -133,6 +179,25 @@ class CanonicalRagPipeline:
 
         self._initialized = qdrant_ok and pg_ok
         _logger.info("CanonicalRagPipeline: initialized=%s (qdrant=%s, pg=%s)", self._initialized, qdrant_ok, pg_ok)
+
+        # A374: evaluate startup readiness gate.
+        index_state_matches = self._initialized  # minimal: both stores up
+        if pg_ok:
+            # If PostgreSQL is healthy, mirror any pending canonical queue
+            # items into the local queue view so the startup gate can see
+            # whether reconciliation is still required.
+            try:
+                pg_pending = await self.postgresql.pending_reconciliation_count()
+                if pg_pending > 0:
+                    index_state_matches = False
+            except Exception as exc:
+                _logger.warning("CanonicalRagPipeline: queue check failed: %s", exc)
+                index_state_matches = False
+        self._state_machine.evaluate_startup(
+            qdrant_healthy=qdrant_ok,
+            postgresql_healthy=pg_ok,
+            index_state_matches=index_state_matches,
+        )
         return self._initialized
 
     def is_ready(self) -> bool:
@@ -244,6 +309,149 @@ class CanonicalRagPipeline:
     async def get_index_state(self, module_id: str, resource_id: str) -> Optional[IndexState]:
         """Get authoritative index state (A374)."""
         return await self.postgresql.get_index_state(module_id, resource_id)
+
+    async def index_document(
+        self,
+        *,
+        document: dict[str, Any],
+        chunks: list[dict[str, Any]],
+        vectors: list[list[float]],
+        collection_dimension: Optional[int] = None,
+    ) -> bool:
+        """Document-level canonical write: resource + chunks + index_state + Qdrant points.
+
+        ``chunks`` carry ``qdrant_point_id``/``point_id`` (deterministic
+        ``point_id_for`` UUIDs), ``sequence``/offsets and ``content``; the
+        Qdrant payload is taken from each chunk's ``payload`` mapping so the
+        dense hits are self-describing.
+        """
+        if not self.is_ready():
+            raise RuntimeError("RAG pipeline not ready")
+        if collection_dimension:
+            self.config.embedding_dimension = int(collection_dimension)
+        if not await self.qdrant.ensure_collection(collection_dimension):
+            return False
+
+        module_id = str(document["module_id"])
+        resource_id = str(document["resource_id"])
+        points = [
+            PointStruct(
+                id=str(chunk.get("qdrant_point_id") or chunk.get("point_id")),
+                vector=[float(v) for v in vector],
+                payload={
+                    "module_id": module_id,
+                    "document_resource_id": resource_id,
+                    "document_id": document.get("document_id"),
+                    "indexed_at_utc": datetime.now(timezone.utc).isoformat(),
+                    **(chunk.get("payload") or {}),
+                },
+            )
+            for chunk, vector in zip(chunks, vectors)
+        ]
+        if points and not await self.qdrant.upsert_points(points):
+            return False
+        return await self._index_document_metadata(
+            document, chunks, collection_dimension
+        )
+
+    async def _index_document_metadata(
+        self,
+        document: dict[str, Any],
+        chunks: list[dict[str, Any]],
+        collection_dimension: Optional[int],
+    ) -> bool:
+        """PostgreSQL authority writes: resource + chunks + index_state."""
+        module_id = str(document["module_id"])
+        resource_id = str(document["resource_id"])
+
+        if not await self.postgresql.ensure_resource(document):
+            return False
+        if not await self.postgresql.replace_document_chunks(
+            resource_id=resource_id,
+            module_id=module_id,
+            embedding_model=str(document.get("embedding_model") or self.config.embedding_model),
+            chunks=chunks,
+        ):
+            return False
+        first_point = str(chunks[0].get("qdrant_point_id") or chunks[0].get("point_id")) if chunks else ""
+        state = IndexState(
+            resource_id=resource_id,
+            module_id=module_id,
+            embedding_model=str(document.get("embedding_model") or self.config.embedding_model),
+            embedding_dimension=int(collection_dimension or self.config.embedding_dimension),
+            chunk_size=int(self.config.chunk_size),
+            chunk_overlap=int(self.config.chunk_overlap),
+            indexed_at_utc=datetime.now(timezone.utc).isoformat(),
+            content_hash=str(document.get("sha256") or document.get("content_hash") or ""),
+            qdrant_point_id=first_point,
+            postgresql_record_id=resource_id,
+        )
+        return await self.postgresql.upsert_index_state(
+            state,
+            collection_name=self.config.collection_name,
+            chunk_count=len(chunks),
+        )
+
+    async def vector_search(
+        self,
+        query_embedding: list[float],
+        *,
+        module_ids: tuple[str, ...],
+        top_k: int,
+        score_threshold: Optional[float] = None,
+    ) -> list[dict[str, Any]]:
+        """Canonical dense retrieval with index_state proof (A373/A374).
+
+        Returns payload-shaped records (chunk-level) whose document carries an
+        authoritative index_state row; hits without proof are dropped.
+        """
+        if not self.is_ready():
+            raise RuntimeError("RAG pipeline not ready")
+        hits = await self.qdrant.search(
+            query_vector=query_embedding,
+            module_ids=module_ids,
+            top_k=top_k,
+            score_threshold=score_threshold,
+        )
+        if not hits:
+            return []
+        proved: list[dict[str, Any]] = []
+        for hit in hits:
+            payload = hit.get("payload") or {}
+            module_id = str(payload.get("module_id") or "")
+            document_resource_id = str(
+                payload.get("document_resource_id") or payload.get("resource_id") or ""
+            )
+            if not module_id or not document_resource_id:
+                continue
+            state = await self.postgresql.get_index_state(module_id, document_resource_id)
+            if state is None or str(state.status if hasattr(state, "status") else "indexed") == "tombstoned":
+                continue
+            record = {
+                **payload,
+                "id": str(hit.get("id")),
+                "point_id": str(hit.get("id")),
+                "module_id": module_id,
+                "vector_score": round(float(hit.get("score") or 0.0), 6),
+                "score": round(float(hit.get("score") or 0.0), 6),
+                "index_state": state,
+            }
+            proved.append(record)
+        return proved
+
+    async def keyword_search(
+        self,
+        query: str,
+        *,
+        module_ids: tuple[str, ...],
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Canonical PostgreSQL FTS keyword channel (A374 step 2)."""
+        if not self.is_ready():
+            raise RuntimeError("RAG pipeline not ready")
+        return await self.postgresql.keyword_search(
+            query, module_ids=module_ids, limit=limit
+        )
 
     async def health_check(self) -> dict[str, Any]:
         """Health check for all components."""

@@ -94,6 +94,71 @@ class LocalRagRetrievalMixin:
             "selected_route": route,
         }
 
+    def _retrieve(
+        self,
+        vector: list[float],
+        question: str,
+        module_ids: tuple[str, ...],
+        candidate_limit: int,
+        canonical_ready: bool,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """A371/A373: canonical path first; bounded local mirror on failure."""
+        if canonical_ready:
+            try:
+                return (
+                    self.canonical.query_vector(
+                        vector, module_ids=module_ids, limit=candidate_limit
+                    ),
+                    self.canonical.keyword_search(
+                        question, module_ids=module_ids, limit=candidate_limit
+                    ),
+                )
+            except (OSError, RuntimeError, ValueError) as exc:
+                self.canonical.mark_unhealthy(str(exc))
+        return (
+            self.vector_store.query(vector, limit=candidate_limit, module_ids=module_ids),
+            self.repository.keyword_search(
+                question, limit=candidate_limit, module_ids=module_ids
+            ),
+        )
+
+    def _retrieve_ranked(
+        self,
+        question: str,
+        module_ids: tuple[str, ...],
+        candidate_limit: int,
+        canonical_ready: bool,
+    ) -> tuple[list[dict[str, Any]], bool]:
+        """Embed + canonical/degraded retrieval + RRF; returns (hybrid, pending)."""
+        vectors = self._embed([question])
+        vector_results, keyword_results = self._retrieve(
+            vectors[0], question, module_ids, candidate_limit, canonical_ready
+        )
+        hybrid = self._hybrid_rrf(vector_results, keyword_results)
+        if canonical_ready and not hybrid:
+            # Canonical takeover proved live but holds no data yet; serve the
+            # unreconciled local mirror once and flag it (A44 degraded read).
+            return self._degraded_rrf(
+                vectors[0], question, module_ids, candidate_limit
+            )
+        return hybrid, False
+
+    def _degraded_rrf(
+        self,
+        vector: list[float],
+        question: str,
+        module_ids: tuple[str, ...],
+        candidate_limit: int,
+    ) -> tuple[list[dict[str, Any]], bool]:
+        degraded_vector = self.vector_store.query(
+            vector, limit=candidate_limit, module_ids=module_ids
+        )
+        degraded_keyword = self.repository.keyword_search(
+            question, limit=candidate_limit, module_ids=module_ids
+        )
+        hybrid = self._hybrid_rrf(degraded_vector, degraded_keyword)
+        return hybrid, bool(hybrid)
+
     def _generate(
         self,
         *,
@@ -134,39 +199,71 @@ class LocalRagRetrievalMixin:
                 break
         return last, attempts
 
-    def query(self, payload: dict[str, Any]) -> dict[str, Any]:
+    @staticmethod
+    def _module_scope(payload: dict[str, Any]) -> tuple[str, ...]:
         raw_scope = payload.get("_governed_module_ids")
-        module_ids = (
-            tuple(
+        if isinstance(raw_scope, (list, tuple)) and raw_scope:
+            return tuple(
                 canonical_identifier(str(value), field="module_id")
                 for value in raw_scope
             )
-            if isinstance(raw_scope, (list, tuple)) and raw_scope
-            else (XINGCHENG_MODULE_ID,)
-        )
+        return (XINGCHENG_MODULE_ID,)
+
+    def query(self, payload: dict[str, Any]) -> dict[str, Any]:
+        module_ids = self._module_scope(payload)
         question = str(payload.get("question") or payload.get("prompt") or "").strip()
         if not question:
             return {"ok": False, "error_code": "RAG_QUESTION_REQUIRED", "message": "請提供 question 或 prompt。"}
+        canonical_ready = self.canonical is not None and self.canonical.is_ready()
+        candidate_limit = max(8, min(48, int(payload.get("candidate_limit") or 24)))
         try:
-            vectors = self._embed([question])
-            candidate_limit = max(8, min(48, int(payload.get("candidate_limit") or 24)))
-            vector_results = self.vector_store.query(
-                vectors[0], limit=candidate_limit, module_ids=module_ids
-            )
-            keyword_results = self.repository.keyword_search(
-                question, limit=candidate_limit, module_ids=module_ids
+            ranked = self._retrieve_ranked(
+                question, module_ids, candidate_limit, canonical_ready
             )
         except (OSError, RuntimeError, ValueError, sqlite3.Error) as exc:
             return self._dependency_error(exc)
-        hybrid = self._hybrid_rrf(vector_results, keyword_results)
+        matches, pending_reconciliation = ranked
         route, router = self._route(question, payload)
-        reranker_size = "0.6b"
         reranked, reranker = self.reranker.rerank(
-            question, hybrid[:candidate_limit], size=reranker_size
+            question, matches[:candidate_limit], size="0.6b"
         )
         top_k = max(1, min(12, int(payload.get("top_k") or 6)))
         matches = reranked[:top_k]
-        citations = [
+        citations = self._citations(matches)
+        if not matches:
+            message = "共享知識庫中沒有足夠相關的內容可回答。"
+            return {
+                "ok": True, "answer": message, "response": message,
+                "evidence_sufficient": False, "citations": [], "retrieved_count": 0,
+                "route": route, "router": router, "reranker": reranker,
+                "canonical": canonical_ready and not pending_reconciliation,
+                "knowledge_base": "shared", "network_used": False,
+            }
+        if payload.get("generate") is False:
+            return {
+                "ok": True, "answer": "", "response": "", "evidence_sufficient": True,
+                "citations": citations, "retrieved_count": len(citations),
+                "route": route, "router": router, "reranker": reranker,
+                "generation_skipped": True,
+                "retrieval": (
+                    "canonical-qdrant-dense+postgresql-fts+index-state+rrf"
+                    if canonical_ready and not pending_reconciliation
+                    else "local-vector-degraded-cache+local-sqlite3-fts+rrf"
+                ),
+                "canonical": canonical_ready and not pending_reconciliation,
+                "canonical_pending_reconciliation": pending_reconciliation,
+                "knowledge_base": "shared", "network_used": False,
+            }
+        return self._answer(
+            question=question, matches=matches, citations=citations,
+            route=route, router=router, reranker=reranker, payload=payload,
+            canonical_ready=canonical_ready and not pending_reconciliation,
+            pending_reconciliation=pending_reconciliation,
+        )
+
+    @staticmethod
+    def _citations(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [
             {
                 "citation_id": f"R{index}",
                 "document_id": item.get("document_id"),
@@ -182,21 +279,20 @@ class LocalRagRetrievalMixin:
             }
             for index, item in enumerate(matches, start=1)
         ]
-        if not matches:
-            message = "共享知識庫中沒有足夠相關的內容可回答。"
-            return {
-                "ok": True, "answer": message, "response": message,
-                "evidence_sufficient": False, "citations": [], "retrieved_count": 0,
-                "route": route, "router": router, "reranker": reranker,
-                "knowledge_base": "shared", "network_used": False,
-            }
-        if payload.get("generate") is False:
-            return {
-                "ok": True, "answer": "", "response": "", "evidence_sufficient": True,
-                "citations": citations, "retrieved_count": len(citations),
-                "route": route, "router": router, "reranker": reranker,
-                "generation_skipped": True, "knowledge_base": "shared", "network_used": False,
-            }
+
+    def _answer(
+        self,
+        *,
+        question: str,
+        matches: list[dict[str, Any]],
+        citations: list[dict[str, Any]],
+        route: str,
+        router: dict[str, Any],
+        reranker: dict[str, Any],
+        payload: dict[str, Any],
+        canonical_ready: bool,
+        pending_reconciliation: bool,
+    ) -> dict[str, Any]:
         context = "\n\n".join(
             f"[R{index}] title={item.get('title')} source={item.get('source')}\n{item.get('content')}"
             for index, item in enumerate(matches, start=1)
@@ -226,15 +322,44 @@ class LocalRagRetrievalMixin:
             "reranker": reranker, "generation_model": generated.get("model"),
             "generation_attempts": attempts, "generation": generated,
             "embedding_model": str(self.transformer_runtime.EMBEDDING_MODEL),
-            "retrieval": "local-vector-degraded-cache+local-sqlite3-fts+rrf+qwen3-reranker",
+            "retrieval": (
+                "canonical-qdrant-dense+postgresql-fts+index-state+rrf+qwen3-reranker"
+                if canonical_ready
+                else "local-vector-degraded-cache+local-sqlite3-fts+rrf+qwen3-reranker"
+            ),
+            "canonical": canonical_ready,
+            "canonical_pending_reconciliation": pending_reconciliation,
             "grounding_policy": "shared-retrieved-context-only-with-inline-citations",
             "knowledge_base": "shared", "available_to_all_local_models": True,
             "network_used": False, "remote_model_used": False,
         }
 
+    @staticmethod
+    def _status_governance(canonical_ready: bool) -> dict[str, Any]:
+        return {
+            "knowledge_base": (
+                "canonical-shared-knowledge"
+                if canonical_ready
+                else "tool-private-degraded-cache"
+            ),
+            "canonical": canonical_ready,
+            "reconciliation_required": not canonical_ready,
+            "authority": (
+                "canonical-qdrant-postgresql"
+                if canonical_ready
+                else "non-canonical-reconciliation-required"
+            ),
+            "fallback_basis": "A44-degraded-bounded-observable-reconciled",
+            "available_to_all_local_models": canonical_ready,
+        }
+
     def status(self) -> dict[str, Any]:
         vector_status = self.vector_store.status()
         vector_ready = vector_status.get("available") is True
+        canonical_status = (
+            self.canonical.status() if self.canonical is not None else {"ready": False}
+        )
+        canonical_ready = canonical_status.get("ready") is True
         sub_architectures = (
             "hybrid-rag",
             "code-rag",
@@ -245,17 +370,17 @@ class LocalRagRetrievalMixin:
         arch_valid = _validate_rag_architecture(sub_architectures)
         return {
             "enabled": True,
-            "mode": "bounded-degraded-hybrid-local-rag",
+            "mode": (
+                "canonical-hybrid-rag"
+                if canonical_ready
+                else "bounded-degraded-hybrid-local-rag"
+            ),
             "sub_architectures": list(sub_architectures),
             "sub_architecture_valid": arch_valid,
-            "codex_basis": "A52/E38+A8/E21+A44/E30+A49/E35",
+            "codex_basis": "A52/E38+A8/E21+A44/E30+A49/E35+A371-A374",
             "canonical_vector_database": "qdrant",
-            "knowledge_base": "tool-private-degraded-cache",
-            "canonical": False,
-            "reconciliation_required": True,
-            "authority": "non-canonical-reconciliation-required",
-            "fallback_basis": "A44-degraded-bounded-observable-reconciled",
-            "available_to_all_local_models": False,
+            "canonical_pipeline": canonical_status,
+            **self._status_governance(canonical_ready),
             "embedding_model": str(self.transformer_runtime.EMBEDDING_MODEL),
             "vector_database": vector_status,
             "keyword_index": self.repository.status(),

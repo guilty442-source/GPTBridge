@@ -17,24 +17,38 @@ from .pipeline import (
     create_rag_pipeline_from_env,
 )
 
-from .embeddings import (
-    EmbeddingProvider,
-    OpenAIEmbeddingProvider,
-    OllamaEmbeddingProvider,
-    LocalEmbeddingProvider,
-    create_embedding_provider_from_env,
-)
+_EMBEDDINGS_EXPORTS = {
+    "EmbeddingProvider",
+    "OpenAIEmbeddingProvider",
+    "OllamaEmbeddingProvider",
+    "LocalEmbeddingProvider",
+    "create_embedding_provider_from_env",
+}
+_CHUNKING_EXPORTS = {
+    "Chunk",
+    "Document",
+    "ChunkingStrategy",
+    "FixedSizeChunking",
+    "SemanticChunking",
+    "ChunkingService",
+    "create_chunker",
+    "create_chunking_service_from_env",
+}
 
-from .chunking import (
-    Chunk,
-    Document,
-    ChunkingStrategy,
-    FixedSizeChunking,
-    SemanticChunking,
-    ChunkingService,
-    create_chunker,
-    create_chunking_service_from_env,
-)
+
+def __getattr__(name: str):
+    # Embeddings/chunking providers carry optional third-party dependencies
+    # (openai, httpx, tiktoken).  They are loaded lazily so the canonical
+    # pipeline stays importable in environments that only run the governed
+    # local embedding path (A49: implementation deps are not role authority).
+    if name in _EMBEDDINGS_EXPORTS:
+        from . import embeddings
+        return getattr(embeddings, name)
+    if name in _CHUNKING_EXPORTS:
+        from . import chunking
+        return getattr(chunking, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     # Pipeline

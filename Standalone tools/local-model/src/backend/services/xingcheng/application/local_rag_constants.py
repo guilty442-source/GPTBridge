@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ..infrastructure.local_rag_canonical import CanonicalRagAdapter
 from ..infrastructure.local_sqlite_rag_repository import LocalSqliteRagRepository
 from ..infrastructure.vector_store import LocalVectorStore
 from ..infrastructure.qwen_reranker import QwenReranker
@@ -42,6 +43,7 @@ class LocalRagConstants:
         vector_store: LocalVectorStore | None = None,
         reranker: QwenReranker | None = None,
         repository: LocalSqliteRagRepository | None = None,
+        canonical: Any = None,
     ) -> None:
         self.tool_root = Path(tool_root).resolve()
         self.project_root = self.tool_root.parent.resolve()
@@ -51,3 +53,11 @@ class LocalRagConstants:
             self.tool_root / "runtime" / "state" / "local-rag-vectors.sqlite3"
         )
         self.reranker = reranker or QwenReranker()
+        # A371-A374: canonical path adapter.  Constructed lazily — it only
+        # opens its background loop when first probed, so environments without
+        # Qdrant/PostgreSQL never pay for it and stay on the degraded path.
+        self.canonical = (
+            canonical
+            if canonical is not None
+            else CanonicalRagAdapter(self.tool_root, transformer_runtime)
+        )

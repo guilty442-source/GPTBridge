@@ -186,7 +186,77 @@ class FakeReranker:
         return {"loaded": ["0.6b"], "local_files_only": True}
 
 
-def build_rag(tmp_path: Path) -> tuple[LocalRagService, FakeRuntime, FakeVectorStore]:
+class FakeCanonicalAdapter:
+    """Deterministic stand-in for CanonicalRagAdapter (never touches services)."""
+
+    def __init__(self, ready: bool = False) -> None:
+        self._ready = ready
+        self.documents: dict[str, dict[str, Any]] = {}
+        self.unhealthy: str | None = None
+
+    def is_ready(self) -> bool:
+        return self._ready
+
+    def mark_unhealthy(self, error: str) -> None:
+        self._ready = False
+        self.unhealthy = error
+
+    def status(self) -> dict[str, Any]:
+        return {"engine": "canonical-qdrant-postgresql", "ready": self._ready}
+
+    def fetch_document(
+        self, *, module_id: str, resource_id: str
+    ) -> dict[str, Any] | None:
+        return self.documents.get(resource_id)
+
+    def index_document(
+        self,
+        *,
+        document: dict[str, Any],
+        chunks: list[dict[str, Any]],
+        vectors: list[list[float]],
+    ) -> bool:
+        record = {
+            **document,
+            "document_id": document["document_id"],
+            "chunk_count": len(chunks),
+        }
+        self.documents[str(document["resource_id"])] = record
+        self._chunks = chunks
+        return True
+
+    def query_vector(
+        self,
+        vector: list[float],
+        *,
+        module_ids: tuple[str, ...],
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        return [dict(chunk.get("payload") or {}, vector_score=0.9)
+                for chunk in getattr(self, "_chunks", [])][:limit]
+
+    def keyword_search(
+        self,
+        query: str,
+        *,
+        module_ids: tuple[str, ...],
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        return [
+            {
+                **(chunk.get("payload") or {}),
+                "chunk_id": chunk["chunk_id"],
+                "content": chunk.get("content", ""),
+                "keyword_score": 1.0,
+            }
+            for chunk in getattr(self, "_chunks", [])
+            if query.casefold() in str(chunk.get("content") or "").casefold()
+        ][:limit]
+
+
+def build_rag(
+    tmp_path: Path, *, canonical: FakeCanonicalAdapter | None = None
+) -> tuple[LocalRagService, FakeRuntime, FakeVectorStore]:
     runtime = FakeRuntime()
     store = FakeVectorStore()
     rag = LocalRagService(
@@ -195,6 +265,7 @@ def build_rag(tmp_path: Path) -> tuple[LocalRagService, FakeRuntime, FakeVectorS
         vector_store=store,  # type: ignore[arg-type]
         reranker=FakeReranker(),  # type: ignore[arg-type]
         repository=FakeRepository(),  # type: ignore[arg-type]
+        canonical=canonical or FakeCanonicalAdapter(),
     )
     return rag, runtime, store
 
@@ -295,6 +366,65 @@ def test_local_vector_store_persists_points_to_sqlite(tmp_path: Path) -> None:
     assert store.status()["canonical"] is False
     assert store.status()["point_count"] == 1
 
+
+def test_canonical_ingest_writes_through_to_pipeline(tmp_path: Path) -> None:
+    canonical = FakeCanonicalAdapter(ready=True)
+    rag, _, store = build_rag(tmp_path, canonical=canonical)
+
+    result = rag.ingest(
+        {"documents": [{"id": "policy", "title": "保固政策", "text": "本產品提供兩年保固。"}]}
+    )
+
+    assert result["ok"] is True
+    assert result["canonical"] is True
+    entry = result["indexed"][0]
+    assert entry["canonical"] is True
+    assert entry["reconciliation_required"] is False
+    assert canonical.documents  # canonical write-through happened
+    assert len(store.points) == 1  # local mirror still written (A44)
+
+
+def test_canonical_query_reads_qdrant_and_pg_channels(tmp_path: Path) -> None:
+    canonical = FakeCanonicalAdapter(ready=True)
+    rag, _, _ = build_rag(tmp_path, canonical=canonical)
+    rag.ingest(
+        {"documents": [{"id": "policy", "title": "保固政策", "text": "本產品提供兩年保固。"}]}
+    )
+
+    result = rag.query({"question": "保固", "rag_mode": "fast"})
+
+    assert result["ok"] is True
+    assert result["canonical"] is True
+    assert "canonical-qdrant-dense" in result["retrieval"]
+    assert result["citations"][0]["source"] == "policy"
+
+
+def test_degraded_status_and_query_still_work_without_canonical(tmp_path: Path) -> None:
+    rag, _, _ = build_rag(tmp_path, canonical=FakeCanonicalAdapter(ready=False))
+    rag.ingest({"documents": [{"id": "d", "text": "降級模式的內容。"}]})
+
+    status = rag.status()
+    assert status["mode"] == "bounded-degraded-hybrid-local-rag"
+    assert status["canonical"] is False
+    assert status["reconciliation_required"] is True
+
+    result = rag.query({"question": "降級", "rag_mode": "fast"})
+    assert result["ok"] is True
+    assert result["canonical"] is False
+    assert "local-vector-degraded-cache" in result["retrieval"]
+
+
+def test_canonical_failure_falls_back_to_local_mirror(tmp_path: Path) -> None:
+    canonical = FakeCanonicalAdapter(ready=True)
+    rag, _, _ = build_rag(tmp_path, canonical=canonical)
+    rag.ingest({"documents": [{"id": "d", "text": "本地鏡像仍能回答。"}]})
+    canonical._ready = False  # simulate live-path loss after ingest
+
+    result = rag.query({"question": "本地鏡像", "rag_mode": "fast"})
+
+    assert result["ok"] is True
+    assert result["canonical"] is False
+    assert result["citations"][0]["source"] == "d"
 
 
 ########################################################################
