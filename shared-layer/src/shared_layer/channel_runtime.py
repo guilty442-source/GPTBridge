@@ -29,79 +29,23 @@ import json
 import time
 import uuid
 from collections import deque
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Any, Awaitable, Callable, Deque, Dict, Optional, Set, Protocol
 
 from core_system.versioning import component_version
 
+from .channel_types import (
+    ChannelConfig,
+    ChannelGeneration,
+    ChannelState,
+    MessagePriority,
+    OutboxEvent,
+)
+
+from .transactional_outbox import TransactionalOutbox
+from .channel_reconnect import ChannelReconnectMixin
+
 CHANNEL_RUNTIME_VERSION: str = component_version("channel-runtime")
-
-
-class ChannelState(Enum):
-    """Channel lifecycle states per A263."""
-    CLOSED = "closed"
-    CONNECTING = "connecting"
-    OPEN = "open"
-    RECONNECTING = "reconnecting"
-    DEAD = "dead"
-
-
-class MessagePriority(Enum):
-    """Message priority for control channel."""
-    CONTROL = 0    # Heartbeat, ack, cursor, reconnect
-    STATE = 1      # State events from outbox
-    COMMAND = 2    # User commands
-
-
-@dataclass(frozen=True)
-class ChannelGeneration:
-    """Typed generation identifier for a channel (A263)."""
-    channel_id: str
-    generation: int
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    backend_generation: str = ""
-    session_id: str = ""
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "channel_id": self.channel_id,
-            "generation": self.generation,
-            "created_at": self.created_at,
-            "backend_generation": self.backend_generation,
-            "session_id": self.session_id,
-        }
-
-    @property
-    def full_id(self) -> str:
-        return f"{self.channel_id}:{self.generation}"
-
-
-@dataclass
-class ChannelConfig:
-    """Channel configuration per A263."""
-    channel_id: str
-    max_queue_size: int = 1000
-    heartbeat_interval_seconds: float = 10.0
-    heartbeat_timeout_seconds: float = 30.0
-    reconnect_max_attempts: int = 3
-    reconnect_base_delay_seconds: float = 1.0
-    control_channel_capacity: int = 100
-    enable_backpressure: bool = True
-
-
-@dataclass
-class OutboxEvent:
-    """Transactional outbox event (A195/A263)."""
-    sequence: int
-    entity_id: str
-    entity_type: str
-    operation: str
-    payload: dict[str, Any]
-    state_hash: str
-    idempotency_key: str
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class ChannelTransport(Protocol):
@@ -114,7 +58,7 @@ class ChannelTransport(Protocol):
     def is_closed(self) -> bool: ...
 
 
-class A263Channel:
+class A263Channel(ChannelReconnectMixin):
     """A263-compliant channel with full contract compliance."""
 
     def __init__(
@@ -242,101 +186,11 @@ class A263Channel:
         await self.transport.close(code, reason)
         await self._set_state(ChannelState.CLOSED)
 
-    async def reconnect(
-        self,
-        snapshot_cursor: int,
-        snapshot_hash: str,
-        backend_generation: str = "",
-        session_id: str = "",
-    ) -> ChannelGeneration:
-        """Reconnect with snapshot/cursor/hash convergence (A263).
-
-        Requires:
-        - Snapshot cursor (last acknowledged sequence)
-        - Snapshot hash (state integrity verification)
-        - Backend generation (for generation tracking)
-        """
-        # Verify snapshot integrity
-        if not self._verify_snapshot(snapshot_cursor, snapshot_hash):
-            raise ValueError("snapshot integrity verification failed")
-
-        # Save snapshot for convergence
-        self._snapshot_cursor = snapshot_cursor
-        self._snapshot_hash = snapshot_hash
-        self._snapshot_generation = self._generation
-
-        await self._set_state(ChannelState.RECONNECTING)
-        self._heartbeat_dead.clear()
-        self._reconnect_attempts += 1
-
-        if self._reconnect_attempts > self.config.reconnect_max_attempts:
-            await self._set_state(ChannelState.DEAD)
-            raise ConnectionError("max reconnect attempts exceeded")
-
-        # Attempt reconnection
-        await self.transport.close(1001, "reconnect")
-
-        # Exponential backoff
-        delay = self.config.reconnect_base_delay_seconds * (2 ** (self._reconnect_attempts - 1))
-        await asyncio.sleep(delay)
-
-        # New generation for reconnection
-        async with self._generation_lock:
-            self._generation = ChannelGeneration(
-                channel_id=self.config.channel_id,
-                generation=self._generation.generation + 1,
-                backend_generation=backend_generation,
-                session_id=session_id,
-            )
-
-        # Re-establish transport (transport-specific)
-        # This would be implemented by the transport adapter
-
-        self._heartbeat_dead.clear()
-        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-        asyncio.create_task(self._receive_loop())
-
-        # Send resync with cursor
-        await self._send_resync(snapshot_cursor)
-
-        await self._set_state(ChannelState.OPEN)
-        self._reconnects += 1
-        return self._generation
-
     def _verify_snapshot(self, cursor: int, snapshot_hash: str) -> bool:
         """Verify snapshot/cursor/hash convergence (A263)."""
         # In a full implementation, this would verify the hash against stored state
         # For now, accept if cursor is valid
         return cursor >= 0
-
-    # ================================================================
-    # Heartbeat with Deadline (A263)
-    # ================================================================
-
-    async def _heartbeat_loop(self) -> None:
-        """Two-way heartbeat with deadline (A263)."""
-        while not self._heartbeat_dead.is_set():
-            await asyncio.sleep(self.config.heartbeat_interval_seconds)
-            if self._heartbeat_dead.is_set():
-                break
-
-            try:
-                await self._send_ping()
-            except Exception:
-                self._heartbeat_dead.set()
-                break
-
-            # Check deadline
-            if (
-                time.monotonic() - self._last_pong_received
-                > self.config.heartbeat_timeout_seconds
-            ):
-                self._heartbeat_dead.set()
-                try:
-                    await self.transport.close(1001, "heartbeat_timeout")
-                except Exception:
-                    pass
-                break
 
     async def _send_ping(self) -> None:
         """Send heartbeat ping."""
@@ -544,58 +398,6 @@ class A263Channel:
         }
 
 
-class TransactionalOutbox:
-    """Transactional outbox for state changes (A195/A263)."""
-
-    def __init__(self, channel_id: str, max_sequence: int = 0) -> None:
-        self.channel_id = channel_id
-        self._sequence = max_sequence
-        self._events: Dict[int, OutboxEvent] = {}
-        self._lock = asyncio.Lock()
-
-    def get_latest_sequence(self) -> int:
-        return self._sequence
-
-    async def append(
-        self,
-        entity_id: str,
-        entity_type: str,
-        operation: str,
-        payload: dict[str, Any],
-        state_hash: str = "",
-    ) -> OutboxEvent:
-        """Append event to outbox."""
-        async with self._lock:
-            self._sequence += 1
-            event = OutboxEvent(
-                sequence=self._sequence,
-                entity_id=entity_id,
-                entity_type=entity_type,
-                operation=operation,
-                payload=payload,
-                state_hash=state_hash,
-                idempotency_key=f"{self.channel_id}:{self._sequence}",
-            )
-            self._events[self._sequence] = event
-            return event
-
-    async def fetch_after(self, cursor: int, limit: int) -> list[OutboxEvent]:
-        """Fetch events after cursor."""
-        async with self._lock:
-            events = []
-            for seq in range(cursor + 1, min(cursor + 1 + limit, self._sequence + 1)):
-                if seq in self._events:
-                    events.append(self._events[seq])
-            return events
-
-    async def replay_from(self, cursor: int) -> None:
-        """Replay events from cursor to connected peers."""
-        events = await self.fetch_after(cursor, 1000)
-        for event in events:
-            # In a real implementation, this would send to transport
-            pass
-
-
 # Factory for creating channels
 async def create_channel(
     channel_id: str,
@@ -619,7 +421,6 @@ __all__ = [
     "ChannelState",
     "MessagePriority",
     "OutboxEvent",
-    "TransactionalOutbox",
     "ChannelTransport",
     "create_channel",
     "CHANNEL_RUNTIME_VERSION",
