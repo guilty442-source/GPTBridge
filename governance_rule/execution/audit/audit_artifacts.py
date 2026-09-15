@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import governance_rule.execution.git_tiers
+from governance_rule.execution.chinese_codex_mirror import load_chinese_codex_parts
 from governance_rule.execution.codex_repository import (
     format_codex_version,
     load_governance_codex,
@@ -16,9 +17,8 @@ def check_codex_consistency(root: Path, errors: list[str]) -> None:
     """Verify the Chinese codex reference is synchronized with the authoritative codex."""
     # A279 certified tooling: governed repository load, read-only.
     codex = load_governance_codex()
-    chinese_path = root / "governance_rule" / "codex" / "governance_codex.zh-TW.txt"
     try:
-        chinese = json.loads(chinese_path.read_text(encoding="utf-8"))
+        chinese = load_chinese_codex_parts(root / "governance_rule" / "codex")
         tables = chinese["tables"]
     except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError) as error:
         errors.append(f"Chinese codex reference is invalid: {error}")

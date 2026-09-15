@@ -362,10 +362,9 @@ class CodexReadSession:
         if self._access_class != ACCESS_CHINESE:
             self._deny("CODEX_CHINESE_DENIED")
         self._require("chinese:mirror")
-        mirror = (
-            CODEX_DATABASE_PATH.parent.parent / "governance_codex.zh-TW.txt"
-        )
-        return mirror.read_text(encoding="utf-8")
+        from .chinese_codex_mirror import render_chinese_codex
+
+        return render_chinese_codex(CODEX_DATABASE_PATH.parent.parent)
 
 
 # ---------------------------------------------------------------------------

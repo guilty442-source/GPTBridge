@@ -47,7 +47,11 @@ class ToolIsolationHealthMixin:
                     "tool_id": tool_id,
                     "status": "crashed",
                     "pid": entry.pid,
-                    "exit_code": entry.process.returncode,
+                    "exit_code": (
+                        entry.process.returncode
+                        if entry.process.returncode is not None
+                        else -1
+                    ),
                     "restart_count": restart_count,
                 }
             if light:
@@ -181,7 +185,11 @@ class ToolIsolationHealthMixin:
                 "pid": entry.pid,
                 "restart_count": entry.restart_count,
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "exit_code": entry.process.returncode,
+                "exit_code": (
+                    entry.process.returncode
+                    if entry.process.returncode is not None
+                    else -1
+                ),
             }
             path = quarantine_dir / f"{tool_id}-{int(time.time())}.json"
             path.write_text(
@@ -316,12 +324,9 @@ class ToolIsolationHealthMixin:
                             "tool_isolation_crash_detected tool_id=%s pid=%s",
                             tid, health.get("pid"),
                         )
+                        # handle_crash already invokes crash callbacks;
+                        # do not duplicate the notification here.
                         self.handle_crash(tid)
-                        for cb in self._crash_callbacks:
-                            try:
-                                cb(tid, self._entries.get(tid))
-                            except Exception:
-                                pass
-            except Exception:
-                pass
+            except Exception as exc:
+                _logger.error("tool_isolation_monitor_error: %s", exc, exc_info=True)
             self._stop_event.wait(timeout=interval)

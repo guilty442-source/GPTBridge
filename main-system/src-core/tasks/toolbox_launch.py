@@ -11,8 +11,6 @@ import asyncio
 import hashlib
 import json
 import subprocess
-import urllib.error
-import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any, Dict
@@ -64,14 +62,6 @@ class LaunchMixin:
                 runtime_port, expected_runtime_tool_id,
                 self._workspace_instance_id(),
             ):
-                ready = True
-                break
-            await asyncio.sleep(0.02)
-        # Local governed runtimes normally publish health in well under a
-        # second. Poll more frequently so opening a tool feels immediate while
-        # retaining a bounded three-second allowance for cold starts.
-        for _ in range(150):
-            if await asyncio.to_thread(source_runtime_ready):
                 ready = True
                 break
             await asyncio.sleep(0.02)

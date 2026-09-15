@@ -379,9 +379,9 @@ def _check_acyclic_parents(
 
 def check_directory_mirror_parity(root: Path, errors: list[str]) -> None:
     """Verify the Chinese mirror carries identical directory and registry rows."""
-    mirror_path = root / "governance_rule" / "codex" / "governance_codex.zh-TW.txt"
     try:
-        mirror = json.loads(mirror_path.read_text(encoding="utf-8"))["tables"]
+        from governance_rule.execution.chinese_codex_mirror import load_chinese_codex_parts
+        mirror = load_chinese_codex_parts(root / "governance_rule" / "codex")["tables"]
     except (OSError, UnicodeError, json.JSONDecodeError, KeyError) as error:
         errors.append(f"Chinese codex reference is invalid: {error}")
         return

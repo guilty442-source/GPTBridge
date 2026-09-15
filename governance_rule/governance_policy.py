@@ -27,7 +27,10 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
         "governance_rule/governance_policy.py",
         "governance_rule/codex/__init__.py",
         "governance_rule/codex/data/governance_codex.sqlite3",
-        "governance_rule/codex/governance_codex.zh-TW.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
+        "governance_rule/execution/chinese_codex_mirror.py",
         "governance_rule/execution/codex_repository.py",
         "governance_rule/code_rule_directory.py",
         "governance_rule/permission_directory/directory_authority.py",
@@ -51,7 +54,9 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
     # instance on each amendment).
     runtime_mutable_authority_files=(
         "governance_rule/codex/data/governance_codex.sqlite3",
-        "governance_rule/codex/governance_codex.zh-TW.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
     ),
     top_level_rule="governance_codex",
     governance_rule_sources=(
