@@ -161,6 +161,7 @@ class GovernedRequestClient:
         *,
         acknowledge: bool = True,
         push_id: str | None = None,
+        response: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         if consumer_tool_id != self._caller_actor:
             raise permission_denied()
@@ -168,7 +169,7 @@ class GovernedRequestClient:
         if claimed is not None and acknowledge:
             if push_id is not None and claimed.get("push_id") != push_id:
                 raise permission_denied()
-            self._channel.acknowledge_push(claimed["push_id"])
+            self._channel.acknowledge_push(claimed["push_id"], response)
             claimed["acknowledged"] = True
         return claimed
 
@@ -178,10 +179,46 @@ class GovernedRequestClient:
         *,
         acknowledge: bool = True,
         push_id: str | None = None,
+        response: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         return await asyncio.to_thread(
             self.claim_pushed_sync,
             consumer_tool_id,
             acknowledge=acknowledge,
             push_id=push_id,
+            response=response,
+        )
+
+    def consume_push_response_sync(
+        self,
+        target_tool_id: str,
+        push_id: str,
+        *,
+        timeout_seconds: float = 90,
+    ) -> dict[str, Any] | None:
+        """Poll for the response the receiver attached to a push (bidirectional)."""
+        deadline = time.monotonic() + max(1.0, float(timeout_seconds))
+        while time.monotonic() < deadline:
+            state = self._channel.consume_push_response(target_tool_id, push_id)
+            if state is not None and state.get("status") == "completed":
+                response = state.get("response")
+                if isinstance(response, dict):
+                    response.pop("request_id", None)
+                    return response
+                return None
+            time.sleep(0.05)
+        return None
+
+    async def consume_push_response(
+        self,
+        target_tool_id: str,
+        push_id: str,
+        *,
+        timeout_seconds: float = 90,
+    ) -> dict[str, Any] | None:
+        return await asyncio.to_thread(
+            self.consume_push_response_sync,
+            target_tool_id,
+            push_id,
+            timeout_seconds=timeout_seconds,
         )

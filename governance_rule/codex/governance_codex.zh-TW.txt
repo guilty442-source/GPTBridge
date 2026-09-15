@@ -1,5 +1,5 @@
 {
-  "codex_version": "2026-09-14T14:53:43Z",
+  "codex_version": "2026-09-15T05:46:09Z",
   "tables": {
     "access_actor_classes": [
       {
@@ -3977,6 +3977,51 @@
         "rule": "DIRECTORIES:DIR_FORMAL_RULE_REGISTRY and DIR_MACHINE_SCHEMA_REGISTRY are the sole queryable registries for executable governance predicates and machine contract schemas. CLASSIFICATION:every active provision is INTERPRETIVE_ONLY|MACHINE_ENFORCED|MIXED;each MACHINE_ENFORCED clause maps to one-or-more formal_rule_code and every formal rule maps one controlling provision plus explicit supporting provisions. MAPPING-STATUS:UNMAPPED|PARTIAL|MAPPED|CONFLICT|VERIFIED;natural text may explain intent but checker/gate/release decisions consume only VERIFIED formal rules whose policy version and evidence schema match current revision. UNMAPPED or CONFLICT machine enforcement is INCOMPLETE_EVIDENCE,not inferred implementation behavior. SCHEMA-REGISTRY:each schema_code records schema_kind+semantic owner+required/optional fields+field types+nullability+version+compatibility+hash+persistence class+redaction+status+successor;receipt,token,health,audit,test-suite,identity-conversion and final-decision schemas register here without duplicating their field definitions in checkers. PRECEDENCE-ALGORITHM:collect applicable provisions by exact scope>resolve explicit successor chain>apply registered special-over-general conflict rows>apply subordinate ordinance under controlling law>require one effective controlling rule;zero or multiple unresolved results=CONFLICT. Article number,load order and source-code order have no precedence. MIGRATION:new or changed machine-enforced clauses require formal mapping before enforcement;existing unmapped clauses become bounded formalization debt with owner,severity,affected gates and deadline but cannot be silently treated verified. CRITICAL permission,identity,ABI,security,release and mutation boundaries block formal VERIFIED release while unmapped. LOW-COST-PROFILES:LOCAL_PURE_CALL,LOCAL_GOVERNED_DISPATCH,READ_ONLY_QUERY,TEST_ISOLATED_ROUTE,SUPPORT_LIGHTWEIGHT and FULL_TRANSPORT have registered predicates,required evidence and forbidden effects;the planner selects the least costly valid profile and escalates only when facts cross its boundary. CERTIFICATION:technical gate result and external signature state remain separate schema fields;SEALED_PENDING_EXTERNAL_SIGNATURES can never satisfy VERIFIED_RELEASE. PERFORMANCE:registry lookup uses exact indexed codes and cached immutable version/hash;policy change invalidates derived cache. HISTORY:revision_history remains user-deleted.",
         "prohibition": "FORBID:checker parsing natural-language strings as policy+unmapped clause enforced as PASS/FAIL+duplicate formal rules for same predicate without precedence+schema fields hardcoded independently in producers/consumers+article-number precedence+special-law conflict guessed+low-cost route selected by caller preference+support route mutating governed state+technical PASS converted to VERIFIED+formalization debt hidden or grandfathered forever.",
         "exception": "Interpretive-only provisions may remain natural language and searchable;they cannot independently block or authorize execution until a formal machine rule is explicitly registered."
+      },
+      {
+        "position": 451,
+        "provision_id": "A451",
+        "section_index": "4",
+        "subject": "execution-receipt-tier-profile",
+        "rule": "SUCCESSOR-SCOPE:A446 declares stage contracts;this article declares the canonical machine receipt-tier profile. TIERS:dispatch-intake|authorization-and-governance-gate|task-planning|specialized-executor|result-verification|state-event-audit-publication. MAPPING:INTAKE->dispatch-intake;AUTHORIZE->authorization-and-governance-gate;PLAN->task-planning;DISPATCH+EXECUTE->specialized-executor;VERIFY->result-verification;PUBLISH->state-event-audit-publication. ORDER:strict single pass;skip+repeat+out-of-order deny with a receipt error. REFUSALS:authorization failures still record planning+executor+verification+publication as refusal receipts;no tier is skipped. VERIFICATION:the verification actor must differ from the concrete specialized-executor actor whenever an executor actor is named;executor self-declared success is never sufficient. ACCEPTANCE:an accepted outcome requires a complete receipt ledger+a passing independent verdict+a published audit entry;any missing receipt+failed verdict or failed publication returns a refusal instead. DURABILITY:the audit append is serialized against concurrent processes and flushed to stable storage before success;an append that cannot be made durable denies.",
+        "prohibition": "FORBID:tier-skip+duplicate+reorder on governed work+executor self-verification+accepted outcome without complete receipts+basis-free acceptance+acceptance before audit publication+publication failure tolerated+reduced profile on state mutation",
+        "exception": "A decision-only adjudication that executes nothing records the same tier profile with the executor tier marked decision-layer;the receipt ledger is never reduced below the six declared tiers."
+      },
+      {
+        "position": 452,
+        "provision_id": "A452",
+        "section_index": "4",
+        "subject": "codex-official-read-session-and-attested-reader-schema",
+        "rule": "SCHEMA:CODEX_READ_SESSION_V1 is the registered machine contract for official-entry reads {session_nonce|requester_identity|identity_attestation|purpose_code|provision_scope|permission_review_id|issued_at|expires_at|single_use|codex_version}. AUTHORITATIVE-READS:every sovereign authoritative view passes governance-codex://official;the requester identity is bound to a single-use session minted by the entry owner (permission-sovereign) after per-request review;least provision scope;the nonce is consumed exactly once;expiry is bounded;replayed+expired+scope-widened or mismatched sessions deny. SELF-DECLARATION:a sovereign may self-mint only its own declaration read. AUDIT:metadata-only per attempt with result;content never enters audit. CHINESE-VIEW:star-only;permission-review-exempt;all other official-entry controls plus read-only remain. RESPONSE:typed+version-identified+requested-scope-only.",
+        "prohibition": "FORBID:bare-requester-string as identity+unbound session+scope beyond the declared provision+replay+expired reuse+self-minting for another sovereign's declaration+Chinese view by any non-star identity+content in audit+alternate entry+credential sharing",
+        "exception": "Import-time sovereign self-declaration uses the bounded self-attested session;it never waives nonce+expiry+single-use+scope or audit."
+      },
+      {
+        "position": 453,
+        "provision_id": "A453",
+        "section_index": "4",
+        "subject": "attested-execution-identity-derivation",
+        "rule": "DERIVATION:an execution identity is resolved from the authenticated shared-layer channel claimant and its sealed-registry binding:the requested tool manifest id equals the requested tool;the channel claimant is the sealed-registry governed identity;the registry-pinned bound manifest declares that identity when the claimant differs from the hosting owner;the module registry declares the exact execution identity for the resolved module architecture code. CONSISTENCY:all four values must agree before any governed execution;an unresolved+unattested or mismatched identity denies. SELF-DERIVATION:comparing two values derived from the same request input is not attestation and is forbidden.",
+        "prohibition": "FORBID:request-echoed execution identity+self-derived comparison+channel claimant outside the sealed registry+bound manifest that does not declare the channel identity+registry execution-identity mismatch+execution before four-way resolution+placeholder identity",
+        "exception": "A standalone single-tool runtime attests that tool's own chain;hosting-owner resolution applies only through the sealed-registry bound manifest,never through free text."
+      },
+      {
+        "position": 454,
+        "provision_id": "A454",
+        "section_index": "4",
+        "subject": "permission-decision-transport-and-append-only-ledger",
+        "rule": "DECISION-TRANSPORT:a denied+withheld or unreviewed permission decision returns a typed refused outcome;an accepted outcome never carries decision=denied;callers may not infer a grant from outcome acceptance alone. GRANT-LEDGER:issue+renew+restrict+suspend+revoke+terminate append to an append-only ledger with a sovereign-minted permission_id;the ledger is the source of truth across restarts;prior entries are never mutated or deleted;lifecycle transitions require a recorded issuance and a current second-key review;an unrecordable grant or transition denies. STATES:issued|renewed|restricted|suspended|revoked|terminated;terminal states remain visible in history.",
+        "prohibition": "FORBID:denial wrapped in an accepted outcome+caller-inferred grant+module-self-issued permission id+lifecycle without issuance record+lifecycle without current review+in-memory-only source of truth+ledger mutation+deletion+silent ledger failure",
+        "exception": "Immediate containment may suspend or revoke an exact permission before review;every grant+renewal or expansion still requires the two-key rule."
+      },
+      {
+        "position": 455,
+        "provision_id": "A455",
+        "section_index": "4",
+        "subject": "independent-verification-verdict-record",
+        "rule": "VERDICT:each verification produces a typed record {verified|verifier|reasons}. IDENTITY:the verifier is a distinct program object or identity from every executor actor;the recorded verifier differs from the concrete specialized-executor actor whenever one is named. CHECKS:the decision basis must be present;an executor may not declare its own verified state or verifier field;an unaccepted result must carry a refusal reason;registered per-intent checks add evidence checks. EVIDENCE:where a registered check verifies an artifact+revision+state or external evidence,the verdict references that evidence and never relies solely on executor-reported fields. FAIL-CLOSED:any failed check returns verified=false with reasons and the request is refused.",
+        "prohibition": "FORBID:self-verification+executor-self-declared verification accepted+verdict without reasons+basis-free acceptance+verifier equal to the concrete executor+one actor as sole final verifier of its own work+silent verdict omission",
+        "exception": "A decision-only adjudication with no concrete executor is verified by the independent verifier object;the verdict is still recorded."
       }
     ],
     "audit_event_schema": [
@@ -4341,6 +4386,14 @@
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
         "status": "external-signatures-required",
         "version_epoch": 2
+      },
+      {
+        "version": "2026-09-15T05:46:09Z",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required",
+        "version_epoch": "E2"
       }
     ],
     "certification_policy": [
@@ -49206,6 +49259,17 @@
         "canonical_recorded_at_utc": "2026-09-14T14:53:43.564737Z",
         "timestamp_status": "canonical",
         "timestamp_migration_evidence": "direct-current-event"
+      },
+      {
+        "version": "2026-09-15T05:46:09Z",
+        "recorded_at_utc": "2026-09-15T05:46:09Z",
+        "recorded_at_local": "2026-09-15T13:46:09.271795+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "execution-identity-permission-verification-alignment",
+        "version_epoch": "E2",
+        "canonical_recorded_at_utc": "2026-09-15T05:46:09.271795Z",
+        "timestamp_status": "canonical",
+        "timestamp_migration_evidence": "AMENDMENT@2026-09-15T05:46:09Z:direct-current-event"
       }
     ],
     "codex_version_epochs": [],
@@ -60320,6 +60384,46 @@
         "status": "active",
         "legacy_effective_version": null,
         "current_binding_version": "2026-09-14T14:53:43Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A451",
+        "effective_version": "2026-09-15T05:46:09Z",
+        "status": "active",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A452",
+        "effective_version": "2026-09-15T05:46:09Z",
+        "status": "active",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A453",
+        "effective_version": "2026-09-15T05:46:09Z",
+        "status": "active",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A454",
+        "effective_version": "2026-09-15T05:46:09Z",
+        "status": "active",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A455",
+        "effective_version": "2026-09-15T05:46:09Z",
+        "status": "active",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-15T05:46:09Z"
       }
     ],
     "entity_classification": [
@@ -65258,6 +65362,20 @@
         "version_identity": "2026-09-14T14:53:43Z",
         "status": "active",
         "successor_schema_code": null
+      },
+      {
+        "schema_code": "CODEX_READ_SESSION_V1",
+        "schema_kind": "codex-read-session",
+        "semantic_owner": "permission-sovereign",
+        "required_fields": "session_nonce|requester_identity|identity_attestation|purpose_code|provision_scope|permission_review_id|issued_at|expires_at|single_use|codex_version",
+        "optional_fields": "consumed_at|result|correlation_id",
+        "compatibility_rule": "minor-additive-optional-only",
+        "persistence_class": "ephemeral-in-memory-metadata-audited",
+        "redaction_rule": "nonce-never-audited+codex-content-redacted",
+        "content_hash": "63f580cbf6b169f7d995df9af7d5b11adfa1deae6a28b47b1b061945d9370609",
+        "version_identity": "2026-09-15T05:46:09Z",
+        "status": "active",
+        "successor_schema_code": null
       }
     ],
     "maintenance_manual_directory": [
@@ -66702,11 +66820,11 @@
       },
       {
         "key": "codex_version",
-        "value": "2026-09-14T14:53:43Z"
+        "value": "2026-09-15T05:46:09Z"
       },
       {
         "key": "active_provision_binding_version",
-        "value": "2026-09-14T14:53:43Z"
+        "value": "2026-09-15T05:46:09Z"
       },
       {
         "key": "current_version_identity",
@@ -73036,6 +73154,41 @@
         "provision_id": "A450",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A451",
+        "provision_type": "article",
+        "provision_id": "A451",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A452",
+        "provision_type": "article",
+        "provision_id": "A452",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A453",
+        "provision_type": "article",
+        "provision_id": "A453",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A454",
+        "provision_type": "article",
+        "provision_id": "A454",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A455",
+        "provision_type": "article",
+        "provision_id": "A455",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "provision_law_classification": [
@@ -77910,6 +78063,41 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A107|A173|A262|A268|A331|A386|A417|A445|A448|A449"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A451",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A69|A446|A448|A449"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A452",
+        "tier": "special-law",
+        "law_code": "CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
+        "authority_basis": "A173|A174|A435|A448"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A453",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A322|A334|A446"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A454",
+        "tier": "special-law",
+        "law_code": "CODEX_PERMISSION_IDENTITY_SPECIAL_LAW",
+        "authority_basis": "A10|A319|A436|A448"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A455",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A446|A449|A69"
       }
     ],
     "provision_lifecycle_status": [
@@ -84872,6 +85060,56 @@
         "evidence": "formal-registry-migration",
         "legacy_effective_version": null,
         "current_binding_version": "2026-09-14T14:53:43Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A451",
+        "lifecycle_state": "active",
+        "effective_version": "2026-09-15T05:46:09Z",
+        "successor_identity": null,
+        "evidence": "implementation-alignment-closure",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A452",
+        "lifecycle_state": "active",
+        "effective_version": "2026-09-15T05:46:09Z",
+        "successor_identity": null,
+        "evidence": "implementation-alignment-closure",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A453",
+        "lifecycle_state": "active",
+        "effective_version": "2026-09-15T05:46:09Z",
+        "successor_identity": null,
+        "evidence": "implementation-alignment-closure",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A454",
+        "lifecycle_state": "active",
+        "effective_version": "2026-09-15T05:46:09Z",
+        "successor_identity": null,
+        "evidence": "implementation-alignment-closure",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A455",
+        "lifecycle_state": "active",
+        "effective_version": "2026-09-15T05:46:09Z",
+        "successor_identity": null,
+        "evidence": "implementation-alignment-closure",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-15T05:46:09Z"
       }
     ],
     "provision_lineage": [
@@ -90242,6 +90480,46 @@
         "supersedes_id": null,
         "status": "active",
         "content_hash": "f79b061f1c3aa302f8dfa71b5af17186723c32597690f5820e8c0e6e48366edc"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A451",
+        "introduced_by": "AMENDMENT@2026-09-15T05:46:09Z",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "b87b127da3a6ddce81c590501bebf85ae65b77c577c714fc9302960b712ece49"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A452",
+        "introduced_by": "AMENDMENT@2026-09-15T05:46:09Z",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "7163d799c80483497fdb59b843dfd44d78a6ec3ef971ac2743d57af0b945c85f"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A453",
+        "introduced_by": "AMENDMENT@2026-09-15T05:46:09Z",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "75da0373192a11c8c2383c1ac840158db2a6608eff094e5ffd5ab6bfd8c85b2d"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A454",
+        "introduced_by": "AMENDMENT@2026-09-15T05:46:09Z",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "6a84bc168db8a2008c53229dd844388bf6888f9b004efad5305ec9216c06846b"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A455",
+        "introduced_by": "AMENDMENT@2026-09-15T05:46:09Z",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "f06c939dba03cfc653a3a24ca2530d375600171660a3498f3f6057331b33b4f6"
       }
     ],
     "provision_reference_resolution": [
@@ -102769,6 +103047,51 @@
         "content_hash": "6a0723b17f08e8e6e3d9f74f3c4d15dd1aef89745b9f33fccc2fdb1a7a71cb1b",
         "certification_status": "sealed-pending-external-signatures",
         "version_epoch": "E2"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A451",
+        "revision_id": "AMENDMENT@2026-09-15T05:46:09Z#A451",
+        "version": "2026-09-15T05:46:09Z",
+        "content_hash": "b87b127da3a6ddce81c590501bebf85ae65b77c577c714fc9302960b712ece49",
+        "certification_status": "sealed-pending-external-signatures",
+        "version_epoch": "E2"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A452",
+        "revision_id": "AMENDMENT@2026-09-15T05:46:09Z#A452",
+        "version": "2026-09-15T05:46:09Z",
+        "content_hash": "7163d799c80483497fdb59b843dfd44d78a6ec3ef971ac2743d57af0b945c85f",
+        "certification_status": "sealed-pending-external-signatures",
+        "version_epoch": "E2"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A453",
+        "revision_id": "AMENDMENT@2026-09-15T05:46:09Z#A453",
+        "version": "2026-09-15T05:46:09Z",
+        "content_hash": "75da0373192a11c8c2383c1ac840158db2a6608eff094e5ffd5ab6bfd8c85b2d",
+        "certification_status": "sealed-pending-external-signatures",
+        "version_epoch": "E2"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A454",
+        "revision_id": "AMENDMENT@2026-09-15T05:46:09Z#A454",
+        "version": "2026-09-15T05:46:09Z",
+        "content_hash": "6a84bc168db8a2008c53229dd844388bf6888f9b004efad5305ec9216c06846b",
+        "certification_status": "sealed-pending-external-signatures",
+        "version_epoch": "E2"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A455",
+        "revision_id": "AMENDMENT@2026-09-15T05:46:09Z#A455",
+        "version": "2026-09-15T05:46:09Z",
+        "content_hash": "f06c939dba03cfc653a3a24ca2530d375600171660a3498f3f6057331b33b4f6",
+        "certification_status": "sealed-pending-external-signatures",
+        "version_epoch": "E2"
       }
     ],
     "provision_special_law_migration": [
@@ -108631,6 +108954,56 @@
         "normalization_status": "normalized",
         "owner": "星澄",
         "introduced_version": "2026-09-14T14:53:43Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A451",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "permission-sovereign",
+        "introduced_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A452",
+        "controlling_law_code": "CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "permission-sovereign",
+        "introduced_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A453",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "permission-sovereign",
+        "introduced_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A454",
+        "controlling_law_code": "CODEX_PERMISSION_IDENTITY_SPECIAL_LAW",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "permission-sovereign",
+        "introduced_version": "2026-09-15T05:46:09Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A455",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "permission-sovereign",
+        "introduced_version": "2026-09-15T05:46:09Z"
       }
     ],
     "revision_history": [],
@@ -109496,6 +109869,18 @@
         "content_root": "3ec45cf1ea4b9a2844b71b8f5540d1962dd554b2bf93379c57af56da261849b3",
         "identity_root": "29726997a317cacb79b7704c483b2a8158734a08d8a19763df3b4e05b6a6a5a1",
         "full_root": "82adb01ad0c3aafd7dff4b00d8e98ac18121e3096df2eed15a4c1ab7db59775c",
+        "version_epoch": "E2"
+      },
+      {
+        "version": "2026-09-15T05:46:09Z",
+        "history_head": "41026e9285e3a1759bbaa415adf7f1c560a04dffc43bfdf2a194716bb80a8ee1",
+        "provision_count": 701,
+        "identity_count": 701,
+        "lineage_count": 676,
+        "certification_state": "sealed-pending-external-signatures",
+        "content_root": "19b9975ec6dcd7f2aa8faf8f4830a63574f1d2f0032408ba8062409ec69d924d",
+        "identity_root": "77e29341c7e6479df2e456adefb45c005e5412be81f4071716f085736f05badc",
+        "full_root": "345e1066cf9b309a10044e7ef4ddbf6b282087ea11ab0184b98c4f9e2a2c33c3",
         "version_epoch": "E2"
       }
     ],
