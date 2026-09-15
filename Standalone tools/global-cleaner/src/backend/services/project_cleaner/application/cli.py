@@ -78,7 +78,29 @@ def main(argv: list[str] | None = None) -> int:
 
     service = ProjectCleanupService(project_root, progress_callback=report_progress)
 
-    mutation_requested = any(
+    denied = _authorize_cli_mutation(args)
+    if denied is not None:
+        return denied
+    result = _dispatch_cli_command(args, service)
+    if result is not None:
+        return result
+    workspace = Path(__file__).resolve().parents[5]
+    return _print_result(
+        {
+            "ok": True,
+            "message": "Global Cleaner is registered as a standalone GPTBridge application.",
+            "project_folder": str(workspace),
+        },
+        args.as_json,
+    )
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+def _mutation_requested(args: argparse.Namespace) -> bool:
+    return any(
         (
             args.purge_quarantine,
             bool(args.restore_quarantine),
@@ -94,10 +116,13 @@ def main(argv: list[str] | None = None) -> int:
             args.cleanup_garbage and not args.dry_run,
         )
     )
+
+
+def _authorize_cli_mutation(args: argparse.Namespace) -> int | None:
     requester_actor = str(
         os.environ.get("GPTBRIDGE_GOVERNED_REQUESTER_ACTOR") or ""
     ).strip()
-    if mutation_requested and requester_actor not in {
+    if _mutation_requested(args) and requester_actor not in {
         "governance/main-system",
         "governance/tool/global-cleaner",
         "governance/tool/system-rescue",
@@ -110,7 +135,12 @@ def main(argv: list[str] | None = None) -> int:
             },
             args.as_json,
         )
+    return None
 
+
+def _dispatch_cli_command(
+    args: argparse.Namespace, service: ProjectCleanupService
+) -> int | None:
     if args.status:
         return _print_result(service.get_status(), args.as_json)
     if args.list_managed_backups:
@@ -148,6 +178,15 @@ def main(argv: list[str] | None = None) -> int:
             ),
             args.as_json,
         )
+    result = _dispatch_cli_command_mutation(args, service)
+    if result is not None:
+        return result
+    return None
+
+
+def _dispatch_cli_command_mutation(
+    args: argparse.Namespace, service: ProjectCleanupService
+) -> int | None:
     if args.restore_quarantine:
         return _print_result(
             service.restore_quarantine(
@@ -176,6 +215,15 @@ def main(argv: list[str] | None = None) -> int:
             ),
             args.as_json,
         )
+    result = _dispatch_cli_command_apply(args, service)
+    if result is not None:
+        return result
+    return None
+
+
+def _dispatch_cli_command_apply(
+    args: argparse.Namespace, service: ProjectCleanupService
+) -> int | None:
     if args.system_check:
         return _print_result(
             service.system_health_check(deep=args.deep),
@@ -212,17 +260,4 @@ def main(argv: list[str] | None = None) -> int:
             ),
             args.as_json,
         )
-
-    workspace = Path(__file__).resolve().parents[5]
-    return _print_result(
-        {
-            "ok": True,
-            "message": "Global Cleaner is registered as a standalone GPTBridge application.",
-            "project_folder": str(workspace),
-        },
-        args.as_json,
-    )
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+    return None

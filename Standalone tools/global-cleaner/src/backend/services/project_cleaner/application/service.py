@@ -38,44 +38,7 @@ class ProjectCleanupService(CleanupEngine):
         self,
         relative_root: str,
     ) -> dict[str, Any]:
-        requester = str(
-            os.environ.get("GPTBRIDGE_GOVERNED_REQUESTER_ACTOR") or ""
-        ).strip()
-        if requester not in {
-            "governance/main-system",
-            "governance/tool/global-cleaner",
-        }:
-            raise PermissionError("PERMISSION_DENIED")
-
-        relative = Path(str(relative_root or "").replace("\\", "/"))
-        parts = relative.parts
-        is_managed_temp_root = (
-            len(parts) >= 3
-            and parts[:3] == ("global-cleaner", "runtime", "temp")
-        )
-        if (
-            relative.is_absolute()
-            or not is_managed_temp_root
-            or any(part in {"", ".", ".."} for part in parts)
-        ):
-            raise PermissionError("PERMISSION_DENIED")
-        target = (self.project_root / relative).resolve()
-        expected_temp = (
-            self.project_root / "global-cleaner" / "runtime" / "temp"
-        ).resolve()
-        cleaner_manifest = (
-            self.project_root / "global-cleaner" / "manifest.json"
-        )
-        try:
-            target.relative_to(expected_temp)
-        except ValueError as error:
-            raise PermissionError("PERMISSION_DENIED") from error
-        if (
-            not cleaner_manifest.is_file()
-            or not target.is_dir()
-            or self._is_link_or_reparse(target)
-        ):
-            raise PermissionError("PERMISSION_DENIED")
+        target, relative = self._validated_managed_temp_target(relative_root)
 
         removed_files = 0
         removed_bytes = 0
@@ -116,5 +79,48 @@ class ProjectCleanupService(CleanupEngine):
         )
         return result
 
+
+
+    def _validated_managed_temp_target(
+        self, relative_root: str
+    ) -> tuple[Path, Path]:
+        requester = str(
+            os.environ.get("GPTBRIDGE_GOVERNED_REQUESTER_ACTOR") or ""
+        ).strip()
+        if requester not in {
+            "governance/main-system",
+            "governance/tool/global-cleaner",
+        }:
+            raise PermissionError("PERMISSION_DENIED")
+        relative = Path(str(relative_root or "").replace("\\", "/"))
+        parts = relative.parts
+        is_managed_temp_root = (
+            len(parts) >= 3
+            and parts[:3] == ("global-cleaner", "runtime", "temp")
+        )
+        if (
+            relative.is_absolute()
+            or not is_managed_temp_root
+            or any(part in {"", ".", ".."} for part in parts)
+        ):
+            raise PermissionError("PERMISSION_DENIED")
+        target = (self.project_root / relative).resolve()
+        expected_temp = (
+            self.project_root / "global-cleaner" / "runtime" / "temp"
+        ).resolve()
+        cleaner_manifest = (
+            self.project_root / "global-cleaner" / "manifest.json"
+        )
+        try:
+            target.relative_to(expected_temp)
+        except ValueError as error:
+            raise PermissionError("PERMISSION_DENIED") from error
+        if (
+            not cleaner_manifest.is_file()
+            or not target.is_dir()
+            or self._is_link_or_reparse(target)
+        ):
+            raise PermissionError("PERMISSION_DENIED")
+        return target, relative
 
 __all__ = ["ProjectCleanupService"]
