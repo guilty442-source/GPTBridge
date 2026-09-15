@@ -788,18 +788,6 @@ class DecisionSovereign(
         except (OSError, UnicodeError, json.JSONDecodeError):
             return {}
 
-    def _save_state(self, payload: dict[str, Any]) -> None:
-        import json
-        import os
-        from pathlib import Path
-        self.runtime_state_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.runtime_state_path.with_suffix(".tmp")
-        temporary.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(temporary, self.runtime_state_path)
-
     # ------------------------------------------------------------------
     # Certified update status tracking
     # ------------------------------------------------------------------
