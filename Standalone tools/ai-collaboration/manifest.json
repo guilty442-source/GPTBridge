@@ -124,7 +124,8 @@
   },
   "has_custom_ui": true,
   "test_targets": [
-    "tests/test_ai_collaboration.py"
+    "tests/test_ai_collaboration_routing.py",
+    "tests/test_ai_collaboration_workflows.py"
   ],
   "window": {
     "width": 1280,

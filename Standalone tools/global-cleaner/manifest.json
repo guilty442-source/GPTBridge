@@ -118,7 +118,22 @@
   },
   "hidden_from_toolbox": true,
   "test_targets": [
-    "tests/test_global_cleaner.py"
+    "tests/test_global_cleaner_layering.py",
+    "tests/test_global_cleaner_precision.py",
+    "tests/test_governed_backup_and_repair.py",
+    "tests/test_managed_temp_cleanup.py",
+    "tests/test_ai_assistant_layering.py",
+    "tests/test_ai_collaboration_layering.py",
+    "tests/test_ai_channel_governance.py",
+    "tests/test_file_sorter_layering.py",
+    "tests/test_investment_mobile_governance.py",
+    "tests/test_investment_mobile_layering.py",
+    "tests/test_main_system_boundaries.py",
+    "tests/test_main_system_governance_health.py",
+    "tests/test_shared_layer_dual_channels.py",
+    "tests/test_shared_layer_ownership.py",
+    "tests/test_shared_layer_retention.py",
+    "tests/test_vaultly_layering.py"
   ],
   "window": {
     "width": 1040,

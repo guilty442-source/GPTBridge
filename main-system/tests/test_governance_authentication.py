@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import _main_system_test_support as _support  # noqa: F401
-from _main_system_test_support import ROOT, project_root
+from _main_system_test_support import ROOT
 
 import base64
 import json

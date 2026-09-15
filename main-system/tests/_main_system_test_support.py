@@ -41,6 +41,7 @@ from functools import cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+LOCAL_MODEL_ROOT = ROOT / "Standalone tools" / "local-model"
 
 @cache
 def _read_text_cached(path_str: str) -> str:
