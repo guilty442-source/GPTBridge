@@ -26,15 +26,20 @@ PROTECTED_MODULE_PREFIXES: Final[tuple[str, ...]] = (
     "governance.sub_sovereigns.",
 )
 
-_RESOURCE_INDICATORS: Final[tuple[str, ...]] = (
+RESOURCE_INDICATORS: Final[tuple[str, ...]] = (
     "close", "cleanup", "shutdown", "stop", "dispose",
     "teardown", "__del__", "_close", "_cleanup", "_shutdown",
 )
+_RESOURCE_INDICATORS = RESOURCE_INDICATORS
 
-_RELOAD_BATCH_SIZE: Final[int] = 16
-_RELOAD_BATCH_DELAY: Final[float] = 0.1
-_IDLE_WAIT_TIMEOUT: Final[float] = 10.0
-_POST_RELOAD_HEALTH_TIMEOUT: Final[float] = 5.0
+RELOAD_BATCH_SIZE: Final[int] = 16
+RELOAD_BATCH_DELAY: Final[float] = 0.1
+IDLE_WAIT_TIMEOUT: Final[float] = 10.0
+POST_RELOAD_HEALTH_TIMEOUT: Final[float] = 5.0
+_RELOAD_BATCH_SIZE = RELOAD_BATCH_SIZE
+_RELOAD_BATCH_DELAY = RELOAD_BATCH_DELAY
+_IDLE_WAIT_TIMEOUT = IDLE_WAIT_TIMEOUT
+_POST_RELOAD_HEALTH_TIMEOUT = POST_RELOAD_HEALTH_TIMEOUT
 
 _file_hash_cache: dict[str, tuple[float, str]] = {}
 

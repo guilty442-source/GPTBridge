@@ -42,6 +42,7 @@ from .channel_types import (
 )
 from .connection_mixin import ConnectionMixin
 from .heartbeat_mixin import HeartbeatMixin
+from .transactional_outbox import TransactionalOutbox
 
 CHANNEL_RUNTIME_VERSION: str = component_version("channel-runtime")
 
