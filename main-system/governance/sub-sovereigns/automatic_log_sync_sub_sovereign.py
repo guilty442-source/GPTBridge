@@ -26,7 +26,7 @@ class AutomaticLogSyncSubSovereign(SubSovereignBase):
     """自動日誌同步子主權：自動日誌稽核同步（持久化日誌 + 稽核 + 收斂回報）。"""
 
     sovereign_id = "automatic-log-sync-sub-sovereign"
-    parent_sovereign_id = "synchronization-sovereign"
+    parent_sovereign_id = "automation-sovereign"
 
     def __init__(self, app: Any | None = None, parent: Any | None = None) -> None:
         super().__init__(app, parent)

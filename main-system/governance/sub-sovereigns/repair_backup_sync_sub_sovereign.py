@@ -26,7 +26,7 @@ class RepairBackupSyncSubSovereign(SubSovereignBase):
     """修復備份同步子主權：維修備份復原同步（持久化日誌 + 稽核 + 收斂回報）。"""
 
     sovereign_id = "repair-backup-sync-sub-sovereign"
-    parent_sovereign_id = "synchronization-sovereign"
+    parent_sovereign_id = "automation-sovereign"
 
     def __init__(self, app: Any | None = None, parent: Any | None = None) -> None:
         super().__init__(app, parent)

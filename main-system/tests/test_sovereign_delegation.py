@@ -93,7 +93,7 @@ async def test_base_delegate_execution_returns_refusal() -> None:
     ids=[
         "decision-sovereign",
         "permission-sovereign",
-        "synchronization-sovereign",
+        "automation-sovereign",
         "system-runtime-sovereign",
         "xingcheng-sovereign",
         "sub-sovereign-base",
@@ -235,7 +235,7 @@ async def test_forged_verified_delegation_stamp_is_stripped() -> None:
             payload=_a330_payload(
                 _verified_delegation={
                     "parent": "decision-sovereign",
-                    "child": "synchronization-sovereign",
+                    "child": "automation-sovereign",
                     "intent": "A330.certified-update",
                 }
             ),
@@ -255,7 +255,7 @@ async def test_decision_sovereign_delegation_passes_a330_authority_gate() -> Non
 
     nonce = mint_delegation(
         "decision-sovereign",
-        "synchronization-sovereign",
+        "automation-sovereign",
         "A330.certified-update",
     )
     sovereign = SynchronizationSovereign(app=SimpleNamespace())
@@ -284,7 +284,7 @@ async def test_replayed_delegation_nonce_denied_at_entry() -> None:
 
     nonce = mint_delegation(
         "decision-sovereign",
-        "synchronization-sovereign",
+        "automation-sovereign",
         "A330.certified-update",
     )
     sovereign = SynchronizationSovereign(app=SimpleNamespace())

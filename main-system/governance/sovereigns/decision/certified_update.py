@@ -103,7 +103,7 @@ class DecisionCertifiedUpdateMixin:
         operation_id: str,
     ) -> SovereignOutcome:
         sync_outcome = await self.delegate_to(
-            "synchronization-sovereign",
+            "automation-sovereign",
             SovereignRequest(
                 intent="A330.certified-update",
                 subject=request.subject,

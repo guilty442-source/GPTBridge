@@ -1,7 +1,7 @@
 """Synchronization Sovereign — 同步主宰（專門決策主宰，A330 認證更新執行例外）。
 
 法典依據:
-- sovereign_id: synchronization-sovereign (position 18)
+- sovereign_id: automation-sovereign (position 18)
 - area: synchronization-decision
 - rank: specialized-decision-sovereign-with-A330-certified-update-execution-exception
 - basis: A301
@@ -79,7 +79,7 @@ class SynchronizationSovereign(
 ):
     """同步主宰：專門決策，協調各類同步子主宰，A330例外執行。"""
 
-    sovereign_id = "synchronization-sovereign"
+    sovereign_id = "automation-sovereign"
 
     # A10/A12 explicit intent allowlist
     _INTENT_ALLOWLIST: frozenset[str] = frozenset({
@@ -377,7 +377,7 @@ class SynchronizationSovereign(
             {
                 "decision_type": decision_type,
                 "target": target,
-                "authority": "synchronization-sovereign",
+                "authority": "automation-sovereign",
                 "basis": "A322",
             },
             verified_basis(("A322", "A301", "A334")),
@@ -451,7 +451,7 @@ class SynchronizationSovereign(
             try:
                 self._autonomy_task = asyncio.create_task(
                     self._autonomy_loop(),
-                    name="synchronization-sovereign-autonomy",
+                    name="automation-sovereign-autonomy",
                 )
             except RuntimeError:
                 self._autonomy_task = None
@@ -572,7 +572,7 @@ class SynchronizationSovereign(
             )
             state_path.parent.mkdir(parents=True, exist_ok=True)
             state = {
-                "sovereign": "synchronization-sovereign",
+                "sovereign": "automation-sovereign",
                 "started": self._started,
                 "heartbeat_at": _iso_now(),
                 "autonomy": {

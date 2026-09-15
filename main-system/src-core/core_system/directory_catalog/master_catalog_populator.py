@@ -118,8 +118,8 @@ class DirectoryCatalogPopulatorMixin:
             path="E:/GPTBridge/main-system/information-layer/channels",
             schema_version="1.0",
             identity_format="channel-id+type+owner",
-            owner_sovereign="synchronization-sovereign",
-            access_control="synchronization-sovereign-decision",
+            owner_sovereign="automation-sovereign",
+            access_control="automation-sovereign-decision",
             lifecycle="ephemeral",
         ))
 
@@ -146,8 +146,8 @@ class DirectoryCatalogPopulatorMixin:
             path="E:/GPTBridge/.git",
             schema_version="1.0",
             identity_format="commit-hash+author+timestamp",
-            owner_sovereign="synchronization-sovereign",
-            access_control="synchronization-sovereign-decision",
+            owner_sovereign="automation-sovereign",
+            access_control="automation-sovereign-decision",
             lifecycle="persistent",
         ))
 
@@ -160,7 +160,7 @@ class DirectoryCatalogPopulatorMixin:
             path="E:/GPTBridge/Standalone tools/local-model",
             schema_version="1.0",
             identity_format="model-id+version+owner",
-            owner_sovereign="synchronization-sovereign",
+            owner_sovereign="automation-sovereign",
             access_control="resource-dependency-sync-sub-sovereign",
             lifecycle="persistent",
         ))
@@ -174,7 +174,7 @@ class DirectoryCatalogPopulatorMixin:
             path="E:/GPTBridge/Standalone tools",
             schema_version="1.0",
             identity_format="tool-id+runtime+owner",
-            owner_sovereign="synchronization-sovereign",
+            owner_sovereign="automation-sovereign",
             access_control="resource-dependency-sync-sub-sovereign",
             lifecycle="persistent",
         ))
@@ -188,7 +188,7 @@ class DirectoryCatalogPopulatorMixin:
             path="E:/GPTBridge/governance/dependencies",
             schema_version="1.0",
             identity_format="dependency-id+version+license+owner",
-            owner_sovereign="synchronization-sovereign",
+            owner_sovereign="automation-sovereign",
             access_control="dependency-sync-sub-sovereign",
             lifecycle="persistent",
         ))
@@ -230,8 +230,8 @@ class DirectoryCatalogPopulatorMixin:
             path="E:/GPTBridge",
             schema_version="1.0",
             identity_format="commit+branch+author+timestamp",
-            owner_sovereign="synchronization-sovereign",
-            access_control="synchronization-sovereign-decision",
+            owner_sovereign="automation-sovereign",
+            access_control="automation-sovereign-decision",
             lifecycle="persistent",
         ))
 
@@ -244,7 +244,7 @@ class DirectoryCatalogPopulatorMixin:
             path="E:/GPTBridge/main-system/runtime/release",
             schema_version="1.0",
             identity_format="release-id+application-version+artifact-root+contract",
-            owner_sovereign="synchronization-sovereign",
+            owner_sovereign="automation-sovereign",
             access_control="release-update-sync-sub-sovereign",
             lifecycle="persistent",
         ))

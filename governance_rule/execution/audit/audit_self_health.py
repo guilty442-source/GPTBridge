@@ -155,22 +155,181 @@ def _verify_self_health_test_files(
     that can be collected offline so governance health checks never depend
     on a live model server.
 
-    The per-file ``pytest --collect-only`` probes are independent read-only
-    checks, so they run in a bounded thread pool.  The bounded worker count
-    keeps local load low while the whole barrier finishes well inside the
-    audit time budget instead of serialising one interpreter start per file.
+    Collection is batched: one ``pytest --collect-only`` process covers every
+    declared file and the per-file verdict (collected count / collection
+    error) is parsed from its node-id and ``ERROR`` lines.  A single pytest
+    start costs ~1.5s while the previous per-file probes paid that cost ~80
+    times (≈35s per audit); the batched path finishes in a few seconds.
+    If the batch cannot be attributed (timeout or aborted run) the check
+    falls back to the original bounded per-file probes, so the barrier stays
+    fail-closed.
     """
 
     venv_python = root / "main-system" / ".venv" / "Scripts" / "python.exe"
     python_executable = str(venv_python) if venv_python.is_file() else sys.executable
     declared_files = sorted(_declared_self_health_test_files(root, errors))
 
+    existing: list[str] = []
+    for relative_path in declared_files:
+        if (root / relative_path).is_file():
+            existing.append(relative_path)
+        else:
+            errors.append(f"self-health test file is missing: {relative_path}")
+    if not existing:
+        return
+
+    batched = _batched_collection_results(root, python_executable, existing)
+    if batched is None:
+        _verify_self_health_per_file(root, python_executable, existing, errors)
+        return
+    for relative_path in existing:
+        ok, detail = batched.get(
+            relative_path, (False, "collection result missing")
+        )
+        if ok:
+            continue
+        if detail == "no tests collected":
+            errors.append(f"self-health test file collects no tests: {relative_path}")
+        else:
+            errors.append(
+                f"self-health test collection failed: {relative_path}: {detail}"
+            )
+
+
+def _normalized_test_reference(raw: str) -> str:
+    """Normalize a pytest path reference to a root-relative POSIX path."""
+    return raw.strip().strip("\"'").replace("\\", "/").lstrip("./")
+
+
+_SELF_HEALTH_BATCH_CHUNKS = 4
+
+
+def _batched_collection_results(
+    root: Path,
+    python_executable: str,
+    declared_files: list[str],
+) -> dict[str, tuple[bool, str]] | None:
+    """Collect every declared file in parallel pytest batches.
+
+    The declared files are split across a few chunks, each collected by one
+    pytest process concurrently; per-file verdicts are parsed from node-id
+    and ``ERROR`` lines and merged.  Returns ``None`` when any chunk cannot
+    be attributed (timeout or aborted run) so the caller can fall back to
+    per-file probes.
+    """
+    chunk_count = max(1, min(_SELF_HEALTH_BATCH_CHUNKS, len(declared_files)))
+    if chunk_count == 1 or len(declared_files) < _SELF_HEALTH_BATCH_CHUNKS * 2:
+        return _collect_one_batch(root, python_executable, declared_files)
+
+    chunks = [
+        declared_files[index::chunk_count] for index in range(chunk_count)
+    ]
+    chunks = [chunk for chunk in chunks if chunk]
+    with ThreadPoolExecutor(
+        max_workers=len(chunks),
+        thread_name_prefix="self-health-batch",
+    ) as executor:
+        outcomes = list(
+            executor.map(
+                lambda chunk: _collect_one_batch(
+                    root, python_executable, chunk
+                ),
+                chunks,
+            )
+        )
+    if any(outcome is None for outcome in outcomes):
+        return None
+    merged: dict[str, tuple[bool, str]] = {}
+    for outcome in outcomes:
+        if outcome is not None:
+            merged.update(outcome)
+    return merged
+
+
+def _collect_one_batch(
+    root: Path,
+    python_executable: str,
+    batch: list[str],
+) -> dict[str, tuple[bool, str]] | None:
+    """Run one pytest collection batch; map file -> (ok, detail).
+
+    Returns ``None`` when the run cannot be attributed (timeout or an
+    aborted interpreter).
+    """
+    try:
+        completed = subprocess.run(
+            [
+                python_executable,
+                "-m",
+                "pytest",
+                *batch,
+                "--collect-only",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+                "-o",
+                "addopts=",
+                "--tb=no",
+            ],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=300,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except subprocess.TimeoutExpired:
+        return None
+
+    output = "\n".join(
+        part for part in (completed.stdout or "", completed.stderr or "") if part
+    )
+    counts: dict[str, int] = {}
+    failures: dict[str, str] = {}
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("ERROR "):
+            _, _, remainder = line.partition(" ")
+            reference = _normalized_test_reference(remainder.split(" - ", 1)[0])
+            if reference:
+                failures.setdefault(reference, remainder.strip()[:200])
+            continue
+        if "::" in line:
+            reference = _normalized_test_reference(line.split("::", 1)[0])
+            if reference:
+                counts[reference] = counts.get(reference, 0) + 1
+
+    results: dict[str, tuple[bool, str]] = {}
+    for relative_path in batch:
+        reference = _normalized_test_reference(relative_path)
+        if reference in failures:
+            results[relative_path] = (False, failures[reference])
+        elif counts.get(reference, 0) > 0:
+            results[relative_path] = (True, "")
+        else:
+            results[relative_path] = (False, "no tests collected")
+
+    batch_references = {_normalized_test_reference(path) for path in batch}
+    if not batch_references.intersection({*counts, *failures}):
+        # Nothing in this batch was attributed: the run aborted before
+        # collecting (e.g. a broken plugin).  Fall back rather than flag
+        # every file.
+        return None
+    return results
+
+
+def _verify_self_health_per_file(
+    root: Path,
+    python_executable: str,
+    declared_files: list[str],
+    errors: list[str],
+) -> None:
+    """Bounded per-file fallback probes (original behaviour)."""
+
     def collect(relative_path: str) -> list[str]:
         findings: list[str] = []
         test_path = root / relative_path
-        if not test_path.is_file():
-            findings.append(f"self-health test file is missing: {relative_path}")
-            return findings
         try:
             completed = subprocess.run(
                 [

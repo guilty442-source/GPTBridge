@@ -36,7 +36,7 @@ class ReleaseUpdateSyncSubSovereign(SubSovereignBase):
     """
 
     sovereign_id = "release-update-sync-sub-sovereign"
-    parent_sovereign_id = "synchronization-sovereign"
+    parent_sovereign_id = "automation-sovereign"
 
     ROLE = sovereign_id
 

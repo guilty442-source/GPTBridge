@@ -305,5 +305,21 @@
     "occurrence_count": 2,
     "success_rate": 1.0,
     "source": "learned"
+  },
+  {
+    "recipe_id": "learned-538d00badb864527",
+    "name": "Learned repair for SOURCE_RUNTIME_EXITED in shared-layer",
+    "failure_signatures": [
+      "SOURCE_RUNTIME_EXITED",
+      "SOURCE_RUNTIME_EXITED"
+    ],
+    "remedy": "inspect-owned-databases",
+    "owner": "main-system",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-15T08:58:02.074659+00:00",
+    "occurrence_count": 3,
+    "success_rate": 1.0,
+    "source": "learned"
   }
 ]

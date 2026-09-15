@@ -71,7 +71,7 @@ class ChannelContractSyncSubSovereign(
     """In-process sub-sovereign responsible for information-channel governance."""
 
     sovereign_id = "channel-contract-sync-sub-sovereign"
-    parent_sovereign_id = "synchronization-sovereign"
+    parent_sovereign_id = "automation-sovereign"
 
     ROLE = sovereign_id
 

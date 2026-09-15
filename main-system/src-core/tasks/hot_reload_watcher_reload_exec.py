@@ -109,7 +109,7 @@ class ReloadExecutionMixin:
             "operation_id": operation_id,
             "update_type": "backend-release",
             "certified": True,
-            "decision_owner": "synchronization-sovereign",
+            "decision_owner": "automation-sovereign",
             "decision_basis": "A330",
             "permission_scope": token_path,
             "modules": module_names,

@@ -46,7 +46,7 @@ MODULE_AUTHORITIES: Final[dict[ModuleIdentity, frozenset[str]]] = {
         "codex",
         "decision-sovereign",
         "runtime-sovereign",
-        "synchronization-sovereign",
+        "automation-sovereign",
         "permission-sovereign",
         "xingcheng",
     }),

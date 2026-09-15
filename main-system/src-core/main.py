@@ -193,17 +193,15 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
             getattr(self, "_sub_sovereigns", {}) or {}
         )
         try:
-            from governance.registries import children_of
+            from governance.registries import children_of, resolve_sovereign
 
             for parent_id in (
                 "decision-sovereign",
                 "permission-sovereign",
                 "system-runtime-sovereign",
-                "synchronization-sovereign",
+                "automation-sovereign",
             ):
-                parent = getattr(
-                    self, parent_id.replace("-", "_"), None
-                )
+                parent = resolve_sovereign(self, parent_id)
                 registry = getattr(parent, "_sub_sovereigns", None)
                 if not registry:
                     continue

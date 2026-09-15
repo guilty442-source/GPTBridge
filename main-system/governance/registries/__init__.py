@@ -175,6 +175,9 @@ def successor_of(predecessor_identity: str) -> str | None:
 # identity (e.g. the non-ASCII 星澄 identity maps to ``xingcheng_sovereign``).
 _SOVEREIGN_ATTR_ALIASES = {
     "星澄": "xingcheng_sovereign",
+    # Codex renamed synchronization-sovereign to automation-sovereign
+    # (97e8a34); the code object keeps the synchronization class/attr name.
+    "automation-sovereign": "synchronization_sovereign",
 }
 
 

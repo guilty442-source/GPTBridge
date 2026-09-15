@@ -61,7 +61,7 @@ class DependencySyncSubSovereign(SubSovereignBase):
     """
 
     sovereign_id = "dependency-sync-sub-sovereign"
-    parent_sovereign_id = "synchronization-sovereign"
+    parent_sovereign_id = "automation-sovereign"
 
     ROLE = sovereign_id
 

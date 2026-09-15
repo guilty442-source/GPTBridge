@@ -62,7 +62,7 @@ class RuntimeStateSyncSubSovereign(SubSovereignBase):
     """
 
     sovereign_id = "runtime-state-sync-sub-sovereign"
-    parent_sovereign_id = "synchronization-sovereign"
+    parent_sovereign_id = "automation-sovereign"
 
     ROLE = sovereign_id
 
