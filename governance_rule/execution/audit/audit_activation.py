@@ -57,6 +57,13 @@ def check_activation_states(root: Path, errors: list[str]) -> None:
         # through the governed read-only repository interface only.
         with codex_readonly_connection(codex_path) as conn:
             cursor = conn.cursor()
+            architecture_roots = {
+                str(code): str(physical_root)
+                for code, physical_root in cursor.execute(
+                    "SELECT architecture_code, physical_root "
+                    "FROM project_architecture_directory"
+                )
+            }
             cursor.execute(
                 "SELECT architecture_code, target_root, current_state, "
                 "required_state, legacy_root, verification_owner, "
@@ -75,15 +82,28 @@ def check_activation_states(root: Path, errors: list[str]) -> None:
 
             # 2. target_root must exist when state is active or mandated
             if target_root and current_state in ("active", "mandated"):
-                normalized = target_root.replace("\\\\", "\\")
+                if target_root.startswith("ARCH_CODE:"):
+                    target_code = target_root.removeprefix("ARCH_CODE:")
+                    resolved_target = architecture_roots.get(target_code, "")
+                    if not resolved_target:
+                        warnings.append(
+                            "activation state target_root code is unregistered: "
+                            f"{arch_code}: {target_root}"
+                        )
+                        continue
+                else:
+                    resolved_target = target_root
+                normalized = resolved_target.replace("\\\\", "\\")
                 if not Path(normalized).exists():
                     warnings.append(
                         f"activation state target_root does not exist: "
-                        f"{arch_code}: {target_root}"
+                        f"{arch_code}: {target_root} -> {resolved_target}"
                     )
 
             # 3. old_root_deletion_state must be consistent with filesystem
             if legacy_root and old_root_deletion == "not-applicable":
+                if legacy_root.startswith("ARCH_LEGACY_CODE:"):
+                    continue
                 normalized_legacy = legacy_root.replace("\\\\", "\\")
                 if Path(normalized_legacy).exists():
                     warnings.append(
