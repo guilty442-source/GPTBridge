@@ -60,7 +60,7 @@ from core_system.repair_decision_chain import RepairDecisionChain
 from core_system.sovereign_utils import _iso_now
 
 from .parallel_adjudication_mixin import ParallelAdjudicationMixin
-from .parallel_adjudication import AdjudicationTask
+from .decision.startup_dispatch import DecisionStartupDispatchMixin
 
 # A74/A435: self-declaration through the official entry single-use
 # session, not a direct codex snapshot import.
@@ -78,6 +78,14 @@ _TERMINAL_STATUSES: frozenset[str] = frozenset({
     "partial-deferred",
 })
 
+_COORDINATED_SUB_SOVEREIGN_IDS = (
+    "runtime-state-sync-sub-sovereign",
+    "resource-dependency-sync-sub-sovereign",
+    "data-governance-sub-sovereign",
+    "channel-contract-sync-sub-sovereign",
+    "dependency-sync-sub-sovereign",
+)
+
 # Autonomous supervision cadence
 _AUTONOMY_INTERVAL_SECONDS = 15.0
 _CHILD_RESTART_BUDGET = 3
@@ -85,6 +93,7 @@ _CHILD_RESTART_COOLDOWN_SECONDS = 60.0
 
 
 class DecisionSovereign(
+    DecisionStartupDispatchMixin,
     ParallelAdjudicationMixin,
     SovereignBase,
 ):
@@ -406,6 +415,134 @@ class DecisionSovereign(
             },
             self.verified_basis("A12", "A128"),
         )
+
+    def _child_status(self, child_id: str, method: str = "live_status") -> dict[str, Any]:
+        child = getattr(self, "_sub_sovereigns", {}).get(child_id)
+        if child is None:
+            return {"role": child_id, "enabled": False, "materialized": False}
+        reporter = getattr(child, method, None)
+        return reporter() if callable(reporter) else {"role": child_id}
+
+    def status(self) -> dict[str, Any]:
+        from governance.registries import children_of
+
+        state = self._load_state()
+        maintenance_sovereign = getattr(self.app, "maintenance_sovereign", None)
+        permission_sovereign = getattr(self.app, "permission_sovereign", None)
+        return self._with_status_schema({
+            "platform_id": self.platform_id,
+            "module_id": self.module_id,
+            "owned_by": self.module_id,
+            "dependency_state": state.get("dependency_state", ""),
+            "started_at": state.get("started_at", ""),
+            "executor": "governed-executor-only",
+            "sub_sovereigns": [
+                self._child_status(child_id)
+                for child_id in children_of("decision-sovereign")
+            ],
+            "coordinated_sub_sovereigns": self._coordinated_statuses("live_status"),
+            "peer_systems": self._peer_statuses(),
+            "health_owner": "health-maintenance-test-sub-sovereign",
+            "governance_rules": self.governance_rule_coordination.coordination_status(),
+            "certified_updates": self.certified_update_status(),
+            "autonomy": self._autonomy_status(),
+            "runtime-state-sync": self._child_status("runtime-state-sync-sub-sovereign"),
+            "resource-dependency-sync": self._child_status("resource-dependency-sync-sub-sovereign"),
+            "data-governance": self._child_status("data-governance-sub-sovereign"),
+            "channel-contract-sync": self._child_status("channel-contract-sync-sub-sovereign"),
+            "dependency-sync": self._child_status("dependency-sync-sub-sovereign"),
+            "maintenance": (
+                maintenance_sovereign.live_status()
+                if maintenance_sovereign is not None
+                else {"enabled": False}
+            ),
+            "permission": (
+                permission_sovereign.coordination_status()
+                if permission_sovereign is not None
+                else {"enabled": False}
+            ),
+        })
+
+    def live_status(self) -> dict[str, Any]:
+        base = self.status()
+        base["sub_sovereign_registry"] = {
+            name: sov.live_status() if hasattr(sov, "live_status") else {"role": name}
+            for name, sov in self._all_children().items()
+        }
+        return base
+
+    def orchestration_status(self) -> dict[str, Any]:
+        """Unified subsystem health for the governing orchestrator."""
+        from governance.registries import children_of
+
+        maintenance_sovereign = getattr(self.app, "maintenance_sovereign", None)
+        permission_sovereign = getattr(self.app, "permission_sovereign", None)
+        return {
+            "state": "delegated",
+            "owner": self.module_id,
+            "sub_sovereigns": [
+                self._child_status(child_id, "orchestration_status")
+                for child_id in children_of("decision-sovereign")
+            ],
+            "coordinated_sub_sovereigns": self._coordinated_statuses("orchestration_status"),
+            "peer_systems": self._peer_statuses(),
+            "health_owner": "health-maintenance-test-sub-sovereign",
+            "governance_rules": self.governance_rule_coordination.orchestration_status(),
+            "runtime-state-sync": self._child_status("runtime-state-sync-sub-sovereign", "orchestration_status"),
+            "maintenance": (
+                maintenance_sovereign.orchestration_status()
+                if maintenance_sovereign is not None
+                else {"enabled": False}
+            ),
+            "permission": (
+                permission_sovereign.orchestration_status()
+                if permission_sovereign is not None
+                else {"enabled": False}
+            ),
+            "resource-dependency-sync": self._child_status("resource-dependency-sync-sub-sovereign", "orchestration_status"),
+            "data-governance": self._child_status("data-governance-sub-sovereign", "orchestration_status"),
+            "channel-contract-sync": self._child_status("channel-contract-sync-sub-sovereign", "orchestration_status"),
+            "dependency-sync": self._child_status("dependency-sync-sub-sovereign", "orchestration_status"),
+            "subsystems": self._subsystem_statuses(),
+        }
+
+    def _coordinated_statuses(self, method: str) -> list[dict[str, Any]]:
+        return [
+            self._child_status(child_id, method)
+            for child_id in _COORDINATED_SUB_SOVEREIGN_IDS
+        ]
+
+    def _peer_statuses(self) -> dict[str, Any]:
+        return {
+            "learning": self._child_status(
+                "learning-evidence-sync-sub-sovereign", "status"
+            ),
+            "programming": self._child_status(
+                "release-update-sync-sub-sovereign", "status"
+            ),
+        }
+
+    def _autonomy_status(self) -> dict[str, Any]:
+        return {
+            "enabled": self._autonomy_task is not None
+            and not self._autonomy_task.done(),
+            "supervised_children": len(self._child_supervision),
+            "quarantined": [
+                child_id
+                for child_id, watch in self._child_supervision.items()
+                if watch.get("quarantined")
+            ],
+        }
+
+    def _subsystem_statuses(self) -> list[Any]:
+        return [
+            self.governance_rule_coordination.orchestration_status(),
+            self._child_status("runtime-state-sync-sub-sovereign", "orchestration_status"),
+            self._child_status("resource-dependency-sync-sub-sovereign", "orchestration_status"),
+            self._child_status("data-governance-sub-sovereign", "orchestration_status"),
+            self._child_status("channel-contract-sync-sub-sovereign", "orchestration_status"),
+            self._child_status("dependency-sync-sub-sovereign", "orchestration_status"),
+        ]
 
     # ------------------------------------------------------------------
     # Lifecycle (decision-layer only; activation is executor work)

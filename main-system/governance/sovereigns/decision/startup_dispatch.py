@@ -6,10 +6,14 @@ to the governed SovereignStackExecutor. Decision-only; no materialization.
 
 from __future__ import annotations
 
+import json
+import os
+from pathlib import Path
 from typing import Any
 
 from .._base import SovereignBase, SovereignOutcome, SovereignRequest
 from core_system.codex_decision import accepted_outcome, refusal_outcome
+from core_system.sovereign_utils import _iso_now
 
 
 class DecisionStartupDispatchMixin:
@@ -25,7 +29,6 @@ class DecisionStartupDispatchMixin:
     _autonomy_stop: Any
 
     def _dependency_state(self) -> str:
-        import os
         env_state = str(os.environ.get("GPTBRIDGE_STARTUP_STATE", "")).strip()
         if env_state:
             return env_state
@@ -109,3 +112,6 @@ class DecisionStartupDispatchMixin:
             encoding="utf-8",
         )
         os.replace(temporary, self.runtime_state_path)
+
+
+__all__ = ["DecisionStartupDispatchMixin"]

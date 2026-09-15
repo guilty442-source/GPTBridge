@@ -367,6 +367,14 @@ class PermissionSovereign(
             self.verified_basis("A436", "A10"),
         )
 
+    def status(self) -> dict[str, Any]:
+        return self._with_status_schema({
+            "sovereign": self.sovereign_id,
+            "issued_grants_count": len(self._issued_grants),
+            "compliance_violations_count": len(self._compliance_violations),
+            "automation_active": self._automation is not None,
+        })
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
