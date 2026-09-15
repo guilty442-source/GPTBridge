@@ -6,6 +6,7 @@ keeping the fail-closed identity-attestation contract in one place.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from ._delegation import consume_delegation
@@ -26,13 +27,13 @@ _GOVERNED_IN_PROCESS_ACTORS: frozenset[str] = frozenset({
 })
 
 
-def verify_token_requester(
+async def verify_token_requester(
     sovereign: Any, request: Any, token: Any
 ) -> bool:
     """Verify a capability-token-bearing requester (A10/A11/A116)."""
     if not isinstance(token, str) or not token:
         return False
-    claims = sovereign._authenticate_token_claims(request, token)
+    claims = await sovereign._authenticate_token_claims(request, token)
     if claims is None:
         return False
     request.payload["_verified_claims"] = {
@@ -65,7 +66,7 @@ def verify_delegation_nonce(
     return True
 
 
-def verify_requester(sovereign: Any, request: Any) -> bool:
+async def verify_requester(sovereign: Any, request: Any) -> bool:
     """Verify a requester's identity (A10/A11/A116/A121/A435 fail-closed).
 
     Identity proofs accepted, fail-closed:
@@ -91,7 +92,7 @@ def verify_requester(sovereign: Any, request: Any) -> bool:
     request.payload.pop("_verified_claims", None)
     token = request.payload.get("capability_token")
     if token is not None:
-        return verify_token_requester(sovereign, request, token)
+        return await verify_token_requester(sovereign, request, token)
     nonce = request.payload.get("_delegation_nonce")
     if isinstance(nonce, str) and nonce:
         return verify_delegation_nonce(sovereign, request, nonce)

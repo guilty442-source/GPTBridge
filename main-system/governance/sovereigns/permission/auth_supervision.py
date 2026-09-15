@@ -227,7 +227,30 @@ class PermissionAuthSupervisionMixin(AuthSupervisionHelpersMixin):
     async def _execute_authorization(
         self, governance: Any, request: SovereignRequest, params: dict[str, Any]
     ) -> SovereignOutcome:
-        """Delegate to the governed executor and classify the outcome."""
+        """Delegate to the governed executor and classify the outcome.
+
+        Includes parallel capability and resource_path validation.
+        """
+        # Parallel authorization checks: capability match + resource_path validation
+        capability = params["capability"]
+        resource_path = params.get("resource_path")
+
+        # Check if request has verified claims (from token auth)
+        verified_claims = request.payload.get("_verified_claims")
+        if verified_claims:
+            # Parallel check of capability and resource_path
+            capability_valid, resource_valid = await self._check_capability_and_resource_parallel(
+                verified_claims, capability, resource_path
+            )
+            if not capability_valid:
+                return refusal_outcome(
+                    "CAPABILITY_MISMATCH", verified_basis(("A10", "E4"))
+                )
+            if not resource_valid:
+                return refusal_outcome(
+                    "RESOURCE_PATH_VIOLATION", verified_basis(("A10", "E4"))
+                )
+
         try:
             result = governance.authorize(
                 capability=params["capability"],
