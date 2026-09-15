@@ -40,26 +40,6 @@ from governance.sovereigns import (
     SynchronizationSovereign,
     XingchengSovereign,
 )
-from governance.sub_sovereigns import (
-    SystemSubSovereign,
-    StartupSubSovereign,
-    DirectorySubSovereign,
-    IdentityGroupSubSovereign,
-    ResourceDependencySyncSubSovereign,
-    ChannelContractSyncSubSovereign,
-    PolicyArchitectureSubSovereign,
-    HealthMaintenanceTestSubSovereign,
-    DataGovernanceSubSovereign,
-    PriorityCapabilitySubSovereign,
-    ChangeAcceptanceSubSovereign,
-    DependencySyncSubSovereign,
-    ReleaseUpdateSyncSubSovereign,
-    RuntimeStateSyncSubSovereign,
-    RepairBackupSyncSubSovereign,
-    CleanupRetentionSyncSubSovereign,
-    LearningEvidenceSyncSubSovereign,
-    AutomaticLogSyncSubSovereign,
-)
 
 from main_shutdown import GPTBridgeAppShutdownMixin
 
@@ -103,6 +83,26 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
 
         # Sub-sovereigns (initialized on demand, parent set via set_parent)
         self._sub_sovereigns: dict[str, Any] = {}
+        self._sub_sovereign_classes: dict[str, str] = {
+            "system-sub-sovereign": "SystemSubSovereign",
+            "startup-sub-sovereign": "StartupSubSovereign",
+            "directory-sub-sovereign": "DirectorySubSovereign",
+            "identity-group-sub-sovereign": "IdentityGroupSubSovereign",
+            "resource-dependency-sync-sub-sovereign": "ResourceDependencySyncSubSovereign",
+            "channel-contract-sync-sub-sovereign": "ChannelContractSyncSubSovereign",
+            "policy-architecture-sub-sovereign": "PolicyArchitectureSubSovereign",
+            "health-maintenance-test-sub-sovereign": "HealthMaintenanceTestSubSovereign",
+            "data-governance-sub-sovereign": "DataGovernanceSubSovereign",
+            "priority-capability-sub-sovereign": "PriorityCapabilitySubSovereign",
+            "change-acceptance-sub-sovereign": "ChangeAcceptanceSubSovereign",
+            "dependency-sync-sub-sovereign": "DependencySyncSubSovereign",
+            "release-update-sync-sub-sovereign": "ReleaseUpdateSyncSubSovereign",
+            "runtime-state-sync-sub-sovereign": "RuntimeStateSyncSubSovereign",
+            "repair-backup-sync-sub-sovereign": "RepairBackupSyncSubSovereign",
+            "cleanup-retention-sync-sub-sovereign": "CleanupRetentionSyncSubSovereign",
+            "learning-evidence-sync-sub-sovereign": "LearningEvidenceSyncSubSovereign",
+            "automatic-log-sync-sub-sovereign": "AutomaticLogSyncSubSovereign",
+        }
 
         self.hot_reload_watcher: Any | None = None
         self.authority_reanchor_service: Any | None = None
@@ -218,6 +218,25 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
             except Exception:
                 out[name] = {"error": "live_status-failed"}
         return out
+
+    def get_sub_sovereign(self, name: str) -> Any | None:
+        """Lazy-load a sub-sovereign by name (e.g., 'startup-sub-sovereign')."""
+        if name in self._sub_sovereigns:
+            return self._sub_sovereigns[name]
+        class_name = self._sub_sovereign_classes.get(name)
+        if not class_name:
+            return None
+        try:
+            from governance.sub_sovereigns import __all__ as _all
+            if class_name not in _all:
+                return None
+            module = __import__("governance.sub_sovereigns", fromlist=[class_name])
+            cls = getattr(module, class_name)
+            instance = cls(self)
+            self._sub_sovereigns[name] = instance
+            return instance
+        except Exception:
+            return None
 
     def _load_governance_rules(self) -> list[str]:
         """Return the versioned, immutable main-system governance catalog."""

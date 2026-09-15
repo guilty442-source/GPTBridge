@@ -8,6 +8,7 @@ level work during the startup generation.
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from startup_core.startup_config import (
@@ -87,22 +88,39 @@ class StartupExecutorPhasesMixin:
         self._conditions["official-codex-valid"] = True  # type: ignore[attr-defined]
 
     async def _phase_load_permission_directory(self, record: PhaseRecord) -> None:
-        """PHASE-3: load the permission directory; activate permission sovereign."""
+        """PHASE-3: load the permission directory; activate permission sovereign.
+
+        Loads multiple permission snapshots in parallel for faster startup.
+        """
         app = self.app  # type: ignore[attr-defined]
+
+        # Load permission snapshots in parallel
         from governance_rule.permission_directory.code_rule_directory import (
             code_rule_directory_snapshot,
         )
+        from governance_rule.permission_directory import directory_authority_snapshot
 
-        directory = code_rule_directory_snapshot()
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="perm-snapshot") as executor:
+            code_rule_future = loop.run_in_executor(executor, code_rule_directory_snapshot)
+            dir_auth_future = loop.run_in_executor(executor, directory_authority_snapshot)
+
+            directory = await code_rule_future
+            dir_authority = await dir_auth_future
+
         if not directory.approved_tool_ids:
             raise RuntimeError("permission-directory-empty")
+
+        record.detail["approved_tools"] = len(directory.approved_tool_ids)
+        record.detail["dir_authority_version"] = getattr(
+            dir_authority, "authority_version_policy", None
+        )
         if app.permission_sovereign is None:
             from governance import PermissionSovereign
 
             app.permission_sovereign = PermissionSovereign(
                 app, governance=app.governance
             )
-        record.detail["approved_tools"] = len(directory.approved_tool_ids)
         self._conditions["permission-sovereign-active"] = True  # type: ignore[attr-defined]
 
     async def _phase_switch_normal_information_mode(

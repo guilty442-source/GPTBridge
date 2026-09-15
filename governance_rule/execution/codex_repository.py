@@ -341,4 +341,37 @@ def __getattr__(name: str):
     """
     if name == "GOVERNANCE_CODEX":
         return load_governance_codex()
+    if name == "prewarm_codex_cache":
+        return prewarm_codex_cache
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+_CODEX_PREWARMED = False
+
+
+def prewarm_codex_cache() -> bool:
+    """Pre-warm the codex cache by loading it in the background.
+
+    This should be called early in startup (e.g., during boot_core phases)
+    so the codex is cached and ready when the startup sovereign needs it.
+    Returns True if prewarming was initiated or cache was already warm.
+    """
+    global _CODEX_PREWARMED
+    if _CODEX_PREWARMED:
+        return True
+    try:
+        # Trigger cache load in background thread
+        import threading
+
+        def _load():
+            try:
+                load_governance_codex()
+            except Exception:
+                pass
+
+        thread = threading.Thread(target=_load, daemon=True, name="codex-prewarm")
+        thread.start()
+        _CODEX_PREWARMED = True
+        return True
+    except Exception:
+        return False
