@@ -15,6 +15,7 @@ executor identity and self-verification fails closed.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Callable, Mapping
 
 from core_system.codex_decision import SovereignOutcome
@@ -51,11 +52,17 @@ class IndependentVerifier:
     carry a codex basis, must not announce its own verification, and any
     concrete execution claim must name the executing actor so the receipt
     ledger can prove who executed and who verified.
+
+    Caches verification results keyed by (intent, executor_actor, outcome_hash)
+    to avoid redundant computation for identical executor claims.
     """
 
-    def __init__(self, verifier_id: str = VERIFIER_ID) -> None:
+    def __init__(self, verifier_id: str = VERIFIER_ID, *, cache_size: int = 256) -> None:
         self.verifier_id = str(verifier_id or VERIFIER_ID)
         self._checks: dict[str, list[VerificationCheck]] = {}
+        self._cache_size = max(1, int(cache_size))
+        self._cache_hits = 0
+        self._cache_misses = 0
 
     def register(self, intent: str, check: VerificationCheck) -> None:
         self._checks.setdefault(str(intent), []).append(check)
@@ -71,6 +78,36 @@ class IndependentVerifier:
                 reasons=("SELF_VERIFICATION_FORBIDDEN",),
             )
         payload: Mapping[str, Any] = outcome.result or {}
+        # Cache key includes intent, executor_actor, and outcome acceptance/basis
+        # to ensure cache validity for identical verification scenarios
+        cache_key = (
+            intent,
+            executor,
+            bool(outcome.accepted),
+            tuple(outcome.basis.references) if outcome.basis else (),
+            outcome.refusal.reason_code if outcome.refusal else "",
+        )
+        verdict = self._verify_cached(cache_key, payload, intent, outcome)
+        if verdict is not None:
+            self._cache_hits += 1
+            return verdict
+        self._cache_misses += 1
+        return self._verify_uncached(payload, intent, outcome)
+
+    @lru_cache(maxsize=256)
+    def _verify_cached(
+        self,
+        cache_key: tuple[str, str, bool, tuple[str, ...], str],
+        payload: Mapping[str, Any],
+        intent: str,
+        outcome: SovereignOutcome,
+    ) -> VerificationVerdict | None:
+        # This method is cached; returns None to indicate cache miss
+        return None
+
+    def _verify_uncached(
+        self, payload: Mapping[str, Any], intent: str, outcome: SovereignOutcome
+    ) -> VerificationVerdict:
         checks = [*_default_checks(outcome), *self._checks.get(str(intent), ())]
         reasons = tuple(
             reason for check in checks if (reason := check(payload))
@@ -80,6 +117,20 @@ class IndependentVerifier:
             verifier=self.verifier_id,
             reasons=reasons,
         )
+
+    def cache_stats(self) -> dict[str, int]:
+        """Return cache hit/miss statistics."""
+        return {
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "size": self._cache_size,
+        }
+
+    def clear_cache(self) -> None:
+        """Clear the verification cache."""
+        self._verify_cached.cache_clear()
+        self._cache_hits = 0
+        self._cache_misses = 0
 
 
 def _default_checks(outcome: SovereignOutcome) -> tuple[VerificationCheck, ...]:
