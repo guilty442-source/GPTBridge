@@ -19,6 +19,13 @@ if __package__ in (None, ""):
 
 from core_system.versioning import component_version
 
+from .source_repair_indent import (
+    IndentationRepairer,
+    candidate_indentations,
+    orphan_candidate_indices,
+    syntax_problems,
+)
+
 SOURCE_REPAIR_VERSION: Final[str] = component_version("source-repair")
 SOURCE_REPAIR_RECIPE_ID: Final[str] = "main-system-python-source-syntax"
 FAILURE_CODE: Final[str] = "MAIN_SYSTEM_SOURCE_SYNTAX_FAILED"
@@ -94,150 +101,20 @@ def _git_has_uncommitted_change(project_root: Path, source_path: Path) -> bool:
     return bool(result.stdout.strip())
 
 
-def _contentful_indices(lines: list[str]) -> list[int]:
-    indices: list[int] = []
-    for index, line in enumerate(lines):
-        stripped = line.lstrip()
-        if stripped and not stripped.startswith("#"):
-            indices.append(index)
-    return indices
 
 
-def _leading_whitespace(line: str) -> str:
-    return line[: len(line) - len(line.lstrip())]
 
 
-def orphan_candidate_indices(lines: list[str]) -> list[int]:
-    contentful = _contentful_indices(lines)
-    candidates: list[int] = []
-    position = 0
-    while position < len(contentful):
-        if _leading_whitespace(lines[contentful[position]]):
-            position += 1
-            continue
-        start = position
-        while position < len(contentful) and not _leading_whitespace(
-            lines[contentful[position]]
-        ):
-            position += 1
-        end = position - 1
-        previous_indented = start > 0 and bool(
-            _leading_whitespace(lines[contentful[start - 1]])
-        )
-        following_indented = (end + 1) < len(contentful) and bool(
-            _leading_whitespace(lines[contentful[end + 1]])
-        )
-        if previous_indented and following_indented:
-            candidates.extend(contentful[start : end + 1])
-    return candidates
 
 
-def candidate_indentations(lines: list[str], index: int) -> list[str]:
-    contentful = _contentful_indices(lines)
-    previous = ""
-    following = ""
-    observed: dict[str, int] = {}
-    for sibling in contentful:
-        indentation = _leading_whitespace(lines[sibling])
-        if sibling < index:
-            if indentation:
-                previous = indentation
-            if not indentation:
-                observed.clear()
-        elif sibling > index:
-            if indentation:
-                following = indentation
-                break
-    mode = max(observed, key=observed.get) if observed else ""
-    candidates: list[str] = []
-    for indentation in (previous, following, mode):
-        if indentation and indentation not in candidates:
-            candidates.append(indentation)
-    return candidates
 
 
-def _compiles(source: str) -> tuple[bool, str, str]:
-    try:
-        compile(source, "<source-repair>", "exec")
-        return True, "", ""
-    except (IndentationError, TabError, SyntaxError) as error:
-        return False, error.__class__.__name__, str(error)
 
 
-def _is_indentation_family(level: str, message: str) -> bool:
-    if level in ("IndentationError", "TabError"):
-        return True
-    normalized = message.casefold()
-    return any(
-        signature.casefold() in normalized
-        for signature in _SYNTAX_INDENTATION_SIGNATURES
-    )
 
 
-def syntax_problems(path: Path) -> dict[str, Any]:
-    try:
-        source = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as error:
-        return {
-            "ok": False,
-            "error": error.__class__.__name__,
-            "message": str(error),
-            "indentation_family": False,
-        }
-    ok, level, message = _compiles(source)
-    return {
-        "ok": ok,
-        "error": level,
-        "message": message,
-        "indentation_family": _is_indentation_family(level, message),
-    }
 
 
-class IndentationRepairer:
-    def __init__(self, source: str) -> None:
-        self.source = source
-        self.lines = source.splitlines()
-
-    def _single_solution(self) -> tuple[str, list[int]]:
-        original_ok, _, _ = _compiles(self.source)
-        if original_ok:
-            raise ValueError("source already compiles")
-        orphans = orphan_candidate_indices(self.lines)
-        if not orphans or len(orphans) > MAX_ORPHANS_PER_FILE:
-            raise ValueError("no bounded orphan candidate set")
-        candidate_groups = [
-            candidate_indentations(self.lines, index) for index in orphans
-        ]
-        if any(not group for group in candidate_groups):
-            raise ValueError("orphan without candidate indentation")
-        solutions: list[tuple[str, tuple[int, ...]]] = []
-        patched = list(self.lines)
-        applied: list[int] = []
-
-        def search(position: int) -> None:
-            if len(solutions) >= 2:
-                return
-            if position == len(orphans):
-                text = "\n".join(patched)
-                ok, _, _ = _compiles(text)
-                if ok:
-                    solutions.append((text, tuple(sorted(applied))))
-                return
-            index = orphans[position]
-            for indentation in candidate_groups[position]:
-                patched[index] = indentation + self.lines[index]
-                applied.append(index)
-                search(position + 1)
-                applied.pop()
-            patched[index] = self.lines[index]
-
-        search(0)
-        if len(solutions) != 1:
-            raise ValueError("ambiguous or unreachable definite repair")
-        return solutions[0]
-
-    def repair(self) -> tuple[str, list[int]]:
-        return self._single_solution()
 
 
 class SourceRepairService:
@@ -345,65 +222,85 @@ class SourceRepairService:
         for source_path in self.python_sources():
             relative = source_path.relative_to(self.project_root).as_posix()
             report["probed_sources"].append(relative)
-            problem = syntax_problems(source_path)
-            if problem.get("ok"):
-                continue
-            report["problems"].append({"file": relative, **problem})
-            if self._hot_reload_protected(source_path):
-                report["skipped_hot_reload_files"].append(relative)
-                continue
-            if not problem.get("indentation_family"):
-                report["errors"].append(
-                    f"{relative}: {problem.get('error')}; not indentation-family"
-                )
-                continue
-            # Skip files with uncommitted developer changes to avoid
-            # clobbering in-progress edits with an automated rewrite.
-            if _git_has_uncommitted_change(self.project_root, source_path):
-                report["skipped_dirty_files"].append(relative)
-                continue
-            try:
-                repairer = IndentationRepairer(
-                    source_path.read_text(encoding="utf-8")
-                )
-                repaired_source, repaired_indices = repairer.repair()
-            except (OSError, UnicodeError, ValueError) as error:
-                report["ambiguous_files"].append(
-                    {"file": relative, "reason": str(error)}
-                )
-                continue
-            # Re-check for uncommitted changes right before the write so an
-            # edit saved between repair computation and write is preserved.
-            if _git_has_uncommitted_change(self.project_root, source_path):
-                report["skipped_dirty_files"].append(relative)
-                continue
-            try:
-                self._backup(source_path)
-                self._atomic_write(source_path, repaired_source)
-            except (OSError, PermissionError) as error:
-                report["errors"].append(
-                    f"{relative}: write failed ({error.__class__.__name__})"
-                )
-                continue
-            verification = syntax_problems(source_path)
-            if not verification.get("ok"):
-                report["errors"].append(
-                    f"{relative}: post-verification failed ({verification.get('error')})"
-                )
-                try:
-                    self._restore_latest(source_path)
-                except (OSError, PermissionError):
-                    pass
-                continue
-            report["repaired_files"].append(
-                {
-                    "file": relative,
-                    "repaired_lines": repaired_indices,
-                    "verification": "compile-ok",
-                }
-            )
+            self._repair_source_file(source_path, relative, report)
         report["ok"] = not report["errors"]
         return report
+
+    def _repair_source_file(
+        self,
+        source_path: Path,
+        relative: str,
+        report: dict[str, Any],
+    ) -> None:
+        problem = syntax_problems(source_path)
+        if problem.get("ok"):
+            return
+        report["problems"].append({"file": relative, **problem})
+        if self._hot_reload_protected(source_path):
+            report["skipped_hot_reload_files"].append(relative)
+            return
+        if not problem.get("indentation_family"):
+            report["errors"].append(
+                f"{relative}: {problem.get('error')}; not indentation-family"
+            )
+            return
+        # Skip files with uncommitted developer changes to avoid
+        # clobbering in-progress edits with an automated rewrite.
+        if _git_has_uncommitted_change(self.project_root, source_path):
+            report["skipped_dirty_files"].append(relative)
+            return
+        try:
+            repairer = IndentationRepairer(
+                source_path.read_text(encoding="utf-8")
+            )
+            repaired_source, repaired_indices = repairer.repair()
+        except (OSError, UnicodeError, ValueError) as error:
+            report["ambiguous_files"].append(
+                {"file": relative, "reason": str(error)}
+            )
+            return
+        # Re-check for uncommitted changes right before the write so an
+        # edit saved between repair computation and write is preserved.
+        if _git_has_uncommitted_change(self.project_root, source_path):
+            report["skipped_dirty_files"].append(relative)
+            return
+        self._write_repaired_source(
+            source_path, relative, repaired_source, repaired_indices, report
+        )
+
+    def _write_repaired_source(
+        self,
+        source_path: Path,
+        relative: str,
+        repaired_source: str,
+        repaired_indices: list[int],
+        report: dict[str, Any],
+    ) -> None:
+        try:
+            self._backup(source_path)
+            self._atomic_write(source_path, repaired_source)
+        except (OSError, PermissionError) as error:
+            report["errors"].append(
+                f"{relative}: write failed ({error.__class__.__name__})"
+            )
+            return
+        verification = syntax_problems(source_path)
+        if not verification.get("ok"):
+            report["errors"].append(
+                f"{relative}: post-verification failed ({verification.get('error')})"
+            )
+            try:
+                self._restore_latest(source_path)
+            except (OSError, PermissionError):
+                pass
+            return
+        report["repaired_files"].append(
+            {
+                "file": relative,
+                "repaired_lines": repaired_indices,
+                "verification": "compile-ok",
+            }
+        )
 
 
 def self_repair_sources(project_root: Path, *, record: bool = True) -> dict[str, Any]:
@@ -464,34 +361,54 @@ def _record_code_repair_learning(
         if not file_path:
             continue
         try:
-            record_code_repair(
+            _record_single_code_repair(
+                record_code_repair,
                 project_root,
-                file_path=file_path,
-                error_class=str(problem.get("error") or "SyntaxError"),
-                message=str(problem.get("message") or ""),
-                remedy=(
-                    "column-0-indentation-recovery"
-                    if file_path in repaired
-                    else "source-repair-unresolved"
-                ),
-                ok=file_path in repaired,
-                run_id=run_id,
-                failure_code=str(report.get("failure_code") or FAILURE_CODE),
-                extra_detail={
-                    "indentation_family": bool(problem.get("indentation_family")),
-                    "repaired_lines": next(
-                        (
-                            entry.get("repaired_lines") or []
-                            for entry in report.get("repaired_files") or []
-                            if isinstance(entry, dict)
-                            and str(entry.get("file") or "") == file_path
-                        ),
-                        [],
-                    ),
-                },
+                file_path,
+                problem,
+                report,
+                repaired,
+                run_id,
             )
         except Exception:
             continue
+
+
+def _record_single_code_repair(
+    record_code_repair: Any,
+    project_root: Path,
+    file_path: str,
+    problem: dict[str, Any],
+    report: dict[str, Any],
+    repaired: set[str],
+    run_id: str,
+) -> None:
+    record_code_repair(
+        project_root,
+        file_path=file_path,
+        error_class=str(problem.get("error") or "SyntaxError"),
+        message=str(problem.get("message") or ""),
+        remedy=(
+            "column-0-indentation-recovery"
+            if file_path in repaired
+            else "source-repair-unresolved"
+        ),
+        ok=file_path in repaired,
+        run_id=run_id,
+        failure_code=str(report.get("failure_code") or FAILURE_CODE),
+        extra_detail={
+            "indentation_family": bool(problem.get("indentation_family")),
+            "repaired_lines": next(
+                (
+                    entry.get("repaired_lines") or []
+                    for entry in report.get("repaired_files") or []
+                    if isinstance(entry, dict)
+                    and str(entry.get("file") or "") == file_path
+                ),
+                [],
+            ),
+        },
+    )
 
 
 def _cli() -> int:
