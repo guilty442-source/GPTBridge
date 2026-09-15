@@ -103,7 +103,7 @@ def check_architecture_sources(root: Path, errors: list[str]) -> None:
     """Verify architecture source files declare the correct engine roles."""
     architecture_sources = {
         "shared_database": root / "shared-layer/src/shared_layer/database/__init__.py",
-        "local_vector": root / "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/vector_store.py",
+        "local_vector": root / "shared-layer/src/shared_layer/local/vector_store.py",
         "market_network": root / "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data.py",
         "search_network": root / "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searxng.py",
     }

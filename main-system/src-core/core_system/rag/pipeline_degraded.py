@@ -2,35 +2,31 @@
 
 Used by ``CanonicalRagPipeline`` when canonical Qdrant/PostgreSQL are
 unavailable (state=DEGRADED).  All operations are non-canonical and
-reconciliation_required.  The local stores live in the standalone
-local-model tool and are imported lazily so this module stays loadable
-without the tool on ``sys.path``.
+reconciliation_required.  The local stores live in ``shared_layer.local``
+(codex-native SQLite engine, A219/A37 — no external service dependency).
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
-import sys
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+
+from shared_layer.local.local_sqlite_rag_repository import LocalSqliteRagRepository
+from shared_layer.local.vector_store import LocalVectorStore
 
 from .rag_qdrant import IndexState, RagPipelineConfig, RagQueryResult
 
 _logger = logging.getLogger("gptbridge.rag")
 
 
-def _import_local_stores():
-    """Import LocalVectorStore and LocalSqliteRagRepository from the local-model tool."""
-    repo_root = Path(__file__).resolve().parents[4]  # E:\GPTBridge
-    local_model_src = repo_root / "Standalone tools" / "local-model" / "src"
-    if str(local_model_src) not in sys.path:
-        sys.path.insert(0, str(local_model_src))
-    from backend.services.xingcheng.infrastructure.vector_store import LocalVectorStore
-    from backend.services.xingcheng.infrastructure.local_sqlite_rag_repository import LocalSqliteRagRepository
-    return LocalVectorStore, LocalSqliteRagRepository
+def _default_degraded_root() -> Path:
+    """Return a default root for degraded stores outside the project tree."""
+    return Path(tempfile.gettempdir()) / "gptbridge_degraded_rag"
 
 
 class DegradedRagPipeline:
@@ -42,10 +38,9 @@ class DegradedRagPipeline:
 
     def __init__(self, config: RagPipelineConfig, degraded_root: Optional[Path] = None) -> None:
         self.config = config
-        LocalVectorStore, LocalSqliteRagRepository = _import_local_stores()
 
         if degraded_root is None:
-            degraded_root = Path.cwd() / "runtime" / "degraded_rag"
+            degraded_root = _default_degraded_root()
         degraded_root.mkdir(parents=True, exist_ok=True)
 
         self.vector_store = LocalVectorStore(degraded_root, dimension=config.embedding_dimension)
@@ -157,18 +152,22 @@ class DegradedRagPipeline:
         return [r for hit in hits if (r := self._result(hit)) is not None]
 
     def _result(self, hit: dict[str, Any]) -> Optional[RagQueryResult]:
-        """Build a typed result from a local vector hit (no PG metadata)."""
-        payload = hit.get("payload", {})
-        resource_id = payload.get("resource_id") or hit.get("document_id")
-        module_id = payload.get("module_id") or hit.get("module_id")
+        """Build a typed result from a local vector hit (no PG metadata).
+
+        ``LocalVectorStore.query`` returns flat rows — the stored payload
+        fields are promoted to the top level alongside ``document_id``,
+        ``point_id``, ``vector_score`` and ``score``.
+        """
+        resource_id = hit.get("resource_id") or hit.get("document_id")
+        module_id = hit.get("module_id")
         if not resource_id or not module_id:
             return None
         return RagQueryResult(
             resource_id=resource_id,
             module_id=module_id,
-            content=payload.get("content", ""),
+            content=hit.get("content", ""),
             score=hit.get("score", 0.0),
-            metadata=payload,
+            metadata=hit,
             index_state=IndexState(
                 resource_id=resource_id,
                 module_id=module_id,
@@ -176,8 +175,8 @@ class DegradedRagPipeline:
                 embedding_dimension=self.config.embedding_dimension,
                 chunk_size=self.config.chunk_size,
                 chunk_overlap=self.config.chunk_overlap,
-                indexed_at_utc=payload.get("indexed_at_utc", ""),
-                content_hash=payload.get("content_hash", ""),
+                indexed_at_utc=hit.get("indexed_at_utc", ""),
+                content_hash=hit.get("content_hash", ""),
                 qdrant_point_id=hit.get("point_id", ""),
             ),
         )

@@ -9,7 +9,7 @@ import sys
 import uuid
 from pathlib import Path
 from shared_layer.resource_identity import locator_id_for  # noqa: E402
-from xingcheng.infrastructure.local_sqlite_rag_repository import (  # noqa: E402
+from shared_layer.local.local_sqlite_rag_repository import (  # noqa: E402
     LocalSqliteRagRepository,
 )
 

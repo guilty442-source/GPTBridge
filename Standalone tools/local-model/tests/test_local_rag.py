@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 import pytest
 from xingcheng.application.local_rag import LocalRagService
-from xingcheng.infrastructure.vector_store import LocalVectorStore
+from shared_layer.local.vector_store import LocalVectorStore
 
 import math
 import sys
@@ -23,7 +23,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 from xingcheng.application.local_rag import LocalRagService
-from xingcheng.infrastructure.vector_store import LocalVectorStore
+from shared_layer.local.vector_store import LocalVectorStore
 
 
 class FakeRuntime:

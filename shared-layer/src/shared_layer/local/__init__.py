@@ -19,6 +19,8 @@ from .registry_repository import (
     ResourceRegistry,
 )
 from .module_locator import LocalModuleLocatorRepository, ModuleLocatorRepository
+from .vector_store import LocalVectorStore
+from .local_sqlite_rag_repository import LocalSqliteRagRepository
 
 __all__: list[str] = [
     "LocalSharedLayerStore",
@@ -29,4 +31,6 @@ __all__: list[str] = [
     "ResourceRecord",
     "LocalModuleLocatorRepository",
     "ModuleLocatorRepository",
+    "LocalVectorStore",
+    "LocalSqliteRagRepository",
 ]

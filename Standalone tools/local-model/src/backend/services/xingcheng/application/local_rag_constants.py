@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Any
 
 from ..infrastructure.local_rag_canonical import CanonicalRagAdapter
-from ..infrastructure.local_sqlite_rag_repository import LocalSqliteRagRepository
-from ..infrastructure.vector_store import LocalVectorStore
+from shared_layer.local.local_sqlite_rag_repository import LocalSqliteRagRepository
+from shared_layer.local.vector_store import LocalVectorStore
 from ..infrastructure.qwen_reranker import QwenReranker
 
 
