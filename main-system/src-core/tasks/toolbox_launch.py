@@ -22,6 +22,11 @@ from managers.process_utils import terminate_process_tree
 from .toolbox_constants import _background_subprocess_kwargs
 from core_system.versioning import component_version
 from tool_codenames import get_tool_codename
+from .toolbox_launch_helpers import (
+    _check_source_runtime_ready,
+    _resolve_source_ui_paths,
+    _build_source_ui_environment,
+)
 
 _CENTRAL_VERSION = component_version("toolbox")
 _CENTRAL_CODENAME = get_tool_codename("main-system")
@@ -49,34 +54,19 @@ class LaunchMixin:
         except (KeyError, TypeError, ValueError):
             runtime_port = 0
 
-        def source_runtime_ready() -> bool:
-            if not 1024 <= runtime_port <= 65535:
-                return False
-            try:
-                _opener = urllib.request.build_opener(
-                    urllib.request.ProxyHandler({})
-                )
-                with _opener.open(
-                    urllib.request.Request(
-                        f"http://127.0.0.1:{runtime_port}/health",
-                        headers={"Connection": "close"},
-                    ),
-                    timeout=0.75,
-                ) as response:
-                    payload = json.loads(response.read(65_537).decode("utf-8"))
-                return bool(
-                    isinstance(payload, dict)
-                    and payload.get("ok") is True
-                    and payload.get("governance_ready") is True
-                    and str(payload.get("tool_id") or "")
-                    == expected_runtime_tool_id
-                    and str(payload.get("workspace_instance_id") or "")
-                    == self._workspace_instance_id()
-                )
-            except (OSError, ValueError, json.JSONDecodeError, urllib.error.URLError):
-                return False
-
         ready = False
+        # Local governed runtimes normally publish health in well under a
+        # second. Poll more frequently so opening a tool feels immediate while
+        # retaining a bounded three-second allowance for cold starts.
+        for _ in range(150):
+            if await asyncio.to_thread(
+                _check_source_runtime_ready,
+                runtime_port, expected_runtime_tool_id,
+                self._workspace_instance_id(),
+            ):
+                ready = True
+                break
+            await asyncio.sleep(0.02)
         # Local governed runtimes normally publish health in well under a
         # second. Poll more frequently so opening a tool feels immediate while
         # retaining a bounded three-second allowance for cold starts.
@@ -127,63 +117,25 @@ class LaunchMixin:
             )
             if orphaned_ui_ids:
                 await asyncio.to_thread(self._stop_running_source_ui, tool_id)
-        renderer_entry = (
-            self.project_root
-            / "main-system"
-            / "dist-ui"
-            / "independent-tools"
-            / tool_id
-            / "renderer"
-            / "index.html"
-        ).resolve()
-        host_entry = (
-            self.project_root
-            / "main-system"
-            / "scripts"
-            / "source-tool-ui-host"
-            / "main.cjs"
-        ).resolve()
-        electron = (
-            self.project_root
-            / "main-system"
-            / "node_modules"
-            / "electron"
-            / "dist"
-            / "electron.exe"
-        ).resolve()
+        ui_paths = _resolve_source_ui_paths(self.project_root, tool_id)
+        renderer_entry = ui_paths["renderer_entry"]
+        host_entry = ui_paths["host_entry"]
+        electron = ui_paths["electron"]
         if not renderer_entry.is_file() or not host_entry.is_file() or not electron.is_file():
             return {
                 "ok": False,
                 "error_code": "SOURCE_UI_UNAVAILABLE",
                 "message": "Governed source UI host or renderer is unavailable",
             }
-        window = manifest.get("window") if isinstance(manifest.get("window"), dict) else {}
         environment = self._tool_environment(
-            tool_id,
-            tool_dir,
-            manifest,
+            tool_id, tool_dir, manifest,
             governance_tool_id=expected_runtime_tool_id,
         )
-        environment.update(
-            {
-                "GPTBRIDGE_SOURCE_UI_TOOL_ID": tool_id,
-                "GPTBRIDGE_SOURCE_UI_WORKSPACE_ROOT": str(self.project_root.resolve()),
-                "GPTBRIDGE_SOURCE_UI_TOOL_ROOT": str(tool_dir.resolve()),
-                "GPTBRIDGE_SOURCE_UI_RENDERER_ENTRY": str(renderer_entry),
-                "GPTBRIDGE_SOURCE_UI_WEBSOCKET_URL": (
-                    f"ws://127.0.0.1:{runtime_environment['GPTBRIDGE_IPC_PORT']}/"
-                    f"?token={runtime_environment['GPTBRIDGE_IPC_SESSION_TOKEN']}"
-                    f"&instance={self._workspace_instance_id()}"
-                ),
-                "GPTBRIDGE_SOURCE_UI_CODENAME": get_tool_codename(tool_id),
-                "GPTBRIDGE_SOURCE_UI_TITLE": str(
-                    manifest.get("display_name") or tool_id
-                ),
-                "GPTBRIDGE_SOURCE_UI_WIDTH": str(window.get("width") or 1440),
-                "GPTBRIDGE_SOURCE_UI_HEIGHT": str(window.get("height") or 920),
-                "GPTBRIDGE_SOURCE_UI_MIN_WIDTH": str(window.get("minWidth") or 1120),
-                "GPTBRIDGE_SOURCE_UI_MIN_HEIGHT": str(window.get("minHeight") or 760),
-            }
+        environment = _build_source_ui_environment(
+            environment, tool_id, tool_dir, manifest,
+            expected_runtime_tool_id, runtime_environment,
+            renderer_entry, self.project_root,
+            self._workspace_instance_id(),
         )
         process = await asyncio.create_subprocess_exec(
             str(electron),
