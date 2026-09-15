@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 
-class LifecycleMixin:
+class LifecycleBase:
     """Mixin providing sovereign lifecycle management."""
 
     def __init__(self, *args, **kwargs):
@@ -13,13 +13,7 @@ class LifecycleMixin:
         self._started = False
         self._state: dict[str, Any] = {}
 
-    @property
-    def area(self) -> str:
-        raise NotImplementedError("Subclass must implement 'area' property")
 
-    @property
-    def role(self) -> str:
-        raise NotImplementedError("Subclass must implement 'role' property")
 
     @property
     def started(self) -> bool:
@@ -72,4 +66,4 @@ class LifecycleMixin:
         pass
 
 
-__all__ = ["LifecycleMixin"]
+__all__ = ["LifecycleBase"]

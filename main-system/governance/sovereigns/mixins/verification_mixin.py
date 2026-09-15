@@ -7,7 +7,7 @@ from typing import Any
 from governance.independent_verifier import IndependentVerifier, VerificationVerdict
 
 
-class VerificationMixin:
+class VerificationBase:
     """Mixin providing independent verification (A446)."""
 
     def __init__(self, *args, **kwargs):
@@ -16,9 +16,6 @@ class VerificationMixin:
         # be registered by subclasses via ``register_verification_check``.
         self._independent_verifier = IndependentVerifier()
 
-    @property
-    def app(self) -> Any:
-        raise NotImplementedError("Subclass must implement 'app' property")
 
     def register_verification_check(self, intent: str, check: Any) -> None:
         """Register an independent domain check for ``intent`` (A446)."""
@@ -42,4 +39,4 @@ class VerificationMixin:
         return self._independent_verifier.verify(intent, executor_actor, outcome)
 
 
-__all__ = ["VerificationMixin"]
+__all__ = ["VerificationBase"]

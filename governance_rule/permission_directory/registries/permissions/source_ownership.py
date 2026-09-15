@@ -97,6 +97,13 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "channel_types.py",
         "channel_reconnect.py",
         "transactional_outbox.py",
+        "audit_sink.py",
+        "contract_resolver.py",
+        "envelope.py",
+        "gateway_metrics.py",
+        "rate_limiter.py",
+        "connection_mixin.py",
+        "heartbeat_mixin.py",
         "architecture_boundary.py",
         "process_control.py",
     }

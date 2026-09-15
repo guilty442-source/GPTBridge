@@ -451,9 +451,14 @@ def check_tool_isolation_hardening(root: Path, errors: list[str]) -> None:
     isolation_source = (
         root / "main-system/src-core/core_system/tool_isolation.py"
     ).read_text(encoding="utf-8")
-    spawn_source = (
-        root / "main-system/src-core/tasks/toolbox_start_spawn.py"
-    ).read_text(encoding="utf-8")
+    spawn_source = chr(10).join(
+        (root / "main-system/src-core/tasks" / name).read_text(encoding="utf-8")
+        for name in (
+            "toolbox_start_spawn.py",
+            "toolbox_start_spawn_process.py",
+        )
+        if (root / "main-system/src-core/tasks" / name).is_file()
+    )
     required_isolation_controls = (
         ("_record_isolation_audit", "durable isolation audit ledger"),
         ("job_assigned", "job assignment verification"),

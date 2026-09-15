@@ -10,12 +10,9 @@ from core_system.codex_decision import (
 )
 
 
-class CodexMixin:
+class CodexBase:
     """Mixin providing codex decision basis access."""
 
-    @property
-    def area(self) -> str:
-        raise NotImplementedError("Subclass must implement 'area' property")
 
     def edicts(self) -> list[dict[str, str]]:
         """取得管辖领域的法典敕令（决策依据）。"""
@@ -35,4 +32,4 @@ class CodexMixin:
         return intent in allowed or intent.startswith("governance.")
 
 
-__all__ = ["CodexMixin"]
+__all__ = ["CodexBase"]

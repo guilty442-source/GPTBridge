@@ -19,11 +19,7 @@ class XingchengInspectMixin:
     _reviews: dict[str, Any]
     app: Any
 
-    def verified_basis(self, *codes: str) -> list[str]:
-        raise NotImplementedError
 
-    def _iso_now(self) -> str:
-        raise NotImplementedError
 
     async def _adjudicate_permission_review(self, request: SovereignRequest) -> SovereignOutcome:
         """A319: independent privileged read-only examination of permission request."""

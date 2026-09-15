@@ -34,15 +34,15 @@ from ._delegation import (
     record_delegation_outcome,
 )
 from .mixins import (
-    AuthMixin,
-    ChildRegistryMixin,
-    CodexMixin,
-    DelegationMixin,
-    ExecutionMixin,
-    FailureTrackingMixin,
-    LifecycleMixin,
-    StatusMixin,
-    VerificationMixin,
+    AuthBase,
+    ChildRegistryBase,
+    CodexBase,
+    DelegationBase,
+    ExecutionBase,
+    FailureTrackingBase,
+    LifecycleBase,
+    StatusBase,
+    VerificationBase,
 )
 from ..independent_verifier import IndependentVerifier, VerificationVerdict
 
@@ -84,15 +84,15 @@ class SovereignIdentity:
 
 
 class SovereignBase(
-    CodexMixin,
-    AuthMixin,
-    ChildRegistryMixin,
-    DelegationMixin,
-    FailureTrackingMixin,
-    ExecutionMixin,
-    LifecycleMixin,
-    StatusMixin,
-    VerificationMixin,
+    CodexBase,
+    AuthBase,
+    ChildRegistryBase,
+    DelegationBase,
+    FailureTrackingBase,
+    ExecutionBase,
+    LifecycleBase,
+    StatusBase,
+    VerificationBase,
     ABC,
 ):
     """主宰底座：单一入口 gate、法典引用、唯经委派之执行出口（A446/A121）。"""

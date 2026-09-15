@@ -15,13 +15,7 @@ from core_system.codex_decision import (
 class ChildRegistryMixin:
     """Mixin providing sub-sovereign registry and A334 parent authority."""
 
-    @property
-    def sovereign_id(self) -> str:
-        raise NotImplementedError("Subclass must implement 'sovereign_id' property")
 
-    @property
-    def app(self) -> Any:
-        raise NotImplementedError("Subclass must implement 'app' property")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

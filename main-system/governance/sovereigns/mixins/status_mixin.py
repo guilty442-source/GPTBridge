@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 
-class StatusMixin:
+class StatusBase:
     """Mixin providing canonical sovereign-status schema."""
 
     def __init__(self, *args, **kwargs):
@@ -13,13 +13,7 @@ class StatusMixin:
         self._sub_sovereigns: dict[str, Any] = {}
         self._child_failure_counts: dict[str, int] = {}
 
-    @property
-    def area(self) -> str:
-        raise NotImplementedError("Subclass must implement 'area' property")
 
-    @property
-    def sovereign_id(self) -> str:
-        raise NotImplementedError("Subclass must implement 'sovereign_id' property")
 
     @property
     def role(self) -> str:
@@ -69,4 +63,4 @@ class StatusMixin:
         }
 
 
-__all__ = ["StatusMixin"]
+__all__ = ["StatusBase"]

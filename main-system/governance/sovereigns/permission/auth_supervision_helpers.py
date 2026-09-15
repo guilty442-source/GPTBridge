@@ -21,13 +21,7 @@ class AuthSupervisionHelpersMixin:
 
     _issued_grants: dict[str, dict[str, Any]]
 
-    async def _request_xingcheng_permission_review(
-        self, payload: dict[str, Any], requester: str
-    ) -> SovereignOutcome | None:
-        raise NotImplementedError
 
-    def _iso_now(self) -> str:
-        raise NotImplementedError
 
     async def _check_two_key_review(
         self,

@@ -13,12 +13,9 @@ from core_system.codex_decision import (
 from .._delegation import attach_delegation_receipt
 
 
-class ExecutionMixin:
+class ExecutionBase:
     """Mixin providing execution delegation and receipt attachment."""
 
-    @property
-    def sovereign_id(self) -> str:
-        raise NotImplementedError("Subclass must implement 'sovereign_id' property")
 
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: Any
@@ -59,4 +56,4 @@ class ExecutionMixin:
         )
 
 
-__all__ = ["ExecutionMixin"]
+__all__ = ["ExecutionBase"]

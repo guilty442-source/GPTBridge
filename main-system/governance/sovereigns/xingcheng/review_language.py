@@ -23,11 +23,7 @@ class XingchengLanguageReviewMixin:
 
     _reviews: dict[str, Any]
 
-    def verified_basis(self, *codes: str) -> list[str]:
-        raise NotImplementedError
 
-    def _iso_now(self) -> str:
-        raise NotImplementedError
 
     async def _adjudicate_language_review(self, request: SovereignRequest) -> SovereignOutcome:
         """Language conformance review (transferred capability, advisory only)."""

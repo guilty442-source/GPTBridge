@@ -15,16 +15,10 @@ from .._delegation import (
 )
 
 
-class DelegationMixin:
+class DelegationBase:
     """Mixin providing inter-sovereign coordination via A334 routed delegation."""
 
-    @property
-    def sovereign_id(self) -> str:
-        raise NotImplementedError("Subclass must implement 'sovereign_id' property")
 
-    @property
-    def app(self) -> Any:
-        raise NotImplementedError("Subclass must implement 'app' property")
 
     def resolve_sovereign(self, sovereign_id: str) -> Any | None:
         """Resolve another sovereign instance via the A334 hierarchy."""
@@ -64,4 +58,4 @@ class DelegationMixin:
         )
 
 
-__all__ = ["DelegationMixin"]
+__all__ = ["DelegationBase"]

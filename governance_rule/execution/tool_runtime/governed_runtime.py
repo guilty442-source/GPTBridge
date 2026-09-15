@@ -202,9 +202,18 @@ class GovernedToolRuntime(GovernedRuntimeWorkerMixin, GovernedRuntimeMaintenance
             os.environ.get("GPTBRIDGE_TOOL_DIR") or self.root / tool_id
         ).resolve()
         self.authentication = load_authentication(self.root)
+        self._init_channels(channel_modes)
+        self._init_token_and_port()
+        self._init_callbacks(startup, shutdown, cancellation, health, idle_cleanup)
+        self._init_state(self_repair, self_repair_clear_pycache, local_cleanup)
+        _assert_sub_sovereign(self)
+        self._start_time = time.monotonic()
+
+    def _init_channels(self, channel_modes: dict[str, str] | None) -> None:
+        """Initialize shared-layer channels (system + optional AI)."""
         self.channel = SharedLayerChannel(
             self.root,
-            tool_id,
+            self.tool_id,
             self.authentication,
             "system",
         )
@@ -217,12 +226,15 @@ class GovernedToolRuntime(GovernedRuntimeWorkerMixin, GovernedRuntimeMaintenance
                 raise permission_denied()
             self._channels[channel_id] = SharedLayerChannel(
                 self.root,
-                tool_id,
+                self.tool_id,
                 self.authentication,
                 channel_id,
             )
             if mode == "process":
                 self._processing_channel_ids.append(channel_id)
+
+    def _init_token_and_port(self) -> None:
+        """Initialize and validate IPC token and port from environment."""
         token = str(os.environ.get("GPTBRIDGE_IPC_SESSION_TOKEN") or "").strip().lower()
         if TOKEN_PATTERN.fullmatch(token) is None:
             raise permission_denied()
@@ -235,13 +247,31 @@ class GovernedToolRuntime(GovernedRuntimeWorkerMixin, GovernedRuntimeMaintenance
             raise permission_denied()
         self.shutdown_token = str(os.environ.get("GPTBRIDGE_SHUTDOWN_TOKEN") or "")
         self.shutdown_event = asyncio.Event()
+
+    def _init_callbacks(
+        self,
+        startup: Lifecycle | None,
+        shutdown: Lifecycle | None,
+        cancellation: Cancellation | None,
+        health: Callable[[], dict[str, Any]] | None,
+        idle_cleanup: Callable[[], Any] | None,
+    ) -> None:
+        """Assign lifecycle callbacks."""
         self.executor = executor
         self.startup_callback = startup
         self.shutdown_callback = shutdown
         self.cancellation = cancellation
         self.health_callback = health
-        self.waiters: dict[str, Any] = {}
         self.idle_cleanup = idle_cleanup
+
+    def _init_state(
+        self,
+        self_repair: bool,
+        self_repair_clear_pycache: bool,
+        local_cleanup: bool,
+    ) -> None:
+        """Initialize mutable runtime state."""
+        self.waiters: dict[str, Any] = {}
         self.self_repair_enabled = self_repair
         self.self_repair_clear_pycache = self_repair_clear_pycache
         self._last_self_repair: dict[str, Any] | None = None
@@ -254,7 +284,6 @@ class GovernedToolRuntime(GovernedRuntimeWorkerMixin, GovernedRuntimeMaintenance
         # Notification channel state (best-effort wake-up acceleration).
         self._last_notification: dict[str, Any] | None = None
         self._notified_request_ids: set[str] = set()
-        _assert_sub_sovereign(self)
         self._start_time = time.monotonic()
 
     def channel_for(self, channel_id: str) -> SharedLayerChannel:

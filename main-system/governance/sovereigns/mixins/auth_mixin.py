@@ -10,20 +10,11 @@ from .._requester_verification import (
 )
 
 
-class AuthMixin:
+class AuthBase:
     """Mixin providing requester verification and token authentication."""
 
-    @property
-    def area(self) -> str:
-        raise NotImplementedError("Subclass must implement 'area' property")
 
-    @property
-    def sovereign_id(self) -> str:
-        raise NotImplementedError("Subclass must implement 'sovereign_id' property")
 
-    @property
-    def app(self) -> Any:
-        raise NotImplementedError("Subclass must implement 'app' property")
 
     async def _verify_requester(self, request: Any) -> bool:
         """验证请求者身份（A10/A11/A116/A121/A435 fail-closed）。
@@ -80,4 +71,4 @@ class AuthMixin:
         return resolve_sovereign(self.app, value) is not None
 
 
-__all__ = ["AuthMixin"]
+__all__ = ["AuthBase"]
