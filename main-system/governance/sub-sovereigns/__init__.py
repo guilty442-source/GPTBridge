@@ -23,7 +23,6 @@ from .release_update_sync_sub_sovereign import ReleaseUpdateSyncSubSovereign
 from .runtime_state_sync_sub_sovereign import RuntimeStateSyncSubSovereign
 from .repair_backup_sync_sub_sovereign import RepairBackupSyncSubSovereign
 from .cleanup_retention_sync_sub_sovereign import CleanupRetentionSyncSubSovereign
-from .learning_evidence_sync_sub_sovereign import LearningEvidenceSyncSubSovereign
 from .automatic_log_sync_sub_sovereign import AutomaticLogSyncSubSovereign
 
 __all__ = [
@@ -44,6 +43,5 @@ __all__ = [
     "RuntimeStateSyncSubSovereign",
     "RepairBackupSyncSubSovereign",
     "CleanupRetentionSyncSubSovereign",
-    "LearningEvidenceSyncSubSovereign",
     "AutomaticLogSyncSubSovereign",
 ]

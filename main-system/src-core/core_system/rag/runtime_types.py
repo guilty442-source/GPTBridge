@@ -107,8 +107,17 @@ class ReconciliationQueueItem:
     status: str = QueueStatus.PENDING.value
     correlation_id: Optional[str] = None
     last_error: Optional[str] = None
+    # When the degraded store indexed the mutation, and when the canonical
+    # stores confirmed the reconciled write (pending_rag_mutation fields).
+    degraded_indexed_at: Optional[str] = None
+    canonical_synced_at: Optional[str] = None
     # Payload snapshot required for idempotent replay (re-chunk, re-embed).
     payload: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def retry_count(self) -> int:
+        """Retry counter (internal column name is ``attempts``)."""
+        return self.attempts
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -119,7 +128,8 @@ class ReconciliationQueueItem:
     def from_row(cls, row: sqlite3.Row | tuple) -> "ReconciliationQueueItem":
         # Accept both sqlite3.Row and plain tuple in column order below.
         if isinstance(row, sqlite3.Row):
-            getter = lambda key: row[key]
+            available = set(row.keys())
+            getter = lambda key: row[key] if key in available else None
         else:
             keys = (
                 "operation_id", "idempotency_key", "resource_id", "locator_id",
@@ -127,20 +137,14 @@ class ReconciliationQueueItem:
                 "embedding_model", "embedding_version", "chunk_size", "chunk_overlap",
                 "chunking_version", "parser_version", "schema_version", "created_at",
                 "attempts", "next_retry_at", "deadline", "status", "correlation_id",
-                "last_error", "payload",
+                "last_error", "payload", "degraded_indexed_at", "canonical_synced_at",
             )
-            getter = lambda key: row[keys.index(key)]
-        payload_raw = getter("payload")
-        if isinstance(payload_raw, (bytes, bytearray)):
-            payload_raw = payload_raw.decode("utf-8")
-        payload: dict[str, Any]
-        if isinstance(payload_raw, dict):
-            payload = payload_raw
-        else:
-            try:
-                payload = json.loads(payload_raw) if payload_raw else {}
-            except (TypeError, ValueError):
-                payload = {}
+            getter = (
+                lambda key: row[keys.index(key)]
+                if key in keys and keys.index(key) < len(row)
+                else None
+            )
+        payload = _row_payload(getter("payload"))
         return cls(
             operation_id=str(getter("operation_id")),
             idempotency_key=str(getter("idempotency_key")),
@@ -165,7 +169,28 @@ class ReconciliationQueueItem:
             correlation_id=str(getter("correlation_id")) if getter("correlation_id") else None,
             last_error=str(getter("last_error")) if getter("last_error") else None,
             payload=payload,
+            **_optional_recon_fields(getter),
         )
+
+
+def _row_payload(raw: Any) -> dict[str, Any]:
+    """Decode the queue payload column (JSON text / dict / bytes)."""
+    if isinstance(raw, (bytes, bytearray)):
+        raw = raw.decode("utf-8")
+    if isinstance(raw, dict):
+        return raw
+    try:
+        return json.loads(raw) if raw else {}
+    except (TypeError, ValueError):
+        return {}
+
+
+def _optional_recon_fields(getter: Any) -> dict[str, Any]:
+    """Optional pending_rag_mutation columns absent from older rows."""
+    return {
+        field: (str(getter(field)) if getter(field) else None)
+        for field in ("degraded_indexed_at", "canonical_synced_at")
+    }
 
 
 def make_idempotency_key(

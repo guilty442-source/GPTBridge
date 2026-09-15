@@ -100,7 +100,10 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
             "runtime-state-sync-sub-sovereign": "RuntimeStateSyncSubSovereign",
             "repair-backup-sync-sub-sovereign": "RepairBackupSyncSubSovereign",
             "cleanup-retention-sync-sub-sovereign": "CleanupRetentionSyncSubSovereign",
-            "learning-evidence-sync-sub-sovereign": "LearningEvidenceSyncSubSovereign",
+            "learning-evidence-sync-sub-sovereign": (
+                "governance.sovereigns.xingcheng.learning_sub_sovereign:"
+                "LearningEvidenceSyncSubSovereign"
+            ),
             "automatic-log-sync-sub-sovereign": "AutomaticLogSyncSubSovereign",
         }
 
@@ -223,15 +226,22 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
         """Lazy-load a sub-sovereign by name (e.g., 'startup-sub-sovereign')."""
         if name in self._sub_sovereigns:
             return self._sub_sovereigns[name]
-        class_name = self._sub_sovereign_classes.get(name)
-        if not class_name:
+        class_ref = self._sub_sovereign_classes.get(name)
+        if not class_ref:
             return None
         try:
-            from governance.sub_sovereigns import __all__ as _all
-            if class_name not in _all:
-                return None
-            module = __import__("governance.sub_sovereigns", fromlist=[class_name])
-            cls = getattr(module, class_name)
+            if ":" in class_ref:
+                # Dotted ``module:Class`` reference (A485: the learning
+                # sub-sovereign lives in the 星澄 owner package).
+                module_name, class_name = class_ref.split(":", 1)
+                module = __import__(module_name, fromlist=[class_name])
+                cls = getattr(module, class_name)
+            else:
+                from governance.sub_sovereigns import __all__ as _all
+                if class_ref not in _all:
+                    return None
+                module = __import__("governance.sub_sovereigns", fromlist=[class_ref])
+                cls = getattr(module, class_ref)
             instance = cls(self)
             self._sub_sovereigns[name] = instance
             return instance

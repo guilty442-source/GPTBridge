@@ -64,6 +64,7 @@ def _queue_item(
     versions: dict[str, Any],
 ) -> ReconciliationQueueItem:
     """Build a durable reconciliation queue item for a degraded mutation."""
+    now = datetime.now(timezone.utc).isoformat()
     return ReconciliationQueueItem(
         operation_id=operation_id,
         idempotency_key=make_idempotency_key(
@@ -74,7 +75,8 @@ def _queue_item(
             content_hash=identity["content_hash"],
         ),
         tombstone_generation=tombstone_generation,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=now,
+        degraded_indexed_at=now,
         status=QueueStatus.PENDING.value,
         correlation_id=correlation_id,
         deadline=deadline,

@@ -1,13 +1,21 @@
-"""Learning Evidence Sync Sub-Sovereign — 學習證據同步子主權（子屬同步主宰，無決策、無執行）。
+"""Learning Sub-Sovereign — 學習子主宰（星澄專屬管理，無決策、無執行）。
 
-法典依據:
-- sovereign_id: learning-evidence-sync-sub-sovereign (position 32)
+法典依據 (A485 — learning-sub-sovereign-transfer-to-xingcheng):
+- sovereign_id: learning-evidence-sync-sub-sovereign (identity preserved)
+- display name: learning-sub-sovereign
 - area: system-learning
-- rank: child-of-synchronization-sovereign-no-decision-no-execution
-- basis: A310/A322 (retires learning-system-sovereign /
-  learning-system-sub-sovereign)
+- parent: 星澄 (xingcheng_sovereign)
+- relation: privileged-institution-managed-sub-sovereign
+- rank: child-of-星澄-no-decision-no-execution
+- duties: manage learning-evidence modules, assign bounded learning work,
+  coordinate evidence normalization/evaluation/retention, collect outcome proof
+- boundary: no decision/execution power; cannot alter models, code, Codex,
+  permissions, routing or active behavior
+- information: 星澄-to-learning instructions/events/evidence/results use the
+  information layer (including the 星澄 auxiliary private channel)
 
-The implementation was merged from the retired
+Module home: ``governance/sovereigns/xingcheng/`` (A485 module assignment to
+the 星澄 owner).  The implementation was merged from the retired
 ``core_system.learning_system_sovereign.LearningSystemSovereign`` so the
 active path keeps its persistent system-error learning behavior (fault
 learning, repair outcomes, evidence feedback) while operating under the
@@ -24,9 +32,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
-from ._base import SubSovereignBase
+from governance.sub_sovereigns._base import SubSovereignBase
 from governance_rule.execution.codex_official import official_self_declaration
-from .learning_evidence_sync_reconciliation import LearningReconciliationMixin
+from .learning_reconciliation import LearningReconciliationMixin
 
 
 _logger = logging.getLogger("gptbridge.sovereign.learning-evidence-sync")
@@ -35,7 +43,7 @@ _DECLARATION = official_self_declaration("learning-evidence-sync-sub-sovereign")
 if _DECLARATION is None:
     raise RuntimeError("learning evidence sync sub-sovereign not found in Governance Codex")
 
-from .learning_evidence_sync_constants import (
+from .learning_constants import (
     RECONCILIATION_AUDIT_RELATIVE,
     NON_ACTIONABLE_REMEDY,
     DEFAULT_RECONCILE_INTERVAL_SECONDS,
@@ -48,7 +56,7 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
     """Learns verified error/remedy outcomes without gaining execution power."""
 
     sovereign_id = "learning-evidence-sync-sub-sovereign"
-    parent_sovereign_id = "synchronization-sovereign"
+    parent_sovereign_id = "星澄"
 
     ROLE = sovereign_id
 

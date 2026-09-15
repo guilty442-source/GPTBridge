@@ -1,7 +1,8 @@
-"""Learning reconciliation mixin (A185 split).
+"""Learning reconciliation mixin (A185 split; A485 — learning sub-sovereign).
 
-Contains the fault reconciliation methods extracted from
-LearningEvidenceSyncSubSovereign.
+Moved with the learning-sub-sovereign into the 星澄 owner package
+(``governance/sovereigns/xingcheng``) per A485
+(learning-sub-sovereign-transfer-to-xingcheng).
 """
 from __future__ import annotations
 
@@ -9,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .learning_evidence_sync_constants import (
+from .learning_constants import (
     RECONCILIATION_AUDIT_RELATIVE,
     NON_ACTIONABLE_REMEDY,
 )

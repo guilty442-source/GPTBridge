@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 from shared_layer.resource_identity import (
@@ -30,6 +31,31 @@ class LocalRagIndexMixin:
     @staticmethod
     def _point_id(chunk_id: str) -> str:
         return str(point_id_for(chunk_id))
+
+    def _reconcile_source_document(
+        self, module_id: str, locator_id: str
+    ) -> dict[str, Any] | None:
+        """A374: re-fetch the owning module's original content for replay.
+
+        Prefers re-reading the document at its recorded source path (the
+        true original); falls back to reassembled degraded-mirror chunk
+        text.  Never returns degraded vectors — the reconciler re-chunks
+        and re-embeds through the governed local runtime.
+        """
+        doc = self.repository.document_source(module_id, locator_id)
+        if doc is None:
+            return None
+        source = str(doc.get("source") or "")
+        if source:
+            path = Path(source)
+            if path.is_file():
+                try:
+                    doc["content"] = path.read_text(
+                        encoding="utf-8", errors="replace"
+                    )
+                except OSError:
+                    pass  # keep reassembled mirror content
+        return doc
 
     def _dependency_error(self, exc: Exception, *, indexed: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         message = str(exc)
@@ -89,15 +115,12 @@ class LocalRagIndexMixin:
     ) -> dict[str, Any]:
         digest = hashlib.sha256(document["text"].encode("utf-8")).hexdigest()
         document_id = hashlib.sha256(document["source"].encode("utf-8")).hexdigest()[:32]
-        existing = self._existing_document(
-            document["source"], document_id, module_id, canonical_ready
+        unchanged = self._unchanged_document(
+            document, document_id, module_id, embedding_model, digest,
+            canonical_ready,
         )
-        if existing and existing.get("sha256") == digest and existing.get("embedding_model") == embedding_model:
-            return {
-                "document_id": existing["document_id"],
-                "source": document["source"],
-                "reason": "unchanged",
-            }
+        if unchanged is not None:
+            return unchanged
         chunks = self._chunks(document["text"])
         vectors = self._embed([chunk["content"] for chunk in chunks])
         if not vectors or not vectors[0]:
@@ -124,18 +147,64 @@ class LocalRagIndexMixin:
         # written even on the canonical path so fallback reads stay consistent.
         self.vector_store.replace_document(document_id, points, module_id=module_id)
         self.repository.replace_document(document=document_record, chunks=prepared)
+        if not canonical_indexed:
+            # A374: record the durable pending_rag_mutation so canonical
+            # recovery replays this write (re-fetch → re-chunk → re-embed).
+            self._record_degraded_mutation(document_record)
+        return self._ingest_entry(
+            document, document_id, identity, module_id,
+            len(prepared), canonical_indexed,
+        )
+
+    @staticmethod
+    def _ingest_entry(
+        document: dict[str, Any],
+        document_id: str,
+        identity: ResourceIdentity,
+        module_id: str,
+        chunk_count: int,
+        canonical_indexed: bool,
+    ) -> dict[str, Any]:
         return {
             "document_id": document_id,
             "source": document["source"],
             "title": document["title"],
             "character_count": len(document["text"]),
-            "chunk_count": len(prepared),
+            "chunk_count": chunk_count,
             "module_id": module_id,
-            "resource_id": identity.resource_id,
-            "resource_label": identity.label,
             "canonical": canonical_indexed,
             "reconciliation_required": not canonical_indexed,
+            **identity.as_tags(),
         }
+
+    def _unchanged_document(
+        self,
+        document: dict[str, Any],
+        document_id: str,
+        module_id: str,
+        embedding_model: str,
+        digest: str,
+        canonical_ready: bool,
+    ) -> dict[str, Any] | None:
+        existing = self._existing_document(
+            document["source"], document_id, module_id, canonical_ready
+        )
+        if existing and existing.get("sha256") == digest and existing.get("embedding_model") == embedding_model:
+            return {
+                "document_id": existing["document_id"],
+                "source": document["source"],
+                "reason": "unchanged",
+            }
+        return None
+
+    def _record_degraded_mutation(self, document_record: dict[str, Any]) -> None:
+        recorder = getattr(self.canonical, "record_degraded_mutation", None)
+        if recorder is None:
+            return
+        try:
+            recorder(document_record)
+        except (OSError, RuntimeError, ValueError):
+            pass  # enqueue is best-effort; the mirror write already landed
 
     @staticmethod
     def _document_record(
@@ -218,15 +287,21 @@ class LocalRagIndexMixin:
                         "shared_knowledge_base": True,
                         "embedding_model": embedding_model,
                         **chunk_identity.as_tags(),
-                        "document_resource_id": identity.resource_id,
-                        "document_resource_label": identity.label,
-                        "classification": "private",
-                        "version": 1,
-                        "content_hash": digest,
+                        **self._document_tags(identity, digest),
                     },
                 }
             )
         return prepared, points
+
+    @staticmethod
+    def _document_tags(identity: ResourceIdentity, digest: str) -> dict[str, Any]:
+        return {
+            "document_resource_id": identity.resource_id,
+            "document_resource_label": identity.label,
+            "classification": "private",
+            "version": 1,
+            "content_hash": digest,
+        }
 
     def ingest(self, payload: dict[str, Any]) -> dict[str, Any]:
         module_id = canonical_identifier(
@@ -258,6 +333,20 @@ class LocalRagIndexMixin:
             result = self._dependency_error(exc, indexed=indexed)
             result["errors"] = errors
             return result
+        return self._ingest_result(
+            module_id, embedding_model, canonical_ready,
+            indexed, skipped, errors,
+        )
+
+    def _ingest_result(
+        self,
+        module_id: str,
+        embedding_model: str,
+        canonical_ready: bool,
+        indexed: list[dict[str, Any]],
+        skipped: list[dict[str, Any]],
+        errors: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         return {
             "ok": True,
             "knowledge_base": "shared",

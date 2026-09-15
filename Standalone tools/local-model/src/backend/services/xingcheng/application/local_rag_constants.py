@@ -59,5 +59,9 @@ class LocalRagConstants:
         self.canonical = (
             canonical
             if canonical is not None
-            else CanonicalRagAdapter(self.tool_root, transformer_runtime)
+            else CanonicalRagAdapter(
+                self.tool_root,
+                transformer_runtime,
+                document_fetcher=self._reconcile_source_document,
+            )
         )

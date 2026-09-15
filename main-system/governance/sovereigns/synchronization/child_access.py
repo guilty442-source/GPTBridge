@@ -15,7 +15,6 @@ _SYNC_INTENT_CHILDREN: dict[str, str] = {
     "sync.resource-dependency": "resource-dependency-sync-sub-sovereign",
     "sync.channel-contract": "channel-contract-sync-sub-sovereign",
     "sync.release-update": "release-update-sync-sub-sovereign",
-    "sync.learning-evidence": "learning-evidence-sync-sub-sovereign",
     "sync.runtime-state": "runtime-state-sync-sub-sovereign",
     "sync.repair-backup": "repair-backup-sync-sub-sovereign",
     "sync.cleanup-retention": "cleanup-retention-sync-sub-sovereign",

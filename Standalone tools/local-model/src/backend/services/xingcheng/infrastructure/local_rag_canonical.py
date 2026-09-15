@@ -66,10 +66,22 @@ class CanonicalRagAdapter:
         transformer_runtime: Any = None,
         *,
         enabled: bool = True,
+        document_fetcher: Any = None,
+        embed_texts: Any = None,
     ) -> None:
         self._tool_root = Path(tool_root).resolve()
         self._transformer_runtime = transformer_runtime
         self._enabled = enabled
+        # A374 reconciliation data flow: the fetcher re-reads the owning
+        # module's original content from the degraded mirror; the embedder
+        # regenerates qwen3-embedding:4b/2560d vectors — degraded hashing
+        # vectors are never replayed into the canonical collection.
+        self._document_fetcher = document_fetcher
+        self._embed_texts = embed_texts or (
+            (lambda texts: transformer_runtime.embed(texts))
+            if transformer_runtime is not None
+            else None
+        )
         self._lock = threading.Lock()
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._thread: Optional[threading.Thread] = None
@@ -120,24 +132,9 @@ class CanonicalRagAdapter:
             if runtime is not None:
                 embedding_model = str(getattr(runtime, "EMBEDDING_MODEL", embedding_model))
             self._pipeline = CanonicalRagPipeline(
-                RagPipelineConfig(
-                    qdrant_url=os.environ.get("QDRANT_URL", _DEFAULT_QDRANT_URL),
-                    qdrant_api_key=os.environ.get("QDRANT_API_KEY") or None,
-                    collection_name=os.environ.get(
-                        "QDRANT_COLLECTION", _DEFAULT_COLLECTION
-                    ),
-                    postgresql_dsn=dsn,
-                    # Governed local contract: qwen3-embedding:4b via the
-                    # local Ollama runtime, 2560-dim — matches the canonical
-                    # gptbridge_shared_knowledge collection.
-                    embedding_model=embedding_model,
-                    embedding_dimension=2560,
-                    embedding_provider="ollama",
-                    chunk_size=1200,
-                    chunk_overlap=200,
-                    top_k=48,
-                    score_threshold=0.0,
-                )
+                self._pipeline_config(RagPipelineConfig, dsn, embedding_model),
+                document_fetcher=self._document_fetcher,
+                embed_texts=self._embed_texts,
             )
             self._ready = bool(await self._pipeline.initialize())
             if not self._ready:
@@ -146,6 +143,33 @@ class CanonicalRagAdapter:
             self._last_error = str(exc)
             self._pipeline = None
             self._ready = False
+
+    def _pipeline_config(
+        self, config_type: Any, dsn: str, embedding_model: str
+    ) -> Any:
+        """Governed local contract + durable A374 stores."""
+        state_dir = Path(self._tool_root) / "runtime" / "state"
+        return config_type(
+            qdrant_url=os.environ.get("QDRANT_URL", _DEFAULT_QDRANT_URL),
+            qdrant_api_key=os.environ.get("QDRANT_API_KEY") or None,
+            collection_name=os.environ.get(
+                "QDRANT_COLLECTION", _DEFAULT_COLLECTION
+            ),
+            postgresql_dsn=dsn,
+            # qwen3-embedding:4b via the local Ollama runtime, 2560-dim —
+            # matches the canonical gptbridge_shared_knowledge collection.
+            embedding_model=embedding_model,
+            embedding_dimension=2560,
+            embedding_provider="ollama",
+            chunk_size=1200,
+            chunk_overlap=200,
+            top_k=48,
+            score_threshold=0.0,
+            # A374: durable pending_rag_mutation queue + degraded stores
+            # survive restarts between canonical outages.
+            queue_db_path=str(state_dir / "rag-reconciliation-queue.sqlite3"),
+            degraded_root=str(state_dir / "rag-degraded"),
+        )
 
     def _submit(self, coroutine: Any, timeout: float = _CALL_TIMEOUT_SECONDS) -> Any:
         self._start()
@@ -234,6 +258,22 @@ class CanonicalRagAdapter:
             else "dsn-missing",
             "last_error": self._last_error or runtime.get("last_error"),
         }
+
+    def record_degraded_mutation(self, document_record: dict[str, Any]) -> bool:
+        """Queue a durable pending_rag_mutation for a degraded-mirror write
+        so canonical recovery replays it (re-fetch → re-chunk → re-embed)."""
+        pipeline, loop = self._pipeline, self._loop
+        if pipeline is None or loop is None:
+            return False
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                pipeline._enqueue_document_mutation(document_record, []), loop
+            )
+            future.result(timeout=10.0)
+            return True
+        except Exception as exc:
+            self._last_error = str(exc)
+            return False
 
     def close(self) -> None:
         self._enabled = False

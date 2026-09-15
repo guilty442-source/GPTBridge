@@ -53,8 +53,15 @@ class SovereignStackActivationMixin:
             if synchronization is not None
             else {}
         )
-        app.learning_system_sovereign = sync_children.get(
-            "learning-evidence-sync-sub-sovereign"
+        # A485: the learning sub-sovereign is a privileged-institution-managed
+        # child of 星澄 — never of the automation/synchronization family.
+        xingcheng = getattr(app, "xingcheng_sovereign", None)
+        app.learning_system_sovereign = (
+            getattr(xingcheng, "_sub_sovereigns", {}).get(
+                "learning-evidence-sync-sub-sovereign"
+            )
+            if xingcheng is not None
+            else None
         )
         app.system_programming_sovereign = sync_children.get(
             "release-update-sync-sub-sovereign"

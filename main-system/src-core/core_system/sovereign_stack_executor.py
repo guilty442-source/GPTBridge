@@ -17,8 +17,8 @@ from typing import Any
 from governance.registries import children_of, validate_child_parent
 
 from .sovereign_stack_executor_constants import (
-    _sub_sovereigns_module,
     _CHILD_CLASSES,
+    _resolve_child_class,
     _child_start_kwargs,
 )
 from .sovereign_stack_executor_children import SovereignStackChildrenMixin
@@ -99,22 +99,26 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
     def _parent_object(self, sovereign: Any, parent_id: str) -> Any:
         """Resolve a registered parent identity to the live sovereign."""
         app = self.app
+        synchronization = getattr(app, "synchronization_sovereign", None)
         return {
             "decision-sovereign": sovereign,
             "permission-sovereign": getattr(app, "permission_sovereign", None),
-            "synchronization-sovereign": getattr(
-                app, "synchronization_sovereign", None
-            ),
+            "synchronization-sovereign": synchronization,
+            # Codex id renamed to automation-sovereign (97e8a34); the code
+            # object keeps the synchronization class/attr until the full
+            # rename lands.
+            "automation-sovereign": synchronization,
             "system-runtime-sovereign": getattr(
                 app, "system_runtime_sovereign", None
             ),
+            # A485: the learning sub-sovereign is a child of 星澄.
+            "星澄": getattr(app, "xingcheng_sovereign", None),
         }.get(parent_id)
 
     def _materialize_children(self, sovereign: Any) -> None:
         """Instantiate every active registry child under its codex parent."""
         app = self.app
-        sub = _sub_sovereigns_module()
-        for child_id, class_name in _CHILD_CLASSES.items():
+        for child_id, class_ref in _CHILD_CLASSES.items():
             parent_id = self._codex_parent(child_id)
             parent = self._parent_object(sovereign, parent_id) if parent_id else None
             if parent is None:
@@ -130,7 +134,7 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
                 continue
             if child_id not in registry:
                 try:
-                    child_cls = getattr(sub, class_name)
+                    child_cls = _resolve_child_class(class_ref)
                     registry[child_id] = child_cls(app, parent=parent)
                 except Exception as error:
                     self._startup_failures.append(
@@ -147,6 +151,7 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
                 getattr(app, "permission_sovereign", None),
                 getattr(app, "synchronization_sovereign", None),
                 getattr(app, "system_runtime_sovereign", None),
+                getattr(app, "xingcheng_sovereign", None),
             }:
                 if parent is not None:
                     app_registry.update(getattr(parent, "_sub_sovereigns", {}))
@@ -224,15 +229,15 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
             }
         child = registry.get(child_id)
         if child is None:
-            class_name = _CHILD_CLASSES.get(child_id)
-            if class_name is None:
+            class_ref = _CHILD_CLASSES.get(child_id)
+            if class_ref is None:
                 return {
                     "ok": False,
                     "child": child_id,
                     "error": f"unknown-child:{child_id}",
                 }
             try:
-                child_cls = getattr(_sub_sovereigns_module(), class_name)
+                child_cls = _resolve_child_class(class_ref)
                 registry[child_id] = child_cls(self.app, parent=parent)
             except Exception as error:
                 return {

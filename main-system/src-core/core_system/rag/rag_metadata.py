@@ -153,8 +153,18 @@ _SAGA_DDL = (
         status TEXT NOT NULL DEFAULT 'pending',
         correlation_id TEXT,
         last_error TEXT,
+        degraded_indexed_at TIMESTAMPTZ,
+        canonical_synced_at TIMESTAMPTZ,
         payload JSONB NOT NULL DEFAULT '{}'::jsonb
     )
+    """,
+    """
+    ALTER TABLE gptbridge_rag.reconciliation_queue
+        ADD COLUMN IF NOT EXISTS degraded_indexed_at TIMESTAMPTZ
+    """,
+    """
+    ALTER TABLE gptbridge_rag.reconciliation_queue
+        ADD COLUMN IF NOT EXISTS canonical_synced_at TIMESTAMPTZ
     """,
     """
     CREATE INDEX IF NOT EXISTS idx_recon_queue_status

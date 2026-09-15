@@ -214,6 +214,52 @@ class LocalSqliteRagRepository:
             "indexed_at": str(row["indexed_at"]),
         }
 
+    def document_source(
+        self, module_id: str, locator_id: str
+    ) -> dict[str, Any] | None:
+        """A374 reconciliation source: resource row + original content.
+
+        Returns the stored source path plus the content reassembled from
+        ordered chunk rows so a reconciler can re-chunk and re-embed the
+        owning module's original document (never its degraded vectors).
+        """
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT resource_id, locator_id, metadata, content_hash,
+                       updated_at
+                FROM gptbridge_index_resource
+                WHERE module_id = ? AND locator_id = ?
+                """,
+                (module_id, locator_id),
+            ).fetchone()
+            if row is None:
+                return None
+            chunk_rows = connection.execute(
+                """
+                SELECT metadata FROM gptbridge_rag_chunk
+                WHERE resource_id = ? ORDER BY sequence ASC
+                """,
+                (row["resource_id"],),
+            ).fetchall()
+        metadata = self._loads(row["metadata"]) if isinstance(row["metadata"], str) else (row["metadata"] or {})
+        metadata = metadata if isinstance(metadata, dict) else {}
+        parts: list[str] = []
+        for chunk_row in chunk_rows:
+            chunk_meta = self._loads(chunk_row["metadata"])
+            if isinstance(chunk_meta, dict):
+                parts.append(str(chunk_meta.get("content") or ""))
+        return {
+            "document_id": str(row["resource_id"]),
+            "resource_id": str(row["resource_id"]),
+            "locator_id": str(row["locator_id"]),
+            "title": str(metadata.get("title") or ""),
+            "source": str(metadata.get("source") or ""),
+            "sha256": str(row["content_hash"] or ""),
+            "content": "".join(parts),
+            "indexed_at": str(row["updated_at"]),
+        }
+
     def replace_document(
         self,
         *,

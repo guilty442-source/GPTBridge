@@ -36,8 +36,16 @@ class DegradedRagPipeline:
     All operations are non-canonical and require reconciliation.
     """
 
-    def __init__(self, config: RagPipelineConfig, degraded_root: Optional[Path] = None) -> None:
+    def __init__(
+        self,
+        config: RagPipelineConfig,
+        degraded_root: Optional[Path] = None,
+        enqueue_mutation: Optional[Any] = None,
+    ) -> None:
         self.config = config
+        # A374: every degraded mutation must be recorded as a durable
+        # pending_rag_mutation so recovery can replay it canonically.
+        self._enqueue_mutation = enqueue_mutation
 
         if degraded_root is None:
             degraded_root = _default_degraded_root()
@@ -66,6 +74,44 @@ class DegradedRagPipeline:
         point_id = str(uuid.uuid4())
         now_utc = datetime.now(timezone.utc).isoformat()
 
+        self._mirror_document(
+            module_id, resource_id, content, metadata, content_hash,
+            point_id, embedding, now_utc,
+        )
+        if self._enqueue_mutation is not None:
+            await self._enqueue_mutation(
+                module_id=module_id,
+                resource_id=resource_id,
+                locator_id=f"{module_id}:{resource_id}",
+                source_revision=int(metadata.get("version") or 1),
+                content_hash=content_hash,
+                operation="update",
+                payload={"title": metadata.get("title", "")},
+            )
+        return IndexState(
+            resource_id=resource_id,
+            module_id=module_id,
+            embedding_model=self.config.embedding_model,
+            embedding_dimension=self.config.embedding_dimension,
+            chunk_size=self.config.chunk_size,
+            chunk_overlap=self.config.chunk_overlap,
+            indexed_at_utc=now_utc,
+            content_hash=content_hash,
+            qdrant_point_id=point_id,
+        )
+
+    def _mirror_document(
+        self,
+        module_id: str,
+        resource_id: str,
+        content: str,
+        metadata: dict[str, Any],
+        content_hash: str,
+        point_id: str,
+        embedding: list[float],
+        now_utc: str,
+    ) -> None:
+        """Write the bounded degraded mirror (vector cache + sqlite repo)."""
         point = {
             "id": point_id,
             "vector": embedding,
@@ -91,17 +137,6 @@ class DegradedRagPipeline:
                 "resource_label": resource_id,
                 "content": content,
             }],
-        )
-        return IndexState(
-            resource_id=resource_id,
-            module_id=module_id,
-            embedding_model=self.config.embedding_model,
-            embedding_dimension=self.config.embedding_dimension,
-            chunk_size=self.config.chunk_size,
-            chunk_overlap=self.config.chunk_overlap,
-            indexed_at_utc=now_utc,
-            content_hash=content_hash,
-            qdrant_point_id=point_id,
         )
 
     def _document_record(

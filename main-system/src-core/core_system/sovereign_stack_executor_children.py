@@ -51,6 +51,10 @@ class SovereignStackChildrenMixin:
             "permission-sovereign",
             "decision-sovereign",
             "synchronization-sovereign",
+            # Codex id renamed to automation-sovereign (97e8a34).
+            "automation-sovereign",
+            # A485: 星澄 manages the learning sub-sovereign.
+            "星澄",
         ):
             parent = self._parent_object(sovereign, parent_id)
             if parent is None:
@@ -80,7 +84,16 @@ class SovereignStackChildrenMixin:
             if synchronization is not None
             else {}
         )
-        learning = sync_children.get("learning-evidence-sync-sub-sovereign")
+        # A485: the learning sub-sovereign is managed exclusively by 星澄;
+        # automation/synchronization retains no learning management authority.
+        xingcheng = getattr(self.app, "xingcheng_sovereign", None)
+        learning = (
+            getattr(xingcheng, "_sub_sovereigns", {}).get(
+                "learning-evidence-sync-sub-sovereign"
+            )
+            if xingcheng is not None
+            else None
+        )
         programming = sync_children.get("release-update-sync-sub-sovereign")
 
         report = {

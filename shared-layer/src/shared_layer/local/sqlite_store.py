@@ -27,6 +27,11 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _now_iso_offset(seconds: float) -> str:
+    from datetime import timedelta
+    return (datetime.now(timezone.utc) + timedelta(seconds=seconds)).isoformat(timespec="seconds")
+
+
 def _decode(value: str | None) -> Any:
     if value is None:
         return None
@@ -93,12 +98,32 @@ class LocalSharedLayerStore:
                        progress TEXT,
                        created_at TEXT NOT NULL,
                        updated_at TEXT NOT NULL,
+                       claimed_at TEXT,
+                       lease_until TEXT,
+                       attempt_count INTEGER NOT NULL DEFAULT 0,
+                       next_retry_at TEXT,
                        PRIMARY KEY (channel_id, request_id)
                    )"""
             )
+            # Add lease columns to pre-existing tables (idempotent).
+            for col, decl in (
+                ("claimed_at", "TEXT"),
+                ("lease_until", "TEXT"),
+                ("attempt_count", "INTEGER NOT NULL DEFAULT 0"),
+                ("next_retry_at", "TEXT"),
+            ):
+                try:
+                    connection.execute(f"ALTER TABLE tool_request ADD COLUMN {col} {decl}")
+                except sqlite3.OperationalError:
+                    pass
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tool_request_claim "
                 "ON tool_request (target_tool_id, status, created_at, request_id)"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tool_request_expired_lease "
+                "ON tool_request (target_tool_id, status, lease_until) "
+                "WHERE status = 'claimed'"
             )
 
     @staticmethod
@@ -230,21 +255,34 @@ class LocalSharedLayerStore:
             )
             return cursor.rowcount == 1
 
-    def claim_request(self, token: str, target_tool_id: str) -> dict[str, Any] | None:
+    def claim_request(self, token: str, target_tool_id: str, *, lease_duration_seconds: float = 300.0) -> dict[str, Any] | None:
         self._authorize(token, "claim", target_tool_id)
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
+            # Re-queue expired leases first.
+            connection.execute(
+                "UPDATE tool_request SET status='queued', claimed_at=NULL, lease_until=NULL, "
+                "next_retry_at=?, updated_at=? "
+                "WHERE channel_id=? AND target_tool_id=? AND status='claimed' "
+                "AND lease_until IS NOT NULL AND lease_until < ?",
+                (_now_iso(), _now_iso(), self._channel_id, target_tool_id, _now_iso()),
+            )
             row = connection.execute(
-                "SELECT channel_id,request_id,requester_actor,payload FROM tool_request WHERE channel_id=? AND target_tool_id=? AND status='queued' ORDER BY created_at,request_id LIMIT 1",
-                (self._channel_id, target_tool_id),
+                "SELECT channel_id,request_id,requester_actor,payload FROM tool_request WHERE channel_id=? AND target_tool_id=? AND status='queued' "
+                "AND (next_retry_at IS NULL OR next_retry_at <= ?) "
+                "ORDER BY created_at,request_id LIMIT 1",
+                (self._channel_id, target_tool_id, _now_iso()),
             ).fetchone()
             if row is None:
                 connection.execute("ROLLBACK")
                 return None
+            lease_until = _now_iso_offset(lease_duration_seconds)
             claimed = connection.execute(
-                "UPDATE tool_request SET status='claimed',updated_at=? WHERE channel_id=? AND request_id=? AND status='queued'",
-                (_now_iso(), self._channel_id, row["request_id"]),
+                "UPDATE tool_request SET status='claimed',claimed_at=?,lease_until=?,"
+                "attempt_count=attempt_count+1,next_retry_at=NULL,updated_at=? "
+                "WHERE channel_id=? AND request_id=? AND status='queued'",
+                (_now_iso(), lease_until, _now_iso(), self._channel_id, row["request_id"]),
             )
             connection.execute("COMMIT")
             return {
@@ -252,6 +290,8 @@ class LocalSharedLayerStore:
                 "requester_actor": row["requester_actor"],
                 "target_tool_id": target_tool_id,
                 "payload": _decode(row["payload"]),
+                "lease_until": lease_until,
+                "attempt_count": claimed.rowcount,
             }
         except sqlite3.DatabaseError:
             try:
@@ -261,6 +301,19 @@ class LocalSharedLayerStore:
             raise permission_denied() from None
         finally:
             connection.close()
+
+    def reclaim_expired(self, token: str, target_tool_id: str) -> int:
+        """Re-queue requests whose leases have expired (A8/E21)."""
+        self._authorize(token, "claim", target_tool_id)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE tool_request SET status='queued',claimed_at=NULL,lease_until=NULL,"
+                "next_retry_at=?,updated_at=? "
+                "WHERE channel_id=? AND target_tool_id=? AND status='claimed' "
+                "AND lease_until IS NOT NULL AND lease_until < ?",
+                (_now_iso(), _now_iso(), self._channel_id, target_tool_id, _now_iso()),
+            )
+            return cursor.rowcount
 
     def respond(self, token: str, request_id: str, target_tool_id: str, response: Any) -> bool:
         self._authorize(token, "respond", target_tool_id)

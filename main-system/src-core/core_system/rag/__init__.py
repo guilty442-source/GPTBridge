@@ -16,6 +16,7 @@ from .pipeline import (
     PythonDomainModel,
 )
 from .pipeline_factory import create_rag_pipeline_from_env
+from .pipeline_retrieval import PipelineRetrievalMixin, reciprocal_rank_fusion
 
 from .runtime_state import (
     CanonicalCheckError,
@@ -77,6 +78,9 @@ __all__ = [
     "PostgreSQLMetadataAuthority",
     "PythonDomainModel",
     "create_rag_pipeline_from_env",
+    # Hybrid retrieval (A52)
+    "PipelineRetrievalMixin",
+    "reciprocal_rank_fusion",
     # Runtime state machine (A374)
     "CanonicalCheckError",
     "CrossStoreOutbox",

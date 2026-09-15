@@ -92,6 +92,8 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "service_probe.py",
         "resilient_store.py",
         "resilient_circuit.py",
+        "failover_store.py",
+        "health.py",
         "tool_codenames.py",
         "auto_repair_chain.py",
         "channel_runtime.py",

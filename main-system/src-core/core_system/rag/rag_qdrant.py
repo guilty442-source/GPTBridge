@@ -94,6 +94,10 @@ class RagPipelineConfig:
     chunk_overlap: int = 200
     top_k: int = 10
     score_threshold: float = 0.0
+    # A374 durability: pending_rag_mutation queue + degraded stores must
+    # survive restarts; None keeps the in-memory/temp fallbacks for tests.
+    queue_db_path: Optional[str] = None
+    degraded_root: Optional[str] = None
 
 
 class QdrantCanonicalRuntime:
@@ -202,6 +206,31 @@ class QdrantCanonicalRuntime:
         except Exception as exc:
             _logger.error("QdrantCanonicalRuntime: search failed: %s", exc)
             return []
+
+    async def delete_resource(self, module_id: str, resource_id: str) -> bool:
+        """Delete all points for a resource (tombstone/archive reconcile)."""
+        if not self._healthy or self.client is None:
+            return False
+        try:
+            self.client.delete(
+                collection_name=self.config.collection_name,
+                points_selector=Filter(
+                    must=[
+                        FieldCondition(
+                            key="module_id", match=MatchValue(value=module_id)
+                        ),
+                        FieldCondition(
+                            key="document_resource_id",
+                            match=MatchValue(value=resource_id),
+                        ),
+                    ]
+                ),
+                wait=True,
+            )
+            return True
+        except Exception as exc:
+            _logger.error("QdrantCanonicalRuntime: delete failed: %s", exc)
+            return False
 
     def points_count(self) -> Optional[int]:
         """Current point count in the canonical collection (None when unavailable)."""

@@ -13,6 +13,7 @@ import sqlite3
 import time
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 from qdrant_client.http.models import PointStruct
@@ -23,8 +24,10 @@ _logger = logging.getLogger("gptbridge.rag")
 from .rag_qdrant import IndexState, QdrantCanonicalRuntime, RagPipelineConfig, RagQueryResult
 from .rag_metadata import PostgreSQLMetadataAuthority
 from .pipeline_degraded import DegradedRagPipeline
+from .pipeline_documents import PipelineDocumentsMixin
 from .pipeline_domain import PythonDomainModel
 from .pipeline_recovery import PipelineRecoveryMixin
+from .pipeline_retrieval import PipelineRetrievalMixin
 from .runtime_state import (
     CrossStoreOutbox,
     RagRuntimeState,
@@ -34,33 +37,44 @@ from .runtime_state import (
 )
 
 
-class CanonicalRagPipeline(PipelineRecoveryMixin):
-    """A371-A374: Canonical RAG pipeline implementation.
+class CanonicalRagPipeline(
+    PipelineRetrievalMixin,
+    PipelineRecoveryMixin,
+    PipelineDocumentsMixin,
+):
+    """A371-A374: canonical path — Qdrant dense retrieval > PostgreSQL
+    metadata/FTS/index_state authority > domain model > typed result.
+    A373: normal execution must prove Qdrant + PostgreSQL are live."""
 
-    DEFAULT-PATH: source content > qdrant dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
-
-    Binding order (A374):
-    1. QDRANT_CANONICAL_RUNTIME (Qdrant dense retrieval)
-    2. PostgreSQL metadata/FTS/index_state (live authority)
-    3. Python domain model (sole production owner)
-
-    CANONICAL-TAKEOVER (A373): normal execution must prove Qdrant + PostgreSQL are live path.
-    """
-
-    def __init__(self, config: RagPipelineConfig) -> None:
+    def __init__(
+        self,
+        config: RagPipelineConfig,
+        *,
+        document_fetcher: Optional[Any] = None,
+        embed_texts: Optional[Any] = None,
+    ) -> None:
         self.config = config
         self.qdrant = QdrantCanonicalRuntime(config)
         self.postgresql = PostgreSQLMetadataAuthority(config.postgresql_dsn)
         self.domain_model = PythonDomainModel(config)
         self._initialized = False
         self._degraded_pipeline: Optional[DegradedRagPipeline] = None
+        # A374 reconciliation data flow: the fetcher re-reads the owning
+        # module's original content and the embedder re-embeds through the
+        # governed local runtime (qwen3-embedding:4b / 2560d).  Degraded
+        # vectors are never replayed into the canonical collection.
+        self._document_fetcher = document_fetcher
+        self._embed_texts = embed_texts
         # A374: runtime state machine.  The durable queue is backed by a
         # local SQLite store for the in-process authority; the canonical
         # PostgreSQL queue is mirrored by PostgreSQLMetadataAuthority when
         # PostgreSQL is healthy.  The TombstoneGuard is the in-memory
         # authoritative view; PostgreSQL is the durable tombstone store.
+        queue_path = config.queue_db_path or ":memory:"
+        if queue_path != ":memory:":
+            Path(queue_path).parent.mkdir(parents=True, exist_ok=True)
         self._queue_db = sqlite3.connect(
-            ":memory:", check_same_thread=False
+            queue_path, check_same_thread=False
         )
         self._queue_db.row_factory = sqlite3.Row
         self._queue = ReconciliationQueue(self._queue_db)
@@ -82,7 +96,12 @@ class CanonicalRagPipeline(PipelineRecoveryMixin):
     def _get_degraded_pipeline(self) -> DegradedRagPipeline:
         """Lazily initialize and return the degraded pipeline."""
         if self._degraded_pipeline is None:
-            self._degraded_pipeline = DegradedRagPipeline(self.config)
+            root = Path(self.config.degraded_root) if self.config.degraded_root else None
+            self._degraded_pipeline = DegradedRagPipeline(
+                self.config,
+                degraded_root=root,
+                enqueue_mutation=self._enqueue_degraded_write,
+            )
         return self._degraded_pipeline
 
     async def initialize(self) -> bool:
@@ -269,136 +288,6 @@ class CanonicalRagPipeline(PipelineRecoveryMixin):
         """Get authoritative index state (A374)."""
         return await self.postgresql.get_index_state(module_id, resource_id)
 
-    async def index_document(
-        self,
-        *,
-        document: dict[str, Any],
-        chunks: list[dict[str, Any]],
-        vectors: list[list[float]],
-        collection_dimension: Optional[int] = None,
-    ) -> bool:
-        """Document-level canonical write (A371-A374).
-
-        Fixed flow: resource → PostgreSQL metadata → chunk → Qdrant →
-        qdrant_point_id 回寫 PostgreSQL.  PostgreSQL is the metadata/chunk/
-        index_state authority and never stores vectors; Qdrant stores dense
-        vectors only.  index_state is written back only after Qdrant
-        confirms the upsert.  ``chunks`` carry deterministic
-        ``qdrant_point_id``/``point_id`` UUIDs and self-describing payloads.
-        """
-        await self.attempt_recovery()
-        if not self.is_ready():
-            raise RuntimeError("RAG pipeline not ready")
-        if collection_dimension:
-            self.config.embedding_dimension = int(collection_dimension)
-
-        module_id = str(document["module_id"])
-        resource_id = str(document["resource_id"])
-        if await self._tombstoned(module_id, resource_id):
-            return False
-
-        embedding_model = str(
-            document.get("embedding_model") or self.config.embedding_model
-        )
-        if not await self._pg_document_writes(
-            document, chunks, resource_id, module_id, embedding_model
-        ):
-            return False
-
-        # Step 3: Qdrant dense vector write (canonical semantic index).
-        if not await self.qdrant.ensure_collection(collection_dimension):
-            return False
-        points = self._document_points(document, chunks, vectors, module_id, resource_id)
-        if points and not await self.qdrant.upsert_points(points):
-            return False
-
-        # Step 4: qdrant_point_id 回寫 PostgreSQL (index_state writeback).
-        return await self._writeback_index_state(
-            document, chunks, resource_id, module_id, embedding_model,
-            collection_dimension,
-        )
-
-    async def _tombstoned(self, module_id: str, resource_id: str) -> bool:
-        """A374: reject stale writes against an existing tombstone."""
-        if await self.postgresql.is_tombstoned(module_id, resource_id):
-            _logger.warning(
-                "CanonicalRagPipeline: reject index_document for tombstoned %s:%s",
-                module_id, resource_id,
-            )
-            return True
-        return False
-
-    async def _pg_document_writes(
-        self,
-        document: dict[str, Any],
-        chunks: list[dict[str, Any]],
-        resource_id: str,
-        module_id: str,
-        embedding_model: str,
-    ) -> bool:
-        """Steps 1-2: resource row, then chunk rows in the PG authority."""
-        if not await self.postgresql.ensure_resource(document):
-            return False
-        return await self.postgresql.replace_document_chunks(
-            resource_id=resource_id,
-            module_id=module_id,
-            embedding_model=embedding_model,
-            chunks=chunks,
-        )
-
-    def _document_points(
-        self,
-        document: dict[str, Any],
-        chunks: list[dict[str, Any]],
-        vectors: list[list[float]],
-        module_id: str,
-        resource_id: str,
-    ) -> list[PointStruct]:
-        """Build Qdrant PointStructs for a document's chunks."""
-        return [
-            PointStruct(
-                id=str(chunk.get("qdrant_point_id") or chunk.get("point_id")),
-                vector=[float(v) for v in vector],
-                payload={
-                    "module_id": module_id,
-                    "document_resource_id": resource_id,
-                    "document_id": document.get("document_id"),
-                    "indexed_at_utc": datetime.now(timezone.utc).isoformat(),
-                    **(chunk.get("payload") or {}),
-                },
-            )
-            for chunk, vector in zip(chunks, vectors)
-        ]
-
-    async def _writeback_index_state(
-        self,
-        document: dict[str, Any],
-        chunks: list[dict[str, Any]],
-        resource_id: str,
-        module_id: str,
-        embedding_model: str,
-        collection_dimension: Optional[int],
-    ) -> bool:
-        """Step 4: write index_state back to PostgreSQL after Qdrant confirms."""
-        first_point = str(chunks[0].get("qdrant_point_id") or chunks[0].get("point_id")) if chunks else ""
-        state = IndexState(
-            resource_id=resource_id,
-            module_id=module_id,
-            embedding_model=embedding_model,
-            embedding_dimension=int(collection_dimension or self.config.embedding_dimension),
-            chunk_size=int(self.config.chunk_size),
-            chunk_overlap=int(self.config.chunk_overlap),
-            indexed_at_utc=datetime.now(timezone.utc).isoformat(),
-            content_hash=str(document.get("sha256") or document.get("content_hash") or ""),
-            qdrant_point_id=first_point,
-            postgresql_record_id=resource_id,
-        )
-        return await self.postgresql.upsert_index_state(
-            state,
-            collection_name=self.config.collection_name,
-            chunk_count=len(chunks),
-        )
-
     async def vector_search(
         self,
         query_embedding: list[float],
@@ -461,6 +350,33 @@ class CanonicalRagPipeline(PipelineRecoveryMixin):
         return await self.postgresql.keyword_search(
             query, module_ids=module_ids, limit=limit
         )
+
+    # ------------------------------------------------------------------
+    # A52: Four sub-architecture retrievers — share Qdrant + PostgreSQL +
+    # embedding runtime + reranker + governance, but differ in retrieval
+    # behavior.  The reranker is injected (A49: pipeline does not own a
+    # model load).
+    # ------------------------------------------------------------------
+
+    def hybrid_retriever(self, reranker=None):
+        """A52 hybrid-rag: Qdrant Dense + PG FTS + RRF."""
+        from .retrievers import HybridRetriever
+        return HybridRetriever(self, reranker)
+
+    def code_retriever(self, reranker=None):
+        """A52 code-rag: chunk + AST + symbol + dependency."""
+        from .retrievers import CodeRetriever
+        return CodeRetriever(self, reranker)
+
+    def agentic_retriever(self, reranker=None, reformulator=None):
+        """A52 agentic-rag: retrieve → evaluate → reformulate → retrieve."""
+        from .retrievers import AgenticRetriever
+        return AgenticRetriever(self, reranker, reformulator)
+
+    def memory_retriever(self, reranker=None):
+        """A52 memory-rag: session + episodic + long-term."""
+        from .retrievers import MemoryRetriever
+        return MemoryRetriever(self, reranker)
 
 
 __all__ = [

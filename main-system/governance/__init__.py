@@ -46,7 +46,11 @@ DependencySyncSubSovereign = _sub_sovereigns.DependencySyncSubSovereign
 DirectorySubSovereign = _sub_sovereigns.DirectorySubSovereign
 HealthMaintenanceTestSubSovereign = _sub_sovereigns.HealthMaintenanceTestSubSovereign
 IdentityGroupSubSovereign = _sub_sovereigns.IdentityGroupSubSovereign
-LearningEvidenceSyncSubSovereign = _sub_sovereigns.LearningEvidenceSyncSubSovereign
+# A485: the learning sub-sovereign is owned by 星澄 (xingcheng package) and is
+# no longer part of the automation/synchronization sub-sovereign family.
+from .sovereigns.xingcheng.learning_sub_sovereign import (  # noqa: E402
+    LearningEvidenceSyncSubSovereign,
+)
 PolicyArchitectureSubSovereign = _sub_sovereigns.PolicyArchitectureSubSovereign
 PriorityCapabilitySubSovereign = _sub_sovereigns.PriorityCapabilitySubSovereign
 ReleaseUpdateSyncSubSovereign = _sub_sovereigns.ReleaseUpdateSyncSubSovereign

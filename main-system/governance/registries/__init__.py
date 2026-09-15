@@ -198,7 +198,11 @@ def resolve_sovereign(app: Any, sovereign_id: str) -> Any | None:
     parent_id = parent_of(sovereign_id)
     if parent_id is None:
         return None
-    parent = getattr(app, parent_id.replace("-", "_"), None)
+    parent = getattr(
+        app,
+        _SOVEREIGN_ATTR_ALIASES.get(parent_id, parent_id.replace("-", "_")),
+        None,
+    )
     if parent is None:
         return None
     return getattr(parent, "_sub_sovereigns", {}).get(sovereign_id)

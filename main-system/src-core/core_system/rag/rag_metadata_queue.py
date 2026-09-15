@@ -183,10 +183,11 @@ class RagMetadataReconciliationMixin:
                            embedding_model, embedding_version, chunk_size, chunk_overlap,
                            chunking_version, parser_version, schema_version, created_at,
                            attempts, next_retry_at, deadline, status, correlation_id,
-                           last_error, payload)
-                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                           last_error, degraded_indexed_at, payload)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                        ON CONFLICT (idempotency_key) DO UPDATE SET
-                           status = 'pending', last_error = NULL, next_retry_at = NULL""",
+                           status = 'pending', last_error = NULL,
+                           next_retry_at = NULL, canonical_synced_at = NULL""",
                     (
                         item.operation_id, item.idempotency_key, item.resource_id,
                         item.locator_id, item.source_revision, item.content_hash,
@@ -196,6 +197,7 @@ class RagMetadataReconciliationMixin:
                         item.chunking_version, item.parser_version, item.schema_version,
                         item.created_at, item.attempts, item.next_retry_at, item.deadline,
                         item.status, item.correlation_id, item.last_error,
+                        item.degraded_indexed_at or item.created_at,
                         json.dumps(item.payload, ensure_ascii=False, sort_keys=True),
                     ),
                 )
@@ -221,6 +223,69 @@ class RagMetadataReconciliationMixin:
 
     async def queue_is_complete(self) -> bool:
         return (await self.pending_reconciliation_count()) == 0
+
+    async def mark_reconciled(self, operation_id: str) -> bool:
+        """Stamp canonical_synced_at + verified on the canonical queue row."""
+        return await self._recon_status(
+            operation_id,
+            "status='verified', canonical_synced_at=now(), "
+            "last_error=NULL, next_retry_at=NULL",
+            (),
+        )
+
+    async def mark_recon_retry(
+        self, operation_id: str, error: str, retry_at: Optional[str]
+    ) -> bool:
+        return await self._recon_status(
+            operation_id,
+            "status='pending', last_error=%s, next_retry_at=%s",
+            (error[:400], retry_at),
+        )
+
+    async def dead_letter_reconciliation(
+        self, operation_id: str, reason: str
+    ) -> bool:
+        return await self._recon_status(
+            operation_id,
+            "status='dead_letter', last_error=%s, next_retry_at=NULL",
+            (reason[:400],),
+        )
+
+    async def _recon_status(
+        self, operation_id: str, set_clause: str, params: tuple
+    ) -> bool:
+        if not self._healthy or not self._conn:
+            return False
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    f"""UPDATE gptbridge_rag.reconciliation_queue
+                        SET {set_clause} WHERE operation_id=%s""",
+                    (*params, operation_id),
+                )
+            return True
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: reconciliation status update failed: %s",
+                exc,
+            )
+            return False
+
+    async def drain_reconciled(self) -> int:
+        if not self._healthy or not self._conn:
+            return 0
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """DELETE FROM gptbridge_rag.reconciliation_queue
+                       WHERE status='verified'"""
+                )
+                return int(cur.rowcount or 0)
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: drain_reconciled failed: %s", exc
+            )
+            return 0
 
     async def index_state_summary(
         self, embedding_model: str, embedding_dimension: int

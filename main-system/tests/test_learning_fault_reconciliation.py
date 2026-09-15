@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT / "src-core"))
 sys.path.insert(0, str(ROOT.parent))
 sys.path.insert(0, str(ROOT.parent / "shared-layer" / "src"))
 
-from governance.sub_sovereigns.learning_evidence_sync_sub_sovereign import (  # noqa: E402
+from governance.sovereigns.xingcheng.learning_sub_sovereign import (  # noqa: E402
     LearningEvidenceSyncSubSovereign,
 )
 from core_system.auto_action_policy import (  # noqa: E402

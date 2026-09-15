@@ -197,6 +197,8 @@ class ReconciliationQueue:
                     status TEXT NOT NULL DEFAULT 'pending',
                     correlation_id TEXT,
                     last_error TEXT,
+                    degraded_indexed_at TEXT,
+                    canonical_synced_at TEXT,
                     payload TEXT NOT NULL DEFAULT '{}'
                 );
                 CREATE INDEX IF NOT EXISTS rag_queue_status_idx
@@ -205,6 +207,18 @@ class ReconciliationQueue:
                     ON rag_reconciliation_queue (resource_id, source_revision);
                 """
             )
+            existing = {
+                str(row[1])
+                for row in self.connection.execute(
+                    "PRAGMA table_info(rag_reconciliation_queue)"
+                ).fetchall()
+            }
+            for column in ("degraded_indexed_at", "canonical_synced_at"):
+                if column not in existing:
+                    self.connection.execute(
+                        f"ALTER TABLE rag_reconciliation_queue "
+                        f"ADD COLUMN {column} TEXT"
+                    )
             self.connection.commit()
 
     def enqueue(self, item: ReconciliationQueueItem) -> None:
@@ -218,12 +232,13 @@ class ReconciliationQueue:
                     embedding_model, embedding_version, chunk_size, chunk_overlap,
                     chunking_version, parser_version, schema_version, created_at,
                     attempts, next_retry_at, deadline, status, correlation_id,
-                    last_error, payload
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    last_error, degraded_indexed_at, canonical_synced_at, payload
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(idempotency_key) DO UPDATE SET
                     status = 'pending',
                     last_error = NULL,
-                    next_retry_at = NULL
+                    next_retry_at = NULL,
+                    canonical_synced_at = NULL
                 """,
                 (
                     item.operation_id, item.idempotency_key, item.resource_id,
@@ -234,6 +249,8 @@ class ReconciliationQueue:
                     item.chunking_version, item.parser_version, item.schema_version,
                     item.created_at, item.attempts, item.next_retry_at, item.deadline,
                     item.status, item.correlation_id, item.last_error,
+                    item.degraded_indexed_at or item.created_at,
+                    item.canonical_synced_at,
                     json.dumps(item.payload, ensure_ascii=False, sort_keys=True),
                 ),
             )
@@ -292,6 +309,54 @@ class ReconciliationQueue:
                 (status.value, last_error, next_retry_at, operation_id),
             )
             self.connection.commit()
+
+    def mark_verified(self, operation_id: str) -> None:
+        """Mark an item reconciled: canonical_synced_at is the verification stamp."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self._lock:
+            self.connection.execute(
+                """
+                UPDATE rag_reconciliation_queue
+                SET status='verified', canonical_synced_at=?, last_error=NULL,
+                    next_retry_at=NULL
+                WHERE operation_id=?
+                """,
+                (now, operation_id),
+            )
+            self.connection.commit()
+
+    def mark_retry(
+        self,
+        operation_id: str,
+        error: str,
+        *,
+        delay_seconds: float,
+        max_attempts: int = 8,
+    ) -> str:
+        """Schedule a retry or dead-letter when attempts are exhausted.
+
+        Returns the resulting status ('pending' or 'dead_letter').
+        """
+        row = self.connection.execute(
+            "SELECT attempts FROM rag_reconciliation_queue WHERE operation_id=?",
+            (operation_id,),
+        ).fetchone()
+        attempts = int(row[0]) if row else 0
+        if attempts >= max_attempts:
+            self.dead_letter(operation_id, error)
+            return QueueStatus.DEAD_LETTER.value
+        retry_at = (
+            datetime.now(timezone.utc).timestamp() + max(1.0, delay_seconds)
+        )
+        self.mark_status(
+            operation_id,
+            QueueStatus.PENDING,
+            last_error=error[:400],
+            next_retry_at=datetime.fromtimestamp(
+                retry_at, tz=timezone.utc
+            ).isoformat(),
+        )
+        return QueueStatus.PENDING.value
 
     def drain_verified(self) -> int:
         """Remove verified items (called only after reconciliation parity)."""
