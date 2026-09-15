@@ -47,6 +47,14 @@ from packager_runtime import (
     validate_staged_python_runtime,
 )
 from packager_distribution import promote_staged_distribution
+from packager_orchestration_staging import _stage_package
+from packager_orchestration_promotion import _promote_package
+from packager_orchestration_errors import (
+    _handle_promotion_recovery_error,
+    _handle_generic_package_error,
+    _cleanup_package_root,
+    _build_package_success_result,
+)
 
 from core_system.versioning import component_version
 
@@ -129,279 +137,48 @@ def _package_tool_locked(
     promotion_recovery_root: Path | None = None
 
     try:
-        source_roots = package_source_roots(tool_dir, entry)
-        source_excluded_paths = package_source_excluded_paths(tool_dir, entry)
-        source_excluded_path_set = frozenset(source_excluded_paths)
-        source_files = collect_file_hashes(
-            PROJECT_ROOT,
-            source_roots,
-            ignored_directory_names=SOURCE_IGNORED_DIRECTORY_NAMES,
-            excluded_relative_paths=source_excluded_path_set,
+        staging_result = _stage_package(
+            tool_id, tool_dir, entry, manifest, renderer_dir,
+            staged_dist, staged_exe, backend_port, runtime_contract, _CENTRAL_VERSION,
         )
-        source_digest = snapshot_digest(source_files)
-        copy_electron_runtime(staged_dist, staged_exe)
+        source_roots = staging_result["source_roots"]
+        source_excluded_paths = staging_result["source_excluded_paths"]
+        source_files = staging_result["source_files"]
+        source_digest = staging_result["source_digest"]
+        app_dir = staging_result["app_dir"]
+        runtime_path = staging_result["runtime_path"]
+        python_runtime_path = staging_result["python_runtime_path"]
+        backend_entry_relative = staging_result["backend_entry_relative"]
+        staged_verification = staging_result["staged_verification"]
 
-        app_dir = staged_dist / "resources" / "app"
-        app_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(renderer_dir, app_dir / "renderer")
-        runtime_path = copy_backend_source_bundle(
-            tool_id,
-            tool_dir,
-            entry,
-            app_dir,
+        promotion_result = _promote_package(
+            tool_id, exe_path, dist_dir, staged_dist,
+            running_process_ids, restart_after_upgrade,
         )
-        python_runtime_path = copy_portable_python_runtime(app_dir)
-
-        request_channel = manifest.get("request_channel")
-        governed_channel = (
-            isinstance(request_channel, dict)
-            and request_channel.get("model")
-            == "governance-authenticated-shared-layer"
-        )
-        channel_runtime_entry = (
-            str(request_channel.get("runtime_entry") or "").strip()
-            if isinstance(request_channel, dict)
-            else ""
-        )
-        backend_entry_relative = (
-            f"independent_tool/{tool_id}/{channel_runtime_entry}"
-            if governed_channel
-            else "src-core/main.py"
-        )
-        if governed_channel and (
-            not channel_runtime_entry
-            or Path(channel_runtime_entry).is_absolute()
-            or ".." in Path(channel_runtime_entry).parts
-        ):
-            raise RuntimeError("Invalid governed request channel runtime entry")
-
-        app_manifest = dict(manifest)
-        app_manifest["id"] = tool_id
-        app_manifest["version"] = str(manifest.get("version") or _CENTRAL_VERSION)
-        app_manifest["standalone"] = {
-            "backend_entry": backend_entry_relative,
-            "backend_service_version": str(manifest.get("version") or _CENTRAL_VERSION),
-            "backend_port": backend_port,
-            "isolated_backend": True,
-            "protocol_version": runtime_contract["protocol_version"],
-            "runtime_contract_version": runtime_contract["contract_version"],
-            "python_runtime": "python/python.exe",
-            "governed_channel": "shared-layer" if governed_channel else "",
-        }
-        (app_dir / "manifest.json").write_text(
-            json.dumps(app_manifest, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        (app_dir / "package.json").write_text(
-            json.dumps(
-                {
-                    "name": f"gptbridge-tool-{tool_id}",
-                    "version": str(manifest.get("version") or _CENTRAL_VERSION),
-                    "main": "main.cjs",
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        copy_app_templates(app_dir)
-        validate_staged_python_runtime(
-            app_dir,
-            tool_id,
-            backend_entry_relative,
-        )
-
-        current_source_files = collect_file_hashes(
-            PROJECT_ROOT,
-            source_roots,
-            ignored_directory_names=SOURCE_IGNORED_DIRECTORY_NAMES,
-            excluded_relative_paths=source_excluded_path_set,
-        )
-        if current_source_files != source_files:
-            raise RuntimeError(
-                "Package inputs changed during the build; retry after edits finish"
-            )
-
-        payload_files = collect_file_hashes(
-            app_dir,
-            ["."],
-            excluded_relative_paths=frozenset({PACKAGE_METADATA_NAME}),
-        )
-        package_metadata = {
-            "format_version": PACKAGE_FORMAT_VERSION,
-            "tool_id": tool_id,
-            "tool_version": str(manifest.get("version") or _CENTRAL_VERSION),
-            "backend_service_version": str(manifest.get("version") or _CENTRAL_VERSION),
-            "backend_port": backend_port,
-            "isolated_backend": True,
-            "protocol_version": runtime_contract["protocol_version"],
-            "runtime_contract_version": runtime_contract["contract_version"],
-            "backend_entry": backend_entry_relative,
-            "python_runtime": "python/python.exe",
-            "governed_channel": "shared-layer" if governed_channel else "",
-            "built_at_utc": datetime.now(timezone.utc).isoformat(),
-            "source_roots": source_roots,
-            "source_excluded_paths": source_excluded_paths,
-            "source_files": source_files,
-            "source_digest": source_digest,
-            "payload_files": payload_files,
-            "payload_digest": snapshot_digest(payload_files),
-        }
-        (app_dir / PACKAGE_METADATA_NAME).write_text(
-            json.dumps(package_metadata, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-            newline="\n",
-        )
-        staged_verification = verify_packaged_app(
-            app_dir,
-            project_root=PROJECT_ROOT,
-        )
-        if not staged_verification.get("ok"):
-            raise RuntimeError(
-                f"Staged package verification failed: "
-                f"{staged_verification.get('message', 'unknown error')}"
-            )
-
-        latest_process_ids = running_executable_process_ids(exe_path)
-        if latest_process_ids:
-            running_process_ids = latest_process_ids
-            restart_after_upgrade = True
-        stop_verified_packaged_backend(
-            tool_id,
-            dist_dir / "resources" / "app",
-        )
-        if restart_after_upgrade:
-            if not stop_running_executable_for_upgrade(
-                exe_path,
-                running_process_ids,
-            ):
-                raise RuntimeError(
-                    "The verified standalone tool did not stop for its "
-                    "production upgrade"
-                )
-            desktop_stopped_for_upgrade = True
-        promotion_recovery_root = promote_staged_distribution(
-            staged_dist,
-            dist_dir,
-        )
-        if promotion_recovery_root is not None:
-            preserve_package_root = True
-            live_verification = verify_packaged_app(
-                dist_dir / "resources" / "app",
-                project_root=PROJECT_ROOT,
-            )
-            if not live_verification.get("ok"):
-                raise RuntimeError(
-                    "Promoted package verification failed before old package "
-                    f"cleanup: {live_verification.get('message', 'unknown error')}"
-                )
-            shutil.rmtree(promotion_recovery_root)
-            promotion_recovery_root = None
-            preserve_package_root = False
-        if restart_after_upgrade:
-            desktop_restarted = restart_packaged_executable(exe_path)
-            if not desktop_restarted:
-                raise RuntimeError(
-                    "The package was promoted but the upgraded tool could "
-                    "not be restarted automatically"
-                )
+        running_process_ids = promotion_result["running_process_ids"]
+        restart_after_upgrade = promotion_result["restart_after_upgrade"]
+        desktop_stopped_for_upgrade = promotion_result["desktop_stopped_for_upgrade"]
+        desktop_restarted = promotion_result["desktop_restarted"]
+        promotion_recovery_root = promotion_result["promotion_recovery_root"]
+        preserve_package_root = promotion_result["preserve_package_root"]
     except PromotionRecoveryRequired as exc:
         preserve_package_root = True
-        if (
-            desktop_stopped_for_upgrade
-            and not running_executable_process_ids(exe_path)
-        ):
-            desktop_restarted = restart_packaged_executable(exe_path)
-        return {
-            "ok": False,
-            "tool_id": tool_id,
-            "entry": str(entry),
-            "exe_path": str(exe_path),
-            "error_code": "PROMOTION_ROLLBACK_INCOMPLETE",
-            "message": str(exc),
-            "recovery_path": str(exc.recovery_root),
-            "rollback_errors": list(exc.rollback_errors),
-            "desktop_restarted": desktop_restarted,
-        }
+        return _handle_promotion_recovery_error(
+            exc, tool_id, entry, exe_path,
+            desktop_stopped_for_upgrade, desktop_restarted,
+        )
     except Exception as exc:
-        retained_recovery = (
-            (package_root / "promotion-aborted.json").exists()
-            or (package_root / "promotion-recovery-manifest.json").exists()
-            or (package_root / "previous-dist").exists()
-            or any(package_root.glob("failed-new-dist*"))
+        error_result, preserve_package_root = _handle_generic_package_error(
+            exc, tool_id, entry, exe_path, package_root,
+            desktop_stopped_for_upgrade, desktop_restarted,
         )
-        if retained_recovery:
-            preserve_package_root = True
-        if (
-            desktop_stopped_for_upgrade
-            and not running_executable_process_ids(exe_path)
-        ):
-            desktop_restarted = restart_packaged_executable(exe_path)
-        return {
-            "ok": False,
-            "tool_id": tool_id,
-            "entry": str(entry),
-            "exe_path": str(exe_path),
-            "error_code": (
-                "PROMOTION_FAILED_RECOVERY_RETAINED"
-                if retained_recovery
-                else "PACKAGE_FAILED"
-            ),
-            "message": str(exc),
-            "diagnostic": traceback.format_exc(limit=12),
-            "recovery_path": (
-                str(package_root) if retained_recovery else ""
-            ),
-            "desktop_restarted": desktop_restarted,
-        }
+        return error_result
     finally:
-        contains_recovery = (
-            (package_root / "previous-dist").exists()
-            or (package_root / "previous-runtime").exists()
-            or (package_root / "previous-app").exists()
-            or any(package_root.glob("failed-new-dist*"))
-            or (package_root / "promotion-recovery-manifest.json").exists()
-            or (package_root / "promotion-aborted.json").exists()
-        )
-        if (
-            package_root.exists()
-            and not preserve_package_root
-            and not contains_recovery
-        ):
-            shutil.rmtree(package_root, ignore_errors=True)
+        _cleanup_package_root(package_root, preserve_package_root)
 
-    pruned_recovery_paths = prune_completed_recovery_roots(tool_dir)
-    return {
-        "ok": exe_path.exists(),
-        "tool_id": tool_id,
-        "entry": str(entry),
-        "exe_path": str(exe_path),
-        "renderer_path": str(dist_dir / "resources" / "app" / "renderer"),
-        "runtime_path": (
-            str(dist_dir / "resources" / "app" / runtime_path.relative_to(app_dir))
-            if runtime_path
-            else ""
-        ),
-        "python_runtime_path": str(
-            dist_dir
-            / "resources"
-            / "app"
-            / python_runtime_path.relative_to(app_dir)
-        ),
-        "package_digest": staged_verification.get("package_digest", ""),
-        "backend_port": backend_port,
-        "runtime_contract_version": runtime_contract["contract_version"],
-        "production_upgrade": (
-            "verified-stop-promote-restart"
-            if restart_after_upgrade
-            else "verified-promote"
-        ),
-        "desktop_restarted": desktop_restarted,
-        "pruned_recovery_paths": pruned_recovery_paths,
-        "recovery_path": (
-            str(promotion_recovery_root)
-            if promotion_recovery_root is not None
-            else ""
-        ),
-    }
+    return _build_package_success_result(
+        tool_id, entry, exe_path, dist_dir, app_dir,
+        runtime_path, python_runtime_path, staged_verification,
+        backend_port, runtime_contract, restart_after_upgrade,
+        desktop_restarted, promotion_recovery_root, tool_dir,
+    )
