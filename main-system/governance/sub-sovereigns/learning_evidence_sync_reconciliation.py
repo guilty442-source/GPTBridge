@@ -21,17 +21,9 @@ class LearningReconciliationMixin:
     ROLE: str
     _learner: Any
 
-    def _iso_now(self) -> str:
-        raise NotImplementedError
 
-    def _project_root(self) -> Path:
-        raise NotImplementedError
 
-    def _ensure_learner(self) -> None:
-        raise NotImplementedError
 
-    def _action_expired(self, action: dict[str, Any]) -> bool:
-        raise NotImplementedError
 
     def _non_actionable_reason(self, action: dict[str, Any]) -> str:
         """Return the reconciliation reason, or ``''`` when still actionable."""

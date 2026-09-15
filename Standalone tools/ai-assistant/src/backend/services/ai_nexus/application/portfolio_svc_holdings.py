@@ -3,9 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from ..infrastructure.analytics_repository import number
+from .portfolio_svc_holdings_manual import PortfolioSvcHoldingsManualMixin
 
 
-class PortfolioSvcHoldingsMixin:
+class PortfolioSvcHoldingsMixin(PortfolioSvcHoldingsManualMixin):
     def _enrich_holding_principal_basis(
         self,
         holding: dict[str, Any],
@@ -21,6 +22,18 @@ class PortfolioSvcHoldingsMixin:
             or holding.get("currency")
             or "TWD"
         ).upper()
+        self._enrich_principal_fx(enriched, principal_amount, principal_currency)
+        self._enrich_average_cost_fx(
+            enriched, holding, quantity, principal_currency
+        )
+        return enriched
+
+    def _enrich_principal_fx(
+        self,
+        enriched: dict[str, Any],
+        principal_amount: float,
+        principal_currency: str,
+    ) -> None:
         principal_fx = self.v3.fx_rate(principal_currency, "TWD")
         if (
             principal_amount > 0
@@ -37,6 +50,14 @@ class PortfolioSvcHoldingsMixin:
                 principal_fx.get("provider") or ""
             )
             enriched["principal_fx_rate"] = number(principal_fx.get("rate"))
+
+    def _enrich_average_cost_fx(
+        self,
+        enriched: dict[str, Any],
+        holding: dict[str, Any],
+        quantity: float,
+        principal_currency: str,
+    ) -> None:
         asset_currency = str(holding.get("currency") or "TWD").upper()
         asset_fx = self.v3.fx_rate(asset_currency, "TWD")
         principal_twd = number(enriched.get("principal_twd"), 0)
@@ -56,161 +77,6 @@ class PortfolioSvcHoldingsMixin:
                 "principal_twd_huanan_current_fx_estimate"
             )
             enriched["average_cost_fx_rate"] = number(asset_fx.get("rate"))
-        return enriched
-
-    @staticmethod
-    def _normalized_manual_holding(
-        payload: dict[str, Any],
-        existing: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        symbol = str(payload.get("symbol") or "").strip().upper()
-        market = str(payload.get("market") or "").strip().upper()
-        asset_type = str(payload.get("asset_type") or "STOCK").strip().upper()
-        currency = str(payload.get("currency") or "TWD").strip().upper()
-        quantity = number(payload.get("quantity"), -1)
-        average_cost = number(payload.get("average_cost"), -1)
-        def optional_number(field: str) -> float | None:
-            raw_value = payload.get(field, (existing or {}).get(field))
-            if raw_value is None or raw_value == "":
-                return None
-            parsed = number(raw_value, -1)
-            if parsed < 0:
-                raise ValueError(f"{field} 不可小於零")
-            return parsed
-
-        dividend_amount_twd = optional_number("dividend_amount_twd")
-        dividend_per_unit = optional_number("dividend_per_unit")
-        monthly_dividend_twd = optional_number("monthly_dividend_twd")
-        annual_dividend_yield_percent = optional_number(
-            "annual_dividend_yield_percent"
-        )
-        payback_rate_percent = optional_number("payback_rate_percent")
-        current_value_twd = optional_number("current_value_twd")
-        principal_amount = optional_number("principal_amount")
-        principal_twd = optional_number("principal_twd")
-        principal_currency = str(
-            payload.get("principal_currency")
-            or (existing or {}).get("principal_currency")
-            or currency
-        ).strip().upper()
-        frequency_definitions = {
-            "unknown": ("待確認", None),
-            "none": ("無配息", 0),
-            "weekly": ("每週", 52),
-            "biweekly": ("每兩週", 26),
-            "monthly": ("每月", 12),
-            "bimonthly": ("每兩月", 6),
-            "quarterly": ("每季", 4),
-            "semiannual": ("每半年", 2),
-            "annual": ("每年", 1),
-            "irregular": ("不定期", None),
-        }
-        dividend_frequency = str(
-            payload.get(
-                "dividend_frequency",
-                (existing or {}).get("dividend_frequency") or "unknown",
-            )
-            or "unknown"
-        ).strip().casefold()
-        if dividend_frequency not in frequency_definitions:
-            raise ValueError("配息頻率不在允許清單")
-        dividend_frequency_label, dividend_frequency_per_year = (
-            frequency_definitions[dividend_frequency]
-        )
-        fund_code = str(
-            payload.get("fund_code") or (existing or {}).get("fund_code") or ""
-        ).strip().upper()
-        fund_isin = str(
-            payload.get("fund_isin") or (existing or {}).get("fund_isin") or ""
-        ).strip().upper()
-        fund_share_class = str(
-            payload.get("fund_share_class")
-            or (existing or {}).get("fund_share_class")
-            or ""
-        ).strip()
-        fund_quote_symbol = str(
-            payload.get("fund_quote_symbol")
-            or (existing or {}).get("fund_quote_symbol")
-            or ""
-        ).strip().upper()
-        estimated_annual_dividend_twd = (
-            0.0
-            if dividend_frequency == "none"
-            else monthly_dividend_twd * 12.0
-            if monthly_dividend_twd is not None and monthly_dividend_twd > 0
-            else dividend_per_unit * quantity * dividend_frequency_per_year
-            if dividend_per_unit is not None
-            and dividend_per_unit > 0
-            and dividend_frequency_per_year is not None
-            and dividend_frequency_per_year > 0
-            else current_value_twd * annual_dividend_yield_percent / 100.0
-            if current_value_twd is not None
-            and annual_dividend_yield_percent is not None
-            else None
-        )
-        estimated_weekly_dividend_twd = (
-            estimated_annual_dividend_twd / 52.0
-            if estimated_annual_dividend_twd is not None
-            else None
-        )
-        if not symbol:
-            raise ValueError("持股代號不可空白")
-        if quantity < 0:
-            raise ValueError("持股數量不可小於零")
-        if average_cost < 0:
-            raise ValueError("平均成本不可小於零")
-        if principal_amount is None and average_cost > 0 and quantity > 0:
-            principal_amount = average_cost * quantity
-        if principal_twd is None and principal_currency == "TWD":
-            principal_twd = principal_amount
-        if not market:
-            raise ValueError("請選擇市場")
-        if not currency or len(currency) > 8 or not currency.replace("-", "").isalnum():
-            raise ValueError("幣別格式不正確")
-        if (
-            not principal_currency
-            or len(principal_currency) > 8
-            or not principal_currency.replace("-", "").isalnum()
-        ):
-            raise ValueError("本金幣別格式不正確")
-        return {
-            **(existing or {}),
-            "holding_id": str((existing or {}).get("holding_id") or payload.get("holding_id") or ""),
-            "symbol": symbol,
-            "name": str(payload.get("name") or symbol).strip(),
-            "market": market,
-            "asset_type": asset_type,
-            "quantity": quantity,
-            "average_cost": average_cost,
-            "currency": currency,
-            "principal_amount": principal_amount,
-            "principal_currency": principal_currency,
-            "principal_twd": principal_twd,
-            "fund_code": fund_code,
-            "fund_isin": fund_isin,
-            "fund_share_class": fund_share_class,
-            "fund_quote_symbol": fund_quote_symbol,
-            "fund_identity_status": (
-                "confirmed"
-                if fund_quote_symbol
-                else str((existing or {}).get("fund_identity_status") or "")
-            ),
-            "source_row": (existing or {}).get("source_row"),
-            "dividend_amount_twd": dividend_amount_twd,
-            "dividend_per_unit": dividend_per_unit,
-            "monthly_dividend_twd": monthly_dividend_twd,
-            "annual_dividend_yield_percent": annual_dividend_yield_percent,
-            "dividend_frequency": dividend_frequency,
-            "dividend_frequency_label": dividend_frequency_label,
-            "dividend_frequency_per_year": dividend_frequency_per_year,
-            "dividend_frequency_source": "manual",
-            "dividend_frequency_confidence": 1.0,
-            "payback_rate_percent": payback_rate_percent,
-            "current_value_twd": current_value_twd,
-            "estimated_annual_dividend_twd": estimated_annual_dividend_twd,
-            "estimated_weekly_dividend_twd": estimated_weekly_dividend_twd,
-            "manually_edited": True,
-        }
 
     @staticmethod
     def _should_apply_synced_dividend_frequency(
@@ -239,18 +105,7 @@ class PortfolioSvcHoldingsMixin:
             raise ValueError("找不到要修改的持股")
         existing = holdings[target_index] if target_index is not None else None
         normalized = self._normalized_manual_holding(payload, existing)
-        duplicate = next(
-            (
-                item
-                for index, item in enumerate(holdings)
-                if index != target_index
-                and str(item.get("symbol") or "").upper() == normalized["symbol"]
-                and str(item.get("market") or "").upper() == normalized["market"]
-            ),
-            None,
-        )
-        if duplicate:
-            raise ValueError("同一市場已有相同持股代號")
+        self._assert_no_duplicate_holding(holdings, target_index, normalized)
         action = "update" if target_index is not None else "create"
         if target_index is None:
             holdings.append(normalized)
@@ -268,17 +123,7 @@ class PortfolioSvcHoldingsMixin:
             ),
             normalized,
         )
-        self.analytics_store.audit(
-            "holding_manually_updated",
-            {
-                "action": action,
-                "holding_id": saved_holding.get("holding_id"),
-                "before": existing,
-                "after": saved_holding,
-                "source_file_modified": False,
-            },
-            severity="warning",
-        )
+        self._audit_holding_update(action, saved_holding, existing)
         self._invalidate_v3_snapshot()
         if payload.get("refresh_quotes", True) and saved.get("holdings"):
             self._schedule_local_risk_ai_background(
@@ -294,6 +139,43 @@ class PortfolioSvcHoldingsMixin:
             }
         )
         return response
+
+    def _assert_no_duplicate_holding(
+        self,
+        holdings: list[dict[str, Any]],
+        target_index: int | None,
+        normalized: dict[str, Any],
+    ) -> None:
+        duplicate = next(
+            (
+                item
+                for index, item in enumerate(holdings)
+                if index != target_index
+                and str(item.get("symbol") or "").upper() == normalized["symbol"]
+                and str(item.get("market") or "").upper() == normalized["market"]
+            ),
+            None,
+        )
+        if duplicate:
+            raise ValueError("同一市場已有相同持股代號")
+
+    def _audit_holding_update(
+        self,
+        action: str,
+        saved_holding: dict[str, Any],
+        existing: dict[str, Any] | None,
+    ) -> None:
+        self.analytics_store.audit(
+            "holding_manually_updated",
+            {
+                "action": action,
+                "holding_id": saved_holding.get("holding_id"),
+                "before": existing,
+                "after": saved_holding,
+                "source_file_modified": False,
+            },
+            severity="warning",
+        )
 
     async def _delete_holding(self, payload: dict[str, Any]) -> dict[str, Any]:
         if payload.get("confirmed") is not True:

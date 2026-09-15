@@ -130,6 +130,11 @@ class AutoRepairOrchestrator:
         # Stage 4: Create Repair Plan
         plan = self._create_repair_plan(objective, grant)
 
+        return self._execute_verify_report(objective, grant, plan)
+
+    def _execute_verify_report(
+        self, objective: Any, grant: Any, plan: Any
+    ) -> dict[str, Any]:
         # Stage 5: Dispatch to Governed Executor
         execution = self.executor.execute(plan, grant)
 

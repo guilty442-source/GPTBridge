@@ -120,3 +120,68 @@ class GovernedRequestClient:
 
     def cancel(self, target_tool_id: str, request_id: str) -> bool:
         return self._channel.cancel(target_tool_id, request_id)
+
+    def push_sync(
+        self,
+        target_tool_id: str,
+        command: str,
+        payload: dict[str, Any],
+        *,
+        push_id: str | None = None,
+    ) -> None:
+        self._authorize_route(self._caller_actor, target_tool_id, command)
+        if not isinstance(payload, dict):
+            raise permission_denied()
+        push_id = str(push_id or f"push-{uuid.uuid4().hex}").strip()
+        self._channel.push(
+            target_tool_id,
+            push_id,
+            {**dict(payload), "_governed_command": command},
+        )
+
+    async def push(
+        self,
+        target_tool_id: str,
+        command: str,
+        payload: dict[str, Any],
+        *,
+        push_id: str | None = None,
+    ) -> None:
+        await asyncio.to_thread(
+            self.push_sync,
+            target_tool_id,
+            command,
+            payload,
+            push_id=push_id,
+        )
+
+    def claim_pushed_sync(
+        self,
+        consumer_tool_id: str,
+        *,
+        acknowledge: bool = True,
+        push_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        if consumer_tool_id != self._caller_actor:
+            raise permission_denied()
+        claimed = self._channel.claim_pushed()
+        if claimed is not None and acknowledge:
+            if push_id is not None and claimed.get("push_id") != push_id:
+                raise permission_denied()
+            self._channel.acknowledge_push(claimed["push_id"])
+            claimed["acknowledged"] = True
+        return claimed
+
+    async def claim_pushed(
+        self,
+        consumer_tool_id: str,
+        *,
+        acknowledge: bool = True,
+        push_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        return await asyncio.to_thread(
+            self.claim_pushed_sync,
+            consumer_tool_id,
+            acknowledge=acknowledge,
+            push_id=push_id,
+        )

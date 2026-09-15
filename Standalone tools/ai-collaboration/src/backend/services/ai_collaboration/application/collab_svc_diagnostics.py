@@ -17,53 +17,21 @@ class CollabSvcDiagnosticsMixin:
     ) -> dict[str, Any]:
         selected_agents = [agent for agent in agents if agent.get("selected")]
         enabled_agents = [agent for agent in agents if agent.get("enabled")]
-        status_counts: dict[str, int] = {}
-        for agent in agents:
-            status = str(agent.get("status") or "idle")
-            status_counts[status] = status_counts.get(status, 0) + 1
-
-        failed_responses = 0
-        waiting_verification = 0
-        completed_responses = 0
-        latest_message = messages[-1] if messages else None
-        for message in messages:
-            for response in message.get("responses", []):
-                if not isinstance(response, dict):
-                    continue
-                status = str(response.get("status") or "")
-                if status == "failed":
-                    failed_responses += 1
-                elif status == "waiting_verification":
-                    waiting_verification += 1
-                elif status == "completed":
-                    completed_responses += 1
-
-        if failed_responses or waiting_verification:
-            state = "attention"
-            message = "有外部 AI 需要檢查登入、驗證或回覆錯誤。"
-        elif status_counts.get("running"):
-            state = "running"
-            message = "AI 協作正在執行。"
-        elif not selected_agents:
-            state = "setup"
-            message = "尚未選擇要協作的 AI。"
-        elif enabled_agents:
-            state = "ready"
-            message = "AI 協作工具已就緒。"
-        else:
-            state = "empty"
-            message = "沒有可用 AI。"
-
-        browser_status = (
-            self.session.browser_status()
-            if hasattr(self.session, "browser_status")
-            else {
-                "product": "embedded-browser-view",
-                "available": False,
-                "mode": "embedded-browser-view",
-                "automation": False,
-            }
+        status_counts = self._agent_status_counts(agents)
+        (
+            failed_responses,
+            waiting_verification,
+            completed_responses,
+            latest_message,
+        ) = self._response_tallies(messages)
+        state, message = self._diagnostics_state(
+            failed_responses,
+            waiting_verification,
+            status_counts,
+            selected_agents,
+            enabled_agents,
         )
+        browser_status = self._browser_status()
         return {
             "state": state,
             "message": message,
@@ -84,6 +52,65 @@ class CollabSvcDiagnosticsMixin:
             },
             "browser": browser_status,
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+
+    @staticmethod
+    def _agent_status_counts(
+        agents: list[dict[str, Any]],
+    ) -> dict[str, int]:
+        status_counts: dict[str, int] = {}
+        for agent in agents:
+            status = str(agent.get("status") or "idle")
+            status_counts[status] = status_counts.get(status, 0) + 1
+        return status_counts
+
+    @staticmethod
+    def _response_tallies(
+        messages: list[dict[str, Any]],
+    ) -> tuple[int, int, int, dict[str, Any] | None]:
+        failed_responses = 0
+        waiting_verification = 0
+        completed_responses = 0
+        latest_message = messages[-1] if messages else None
+        for message in messages:
+            for response in message.get("responses", []):
+                if not isinstance(response, dict):
+                    continue
+                status = str(response.get("status") or "")
+                if status == "failed":
+                    failed_responses += 1
+                elif status == "waiting_verification":
+                    waiting_verification += 1
+                elif status == "completed":
+                    completed_responses += 1
+        return failed_responses, waiting_verification, completed_responses, latest_message
+
+    @staticmethod
+    def _diagnostics_state(
+        failed_responses: int,
+        waiting_verification: int,
+        status_counts: dict[str, int],
+        selected_agents: list[dict[str, Any]],
+        enabled_agents: list[dict[str, Any]],
+    ) -> tuple[str, str]:
+        if failed_responses or waiting_verification:
+            return "attention", "有外部 AI 需要檢查登入、驗證或回覆錯誤。"
+        if status_counts.get("running"):
+            return "running", "AI 協作正在執行。"
+        if not selected_agents:
+            return "setup", "尚未選擇要協作的 AI。"
+        if enabled_agents:
+            return "ready", "AI 協作工具已就緒。"
+        return "empty", "沒有可用 AI。"
+
+    def _browser_status(self) -> dict[str, Any]:
+        if hasattr(self.session, "browser_status"):
+            return self.session.browser_status()
+        return {
+            "product": "embedded-browser-view",
+            "available": False,
+            "mode": "embedded-browser-view",
+            "automation": False,
         }
 
     async def _export_report(self, _payload: dict[str, Any]) -> dict[str, Any]:

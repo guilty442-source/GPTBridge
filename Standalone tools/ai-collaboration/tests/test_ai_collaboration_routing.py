@@ -354,28 +354,29 @@ def test_tool_general_mode_cannot_start_star_fixed_workflow(tmp_path: Path) -> N
     assert result == {"ok": False, "message": "PERMISSION_DENIED"}
 
 
+class _BrowserAwaitingSession:
+    async def send_task(
+        self, agent: dict[str, object], _task: dict[str, object]
+    ) -> dict[str, object]:
+        return {
+            "status": "awaiting-user",
+            "provider": agent["provider"],
+            "content": "",
+            "error": "",
+            "error_code": "FOREGROUND_BROWSER_INTERACTION_REQUIRED",
+            "transport": "embedded-browser-view",
+            "memory_candidates": [],
+            "fallback": {"used": False, "browser_only": True},
+        }
+
+    async def close_background_context(self) -> None:
+        return None
+
+
 def test_tool_general_mode_returns_immediately_for_browser_results(
     tmp_path: Path,
 ) -> None:
-    class BrowserSession:
-        async def send_task(
-            self, agent: dict[str, object], _task: dict[str, object]
-        ) -> dict[str, object]:
-            return {
-                "status": "awaiting-user",
-                "provider": agent["provider"],
-                "content": "",
-                "error": "",
-                "error_code": "FOREGROUND_BROWSER_INTERACTION_REQUIRED",
-                "transport": "embedded-browser-view",
-                "memory_candidates": [],
-                "fallback": {"used": False, "browser_only": True},
-            }
-
-        async def close_background_context(self) -> None:
-            return None
-
-    service = AiCollaborationService(tmp_path, session=BrowserSession())
+    service = AiCollaborationService(tmp_path, session=_BrowserAwaitingSession())
     actor = "governance/tool/ai-collaboration"
     _event, result = asyncio.run(
         service.handle(

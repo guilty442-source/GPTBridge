@@ -195,64 +195,11 @@ class VaultlyJobsMixin:
                 if str(job.get("conditions", {}).get("source", "")) == "links":
                     await self._run_link_job(job, counters)
                     return
-                accounts = self.repository.get_accounts(job["account_ids"])
-                for account_index, account in enumerate(accounts, start=1):
-                    if self._is_cancelled(job_id):
-                        return
-                    self.repository.update_job(
-                        job_id,
-                        progress_current=account_index - 1,
-                        message=f"掃描 {account['platform']} / @{account['handle']}",
-                        **counters,
-                    )
-                    try:
-                        await self._process_account(job, account, counters)
-                        account_message = f"完成 @{account['handle']}"
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as exc:
-                        counters["failed"] += 1
-                        account_message = (
-                            f"@{account['handle']} 失敗：{self._short_error(exc)}"
-                        )
-                    self.repository.update_job(
-                        job_id,
-                        progress_current=account_index,
-                        message=account_message,
-                        **counters,
-                    )
-
-                if self._is_cancelled(job_id):
-                    return
-                message = (
-                    f"預覽完成：符合 {counters['matched']} 個媒體"
-                    if job["preview_only"]
-                    else f"下載完成：成功 {counters['downloaded']}、略過 {counters['skipped']}、失敗 {counters['failed']}"
-                )
-                self.repository.update_job(
-                    job_id,
-                    status="completed",
-                    message=message,
-                    finished_at=self._now(),
-                    **counters,
-                )
+                await self._run_accounts_job(job, job_id, counters)
             except asyncio.CancelledError:
-                if self._is_cancelled(job_id):
-                    self.repository.update_job(
-                        job_id,
-                        status="cancelled",
-                        message="使用者已取消",
-                        finished_at=self._now(),
-                        **counters,
-                    )
-                    return
-                self.repository.update_job(
-                    job_id,
-                    status="queued",
-                    message="主程式關閉，工作會在下次啟動後繼續",
-                    **counters,
-                )
-                raise
+                if self._handle_job_cancelled(job_id, counters):
+                    raise
+                return
             except Exception as exc:
                 self.repository.update_job(
                     job_id,
@@ -263,6 +210,75 @@ class VaultlyJobsMixin:
                 )
             finally:
                 self._cancelled_jobs.discard(job_id)
+
+    async def _run_accounts_job(
+        self,
+        job: dict[str, Any],
+        job_id: str,
+        counters: dict[str, int],
+    ) -> None:
+        accounts = self.repository.get_accounts(job["account_ids"])
+        for account_index, account in enumerate(accounts, start=1):
+            if self._is_cancelled(job_id):
+                return
+            self.repository.update_job(
+                job_id,
+                progress_current=account_index - 1,
+                message=f"掃描 {account['platform']} / @{account['handle']}",
+                **counters,
+            )
+            try:
+                await self._process_account(job, account, counters)
+                account_message = f"完成 @{account['handle']}"
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                counters["failed"] += 1
+                account_message = (
+                    f"@{account['handle']} 失敗：{self._short_error(exc)}"
+                )
+            self.repository.update_job(
+                job_id,
+                progress_current=account_index,
+                message=account_message,
+                **counters,
+            )
+
+        if self._is_cancelled(job_id):
+            return
+        message = (
+            f"預覽完成：符合 {counters['matched']} 個媒體"
+            if job["preview_only"]
+            else f"下載完成：成功 {counters['downloaded']}、略過 {counters['skipped']}、失敗 {counters['failed']}"
+        )
+        self.repository.update_job(
+            job_id,
+            status="completed",
+            message=message,
+            finished_at=self._now(),
+            **counters,
+        )
+
+    def _handle_job_cancelled(
+        self, job_id: str, counters: dict[str, int]
+    ) -> bool:
+        """Record cancellation; returns True when the CancelledError must be re-raised."""
+        if self._is_cancelled(job_id):
+            self.repository.update_job(
+                job_id,
+                status="cancelled",
+                message="使用者已取消",
+                finished_at=self._now(),
+                **counters,
+            )
+            return False
+        self.repository.update_job(
+            job_id,
+            status="queued",
+            message="主程式關閉，工作會在下次啟動後繼續",
+            **counters,
+        )
+        return True
 
     async def _process_account(
         self,
@@ -300,56 +316,66 @@ class VaultlyJobsMixin:
             if not matches:
                 counters["skipped"] += 1
                 continue
+            matched_for_account = await self._process_post_media(
+                page,
+                job,
+                account,
+                inspected,
+                definition,
+                maximum,
+                matched_for_account,
+                counters,
+            )
 
-            media_items = [
-                media
-                for media in inspected.get("media", [])
-                if isinstance(media, dict) and media_matches_conditions(media, job["conditions"])
-            ]
-            for media_index, media in enumerate(media_items):
-                if matched_for_account >= maximum:
-                    break
-                media_type = str(media.get("media_type", "")).strip()
-                source_urls = self._allowed_media_sources(media, definition.media_hosts)
-                if not source_urls:
-                    counters["skipped"] += 1
-                    continue
-                media = {
-                    **media,
-                    "source_url": source_urls[0],
-                    "fallback_urls": source_urls[1:],
-                }
-                dedupe_key = self._dedupe_key(account, inspected, media_type, media_index)
-                if job["conditions"]["skip_downloaded"] and self._has_valid_download(
-                    dedupe_key,
-                    media_type,
-                ):
-                    counters["skipped"] += 1
-                    continue
-                counters["matched"] += 1
-                matched_for_account += 1
-                if job["preview_only"]:
-                    continue
-                try:
-                    await self._download_media(
-                        page,
-                        job,
-                        account,
-                        inspected,
-                        media,
-                        dedupe_key,
-                    )
-                    counters["downloaded"] += 1
-                except Exception as exc:
-                    counters["failed"] += 1
-                    self.repository.update_job(
-                        str(job["job_id"]),
-                        message=(
-                            f"@{account['handle']} 媒體下載失敗："
-                            f"{self._short_error(exc)}"
-                        ),
-                        **counters,
-                    )
+    async def _process_post_media(
+        self, page: Any, job: dict[str, Any], account: dict[str, Any],
+        inspected: dict[str, Any], definition: Any, maximum: int,
+        matched_for_account: int, counters: dict[str, int],
+    ) -> int:
+        media_items = [
+            media
+            for media in inspected.get("media", [])
+            if isinstance(media, dict) and media_matches_conditions(media, job["conditions"])
+        ]
+        for media_index, media in enumerate(media_items):
+            if matched_for_account >= maximum:
+                break
+            media_type = str(media.get("media_type", "")).strip()
+            source_urls = self._allowed_media_sources(media, definition.media_hosts)
+            if not source_urls:
+                counters["skipped"] += 1
+                continue
+            media = {
+                **media,
+                "source_url": source_urls[0],
+                "fallback_urls": source_urls[1:],
+            }
+            dedupe_key = self._dedupe_key(account, inspected, media_type, media_index)
+            if job["conditions"]["skip_downloaded"] and self._has_valid_download(
+                dedupe_key, media_type
+            ):
+                counters["skipped"] += 1
+                continue
+            counters["matched"] += 1
+            matched_for_account += 1
+            if job["preview_only"]:
+                continue
+            try:
+                await self._download_media(
+                    page, job, account, inspected, media, dedupe_key
+                )
+                counters["downloaded"] += 1
+            except Exception as exc:
+                counters["failed"] += 1
+                self.repository.update_job(
+                    str(job["job_id"]),
+                    message=(
+                        f"@{account['handle']} 媒體下載失敗："
+                        f"{self._short_error(exc)}"
+                    ),
+                    **counters,
+                )
+        return matched_for_account
 
     def _is_cancelled(self, job_id: str) -> bool:
         return job_id in self._cancelled_jobs

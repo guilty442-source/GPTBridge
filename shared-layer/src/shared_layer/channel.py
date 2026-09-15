@@ -162,6 +162,39 @@ class SharedLayerChannel:
         except PermissionError:
             pass
 
+    def push(self, target_tool_id: str, push_id: str, payload: Any) -> None:
+        """Deliver a one-way push notification to a target tool.
+
+        Unlike ``request`` (which expects a response) a push is a
+        fire-once delivery: the receiver ``claim_pushed`` it and no reply
+        is manufactured back through the sender.  Delivery is durable in
+        the governed transport (``pushed`` -> ``claimed`` -> ``completed``).
+        """
+        token = self._issue(
+            capability=f"{self._channel_id}-channel-request-submit",
+            action="request",
+            target_tool_id=target_tool_id,
+        )
+        self._store.submit_push(token, push_id, target_tool_id, payload)
+
+    def claim_pushed(self) -> dict[str, Any] | None:
+        """Claim the next pushed notification addressed to this tool."""
+        token = self._issue(
+            capability=f"{self._channel_id}-channel-request-process",
+            action="claim",
+            target_tool_id=None,
+        )
+        return self._store.claim_pushed(token, self._tool_id)
+
+    def acknowledge_push(self, push_id: str) -> bool:
+        """Acknowledge a claimed push so the sender sees it consumed."""
+        token = self._issue(
+            capability=f"{self._channel_id}-channel-request-process",
+            action="respond",
+            target_tool_id=None,
+        )
+        return self._store.acknowledge_push(token, push_id, self._tool_id)
+
     def notification_stamp(self) -> tuple[int, int] | None:
         """Cheap transport write stamp for notification-driven wakeups.
 

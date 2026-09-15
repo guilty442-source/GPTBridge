@@ -50,6 +50,21 @@ class WatchRepoXingchengMixin:
             product_status,
             compact_command,
         )
+        self._apply_xingcheng_command_fields(state, compact_command)
+        state["xingcheng_analysis_cache"] = self._compact_analysis_cache(full_analysis)
+        state["xingcheng_external_discussion"] = self._compact_external_discussion(
+            full_analysis
+        )
+        state["xingcheng_explanation"] = (
+            dict(explanation) if isinstance(explanation, dict) else None
+        )
+        return self.save_state(state)
+
+    @staticmethod
+    def _apply_xingcheng_command_fields(
+        state: dict[str, Any],
+        compact_command: dict[str, Any] | None,
+    ) -> None:
         state["xingcheng_action_plan"] = (
             list(compact_command.get("action_plan", []))[:8]
             if isinstance(compact_command, dict)
@@ -71,33 +86,31 @@ class WatchRepoXingchengMixin:
             if isinstance(compact_command, dict)
             else ""
         )
-        state["xingcheng_analysis_cache"] = self._compact_analysis_cache(full_analysis)
+
+    @staticmethod
+    def _compact_external_discussion(
+        full_analysis: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
         discussion = (
             full_analysis.get("external_ai_discussion")
             if isinstance(full_analysis, dict)
             and isinstance(full_analysis.get("external_ai_discussion"), dict)
             else None
         )
-        state["xingcheng_external_discussion"] = (
-            {
-                "ok": discussion.get("ok") is True,
-                "queued": discussion.get("queued") is True,
-                "provider": str(discussion.get("provider") or ""),
-                "status": str(discussion.get("status") or ""),
-                "content": str(discussion.get("content") or "")[:12000],
-                "message": str(discussion.get("message") or ""),
-                "response_recipient": str(
-                    discussion.get("response_recipient") or "xingcheng"
-                ),
-                "transport": str(discussion.get("transport") or ""),
-            }
-            if discussion is not None
-            else None
-        )
-        state["xingcheng_explanation"] = (
-            dict(explanation) if isinstance(explanation, dict) else None
-        )
-        return self.save_state(state)
+        if discussion is None:
+            return None
+        return {
+            "ok": discussion.get("ok") is True,
+            "queued": discussion.get("queued") is True,
+            "provider": str(discussion.get("provider") or ""),
+            "status": str(discussion.get("status") or ""),
+            "content": str(discussion.get("content") or "")[:12000],
+            "message": str(discussion.get("message") or ""),
+            "response_recipient": str(
+                discussion.get("response_recipient") or "xingcheng"
+            ),
+            "transport": str(discussion.get("transport") or ""),
+        }
 
     @staticmethod
     def _compact_analysis_cache(
@@ -192,75 +205,49 @@ class WatchRepoXingchengMixin:
             source = command_result["network_context"]
         if not isinstance(source, dict):
             return None
-        return {
+        _int_value = WatchRepoUtilsMixin._int_value
+        _compact_string_list = WatchRepoUtilsMixin._compact_string_list
+        context: dict[str, Any] = {
             "enabled": bool(source.get("enabled")),
             "mode": str(source.get("mode") or ""),
             "mode_label": str(source.get("mode_label") or ""),
             "health": str(source.get("health") or ""),
             "health_label": str(source.get("health_label") or ""),
             "policy": WatchRepoUtilsMixin._shorten(str(source.get("policy") or ""), 500),
-            "quote_provider_count": WatchRepoUtilsMixin._int_value(
-                source.get("quote_provider_count")
-            ),
-            "quote_providers": WatchRepoUtilsMixin._compact_string_list(
-                source.get("quote_providers"),
-                8,
-            ),
-            "successful_providers": WatchRepoUtilsMixin._compact_string_list(
-                source.get("successful_providers"),
-                8,
-            ),
-            "failed_providers": WatchRepoUtilsMixin._compact_string_list(
-                source.get("failed_providers"),
-                8,
-            ),
-            "attempt_count": WatchRepoUtilsMixin._int_value(source.get("attempt_count")),
-            "holding_count": WatchRepoUtilsMixin._int_value(source.get("holding_count")),
-            "quoted_count": WatchRepoUtilsMixin._int_value(source.get("quoted_count")),
-            "verified_quote_count": WatchRepoUtilsMixin._int_value(
-                source.get("verified_quote_count")
-            ),
-            "cross_checked_count": WatchRepoUtilsMixin._int_value(
-                source.get("cross_checked_count")
-            ),
-            "single_source_count": WatchRepoUtilsMixin._int_value(
-                source.get("single_source_count")
-            ),
-            "untrusted_quote_count": WatchRepoUtilsMixin._int_value(
-                source.get("untrusted_quote_count")
-            ),
-            "failed_quote_count": WatchRepoUtilsMixin._int_value(
-                source.get("failed_quote_count")
-            ),
-            "validation_issue_count": WatchRepoUtilsMixin._int_value(
-                source.get("validation_issue_count")
-            ),
-            "divergence_count": WatchRepoUtilsMixin._int_value(
-                source.get("divergence_count")
-            ),
-            "stale_quote_count": WatchRepoUtilsMixin._int_value(
-                source.get("stale_quote_count")
-            ),
-            "symbol_mismatch_count": WatchRepoUtilsMixin._int_value(
-                source.get("symbol_mismatch_count")
-            ),
-            "currency_mismatch_count": WatchRepoUtilsMixin._int_value(
-                source.get("currency_mismatch_count")
-            ),
-            "validation_issues": WatchRepoXingchengMixin._compact_validation_issues(
+            "quote_provider_count": _int_value(source.get("quote_provider_count")),
+        }
+        for key in ("quote_providers", "successful_providers", "failed_providers"):
+            context[key] = _compact_string_list(source.get(key), 8)
+        for key in (
+            "attempt_count",
+            "holding_count",
+            "quoted_count",
+            "verified_quote_count",
+            "cross_checked_count",
+            "single_source_count",
+            "untrusted_quote_count",
+            "failed_quote_count",
+            "validation_issue_count",
+            "divergence_count",
+            "stale_quote_count",
+            "symbol_mismatch_count",
+            "currency_mismatch_count",
+        ):
+            context[key] = _int_value(source.get(key))
+        context["validation_issues"] = (
+            WatchRepoXingchengMixin._compact_validation_issues(
                 source.get("validation_issues"),
                 12,
-            ),
-            "quote_gap_count": WatchRepoUtilsMixin._int_value(
-                source.get("quote_gap_count")
-            ),
-            "quote_gaps": WatchRepoXingchengMixin._compact_quote_gaps(
-                source.get("quote_gaps"),
-                20,
-            ),
-            "coverage_percent": source.get("coverage_percent"),
-            "coverage_label": str(source.get("coverage_label") or ""),
-        }
+            )
+        )
+        context["quote_gap_count"] = _int_value(source.get("quote_gap_count"))
+        context["quote_gaps"] = WatchRepoXingchengMixin._compact_quote_gaps(
+            source.get("quote_gaps"),
+            20,
+        )
+        context["coverage_percent"] = source.get("coverage_percent")
+        context["coverage_label"] = str(source.get("coverage_label") or "")
+        return context
 
     @staticmethod
     def _compact_quote_gaps(value: Any, limit: int) -> list[dict[str, Any]]:

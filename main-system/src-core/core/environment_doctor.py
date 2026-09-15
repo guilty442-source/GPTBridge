@@ -102,17 +102,7 @@ def check_python_modules(
         "print(json.dumps({name: importlib.util.find_spec(name) is not None for name in modules}, sort_keys=True))"
     )
     try:
-        completed = subprocess.run(
-            [str(executable), "-c", probe],
-            cwd=str(project_root),
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=15,
-            **_background_subprocess_kwargs(),
-        )
+        completed = _run_module_probe(executable, project_root, probe)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {
             "ok": False,
@@ -123,6 +113,42 @@ def check_python_modules(
             "error": str(exc),
         }
 
+    module_results, decode_error, missing = _required_module_results(
+        completed, required_modules
+    )
+    optional_results, optional_missing = _probe_optional_modules(
+        executable, project_root
+    )
+
+    return {
+        "ok": completed.returncode == 0 and not missing,
+        "executable": str(executable),
+        "exists": True,
+        "missing": missing,
+        "modules": module_results,
+        "optional_modules": optional_results,
+        "optional_missing": optional_missing,
+        "error": completed.stderr.strip() or decode_error,
+    }
+
+
+def _run_module_probe(executable: Path, project_root: Path, probe: str):
+    return subprocess.run(
+        [str(executable), "-c", probe],
+        cwd=str(project_root),
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=15,
+        **_background_subprocess_kwargs(),
+    )
+
+
+def _required_module_results(
+    completed, required_modules: Mapping[str, str]
+) -> tuple[dict[str, bool], str, list[str]]:
     module_results: dict[str, bool] = {}
     decode_error = ""
     if completed.returncode == 0:
@@ -146,7 +172,12 @@ def check_python_modules(
     ]
     if completed.returncode != 0 and not missing:
         missing = sorted(required_modules)
+    return module_results, decode_error, missing
 
+
+def _probe_optional_modules(
+    executable: Path, project_root: Path
+) -> tuple[dict[str, dict[str, bool]], dict[str, list[str]]]:
     optional_probe = (
         "import importlib.util,json;"
         f"groups=json.loads({json.dumps(json.dumps({g: list(m.values()) for g, m in OPTIONAL_PYTHON_MODULE_GROUPS.items()}))});"
@@ -154,17 +185,7 @@ def check_python_modules(
     )
     optional_results: dict[str, dict[str, bool]] = {}
     try:
-        opt_completed = subprocess.run(
-            [str(executable), "-c", optional_probe],
-            cwd=str(project_root),
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=15,
-            **_background_subprocess_kwargs(),
-        )
+        opt_completed = _run_module_probe(executable, project_root, optional_probe)
         if opt_completed.returncode == 0:
             optional_results = {
                 group: {
@@ -184,17 +205,7 @@ def check_python_modules(
         )
         for group, modules in optional_results.items()
     }
-
-    return {
-        "ok": completed.returncode == 0 and not missing,
-        "executable": str(executable),
-        "exists": True,
-        "missing": missing,
-        "modules": module_results,
-        "optional_modules": optional_results,
-        "optional_missing": optional_missing,
-        "error": completed.stderr.strip() or decode_error,
-    }
+    return optional_results, optional_missing
 
 
 def check_electron_runtime(project_root: Path) -> dict[str, Any]:
@@ -259,6 +270,37 @@ def collect_environment_report(
     external = check_external_tools()
     independent_tools = check_independent_tools(root.parent)
 
+    failures = _collect_failures(
+        paths, requirements, python, node, external, independent_tools
+    )
+    recommendations = _collect_recommendations(
+        requirements, python, node, external, independent_tools
+    )
+
+    ok = not failures
+    return {
+        "ok": ok,
+        "status": "healthy" if ok else "degraded",
+        "project_root": str(root),
+        "paths": paths,
+        "requirements": requirements,
+        "python": python,
+        "node": node,
+        "external_tools": external,
+        "independent_tools": independent_tools,
+        "failures": failures,
+        "recommendations": recommendations,
+    }
+
+
+def _collect_failures(
+    paths: dict[str, Any],
+    requirements: dict[str, Any],
+    python: dict[str, Any],
+    node: dict[str, Any],
+    external: dict[str, Any],
+    independent_tools: dict[str, Any],
+) -> list[str]:
     failures: list[str] = []
     if not paths["ok"]:
         failures.extend(f"missing path: {path}" for path in paths["missing"])
@@ -287,7 +329,16 @@ def collect_environment_report(
             f"independent tool missing executable: {tool_id}"
             for tool_id in independent_tools["missing_executables"]
         )
+    return failures
 
+
+def _collect_recommendations(
+    requirements: dict[str, Any],
+    python: dict[str, Any],
+    node: dict[str, Any],
+    external: dict[str, Any],
+    independent_tools: dict[str, Any],
+) -> list[str]:
     recommendations: list[str] = []
     if requirements["missing"]:
         recommendations.append("Add missing packages to requirements.txt and reinstall the virtual environment.")
@@ -310,21 +361,7 @@ def collect_environment_report(
             )
     if independent_tools["missing_entries"]:
         recommendations.append("Fix independent tool runtime.entry paths before packaging.")
-
-    ok = not failures
-    return {
-        "ok": ok,
-        "status": "healthy" if ok else "degraded",
-        "project_root": str(root),
-        "paths": paths,
-        "requirements": requirements,
-        "python": python,
-        "node": node,
-        "external_tools": external,
-        "independent_tools": independent_tools,
-        "failures": failures,
-        "recommendations": recommendations,
-    }
+    return recommendations
 
 
 def format_environment_report(report: Mapping[str, Any]) -> str:

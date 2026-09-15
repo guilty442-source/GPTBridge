@@ -13,6 +13,20 @@ from .._base import SovereignRequest, SovereignOutcome
 from core_system.codex_decision import accepted_outcome
 
 
+def _permission_review_aspects(payload: dict) -> dict[str, str]:
+    return {
+        "codex": "present" if payload.get("basis") or payload.get("codex_ref") else "missing",
+        "identity": "present" if payload.get("actor") else "missing",
+        "scope": "present" if payload.get("scope") else "missing",
+        "purpose": "present" if payload.get("purpose") else "missing",
+        "least-privilege": "present" if payload.get("least_privilege") else "missing",
+        "separation": "present" if payload.get("separation") else "missing",
+        "expiry": "present" if payload.get("expiry") else "missing",
+        "risk": "present" if payload.get("risk") else "missing",
+        "current-evidence": "present" if payload.get("evidence") else "missing",
+    }
+
+
 class XingchengInspectMixin:
     """Permission review and inspect adjudication methods."""
 
@@ -24,16 +38,7 @@ class XingchengInspectMixin:
     async def _adjudicate_permission_review(self, request: SovereignRequest) -> SovereignOutcome:
         """A319: independent privileged read-only examination of permission request."""
         payload = request.payload
-        aspects: dict[str, str] = {}
-        aspects["codex"] = "present" if payload.get("basis") or payload.get("codex_ref") else "missing"
-        aspects["identity"] = "present" if payload.get("actor") else "missing"
-        aspects["scope"] = "present" if payload.get("scope") else "missing"
-        aspects["purpose"] = "present" if payload.get("purpose") else "missing"
-        aspects["least-privilege"] = "present" if payload.get("least_privilege") else "missing"
-        aspects["separation"] = "present" if payload.get("separation") else "missing"
-        aspects["expiry"] = "present" if payload.get("expiry") else "missing"
-        aspects["risk"] = "present" if payload.get("risk") else "missing"
-        aspects["current-evidence"] = "present" if payload.get("evidence") else "missing"
+        aspects = _permission_review_aspects(payload)
         missing = [k for k, v in aspects.items() if v == "missing"]
         if not payload.get("actor") or not payload.get("capability") or not payload.get("target"):
             finding = "require-change"

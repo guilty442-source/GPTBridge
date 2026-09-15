@@ -30,31 +30,30 @@ class VaultlyDestinationMixin:
         path = Path(str(health.get("path", ""))).expanduser() if health.get("path") else None
         return path, health
 
+    @staticmethod
+    def _unhealthy_destination(path: str, message: str) -> dict[str, Any]:
+        return {
+            "ok": False,
+            "path": path,
+            "exists": False,
+            "is_dir": False,
+            "writable": False,
+            "free_bytes": 0,
+            "message": message,
+        }
+
     def _destination_health(self, destination_text: str) -> dict[str, Any]:
         raw_path = str(destination_text or "").strip()
         if not raw_path:
-            return {
-                "ok": False,
-                "path": "",
-                "exists": False,
-                "is_dir": False,
-                "writable": False,
-                "free_bytes": 0,
-                "message": "尚未選擇下載資料夾",
-            }
+            return self._unhealthy_destination("", "尚未選擇下載資料夾")
         try:
             path = Path(raw_path).expanduser()
             resolved = path.resolve()
         except (OSError, RuntimeError, ValueError) as exc:
-            return {
-                "ok": False,
-                "path": raw_path,
-                "exists": False,
-                "is_dir": False,
-                "writable": False,
-                "free_bytes": 0,
-                "message": f"下載資料夾路徑無效：{self._short_error(exc)}",
-            }
+            return self._unhealthy_destination(
+                raw_path,
+                f"下載資料夾路徑無效：{self._short_error(exc)}",
+            )
         exists = resolved.exists()
         is_dir = resolved.is_dir() if exists else False
         free_bytes = 0

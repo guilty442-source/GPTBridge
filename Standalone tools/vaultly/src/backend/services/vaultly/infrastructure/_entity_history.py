@@ -6,6 +6,17 @@ from typing import Any
 
 from ._helpers import _utc_now
 
+_ENTITY_TABLES = {
+    "account": ("vaultly_accounts", "account_id"),
+    "post": ("vaultly_posts", "post_id"),
+    "post_media": ("vaultly_post_media", "media_id"),
+    "media_history": ("vaultly_media_history", "dedupe_key"),
+    "setting": ("vaultly_settings", "key"),
+    "filter_term": ("vaultly_filter_terms", "term"),
+    "retained_account": ("vaultly_retained_accounts", "account_id"),
+    "removed_account": ("vaultly_removed_accounts", "account_id"),
+}
+
 
 class EntityHistoryMixin:
     @staticmethod
@@ -97,40 +108,12 @@ class EntityHistoryMixin:
 
     def restore_entity_history(self, history_id: int) -> dict[str, Any] | None:
         """Restore one audited snapshot without deleting the newer audit trail."""
-        entity_tables = {
-            "account": ("vaultly_accounts", "account_id"),
-            "post": ("vaultly_posts", "post_id"),
-            "post_media": ("vaultly_post_media", "media_id"),
-            "media_history": ("vaultly_media_history", "dedupe_key"),
-            "setting": ("vaultly_settings", "key"),
-            "filter_term": ("vaultly_filter_terms", "term"),
-            "retained_account": ("vaultly_retained_accounts", "account_id"),
-            "removed_account": ("vaultly_removed_accounts", "account_id"),
-        }
         with self._connect() as connection:
-            history = connection.execute(
-                """
-                SELECT entity_type, entity_key, snapshot_json
-                FROM vaultly_entity_history
-                WHERE history_id = ?
-                """,
-                (int(history_id),),
-            ).fetchone()
-            if history is None:
+            parsed = self._load_history_snapshot(connection, history_id)
+            if parsed is None:
                 return None
-            entity_type = str(history["entity_type"])
-            mapping = entity_tables.get(entity_type)
-            if mapping is None:
-                return None
-            try:
-                snapshot = json.loads(str(history["snapshot_json"]))
-            except (json.JSONDecodeError, TypeError):
-                return None
-            if not isinstance(snapshot, dict):
-                return None
-
-            table, key_column = mapping
-            entity_key = str(history["entity_key"])
+            entity_type, entity_key, snapshot = parsed
+            table, key_column = _ENTITY_TABLES[entity_type]
             current = self._row_by_key(connection, table, key_column, entity_key)
             self._record_row_history(
                 connection,
@@ -139,7 +122,6 @@ class EntityHistoryMixin:
                 "superseded_by_restore",
                 current,
             )
-
             allowed_columns = [
                 str(row["name"])
                 for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
@@ -147,20 +129,7 @@ class EntityHistoryMixin:
             ]
             if key_column not in allowed_columns:
                 return None
-            values = [snapshot[column] for column in allowed_columns]
-            assignments = ", ".join(
-                f"{column} = excluded.{column}"
-                for column in allowed_columns
-                if column != key_column
-            )
-            connection.execute(
-                f"""
-                INSERT INTO {table} ({", ".join(allowed_columns)})
-                VALUES ({", ".join("?" for _ in allowed_columns)})
-                ON CONFLICT({key_column}) DO UPDATE SET {assignments}
-                """,
-                values,
-            )
+            self._restore_row(connection, table, key_column, allowed_columns, snapshot)
             restored = self._row_by_key(connection, table, key_column, entity_key)
             self._record_row_history(
                 connection,
@@ -170,3 +139,52 @@ class EntityHistoryMixin:
                 restored,
             )
             return dict(restored) if restored is not None else None
+
+    @staticmethod
+    def _load_history_snapshot(
+        connection: sqlite3.Connection,
+        history_id: int,
+    ) -> tuple[str, str, dict[str, Any]] | None:
+        history = connection.execute(
+            """
+            SELECT entity_type, entity_key, snapshot_json
+            FROM vaultly_entity_history
+            WHERE history_id = ?
+            """,
+            (int(history_id),),
+        ).fetchone()
+        if history is None:
+            return None
+        entity_type = str(history["entity_type"])
+        if entity_type not in _ENTITY_TABLES:
+            return None
+        try:
+            snapshot = json.loads(str(history["snapshot_json"]))
+        except (json.JSONDecodeError, TypeError):
+            return None
+        if not isinstance(snapshot, dict):
+            return None
+        return entity_type, str(history["entity_key"]), snapshot
+
+    @staticmethod
+    def _restore_row(
+        connection: sqlite3.Connection,
+        table: str,
+        key_column: str,
+        allowed_columns: list[str],
+        snapshot: dict[str, Any],
+    ) -> None:
+        values = [snapshot[column] for column in allowed_columns]
+        assignments = ", ".join(
+            f"{column} = excluded.{column}"
+            for column in allowed_columns
+            if column != key_column
+        )
+        connection.execute(
+            f"""
+            INSERT INTO {table} ({", ".join(allowed_columns)})
+            VALUES ({", ".join("?" for _ in allowed_columns)})
+            ON CONFLICT({key_column}) DO UPDATE SET {assignments}
+            """,
+            values,
+        )

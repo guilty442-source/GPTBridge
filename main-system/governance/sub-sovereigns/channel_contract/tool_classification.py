@@ -94,33 +94,11 @@ class ToolClassificationMixin:
 
         permission = getattr(self.app, "permission_sovereign", None)
 
-        async def _start_one(tool_id: str) -> tuple[str, dict[str, Any]]:
-            if permission is None or not permission.can_start_tool(tool_id):
-                return tool_id, {
-                    "ok": False,
-                    "tool_id": tool_id,
-                    "error_code": "PERMISSION_DENIED",
-                    "message": "PERMISSION_DENIED",
-                }
-            try:
-                result = await toolbox.start_tool(
-                    {
-                        "tool_id": tool_id,
-                        "request_id": f"resident-start-{tool_id}-{time.time_ns()}",
-                        "background": True,
-                    }
-                )
-            except Exception as error:
-                result = {
-                    "ok": False,
-                    "tool_id": tool_id,
-                    "error_code": type(error).__name__,
-                    "message": str(error),
-                }
-            return tool_id, result
-
         results = await asyncio.gather(
-            *(_start_one(tid) for tid in sorted(self._resident_tool_ids)),
+            *(
+                self._start_resident_tool(toolbox, permission, tid)
+                for tid in sorted(self._resident_tool_ids)
+            ),
             return_exceptions=False,
         )
 
@@ -135,3 +113,30 @@ class ToolClassificationMixin:
             if result.get("ok") is True:
                 self._tool_last_activity[tool_id] = time.monotonic()
                 self._idle_stopped_tools.discard(tool_id)
+
+    async def _start_resident_tool(
+        self, toolbox: Any, permission: Any, tool_id: str
+    ) -> tuple[str, dict[str, Any]]:
+        if permission is None or not permission.can_start_tool(tool_id):
+            return tool_id, {
+                "ok": False,
+                "tool_id": tool_id,
+                "error_code": "PERMISSION_DENIED",
+                "message": "PERMISSION_DENIED",
+            }
+        try:
+            result = await toolbox.start_tool(
+                {
+                    "tool_id": tool_id,
+                    "request_id": f"resident-start-{tool_id}-{time.time_ns()}",
+                    "background": True,
+                }
+            )
+        except Exception as error:
+            result = {
+                "ok": False,
+                "tool_id": tool_id,
+                "error_code": type(error).__name__,
+                "message": str(error),
+            }
+        return tool_id, result

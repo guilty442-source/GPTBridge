@@ -271,6 +271,59 @@ class LocalSharedLayerStore:
             )
             return cursor.rowcount == 1
 
+    def submit_push(self, token: str, push_id: str, target_tool_id: str, payload: Any) -> None:
+        """Deliver a one-way push notification (local transport)."""
+        actor = self._authorize(token, "request", target_tool_id)
+        now = _now_iso()
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO tool_request (channel_id,request_id,requester_actor,target_tool_id,payload,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
+                (self._channel_id, self._id(push_id), actor, self._id(target_tool_id), self._json(payload), "pushed", now, now),
+            )
+
+    def claim_pushed(self, token: str, target_tool_id: str) -> dict[str, Any] | None:
+        """Claim a pushed notification addressed to this tool (local transport)."""
+        self._authorize(token, "claim", target_tool_id)
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT channel_id,request_id,requester_actor,payload FROM tool_request WHERE channel_id=? AND target_tool_id=? AND status='pushed' ORDER BY created_at,request_id LIMIT 1",
+                (self._channel_id, target_tool_id),
+            ).fetchone()
+            if row is None:
+                connection.execute("ROLLBACK")
+                return None
+            connection.execute(
+                "UPDATE tool_request SET status='claimed',updated_at=? WHERE channel_id=? AND request_id=? AND status='pushed'",
+                (_now_iso(), self._channel_id, row["request_id"]),
+            )
+            connection.execute("COMMIT")
+            return {
+                "push_id": row["request_id"],
+                "sender_actor": row["requester_actor"],
+                "target_tool_id": target_tool_id,
+                "payload": _decode(row["payload"]),
+            }
+        except sqlite3.DatabaseError:
+            try:
+                connection.execute("ROLLBACK")
+            except sqlite3.OperationalError:
+                pass
+            raise permission_denied() from None
+        finally:
+            connection.close()
+
+    def acknowledge_push(self, token: str, push_id: str, target_tool_id: str) -> bool:
+        """Acknowledge a claimed push (local transport)."""
+        self._authorize(token, "respond", target_tool_id)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE tool_request SET status='completed',updated_at=? WHERE channel_id=? AND request_id=? AND target_tool_id=? AND status='claimed'",
+                (_now_iso(), self._channel_id, self._id(push_id), target_tool_id),
+            )
+            return cursor.rowcount == 1
+
 
 SharedLayerStore = LocalSharedLayerStore
 

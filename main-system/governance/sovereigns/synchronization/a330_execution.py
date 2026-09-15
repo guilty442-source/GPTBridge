@@ -46,33 +46,10 @@ class SyncA330ExecutionMixin:
         # decision-sovereign, which delegates here with a verified
         # single-use nonce. A direct caller (even a governed actor) cannot
         # self-declare certification; the payload flag alone is not proof.
-        verified_delegation = request.payload.get("_verified_delegation")
-        if not isinstance(verified_delegation, dict) or (
-            verified_delegation.get("parent") != "decision-sovereign"
-        ):
-            return refusal_outcome(
-                "CERTIFICATION_AUTHORITY_MISSING",
-                verified_basis(("A330", "A152", "A154")),
-            )
-
-        update_type = request.payload.get("update_type")
-        if not update_type:
-            return refusal_outcome("MISSING_UPDATE_TYPE", verified_basis(("A330",)))
-
-        if request.payload.get("certified") is not True:
-            return refusal_outcome("CERTIFICATION_MISSING", verified_basis(("A330",)))
-
-        update_set = request.payload.get("update_set")
-        if not isinstance(update_set, (list, tuple)) or not update_set:
-            return refusal_outcome("EMPTY_UPDATE_SET", verified_basis(("A330",)))
-
-        artifact_hashes = request.payload.get("artifact_hashes")
-        if not isinstance(artifact_hashes, dict) or not artifact_hashes:
-            return refusal_outcome("MISSING_ARTIFACT_HASHES", verified_basis(("A330",)))
-
-        operation_id = str(request.payload.get("operation_id") or "")
-        if not operation_id:
-            return refusal_outcome("MISSING_OPERATION_ID", verified_basis(("A330",)))
+        error, fields = self._validate_a330_request(request)
+        if error is not None:
+            return error
+        update_type, update_set, artifact_hashes, operation_id = fields
 
         # Idempotent replay guard
         if operation_id in self._certified_update_operations:
@@ -92,6 +69,51 @@ class SyncA330ExecutionMixin:
             return refusal_outcome("OPERATION_IN_FLIGHT", verified_basis(("A330",)))
 
         # Execute the certified update via the hot-update service
+        return await self._execute_a330_update(
+            request, update_type, update_set, artifact_hashes, operation_id
+        )
+
+    def _validate_a330_request(
+        self, request: SovereignRequest
+    ) -> tuple[SovereignOutcome | None, tuple | None]:
+        verified_delegation = request.payload.get("_verified_delegation")
+        if not isinstance(verified_delegation, dict) or (
+            verified_delegation.get("parent") != "decision-sovereign"
+        ):
+            return refusal_outcome(
+                "CERTIFICATION_AUTHORITY_MISSING",
+                verified_basis(("A330", "A152", "A154")),
+            ), None
+
+        update_type = request.payload.get("update_type")
+        if not update_type:
+            return refusal_outcome("MISSING_UPDATE_TYPE", verified_basis(("A330",))), None
+
+        if request.payload.get("certified") is not True:
+            return refusal_outcome("CERTIFICATION_MISSING", verified_basis(("A330",))), None
+
+        update_set = request.payload.get("update_set")
+        if not isinstance(update_set, (list, tuple)) or not update_set:
+            return refusal_outcome("EMPTY_UPDATE_SET", verified_basis(("A330",))), None
+
+        artifact_hashes = request.payload.get("artifact_hashes")
+        if not isinstance(artifact_hashes, dict) or not artifact_hashes:
+            return refusal_outcome("MISSING_ARTIFACT_HASHES", verified_basis(("A330",))), None
+
+        operation_id = str(request.payload.get("operation_id") or "")
+        if not operation_id:
+            return refusal_outcome("MISSING_OPERATION_ID", verified_basis(("A330",))), None
+
+        return None, (update_type, update_set, artifact_hashes, operation_id)
+
+    async def _execute_a330_update(
+        self,
+        request: SovereignRequest,
+        update_type: Any,
+        update_set: Any,
+        artifact_hashes: dict,
+        operation_id: str,
+    ) -> SovereignOutcome:
         hot_update = getattr(self.app, "hot_update_service", None)
         if hot_update is None:
             return refusal_outcome("HOT_UPDATE_SERVICE_UNAVAILABLE", verified_basis(("A330",)))

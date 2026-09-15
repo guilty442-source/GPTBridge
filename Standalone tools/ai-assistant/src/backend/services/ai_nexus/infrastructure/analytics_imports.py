@@ -13,6 +13,24 @@ from .analytics_common import (
 )
 
 
+_IMPORT_OPERATION_STATUSES = {
+    "queued",
+    "processing",
+    "resume_pending",
+    "completed",
+    "failed",
+}
+
+_UPDATE_IMPORT_OPERATION_SQL = """
+UPDATE import_operations
+SET import_fingerprint=?, status=?, result_encrypted=?,
+    error_encrypted=?, history_encrypted=?,
+    attempt_count=attempt_count+?, updated_at=?,
+    started_at=?, finished_at=?
+WHERE operation_id=?
+"""
+
+
 class ImportOperationsMixin:
     """Import operation tracking and resumability methods."""
 
@@ -62,60 +80,12 @@ class ImportOperationsMixin:
                 (fingerprint,),
             ).fetchone()
             if row is None:
-                operation_id = uuid.uuid4().hex
-                history = [
-                    {
-                        "status": "queued",
-                        "occurred_at": now,
-                        "reason": "request_created",
-                    }
-                ]
-                connection.execute(
-                    """
-                    INSERT INTO import_operations(
-                        operation_id, request_fingerprint, import_fingerprint,
-                        status, payload_encrypted, result_encrypted,
-                        error_encrypted, history_encrypted, attempt_count,
-                        created_at, updated_at, started_at, finished_at
-                    ) VALUES(?, ?, '', 'queued', ?, '', '', ?, 0, ?, ?, '', '')
-                    """,
-                    (
-                        operation_id,
-                        fingerprint,
-                        protect_text(_json(payload)),
-                        protect_text(_json(history)),
-                        now,
-                        now,
-                    ),
+                self._insert_import_operation(
+                    connection, fingerprint, payload, now
                 )
             elif str(row["status"] or "") == "failed":
-                history = _decoded_json(
-                    unprotect_text(str(row["history_encrypted"] or "")),
-                    [],
-                )
-                if not isinstance(history, list):
-                    history = []
-                history.append(
-                    {
-                        "status": "queued",
-                        "occurred_at": now,
-                        "reason": "explicit_retry",
-                    }
-                )
-                connection.execute(
-                    """
-                    UPDATE import_operations
-                    SET status='queued', payload_encrypted=?, result_encrypted='',
-                        error_encrypted='', history_encrypted=?, updated_at=?,
-                        finished_at=''
-                    WHERE operation_id=?
-                    """,
-                    (
-                        protect_text(_json(payload)),
-                        protect_text(_json(history)),
-                        now,
-                        str(row["operation_id"]),
-                    ),
+                self._requeue_failed_import_operation(
+                    connection, row, payload, now
                 )
             operation_row = connection.execute(
                 "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE request_fingerprint = ?",
@@ -124,6 +94,76 @@ class ImportOperationsMixin:
         if operation_row is None:
             raise RuntimeError("unable to persist import operation")
         return self._public_import_operation(operation_row)
+
+    def _insert_import_operation(
+        self,
+        connection: Any,
+        fingerprint: str,
+        payload: dict[str, Any],
+        now: str,
+    ) -> None:
+        operation_id = uuid.uuid4().hex
+        history = [
+            {
+                "status": "queued",
+                "occurred_at": now,
+                "reason": "request_created",
+            }
+        ]
+        connection.execute(
+            """
+            INSERT INTO import_operations(
+                operation_id, request_fingerprint, import_fingerprint,
+                status, payload_encrypted, result_encrypted,
+                error_encrypted, history_encrypted, attempt_count,
+                created_at, updated_at, started_at, finished_at
+            ) VALUES(?, ?, '', 'queued', ?, '', '', ?, 0, ?, ?, '', '')
+            """,
+            (
+                operation_id,
+                fingerprint,
+                protect_text(_json(payload)),
+                protect_text(_json(history)),
+                now,
+                now,
+            ),
+        )
+
+    def _requeue_failed_import_operation(
+        self,
+        connection: Any,
+        row: Any,
+        payload: dict[str, Any],
+        now: str,
+    ) -> None:
+        history = _decoded_json(
+            unprotect_text(str(row["history_encrypted"] or "")),
+            [],
+        )
+        if not isinstance(history, list):
+            history = []
+        history.append(
+            {
+                "status": "queued",
+                "occurred_at": now,
+                "reason": "explicit_retry",
+            }
+        )
+        connection.execute(
+            """
+            UPDATE import_operations
+            SET status='queued', payload_encrypted=?, result_encrypted='',
+                error_encrypted='', history_encrypted=?, updated_at=?,
+                finished_at=''
+            WHERE operation_id=?
+            """,
+            (
+                protect_text(_json(payload)),
+                protect_text(_json(history)),
+                now,
+                str(row["operation_id"]),
+            ),
+        )
 
     def update_import_operation(
         self,
@@ -138,96 +178,154 @@ class ImportOperationsMixin:
     ) -> dict[str, Any]:
         normalized = str(operation_id or "").strip()
         normalized_status = str(status or "").strip().casefold()
-        allowed_statuses = {
-            "queued",
-            "processing",
-            "resume_pending",
-            "completed",
-            "failed",
-        }
-        if not normalized or normalized_status not in allowed_statuses:
+        if not normalized or normalized_status not in _IMPORT_OPERATION_STATUSES:
             raise ValueError("invalid import operation update")
         now = utc_text()
         with self.connect() as connection:
-            row = connection.execute(
-                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE operation_id = ?",
-                (normalized,),
-            ).fetchone()
+            row = self._load_import_operation(connection, normalized)
             if row is None:
                 raise ValueError("import operation not found")
             current_status = str(row["status"] or "")
             if current_status == "completed" and normalized_status != "completed":
                 return self._public_import_operation(row)
-            history = _decoded_json(
-                unprotect_text(str(row["history_encrypted"] or "")),
-                [],
-            )
-            if not isinstance(history, list):
-                history = []
-            history.append(
-                {
-                    "status": normalized_status,
-                    "occurred_at": now,
-                    "reason": str(reason or ""),
-                }
-            )
-            next_import_fingerprint = (
-                str(import_fingerprint or "").strip().lower()
-                if import_fingerprint is not None
-                else str(row["import_fingerprint"] or "")
-            )
-            next_result = (
-                protect_text(_json(result))
-                if result is not None
-                else str(row["result_encrypted"] or "")
-            )
-            next_error = (
-                protect_text(str(error or ""))
-                if error is not None
-                else str(row["error_encrypted"] or "")
-            )
-            started_at = (
-                now
-                if normalized_status == "processing"
-                and not str(row["started_at"] or "")
-                else str(row["started_at"] or "")
-            )
-            finished_at = (
-                now
-                if normalized_status in {"completed", "failed"}
-                else ""
-                if normalized_status in {"queued", "resume_pending"}
-                else str(row["finished_at"] or "")
-            )
-            connection.execute(
-                """
-                UPDATE import_operations
-                SET import_fingerprint=?, status=?, result_encrypted=?,
-                    error_encrypted=?, history_encrypted=?,
-                    attempt_count=attempt_count+?, updated_at=?,
-                    started_at=?, finished_at=?
-                WHERE operation_id=?
-                """,
-                (
-                    next_import_fingerprint,
+            history, next_import_fingerprint, next_result, next_error, started_at, finished_at = (
+                self._next_import_operation_values(
+                    row,
                     normalized_status,
-                    next_result,
-                    next_error,
-                    protect_text(_json(history)),
-                    1 if increment_attempt else 0,
+                    reason,
+                    import_fingerprint,
+                    result,
+                    error,
                     now,
-                    started_at,
-                    finished_at,
-                    normalized,
-                ),
+                )
             )
-            updated = connection.execute(
-                "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE operation_id = ?",
-                (normalized,),
-            ).fetchone()
+            self._apply_import_operation_update(
+                connection,
+                normalized,
+                normalized_status,
+                increment_attempt,
+                history,
+                next_import_fingerprint,
+                next_result,
+                next_error,
+                started_at,
+                finished_at,
+                now,
+            )
+            updated = self._load_import_operation(connection, normalized)
         if updated is None:
             raise RuntimeError("import operation disappeared after update")
         return self._public_import_operation(updated)
+
+    def _apply_import_operation_update(
+        self,
+        connection: Any,
+        normalized: str,
+        normalized_status: str,
+        increment_attempt: bool,
+        history: list[Any],
+        next_import_fingerprint: str,
+        next_result: str,
+        next_error: str,
+        started_at: str,
+        finished_at: str,
+        now: str,
+    ) -> None:
+        connection.execute(
+            _UPDATE_IMPORT_OPERATION_SQL,
+            (
+                next_import_fingerprint,
+                normalized_status,
+                next_result,
+                next_error,
+                protect_text(_json(history)),
+                1 if increment_attempt else 0,
+                now,
+                started_at,
+                finished_at,
+                normalized,
+            ),
+        )
+
+    def _load_import_operation(
+        self, connection: Any, normalized: str
+    ) -> Any:
+        return connection.execute(
+            "SELECT operation_id, request_fingerprint, import_fingerprint, status, payload_encrypted, result_encrypted, error_encrypted, history_encrypted, attempt_count, created_at, updated_at, started_at, finished_at FROM import_operations WHERE operation_id = ?",
+            (normalized,),
+        ).fetchone()
+
+    def _next_import_operation_values(
+        self,
+        row: Any,
+        normalized_status: str,
+        reason: str,
+        import_fingerprint: str | None,
+        result: dict[str, Any] | None,
+        error: str | None,
+        now: str,
+    ) -> tuple[list[Any], str, str, str, str, str]:
+        history = self._next_import_history(
+            row, normalized_status, reason, now
+        )
+        next_import_fingerprint = (
+            str(import_fingerprint or "").strip().lower()
+            if import_fingerprint is not None
+            else str(row["import_fingerprint"] or "")
+        )
+        next_result = (
+            protect_text(_json(result))
+            if result is not None
+            else str(row["result_encrypted"] or "")
+        )
+        next_error = (
+            protect_text(str(error or ""))
+            if error is not None
+            else str(row["error_encrypted"] or "")
+        )
+        started_at = (
+            now
+            if normalized_status == "processing"
+            and not str(row["started_at"] or "")
+            else str(row["started_at"] or "")
+        )
+        finished_at = (
+            now
+            if normalized_status in {"completed", "failed"}
+            else ""
+            if normalized_status in {"queued", "resume_pending"}
+            else str(row["finished_at"] or "")
+        )
+        return (
+            history,
+            next_import_fingerprint,
+            next_result,
+            next_error,
+            started_at,
+            finished_at,
+        )
+
+    def _next_import_history(
+        self,
+        row: Any,
+        normalized_status: str,
+        reason: str,
+        now: str,
+    ) -> list[Any]:
+        history = _decoded_json(
+            unprotect_text(str(row["history_encrypted"] or "")),
+            [],
+        )
+        if not isinstance(history, list):
+            history = []
+        history.append(
+            {
+                "status": normalized_status,
+                "occurred_at": now,
+                "reason": str(reason or ""),
+            }
+        )
+        return history
 
     def resumable_import_operations(self, limit: int = 100) -> list[dict[str, Any]]:
         with self.connect() as connection:

@@ -45,24 +45,7 @@ class IndependentVerifier:
         }
 
         # 1. Run verification criteria from plan (A261: tests/audit/stability)
-        all_passed = True
-        for criterion in plan.verification_criteria:
-            if criterion == "compile-ok":
-                result = self._verify_compile(plan.preimage_hashes.keys())
-                evidence["checks"]["compile_ok"] = result
-                all_passed = all_passed and result
-            elif criterion == "tests-pass":
-                result = self._verify_tests(grant.path_scope)
-                evidence["checks"]["tests_pass"] = result
-                all_passed = all_passed and result
-            elif criterion == "governance-audit":
-                result = self._verify_governance_audit()
-                evidence["checks"]["governance_audit"] = result
-                all_passed = all_passed and result
-            elif criterion == "stability":
-                result = self._verify_stability(grant.path_scope)
-                evidence["checks"]["stability"] = result
-                all_passed = all_passed and result
+        all_passed = self._run_verification_criteria(plan, grant, evidence)
 
         # 2. A166/A261: NO snapshot/hash comparison for verification
         # Pre/post hashes are recorded for audit trail only, not used for decisions
@@ -95,6 +78,32 @@ class IndependentVerifier:
         })
 
         return result, evidence
+
+    def _run_verification_criteria(
+        self,
+        plan: RepairPlan,
+        grant: PermissionGrant,
+        evidence: dict[str, Any],
+    ) -> bool:
+        all_passed = True
+        for criterion in plan.verification_criteria:
+            if criterion == "compile-ok":
+                result = self._verify_compile(plan.preimage_hashes.keys())
+                evidence["checks"]["compile_ok"] = result
+                all_passed = all_passed and result
+            elif criterion == "tests-pass":
+                result = self._verify_tests(grant.path_scope)
+                evidence["checks"]["tests_pass"] = result
+                all_passed = all_passed and result
+            elif criterion == "governance-audit":
+                result = self._verify_governance_audit()
+                evidence["checks"]["governance_audit"] = result
+                all_passed = all_passed and result
+            elif criterion == "stability":
+                result = self._verify_stability(grant.path_scope)
+                evidence["checks"]["stability"] = result
+                all_passed = all_passed and result
+        return all_passed
 
     def _verify_compile(self, paths: list[str]) -> bool:
         """Verify Python files compile."""

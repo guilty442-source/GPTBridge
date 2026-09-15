@@ -7,6 +7,20 @@ from typing import Any
 class CollabSvcMessagingMixin:
     """Message-sending handlers for AiCollaborationService."""
 
+    _FIXED_TASK_CAPABILITIES = {
+        "general": "general",
+        "orchestration": "orchestration",
+        "search": "search",
+        "advanced_search": "advanced_search",
+        "calculation": "calculation",
+        "longform": "longform",
+        "reasoning": "reasoning",
+        "social_media": "social_media",
+        "trends": "trends",
+        "breaking_news": "breaking_news",
+        "training-candidate-authoring": "training-candidate-authoring",
+    }
+
     async def _send_message(self, payload: dict[str, Any]) -> dict[str, Any]:
         requested_by = self._requester_tool_id(payload)
         raw_tasks = payload.get("tasks")
@@ -63,21 +77,9 @@ class CollabSvcMessagingMixin:
         if business_task != "general" or payload.get("research_pipeline"):
             raise PermissionError("PERMISSION_DENIED")
 
-        raw_ids = payload.get("agent_ids", [])
-        requested_ids = list(
-            dict.fromkeys(
-                str(item).strip()
-                for item in raw_ids
-                if str(item).strip()
-            )
-        ) if isinstance(raw_ids, list) else []
-        if not requested_ids:
-            return {"ok": False, "message": "一般模式請至少選擇一個 AI"}
-        if len(requested_ids) > self.MAX_PARALLEL_AI:
-            return {
-                "ok": False,
-                "message": f"一般模式最多可同時選擇 {self.MAX_PARALLEL_AI} 個 AI",
-            }
+        requested_ids, error = self._general_requested_ids(payload)
+        if error is not None:
+            return error
 
         known_agents = {
             str(agent["agent_id"]): agent
@@ -88,6 +90,47 @@ class CollabSvcMessagingMixin:
             raise ValueError(f"找不到指定的 AI：{', '.join(unknown_ids)}")
 
         business_scope = self._business_scope(payload)
+        agents = self._general_selected_agents(
+            requested_ids, known_agents, business_scope
+        )
+        requested_by = self._requester_tool_id(payload)
+        async with self._send_lock:
+            message = self.repository.create_group_message(
+                content, requested_ids, business_scope
+            )
+        await self._run_general_agents(
+            message["message_id"], agents, content, business_scope, requested_by
+        )
+        return self._general_message_result(
+            message["message_id"], requested_ids, requested_by
+        )
+
+    def _general_requested_ids(
+        self, payload: dict[str, Any]
+    ) -> tuple[list[str], dict[str, Any] | None]:
+        raw_ids = payload.get("agent_ids", [])
+        requested_ids = list(
+            dict.fromkeys(
+                str(item).strip()
+                for item in raw_ids
+                if str(item).strip()
+            )
+        ) if isinstance(raw_ids, list) else []
+        if not requested_ids:
+            return [], {"ok": False, "message": "一般模式請至少選擇一個 AI"}
+        if len(requested_ids) > self.MAX_PARALLEL_AI:
+            return [], {
+                "ok": False,
+                "message": f"一般模式最多可同時選擇 {self.MAX_PARALLEL_AI} 個 AI",
+            }
+        return requested_ids, None
+
+    def _general_selected_agents(
+        self,
+        requested_ids: list[str],
+        known_agents: dict[str, dict[str, Any]],
+        business_scope: str,
+    ) -> list[dict[str, Any]]:
         agents: list[dict[str, Any]] = []
         for agent_id in requested_ids:
             agent = known_agents[agent_id]
@@ -100,17 +143,20 @@ class CollabSvcMessagingMixin:
             if "general" not in capabilities:
                 raise ValueError(f"{agent.get('name') or agent_id} 不支援一般協作")
             agents.append(self._agent_for_business(agent, business_scope))
+        return agents
 
-        requested_by = self._requester_tool_id(payload)
-        async with self._send_lock:
-            message = self.repository.create_group_message(
-                content, requested_ids, business_scope
-            )
-
+    async def _run_general_agents(
+        self,
+        message_id: str,
+        agents: list[dict[str, Any]],
+        content: str,
+        business_scope: str,
+        requested_by: str,
+    ) -> None:
         async def run_selected_agent(agent: dict[str, Any]) -> None:
             async with self._task_slots:
                 await self._run_agent_message(
-                    message["message_id"],
+                    message_id,
                     agent,
                     content,
                     "general",
@@ -128,18 +174,16 @@ class CollabSvcMessagingMixin:
             if callable(close_background):
                 await close_background()
 
-        group_message = self.repository.get_message(message["message_id"]) or {}
+    def _general_message_result(
+        self, message_id: str, requested_ids: list[str], requested_by: str
+    ) -> dict[str, Any]:
+        group_message = self.repository.get_message(message_id) or {}
         memory_item = self._auto_memory_from_group_message(group_message)
         responses = [
             item for item in group_message.get("responses", []) if isinstance(item, dict)
         ]
         statuses = {str(item.get("status") or "") for item in responses}
-        memory_candidates = [
-            candidate
-            for response in responses
-            for candidate in response.get("memory_candidates", [])
-            if isinstance(candidate, dict)
-        ]
+        memory_candidates = self._group_memory_candidates(group_message)
         awaiting_count = sum(
             str(item.get("status") or "") == "awaiting-user" for item in responses
         )
@@ -193,25 +237,50 @@ class CollabSvcMessagingMixin:
             raise PermissionError("PERMISSION_DENIED")
         memory_context = payload.get("memory_context", [])
         memory_writeback = payload.get("memory_writeback") is not False
-        task_capabilities = {
-            "general": "general",
-            "orchestration": "orchestration",
-            "search": "search",
-            "advanced_search": "advanced_search",
-            "calculation": "calculation",
-            "longform": "longform",
-            "reasoning": "reasoning",
-            "social_media": "social_media",
-            "trends": "trends",
-            "breaking_news": "breaking_news",
-            "training-candidate-authoring": "training-candidate-authoring",
-        }
-        if business_task not in task_capabilities:
+        if business_task not in self._FIXED_TASK_CAPABILITIES:
             raise ValueError("不支援的業務任務")
         business_scope = self._business_scope(payload)
         pipeline = str(payload.get("research_pipeline") or "").strip().casefold()
         if pipeline and pipeline != "google-gemini":
             raise ValueError("不支援的研究管線")
+        agents, providers = self._fixed_pipeline_agents(
+            pipeline, business_task, business_scope
+        )
+        agents = [agent for agent in agents if agent.get("enabled")]
+        if not agents:
+            return {"ok": False, "message": "固定責任 AI 未啟用"}
+        agents = [self._agent_for_business(agent, business_scope) for agent in agents]
+
+        coordinator_agent, agent_ids = self._fixed_coordinator_agent(
+            business_scope, business_task, agents
+        )
+        if coordinator_agent is None:
+            return {"ok": False, "message": "ChatGPT 最終統籌未啟用"}
+        async with self._send_lock:
+            message = self.repository.create_group_message(
+                content, agent_ids, business_scope
+            )
+        await self._run_fixed_workflow(
+            message["message_id"],
+            pipeline,
+            providers,
+            agents,
+            coordinator_agent,
+            content,
+            business_task,
+            business_scope,
+            requested_by,
+            memory_context,
+            memory_writeback,
+        )
+        return self._fixed_message_result(
+            message["message_id"], pipeline, business_task, requested_ids, requested_by
+        )
+
+    def _fixed_pipeline_agents(
+        self, pipeline: str, business_task: str, business_scope: str
+    ) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+        providers: dict[str, dict[str, Any]] = {}
         if pipeline == "google-gemini":
             if business_scope != "investment":
                 raise ValueError("Google-Gemini 管線只允許投資業務")
@@ -222,14 +291,17 @@ class CollabSvcMessagingMixin:
         else:
             fixed_owner = self.FIXED_TASK_OWNERS[business_task]
             agents = self.repository.get_agents([fixed_owner])
-        agents = [agent for agent in agents if agent.get("enabled")]
-        if not agents:
-            return {"ok": False, "message": "固定責任 AI 未啟用"}
-        agents = [self._agent_for_business(agent, business_scope) for agent in agents]
+        return agents, providers
 
+    def _fixed_coordinator_agent(
+        self,
+        business_scope: str,
+        business_task: str,
+        agents: list[dict[str, Any]],
+    ) -> tuple[dict[str, Any] | None, list[str]]:
         coordinator = self.repository.get_agents(["chatgpt"])
         if not coordinator or not coordinator[0].get("enabled"):
-            return {"ok": False, "message": "ChatGPT 最終統籌未啟用"}
+            return None, []
         coordinator_agent = self._agent_for_business(coordinator[0], business_scope)
         agent_ids = [str(agent["agent_id"]) for agent in agents]
         if business_task == "training-candidate-authoring":
@@ -238,42 +310,25 @@ class CollabSvcMessagingMixin:
                 agents[0] = coordinator_agent
         if "chatgpt" not in agent_ids:
             agent_ids.append("chatgpt")
-        async with self._send_lock:
-            message = self.repository.create_group_message(
-                content, agent_ids, business_scope
-            )
+        return coordinator_agent, agent_ids
+
+    async def _run_fixed_workflow(
+        self, message_id: str, pipeline: str,
+        providers: dict[str, dict[str, Any]], agents: list[dict[str, Any]],
+        coordinator_agent: dict[str, Any], content: str, business_task: str,
+        business_scope: str, requested_by: str, memory_context: Any,
+        memory_writeback: bool,
+    ) -> None:
         try:
-            if pipeline == "google-gemini":
-                await self._run_google_gemini_pipeline(
-                    message["message_id"],
-                    providers["gemini"],
-                    content,
-                    business_scope,
-                    requested_by,
-                    memory_context,
-                    memory_writeback,
-                )
-            else:
-                await self._run_agent_message(
-                    message["message_id"],
-                    agents[0],
-                    content,
-                    business_task,
-                    business_scope,
-                    requested_by,
-                    memory_context,
-                    memory_writeback,
-                )
+            await self._run_fixed_owner_step(
+                message_id, pipeline, providers, agents, content,
+                business_task, business_scope, requested_by,
+                memory_context, memory_writeback,
+            )
             if str(agents[0].get("agent_id") or "") != "chatgpt":
                 await self._run_chatgpt_final_coordination(
-                    message["message_id"],
-                    coordinator_agent,
-                    content,
-                    business_task,
-                    business_scope,
-                    requested_by,
-                    memory_context,
-                    memory_writeback,
+                    message_id, coordinator_agent, content, business_task,
+                    business_scope, requested_by, memory_context, memory_writeback,
                 )
         finally:
             close_background = getattr(
@@ -281,36 +336,59 @@ class CollabSvcMessagingMixin:
             )
             if callable(close_background):
                 await close_background()
-        group_message = self.repository.get_message(message["message_id"]) or {}
-        memory_item = self._auto_memory_from_group_message(group_message)
-        returned_group_message = group_message
+
+    async def _run_fixed_owner_step(
+        self, message_id: str, pipeline: str,
+        providers: dict[str, dict[str, Any]], agents: list[dict[str, Any]],
+        content: str, business_task: str, business_scope: str,
+        requested_by: str, memory_context: Any, memory_writeback: bool,
+    ) -> None:
         if pipeline == "google-gemini":
-            returned_group_message = dict(group_message)
-            returned_group_message["selected_agents"] = ["gemini", "chatgpt"]
-            returned_group_message["responses"] = [
-                item
-                for item in group_message.get("responses", [])
-                if isinstance(item, dict)
-                and str(item.get("agent_id") or "") in {"gemini", "chatgpt"}
-            ]
-            returned_group_message["google_raw_results_exposed"] = False
-            returned_group_message["processor"] = "gemini"
-        final_response = next(
-            (
-                item
-                for item in returned_group_message.get("responses", [])
-                if isinstance(item, dict)
-                and str(item.get("agent_id") or "") == "chatgpt"
-            ),
-            None,
+            await self._run_google_gemini_pipeline(
+                message_id, providers["gemini"], content, business_scope,
+                requested_by, memory_context, memory_writeback,
+            )
+        else:
+            await self._run_agent_message(
+                message_id, agents[0], content, business_task,
+                business_scope, requested_by, memory_context, memory_writeback,
+            )
+
+    def _fixed_message_result(
+        self,
+        message_id: str,
+        pipeline: str,
+        business_task: str,
+        requested_ids: list[str],
+        requested_by: str,
+    ) -> dict[str, Any]:
+        group_message = self.repository.get_message(message_id) or {}
+        memory_item = self._auto_memory_from_group_message(group_message)
+        returned_group_message = (
+            self._gemini_filtered_group_message(group_message)
+            if pipeline == "google-gemini"
+            else group_message
         )
-        memory_candidates = [
-            candidate
-            for response in returned_group_message.get("responses", [])
-            if isinstance(response, dict)
-            for candidate in response.get("memory_candidates", [])
-            if isinstance(candidate, dict)
-        ]
+        return self._fixed_result_payload(
+            returned_group_message,
+            memory_item,
+            pipeline,
+            business_task,
+            requested_ids,
+            requested_by,
+        )
+
+    def _fixed_result_payload(
+        self,
+        returned_group_message: dict[str, Any],
+        memory_item: Any,
+        pipeline: str,
+        business_task: str,
+        requested_ids: list[str],
+        requested_by: str,
+    ) -> dict[str, Any]:
+        final_response = self._final_chatgpt_response(returned_group_message)
+        memory_candidates = self._group_memory_candidates(returned_group_message)
         return {
             "ok": True,
             "message": "AI 協作回覆已收集。",
@@ -350,3 +428,43 @@ class CollabSvcMessagingMixin:
                 "star-response",
             ],
         }
+
+    @staticmethod
+    def _final_chatgpt_response(
+        group_message: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        return next(
+            (
+                item
+                for item in group_message.get("responses", [])
+                if isinstance(item, dict)
+                and str(item.get("agent_id") or "") == "chatgpt"
+            ),
+            None,
+        )
+
+    def _gemini_filtered_group_message(
+        self, group_message: dict[str, Any]
+    ) -> dict[str, Any]:
+        returned_group_message = dict(group_message)
+        returned_group_message["selected_agents"] = ["gemini", "chatgpt"]
+        returned_group_message["responses"] = [
+            item
+            for item in group_message.get("responses", [])
+            if isinstance(item, dict)
+            and str(item.get("agent_id") or "") in {"gemini", "chatgpt"}
+        ]
+        returned_group_message["google_raw_results_exposed"] = False
+        returned_group_message["processor"] = "gemini"
+        return returned_group_message
+
+    def _group_memory_candidates(
+        self, group_message: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        return [
+            candidate
+            for response in group_message.get("responses", [])
+            if isinstance(response, dict)
+            for candidate in response.get("memory_candidates", [])
+            if isinstance(candidate, dict)
+        ]

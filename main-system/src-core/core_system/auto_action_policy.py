@@ -290,34 +290,13 @@ def record_pending_action(
     update_id, scope, target, proposed method, risk, rollback, expiry).
     """
     if not action_id:
-        digest = hashlib.sha256(
-            json.dumps(
-                {
-                    "kind": kind,
-                    "summary": summary,
-                    "detail": detail or {},
-                    "binding": binding or {},
-                },
-                ensure_ascii=False,
-                sort_keys=True,
-            ).encode("utf-8")
-        ).hexdigest()[:16]
-        action_id = f"{kind}-{digest}"
+        action_id = _pending_action_id(kind, summary, detail, binding)
     actions = read_pending_actions(project_root)
-    for index, existing in enumerate(actions):
-        if existing.get("action_id") == action_id:
-            merged = {
-                **existing,
-                **(binding or {}),
-                "summary": summary,
-                "detail": detail or existing.get("detail", {}),
-                "updated_at": _iso_now(),
-            }
-            merged["evidence_digest"] = compute_action_digest(merged)
-            actions[index] = merged
-            _write_pending_actions(project_root, actions)
-            notify_fault_change()
-            return merged
+    merged = _merge_existing_action(
+        project_root, actions, action_id, summary, detail, binding
+    )
+    if merged is not None:
+        return merged
     record = {
         "action_id": action_id,
         "kind": kind,
@@ -335,6 +314,52 @@ def record_pending_action(
     _write_pending_actions(project_root, actions)
     notify_fault_change()
     return record
+
+
+def _pending_action_id(
+    kind: str,
+    summary: str,
+    detail: dict[str, Any] | None,
+    binding: dict[str, Any] | None,
+) -> str:
+    digest = hashlib.sha256(
+        json.dumps(
+            {
+                "kind": kind,
+                "summary": summary,
+                "detail": detail or {},
+                "binding": binding or {},
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()[:16]
+    return f"{kind}-{digest}"
+
+
+def _merge_existing_action(
+    project_root: str | Path,
+    actions: list[dict[str, Any]],
+    action_id: str,
+    summary: str,
+    detail: dict[str, Any] | None,
+    binding: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    for index, existing in enumerate(actions):
+        if existing.get("action_id") == action_id:
+            merged = {
+                **existing,
+                **(binding or {}),
+                "summary": summary,
+                "detail": detail or existing.get("detail", {}),
+                "updated_at": _iso_now(),
+            }
+            merged["evidence_digest"] = compute_action_digest(merged)
+            actions[index] = merged
+            _write_pending_actions(project_root, actions)
+            notify_fault_change()
+            return merged
+    return None
 
 
 def update_pending_action_status(

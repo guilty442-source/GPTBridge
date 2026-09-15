@@ -6,14 +6,7 @@ from typing import Any
 
 from .collab_repo_constants import DEFAULT_AGENTS, utc_now
 
-
-class CollabRepoSchemaMixin:
-    """Schema creation and default-agent seeding for AiCollaborationRepository."""
-
-    def _ensure_schema(self) -> None:
-        with self._connect() as connection:
-            connection.executescript(
-                """
+_SCHEMA_SCRIPT = """
                 CREATE TABLE IF NOT EXISTS ai_nexus_agents (
                     agent_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -115,24 +108,15 @@ class CollabRepoSchemaMixin:
                     updated_at TEXT NOT NULL
                 );
                 """
-            )
-            self._ensure_column(connection, "ai_nexus_agents", "general_url", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "ai_nexus_agents", "investment_url", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "ai_nexus_agents", "star_training_url", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "ai_nexus_agents", "general_enabled", "INTEGER NOT NULL DEFAULT 1")
-            self._ensure_column(connection, "ai_nexus_agents", "investment_enabled", "INTEGER NOT NULL DEFAULT 1")
-            self._ensure_column(connection, "ai_nexus_agents", "business_capabilities_json", "TEXT NOT NULL DEFAULT '[]'")
-            self._ensure_column(connection, "ai_nexus_group_messages", "business_scope", "TEXT NOT NULL DEFAULT 'general'")
-            self._ensure_column(connection, "ai_nexus_agent_responses", "error_code", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "ai_nexus_agent_responses", "execution_provider", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "ai_nexus_agent_responses", "transport", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "ai_nexus_agent_responses", "fallback_json", "TEXT NOT NULL DEFAULT '{}'")
-            self._ensure_column(connection, "ai_nexus_agent_responses", "memory_candidates_json", "TEXT NOT NULL DEFAULT '[]'")
-            self._ensure_column(connection, "ai_nexus_memory_items", "business_scope", "TEXT NOT NULL DEFAULT 'general'")
-            self._ensure_column(connection, "ai_nexus_memory_items", "source_agent_id", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "ai_nexus_memory_items", "owner_model_id", "TEXT NOT NULL DEFAULT 'ai-collaboration'")
-            self._ensure_column(connection, "ai_nexus_memory_items", "status", "TEXT NOT NULL DEFAULT 'accepted'")
-            self._ensure_column(connection, "ai_nexus_memory_items", "content_hash", "TEXT NOT NULL DEFAULT ''")
+
+
+class CollabRepoSchemaMixin:
+    """Schema creation and default-agent seeding for AiCollaborationRepository."""
+
+    def _ensure_schema(self) -> None:
+        with self._connect() as connection:
+            connection.executescript(_SCHEMA_SCRIPT)
+            self._ensure_migration_columns(connection)
             connection.execute(
                 "UPDATE ai_nexus_agents SET general_url = home_url WHERE TRIM(general_url) = ''"
             )
@@ -143,6 +127,25 @@ class CollabRepoSchemaMixin:
                 WHERE agent_id = 'chatgpt' AND TRIM(star_training_url) = ''
                 """
             )
+
+    def _ensure_migration_columns(self, connection: sqlite3.Connection) -> None:
+        self._ensure_column(connection, "ai_nexus_agents", "general_url", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_agents", "investment_url", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_agents", "star_training_url", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_agents", "general_enabled", "INTEGER NOT NULL DEFAULT 1")
+        self._ensure_column(connection, "ai_nexus_agents", "investment_enabled", "INTEGER NOT NULL DEFAULT 1")
+        self._ensure_column(connection, "ai_nexus_agents", "business_capabilities_json", "TEXT NOT NULL DEFAULT '[]'")
+        self._ensure_column(connection, "ai_nexus_group_messages", "business_scope", "TEXT NOT NULL DEFAULT 'general'")
+        self._ensure_column(connection, "ai_nexus_agent_responses", "error_code", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_agent_responses", "execution_provider", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_agent_responses", "transport", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_agent_responses", "fallback_json", "TEXT NOT NULL DEFAULT '{}'")
+        self._ensure_column(connection, "ai_nexus_agent_responses", "memory_candidates_json", "TEXT NOT NULL DEFAULT '[]'")
+        self._ensure_column(connection, "ai_nexus_memory_items", "business_scope", "TEXT NOT NULL DEFAULT 'general'")
+        self._ensure_column(connection, "ai_nexus_memory_items", "source_agent_id", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_memory_items", "owner_model_id", "TEXT NOT NULL DEFAULT 'ai-collaboration'")
+        self._ensure_column(connection, "ai_nexus_memory_items", "status", "TEXT NOT NULL DEFAULT 'accepted'")
+        self._ensure_column(connection, "ai_nexus_memory_items", "content_hash", "TEXT NOT NULL DEFAULT ''")
 
     @staticmethod
     def _ensure_column(
@@ -162,72 +165,85 @@ class CollabRepoSchemaMixin:
         now = utc_now()
         with self._connect() as connection:
             for agent in DEFAULT_AGENTS:
-                connection.execute(
-                    """
-                    INSERT OR IGNORE INTO ai_nexus_agents
-                    (agent_id, name, provider, home_url, general_url, investment_url, star_training_url,
-                     general_enabled, investment_enabled, business_capabilities_json,
-                     enabled, selected, status, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?, 1, ?, 'idle', ?)
-                    """,
-                    (
-                        agent["agent_id"],
-                        agent["name"],
-                        agent["provider"],
-                        agent["home_url"],
-                        agent["home_url"],
-                        agent["home_url"],
-                        agent["home_url"] if agent["agent_id"] == "chatgpt" else "",
-                        json.dumps(agent.get("business_capabilities", []), ensure_ascii=False),
-                        1 if agent.get("selected", True) else 0,
-                        now,
-                    ),
-                )
-                connection.execute(
-                    """
-                    UPDATE ai_nexus_agents
-                    SET investment_url = ?, updated_at = ?
-                    WHERE agent_id = ? AND TRIM(investment_url) = ''
-                    """,
-                    (agent["home_url"], now, agent["agent_id"]),
-                )
-                connection.execute(
-                    """
-                    UPDATE ai_nexus_agents
-                    SET business_capabilities_json = ?, updated_at = ?
-                    WHERE agent_id = ? AND business_capabilities_json IN ('', '[]')
-                    """,
-                    (
-                        json.dumps(agent.get("business_capabilities", []), ensure_ascii=False),
-                        now,
-                        agent["agent_id"],
-                    ),
-                )
+                self._seed_default_agent(connection, agent, now)
             rows = connection.execute(
                 "SELECT agent_id, business_capabilities_json FROM ai_nexus_agents"
             ).fetchall()
             for row in rows:
                 agent_id = str(row["agent_id"])
-                try:
-                    capabilities = [
-                        str(item)
-                        for item in json.loads(
-                            str(row["business_capabilities_json"] or "[]")
-                        )
-                    ]
-                except (TypeError, json.JSONDecodeError):
-                    capabilities = []
-                if agent_id == "chatgpt":
-                    capabilities = list(
-                        dict.fromkeys([*capabilities, "comprehensive", "orchestration"])
-                    )
-                else:
-                    capabilities = [
-                        item
-                        for item in capabilities
-                        if item not in {"comprehensive", "orchestration"}
-                    ]
+                capabilities = self._normalized_stored_capabilities(agent_id, row)
                 connection.execute(
                     "UPDATE ai_nexus_agents SET business_capabilities_json = ? WHERE agent_id = ?",
                     (json.dumps(capabilities, ensure_ascii=False), agent_id),
                 )
+
+    @staticmethod
+    def _seed_default_agent(
+        connection: sqlite3.Connection,
+        agent: dict[str, Any],
+        now: str,
+    ) -> None:
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO ai_nexus_agents
+            (agent_id, name, provider, home_url, general_url, investment_url, star_training_url,
+             general_enabled, investment_enabled, business_capabilities_json,
+             enabled, selected, status, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?, 1, ?, 'idle', ?)
+            """,
+            (
+                agent["agent_id"],
+                agent["name"],
+                agent["provider"],
+                agent["home_url"],
+                agent["home_url"],
+                agent["home_url"],
+                agent["home_url"] if agent["agent_id"] == "chatgpt" else "",
+                json.dumps(agent.get("business_capabilities", []), ensure_ascii=False),
+                1 if agent.get("selected", True) else 0,
+                now,
+            ),
+        )
+        connection.execute(
+            """
+            UPDATE ai_nexus_agents
+            SET investment_url = ?, updated_at = ?
+            WHERE agent_id = ? AND TRIM(investment_url) = ''
+            """,
+            (agent["home_url"], now, agent["agent_id"]),
+        )
+        connection.execute(
+            """
+            UPDATE ai_nexus_agents
+            SET business_capabilities_json = ?, updated_at = ?
+            WHERE agent_id = ? AND business_capabilities_json IN ('', '[]')
+            """,
+            (
+                json.dumps(agent.get("business_capabilities", []), ensure_ascii=False),
+                now,
+                agent["agent_id"],
+            ),
+        )
+
+    @staticmethod
+    def _normalized_stored_capabilities(
+        agent_id: str, row: sqlite3.Row
+    ) -> list[str]:
+        try:
+            capabilities = [
+                str(item)
+                for item in json.loads(
+                    str(row["business_capabilities_json"] or "[]")
+                )
+            ]
+        except (TypeError, json.JSONDecodeError):
+            capabilities = []
+        if agent_id == "chatgpt":
+            return list(
+                dict.fromkeys([*capabilities, "comprehensive", "orchestration"])
+            )
+        return [
+            item
+            for item in capabilities
+            if item not in {"comprehensive", "orchestration"}
+        ]

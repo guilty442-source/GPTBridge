@@ -19,15 +19,17 @@ callers provide only a request, never a transport handle.
 from __future__ import annotations
 
 import asyncio
-import time
-from collections import defaultdict
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Final, Mapping
 
+from .audit_sink import AuditSink, AuditPublicationError, publish_audit
+from .contract_resolver import CommandContractResolver
+from .envelope import GovernedCommandEnvelope
+from .gateway_metrics import GatewayMetrics
+from .rate_limiter import RateLimiter
+
 RouteHandler = Callable[[str, dict[str, Any]], Awaitable[tuple[str, dict[str, Any]]]]
-AuditSink = Callable[[dict[str, Any]], None]
 AuthorizeFn = Callable[[str, str, str], bool] | None
 
 # A224: commands not in the directory are rejected as UNKNOWN_COMMAND_CODE.
@@ -35,176 +37,6 @@ _UNKNOWN_COMMAND: Final[str] = "UNKNOWN_COMMAND_CODE"
 _INVALID_ENVELOPE: Final[str] = "INVALID_INFORMATION_CHANNEL_ENVELOPE"
 _RATE_EXCEEDED: Final[str] = "RATE_LIMIT_EXCEEDED"
 _CONTRACT_UNAVAILABLE: Final[str] = "CONTRACT_GATE_UNAVAILABLE"
-
-# Rate-limiter defaults (A177 RATE gate).
-_DEFAULT_RATE_CAPACITY: Final[int] = 30
-_DEFAULT_RATE_REFILL_PER_SEC: Final[float] = 10.0
-
-
-def _utc_now_iso() -> str:
-    """A200: UTC RFC3339 timestamp for audit records."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-@dataclass(frozen=True)
-class GovernedCommandEnvelope:
-    """Typed envelope routed through the information layer (A177)."""
-
-    sender: str
-    destination: str
-    command: str
-    payload: dict[str, Any]
-    issued_at: str = field(default_factory=_utc_now_iso)
-
-
-# ---------------------------------------------------------------------------
-# A224 contract gate — validates commands against command_code_directory
-# ---------------------------------------------------------------------------
-
-
-class CommandContractResolver:
-    """Read-only resolver for the canonical command_code_directory (A224).
-
-    Caches the command-code set keyed on the codex database's mtime/size so
-    an additive codex registration (command_code_directory update) becomes
-    visible to the running process on the next lookup — no restart needed.
-    """
-
-    def __init__(self, project_root: Path | str) -> None:
-        self._db = Path(project_root) / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
-        self._cache: set[str] | None = None
-        self._signature: tuple[int, int] | None = None
-        self._load_error: str = ""
-
-    def _current_signature(self) -> tuple[int, int] | None:
-        try:
-            stat_result = self._db.stat()
-        except OSError:
-            return None
-        return (stat_result.st_mtime_ns, stat_result.st_size)
-
-    def _load(self) -> set[str]:
-        signature = self._current_signature()
-        if self._cache is not None and signature == self._signature:
-            return self._cache
-        codes: set[str] = set()
-        loaded = False
-        try:
-            from governance_rule.execution.codex_repository import (
-                CODEX_DATABASE_PATH,
-                codex_readonly_connection,
-            )
-
-            if self._db.resolve() == Path(CODEX_DATABASE_PATH).resolve():
-                # A435/A224: command-code membership is non-content
-                # registered data read through the official entry as a
-                # bounded lookup — the information layer never opens the
-                # codex DB directly.
-                from governance_rule.execution.codex_reconcile import (
-                    bounded_lookup,
-                )
-
-                codes = bounded_lookup(
-                    "information-layer",
-                    purpose="contract-gate",
-                    scope=("directory:command_code_directory",),
-                    reader=lambda ctx: {
-                        str(row.get("command_code", ""))
-                        for row in ctx.directory("command_code_directory")
-                    },
-                )
-                codes.discard("")
-            else:
-                # Non-canonical root (test/scratch authority): still the
-                # governed read-only repository interface, never a raw
-                # writable connection.
-                with codex_readonly_connection(self._db) as conn:
-                    for row in conn.execute(
-                        "SELECT command_code FROM command_code_directory"
-                    ):
-                        codes.add(str(row[0]))
-            loaded = True
-        except (OSError, ImportError, KeyError, ValueError, RuntimeError) as error:
-            # Record the failure explicitly — never a silent pass; when no
-            # last-known-good cache exists the gate denies (fail-closed).
-            self._load_error = f"{type(error).__name__}: {str(error)[:160]}"
-        if loaded:
-            self._load_error = ""
-            self._cache = codes
-            self._signature = signature
-            return self._cache
-        # Transient read failure: keep the last known good directory.
-        if self._cache is not None:
-            return self._cache
-        return codes
-
-    def load_error(self) -> str:
-        """Last contract-directory read failure ("" when healthy)."""
-        return self._load_error
-
-    def is_registered(self, command: str) -> bool:
-        """Return True if *command* (UPPERCASE or kebab-case) is registered."""
-        if not command:
-            return False
-        codes = self._load()
-        upper = command.upper()
-        kebab = command.replace("_", "-").replace(":", "-")
-        return upper in codes or kebab in {c.replace("_", "-").lower() for c in codes}
-
-    def invalidate(self) -> None:
-        """Clear the cache so the next lookup re-reads the directory."""
-        self._cache = None
-        self._signature = None
-
-
-# ---------------------------------------------------------------------------
-# A177 RATE gate — token-bucket per sender
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class _TokenBucket:
-    capacity: int
-    tokens: float
-    refill_per_sec: float
-    last_refill: float = field(default_factory=time.monotonic)
-
-    def try_consume(self) -> bool:
-        now = time.monotonic()
-        elapsed = now - self.last_refill
-        self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_per_sec)
-        self.last_refill = now
-        if self.tokens >= 1.0:
-            self.tokens -= 1.0
-            return True
-        return False
-
-
-class RateLimiter:
-    """Per-sender token-bucket rate limiter (A177 RATE gate)."""
-
-    def __init__(
-        self,
-        capacity: int = _DEFAULT_RATE_CAPACITY,
-        refill_per_sec: float = _DEFAULT_RATE_REFILL_PER_SEC,
-    ) -> None:
-        self._capacity = max(1, int(capacity))
-        self._refill = max(0.1, float(refill_per_sec))
-        self._buckets: dict[str, _TokenBucket] = defaultdict(
-            lambda: _TokenBucket(self._capacity, self._capacity, self._refill)
-        )
-
-    def allow(self, sender: str) -> bool:
-        return self._buckets[sender].try_consume()
-
-
-# ---------------------------------------------------------------------------
-# A121/A46 audit publication + A69 independent result verification
-# ---------------------------------------------------------------------------
-
-
-class AuditPublicationError(RuntimeError):
-    """An action may not complete unrecorded (A121/A46); callers deny."""
 
 
 @dataclass(frozen=True)
@@ -242,11 +74,6 @@ def verify_handler_result(result: Any) -> ResultVerification:
     return ResultVerification(not reasons, verifier, tuple(reasons))
 
 
-# ---------------------------------------------------------------------------
-# A177 information-layer gateway
-# ---------------------------------------------------------------------------
-
-
 class InformationChannelGateway:
     """Sole registered entry point for cross-owner commands (A177).
 
@@ -261,8 +88,8 @@ class InformationChannelGateway:
         *,
         project_root: Path | str | None = None,
         authorize: AuthorizeFn = None,
-        rate_capacity: int = _DEFAULT_RATE_CAPACITY,
-        rate_refill_per_sec: float = _DEFAULT_RATE_REFILL_PER_SEC,
+        rate_capacity: int = 30,
+        rate_refill_per_sec: float = 10.0,
         contract_resolver: CommandContractResolver | None = None,
     ) -> None:
         if not callable(handler):
@@ -278,6 +105,7 @@ class InformationChannelGateway:
             tuple[GovernedCommandEnvelope, asyncio.Future[tuple[str, dict[str, Any]]]]
         ] = asyncio.Queue()
         self._worker: asyncio.Task[None] | None = None
+        self._metrics = GatewayMetrics()
 
     async def dispatch(
         self,
@@ -288,17 +116,20 @@ class InformationChannelGateway:
         payload: dict[str, Any],
     ) -> tuple[str, dict[str, Any]]:
         """Route a governed command through the A177 gate pipeline."""
+        self._metrics.record_request()
         envelope = self._validate_envelope(sender, destination, command, payload)
 
         # A224 contract gate — fail closed when the directory is unreadable
         if self._contract is not None:
             if self._contract.load_error():
+                self._metrics.record_denied("contract")
                 return self._deny(
                     envelope,
                     _CONTRACT_UNAVAILABLE,
                     f"command_code_directory unreadable: {self._contract.load_error()}",
                 )
             if not self._contract.is_registered(command):
+                self._metrics.record_denied("contract")
                 return self._deny(
                     envelope,
                     _UNKNOWN_COMMAND,
@@ -307,22 +138,27 @@ class InformationChannelGateway:
 
         # A177 authorization gate
         if self._authorize is not None and not self._authorize(sender, destination, command):
+            self._metrics.record_denied("authorization")
             return self._deny(
                 envelope, "PERMISSION_DENIED", "Authorization denied for this command"
             )
 
         # A177 rate gate
-        if not self._rate_limiter.allow(sender):
+        if not await self._rate_limiter.allow(sender):
+            self._metrics.record_denied("rate_limit")
             return self._deny(
                 envelope, _RATE_EXCEEDED, "Rate limit exceeded for this sender"
             )
+
+        self._metrics.record_allowed()
 
         loop = asyncio.get_running_loop()
         future: asyncio.Future[tuple[str, dict[str, Any]]] = loop.create_future()
         await self._queue.put((envelope, future))
         if self._worker is None or self._worker.done():
             self._worker = asyncio.create_task(self._run(), name="information-channel")
-        return await future
+        result = await future
+        return result
 
     @staticmethod
     def _validate_envelope(
@@ -346,43 +182,13 @@ class InformationChannelGateway:
     ) -> tuple[str, dict[str, Any]]:
         """Audited denial; an unrecordable denial becomes an audit failure."""
         try:
-            self._emit_audit(envelope, ok=False, error=code)
+            publish_audit(self._audit, envelope, ok=False, error=code)
         except AuditPublicationError as error:
             code, message = "AUDIT_PUBLICATION_FAILED", str(error)
         return (
             f"{envelope.command}_result",
             {"ok": False, "error_code": code, "message": message},
         )
-
-    def _emit_audit(
-        self,
-        envelope: GovernedCommandEnvelope,
-        *,
-        ok: bool,
-        error: str = "",
-        verification: Mapping[str, Any] | None = None,
-    ) -> None:
-        """Mandatory audit publication (A121/A46); raises when unrecorded."""
-        if self._audit is None:
-            raise AuditPublicationError("AUDIT_SINK_REQUIRED")
-        record: dict[str, Any] = {
-            "transport_owner": "shared-layer",
-            "channel": "system",
-            "sender": envelope.sender,
-            "destination": envelope.destination,
-            "command": envelope.command,
-            "ok": ok,
-            "error_code": error,
-            "timestamp": _utc_now_iso(),  # A200
-        }
-        if verification is not None:
-            record["verification"] = dict(verification)
-        try:
-            self._audit(record)
-        except Exception as error_exc:
-            raise AuditPublicationError(
-                f"audit sink failed: {type(error_exc).__name__}: {str(error_exc)[:160]}"
-            ) from error_exc
 
     async def _run(self) -> None:
         while not self._queue.empty():
@@ -411,8 +217,11 @@ class InformationChannelGateway:
             else result
         )
         verdict = verify_handler_result(payload_result)
+        if not verdict.verified:
+            self._metrics.record_verification_failure()
         try:
-            self._emit_audit(
+            publish_audit(
+                self._audit,
                 envelope,
                 ok=verdict.verified,
                 error="" if verdict.verified else "RESULT_VERIFICATION_FAILED",
@@ -444,9 +253,11 @@ class InformationChannelGateway:
         future: asyncio.Future[tuple[str, dict[str, Any]]],
         error: Exception,
     ) -> None:
+        self._metrics.record_handler_error()
         detail = f"{type(error).__name__}: {str(error)[:200]}"
         try:
-            self._emit_audit(
+            publish_audit(
+                self._audit,
                 envelope,
                 ok=False,
                 error=type(error).__name__,
@@ -477,6 +288,14 @@ class InformationChannelGateway:
     ) -> None:
         if not future.done():
             future.set_result(value)
+
+    def get_metrics(self) -> dict[str, Any]:
+        """Get gateway metrics for monitoring (A177 observability)."""
+        return self._metrics.get_metrics()
+
+    def get_metrics_snapshot(self) -> dict[str, Any]:
+        """Get gateway metrics with derived values."""
+        return self._metrics.get_metrics_snapshot()
 
 
 __all__ = [

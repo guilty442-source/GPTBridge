@@ -4,6 +4,29 @@ from typing import Any, Iterable
 
 from ._helpers import _utc_after, _utc_now
 
+_MARK_SCAN_SUCCESS_SQL = """
+                UPDATE vaultly_account_scan_schedule
+                SET status = 'idle',
+                    next_scan_at = ?,
+                    last_success_at = ?,
+                    last_seen_post_url = CASE
+                        WHEN ? <> '' THEN ?
+                        ELSE last_seen_post_url
+                    END,
+                    last_seen_published_at = CASE
+                        WHEN ? <> '' THEN ?
+                        ELSE last_seen_published_at
+                    END,
+                    consecutive_empty = CASE
+                        WHEN ? > 0 THEN 0
+                        ELSE consecutive_empty + ?
+                    END,
+                    error_count = 0,
+                    message = ?,
+                    updated_at = ?
+                WHERE account_id = ?
+                """
+
 
 class SelectionMixin:
     def save_selection(self, account_ids: Iterable[str]) -> None:
@@ -22,14 +45,7 @@ class SelectionMixin:
                 for row in previous_rows
                 if bool(row["selected"]) != (str(row["account_id"]) in selected)
             ]
-            for row in changed_rows:
-                self._record_row_history(
-                    connection,
-                    "account",
-                    str(row["account_id"]),
-                    "superseded",
-                    row,
-                )
+            self._record_selection_history(connection, changed_rows, "superseded")
             connection.execute(
                 "UPDATE vaultly_accounts SET selected = 0 WHERE is_active = 1"
             )
@@ -43,20 +59,9 @@ class SelectionMixin:
                     """,
                     tuple(sorted(selected)),
                 )
-            for row in changed_rows:
-                account_id = str(row["account_id"])
-                self._record_row_history(
-                    connection,
-                    "account",
-                    account_id,
-                    "selection_updated",
-                    self._row_by_key(
-                        connection,
-                        "vaultly_accounts",
-                        "account_id",
-                        account_id,
-                    ),
-                )
+            self._record_selection_history(
+                connection, changed_rows, "selection_updated"
+            )
             connection.execute(
                 """
                 UPDATE vaultly_account_scan_schedule
@@ -71,6 +76,32 @@ class SelectionMixin:
                 updated_at = ?
                 """,
                 (now,),
+            )
+
+    def _record_selection_history(
+        self,
+        connection,
+        changed_rows: Iterable[Any],
+        action: str,
+    ) -> None:
+        for row in changed_rows:
+            account_id = str(row["account_id"])
+            snapshot = (
+                row
+                if action == "superseded"
+                else self._row_by_key(
+                    connection,
+                    "vaultly_accounts",
+                    "account_id",
+                    account_id,
+                )
+            )
+            self._record_row_history(
+                connection,
+                "account",
+                account_id,
+                action,
+                snapshot,
             )
 
     def queue_account_scans(self, account_ids: Iterable[str], priority: int = 90) -> int:
@@ -184,28 +215,7 @@ class SelectionMixin:
             consecutive_empty = 1
         with self._connect() as connection:
             connection.execute(
-                """
-                UPDATE vaultly_account_scan_schedule
-                SET status = 'idle',
-                    next_scan_at = ?,
-                    last_success_at = ?,
-                    last_seen_post_url = CASE
-                        WHEN ? <> '' THEN ?
-                        ELSE last_seen_post_url
-                    END,
-                    last_seen_published_at = CASE
-                        WHEN ? <> '' THEN ?
-                        ELSE last_seen_published_at
-                    END,
-                    consecutive_empty = CASE
-                        WHEN ? > 0 THEN 0
-                        ELSE consecutive_empty + ?
-                    END,
-                    error_count = 0,
-                    message = ?,
-                    updated_at = ?
-                WHERE account_id = ?
-                """,
+                _MARK_SCAN_SUCCESS_SQL,
                 (
                     next_scan_at,
                     now,

@@ -17,28 +17,47 @@ class WatchRepoSharedMixin:
             "Portfolio memory:",
             str(state.get("portfolio_memory") or "尚未匯入持股。"),
         ]
+        self._shared_memory_product_status(state, lines)
+        self._shared_memory_network_context(state, lines)
+        decision_brief = str(state.get("ollama_decision_brief") or "").strip()
+        if decision_brief:
+            lines.extend(["", "Local AI decision brief:", decision_brief])
+        self._shared_memory_action_plan(state, lines)
+        self._shared_memory_confidence(state, lines)
+        self._shared_memory_workbook(state, lines)
+        self._shared_memory_runs(state, lines)
+        return self._shorten("\n".join(lines), 40000)
+
+    def _shared_memory_product_status(
+        self, state: dict[str, Any], lines: list[str]
+    ) -> None:
         product_status = state.get("ollama_product_status")
-        if isinstance(product_status, dict):
-            network_context = (
-                product_status.get("network_context")
-                if isinstance(product_status.get("network_context"), dict)
-                else {}
-            )
-            lines.extend(
-                [
-                    "",
-                    "Local AI product status:",
-                    (
-                        f"{product_status.get('state_label', '-')} "
-                        f"score={product_status.get('score', '-')} "
-                        f"mode={product_status.get('watch_status', '-')} "
-                        f"network={product_status.get('network_mode_label', '-')} "
-                        f"coverage={product_status.get('coverage_label', '-')} "
-                        f"providers={network_context.get('quote_provider_count', 0)}"
-                    ),
-                    str(product_status.get("recommendation") or ""),
-                ]
-            )
+        if not isinstance(product_status, dict):
+            return
+        network_context = (
+            product_status.get("network_context")
+            if isinstance(product_status.get("network_context"), dict)
+            else {}
+        )
+        lines.extend(
+            [
+                "",
+                "Local AI product status:",
+                (
+                    f"{product_status.get('state_label', '-')} "
+                    f"score={product_status.get('score', '-')} "
+                    f"mode={product_status.get('watch_status', '-')} "
+                    f"network={product_status.get('network_mode_label', '-')} "
+                    f"coverage={product_status.get('coverage_label', '-')} "
+                    f"providers={network_context.get('quote_provider_count', 0)}"
+                ),
+                str(product_status.get("recommendation") or ""),
+            ]
+        )
+
+    def _shared_memory_network_context(
+        self, state: dict[str, Any], lines: list[str]
+    ) -> None:
         network_context = state.get("ollama_network_context")
         if isinstance(network_context, dict):
             lines.extend(
@@ -53,9 +72,10 @@ class WatchRepoSharedMixin:
                     ),
                 ]
             )
-        decision_brief = str(state.get("ollama_decision_brief") or "").strip()
-        if decision_brief:
-            lines.extend(["", "Local AI decision brief:", decision_brief])
+
+    def _shared_memory_action_plan(
+        self, state: dict[str, Any], lines: list[str]
+    ) -> None:
         action_plan = state.get("ollama_action_plan")
         if isinstance(action_plan, list) and action_plan:
             lines.extend(["", "Local AI action plan:"])
@@ -68,6 +88,10 @@ class WatchRepoSharedMixin:
                         f"{item.get('title', '-')} -> {item.get('action', '-')}"
                     )
                 )
+
+    def _shared_memory_confidence(
+        self, state: dict[str, Any], lines: list[str]
+    ) -> None:
         confidence = state.get("ollama_confidence")
         if isinstance(confidence, dict):
             lines.extend(
@@ -81,6 +105,10 @@ class WatchRepoSharedMixin:
                     ),
                 ]
             )
+
+    def _shared_memory_workbook(
+        self, state: dict[str, Any], lines: list[str]
+    ) -> None:
         workbook_quality = state.get("workbook_scan_quality")
         if isinstance(workbook_quality, dict):
             lines.extend(
@@ -95,25 +123,29 @@ class WatchRepoSharedMixin:
                     str(workbook_quality.get("recommendation") or ""),
                 ]
             )
+
+    def _shared_memory_runs(
+        self, state: dict[str, Any], lines: list[str]
+    ) -> None:
         runs = state.get("ai_runs", [])
-        if isinstance(runs, list) and runs:
-            lines.extend(["", "Primary AI results, latest first:"])
-            for run in runs[:12]:
-                if not isinstance(run, dict):
-                    continue
-                provider = str(run.get("provider") or "unknown")
-                role = str(run.get("role") or "unknown")
-                status = str(run.get("status") or "unknown")
-                created_at = str(run.get("created_at") or "")
-                body = str(run.get("content") or run.get("error") or "").strip()
-                lines.extend(
-                    [
-                        "",
-                        f"[{provider}] role={role} status={status} created_at={created_at}",
-                        self._shorten(body, 2200),
-                    ]
-                )
-        return self._shorten("\n".join(lines), 40000)
+        if not (isinstance(runs, list) and runs):
+            return
+        lines.extend(["", "Primary AI results, latest first:"])
+        for run in runs[:12]:
+            if not isinstance(run, dict):
+                continue
+            provider = str(run.get("provider") or "unknown")
+            role = str(run.get("role") or "unknown")
+            status = str(run.get("status") or "unknown")
+            created_at = str(run.get("created_at") or "")
+            body = str(run.get("content") or run.get("error") or "").strip()
+            lines.extend(
+                [
+                    "",
+                    f"[{provider}] role={role} status={status} created_at={created_at}",
+                    self._shorten(body, 2200),
+                ]
+            )
 
     @staticmethod
     def _compact_workbook_scan(workbook_scan: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -150,26 +182,10 @@ class WatchRepoSharedMixin:
             selected_sheet.get("header_depth"),
             default=1,
         )
-        if score >= 180 and valid_rows > 0:
-            state = "ready"
-            state_label = "辨識穩定"
-        elif score >= 120 and valid_rows > 0:
-            state = "attention"
-            state_label = "需確認"
-        else:
-            state = "critical"
-            state_label = "低信心"
-
-        if header_mode == "horizontal_matrix":
-            recommendation = "已合併橫向持股工作表；ETF、台股、美股與共同基金欄位可個別調整。"
-        elif header_mode == "headerless_inferred":
-            recommendation = "偵測為無表頭自製表格，已從資料列推斷代號、數量、平均成本等欄位。"
-        elif header_mode == "inferred":
-            recommendation = "已依資料形態推斷自製表格欄位，建議確認代號、數量、平均成本是否對齊。"
-        elif header_depth > 1:
-            recommendation = "已合併多列自製表頭，建議確認欄位合併後名稱是否符合原表。"
-        else:
-            recommendation = "已辨識持股欄位，匯入後會自動交給本地AI建立監測基準。"
+        state, state_label = self._workbook_quality_state(score, valid_rows)
+        recommendation = self._workbook_quality_recommendation(
+            header_mode, header_depth
+        )
 
         return {
             "state": state,
@@ -182,3 +198,25 @@ class WatchRepoSharedMixin:
             "valid_data_row_count": valid_rows,
             "recommendation": recommendation,
         }
+
+    @staticmethod
+    def _workbook_quality_state(score: int, valid_rows: int) -> tuple[str, str]:
+        if score >= 180 and valid_rows > 0:
+            return "ready", "辨識穩定"
+        if score >= 120 and valid_rows > 0:
+            return "attention", "需確認"
+        return "critical", "低信心"
+
+    @staticmethod
+    def _workbook_quality_recommendation(
+        header_mode: str, header_depth: int
+    ) -> str:
+        if header_mode == "horizontal_matrix":
+            return "已合併橫向持股工作表；ETF、台股、美股與共同基金欄位可個別調整。"
+        if header_mode == "headerless_inferred":
+            return "偵測為無表頭自製表格，已從資料列推斷代號、數量、平均成本等欄位。"
+        if header_mode == "inferred":
+            return "已依資料形態推斷自製表格欄位，建議確認代號、數量、平均成本是否對齊。"
+        if header_depth > 1:
+            return "已合併多列自製表頭，建議確認欄位合併後名稱是否符合原表。"
+        return "已辨識持股欄位，匯入後會自動交給本地AI建立監測基準。"

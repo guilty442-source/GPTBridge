@@ -73,6 +73,30 @@ def check_independent_tools(project_root: Path) -> dict[str, Any]:
     missing_entries: list[dict[str, str]] = []
     missing_executables: list[str] = []
 
+    tool_directories = _discover_tool_directories(project_root)
+
+    for tool_dir in tool_directories:
+        _check_tool(
+            project_root,
+            tool_dir,
+            tools,
+            invalid_manifests,
+            missing_entries,
+            missing_executables,
+        )
+
+    ok = not invalid_manifests and not missing_entries and not missing_executables
+    return {
+        "ok": ok,
+        "count": len(tools),
+        "tools": tools,
+        "invalid_manifests": invalid_manifests,
+        "missing_entries": missing_entries,
+        "missing_executables": missing_executables,
+    }
+
+
+def _discover_tool_directories(project_root: Path) -> list[Path]:
     tool_directories = [
         path
         for path in sorted(project_root.iterdir(), key=lambda item: item.name.casefold())
@@ -102,56 +126,55 @@ def check_independent_tools(project_root: Path) -> dict[str, Any]:
                 and (candidate / "manifest.json").is_file()
             ):
                 tool_directories.append(candidate)
+    return tool_directories
 
-    for tool_dir in tool_directories:
-        if not tool_dir.is_dir() or tool_dir.name.startswith("_"):
-            continue
-        manifest_path = tool_dir / "manifest.json"
-        if not manifest_path.exists():
-            continue
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            invalid_manifests.append({"tool": tool_dir.name, "error": str(exc)})
-            continue
-        if not isinstance(manifest, dict):
-            invalid_manifests.append({"tool": tool_dir.name, "error": "manifest is not an object"})
-            continue
 
-        tool_id = str(manifest.get("id", tool_dir.name)).strip() or tool_dir.name
-        entry = _resolve_platform_tool_entry(project_root, tool_dir, manifest)
-        executable = manifest.get("executable")
-        has_executable = isinstance(executable, Mapping) and bool(
-            str(executable.get("path") or executable.get("name") or "").strip()
-        )
-        distribution = manifest.get("distribution")
-        lifecycle = manifest.get("lifecycle")
-        explicitly_unpacked = isinstance(distribution, Mapping) and distribution.get("package") is False
-        direct_load = isinstance(lifecycle, Mapping) and lifecycle.get("directLoad") is True
-        requires_executable = not explicitly_unpacked and not direct_load
-        if not entry.exists():
-            missing_entries.append({"tool": tool_id, "entry": str(entry)})
-        if requires_executable and not has_executable:
-            missing_executables.append(tool_id)
-        tools.append(
-            {
-                "id": tool_id,
-                "entry": str(entry),
-                "entry_exists": entry.exists(),
-                "has_executable": has_executable,
-                "requires_executable": requires_executable,
-            }
-        )
+def _check_tool(
+    project_root: Path,
+    tool_dir: Path,
+    tools: list[dict[str, Any]],
+    invalid_manifests: list[dict[str, str]],
+    missing_entries: list[dict[str, str]],
+    missing_executables: list[str],
+) -> None:
+    if not tool_dir.is_dir() or tool_dir.name.startswith("_"):
+        return
+    manifest_path = tool_dir / "manifest.json"
+    if not manifest_path.exists():
+        return
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        invalid_manifests.append({"tool": tool_dir.name, "error": str(exc)})
+        return
+    if not isinstance(manifest, dict):
+        invalid_manifests.append({"tool": tool_dir.name, "error": "manifest is not an object"})
+        return
 
-    ok = not invalid_manifests and not missing_entries and not missing_executables
-    return {
-        "ok": ok,
-        "count": len(tools),
-        "tools": tools,
-        "invalid_manifests": invalid_manifests,
-        "missing_entries": missing_entries,
-        "missing_executables": missing_executables,
-    }
+    tool_id = str(manifest.get("id", tool_dir.name)).strip() or tool_dir.name
+    entry = _resolve_platform_tool_entry(project_root, tool_dir, manifest)
+    executable = manifest.get("executable")
+    has_executable = isinstance(executable, Mapping) and bool(
+        str(executable.get("path") or executable.get("name") or "").strip()
+    )
+    distribution = manifest.get("distribution")
+    lifecycle = manifest.get("lifecycle")
+    explicitly_unpacked = isinstance(distribution, Mapping) and distribution.get("package") is False
+    direct_load = isinstance(lifecycle, Mapping) and lifecycle.get("directLoad") is True
+    requires_executable = not explicitly_unpacked and not direct_load
+    if not entry.exists():
+        missing_entries.append({"tool": tool_id, "entry": str(entry)})
+    if requires_executable and not has_executable:
+        missing_executables.append(tool_id)
+    tools.append(
+        {
+            "id": tool_id,
+            "entry": str(entry),
+            "entry_exists": entry.exists(),
+            "has_executable": has_executable,
+            "requires_executable": requires_executable,
+        }
+    )
 
 
 def _safe_extract_zip(zip_path: Path, target_dir: Path) -> None:
@@ -177,6 +200,29 @@ def repair_electron_runtime(project_root: str | os.PathLike[str] | None = None) 
         return {"ok": True, "changed": False, "method": "already_ready", "electron": before}
 
     electron_root = root / "node_modules" / "electron"
+    result = _repair_electron_via_metadata(root, electron_root, before)
+    if result is not None:
+        return result
+    result = _repair_electron_via_install_script(root)
+    if result is not None:
+        return result
+    result = _repair_electron_via_cache(root, electron_root)
+    if result is not None:
+        return result
+
+    return {
+        "ok": False,
+        "changed": False,
+        "method": "unresolved",
+        "electron": check_electron_runtime(root),
+    }
+
+
+def _repair_electron_via_metadata(
+    root: Path, electron_root: Path, before: dict[str, Any]
+) -> dict[str, Any] | None:
+    from .environment_doctor_checks import check_electron_runtime
+
     package_path = electron_root / "package.json"
     installed_version_path = electron_root / "dist" / "version"
     try:
@@ -194,6 +240,11 @@ def repair_electron_runtime(project_root: str | os.PathLike[str] | None = None) 
                 }
     except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
         pass
+    return None
+
+
+def _repair_electron_via_install_script(root: Path) -> dict[str, Any] | None:
+    from .environment_doctor_checks import check_electron_runtime
 
     install_script = root / "node_modules" / "electron" / "install.js"
     if install_script.exists() and shutil.which("node"):
@@ -217,6 +268,13 @@ def repair_electron_runtime(project_root: str | os.PathLike[str] | None = None) 
                 "output": completed.stdout,
                 "electron": after_node_install,
             }
+    return None
+
+
+def _repair_electron_via_cache(
+    root: Path, electron_root: Path
+) -> dict[str, Any] | None:
+    from .environment_doctor_checks import check_electron_runtime
 
     cache_zips: list[Path] = []
     for cache_root in _electron_cache_roots():
@@ -240,13 +298,7 @@ def repair_electron_runtime(project_root: str | os.PathLike[str] | None = None) 
                 "cache_zip": str(zip_path),
                 "electron": after_cache,
             }
-
-    return {
-        "ok": False,
-        "changed": False,
-        "method": "unresolved",
-        "electron": check_electron_runtime(root),
-    }
+    return None
 
 
 __all__ = [

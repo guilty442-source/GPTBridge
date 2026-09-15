@@ -71,199 +71,265 @@ class InvestmentStarServiceMixin:
         run_id = str(payload.get("run_id") or "")
         instruction = str(payload.get("instruction") or payload.get("command") or "").strip()
         try:
-            explicit_request = not bool(payload.get("trigger"))
-            search = self.ai_connections.search_investments_sync(
-                holdings,
-                allow_external_fallback=(
-                    explicit_request and payload.get("allow_external_research", True) is True
-                ),
+            return self._run_star_analysis(
+                state, payload, holdings, run_id, instruction
             )
-            if not search.get("results"):
-                raise RuntimeError(
-                    str(search.get("message") or "投資管家尚未連線；分析未送出且不排隊。")
-                )
-            quote_map = {
-                (
-                    str(item.get("market") or "").upper(),
-                    str(item.get("requested_symbol") or "").upper(),
-                ): item
-                for item in search.get("results", [])
-                if isinstance(item, dict) and item.get("trusted")
-            }
-            analysis_holdings: list[dict[str, Any]] = []
-            for holding in holdings:
-                compact = {
-                    key: holding.get(key)
-                    for key in (
-                        "symbol",
-                        "name",
-                        "market",
-                        "asset_type",
-                        "currency",
-                        "quantity",
-                        "average_cost",
-                        "principal_twd",
-                        "current_value_twd",
-                        "web_current_value_twd",
-                    )
-                }
-                key = (
-                    str(holding.get("market") or "").upper(),
-                    str(holding.get("symbol") or "").upper(),
-                )
-                quote = quote_map.get(key)
-                if isinstance(quote, dict):
-                    source = next(
-                        (entry for entry in quote.get("sources", []) if isinstance(entry, dict)),
-                        {},
-                    )
-                    parameters = quote.get("parameters") if isinstance(quote.get("parameters"), dict) else {}
-                    compact.update(
-                        {
-                            "web_current_price": parameters.get("price"),
-                            "market_parameters": dict(parameters),
-                            "market_data_source": "投資管家即時網路搜尋",
-                            "market_data_source_url": source.get("url"),
-                            "market_data_updated_at": quote.get("observed_at"),
-                            "source_confidence": quote.get("confidence"),
-                            "distribution": quote.get("distribution"),
-                        }
-                    )
-                analysis_holdings.append(compact)
-            policy = self._investment_policy()
-            requested_parameters = payload.get("analysis_parameters")
-            if not isinstance(requested_parameters, dict):
-                requested_parameters = {}
-            analysis_parameters = {
-                "position_concentration_percent": requested_parameters.get(
-                    "position_concentration_percent",
-                    policy.get("max_single_position_percent", 20),
-                ),
-                "missing_data_warning_percent": requested_parameters.get(
-                    "missing_data_warning_percent",
-                    5,
-                ),
-                "instruction": instruction,
-            }
-            analysis = self.ai_connections.analyze_investments_sync(
-                analysis_holdings,
-                analysis_parameters,
-            )
-            if analysis.get("ok") is not True:
-                raise RuntimeError(
-                    str(analysis.get("message") or "投資管家投資分析失敗。")
-                )
-            discuss_with_external_ai = (
-                explicit_request
-                and payload.get("discuss_with_external_ai", True) is True
-            )
-            discussion = (
-                self.ai_connections.discuss_analysis_sync(analysis)
-                if discuss_with_external_ai
-                else {
-                    "ok": False,
-                    "queued": False,
-                    "skipped": True,
-                    "message": "背景分析不啟動外部 AI 瀏覽器。",
-                    "uses_api": False,
-                }
-            )
-            analysis["market_search"] = {
-                "provider": search.get("provider"),
-                "searched_at": search.get("searched_at"),
-                "requested_count": search.get("requested_count"),
-                "updated_count": search.get("updated_count"),
-                "error_count": search.get("error_count"),
-                "errors": search.get("errors", [])[:20],
-            }
-            analysis["external_ai_discussion"] = discussion
-            warnings = analysis.get("risk_warnings") if isinstance(analysis.get("risk_warnings"), list) else []
-            portfolio = analysis.get("portfolio") if isinstance(analysis.get("portfolio"), dict) else {}
-            summary = {
-                "warning_count": len(warnings),
-                "active_holding_count": portfolio.get("active_holding_count", len(holdings)),
-                "market_data_coverage_percent": portfolio.get("market_data_coverage_percent", 0),
-                "analysis_owner": "投資管家",
-                "discussion_owner": (
-                    "ChatGPT（投資管家統整）"
-                    if discussion.get("ok")
-                    else "等待 ChatGPT"
-                    if discussion.get("queued")
-                    else "未連線"
-                ),
-            }
-            product_status = {
-                "state": "ready" if not warnings else "warning",
-                "state_label": "分析完成" if not warnings else "分析完成，有風險提醒",
-                "analysis_owner": "投資管家",
-                "computation_service_owner": "投資管家",
-                "statistics_service_owner": "投資管家",
-                "network_search_service_owner": "內建瀏覽器",
-                "market_data_provider": "內建瀏覽器即時網路搜尋",
-                "external_discussion_connected": discussion.get("ok") is True,
-                "queue_when_offline": False,
-            }
-            state_after_run = self.repository.load_state()
-            prompt = "投資管家：搜尋可驗證市場資料並執行投資分析。"
-            if instruction:
-                prompt += f" 使用者指令：{instruction}"
-            if run_id:
-                run = self.repository.update_ai_run(
-                    run_id,
-                    status="completed",
-                    content=json.dumps(summary, ensure_ascii=False),
-                    error="",
-                )
-            else:
-                run = self.repository.add_ai_run(
-                    role="investment_analysis",
-                    provider="投資管家",
-                    prompt=prompt,
-                    status="completed",
-                    content=json.dumps(summary, ensure_ascii=False),
-                    error="",
-                )
-            return {
-                "ok": True,
-                "queued": False,
-                "message": f"投資管家分析完成：{len(warnings)} 項風險提醒。",
-                "run": run,
-                "summary": summary,
-                "product_status": product_status,
-                "risk_warnings": warnings,
-                "local_risk_ai": analysis,
-                "external_ai_discussion": discussion,
-                "state": self._state_with_analytics(state_after_run),
-                "diagnostics": self._diagnostics(state_after_run),
-                "mobile_sync": self._mobile_sync_status(),
-            }
         except Exception as exc:
-            if run_id:
-                run = self.repository.update_ai_run(
-                    run_id,
-                    status="failed",
-                    content="",
-                    error=str(exc),
+            return self._star_run_failure_response(run_id, exc)
+
+    def _run_star_analysis(
+        self,
+        state: dict[str, Any],
+        payload: dict[str, Any],
+        holdings: list[dict[str, Any]],
+        run_id: str,
+        instruction: str,
+    ) -> dict[str, Any]:
+        explicit_request = not bool(payload.get("trigger"))
+        search = self.ai_connections.search_investments_sync(
+            holdings,
+            allow_external_fallback=(
+                explicit_request and payload.get("allow_external_research", True) is True
+            ),
+        )
+        if not search.get("results"):
+            raise RuntimeError(
+                str(search.get("message") or "投資管家尚未連線；分析未送出且不排隊。")
+            )
+        analysis_holdings = self._star_analysis_holdings(holdings, search)
+        analysis = self.ai_connections.analyze_investments_sync(
+            analysis_holdings,
+            self._star_analysis_parameters(payload, instruction),
+        )
+        if analysis.get("ok") is not True:
+            raise RuntimeError(
+                str(analysis.get("message") or "投資管家投資分析失敗。")
+            )
+        discussion = self._star_discussion(payload, analysis, explicit_request)
+        self._star_attach_search_metadata(analysis, search, discussion)
+        warnings = analysis.get("risk_warnings") if isinstance(analysis.get("risk_warnings"), list) else []
+        portfolio = analysis.get("portfolio") if isinstance(analysis.get("portfolio"), dict) else {}
+        summary = self._star_analysis_summary(
+            warnings, portfolio, holdings, discussion
+        )
+        product_status = self._star_product_status(warnings, discussion)
+        state_after_run = self.repository.load_state()
+        prompt = "投資管家：搜尋可驗證市場資料並執行投資分析。"
+        if instruction:
+            prompt += f" 使用者指令：{instruction}"
+        run = self._star_record_completed_run(run_id, prompt, summary)
+        return {
+            "ok": True,
+            "queued": False,
+            "message": f"投資管家分析完成：{len(warnings)} 項風險提醒。",
+            "run": run,
+            "summary": summary,
+            "product_status": product_status,
+            "risk_warnings": warnings,
+            "local_risk_ai": analysis,
+            "external_ai_discussion": discussion,
+            "state": self._state_with_analytics(state_after_run),
+            "diagnostics": self._diagnostics(state_after_run),
+            "mobile_sync": self._mobile_sync_status(),
+        }
+
+    def _star_analysis_holdings(
+        self,
+        holdings: list[dict[str, Any]],
+        search: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        quote_map = {
+            (
+                str(item.get("market") or "").upper(),
+                str(item.get("requested_symbol") or "").upper(),
+            ): item
+            for item in search.get("results", [])
+            if isinstance(item, dict) and item.get("trusted")
+        }
+        analysis_holdings: list[dict[str, Any]] = []
+        for holding in holdings:
+            compact = {
+                key: holding.get(key)
+                for key in (
+                    "symbol",
+                    "name",
+                    "market",
+                    "asset_type",
+                    "currency",
+                    "quantity",
+                    "average_cost",
+                    "principal_twd",
+                    "current_value_twd",
+                    "web_current_value_twd",
                 )
-            else:
-                run = self.repository.add_ai_run(
-                    role="investment_analysis",
-                    provider="投資管家",
-                    prompt="投資管家投資分析",
-                    status="failed",
-                    content="",
-                    error=str(exc),
-                )
-            latest = self.repository.load_state()
-            return {
-                "ok": False,
-                "queued": False,
-                "message": str(exc),
-                "run": run,
-                "state": latest,
-                "diagnostics": self._diagnostics(latest),
-                "mobile_sync": self._mobile_sync_status(),
             }
+            key = (
+                str(holding.get("market") or "").upper(),
+                str(holding.get("symbol") or "").upper(),
+            )
+            quote = quote_map.get(key)
+            if isinstance(quote, dict):
+                compact.update(self._star_quote_overlay(quote))
+            analysis_holdings.append(compact)
+        return analysis_holdings
+
+    def _star_quote_overlay(self, quote: dict[str, Any]) -> dict[str, Any]:
+        source = next(
+            (entry for entry in quote.get("sources", []) if isinstance(entry, dict)),
+            {},
+        )
+        parameters = quote.get("parameters") if isinstance(quote.get("parameters"), dict) else {}
+        return {
+            "web_current_price": parameters.get("price"),
+            "market_parameters": dict(parameters),
+            "market_data_source": "投資管家即時網路搜尋",
+            "market_data_source_url": source.get("url"),
+            "market_data_updated_at": quote.get("observed_at"),
+            "source_confidence": quote.get("confidence"),
+            "distribution": quote.get("distribution"),
+        }
+
+    def _star_analysis_parameters(
+        self, payload: dict[str, Any], instruction: str
+    ) -> dict[str, Any]:
+        policy = self._investment_policy()
+        requested_parameters = payload.get("analysis_parameters")
+        if not isinstance(requested_parameters, dict):
+            requested_parameters = {}
+        return {
+            "position_concentration_percent": requested_parameters.get(
+                "position_concentration_percent",
+                policy.get("max_single_position_percent", 20),
+            ),
+            "missing_data_warning_percent": requested_parameters.get(
+                "missing_data_warning_percent",
+                5,
+            ),
+            "instruction": instruction,
+        }
+
+    def _star_discussion(
+        self,
+        payload: dict[str, Any],
+        analysis: dict[str, Any],
+        explicit_request: bool,
+    ) -> dict[str, Any]:
+        discuss_with_external_ai = (
+            explicit_request
+            and payload.get("discuss_with_external_ai", True) is True
+        )
+        if discuss_with_external_ai:
+            return self.ai_connections.discuss_analysis_sync(analysis)
+        return {
+            "ok": False,
+            "queued": False,
+            "skipped": True,
+            "message": "背景分析不啟動外部 AI 瀏覽器。",
+            "uses_api": False,
+        }
+
+    def _star_attach_search_metadata(
+        self,
+        analysis: dict[str, Any],
+        search: dict[str, Any],
+        discussion: dict[str, Any],
+    ) -> None:
+        analysis["market_search"] = {
+            "provider": search.get("provider"),
+            "searched_at": search.get("searched_at"),
+            "requested_count": search.get("requested_count"),
+            "updated_count": search.get("updated_count"),
+            "error_count": search.get("error_count"),
+            "errors": search.get("errors", [])[:20],
+        }
+        analysis["external_ai_discussion"] = discussion
+
+    def _star_analysis_summary(
+        self,
+        warnings: list[dict[str, Any]],
+        portfolio: dict[str, Any],
+        holdings: list[dict[str, Any]],
+        discussion: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "warning_count": len(warnings),
+            "active_holding_count": portfolio.get("active_holding_count", len(holdings)),
+            "market_data_coverage_percent": portfolio.get("market_data_coverage_percent", 0),
+            "analysis_owner": "投資管家",
+            "discussion_owner": (
+                "ChatGPT（投資管家統整）"
+                if discussion.get("ok")
+                else "等待 ChatGPT"
+                if discussion.get("queued")
+                else "未連線"
+            ),
+        }
+
+    def _star_product_status(
+        self,
+        warnings: list[dict[str, Any]],
+        discussion: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "state": "ready" if not warnings else "warning",
+            "state_label": "分析完成" if not warnings else "分析完成，有風險提醒",
+            "analysis_owner": "投資管家",
+            "computation_service_owner": "投資管家",
+            "statistics_service_owner": "投資管家",
+            "network_search_service_owner": "內建瀏覽器",
+            "market_data_provider": "內建瀏覽器即時網路搜尋",
+            "external_discussion_connected": discussion.get("ok") is True,
+            "queue_when_offline": False,
+        }
+
+    def _star_record_completed_run(
+        self, run_id: str, prompt: str, summary: dict[str, Any]
+    ) -> dict[str, Any]:
+        if run_id:
+            return self.repository.update_ai_run(
+                run_id,
+                status="completed",
+                content=json.dumps(summary, ensure_ascii=False),
+                error="",
+            )
+        return self.repository.add_ai_run(
+            role="investment_analysis",
+            provider="投資管家",
+            prompt=prompt,
+            status="completed",
+            content=json.dumps(summary, ensure_ascii=False),
+            error="",
+        )
+
+    def _star_run_failure_response(
+        self, run_id: str, exc: Exception
+    ) -> dict[str, Any]:
+        if run_id:
+            run = self.repository.update_ai_run(
+                run_id,
+                status="failed",
+                content="",
+                error=str(exc),
+            )
+        else:
+            run = self.repository.add_ai_run(
+                role="investment_analysis",
+                provider="投資管家",
+                prompt="投資管家投資分析",
+                status="failed",
+                content="",
+                error=str(exc),
+            )
+        latest = self.repository.load_state()
+        return {
+            "ok": False,
+            "queued": False,
+            "message": str(exc),
+            "run": run,
+            "state": latest,
+            "diagnostics": self._diagnostics(latest),
+            "mobile_sync": self._mobile_sync_status(),
+        }
 
     def _schedule_local_risk_ai_background(
         self,
@@ -273,14 +339,7 @@ class InvestmentStarServiceMixin:
         if self.ai_connections is None or not bool(
             getattr(self.ai_connections, "is_configured", False)
         ):
-            return {
-                "ok": False,
-                "queued": False,
-                "error_code": "STAR_AI_CHANNEL_NOT_CONNECTED",
-                "message": "投資管家 AI 通道尚未連線，未建立背景工作。",
-                "state": state,
-                "product_status": state.get("ollama_product_status"),
-            }
+            return self._star_channel_unavailable(state)
         prompt = (
             "投資管家服務：持股更新後由投資管家取得資料並執行風險監測"
             if payload.get("trigger") == "manual_holding_change"
@@ -322,6 +381,18 @@ class InvestmentStarServiceMixin:
             "state": state_with_run,
             "product_status": state_with_run.get("ollama_product_status"),
             "star_accounting": accounting,
+        }
+
+    def _star_channel_unavailable(
+        self, state: dict[str, Any]
+    ) -> dict[str, Any]:
+        return {
+            "ok": False,
+            "queued": False,
+            "error_code": "STAR_AI_CHANNEL_NOT_CONNECTED",
+            "message": "投資管家 AI 通道尚未連線，未建立背景工作。",
+            "state": state,
+            "product_status": state.get("ollama_product_status"),
         }
 
     def _portfolio_signature_matches(self, payload: dict[str, Any]) -> bool:

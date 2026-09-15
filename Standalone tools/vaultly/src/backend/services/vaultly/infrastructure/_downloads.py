@@ -4,6 +4,23 @@ from typing import Any
 
 from ._helpers import _utc_now
 
+_RECORD_DOWNLOAD_SQL = """
+                INSERT INTO vaultly_media_history (
+                    dedupe_key, platform, account_id, post_url, source_url,
+                    file_path, sha256, downloaded_at, revision
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(dedupe_key) DO UPDATE SET
+                    platform = excluded.platform,
+                    account_id = excluded.account_id,
+                    post_url = excluded.post_url,
+                    source_url = excluded.source_url,
+                    file_path = excluded.file_path,
+                    sha256 = excluded.sha256,
+                    downloaded_at = excluded.downloaded_at,
+                    revision = excluded.revision
+                """
+
 
 class DownloadMixin:
     def is_downloaded(self, dedupe_key: str) -> bool:
@@ -57,22 +74,7 @@ class DownloadMixin:
                 else 1
             )
             connection.execute(
-                """
-                INSERT INTO vaultly_media_history (
-                    dedupe_key, platform, account_id, post_url, source_url,
-                    file_path, sha256, downloaded_at, revision
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(dedupe_key) DO UPDATE SET
-                    platform = excluded.platform,
-                    account_id = excluded.account_id,
-                    post_url = excluded.post_url,
-                    source_url = excluded.source_url,
-                    file_path = excluded.file_path,
-                    sha256 = excluded.sha256,
-                    downloaded_at = excluded.downloaded_at,
-                    revision = excluded.revision
-                """,
+                _RECORD_DOWNLOAD_SQL,
                 (
                     dedupe_key,
                     platform,

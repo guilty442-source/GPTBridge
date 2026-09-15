@@ -198,58 +198,7 @@ class AuthorityReanchorService:
                 attempts=int(self._status.get("attempts", 0)) + 1,
             )
 
-            def defer(reason: str) -> None:
-                self._backoff_until = time.monotonic() + FAILURE_BACKOFF_SECONDS
-                self._status.update(state="deferred", last_error=reason)
-                self._write_state()
-                self._audit({"event": "deferred", "reason": reason})
-
-            if not self._run_audit():
-                defer("governance audit failed")
-                return
-            try:
-                # A435 bounded lookup: codex identity only — verifies the
-                # authority loads at the current version through the
-                # official entry rather than a direct repository read.
-                bounded_lookup(
-                    "authority-reanchor-service",
-                    purpose="status",
-                    scope=("codex:identity",),
-                    reader=lambda ctx: ctx.codex_identity(),
-                )
-                validate_loaded_authority_version()
-            except _AUTHORIZATION_ERRORS as error:
-                defer(f"codex-invalid: {type(error).__name__}: {error}")
-                return
-            try:
-                from governance.sovereigns.permission_sovereign import (
-                    re_certify_permission_sovereign,
-                )
-
-                re_certify_permission_sovereign()
-            except _AUTHORIZATION_ERRORS as error:
-                defer(
-                    f"permission-recertify-failed: {type(error).__name__}: {error}"
-                )
-                return
-
-            governance = getattr(self.app, "governance", None)
-            reanchor = getattr(governance, "reanchor_runtime_integrity", None)
-            if not callable(reanchor):
-                defer("governance-runtime-unavailable")
-                return
-            try:
-                reanchor()
-            except _AUTHORIZATION_ERRORS as error:
-                defer(f"reanchor-failed: {type(error).__name__}: {error}")
-                return
-            ready = getattr(governance, "runtime_integrity_ready", None)
-            try:
-                if callable(ready) and not ready(max_age_seconds=0):
-                    defer("post-reanchor-integrity-check-failed")
-                    return
-            except _AUTHORIZATION_ERRORS as error:
-                defer(f"post-check-error: {type(error).__name__}: {error}")
+            if not self._validate_and_reanchor():
                 return
 
             self._baseline = digest
@@ -267,6 +216,63 @@ class AuthorityReanchorService:
                     "digest": digest[:16],
                 }
             )
+
+
+    def _defer(self, reason: str) -> None:
+        self._backoff_until = time.monotonic() + FAILURE_BACKOFF_SECONDS
+        self._status.update(state="deferred", last_error=reason)
+        self._write_state()
+        self._audit({"event": "deferred", "reason": reason})
+
+    def _validate_and_reanchor(self) -> bool:
+        if not self._run_audit():
+            self._defer("governance audit failed")
+            return False
+        try:
+            # A435 bounded lookup: codex identity only - verifies the
+            # authority loads at the current version through the
+            # official entry rather than a direct repository read.
+            bounded_lookup(
+                "authority-reanchor-service",
+                purpose="status",
+                scope=("codex:identity",),
+                reader=lambda ctx: ctx.codex_identity(),
+            )
+            validate_loaded_authority_version()
+        except _AUTHORIZATION_ERRORS as error:
+            self._defer(f"codex-invalid: {type(error).__name__}: {error}")
+            return False
+        try:
+            from governance.sovereigns.permission_sovereign import (
+                re_certify_permission_sovereign,
+            )
+
+            re_certify_permission_sovereign()
+        except _AUTHORIZATION_ERRORS as error:
+            self._defer(
+                f"permission-recertify-failed: {type(error).__name__}: {error}"
+            )
+            return False
+
+        governance = getattr(self.app, "governance", None)
+        reanchor = getattr(governance, "reanchor_runtime_integrity", None)
+        if not callable(reanchor):
+            self._defer("governance-runtime-unavailable")
+            return False
+        try:
+            reanchor()
+        except _AUTHORIZATION_ERRORS as error:
+            self._defer(f"reanchor-failed: {type(error).__name__}: {error}")
+            return False
+        ready = getattr(governance, "runtime_integrity_ready", None)
+        try:
+            if callable(ready) and not ready(max_age_seconds=0):
+                self._defer("post-reanchor-integrity-check-failed")
+                return False
+        except _AUTHORIZATION_ERRORS as error:
+            self._defer(f"post-check-error: {type(error).__name__}: {error}")
+            return False
+        return True
 
     def _run_audit(self) -> bool:
         """Run the same governance audit gate the boot core uses."""

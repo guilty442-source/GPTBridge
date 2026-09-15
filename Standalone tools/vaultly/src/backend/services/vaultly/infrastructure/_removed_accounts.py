@@ -4,40 +4,7 @@ from typing import Any, Iterable
 
 from ._helpers import _utc_now
 
-
-class RemovedAccountsMixin:
-    def record_removed_accounts(
-        self,
-        accounts: Iterable[dict[str, Any]],
-        reason: str = "",
-        source: str = "automatic",
-    ) -> int:
-        changed = 0
-        now = _utc_now()
-        with self._connect() as connection:
-            for account in accounts:
-                account_id = str(account.get("account_id", "")).strip()
-                account_source = str(account.get("filter_source", source))
-                if (
-                    not account_id
-                    or (account.get("verified") is True and account_source != "manual")
-                ):
-                    continue
-                existing = self._row_by_key(
-                    connection,
-                    "vaultly_removed_accounts",
-                    "account_id",
-                    account_id,
-                )
-                self._record_row_history(
-                    connection,
-                    "removed_account",
-                    account_id,
-                    "superseded",
-                    existing,
-                )
-                connection.execute(
-                    """
+_RECORD_REMOVED_SQL = """
                     INSERT INTO vaultly_removed_accounts (
                         account_id, platform, handle, display_name, profile_url,
                         avatar_url, verified, reason, source, removed_at,
@@ -57,40 +24,79 @@ class RemovedAccountsMixin:
                         is_active = 1,
                         deactivated_at = '',
                         restored_at = ''
-                    """,
-                    (
-                        account_id,
-                        str(account.get("platform", "")),
-                        str(account.get("handle", "")),
-                        str(account.get("display_name", "")),
-                        str(account.get("profile_url", "")),
-                        str(account.get("avatar_url", "")),
-                        1 if account.get("verified") is True else 0,
-                        str(account.get("filter_reason", reason)),
-                        account_source,
-                        now,
-                    ),
+                    """
+
+
+class RemovedAccountsMixin:
+    def record_removed_accounts(
+        self,
+        accounts: Iterable[dict[str, Any]],
+        reason: str = "",
+        source: str = "automatic",
+    ) -> int:
+        changed = 0
+        now = _utc_now()
+        with self._connect() as connection:
+            for account in accounts:
+                changed += self._record_single_removed(
+                    connection, account, reason, source, now
                 )
-                self._record_row_history(
-                    connection,
-                    "removed_account",
-                    account_id,
-                    (
-                        "created"
-                        if existing is None
-                        else "reactivated"
-                        if not bool(existing["is_active"])
-                        else "updated"
-                    ),
-                    self._row_by_key(
-                        connection,
-                        "vaultly_removed_accounts",
-                        "account_id",
-                        account_id,
-                    ),
-                )
-                changed += 1
         return changed
+
+    def _record_single_removed(
+        self,
+        connection,
+        account: dict[str, Any],
+        reason: str,
+        source: str,
+        now: str,
+    ) -> int:
+        account_id = str(account.get("account_id", "")).strip()
+        account_source = str(account.get("filter_source", source))
+        if (
+            not account_id
+            or (account.get("verified") is True and account_source != "manual")
+        ):
+            return 0
+        existing = self._row_by_key(
+            connection, "vaultly_removed_accounts", "account_id", account_id,
+        )
+        self._record_row_history(
+            connection, "removed_account", account_id, "superseded", existing,
+        )
+        connection.execute(
+            _RECORD_REMOVED_SQL,
+            (
+                account_id,
+                str(account.get("platform", "")),
+                str(account.get("handle", "")),
+                str(account.get("display_name", "")),
+                str(account.get("profile_url", "")),
+                str(account.get("avatar_url", "")),
+                1 if account.get("verified") is True else 0,
+                str(account.get("filter_reason", reason)),
+                account_source,
+                now,
+            ),
+        )
+        self._record_row_history(
+            connection,
+            "removed_account",
+            account_id,
+            self._removed_change_kind(existing),
+            self._row_by_key(
+                connection, "vaultly_removed_accounts", "account_id", account_id,
+            ),
+        )
+        return 1
+
+    @staticmethod
+    def _removed_change_kind(existing) -> str:
+        if existing is None:
+            return "created"
+        if not bool(existing["is_active"]):
+            return "reactivated"
+        return "updated"
 
     def list_removed_accounts(self, limit: int = 500) -> list[dict[str, Any]]:
         with self._connect() as connection:

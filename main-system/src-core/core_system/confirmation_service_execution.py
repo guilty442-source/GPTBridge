@@ -59,6 +59,18 @@ async def _execute_repair(
     coordinator.mark_request_status(
         request_id, "executing", executing_at=_iso_now()
     )
+    return _route_repair_decision(
+        coordinator, request_id, decision_sovereign, classified, action_id
+    )
+
+
+def _route_repair_decision(
+    coordinator: Any,
+    request_id: str,
+    decision_sovereign: Any,
+    classified: Any,
+    action_id: str,
+) -> dict[str, Any]:
     try:
         result = decision_sovereign.decide_and_route_repair(
             classified, user_confirmed=True

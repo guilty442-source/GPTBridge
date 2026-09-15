@@ -41,6 +41,14 @@ class DatabaseMixin:
             require_exists=True,
             expected_kind="directory",
         )
+        candidates = self._legacy_migration_candidates(legacy_runtime)
+        copied, conflicts = self._copy_legacy_candidates(candidates)
+        if copied or conflicts:
+            self._write_runtime_migration_manifest(copied, conflicts)
+
+    def _legacy_migration_candidates(
+        self, legacy_runtime: Any
+    ) -> list[tuple[Any, Any]]:
         candidates: list[tuple[Any, Any]] = []
         legacy_database = legacy_runtime / self.database_path.name
         if legacy_database.exists() or legacy_database.is_symlink():
@@ -78,6 +86,11 @@ class DatabaseMixin:
                     expected_kind="file",
                 )
                 candidates.append((source, destination))
+        return candidates
+
+    def _copy_legacy_candidates(
+        self, candidates: list[tuple[Any, Any]]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
         copied: list[dict[str, Any]] = []
         conflicts: list[str] = []
         for source, destination in candidates:
@@ -94,20 +107,24 @@ class DatabaseMixin:
                     "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                 }
             )
-        if copied or conflicts:
-            manifest = {
-                "migration": "investment-runtime-v1",
-                "created_at": utc_text(),
-                "source": str(self.legacy_runtime_root),
-                "destination": str(self.runtime_root),
-                "copied": copied,
-                "conflicts": conflicts,
-                "legacy_preserved": True,
-            }
-            _atomic_write_bytes(
-                self.runtime_root / "runtime-migration-manifest.json",
-                (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
-            )
+        return copied, conflicts
+
+    def _write_runtime_migration_manifest(
+        self, copied: list[dict[str, Any]], conflicts: list[str]
+    ) -> None:
+        manifest = {
+            "migration": "investment-runtime-v1",
+            "created_at": utc_text(),
+            "source": str(self.legacy_runtime_root),
+            "destination": str(self.runtime_root),
+            "copied": copied,
+            "conflicts": conflicts,
+            "legacy_preserved": True,
+        }
+        _atomic_write_bytes(
+            self.runtime_root / "runtime-migration-manifest.json",
+            (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
+        )
 
     def _migrate_legacy_backups(self) -> None:
         """Move published backup generations into project-cleaner's storage."""
@@ -241,21 +258,7 @@ class DatabaseMixin:
             return
         try:
             raw = self.database_path.read_bytes()
-            if raw.startswith(b"SQLite format 3\x00"):
-                source = sqlite3.connect(self.database_path)
-                try:
-                    source.execute("PRAGMA busy_timeout = 10000")
-                    source.backup(self._database_connection)
-                finally:
-                    source.close()
-                database_bytes = _portable_sqlite_image(
-                    self._database_connection.serialize()
-                )
-            else:
-                database_bytes, envelope = decode_binary_document(raw)
-                database_bytes = _portable_sqlite_image(database_bytes)
-                self._database_key_id = str(envelope.get("key_id") or "")
-                self._database_connection.deserialize(database_bytes)
+            database_bytes = self._restore_database_bytes(raw)
             result = self._database_connection.execute(
                 "PRAGMA integrity_check"
             ).fetchone()
@@ -274,40 +277,60 @@ class DatabaseMixin:
                 )
             self._durable_database_image = database_bytes
         except (OSError, ValueError, sqlite3.DatabaseError) as exc:
-            _validated_storage_path(
-                self.recovery_root,
-                label="AI investment analytics recovery root",
-                boundary=self.runtime_root,
-                expected_kind="directory",
-            )
-            self.recovery_root.mkdir(parents=True, exist_ok=True)
-            _validated_storage_path(
-                self.recovery_root,
-                label="AI investment analytics recovery root",
-                boundary=self.runtime_root,
-                require_exists=True,
-                expected_kind="directory",
-            )
-            stamp = utc_now().strftime("%Y%m%dT%H%M%SZ")
-            preserved = self.recovery_root / f"investment_analytics.{stamp}.corrupt"
-            try:
-                _copy_verified(self.database_path, preserved)
-            except OSError:
-                preserved = self.database_path
-            marker = {
-                "status": "recovery_required",
-                "detected_at": utc_text(),
-                "source": str(self.database_path),
-                "preserved_copy": str(preserved),
-                "error_type": type(exc).__name__,
-            }
-            _atomic_write_bytes(
-                self.recovery_root / "latest-database-recovery-required.json",
-                (json.dumps(marker, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
-            )
+            self._quarantine_corrupt_database(exc)
             raise RuntimeError(
                 "投資分析資料庫無法解密或通過完整性檢查；原檔已保留，請從備份恢復。"
             ) from exc
+
+    def _restore_database_bytes(self, raw: bytes) -> bytes:
+        if raw.startswith(b"SQLite format 3\x00"):
+            source = sqlite3.connect(self.database_path)
+            try:
+                source.execute("PRAGMA busy_timeout = 10000")
+                source.backup(self._database_connection)
+            finally:
+                source.close()
+            return _portable_sqlite_image(
+                self._database_connection.serialize()
+            )
+        database_bytes, envelope = decode_binary_document(raw)
+        database_bytes = _portable_sqlite_image(database_bytes)
+        self._database_key_id = str(envelope.get("key_id") or "")
+        self._database_connection.deserialize(database_bytes)
+        return database_bytes
+
+    def _quarantine_corrupt_database(self, exc: Exception) -> None:
+        _validated_storage_path(
+            self.recovery_root,
+            label="AI investment analytics recovery root",
+            boundary=self.runtime_root,
+            expected_kind="directory",
+        )
+        self.recovery_root.mkdir(parents=True, exist_ok=True)
+        _validated_storage_path(
+            self.recovery_root,
+            label="AI investment analytics recovery root",
+            boundary=self.runtime_root,
+            require_exists=True,
+            expected_kind="directory",
+        )
+        stamp = utc_now().strftime("%Y%m%dT%H%M%SZ")
+        preserved = self.recovery_root / f"investment_analytics.{stamp}.corrupt"
+        try:
+            _copy_verified(self.database_path, preserved)
+        except OSError:
+            preserved = self.database_path
+        marker = {
+            "status": "recovery_required",
+            "detected_at": utc_text(),
+            "source": str(self.database_path),
+            "preserved_copy": str(preserved),
+            "error_type": type(exc).__name__,
+        }
+        _atomic_write_bytes(
+            self.recovery_root / "latest-database-recovery-required.json",
+            (json.dumps(marker, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
+        )
 
     def _persist_database(self, *, rotate_key: bool = False) -> None:
         database_bytes = _portable_sqlite_image(self._database_connection.serialize())

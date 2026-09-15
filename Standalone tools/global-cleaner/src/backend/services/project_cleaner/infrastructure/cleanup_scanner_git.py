@@ -144,7 +144,9 @@ class CleanupScannerGitMixin:
                 capture_output=True,
                 timeout=10,
                 check=False,
-                **_background_subprocess_kwargs(),
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                stdin=subprocess.DEVNULL,
+                close_fds=True,
             )
             if completed.returncode != 0:
                 raise OSError(completed.stderr.decode("utf-8", errors="replace").strip())

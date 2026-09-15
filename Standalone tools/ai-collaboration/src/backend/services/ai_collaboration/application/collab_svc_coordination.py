@@ -19,30 +19,9 @@ class CollabSvcCoordinationMixin:
         memory_writeback: bool,
     ) -> None:
         message = self.repository.get_message(message_id) or {}
-        specialist_outputs = [
-            {
-                "agent_id": str(item.get("agent_id") or ""),
-                "status": str(item.get("status") or ""),
-                "execution_provider": str(item.get("execution_provider") or ""),
-                "content": str(item.get("content") or ""),
-                "error": str(item.get("error") or ""),
-            }
-            for item in message.get("responses", [])
-            if isinstance(item, dict)
-            and str(item.get("agent_id") or "") != "chatgpt"
-        ]
+        specialist_outputs = self._specialist_outputs(message)
         if any(item["status"] == "awaiting-user" for item in specialist_outputs):
-            self.repository.update_response(
-                message_id,
-                "chatgpt",
-                "waiting",
-                "",
-                "固定責任 AI 尚在等待前景瀏覽器互動",
-                error_code="FIXED_OWNER_BROWSER_RESULT_REQUIRED",
-                execution_provider="chatgpt",
-                transport="fixed-workflow-wait",
-            )
-            self.repository.update_agent_status("chatgpt", "waiting")
+            self._mark_chatgpt_waiting(message_id)
             return
         coordination_prompt = (
             "你是所有外部 AI 工作流的最終統籌。責任 AI 已固定，不得改寫責任歸屬。"
@@ -61,6 +40,34 @@ class CollabSvcCoordinationMixin:
             memory_context,
             memory_writeback,
         )
+
+    @staticmethod
+    def _specialist_outputs(message: dict[str, Any]) -> list[dict[str, str]]:
+        return [
+            {
+                "agent_id": str(item.get("agent_id") or ""),
+                "status": str(item.get("status") or ""),
+                "execution_provider": str(item.get("execution_provider") or ""),
+                "content": str(item.get("content") or ""),
+                "error": str(item.get("error") or ""),
+            }
+            for item in message.get("responses", [])
+            if isinstance(item, dict)
+            and str(item.get("agent_id") or "") != "chatgpt"
+        ]
+
+    def _mark_chatgpt_waiting(self, message_id: str) -> None:
+        self.repository.update_response(
+            message_id,
+            "chatgpt",
+            "waiting",
+            "",
+            "固定責任 AI 尚在等待前景瀏覽器互動",
+            error_code="FIXED_OWNER_BROWSER_RESULT_REQUIRED",
+            execution_provider="chatgpt",
+            transport="fixed-workflow-wait",
+        )
+        self.repository.update_agent_status("chatgpt", "waiting")
 
     async def _run_google_gemini_pipeline(
         self,

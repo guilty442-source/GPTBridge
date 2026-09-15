@@ -85,6 +85,25 @@ class PositionsMixin:
     def record_analysis_snapshot(self, analysis: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
         reports = analysis.get("holdings") if isinstance(analysis.get("holdings"), list) else []
         observed = parse_datetime(analysis.get("generated_at")) or utc_now()
+        bars = self._snapshot_price_bars(reports, observed)
+        self.add_price_bars(bars)
+        latest = self.latest_prices()
+        positions, quoted_symbols = self._snapshot_positions(state, latest)
+        if not positions:
+            return {"price_count": len(bars), "snapshot_saved": False}
+        snapshot_id = self._save_analysis_snapshot(observed, positions)
+        return {
+            "price_count": len(bars),
+            "snapshot_saved": True,
+            "snapshot_id": snapshot_id,
+            "quoted_position_count": len(quoted_symbols),
+            "position_count": len(positions),
+            "estimated_position_count": max(0, len(positions) - len(quoted_symbols)),
+        }
+
+    def _snapshot_price_bars(
+        self, reports: list[Any], observed: Any
+    ) -> list[dict[str, Any]]:
         bars: list[dict[str, Any]] = []
         for report in reports:
             if not isinstance(report, dict):
@@ -104,8 +123,11 @@ class PositionsMixin:
                     "verified": bool(report.get("trusted_quote")),
                 }
             )
-        self.add_price_bars(bars)
-        latest = self.latest_prices()
+        return bars
+
+    def _snapshot_positions(
+        self, state: dict[str, Any], latest: dict[str, dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], set[str]]:
         positions_by_symbol: dict[str, dict[str, Any]] = {}
         quoted_symbols: set[str] = set()
         for holding in state.get("holdings", []):
@@ -139,9 +161,11 @@ class PositionsMixin:
             position["quantity"] += quantity
             position["market_value"] += quantity * price
             position["cost_value"] += quantity * average_cost
-        positions = list(positions_by_symbol.values())
-        if not positions:
-            return {"price_count": len(bars), "snapshot_saved": False}
+        return list(positions_by_symbol.values()), quoted_symbols
+
+    def _save_analysis_snapshot(
+        self, observed: Any, positions: list[dict[str, Any]]
+    ) -> str:
         snapshot_id = uuid.uuid4().hex
         total_value = sum(item["market_value"] for item in positions)
         total_cost = sum(item["cost_value"] for item in positions)
@@ -173,14 +197,7 @@ class PositionsMixin:
                     for item in positions
                 ],
             )
-        return {
-            "price_count": len(bars),
-            "snapshot_saved": True,
-            "snapshot_id": snapshot_id,
-            "quoted_position_count": len(quoted_symbols),
-            "position_count": len(positions),
-            "estimated_position_count": max(0, len(positions) - len(quoted_symbols)),
-        }
+        return snapshot_id
 
     def current_positions(self, state: dict[str, Any]) -> list[dict[str, Any]]:
         latest = self.latest_prices()
@@ -232,46 +249,8 @@ class PositionsMixin:
 
     def ledger_summary(self) -> dict[str, Any]:
         transactions = list(reversed(self.list_transactions(limit=5000)))
-        lots: dict[str, list[list[float]]] = {}
-        realized = 0.0
-        dividends = 0.0
-        fees = 0.0
-        cashflows: list[dict[str, Any]] = []
+        ledger = self._accumulate_ledger(transactions)
         estimated_count = sum(1 for item in transactions if item.get("is_estimated"))
-        for transaction in transactions:
-            symbol = str(transaction.get("symbol") or "")
-            side = str(transaction.get("side") or "")
-            quantity = number(transaction.get("quantity"))
-            price = number(transaction.get("price"))
-            fee = number(transaction.get("fee"))
-            tax = number(transaction.get("tax"))
-            fees += fee + tax
-            date = str(transaction.get("occurred_at") or "")
-            if side == "BUY":
-                lots.setdefault(symbol, []).append([quantity, price])
-                cashflows.append({"date": date, "amount": -(quantity * price + fee + tax)})
-            elif side == "SELL":
-                remaining = quantity
-                cost = 0.0
-                for lot in lots.setdefault(symbol, []):
-                    used = min(lot[0], remaining)
-                    cost += used * lot[1]
-                    lot[0] -= used
-                    remaining -= used
-                    if remaining <= 1e-10:
-                        break
-                lots[symbol] = [lot for lot in lots[symbol] if lot[0] > 1e-10]
-                proceeds = quantity * price - fee - tax
-                realized += proceeds - cost
-                cashflows.append({"date": date, "amount": proceeds})
-            elif side == "DIVIDEND":
-                amount = price if quantity <= 0 else quantity * price
-                dividends += amount
-                cashflows.append({"date": date, "amount": amount})
-            elif side == "CASH_IN":
-                cashflows.append({"date": date, "amount": -price})
-            elif side in {"CASH_OUT", "FEE"}:
-                cashflows.append({"date": date, "amount": price})
         opening_ledger = self.get_setting("opening_ledger", {})
         confirmed_count = len(transactions) - estimated_count
         ledger_quality = (
@@ -287,14 +266,109 @@ class PositionsMixin:
             "estimated_transaction_count": estimated_count,
             "ledger_quality": ledger_quality,
             "opening_ledger": opening_ledger if isinstance(opening_ledger, dict) else {},
-            "realized_pnl": rounded(realized, 2),
-            "dividend_income": rounded(dividends, 2),
-            "fees_and_taxes": rounded(fees, 2),
-            "open_lot_count": sum(len(items) for items in lots.values()),
-            "cashflows": cashflows[-500:],
+            "realized_pnl": rounded(ledger["realized"], 2),
+            "dividend_income": rounded(ledger["dividends"], 2),
+            "fees_and_taxes": rounded(ledger["fees"], 2),
+            "open_lot_count": sum(len(items) for items in ledger["lots"].values()),
+            "cashflows": ledger["cashflows"][-500:],
         }
 
+    def _accumulate_ledger(
+        self, transactions: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        acc: dict[str, Any] = {
+            "lots": {},
+            "realized": 0.0,
+            "dividends": 0.0,
+            "fees": 0.0,
+            "cashflows": [],
+        }
+        for transaction in transactions:
+            self._apply_ledger_transaction(acc, transaction)
+        return acc
+
+    def _apply_ledger_transaction(
+        self, acc: dict[str, Any], transaction: dict[str, Any]
+    ) -> None:
+        lots = acc["lots"]
+        cashflows = acc["cashflows"]
+        symbol = str(transaction.get("symbol") or "")
+        side = str(transaction.get("side") or "")
+        quantity = number(transaction.get("quantity"))
+        price = number(transaction.get("price"))
+        fee = number(transaction.get("fee"))
+        tax = number(transaction.get("tax"))
+        acc["fees"] += fee + tax
+        date = str(transaction.get("occurred_at") or "")
+        if side == "BUY":
+            lots.setdefault(symbol, []).append([quantity, price])
+            cashflows.append({"date": date, "amount": -(quantity * price + fee + tax)})
+        elif side == "SELL":
+            remaining = quantity
+            cost = 0.0
+            for lot in lots.setdefault(symbol, []):
+                used = min(lot[0], remaining)
+                cost += used * lot[1]
+                lot[0] -= used
+                remaining -= used
+                if remaining <= 1e-10:
+                    break
+            lots[symbol] = [lot for lot in lots[symbol] if lot[0] > 1e-10]
+            proceeds = quantity * price - fee - tax
+            acc["realized"] += proceeds - cost
+            cashflows.append({"date": date, "amount": proceeds})
+        elif side == "DIVIDEND":
+            amount = price if quantity <= 0 else quantity * price
+            acc["dividends"] += amount
+            cashflows.append({"date": date, "amount": amount})
+        elif side == "CASH_IN":
+            cashflows.append({"date": date, "amount": -price})
+        elif side in {"CASH_OUT", "FEE"}:
+            cashflows.append({"date": date, "amount": price})
+
     def reconcile_ledger_holdings(self, state: dict[str, Any]) -> dict[str, Any]:
+        holding_positions = self._holding_positions(state)
+        ledger_positions = self._ledger_positions()
+        differences: list[dict[str, Any]] = []
+        matched_count = 0
+        all_symbols = sorted(set(holding_positions) | set(ledger_positions))
+        for symbol in all_symbols:
+            holding = holding_positions.get(symbol, {})
+            holding_quantity = number(holding.get("quantity"))
+            ledger_quantity = number(ledger_positions.get(symbol))
+            delta = holding_quantity - ledger_quantity
+            tolerance = max(0.000001, abs(holding_quantity) * 0.00001)
+            matched = abs(delta) <= tolerance
+            matched_count += int(matched)
+            suggestion = (
+                self._reconcile_suggestion(symbol, holding, holding_quantity, delta)
+                if not matched
+                else None
+            )
+            differences.append(
+                {
+                    "symbol": symbol,
+                    "holding_quantity": rounded(holding_quantity, 8),
+                    "ledger_quantity": rounded(ledger_quantity, 8),
+                    "difference_quantity": rounded(delta, 8),
+                    "status": "matched" if matched else "difference",
+                    "suggestion": suggestion,
+                }
+            )
+        difference_rows = [item for item in differences if item["status"] == "difference"]
+        return {
+            "status": "ready" if all_symbols and not difference_rows else "differences" if all_symbols else "empty",
+            "symbol_count": len(all_symbols),
+            "matched_count": matched_count,
+            "difference_count": len(difference_rows),
+            "coverage_percent": rounded(matched_count / len(all_symbols) * 100, 2) if all_symbols else 0.0,
+            "differences": difference_rows[:100],
+            "generated_at": utc_text(),
+        }
+
+    def _holding_positions(
+        self, state: dict[str, Any]
+    ) -> dict[str, dict[str, Any]]:
         holding_positions: dict[str, dict[str, Any]] = {}
         for holding in state.get("holdings", []):
             if not isinstance(holding, dict):
@@ -318,7 +392,9 @@ class PositionsMixin:
             row["quantity"] += quantity
             row["principal_twd"] += number(holding.get("principal_twd"))
             row["average_cost_total"] += number(holding.get("average_cost")) * quantity
+        return holding_positions
 
+    def _ledger_positions(self) -> dict[str, float]:
         ledger_positions: dict[str, float] = {}
         for transaction in reversed(self.list_transactions(5000)):
             symbol = str(transaction.get("symbol") or "").strip().upper()
@@ -329,58 +405,33 @@ class PositionsMixin:
             ledger_positions[symbol] = ledger_positions.get(symbol, 0.0) + (
                 quantity if side == "BUY" else -quantity
             )
+        return ledger_positions
 
-        differences: list[dict[str, Any]] = []
-        matched_count = 0
-        all_symbols = sorted(set(holding_positions) | set(ledger_positions))
-        for symbol in all_symbols:
-            holding = holding_positions.get(symbol, {})
-            holding_quantity = number(holding.get("quantity"))
-            ledger_quantity = number(ledger_positions.get(symbol))
-            delta = holding_quantity - ledger_quantity
-            tolerance = max(0.000001, abs(holding_quantity) * 0.00001)
-            matched = abs(delta) <= tolerance
-            matched_count += int(matched)
-            suggestion: dict[str, Any] | None = None
-            if not matched:
-                quantity = abs(delta)
-                principal_twd = number(holding.get("principal_twd"))
-                average_total = number(holding.get("average_cost_total"))
-                price = (
-                    principal_twd / holding_quantity
-                    if holding_quantity > 0 and principal_twd > 0
-                    else average_total / holding_quantity
-                    if holding_quantity > 0 and average_total > 0
-                    else 0.0
-                )
-                suggestion = {
-                    "symbol": symbol,
-                    "side": "BUY" if delta > 0 else "SELL",
-                    "quantity": rounded(quantity, 8),
-                    "price": rounded(price, 8),
-                    "currency": "TWD" if principal_twd > 0 else str(holding.get("currency") or "TWD"),
-                    "market": str(holding.get("market") or ""),
-                    "asset_type": str(holding.get("asset_type") or ""),
-                }
-            differences.append(
-                {
-                    "symbol": symbol,
-                    "holding_quantity": rounded(holding_quantity, 8),
-                    "ledger_quantity": rounded(ledger_quantity, 8),
-                    "difference_quantity": rounded(delta, 8),
-                    "status": "matched" if matched else "difference",
-                    "suggestion": suggestion,
-                }
-            )
-        difference_rows = [item for item in differences if item["status"] == "difference"]
+    def _reconcile_suggestion(
+        self,
+        symbol: str,
+        holding: dict[str, Any],
+        holding_quantity: float,
+        delta: float,
+    ) -> dict[str, Any]:
+        quantity = abs(delta)
+        principal_twd = number(holding.get("principal_twd"))
+        average_total = number(holding.get("average_cost_total"))
+        price = (
+            principal_twd / holding_quantity
+            if holding_quantity > 0 and principal_twd > 0
+            else average_total / holding_quantity
+            if holding_quantity > 0 and average_total > 0
+            else 0.0
+        )
         return {
-            "status": "ready" if all_symbols and not difference_rows else "differences" if all_symbols else "empty",
-            "symbol_count": len(all_symbols),
-            "matched_count": matched_count,
-            "difference_count": len(difference_rows),
-            "coverage_percent": rounded(matched_count / len(all_symbols) * 100, 2) if all_symbols else 0.0,
-            "differences": difference_rows[:100],
-            "generated_at": utc_text(),
+            "symbol": symbol,
+            "side": "BUY" if delta > 0 else "SELL",
+            "quantity": rounded(quantity, 8),
+            "price": rounded(price, 8),
+            "currency": "TWD" if principal_twd > 0 else str(holding.get("currency") or "TWD"),
+            "market": str(holding.get("market") or ""),
+            "asset_type": str(holding.get("asset_type") or ""),
         }
 
     def apply_ledger_reconciliation(

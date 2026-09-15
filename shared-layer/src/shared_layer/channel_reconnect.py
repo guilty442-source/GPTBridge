@@ -96,6 +96,10 @@ class ChannelReconnectMixin:
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         asyncio.create_task(self._receive_loop())
 
+        # Restart send loop (bidirectional flow)
+        if getattr(self, "_start_send_loop", None) is not None:
+            self._start_send_loop()
+
         # Send resync with cursor
         await self._send_resync(snapshot_cursor)
 

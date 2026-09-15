@@ -151,37 +151,44 @@ class SystemRuntimeAutonomyMixin:
                 watch["state"] = "stopped"
                 watch["stopped_at"] = self._iso_now()
 
-            if watch.get("quarantined"):
-                continue
-            parent_id = parent_of(child_id)
-            parent = (
-                self
-                if parent_id == self.sovereign_id
-                else resolve_sovereign(self.app, parent_id)
-            )
-            if parent is None:
-                continue
-            if parent.child_failure_count(child_id) > 3:
-                watch["quarantined"] = True
-                watch["quarantined_at"] = self._iso_now()
-                self._auto_metrics["child_quarantines"] += 1
-                continue
-            last_attempt = float(watch.get("last_attempt") or 0.0)
-            if now - last_attempt < 60.0:
-                continue
-            executor = getattr(self.app, "sovereign_stack_executor", None)
-            if executor is None:
-                continue
-            watch["last_attempt"] = now
-            watch["restart_attempts"] = int(watch.get("restart_attempts") or 0) + 1
-            self._auto_metrics["child_retries_triggered"] += 1
-            try:
-                watch["last_result"] = await executor.restart_child(self, child_id)
-            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError) as error:
-                watch["last_result"] = {
-                    "ok": False,
-                    "error": f"{type(error).__name__}: {error}",
-                }
+            await self._attempt_child_restart(child_id, watch, now)
+
+    async def _attempt_child_restart(
+        self, child_id: str, watch: dict, now: float
+    ) -> None:
+        from governance.registries import parent_of, resolve_sovereign
+
+        if watch.get("quarantined"):
+            return
+        parent_id = parent_of(child_id)
+        parent = (
+            self
+            if parent_id == self.sovereign_id
+            else resolve_sovereign(self.app, parent_id)
+        )
+        if parent is None:
+            return
+        if parent.child_failure_count(child_id) > 3:
+            watch["quarantined"] = True
+            watch["quarantined_at"] = self._iso_now()
+            self._auto_metrics["child_quarantines"] += 1
+            return
+        last_attempt = float(watch.get("last_attempt") or 0.0)
+        if now - last_attempt < 60.0:
+            return
+        executor = getattr(self.app, "sovereign_stack_executor", None)
+        if executor is None:
+            return
+        watch["last_attempt"] = now
+        watch["restart_attempts"] = int(watch.get("restart_attempts") or 0) + 1
+        self._auto_metrics["child_retries_triggered"] += 1
+        try:
+            watch["last_result"] = await executor.restart_child(self, child_id)
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError) as error:
+            watch["last_result"] = {
+                "ok": False,
+                "error": f"{type(error).__name__}: {error}",
+            }
 
     def _persist_live_state(self) -> None:
         """Keep live state persisted."""

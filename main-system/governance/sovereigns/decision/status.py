@@ -11,6 +11,14 @@ from typing import Any
 from .._base import SovereignBase
 from core_system.sovereign_utils import _iso_now
 
+_COORDINATED_SUB_SOVEREIGN_IDS = (
+    "runtime-state-sync-sub-sovereign",
+    "resource-dependency-sync-sub-sovereign",
+    "data-governance-sub-sovereign",
+    "channel-contract-sync-sub-sovereign",
+    "dependency-sync-sub-sovereign",
+)
+
 
 class DecisionStatusMixin:
     """Status reporting surfaces."""
@@ -44,34 +52,12 @@ class DecisionStatusMixin:
                 self._child_status(child_id)
                 for child_id in children_of("decision-sovereign")
             ],
-            "coordinated_sub_sovereigns": [
-                self._child_status("runtime-state-sync-sub-sovereign"),
-                self._child_status("resource-dependency-sync-sub-sovereign"),
-                self._child_status("data-governance-sub-sovereign"),
-                self._child_status("channel-contract-sync-sub-sovereign"),
-                self._child_status("dependency-sync-sub-sovereign"),
-            ],
-            "peer_systems": {
-                "learning": self._child_status(
-                    "learning-evidence-sync-sub-sovereign", "status"
-                ),
-                "programming": self._child_status(
-                    "release-update-sync-sub-sovereign", "status"
-                ),
-            },
+            "coordinated_sub_sovereigns": self._coordinated_statuses("live_status"),
+            "peer_systems": self._peer_statuses(),
             "health_owner": "health-maintenance-test-sub-sovereign",
             "governance_rules": self.governance_rule_coordination.coordination_status(),
             "certified_updates": self.certified_update_status(),
-            "autonomy": {
-                "enabled": self._autonomy_task is not None
-                and not self._autonomy_task.done(),
-                "supervised_children": len(self._child_supervision),
-                "quarantined": [
-                    child_id
-                    for child_id, watch in self._child_supervision.items()
-                    if watch.get("quarantined")
-                ],
-            },
+            "autonomy": self._autonomy_status(),
             "runtime-state-sync": self._child_status("runtime-state-sync-sub-sovereign"),
             "resource-dependency-sync": self._child_status("resource-dependency-sync-sub-sovereign"),
             "data-governance": self._child_status("data-governance-sub-sovereign"),
@@ -110,36 +96,11 @@ class DecisionStatusMixin:
                 self._child_status(child_id, "orchestration_status")
                 for child_id in children_of("decision-sovereign")
             ],
-            "coordinated_sub_sovereigns": [
-                self._child_status(
-                    "runtime-state-sync-sub-sovereign", "orchestration_status"
-                ),
-                self._child_status(
-                    "resource-dependency-sync-sub-sovereign", "orchestration_status"
-                ),
-                self._child_status(
-                    "data-governance-sub-sovereign", "orchestration_status"
-                ),
-                self._child_status(
-                    "channel-contract-sync-sub-sovereign", "orchestration_status"
-                ),
-                self._child_status(
-                    "dependency-sync-sub-sovereign", "orchestration_status"
-                ),
-            ],
-            "peer_systems": {
-                "learning": self._child_status(
-                    "learning-evidence-sync-sub-sovereign", "status"
-                ),
-                "programming": self._child_status(
-                    "release-update-sync-sub-sovereign", "status"
-                ),
-            },
+            "coordinated_sub_sovereigns": self._coordinated_statuses("orchestration_status"),
+            "peer_systems": self._peer_statuses(),
             "health_owner": "health-maintenance-test-sub-sovereign",
             "governance_rules": self.governance_rule_coordination.orchestration_status(),
-            "runtime-state-sync": self._child_status(
-                "runtime-state-sync-sub-sovereign", "orchestration_status"
-            ),
+            "runtime-state-sync": self._child_status("runtime-state-sync-sub-sovereign", "orchestration_status"),
             "maintenance": (
                 maintenance_sovereign.orchestration_status()
                 if maintenance_sovereign is not None
@@ -150,34 +111,47 @@ class DecisionStatusMixin:
                 if permission_sovereign is not None
                 else {"enabled": False}
             ),
-            "resource-dependency-sync": self._child_status(
-                "resource-dependency-sync-sub-sovereign", "orchestration_status"
+            "resource-dependency-sync": self._child_status("resource-dependency-sync-sub-sovereign", "orchestration_status"),
+            "data-governance": self._child_status("data-governance-sub-sovereign", "orchestration_status"),
+            "channel-contract-sync": self._child_status("channel-contract-sync-sub-sovereign", "orchestration_status"),
+            "dependency-sync": self._child_status("dependency-sync-sub-sovereign", "orchestration_status"),
+            "subsystems": self._subsystem_statuses(),
+        }
+
+    def _coordinated_statuses(self, method: str) -> list[dict[str, Any]]:
+        return [
+            self._child_status(child_id, method)
+            for child_id in _COORDINATED_SUB_SOVEREIGN_IDS
+        ]
+
+    def _peer_statuses(self) -> dict[str, Any]:
+        return {
+            "learning": self._child_status(
+                "learning-evidence-sync-sub-sovereign", "status"
             ),
-            "data-governance": self._child_status(
-                "data-governance-sub-sovereign", "orchestration_status"
+            "programming": self._child_status(
+                "release-update-sync-sub-sovereign", "status"
             ),
-            "channel-contract-sync": self._child_status(
-                "channel-contract-sync-sub-sovereign", "orchestration_status"
-            ),
-            "dependency-sync": self._child_status(
-                "dependency-sync-sub-sovereign", "orchestration_status"
-            ),
-            "subsystems": [
-                self.governance_rule_coordination.orchestration_status(),
-                self._child_status(
-                    "runtime-state-sync-sub-sovereign", "orchestration_status"
-                ),
-                self._child_status(
-                    "resource-dependency-sync-sub-sovereign", "orchestration_status"
-                ),
-                self._child_status(
-                    "data-governance-sub-sovereign", "orchestration_status"
-                ),
-                self._child_status(
-                    "channel-contract-sync-sub-sovereign", "orchestration_status"
-                ),
-                self._child_status(
-                    "dependency-sync-sub-sovereign", "orchestration_status"
-                ),
+        }
+
+    def _autonomy_status(self) -> dict[str, Any]:
+        return {
+            "enabled": self._autonomy_task is not None
+            and not self._autonomy_task.done(),
+            "supervised_children": len(self._child_supervision),
+            "quarantined": [
+                child_id
+                for child_id, watch in self._child_supervision.items()
+                if watch.get("quarantined")
             ],
         }
+
+    def _subsystem_statuses(self) -> list[Any]:
+        return [
+            self.governance_rule_coordination.orchestration_status(),
+            self._child_status("runtime-state-sync-sub-sovereign", "orchestration_status"),
+            self._child_status("resource-dependency-sync-sub-sovereign", "orchestration_status"),
+            self._child_status("data-governance-sub-sovereign", "orchestration_status"),
+            self._child_status("channel-contract-sync-sub-sovereign", "orchestration_status"),
+            self._child_status("dependency-sync-sub-sovereign", "orchestration_status"),
+        ]

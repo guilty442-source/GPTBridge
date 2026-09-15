@@ -29,7 +29,6 @@ import json
 import time
 import uuid
 from collections import deque
-from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Deque, Dict, Optional, Set, Protocol
 
 from core_system.versioning import component_version
@@ -41,9 +40,8 @@ from .channel_types import (
     MessagePriority,
     OutboxEvent,
 )
-
-from .transactional_outbox import TransactionalOutbox
-from .channel_reconnect import ChannelReconnectMixin
+from .connection_mixin import ConnectionMixin
+from .heartbeat_mixin import HeartbeatMixin
 
 CHANNEL_RUNTIME_VERSION: str = component_version("channel-runtime")
 
@@ -58,8 +56,12 @@ class ChannelTransport(Protocol):
     def is_closed(self) -> bool: ...
 
 
-class A263Channel(ChannelReconnectMixin):
-    """A263-compliant channel with full contract compliance."""
+class A263Channel(ConnectionMixin, HeartbeatMixin):
+    """A263-compliant channel with full contract compliance.
+
+    Combines ConnectionMixin (connection/reconnection) and HeartbeatMixin
+    (heartbeat with deadline) with message queue and outbox integration.
+    """
 
     def __init__(
         self,
@@ -67,38 +69,33 @@ class A263Channel(ChannelReconnectMixin):
         transport: ChannelTransport,
         outbox: Optional["TransactionalOutbox"] = None,
     ) -> None:
+        # Initialize base config
         self.config = config
         self.transport = transport
         self.outbox = outbox
 
-        self._state = ChannelState.CLOSED
+        # Initialize mixins
+        ConnectionMixin.__init__(self)
+        HeartbeatMixin.__init__(self)
+
+        # Set config for mixins
         self._generation = ChannelGeneration(
             channel_id=config.channel_id,
             generation=0,
         )
-        self._generation_lock = asyncio.Lock()
 
         # Message queues with priority (control channel)
         self._control_queue: Deque[dict[str, Any]] = deque(maxlen=config.control_channel_capacity)
         self._message_queue: Deque[tuple[MessagePriority, dict[str, Any]]] = deque(maxlen=config.max_queue_size)
-
-        # Heartbeat tracking
-        self._last_ping_sent: float = 0.0
-        self._last_pong_received: float = 0.0
-        self._heartbeat_task: Optional[asyncio.Task] = None
-        self._heartbeat_dead = asyncio.Event()
 
         # Ack/cursor tracking
         self._acked_cursor: int = 0
         self._sent_upto: int = 0
         self._pending_acks: Dict[int, asyncio.Future] = {}
 
-        # Reconnection state
-        self._reconnect_attempts: int = 0
-        self._reconnect_task: Optional[asyncio.Task] = None
-        self._snapshot_hash: str = ""
-        self._snapshot_cursor: int = 0
-        self._snapshot_generation: ChannelGeneration | None = None
+        # Outbound send loop wakeup / task
+        self._send_wakeup: asyncio.Event = asyncio.Event()
+        self._send_task: Optional[asyncio.Task] = None
 
         # Callbacks
         self._on_state_change: Optional[Callable[[ChannelState, ChannelState], Awaitable[None]]] = None
@@ -108,106 +105,7 @@ class A263Channel(ChannelReconnectMixin):
         # Metrics
         self._messages_sent: int = 0
         self._messages_received: int = 0
-        self._heartbeats_sent: int = 0
-        self._heartbeats_received: int = 0
         self._reconnects: int = 0
-
-    @property
-    def state(self) -> ChannelState:
-        return self._state
-
-    @property
-    def generation(self) -> ChannelGeneration:
-        return self._generation
-
-    async def _set_state(self, new_state: ChannelState) -> None:
-        old_state = self._state
-        if old_state == new_state:
-            return
-        self._state = new_state
-        if self._on_state_change:
-            try:
-                await self._on_state_change(old_state, new_state)
-            except Exception:
-                pass
-
-    def set_callbacks(
-        self,
-        on_state_change: Optional[Callable[[ChannelState, ChannelState], Awaitable[None]]] = None,
-        on_message: Optional[Callable[[dict[str, Any]], Awaitable[None]]] = None,
-        on_control: Optional[Callable[[dict[str, Any]], Awaitable[None]]] = None,
-    ) -> None:
-        self._on_state_change = on_state_change
-        self._on_message = on_message
-        self._on_control = on_control
-
-    # ================================================================
-    # Connection Management
-    # ================================================================
-
-    async def connect(self, backend_generation: str = "", session_id: str = "") -> ChannelGeneration:
-        """Establish channel connection with new generation."""
-        async with self._generation_lock:
-            self._generation = ChannelGeneration(
-                channel_id=self.config.channel_id,
-                generation=self._generation.generation + 1,
-                backend_generation=backend_generation,
-                session_id=session_id,
-            )
-            self._reconnect_attempts = 0
-
-        await self._set_state(ChannelState.CONNECTING)
-        self._heartbeat_dead.clear()
-
-        # Start heartbeat monitor
-        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-
-        # Start receive loop
-        asyncio.create_task(self._receive_loop())
-
-        # Send hello with cursor for reconnection
-        await self._send_hello()
-
-        await self._set_state(ChannelState.OPEN)
-        return self._generation
-
-    async def disconnect(self, code: int = 1000, reason: str = "") -> None:
-        """Graceful disconnect - invalidates ready (A263)."""
-        self._heartbeat_dead.set()
-        if self._heartbeat_task:
-            self._heartbeat_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._heartbeat_task
-        if self._reconnect_task:
-            self._reconnect_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._reconnect_task
-
-        await self.transport.close(code, reason)
-        await self._set_state(ChannelState.CLOSED)
-
-    def _verify_snapshot(self, cursor: int, snapshot_hash: str) -> bool:
-        """Verify snapshot/cursor/hash convergence (A263)."""
-        # In a full implementation, this would verify the hash against stored state
-        # For now, accept if cursor is valid
-        return cursor >= 0
-
-    async def _send_ping(self) -> None:
-        """Send heartbeat ping."""
-        message = {
-            "type": "control",
-            "command": "heartbeat_ping",
-            "payload": {"t": datetime.now(timezone.utc).isoformat()},
-            "generation": self._generation.as_dict(),
-        }
-        await self._enqueue_control(message)
-        self._last_ping_sent = time.monotonic()
-        self._heartbeats_sent += 1
-
-    async def _handle_pong(self, payload: dict[str, Any]) -> None:
-        """Handle heartbeat pong - updates deadline."""
-        self._last_pong_received = time.monotonic()
-        self._heartbeats_received += 1
 
     # ================================================================
     # Message Queue with Priority (Control Channel)
@@ -218,6 +116,7 @@ class A263Channel(ChannelReconnectMixin):
         if len(self._control_queue) >= self.config.control_channel_capacity:
             return False  # Backpressure on control channel
         self._control_queue.append(message)
+        self._send_wakeup.set()
         return True
 
     async def _enqueue_message(self, priority: MessagePriority, message: dict[str, Any]) -> bool:
@@ -226,6 +125,7 @@ class A263Channel(ChannelReconnectMixin):
             if len(self._message_queue) >= self.config.max_queue_size:
                 return False  # Backpressure
         self._message_queue.append((priority, message))
+        self._send_wakeup.set()
         return True
 
     async def _send_hello(self) -> None:
@@ -234,7 +134,7 @@ class A263Channel(ChannelReconnectMixin):
             "type": "control",
             "command": "state_event_hello",
             "payload": {"cursor": self._acked_cursor},
-            "generation": self._generation.as_dict(),
+            "generation": self.generation.as_dict(),
         }
         await self._enqueue_control(message)
 
@@ -244,7 +144,7 @@ class A263Channel(ChannelReconnectMixin):
             "type": "control",
             "command": "state_event_resync",
             "payload": {"cursor": cursor},
-            "generation": self._generation.as_dict(),
+            "generation": self.generation.as_dict(),
         }
         await self._enqueue_control(message)
 
@@ -254,9 +154,17 @@ class A263Channel(ChannelReconnectMixin):
             "type": "control",
             "command": "state_event_ack",
             "payload": {"cursor": cursor},
-            "generation": self._generation.as_dict(),
+            "generation": self.generation.as_dict(),
         }
         await self._enqueue_control(message)
+
+    def _start_send_loop(self) -> None:
+        """Start the outbound send loop (bidirectional flow)."""
+        if getattr(self, "_send_task", None) is not None:
+            if not self._send_task.done():
+                return
+        self._send_wakeup.clear()
+        self._send_task = asyncio.create_task(self._send_loop())
 
     # ================================================================
     # Send/Receive Loops
@@ -265,11 +173,71 @@ class A263Channel(ChannelReconnectMixin):
     async def send(self, message: dict[str, Any], priority: MessagePriority = MessagePriority.COMMAND) -> bool:
         """Send a message with priority."""
         # Add generation info
-        message["generation"] = self._generation.as_dict()
+        message["generation"] = self.generation.as_dict()
         success = await self._enqueue_message(priority, message)
         if success:
             self._messages_sent += 1
         return success
+
+    async def _send_loop(self) -> None:
+        """Drain outbound queues to the transport (bidirectional flow, A263).
+
+        Control channel is drained first (heartbeat/ack/cursor priority),
+        followed by outbox state events, then regular message traffic in
+        priority order.  The loop is woken by the enqueue paths and parks
+        on an idle event between batches so dead transports do not spin.
+        """
+        try:
+            while not self._heartbeat_dead.is_set():
+                # 1) Control priority channel
+                while self._control_queue:
+                    control = self._control_queue.popleft()
+                    await self.transport.send(control)
+
+                # 2) Outbox state events (STATE priority, ordered replay)
+                if self.outbox is not None and self._sent_upto < self.outbox.get_latest_sequence():
+                    for event in await self.outbox.fetch_after(
+                        self._sent_upto, self.config.max_outbound_batch
+                    ):
+                        await self.transport.send(
+                            {
+                                "type": "state_event",
+                                "event": {
+                                    "sequence": event.sequence,
+                                    "entity_id": event.entity_id,
+                                    "entity_type": event.entity_type,
+                                    "operation": event.operation,
+                                    "payload": event.payload,
+                                    "state_hash": event.state_hash,
+                                    "idempotency_key": event.idempotency_key,
+                                    "timestamp": event.timestamp,
+                                },
+                                "generation": self.generation.as_dict(),
+                            }
+                        )
+                        self._sent_upto = event.sequence
+
+                # 3) Regular message traffic in priority order.  deque is FIFO;
+                #    restabilise by sorting the current batch by priority so
+                #    STATE events overtake COMMAND traffic within one batch.
+                if self._message_queue:
+                    batch: list[tuple[MessagePriority, dict[str, Any]]] = []
+                    while self._message_queue:
+                        batch.append(self._message_queue.popleft())
+                    batch.sort(key=lambda item: item[0].value)
+                    for _, message in batch:
+                        await self.transport.send(message)
+
+                # Park until enqueued again; re-check heartbeat in case the
+                # transport died while we were blocked in a send-completion.
+                self._send_wakeup.clear()
+                await asyncio.wait_for(
+                    self._send_wakeup.wait(), timeout=self.config.send_idle_sleep_seconds
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self._heartbeat_dead.set()
 
     async def _receive_loop(self) -> None:
         """Receive and dispatch messages."""
@@ -341,12 +309,12 @@ class A263Channel(ChannelReconnectMixin):
             "type": "control",
             "command": "state_event_session",
             "payload": {
-                "session_id": self._generation.session_id,
-                "backend_generation": self._generation.backend_generation,
+                "session_id": self.generation.session_id,
+                "backend_generation": self.generation.backend_generation,
                 "cursor": self._acked_cursor,
                 "latest_sequence": self.outbox.get_latest_sequence() if self.outbox else 0,
             },
-            "generation": self._generation.as_dict(),
+            "generation": self.generation.as_dict(),
         }
         await self._enqueue_control(message)
 
@@ -381,8 +349,8 @@ class A263Channel(ChannelReconnectMixin):
         """Get channel metrics."""
         return {
             "channel_id": self.config.channel_id,
-            "state": self._state.value,
-            "generation": self._generation.as_dict(),
+            "state": self.state.value,
+            "generation": self.generation.as_dict(),
             "messages_sent": self._messages_sent,
             "messages_received": self._messages_received,
             "heartbeats_sent": self._heartbeats_sent,
@@ -390,6 +358,8 @@ class A263Channel(ChannelReconnectMixin):
             "reconnects": self._reconnects,
             "queue_size": len(self._message_queue),
             "control_queue_size": len(self._control_queue),
+            "outbox_sequence": self.outbox.get_latest_sequence() if self.outbox else 0,
+            "outbound_send_active": bool(getattr(self, "_send_task", None) and not self._send_task.done()),
             "acked_cursor": self._acked_cursor,
             "sent_upto": self._sent_upto,
             "pending_acks": len(self._pending_acks),
@@ -403,7 +373,7 @@ async def create_channel(
     channel_id: str,
     transport: ChannelTransport,
     config: Optional[ChannelConfig] = None,
-    outbox: Optional[TransactionalOutbox] = None,
+    outbox: Optional["TransactionalOutbox"] = None,
 ) -> A263Channel:
     """Create and connect an A263-compliant channel."""
     if config is None:
@@ -421,6 +391,7 @@ __all__ = [
     "ChannelState",
     "MessagePriority",
     "OutboxEvent",
+    "TransactionalOutbox",
     "ChannelTransport",
     "create_channel",
     "CHANNEL_RUNTIME_VERSION",

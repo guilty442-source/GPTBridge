@@ -4,21 +4,7 @@ import sqlite3
 from pathlib import Path
 
 
-class SchemaMixin:
-    def __init__(self, project_root: Path) -> None:
-        self.db_path = project_root / "runtime" / "state" / "vaultly.sqlite3"
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._ensure_schema()
-
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.db_path)
-        connection.row_factory = sqlite3.Row
-        return connection
-
-    def _ensure_schema(self) -> None:
-        with self._connect() as connection:
-            connection.executescript(
-                """
+_SCHEMA_SCRIPT = """
                 CREATE TABLE IF NOT EXISTS vaultly_accounts (
                     account_id TEXT PRIMARY KEY,
                     platform TEXT NOT NULL,
@@ -189,52 +175,8 @@ class SchemaMixin:
                 CREATE INDEX IF NOT EXISTS idx_vaultly_entity_history_entity
                 ON vaultly_entity_history(entity_type, entity_key, version DESC);
                 """
-            )
-            self._ensure_column(
-                connection,
-                "vaultly_accounts",
-                "verified",
-                "INTEGER NOT NULL DEFAULT 0",
-            )
-            self._ensure_column(
-                connection,
-                "vaultly_posts",
-                "last_inspected_at",
-                "TEXT NOT NULL DEFAULT ''",
-            )
-            for table in (
-                "vaultly_accounts",
-                "vaultly_post_media",
-                "vaultly_filter_terms",
-                "vaultly_retained_accounts",
-                "vaultly_removed_accounts",
-            ):
-                self._ensure_column(
-                    connection,
-                    table,
-                    "is_active",
-                    "INTEGER NOT NULL DEFAULT 1",
-                )
-                self._ensure_column(
-                    connection,
-                    table,
-                    "deactivated_at",
-                    "TEXT NOT NULL DEFAULT ''",
-                )
-            self._ensure_column(
-                connection,
-                "vaultly_removed_accounts",
-                "restored_at",
-                "TEXT NOT NULL DEFAULT ''",
-            )
-            self._ensure_column(
-                connection,
-                "vaultly_media_history",
-                "revision",
-                "INTEGER NOT NULL DEFAULT 1",
-            )
-            connection.executescript(
-                """
+
+_INDEXES_SCRIPT = """
                 CREATE INDEX IF NOT EXISTS idx_vaultly_accounts_active
                 ON vaultly_accounts(is_active, platform, handle);
                 CREATE INDEX IF NOT EXISTS idx_vaultly_post_media_active
@@ -246,7 +188,69 @@ class SchemaMixin:
                 CREATE INDEX IF NOT EXISTS idx_vaultly_removed_accounts_active
                 ON vaultly_removed_accounts(is_active, removed_at DESC);
                 """
+
+
+class SchemaMixin:
+    def __init__(self, project_root: Path) -> None:
+        self.db_path = project_root / "runtime" / "state" / "vaultly.sqlite3"
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._ensure_schema()
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self.db_path)
+        connection.row_factory = sqlite3.Row
+        return connection
+
+    def _ensure_schema(self) -> None:
+        with self._connect() as connection:
+            connection.executescript(_SCHEMA_SCRIPT)
+            self._ensure_migration_columns(connection)
+            connection.executescript(_INDEXES_SCRIPT)
+
+    def _ensure_migration_columns(self, connection: sqlite3.Connection) -> None:
+        self._ensure_column(
+            connection,
+            "vaultly_accounts",
+            "verified",
+            "INTEGER NOT NULL DEFAULT 0",
+        )
+        self._ensure_column(
+            connection,
+            "vaultly_posts",
+            "last_inspected_at",
+            "TEXT NOT NULL DEFAULT ''",
+        )
+        for table in (
+            "vaultly_accounts",
+            "vaultly_post_media",
+            "vaultly_filter_terms",
+            "vaultly_retained_accounts",
+            "vaultly_removed_accounts",
+        ):
+            self._ensure_column(
+                connection,
+                table,
+                "is_active",
+                "INTEGER NOT NULL DEFAULT 1",
             )
+            self._ensure_column(
+                connection,
+                table,
+                "deactivated_at",
+                "TEXT NOT NULL DEFAULT ''",
+            )
+        self._ensure_column(
+            connection,
+            "vaultly_removed_accounts",
+            "restored_at",
+            "TEXT NOT NULL DEFAULT ''",
+        )
+        self._ensure_column(
+            connection,
+            "vaultly_media_history",
+            "revision",
+            "INTEGER NOT NULL DEFAULT 1",
+        )
 
     @staticmethod
     def _ensure_column(

@@ -8,6 +8,39 @@ from typing import Any
 from .watch_repo_helpers import utc_now
 
 
+_PRESERVED_IMPORT_FIELDS = (
+    "web_current_price",
+    "web_current_price_currency",
+    "web_current_value_twd",
+    "market_data_source",
+    "market_data_source_url",
+    "market_data_updated_at",
+    "dividend_source",
+    "dividend_source_url",
+    "dividend_updated_at",
+    "dividend_status",
+    "dividend_frequency",
+    "dividend_frequency_label",
+    "dividend_frequency_per_year",
+    "dividend_frequency_median_days",
+    "dividend_frequency_confidence",
+    "dividend_frequency_source",
+    "external_annual_dividend_per_unit",
+    "fund_code",
+    "fund_isin",
+    "fund_share_class",
+    "fund_quote_symbol",
+    "fund_candidate_symbol",
+    "fund_identity_status",
+    "fund_identity_confidence",
+    "fund_identity_source",
+    "fund_identity_source_url",
+    "fund_identity_candidates",
+    "fund_identity_checked_at",
+    "fund_identity_confirmation",
+)
+
+
 class WatchRepoPortfolioMixin:
     """Portfolio import and manual holding management."""
 
@@ -56,44 +89,38 @@ class WatchRepoPortfolioMixin:
         previous_by_key = {
             self._holding_import_key(item): item for item in previous_holdings
         }
-        merged_holdings: list[dict[str, Any]] = []
-        preserved_fields = (
-            "web_current_price",
-            "web_current_price_currency",
-            "web_current_value_twd",
-            "market_data_source",
-            "market_data_source_url",
-            "market_data_updated_at",
-            "dividend_source",
-            "dividend_source_url",
-            "dividend_updated_at",
-            "dividend_status",
-            "dividend_frequency",
-            "dividend_frequency_label",
-            "dividend_frequency_per_year",
-            "dividend_frequency_median_days",
-            "dividend_frequency_confidence",
-            "dividend_frequency_source",
-            "external_annual_dividend_per_unit",
-            "fund_code",
-            "fund_isin",
-            "fund_share_class",
-            "fund_quote_symbol",
-            "fund_candidate_symbol",
-            "fund_identity_status",
-            "fund_identity_confidence",
-            "fund_identity_source",
-            "fund_identity_source_url",
-            "fund_identity_candidates",
-            "fund_identity_checked_at",
-            "fund_identity_confirmation",
+        merged_holdings = self._merge_import_holdings(holdings, previous_by_key)
+        normalized_holdings = self._with_holding_ids(merged_holdings)
+        state["portfolio"] = self._imported_portfolio_record(
+            source_path, normalized_holdings, normalized_fingerprint
         )
+        state["holdings"] = normalized_holdings
+        state["workbook_scan"] = self._compact_workbook_scan(workbook_scan)
+        state["workbook_scan_quality"] = self._workbook_scan_quality(workbook_scan)
+        state["excel_import_profile"] = (
+            {
+                **excel_import_profile,
+                "source_path": str(source_path),
+                "updated_at": utc_now(),
+            }
+            if isinstance(excel_import_profile, dict)
+            else None
+        )
+        self._reset_analysis_state(state, normalized_holdings)
+        return self.save_state(state)
+
+    def _merge_import_holdings(
+        self,
+        holdings: list[dict[str, Any]],
+        previous_by_key: dict[tuple[str, str, str], dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        merged_holdings: list[dict[str, Any]] = []
         for source in holdings:
             item = dict(source)
             previous = previous_by_key.get(self._holding_import_key(item))
             if previous is not None:
                 item["holding_id"] = previous.get("holding_id")
-                for field in preserved_fields:
+                for field in _PRESERVED_IMPORT_FIELDS:
                     if field in previous:
                         item[field] = previous[field]
                 if (
@@ -109,14 +136,21 @@ class WatchRepoPortfolioMixin:
                     ):
                         item[field] = previous.get(field)
             merged_holdings.append(item)
-        normalized_holdings = self._with_holding_ids(merged_holdings)
+        return merged_holdings
+
+    def _imported_portfolio_record(
+        self,
+        source_path: Path,
+        normalized_holdings: list[dict[str, Any]],
+        normalized_fingerprint: str,
+    ) -> dict[str, Any]:
         try:
             source_created_at = datetime.fromtimestamp(
                 source_path.stat().st_ctime
             ).astimezone().isoformat()
         except OSError:
             source_created_at = ""
-        state["portfolio"] = {
+        return {
             "source_path": str(source_path),
             "file_name": source_path.name,
             "holding_count": len(normalized_holdings),
@@ -126,18 +160,12 @@ class WatchRepoPortfolioMixin:
             "manually_modified_at": "",
             "manual_revision": 0,
         }
-        state["holdings"] = normalized_holdings
-        state["workbook_scan"] = self._compact_workbook_scan(workbook_scan)
-        state["workbook_scan_quality"] = self._workbook_scan_quality(workbook_scan)
-        state["excel_import_profile"] = (
-            {
-                **excel_import_profile,
-                "source_path": str(source_path),
-                "updated_at": utc_now(),
-            }
-            if isinstance(excel_import_profile, dict)
-            else None
-        )
+
+    def _reset_analysis_state(
+        self,
+        state: dict[str, Any],
+        normalized_holdings: list[dict[str, Any]],
+    ) -> None:
         state["ollama_product_status"] = None
         state["ollama_summary"] = None
         state["ollama_risk_warnings"] = []
@@ -153,7 +181,6 @@ class WatchRepoPortfolioMixin:
         state["dividend_sync"] = None
         state["market_quote_sync"] = None
         state["portfolio_memory"] = self._portfolio_memory(normalized_holdings)
-        return self.save_state(state)
 
     @staticmethod
     def _holding_import_key(holding: dict[str, Any]) -> tuple[str, str, str]:

@@ -63,6 +63,53 @@ class BootCoreHandoverMixin:
             return False
         operation_id = str(request["operation_id"])
         self._last_update_operation = operation_id
+        prepared = self._prepare_standby(request, args, startup_state)
+        if prepared is None:
+            return False
+        standby, standby_port, generation = prepared
+
+        old_child = self._child
+        old_port, old_generation = self._activate_standby(
+            standby, standby_port, generation, operation_id
+        )
+
+        # A330 convergence: drain old connections, then verify the new
+        # generation remains healthy for a stability window before marking
+        # global-success.  If the new generation fails within the rollback
+        # window, switch the gateway back to the old generation.
+        converged = self._drain_and_verify(
+            old_port=old_port,
+            new_port=standby_port,
+            standby=standby,
+        )
+        if not converged:
+            self._rollback_handover(
+                request, standby, old_child, old_port, old_generation, operation_id
+            )
+            return False
+
+        self._mark_update_request(
+            request,
+            terminal_status="global-success",
+            active_generation=generation,
+            active_backend_port=standby_port,
+        )
+
+        # New connections already use the standby. Give old WebSocket sessions
+        # a bounded drain, then close them so frontend generation fencing causes
+        # an authenticated snapshot/replay reconnect to the new backend.
+        threading.Thread(
+            target=self._drain_old_generation,
+            args=(old_port, old_child),
+            name="backend-generation-drain",
+            daemon=True,
+        ).start()
+        return True
+
+    def _prepare_standby(
+        self, request: dict, args: list[str], startup_state: str
+    ) -> tuple | None:
+        operation_id = str(request["operation_id"])
         active_port = self._active_backend_port
         if active_port is None:
             self._mark_update_request(
@@ -70,7 +117,7 @@ class BootCoreHandoverMixin:
                 terminal_status="failed-isolated",
                 error="no-active-backend-port",
             )
-            return False
+            return None
         standby_port = next(
             port for port in self._backend_generation_ports if port != active_port
         )
@@ -81,7 +128,7 @@ class BootCoreHandoverMixin:
                 terminal_status="failed-isolated",
                 error="standby-port-not-released",
             )
-            return False
+            return None
         try:
             standby = self._spawn_backend(
                 args,
@@ -95,7 +142,7 @@ class BootCoreHandoverMixin:
                 terminal_status="failed-isolated",
                 error=f"spawn: {type(error).__name__}: {error}",
             )
-            return False
+            return None
         if standby.stdout is not None:
             threading.Thread(
                 target=self._relay, args=(standby.stdout,), daemon=True
@@ -107,10 +154,13 @@ class BootCoreHandoverMixin:
                 terminal_status="failed-isolated",
                 error="standby-readiness-failed",
             )
-            return False
+            return None
+        return standby, standby_port, generation
 
-        old_child = self._child
-        old_port = active_port
+    def _activate_standby(
+        self, standby, standby_port: int, generation: str, operation_id: str
+    ) -> tuple:
+        old_port = self._active_backend_port
         old_generation = self._active_generation
         self._gateway.activate(standby_port, generation)
         self._child = standby
@@ -127,63 +177,49 @@ class BootCoreHandoverMixin:
             previous_generation_port=old_port,
             update_operation_id=operation_id,
         )
+        return old_port, old_generation
 
-        # A330 convergence: drain old connections, then verify the new
-        # generation remains healthy for a stability window before marking
-        # global-success.  If the new generation fails within the rollback
-        # window, switch the gateway back to the old generation.
-        converged = self._drain_and_verify(
-            old_port=old_port,
-            new_port=standby_port,
-            standby=standby,
+    def _rollback_handover(
+        self,
+        request: dict,
+        standby,
+        old_child,
+        old_port: int,
+        old_generation: str,
+        operation_id: str,
+    ) -> None:
+        # Rollback: switch gateway back to the old generation.
+        self._gateway.activate(old_port, old_generation)
+        self._terminate_process(standby)
+        self._child = old_child
+        self._active_backend_port = old_port
+        self._active_generation = old_generation
+        self._write_state(
+            backend_healthy=True,
+            active_generation=old_generation,
+            active_backend_port=old_port,
+            gateway_port=self._health_probe_port,
+            update_operation_id=operation_id,
+            rollback=True,
         )
-        if not converged:
-            # Rollback: switch gateway back to the old generation.
-            self._gateway.activate(old_port, old_generation)
-            self._terminate_process(standby)
-            self._child = old_child
-            self._active_backend_port = old_port
-            self._active_generation = old_generation
-            self._write_state(
-                backend_healthy=True,
-                active_generation=old_generation,
-                active_backend_port=old_port,
-                gateway_port=self._health_probe_port,
-                update_operation_id=operation_id,
-                rollback=True,
-            )
-            self._mark_update_request(
-                request,
-                terminal_status="rolled-back",
-                error="standby-unhealthy-after-activation",
-                active_generation=old_generation,
-                active_backend_port=old_port,
-            )
-            return False
-
         self._mark_update_request(
             request,
-            terminal_status="global-success",
-            active_generation=generation,
-            active_backend_port=standby_port,
+            terminal_status="rolled-back",
+            error="standby-unhealthy-after-activation",
+            active_generation=old_generation,
+            active_backend_port=old_port,
         )
 
-        # New connections already use the standby. Give old WebSocket sessions
-        # a bounded drain, then close them so frontend generation fencing causes
-        # an authenticated snapshot/replay reconnect to the new backend.
-        def drain_old() -> None:
-            deadline = time.monotonic() + 5.0
-            while (
-                time.monotonic() < deadline
-                and self._gateway.connection_count(old_port) > 0
-                and not self._stop.is_set()
-            ):
-                self._stop.wait(0.1)
-            self._gateway.close_generation_connections(old_port)
-            self._terminate_process(old_child)
-
-        threading.Thread(target=drain_old, name="backend-generation-drain", daemon=True).start()
-        return True
+    def _drain_old_generation(self, old_port: int, old_child) -> None:
+        deadline = time.monotonic() + 5.0
+        while (
+            time.monotonic() < deadline
+            and self._gateway.connection_count(old_port) > 0
+            and not self._stop.is_set()
+        ):
+            self._stop.wait(0.1)
+        self._gateway.close_generation_connections(old_port)
+        self._terminate_process(old_child)
 
     def _drain_and_verify(
         self,

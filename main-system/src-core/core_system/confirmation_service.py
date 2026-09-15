@@ -24,125 +24,30 @@ confirmation.  Detection and classification are unaffected.
 
 from __future__ import annotations
 
-import json
-import sys
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .auto_action_policy import (
     compute_action_digest,
-    read_pending_actions,
     switch_enabled_for_kind,
     switch_for_kind,
     update_pending_action_status,
 )
 from .sovereign_utils import _iso_now
 from .confirmation_service_execution import _execute_repair, _execute_update
-
-CONFIRMATION_AUDIT_RELATIVE = (
-    "main-system",
-    "runtime",
-    "state",
-    "confirmation-audit.jsonl",
+from .confirmation_service_helpers import (
+    CONFIRMATION_AUDIT_RELATIVE,
+    _audit,
+    _confirmation_expired,
+    _confirmation_of,
+    _expired,
+    _find_action,
+    _other_action_executing,
+    _project_root,
+    _refresh_remaining_evidence,
+    _result,
 )
-
-
-def _result(ok: bool, **fields: Any) -> dict[str, Any]:
-    return {"ok": ok, **fields}
-
-
-def _project_root(app: Any) -> Path:
-    raw = getattr(app, "project_root", None)
-    if raw:
-        return Path(raw)
-    # core_system/confirmation_service.py -> src-core -> main-system -> root
-    return Path(__file__).resolve().parents[3]
-
-
-def _audit(project_root: Path, entry: dict[str, Any]) -> None:
-    """Append a confirmation audit line (A366 AUDIT, no secrets)."""
-    try:
-        path = project_root.joinpath(*CONFIRMATION_AUDIT_RELATIVE)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(
-                json.dumps(
-                    {"timestamp": _iso_now(), **entry},
-                    ensure_ascii=False,
-                    sort_keys=True,
-                )
-                + "\n"
-            )
-    except OSError:
-        pass
-
-
-def _find_action(project_root: Path, action_id: str) -> dict[str, Any] | None:
-    return next(
-        (
-            item
-            for item in read_pending_actions(project_root)
-            if item.get("action_id") == action_id
-        ),
-        None,
-    )
-
-
-def _expired(action: dict[str, Any]) -> bool:
-    raw = str(action.get("expires_at") or "").strip()
-    if not raw:
-        return False
-    try:
-        expiry = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return True
-    return datetime.now(timezone.utc) > expiry
-
-
-def _confirmation_of(action: dict[str, Any]) -> dict[str, Any]:
-    value = action.get("confirmation")
-    return value if isinstance(value, dict) else {}
-
-
-def _confirmation_expired(confirmation: dict[str, Any]) -> bool:
-    raw = str(confirmation.get("expires_at") or "").strip()
-    if not raw:
-        return False
-    try:
-        expiry = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return True
-    return datetime.now(timezone.utc) > expiry
-
-
-def _other_action_executing(project_root: Path, action_id: str) -> bool:
-    return any(
-        action.get("action_id") != action_id
-        and action.get("status") == "executing"
-        for action in read_pending_actions(project_root)
-    )
-
-
-def _refresh_remaining_evidence(project_root: Path, executed_id: str) -> None:
-    """Recompute evidence digests for actions still awaiting confirmation."""
-    actions = read_pending_actions(project_root)
-    changed = False
-    for action in actions:
-        if action.get("action_id") == executed_id:
-            continue
-        if action.get("status") != "awaiting-confirmation":
-            continue
-        digest = compute_action_digest(action)
-        if action.get("evidence_digest") != digest:
-            action["evidence_digest"] = digest
-            action["updated_at"] = _iso_now()
-            changed = True
-    if changed:
-        from .auto_action_policy import _write_pending_actions
-
-        _write_pending_actions(project_root, actions)
 
 
 # ----------------------------------------------------------------------
@@ -178,12 +83,26 @@ async def record_confirmation(
             "found": action is not None,
         },
     )
+    early, kind = _confirmation_prechecks(action, action_id)
+    if early is not None:
+        return early
+    guard, current_digest = _confirmation_guard(project_root, action, action_id, kind)
+    if guard is not None:
+        return guard
+    return _record_confirmed(
+        project_root, action, action_id, kind, confirmation_id, current_digest
+    )
+
+
+def _confirmation_prechecks(
+    action: dict[str, Any] | None, action_id: str
+) -> tuple[dict[str, Any] | None, str]:
     if action is None:
         return _result(
             False,
             error_code="ACTION_NOT_FOUND",
             message=f"no pending action with id {action_id}",
-        )
+        ), None
     kind = str(action.get("kind") or "")
     if not switch_for_kind(kind):
         return _result(
@@ -191,7 +110,7 @@ async def record_confirmation(
             error_code="ACTION_KIND_UNKNOWN",
             message=f"unknown pending action kind: {kind}",
             action_id=action_id,
-        )
+        ), None
     if action.get("status") == "confirmed":
         existing = _confirmation_of(action)
         return _result(
@@ -201,14 +120,23 @@ async def record_confirmation(
             confirmation_id=str(existing.get("confirmation_id") or ""),
             status="confirmed",
             idempotent=True,
-        )
+        ), kind
     if action.get("status") != "awaiting-confirmation":
         return _result(
             False,
             error_code="ACTION_NOT_PENDING",
             message=f"action status is {action.get('status')}",
             action_id=action_id,
-        )
+        ), None
+    return None, kind
+
+
+def _confirmation_guard(
+    project_root: Path,
+    action: dict[str, Any],
+    action_id: str,
+    kind: str,
+) -> tuple[dict[str, Any] | None, str | None]:
     if not switch_enabled_for_kind(kind):
         _audit(
             project_root,
@@ -225,7 +153,7 @@ async def record_confirmation(
             message="對應的自動執行開關未啟用；開關與逐筆確認必須同時成立。",
             action_id=action_id,
             status="awaiting-confirmation",
-        )
+        ), None
     if _expired(action):
         update_pending_action_status(project_root, action_id, "expired")
         return _result(
@@ -233,7 +161,7 @@ async def record_confirmation(
             error_code="CONFIRMATION_EXPIRED",
             message="確認已到期，請等待系統重新產生待確認項目。",
             action_id=action_id,
-        )
+        ), None
     current_digest = compute_action_digest(action)
     stored_digest = str(action.get("evidence_digest") or "").strip()
     if stored_digest and stored_digest != current_digest:
@@ -245,8 +173,18 @@ async def record_confirmation(
             error_code="EVIDENCE_CHANGED",
             message="計畫或證據已變更，舊確認失效；請重新確認。",
             action_id=action_id,
-        )
+        ), None
+    return None, current_digest
 
+
+def _record_confirmed(
+    project_root: Path,
+    action: dict[str, Any],
+    action_id: str,
+    kind: str,
+    confirmation_id: str,
+    current_digest: str,
+) -> dict[str, Any]:
     confirmation_id = str(confirmation_id or "").strip() or uuid.uuid4().hex
     confirmation = {
         "confirmation_id": confirmation_id,
@@ -289,34 +227,16 @@ async def revoke_confirmation(
     action_id = str(action_id or "").strip()
     confirmation_id = str(confirmation_id or "").strip()
     if not action_id or not confirmation_id:
-        return _result(
-            False,
-            error_code="MISSING_FIELDS",
-            message="action_id and confirmation_id are required",
-        )
+        return _result(False, error_code="MISSING_FIELDS", message="action_id and confirmation_id are required")
     project_root = _project_root(app)
     action = _find_action(project_root, action_id)
     if action is None:
-        return _result(
-            False,
-            error_code="ACTION_NOT_FOUND",
-            message=f"no pending action with id {action_id}",
-        )
+        return _result(False, error_code="ACTION_NOT_FOUND", message=f"no pending action with id {action_id}")
     confirmation = _confirmation_of(action)
     if not confirmation or str(confirmation.get("confirmation_id") or "") != confirmation_id:
-        return _result(
-            False,
-            error_code="CONFIRMATION_NOT_FOUND",
-            message="no recorded confirmation matches this action",
-            action_id=action_id,
-        )
+        return _result(False, error_code="CONFIRMATION_NOT_FOUND", message="no recorded confirmation matches this action", action_id=action_id)
     if action.get("status") not in ("confirmed", "awaiting-confirmation"):
-        return _result(
-            False,
-            error_code="CONFIRMATION_NOT_REVOCABLE",
-            message=f"action status is {action.get('status')}",
-            action_id=action_id,
-        )
+        return _result(False, error_code="CONFIRMATION_NOT_REVOCABLE", message=f"action status is {action.get('status')}", action_id=action_id)
     update_pending_action_status(
         project_root,
         action_id,
@@ -349,28 +269,64 @@ async def execute_approved(
     action_id = str(action_id or "").strip()
     confirmation_id = str(confirmation_id or "").strip()
     if not action_id or not confirmation_id:
-        return _result(
-            False,
-            error_code="MISSING_FIELDS",
-            message="action_id and confirmation_id are required",
-        )
+        return _result(False, error_code="MISSING_FIELDS", message="action_id and confirmation_id are required")
     project_root = _project_root(app)
     action = _find_action(project_root, action_id)
     if action is None:
-        return _result(
-            False,
-            error_code="ACTION_NOT_FOUND",
-            message=f"no pending action with id {action_id}",
-        )
+        return _result(False, error_code="ACTION_NOT_FOUND", message=f"no pending action with id {action_id}")
     kind = str(action.get("kind") or "")
     if not switch_for_kind(kind):
-        return _result(
-            False,
-            error_code="ACTION_KIND_UNKNOWN",
-            message=f"unknown pending action kind: {kind}",
-            action_id=action_id,
-        )
+        return _result(False, error_code="ACTION_KIND_UNKNOWN", message=f"unknown pending action kind: {kind}", action_id=action_id)
+    early, confirmation = _execution_prechecks(
+        project_root, action, action_id, kind, confirmation_id
+    )
+    if early is not None:
+        return early
+
+    update_pending_action_status(project_root, action_id, "executing")
+    _audit(
+        project_root,
+        {
+            "event": "execution-started",
+            "action_id": action_id,
+            "kind": kind,
+            "confirmation_id": confirmation_id,
+        },
+    )
+
+    if kind == "repair":
+        outcome = await _execute_repair(app, project_root, action)
+    else:
+        outcome = await _execute_update(app, project_root, action)
+
+    return _finalize_execution(
+        project_root, action_id, kind, confirmation_id, confirmation, outcome
+    )
+
+
+def _execution_prechecks(
+    project_root: Path,
+    action: dict[str, Any],
+    action_id: str,
+    kind: str,
+    confirmation_id: str,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     confirmation = _confirmation_of(action)
+    early = _execution_status_checks(action, action_id, confirmation, confirmation_id)
+    if early is not None:
+        return early, None
+    early = _execution_guard_checks(project_root, action, action_id, kind, confirmation)
+    if early is not None:
+        return early, None
+    return None, confirmation
+
+
+def _execution_status_checks(
+    action: dict[str, Any],
+    action_id: str,
+    confirmation: dict[str, Any],
+    confirmation_id: str,
+) -> dict[str, Any] | None:
     if (
         action.get("status") in ("executed", "failed")
         and str(confirmation.get("confirmation_id") or "") == confirmation_id
@@ -396,6 +352,16 @@ async def execute_approved(
             message="confirmation id does not match the recorded confirmation",
             action_id=action_id,
         )
+    return None
+
+
+def _execution_guard_checks(
+    project_root: Path,
+    action: dict[str, Any],
+    action_id: str,
+    kind: str,
+    confirmation: dict[str, Any],
+) -> dict[str, Any] | None:
     if not switch_enabled_for_kind(kind):
         return _result(
             False,
@@ -429,23 +395,17 @@ async def execute_approved(
             message="另有項目執行中；多筆故障一次只執行一筆。",
             action_id=action_id,
         )
+    return None
 
-    update_pending_action_status(project_root, action_id, "executing")
-    _audit(
-        project_root,
-        {
-            "event": "execution-started",
-            "action_id": action_id,
-            "kind": kind,
-            "confirmation_id": confirmation_id,
-        },
-    )
 
-    if kind == "repair":
-        outcome = await _execute_repair(app, project_root, action)
-    else:
-        outcome = await _execute_update(app, project_root, action)
-
+def _finalize_execution(
+    project_root: Path,
+    action_id: str,
+    kind: str,
+    confirmation_id: str,
+    confirmation: dict[str, Any],
+    outcome: dict[str, Any],
+) -> dict[str, Any]:
     final_status = "executed" if outcome.get("ok") else "failed"
     consumed = {**confirmation, "consumed": True, "consumed_at": _iso_now()}
     update_pending_action_status(

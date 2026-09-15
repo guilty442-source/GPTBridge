@@ -83,16 +83,6 @@ def _run_packager_cli(
             "error_code": "INFORMATION_LAYER_UNAVAILABLE",
             "message": "governed process adapter is unavailable",
         }
-    environment = dict(os.environ)
-    environment.update(
-        {
-            "GPTBRIDGE_GOVERNANCE_PROJECT_ROOT": str(PROJECT_ROOT),
-            "PYTHONUTF8": "1",
-            "PYTHONIOENCODING": "utf-8",
-            "PYTHONDONTWRITEBYTECODE": "1",
-            "PYTHONNOUSERSITE": "1",
-        }
-    )
     report = adapter.run_json(
         [
             os.fspath(_packager_python()),
@@ -106,8 +96,14 @@ def _run_packager_cli(
         permission_token="system-rescue-packager-token",
         timeout_seconds=float(timeout_seconds),
         cwd=PACKAGER_CLI.parent,
-        environment=environment,
+        environment=_packager_environment(),
     )
+    return _normalize_packager_report(report, timeout_seconds)
+
+
+def _normalize_packager_report(
+    report: dict[str, Any], timeout_seconds: int
+) -> dict[str, Any]:
     error_code = report.get("error_code")
     if error_code == "PROCESS_TIMEOUT":
         return {
@@ -126,6 +122,20 @@ def _run_packager_cli(
     if error_code == "PROCESS_OUTPUT_INVALID":
         report["error_code"] = "PACKAGER_OUTPUT_INVALID"
     return report
+
+
+def _packager_environment() -> dict[str, str]:
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "GPTBRIDGE_GOVERNANCE_PROJECT_ROOT": str(PROJECT_ROOT),
+            "PYTHONUTF8": "1",
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONNOUSERSITE": "1",
+        }
+    )
+    return environment
 
 
 def _discover_packaged_tools() -> list[str]:
@@ -167,24 +177,7 @@ def _verify_tool_package(tool_id: str) -> dict[str, Any]:
             "message": f"package metadata invalid for {tool_id}",
         }
     # Check if source is newer than package (stale check)
-    source_manifest = None
-    for candidate in (
-        PROJECT_ROOT / tool_id / "manifest.json",
-        PROJECT_ROOT / tool_id.replace("-", "_") / "manifest.json",
-    ):
-        if candidate.is_file():
-            source_manifest = candidate
-            break
-    if source_manifest is None:
-        # Search nested manifests
-        for nested in PROJECT_ROOT.glob(f"*/manifest.json"):
-            try:
-                doc = json.loads(nested.read_text("utf-8"))
-                if doc.get("id") == tool_id:
-                    source_manifest = nested
-                    break
-            except (OSError, json.JSONDecodeError):
-                continue
+    source_manifest = _find_source_manifest(tool_id)
     if source_manifest is not None:
         source_mtime = source_manifest.stat().st_mtime
         pkg_mtime = metadata_path.stat().st_mtime
@@ -200,6 +193,24 @@ def _verify_tool_package(tool_id: str) -> dict[str, Any]:
         "ok": True,
         "message": f"package verified for {tool_id}",
     }
+
+
+def _find_source_manifest(tool_id: str) -> Path | None:
+    for candidate in (
+        PROJECT_ROOT / tool_id / "manifest.json",
+        PROJECT_ROOT / tool_id.replace("-", "_") / "manifest.json",
+    ):
+        if candidate.is_file():
+            return candidate
+    # Search nested manifests
+    for nested in PROJECT_ROOT.glob("*/manifest.json"):
+        try:
+            doc = json.loads(nested.read_text("utf-8"))
+            if doc.get("id") == tool_id:
+                return nested
+        except (OSError, json.JSONDecodeError):
+            continue
+    return None
 
 
 def verify_all_packages() -> dict[str, Any]:

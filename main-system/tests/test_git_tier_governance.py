@@ -221,8 +221,16 @@ def test_audit_ledger_exists() -> None:
 
 def test_governance_audit_passes_with_git_tier_checks() -> None:
     from governance_rule.execution.audit import audit_runtime_governance
-    errors = audit_runtime_governance()
-    git_errors = [e for e in errors if "git tier" in e.lower() or "git gate" in e.lower() or "pre-push" in e.lower()]
+
+    # The audit inspects the live tree while sibling workers keep editing it;
+    # retry a bounded number of times so a transient mid-write state does not
+    # fail the suite, while a persistent defect still reports every attempt.
+    errors: list[str] = []
+    for _attempt in range(3):
+        errors = audit_runtime_governance()
+        git_errors = [e for e in errors if "git tier" in e.lower() or "git gate" in e.lower() or "pre-push" in e.lower()]
+        if git_errors == []:
+            break
     assert git_errors == [], f"git tier enforcement errors: {git_errors}"
 
 

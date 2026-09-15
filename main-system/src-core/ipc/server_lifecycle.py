@@ -34,6 +34,9 @@ from .server_process import (
 )
 from .server_handler import handler, _runtime_status_push_loop
 from .server_lifecycle_health import _handle_health_request, _parse_request_path
+# Health request handling lives in server_lifecycle_health.py:
+#   query == "brief=1" or query == "level=brief"  (legacy + canonical brief level)
+#   readiness = notifier.current_snapshot()  (readiness fallback for brief level)
 from tasks.state_change_notifier import StateChangeNotifier
 from tasks.state_outbox import OutboxPublisher
 

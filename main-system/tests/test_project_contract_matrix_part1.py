@@ -4,7 +4,9 @@ from __future__ import annotations
 import _main_system_test_support as _support  # noqa: F401
 from _main_system_test_support import (ROOT, _read_text_cached, _parse_python_cached,
     EXPECTED_TOOL_IDS, GOVERNANCE_TOOL_ID, SIBLING_IMPORT_ROOTS,
-    MANIFEST_PATHS, TOOL_CASES, NON_GOVERNANCE_CASES)
+    MANIFEST_PATHS, TOOL_CASES, NON_GOVERNANCE_CASES,
+    TOOL_ID_PATTERN, RUNTIME_CHANNEL_DATABASES, BACKGROUND_PROCESS_CALLS,
+    ENVIRONMENT_NAME, NORMAL_ISOLATED_TOOLS, VISIBLE_PROCESS_CALLS)
 from _test_project_contract_matrix_helpers import _load_json
 
 import ast

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -11,7 +12,34 @@ sys.path.insert(0, str(ROOT / "main-system" / "src-core"))
 
 from shared_layer.channel_runtime import A263Channel, create_channel
 from shared_layer.channel_types import ChannelConfig, MessagePriority
+from shared_layer.channel import SharedLayerChannel
+from shared_layer.request_client import GovernedRequestClient
 from shared_layer.transactional_outbox import TransactionalOutbox
+
+
+class _StubPushChannel(SharedLayerChannel):
+    """Channel stub that records push lifecycle calls without a live store."""
+
+    def __init__(self) -> None:
+        self._tool_id = "file-sorter"
+        self._channel_id = "system"
+        self.calls: list[tuple] = []
+
+    def push(self, target_tool_id: str, push_id: str, payload: Any) -> None:
+        self.calls.append(("push", target_tool_id, push_id, payload))
+
+    def claim_pushed(self) -> dict[str, Any] | None:
+        self.calls.append(("claim",))
+        return {
+            "push_id": "push-1",
+            "sender_actor": "main-system",
+            "target_tool_id": "file-sorter",
+            "payload": {"_governed_command": "notify", "ok": True},
+        }
+
+    def acknowledge_push(self, push_id: str) -> bool:
+        self.calls.append(("ack", push_id))
+        return True
 
 
 class _LoopTransport:
@@ -105,3 +133,55 @@ def test_outbox_callback_and_replay() -> None:
         assert len(received) >= 1
 
     asyncio.run(scenario())
+
+
+def test_push_and_claim_routing_via_governed_client() -> None:
+    async def scenario() -> None:
+        channel = _StubPushChannel()
+        routed: list[str] = []
+        client = GovernedRequestClient(
+            channel,
+            "main-system",
+            lambda _actor, target, command: routed.append(f"{target}:{command}"),
+        )
+        await client.push(
+            "file-sorter",
+            "notify",
+            {"ok": True},
+            push_id="push-1",
+        )
+        assert routed == ["file-sorter:notify"]
+        assert channel.calls[0][0] == "push"
+        assert channel.calls[0][1] == "file-sorter"
+        assert channel.calls[0][2] == "push-1"
+        assert channel.calls[0][3] == {
+            "ok": True,
+            "_governed_command": "notify",
+        }
+
+        claimed = await client.claim_pushed("main-system")
+        assert claimed is not None
+        assert claimed["push_id"] == "push-1"
+        assert claimed["acknowledged"] is True
+        assert ("claim",) in channel.calls
+        assert ("ack", "push-1") in channel.calls
+
+    asyncio.run(scenario())
+
+
+def test_claim_pushed_requires_matching_consumer() -> None:
+    def scenario() -> None:
+        channel = _StubPushChannel()
+        routed: list[str] = []
+        client = GovernedRequestClient(
+            channel,
+            "victim-tool",
+            lambda _actor, target, command: routed.append(f"{target}:{command}"),
+        )
+        try:
+            client.claim_pushed_sync("file-sorter", acknowledge=False)
+        except PermissionError:
+            return
+        raise AssertionError("cross-tool push claim was accepted")
+
+    scenario()

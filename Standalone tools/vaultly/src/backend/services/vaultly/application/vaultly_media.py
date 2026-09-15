@@ -163,6 +163,31 @@ class VaultlyMediaMixin:
         post_url: str,
         temp_path: Path,
     ) -> str:
+        request_headers = await self._hls_request_headers(page, source_url, post_url)
+        command = self._hls_ffmpeg_command(source_url, request_headers, temp_path)
+        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        try:
+            completed = await asyncio.to_thread(
+                subprocess.run,
+                command,
+                capture_output=True,
+                timeout=300,
+                creationflags=creation_flags,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError("串流影片合併超過 5 分鐘") from exc
+        if completed.returncode != 0:
+            stderr = completed.stderr.decode("utf-8", errors="replace").strip()
+            raise RuntimeError(stderr[-500:] or "串流影片合併失敗")
+        if not temp_path.is_file() or temp_path.stat().st_size <= 0:
+            raise RuntimeError("串流影片合併後沒有產生檔案")
+        if temp_path.stat().st_size >= self.MAX_MEDIA_BYTES:
+            raise RuntimeError("單一媒體超過 150 MB 安全限制")
+        return "video/mp4"
+
+    async def _hls_request_headers(
+        self, page: Any, source_url: str, post_url: str
+    ) -> str:
         request_headers = f"Referer: {post_url}\r\n"
         cookie_header = await self._browser_cookie_header(page, source_url)
         if cookie_header:
@@ -173,8 +198,12 @@ class VaultlyMediaMixin:
                 user_agent = str(await evaluate_method("() => navigator.userAgent")).strip()
                 if user_agent:
                     request_headers += f"User-Agent: {user_agent}\r\n"
+        return request_headers
 
-        command = [
+    def _hls_ffmpeg_command(
+        self, source_url: str, request_headers: str, temp_path: Path
+    ) -> list[str]:
+        return [
             imageio_ffmpeg.get_ffmpeg_exe(),
             "-nostdin",
             "-hide_banner",
@@ -199,25 +228,6 @@ class VaultlyMediaMixin:
             "-y",
             str(temp_path),
         ]
-        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        try:
-            completed = await asyncio.to_thread(
-                subprocess.run,
-                command,
-                capture_output=True,
-                timeout=300,
-                creationflags=creation_flags,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise RuntimeError("串流影片合併超過 5 分鐘") from exc
-        if completed.returncode != 0:
-            stderr = completed.stderr.decode("utf-8", errors="replace").strip()
-            raise RuntimeError(stderr[-500:] or "串流影片合併失敗")
-        if not temp_path.is_file() or temp_path.stat().st_size <= 0:
-            raise RuntimeError("串流影片合併後沒有產生檔案")
-        if temp_path.stat().st_size >= self.MAX_MEDIA_BYTES:
-            raise RuntimeError("單一媒體超過 150 MB 安全限制")
-        return "video/mp4"
 
     @staticmethod
     async def _browser_cookie_header(page: Any, source_url: str) -> str:

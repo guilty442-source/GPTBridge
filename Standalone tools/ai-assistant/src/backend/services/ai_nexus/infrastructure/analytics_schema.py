@@ -11,14 +11,7 @@ from .analytics_common import (
 )
 
 
-class SchemaMixin:
-    """Schema initialization, migration, and data clearing methods."""
-
-    def initialize(self) -> None:
-        with self.connect() as connection:
-            connection.execute("PRAGMA journal_mode = MEMORY")
-            connection.executescript(
-                """
+_SCHEMA_DDL = """
                 CREATE TABLE IF NOT EXISTS metadata (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL,
@@ -294,9 +287,17 @@ class SchemaMixin:
                     severity TEXT NOT NULL DEFAULT 'info',
                     details_encrypted TEXT NOT NULL DEFAULT ''
                 );
-                CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_log(occurred_at);
-                """
-            )
+CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_log(occurred_at);
+"""
+
+
+class SchemaMixin:
+    """Schema initialization, migration, and data clearing methods."""
+
+    def initialize(self) -> None:
+        with self.connect() as connection:
+            connection.execute("PRAGMA journal_mode = MEMORY")
+            connection.executescript(_SCHEMA_DDL)
             self._migrate_schema(connection)
             connection.execute(
                 "INSERT INTO metadata(key, value, updated_at) VALUES('schema_version', ?, ?) "
@@ -366,44 +367,7 @@ class SchemaMixin:
         )
         with self.connect() as connection:
             connection.execute("PRAGMA defer_foreign_keys = ON")
-            tables = [
-                str(row[0])
-                for row in connection.execute(
-                    "SELECT name FROM sqlite_master WHERE type = 'table' "
-                    "AND name NOT IN ('metadata', 'sqlite_sequence')"
-                ).fetchall()
-            ]
-            table_names = set(tables)
-            child_to_parents: dict[str, set[str]] = {table: set() for table in tables}
-            parent_indegree: dict[str, int] = {table: 0 for table in tables}
-            for table in tables:
-                if not table.replace("_", "").isalnum():
-                    raise RuntimeError("invalid analytics table name")
-                parents = {
-                    str(row[2])
-                    for row in connection.execute(
-                        f"PRAGMA foreign_key_list({table})"
-                    ).fetchall()
-                    if str(row[2]) in table_names and str(row[2]) != table
-                }
-                child_to_parents[table] = parents
-                for parent in parents:
-                    parent_indegree[parent] += 1
-            ready = sorted(
-                table for table, indegree in parent_indegree.items() if indegree == 0
-            )
-            deletion_order: list[str] = []
-            while ready:
-                table = ready.pop(0)
-                deletion_order.append(table)
-                for parent in sorted(child_to_parents[table]):
-                    parent_indegree[parent] -= 1
-                    if parent_indegree[parent] == 0:
-                        ready.append(parent)
-                        ready.sort()
-            deletion_order.extend(
-                sorted(table_names.difference(deletion_order))
-            )
+            deletion_order = self._table_deletion_order(connection)
             for table in deletion_order:
                 connection.execute(f"DELETE FROM {table}")
             if connection.execute(
@@ -412,27 +376,71 @@ class SchemaMixin:
             ).fetchone():
                 connection.execute("DELETE FROM sqlite_sequence")
         if permanent:
-            roots = [self.backup_root, self.recovery_root]
-            if not self._uses_external_managed_storage:
-                roots.append(self.audit_root)
-            for root in roots:
-                if not root.is_dir():
-                    continue
-                for current_root, directory_names, file_names in os.walk(
-                    root,
-                    topdown=False,
-                    followlinks=False,
-                ):
-                    current_path = Path(current_root)
-                    for name in file_names:
-                        (current_path / name).unlink()
-                    for name in directory_names:
-                        child = current_path / name
-                        if child.is_symlink():
-                            child.unlink()
-                        else:
-                            child.rmdir()
-            with self._database_lock:
-                self._database_connection.execute("VACUUM")
-                self._persist_database(rotate_key=True)
+            self._purge_persistent_storage()
         return safety
+
+    def _table_deletion_order(self, connection: sqlite3.Connection) -> list[str]:
+        tables = [
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' "
+                "AND name NOT IN ('metadata', 'sqlite_sequence')"
+            ).fetchall()
+        ]
+        table_names = set(tables)
+        child_to_parents: dict[str, set[str]] = {table: set() for table in tables}
+        parent_indegree: dict[str, int] = {table: 0 for table in tables}
+        for table in tables:
+            if not table.replace("_", "").isalnum():
+                raise RuntimeError("invalid analytics table name")
+            parents = {
+                str(row[2])
+                for row in connection.execute(
+                    f"PRAGMA foreign_key_list({table})"
+                ).fetchall()
+                if str(row[2]) in table_names and str(row[2]) != table
+            }
+            child_to_parents[table] = parents
+            for parent in parents:
+                parent_indegree[parent] += 1
+        ready = sorted(
+            table for table, indegree in parent_indegree.items() if indegree == 0
+        )
+        deletion_order: list[str] = []
+        while ready:
+            table = ready.pop(0)
+            deletion_order.append(table)
+            for parent in sorted(child_to_parents[table]):
+                parent_indegree[parent] -= 1
+                if parent_indegree[parent] == 0:
+                    ready.append(parent)
+                    ready.sort()
+        deletion_order.extend(
+            sorted(table_names.difference(deletion_order))
+        )
+        return deletion_order
+
+    def _purge_persistent_storage(self) -> None:
+        roots = [self.backup_root, self.recovery_root]
+        if not self._uses_external_managed_storage:
+            roots.append(self.audit_root)
+        for root in roots:
+            if not root.is_dir():
+                continue
+            for current_root, directory_names, file_names in os.walk(
+                root,
+                topdown=False,
+                followlinks=False,
+            ):
+                current_path = Path(current_root)
+                for name in file_names:
+                    (current_path / name).unlink()
+                for name in directory_names:
+                    child = current_path / name
+                    if child.is_symlink():
+                        child.unlink()
+                    else:
+                        child.rmdir()
+        with self._database_lock:
+            self._database_connection.execute("VACUUM")
+            self._persist_database(rotate_key=True)

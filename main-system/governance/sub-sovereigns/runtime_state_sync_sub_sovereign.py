@@ -165,27 +165,9 @@ class RuntimeStateSyncSubSovereign(SubSovereignBase):
         After a successful reload the frontend is notified so it can refresh
         in sync.
         """
-        hot_update = getattr(self.app, "hot_update_service", None)
-        if hot_update is None:
-            return {
-                "ok": False,
-                "duty": "runtime-action",
-                "error": "hot-update-service-unavailable",
-            }
-        reload_modules = getattr(hot_update, "reload_modules", None)
-        if not callable(reload_modules):
-            return {
-                "ok": False,
-                "duty": "runtime-action",
-                "error": "hot-reload-not-supported",
-            }
-        governance = getattr(self.app, "governance", None)
-        report = await asyncio.to_thread(
-            reload_modules,
-            governance=governance,
-            approval_token=approval_token,
-            modules=modules,
-        )
+        report, failure = await self._run_hot_reload(approval_token, modules)
+        if failure is not None:
+            return failure
 
         # Sync the frontend so it can refresh against the newly loaded backend.
         notified = await self._notify_ui(
@@ -218,6 +200,32 @@ class RuntimeStateSyncSubSovereign(SubSovereignBase):
             "ui_notified": notified,
             "auto_repair": auto_repair,
         }
+
+    async def _run_hot_reload(
+        self, approval_token: str | None, modules: Any
+    ) -> tuple[Any, dict[str, Any] | None]:
+        hot_update = getattr(self.app, "hot_update_service", None)
+        if hot_update is None:
+            return None, {
+                "ok": False,
+                "duty": "runtime-action",
+                "error": "hot-update-service-unavailable",
+            }
+        reload_modules = getattr(hot_update, "reload_modules", None)
+        if not callable(reload_modules):
+            return None, {
+                "ok": False,
+                "duty": "runtime-action",
+                "error": "hot-reload-not-supported",
+            }
+        governance = getattr(self.app, "governance", None)
+        report = await asyncio.to_thread(
+            reload_modules,
+            governance=governance,
+            approval_token=approval_token,
+            modules=modules,
+        )
+        return report, None
 
     # ------------------------------------------------------------------
     # Runtime status

@@ -202,25 +202,7 @@ class BootCore(
                 backend_port=self._active_backend_port,
             )
         except OSError as error:
-            self._status = "spawn-failed"
-            self._last_exit = {"error": f"{type(error).__name__}: {error}"}
-            self._write_state()
-            self._signal_startup_failure(1, 0.0)
-            if self._restarts >= MAX_RESTARTS:
-                self._gateway.stop()
-                return 2
-            self._restarts += 1
-            delay = BACKOFF_SCHEDULE_SECONDS[
-                min(self._restarts - 1, len(BACKOFF_SCHEDULE_SECONDS) - 1)
-            ]
-            self._status = "backend-restarting"
-            self._write_state(next_retry_in_seconds=delay)
-            if self._stop.wait(timeout=delay):
-                self._status = "stopped"
-                self._write_state()
-                self._gateway.stop()
-                return 0
-            return None
+            return self._handle_spawn_oserror(error)
 
         child_started_at = time.monotonic()
         self._backend_healthy = False
@@ -254,6 +236,27 @@ class BootCore(
             self._gateway.stop()
             return 0
         return self._handle_backend_exit(child_started_at, dead_generation)
+
+    def _handle_spawn_oserror(self, error: OSError) -> int | None:
+        self._status = "spawn-failed"
+        self._last_exit = {"error": f"{type(error).__name__}: {error}"}
+        self._write_state()
+        self._signal_startup_failure(1, 0.0)
+        if self._restarts >= MAX_RESTARTS:
+            self._gateway.stop()
+            return 2
+        self._restarts += 1
+        delay = BACKOFF_SCHEDULE_SECONDS[
+            min(self._restarts - 1, len(BACKOFF_SCHEDULE_SECONDS) - 1)
+        ]
+        self._status = "backend-restarting"
+        self._write_state(next_retry_in_seconds=delay)
+        if self._stop.wait(timeout=delay):
+            self._status = "stopped"
+            self._write_state()
+            self._gateway.stop()
+            return 0
+        return None
 
     def _monitor_backend(
         self, args: list[str], startup_state: str, dead_grace_seconds: float

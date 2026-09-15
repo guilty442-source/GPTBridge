@@ -5,31 +5,7 @@ from typing import Any, Iterable
 
 from ._helpers import _utc_now
 
-
-class AccountMixin:
-    def upsert_accounts(self, accounts: Iterable[dict[str, Any]]) -> int:
-        now = _utc_now()
-        changed = 0
-        with self._connect() as connection:
-            for account in accounts:
-                account_id = str(account.get("account_id", "")).strip()
-                if not account_id:
-                    continue
-                existing = self._row_by_key(
-                    connection,
-                    "vaultly_accounts",
-                    "account_id",
-                    account_id,
-                )
-                self._record_row_history(
-                    connection,
-                    "account",
-                    account_id,
-                    "superseded",
-                    existing,
-                )
-                connection.execute(
-                    """
+_UPSERT_ACCOUNT_SQL = """
                     INSERT INTO vaultly_accounts (
                         account_id, platform, handle, display_name, profile_url,
                         avatar_url, verified, selected, discovered_at, updated_at,
@@ -58,46 +34,78 @@ class AccountMixin:
                         is_active = 1,
                         deactivated_at = '',
                         updated_at = excluded.updated_at
-                    """,
-                    (
-                        account_id,
-                        str(account.get("platform", "")),
-                        str(account.get("handle", "")),
-                        str(account.get("display_name", "")),
-                        str(account.get("profile_url", "")),
-                        str(account.get("avatar_url", "")),
-                        1 if account.get("verified") is True else 0,
-                        now,
-                        now,
-                    ),
-                )
-                current = self._row_by_key(
-                    connection,
-                    "vaultly_accounts",
-                    "account_id",
-                    account_id,
-                )
-                self._record_row_history(
-                    connection,
-                    "account",
-                    account_id,
-                    (
-                        "created"
-                        if existing is None
-                        else "reactivated"
-                        if not bool(existing["is_active"])
-                        else "updated"
-                    ),
-                    current,
-                )
-                self._ensure_account_scan_schedule(
-                    connection,
-                    account_id,
-                    str(account.get("platform", "")),
-                    selected=False,
-                )
-                changed += 1
+                    """
+
+
+class AccountMixin:
+    def upsert_accounts(self, accounts: Iterable[dict[str, Any]]) -> int:
+        now = _utc_now()
+        changed = 0
+        with self._connect() as connection:
+            for account in accounts:
+                changed += self._upsert_single_account(connection, account, now)
         return changed
+
+    def _upsert_single_account(
+        self,
+        connection: sqlite3.Connection,
+        account: dict[str, Any],
+        now: str,
+    ) -> int:
+        account_id = str(account.get("account_id", "")).strip()
+        if not account_id:
+            return 0
+        existing = self._row_by_key(
+            connection, "vaultly_accounts", "account_id", account_id,
+        )
+        self._record_row_history(
+            connection, "account", account_id, "superseded", existing,
+        )
+        connection.execute(
+            _UPSERT_ACCOUNT_SQL,
+            self._account_params(account, account_id, now),
+        )
+        current = self._row_by_key(
+            connection, "vaultly_accounts", "account_id", account_id,
+        )
+        self._record_row_history(
+            connection,
+            "account",
+            account_id,
+            self._account_change_kind(existing),
+            current,
+        )
+        self._ensure_account_scan_schedule(
+            connection,
+            account_id,
+            str(account.get("platform", "")),
+            selected=False,
+        )
+        return 1
+
+    @staticmethod
+    def _account_params(
+        account: dict[str, Any], account_id: str, now: str
+    ) -> tuple[Any, ...]:
+        return (
+            account_id,
+            str(account.get("platform", "")),
+            str(account.get("handle", "")),
+            str(account.get("display_name", "")),
+            str(account.get("profile_url", "")),
+            str(account.get("avatar_url", "")),
+            1 if account.get("verified") is True else 0,
+            now,
+            now,
+        )
+
+    @staticmethod
+    def _account_change_kind(existing: sqlite3.Row | None) -> str:
+        if existing is None:
+            return "created"
+        if not bool(existing["is_active"]):
+            return "reactivated"
+        return "updated"
 
     def _ensure_account_scan_schedule(
         self,

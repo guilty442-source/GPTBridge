@@ -51,7 +51,7 @@ def test_manifest_test_targets_resolve_to_real_test_files() -> None:
                 manifest["id"],
                 raw_target,
             )
-            checked += 1
+        checked += 1
     assert checked == len(MANIFEST_PATHS)
 
 

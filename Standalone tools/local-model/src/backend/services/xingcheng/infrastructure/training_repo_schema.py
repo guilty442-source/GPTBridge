@@ -9,59 +9,7 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping
 
 
-class TransformerTrainingSchemaMixin:
-    """Schema definition, migration, and cryptographic helpers for the
-    transformer training repository."""
-
-    SCHEMA_VERSION = 1
-    DATABASE_NAME = "transformer-training.sqlite3"
-    BASE_MODEL_ID = "google/gemma-4-e2b-it"
-    RUNTIME_MODEL_ID = "gemma4:e2b-it-qat"
-    TRAINING_METHOD = "qlora-nf4-peft"
-    DATASET_STATES = frozenset({"prepared", "invalidated", "archived"})
-    JOB_STATES = frozenset(
-        {
-            "queued",
-            "preflight",
-            "training",
-            "validating",
-            "completed",
-            "failed",
-            "cancelled",
-        }
-    )
-    ADAPTER_STATES = frozenset(
-        {"candidate", "validated", "staged", "active", "rejected", "retired"}
-    )
-    JOB_TRANSITIONS: Mapping[str, frozenset[str]] = {
-        "queued": frozenset({"preflight", "cancelled", "failed"}),
-        "preflight": frozenset({"training", "cancelled", "failed"}),
-        "training": frozenset({"validating", "cancelled", "failed"}),
-        "validating": frozenset({"completed", "failed"}),
-        "completed": frozenset(),
-        "failed": frozenset(),
-        "cancelled": frozenset(),
-    }
-
-    @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database_path, timeout=15)
-        connection.row_factory = sqlite3.Row
-        try:
-            connection.execute("PRAGMA foreign_keys = ON")
-            connection.execute("PRAGMA busy_timeout = 15000")
-            yield connection
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
-
-    def _migrate(self) -> None:
-        with self._connect() as connection:
-            connection.executescript(
-                """
+_MIGRATION_SCRIPT = """
                 PRAGMA journal_mode = WAL;
 
                 CREATE TABLE IF NOT EXISTS transformer_schema_metadata (
@@ -276,7 +224,60 @@ class TransformerTrainingSchemaMixin:
                     SELECT RAISE(ABORT, 'TRANSFORMER_TRAINING_AUDIT_IMMUTABLE');
                 END;
                 """
-            )
+
+
+class TransformerTrainingSchemaMixin:
+    """Schema definition, migration, and cryptographic helpers for the
+    transformer training repository."""
+
+    SCHEMA_VERSION = 1
+    DATABASE_NAME = "transformer-training.sqlite3"
+    BASE_MODEL_ID = "google/gemma-4-e2b-it"
+    RUNTIME_MODEL_ID = "gemma4:e2b-it-qat"
+    TRAINING_METHOD = "qlora-nf4-peft"
+    DATASET_STATES = frozenset({"prepared", "invalidated", "archived"})
+    JOB_STATES = frozenset(
+        {
+            "queued",
+            "preflight",
+            "training",
+            "validating",
+            "completed",
+            "failed",
+            "cancelled",
+        }
+    )
+    ADAPTER_STATES = frozenset(
+        {"candidate", "validated", "staged", "active", "rejected", "retired"}
+    )
+    JOB_TRANSITIONS: Mapping[str, frozenset[str]] = {
+        "queued": frozenset({"preflight", "cancelled", "failed"}),
+        "preflight": frozenset({"training", "cancelled", "failed"}),
+        "training": frozenset({"validating", "cancelled", "failed"}),
+        "validating": frozenset({"completed", "failed"}),
+        "completed": frozenset(),
+        "failed": frozenset(),
+        "cancelled": frozenset(),
+    }
+
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        connection = sqlite3.connect(self.database_path, timeout=15)
+        connection.row_factory = sqlite3.Row
+        try:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA busy_timeout = 15000")
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def _migrate(self) -> None:
+        with self._connect() as connection:
+            connection.executescript(_MIGRATION_SCRIPT)
             now = self._now()
             connection.execute(
                 """

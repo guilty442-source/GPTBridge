@@ -143,33 +143,96 @@ class WatchAppStateMixin:
         }
 
     def _diagnostics(self, state: dict[str, Any]) -> dict[str, Any]:
+        ctx = self._diagnostics_context(state)
+        return {
+            "state": ctx["state"],
+            "state_label": ctx["state_label"],
+            "message": ctx["message"],
+            "generated_at": local_device_now().isoformat(),
+            "data_quality": self._diagnostics_data_quality(ctx),
+            "portfolio": self._diagnostics_portfolio(ctx),
+            "workbook": self._diagnostics_workbook(ctx),
+            "xingcheng": self._diagnostics_xingcheng(ctx),
+            "runs": self._diagnostics_runs(ctx),
+            "error_logging": self._diagnostics_error_logging(),
+            "boundaries": {
+                "local_only": True,
+                "external_ai": False,
+                "service_commands": sorted(self.COMMANDS),
+            },
+        }
+
+    def _diagnostics_context(self, state: dict[str, Any]) -> dict[str, Any]:
         holdings = state.get("holdings") if isinstance(state.get("holdings"), list) else []
-        portfolio = state.get("portfolio") if isinstance(state.get("portfolio"), dict) else {}
-        workbook_scan = (
-            state.get("workbook_scan") if isinstance(state.get("workbook_scan"), dict) else {}
+        ctx = self._diagnostics_state_sections(state)
+        ctx["holdings"] = holdings
+        ctx["portfolio_age_hours"] = self._age_hours(
+            ctx["portfolio"].get("imported_at")
         )
-        workbook_quality = (
-            state.get("workbook_scan_quality")
-            if isinstance(state.get("workbook_scan_quality"), dict)
+        ctx["critical_count"], ctx["warning_count"] = (
+            self._diagnostics_alert_counts(ctx["summary"], ctx["risk_warnings"])
+        )
+        ctx["workbook_state"] = str(ctx["workbook_quality"].get("state") or "")
+        ctx["xingcheng_state"] = str(ctx["product_status"].get("state") or "")
+        ctx["stale"] = (
+            ctx["portfolio_age_hours"] is not None
+            and ctx["portfolio_age_hours"] > 72
+        )
+        ctx["symbol_quality"] = self._diagnostics_symbol_quality(holdings)
+        ctx.update(self._diagnostics_assessment(ctx))
+        ctx["network_context"] = (
+            state.get("xingcheng_network_context")
+            if isinstance(state.get("xingcheng_network_context"), dict)
+            else ctx["product_status"].get("network_context")
+            if isinstance(ctx["product_status"].get("network_context"), dict)
             else {}
         )
-        product_status = (
-            state.get("xingcheng_product_status")
-            if isinstance(state.get("xingcheng_product_status"), dict)
-            else {}
-        )
-        summary = (
-            state.get("xingcheng_summary")
-            if isinstance(state.get("xingcheng_summary"), dict)
-            else {}
-        )
-        risk_warnings = [
-            item
-            for item in state.get("xingcheng_risk_warnings", [])
-            if isinstance(item, dict)
-        ]
-        runs = [item for item in state.get("ai_runs", []) if isinstance(item, dict)]
-        portfolio_age_hours = self._age_hours(portfolio.get("imported_at"))
+        return ctx
+
+    def _diagnostics_state_sections(
+        self, state: dict[str, Any]
+    ) -> dict[str, Any]:
+        return {
+            "portfolio": (
+                state.get("portfolio")
+                if isinstance(state.get("portfolio"), dict)
+                else {}
+            ),
+            "workbook_scan": (
+                state.get("workbook_scan")
+                if isinstance(state.get("workbook_scan"), dict)
+                else {}
+            ),
+            "workbook_quality": (
+                state.get("workbook_scan_quality")
+                if isinstance(state.get("workbook_scan_quality"), dict)
+                else {}
+            ),
+            "product_status": (
+                state.get("xingcheng_product_status")
+                if isinstance(state.get("xingcheng_product_status"), dict)
+                else {}
+            ),
+            "summary": (
+                state.get("xingcheng_summary")
+                if isinstance(state.get("xingcheng_summary"), dict)
+                else {}
+            ),
+            "risk_warnings": [
+                item
+                for item in state.get("xingcheng_risk_warnings", [])
+                if isinstance(item, dict)
+            ],
+            "runs": [
+                item
+                for item in state.get("ai_runs", [])
+                if isinstance(item, dict)
+            ],
+        }
+
+    def _diagnostics_alert_counts(
+        self, summary: dict[str, Any], risk_warnings: list[dict[str, Any]]
+    ) -> tuple[int, int]:
         critical_count = max(
             self._int_value(summary.get("critical_count")),
             sum(1 for item in risk_warnings if item.get("severity") == "critical"),
@@ -182,9 +245,11 @@ class WatchAppStateMixin:
                 if item.get("severity") in {"critical", "warning"}
             ),
         )
-        workbook_state = str(workbook_quality.get("state") or "")
-        xingcheng_state = str(product_status.get("state") or "")
-        stale = portfolio_age_hours is not None and portfolio_age_hours > 72
+        return critical_count, warning_count
+
+    def _diagnostics_symbol_quality(
+        self, holdings: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         symbols = [str(item.get("symbol") or "").strip() for item in holdings]
         decimal_symbol_count = sum(
             1
@@ -206,44 +271,167 @@ class WatchAppStateMixin:
                 or (invalid_symbol_count >= 3 and invalid_symbol_ratio >= 0.2)
             )
         )
+        return {
+            "decimal_symbol_count": decimal_symbol_count,
+            "invalid_symbol_count": invalid_symbol_count,
+            "invalid_symbol_ratio": invalid_symbol_ratio,
+            "mapping_error": mapping_error,
+        }
 
+    def _diagnostics_assessment(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        holdings = ctx["holdings"]
         if not holdings:
-            state_key = "setup"
-            state_label = "等待持股資料"
-            message = "請讀取 Excel 持股檔，投資管家會經 AI 通道建立風險監測。"
-        elif mapping_error:
-            state_key = "critical"
-            state_label = "Excel 欄位需修正"
-            message = (
-                f"Excel 欄位映射錯誤：{len(holdings)} 筆中有 {invalid_symbol_count} 筆代號"
-                "看起來像價格或無效值；投資風險判讀已暫停，請用「Excel 欄位」重新匯入。"
-            )
-        elif critical_count > 0 or xingcheng_state == "critical" or workbook_state == "critical":
-            state_key = "critical"
-            state_label = "需要立即檢查"
-            message = "已偵測重大風險或 Excel 掃描品質不足，請先確認資料與部位上限。"
-        elif stale or warning_count > 0 or xingcheng_state == "attention" or workbook_state == "attention":
-            state_key = "attention"
-            state_label = "需要關注"
-            message = "持股資料、投資管家分析或掃描品質有待確認項目，建議重新評估。"
-        else:
-            state_key = "ready"
-            state_label = "監測正常"
-            message = "投資管家已完成持股監測，資料狀態正常。"
+            return {
+                "state": "setup",
+                "state_label": "等待持股資料",
+                "message": "請讀取 Excel 持股檔，投資管家會經 AI 通道建立風險監測。",
+            }
+        if ctx["symbol_quality"]["mapping_error"]:
+            return {
+                "state": "critical",
+                "state_label": "Excel 欄位需修正",
+                "message": (
+                    f"Excel 欄位映射錯誤：{len(holdings)} 筆中有 "
+                    f"{ctx['symbol_quality']['invalid_symbol_count']} 筆代號"
+                    "看起來像價格或無效值；投資風險判讀已暫停，請用「Excel 欄位」重新匯入。"
+                ),
+            }
+        if (
+            ctx["critical_count"] > 0
+            or ctx["xingcheng_state"] == "critical"
+            or ctx["workbook_state"] == "critical"
+        ):
+            return {
+                "state": "critical",
+                "state_label": "需要立即檢查",
+                "message": "已偵測重大風險或 Excel 掃描品質不足，請先確認資料與部位上限。",
+            }
+        if (
+            ctx["stale"]
+            or ctx["warning_count"] > 0
+            or ctx["xingcheng_state"] == "attention"
+            or ctx["workbook_state"] == "attention"
+        ):
+            return {
+                "state": "attention",
+                "state_label": "需要關注",
+                "message": "持股資料、投資管家分析或掃描品質有待確認項目，建議重新評估。",
+            }
+        return {
+            "state": "ready",
+            "state_label": "監測正常",
+            "message": "投資管家已完成持股監測，資料狀態正常。",
+        }
 
+    def _diagnostics_data_quality(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        symbol_quality = ctx["symbol_quality"]
+        return {
+            "state": "mapping_error" if symbol_quality["mapping_error"] else "ready",
+            "holding_count": len(ctx["holdings"]),
+            "invalid_symbol_count": symbol_quality["invalid_symbol_count"],
+            "decimal_symbol_count": symbol_quality["decimal_symbol_count"],
+            "invalid_symbol_percent": round(
+                symbol_quality["invalid_symbol_ratio"] * 100.0, 2
+            ),
+            "risk_analysis_suspended": symbol_quality["mapping_error"],
+        }
+
+    def _diagnostics_portfolio(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        portfolio = ctx["portfolio"]
+        return {
+            "file_name": portfolio.get("file_name") or "",
+            "holding_count": len(ctx["holdings"]),
+            "imported_at": portfolio.get("imported_at") or "",
+            "age_hours": ctx["portfolio_age_hours"],
+            "stale": ctx["stale"],
+        }
+
+    def _diagnostics_workbook(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        workbook_quality = ctx["workbook_quality"]
+        workbook_scan = ctx["workbook_scan"]
         selected_sheet = (
             workbook_scan.get("selected_sheet")
             if isinstance(workbook_scan.get("selected_sheet"), dict)
             else {}
         )
+        return {
+            "state": ctx["workbook_state"] or "not_applicable",
+            "state_label": workbook_quality.get("state_label") or "非 Excel 或尚未掃描",
+            "score": workbook_quality.get("score"),
+            "sheet_count": workbook_scan.get("sheet_count") or 0,
+            "selected_sheet_name": (
+                workbook_quality.get("selected_sheet_name")
+                or selected_sheet.get("sheet_name")
+                or ""
+            ),
+            "header_row_number": workbook_quality.get("header_row_number")
+            or selected_sheet.get("header_row_number"),
+            "header_depth": workbook_quality.get("header_depth")
+            or selected_sheet.get("header_depth"),
+            "valid_data_row_count": workbook_quality.get("valid_data_row_count")
+            or selected_sheet.get("valid_data_row_count"),
+            "recommendation": workbook_quality.get("recommendation") or "",
+        }
+
+    def _diagnostics_xingcheng(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        product_status = ctx["product_status"]
+        network_context = ctx["network_context"]
+        holdings = ctx["holdings"]
+        return {
+            "state": ctx["xingcheng_state"] or ("empty" if not holdings else "attention"),
+            "state_label": product_status.get("state_label")
+            or ("等待持股資料" if not holdings else "等待投資管家分析"),
+            "score": product_status.get("score"),
+            "risk_level": product_status.get("risk_level"),
+            "risk_level_label": product_status.get("risk_level_label"),
+            "watch_status_label": product_status.get("watch_status_label"),
+            "network_enabled": bool(product_status.get("network_enabled")),
+            "network_mode": product_status.get("network_mode") or "",
+            "network_mode_label": product_status.get("network_mode_label")
+            or product_status.get("watch_status_label"),
+            "quote_health": product_status.get("quote_health")
+            or network_context.get("health")
+            or "",
+            "quote_health_label": product_status.get("quote_health_label")
+            or network_context.get("health_label")
+            or "",
+            "network_policy": product_status.get("network_policy") or "",
+            "quote_provider_count": network_context.get("quote_provider_count") or 0,
+            "quote_providers": network_context.get("quote_providers") or [],
+            "verified_quote_count": network_context.get("verified_quote_count") or 0,
+            "cross_checked_count": network_context.get("cross_checked_count") or 0,
+            "single_source_count": network_context.get("single_source_count") or 0,
+            "untrusted_quote_count": network_context.get("untrusted_quote_count") or 0,
+            "validation_issue_count": network_context.get("validation_issue_count") or 0,
+            "divergence_count": network_context.get("divergence_count") or 0,
+            "stale_quote_count": network_context.get("stale_quote_count") or 0,
+            "symbol_mismatch_count": network_context.get("symbol_mismatch_count") or 0,
+            "currency_mismatch_count": network_context.get("currency_mismatch_count") or 0,
+            "quote_gap_count": network_context.get("quote_gap_count") or 0,
+            "quote_gaps": network_context.get("quote_gaps") or [],
+            "coverage_percent": network_context.get("coverage_percent"),
+            "coverage_label": product_status.get("coverage_label") or "",
+            "warning_count": ctx["warning_count"],
+            "critical_count": ctx["critical_count"],
+            "offline_mode": bool(product_status.get("offline_mode", True)),
+            "generated_at": product_status.get("generated_at") or "",
+        }
+
+    def _diagnostics_runs(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        runs = ctx["runs"]
         latest_run = runs[0] if runs else {}
-        network_context = (
-            state.get("xingcheng_network_context")
-            if isinstance(state.get("xingcheng_network_context"), dict)
-            else product_status.get("network_context")
-            if isinstance(product_status.get("network_context"), dict)
-            else {}
-        )
+        return {
+            "count": len(runs),
+            "latest": {
+                "run_id": latest_run.get("run_id") or "",
+                "role": latest_run.get("role") or "",
+                "provider": latest_run.get("provider") or "",
+                "status": latest_run.get("status") or "",
+                "created_at": latest_run.get("created_at") or "",
+            },
+        }
+
+    def _diagnostics_error_logging(self) -> dict[str, Any]:
         error_log_path = self.repository.runtime_root / "xingcheng-errors.jsonl"
         error_archive_root = (
             self.repository.runtime_root / "xingcheng-error-archives"
@@ -265,106 +453,13 @@ class WatchAppStateMixin:
             error_archives = []
             error_archive_bytes = 0
         return {
-            "state": state_key,
-            "state_label": state_label,
-            "message": message,
-            "generated_at": local_device_now().isoformat(),
-            "data_quality": {
-                "state": "mapping_error" if mapping_error else "ready",
-                "holding_count": len(holdings),
-                "invalid_symbol_count": invalid_symbol_count,
-                "decimal_symbol_count": decimal_symbol_count,
-                "invalid_symbol_percent": round(invalid_symbol_ratio * 100.0, 2),
-                "risk_analysis_suspended": mapping_error,
-            },
-            "portfolio": {
-                "file_name": portfolio.get("file_name") or "",
-                "holding_count": len(holdings),
-                "imported_at": portfolio.get("imported_at") or "",
-                "age_hours": portfolio_age_hours,
-                "stale": stale,
-            },
-            "workbook": {
-                "state": workbook_state or "not_applicable",
-                "state_label": workbook_quality.get("state_label") or "非 Excel 或尚未掃描",
-                "score": workbook_quality.get("score"),
-                "sheet_count": workbook_scan.get("sheet_count") or 0,
-                "selected_sheet_name": (
-                    workbook_quality.get("selected_sheet_name")
-                    or selected_sheet.get("sheet_name")
-                    or ""
-                ),
-                "header_row_number": workbook_quality.get("header_row_number")
-                or selected_sheet.get("header_row_number"),
-                "header_depth": workbook_quality.get("header_depth")
-                or selected_sheet.get("header_depth"),
-                "valid_data_row_count": workbook_quality.get("valid_data_row_count")
-                or selected_sheet.get("valid_data_row_count"),
-                "recommendation": workbook_quality.get("recommendation") or "",
-            },
-            "xingcheng": {
-                "state": xingcheng_state or ("empty" if not holdings else "attention"),
-                "state_label": product_status.get("state_label")
-                or ("等待持股資料" if not holdings else "等待投資管家分析"),
-                "score": product_status.get("score"),
-                "risk_level": product_status.get("risk_level"),
-                "risk_level_label": product_status.get("risk_level_label"),
-                "watch_status_label": product_status.get("watch_status_label"),
-                "network_enabled": bool(product_status.get("network_enabled")),
-                "network_mode": product_status.get("network_mode") or "",
-                "network_mode_label": product_status.get("network_mode_label")
-                or product_status.get("watch_status_label"),
-                "quote_health": product_status.get("quote_health")
-                or network_context.get("health")
-                or "",
-                "quote_health_label": product_status.get("quote_health_label")
-                or network_context.get("health_label")
-                or "",
-                "network_policy": product_status.get("network_policy") or "",
-                "quote_provider_count": network_context.get("quote_provider_count") or 0,
-                "quote_providers": network_context.get("quote_providers") or [],
-                "verified_quote_count": network_context.get("verified_quote_count") or 0,
-                "cross_checked_count": network_context.get("cross_checked_count") or 0,
-                "single_source_count": network_context.get("single_source_count") or 0,
-                "untrusted_quote_count": network_context.get("untrusted_quote_count") or 0,
-                "validation_issue_count": network_context.get("validation_issue_count") or 0,
-                "divergence_count": network_context.get("divergence_count") or 0,
-                "stale_quote_count": network_context.get("stale_quote_count") or 0,
-                "symbol_mismatch_count": network_context.get("symbol_mismatch_count") or 0,
-                "currency_mismatch_count": network_context.get("currency_mismatch_count") or 0,
-                "quote_gap_count": network_context.get("quote_gap_count") or 0,
-                "quote_gaps": network_context.get("quote_gaps") or [],
-                "coverage_percent": network_context.get("coverage_percent"),
-                "coverage_label": product_status.get("coverage_label") or "",
-                "warning_count": warning_count,
-                "critical_count": critical_count,
-                "offline_mode": bool(product_status.get("offline_mode", True)),
-                "generated_at": product_status.get("generated_at") or "",
-            },
-            "runs": {
-                "count": len(runs),
-                "latest": {
-                    "run_id": latest_run.get("run_id") or "",
-                    "role": latest_run.get("role") or "",
-                    "provider": latest_run.get("provider") or "",
-                    "status": latest_run.get("status") or "",
-                    "created_at": latest_run.get("created_at") or "",
-                },
-            },
-            "error_logging": {
-                "enabled": True,
-                "count": error_log_count,
-                "path": str(error_log_path),
-                "format": "jsonl",
-                "archive_path": str(error_archive_root),
-                "archive_file_count": len(error_archives),
-                "archive_bytes": error_archive_bytes,
-                "storage_pressure": error_archive_bytes >= 256 * 1024 * 1024,
-                "automatic_delete": False,
-            },
-            "boundaries": {
-                "local_only": True,
-                "external_ai": False,
-                "service_commands": sorted(self.COMMANDS),
-            },
+            "enabled": True,
+            "count": error_log_count,
+            "path": str(error_log_path),
+            "format": "jsonl",
+            "archive_path": str(error_archive_root),
+            "archive_file_count": len(error_archives),
+            "archive_bytes": error_archive_bytes,
+            "storage_pressure": error_archive_bytes >= 256 * 1024 * 1024,
+            "automatic_delete": False,
         }

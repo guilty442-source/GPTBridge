@@ -78,54 +78,55 @@ def test_star_can_run_all_fixed_ai_workflows_concurrently(tmp_path: Path) -> Non
     assert all(item["final_coordinator"] == "chatgpt" for item in result["results"])
 
 
-def test_browser_waits_three_cycles_then_uses_chatgpt_terminal_fallback(
-    tmp_path: Path,
-) -> None:
-    class WaitingSession:
-        def __init__(self) -> None:
-            self.fallback_calls = 0
+class _TerminalFallbackWaitingSession:
+    def __init__(self) -> None:
+        self.fallback_calls = 0
 
-        async def send_task(
-            self, agent: dict[str, object], _task: dict[str, object]
-        ) -> dict[str, object]:
-            if agent["provider"] == "chatgpt":
-                return {
-                    "status": "completed",
-                    "provider": "chatgpt",
-                    "content": "ChatGPT 最終統籌",
-                    "memory_candidates": [],
-                }
-            return {
-                "status": "awaiting-user",
-                "provider": agent["provider"],
-                "content": "",
-                "memory_candidates": [],
-            }
-
-        async def send_terminal_fallback(
-            self,
-            _agent: dict[str, object],
-            _task: dict[str, object],
-            reason: str,
-        ) -> dict[str, object]:
-            self.fallback_calls += 1
-            assert reason == "BROWSER_WAIT_EXHAUSTED_AFTER_THREE_ATTEMPTS"
+    async def send_task(
+        self, agent: dict[str, object], _task: dict[str, object]
+    ) -> dict[str, object]:
+        if agent["provider"] == "chatgpt":
             return {
                 "status": "completed",
                 "provider": "chatgpt",
-                "content": "ChatGPT 接手原任務",
+                "content": "ChatGPT 最終統籌",
                 "memory_candidates": [],
-                "fallback": {
-                    "used": True,
-                    "terminal_fallback_only": True,
-                    "wait_attempts": 3,
-                },
             }
+        return {
+            "status": "awaiting-user",
+            "provider": agent["provider"],
+            "content": "",
+            "memory_candidates": [],
+        }
 
-        async def close_background_context(self) -> None:
-            return None
+    async def send_terminal_fallback(
+        self,
+        _agent: dict[str, object],
+        _task: dict[str, object],
+        reason: str,
+    ) -> dict[str, object]:
+        self.fallback_calls += 1
+        assert reason == "BROWSER_WAIT_EXHAUSTED_AFTER_THREE_ATTEMPTS"
+        return {
+            "status": "completed",
+            "provider": "chatgpt",
+            "content": "ChatGPT 接手原任務",
+            "memory_candidates": [],
+            "fallback": {
+                "used": True,
+                "terminal_fallback_only": True,
+                "wait_attempts": 3,
+            },
+        }
 
-    session = WaitingSession()
+    async def close_background_context(self) -> None:
+        return None
+
+
+def test_browser_waits_three_cycles_then_uses_chatgpt_terminal_fallback(
+    tmp_path: Path,
+) -> None:
+    session = _TerminalFallbackWaitingSession()
     service = AiCollaborationService(tmp_path, session=session)
     service.BROWSER_WAIT_SECONDS = 0.01
 

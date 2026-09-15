@@ -29,36 +29,8 @@ class VaultlyLinkJobsMixin:
         for target_index, target in enumerate(targets, start=1):
             if self._is_cancelled(job_id):
                 return
-            if not isinstance(target, dict):
-                counters["failed"] += 1
-                self.repository.update_job(
-                    job_id,
-                    progress_current=target_index,
-                    message=f"連結 {target_index}/{len(targets)} 格式不正確",
-                    **counters,
-                )
-                continue
-            platform = str(target.get("platform", "")).strip()
-            url = str(target.get("url", "")).strip()
-            self.repository.update_job(
-                job_id,
-                progress_current=target_index - 1,
-                message=f"解析連結 {target_index}/{len(targets)}",
-                **counters,
-            )
-            try:
-                await self._process_link_target(job, platform, url, counters)
-                link_message = f"完成連結 {target_index}/{len(targets)}"
-            except Exception as exc:
-                counters["failed"] += 1
-                link_message = (
-                    f"連結 {target_index}/{len(targets)} 失敗：{self._short_error(exc)}"
-                )
-            self.repository.update_job(
-                job_id,
-                progress_current=target_index,
-                message=link_message,
-                **counters,
+            await self._process_link_target_entry(
+                job, job_id, target, target_index, len(targets), counters
             )
 
         if self._is_cancelled(job_id):
@@ -77,6 +49,47 @@ class VaultlyLinkJobsMixin:
             status="completed",
             message=message,
             finished_at=self._now(),
+            **counters,
+        )
+
+    async def _process_link_target_entry(
+        self,
+        job: dict[str, Any],
+        job_id: str,
+        target: Any,
+        target_index: int,
+        total: int,
+        counters: dict[str, int],
+    ) -> None:
+        if not isinstance(target, dict):
+            counters["failed"] += 1
+            self.repository.update_job(
+                job_id,
+                progress_current=target_index,
+                message=f"連結 {target_index}/{total} 格式不正確",
+                **counters,
+            )
+            return
+        platform = str(target.get("platform", "")).strip()
+        url = str(target.get("url", "")).strip()
+        self.repository.update_job(
+            job_id,
+            progress_current=target_index - 1,
+            message=f"解析連結 {target_index}/{total}",
+            **counters,
+        )
+        try:
+            await self._process_link_target(job, platform, url, counters)
+            link_message = f"完成連結 {target_index}/{total}"
+        except Exception as exc:
+            counters["failed"] += 1
+            link_message = (
+                f"連結 {target_index}/{total} 失敗：{self._short_error(exc)}"
+            )
+        self.repository.update_job(
+            job_id,
+            progress_current=target_index,
+            message=link_message,
             **counters,
         )
 
@@ -116,6 +129,20 @@ class VaultlyLinkJobsMixin:
             counters["skipped"] += 1
             return
 
+        await self._process_link_media(
+            page, job, account, inspected, definition, media_items, counters
+        )
+
+    async def _process_link_media(
+        self,
+        page: Any,
+        job: dict[str, Any],
+        account: dict[str, str],
+        inspected: dict[str, Any],
+        definition: Any,
+        media_items: list[dict[str, Any]],
+        counters: dict[str, int],
+    ) -> None:
         matched_for_link = 0
         for media_index, media in enumerate(media_items):
             media_type = str(media.get("media_type", "")).strip()

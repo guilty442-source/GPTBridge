@@ -72,19 +72,7 @@ class SovereignExecutionPipeline:
         if gate != "allowed":
             # Refused commands still carry the full tier trail: planning and
             # executor tiers record the refusal instead of being skipped.
-            ledger.record(
-                ExecutionTier.TASK_PLANNING,
-                self._sovereign.sovereign_id,
-                "not-planned",
-                {"reason": gate},
-            )
-            ledger.record(
-                ExecutionTier.SPECIALIZED_EXECUTOR,
-                "decision-layer",
-                "not-executed",
-                {"reason": gate},
-            )
-            return await self._finalize(ledger, request, _refusal(gate))
+            return await self._gate_refusal(ledger, request, gate)
         decision = await self._sovereign._adjudicate(request)
         plan_details = _plan(decision, request)
         plan_details["decision_basis"] = (
@@ -111,6 +99,26 @@ class SovereignExecutionPipeline:
             },
         )
         return await self._finalize(ledger, request, outcome)
+
+    async def _gate_refusal(
+        self,
+        ledger: ExecutionReceiptLedger,
+        request: SovereignRequest,
+        gate: str,
+    ) -> SovereignOutcome:
+        ledger.record(
+            ExecutionTier.TASK_PLANNING,
+            self._sovereign.sovereign_id,
+            "not-planned",
+            {"reason": gate},
+        )
+        ledger.record(
+            ExecutionTier.SPECIALIZED_EXECUTOR,
+            "decision-layer",
+            "not-executed",
+            {"reason": gate},
+        )
+        return await self._finalize(ledger, request, _refusal(gate))
 
     async def _authorization_gate(
         self, request: SovereignRequest
@@ -169,24 +177,7 @@ class SovereignExecutionPipeline:
             "verified" if verdict.verified else "failed",
             verdict.to_record(),
         )
-        try:
-            entry = publish_execution_audit(
-                ledger,
-                {"accepted": bool(outcome.accepted), "verification": verdict.to_record()},
-            )
-            ledger.record(
-                ExecutionTier.AUDIT_PUBLICATION,
-                "audit-ledger",
-                "published",
-                {"entry": entry},
-            )
-        except ReceiptError as error:
-            ledger.record(
-                ExecutionTier.AUDIT_PUBLICATION,
-                "audit-ledger",
-                "failed",
-                {"error": str(error)[:200]},
-            )
+        if not self._publish_audit_tier(ledger, outcome, verdict):
             return _refusal("AUDIT_PUBLICATION_FAILED", ledger, verdict)
         # A446: require complete receipts, independent verification, and audit publication
         if not outcome.accepted:
@@ -207,6 +198,33 @@ class SovereignExecutionPipeline:
             result=result,
             basis=outcome.basis,
         )
+
+    def _publish_audit_tier(
+        self,
+        ledger: ExecutionReceiptLedger,
+        outcome: SovereignOutcome,
+        verdict: VerificationVerdict,
+    ) -> bool:
+        try:
+            entry = publish_execution_audit(
+                ledger,
+                {"accepted": bool(outcome.accepted), "verification": verdict.to_record()},
+            )
+            ledger.record(
+                ExecutionTier.AUDIT_PUBLICATION,
+                "audit-ledger",
+                "published",
+                {"entry": entry},
+            )
+            return True
+        except ReceiptError as error:
+            ledger.record(
+                ExecutionTier.AUDIT_PUBLICATION,
+                "audit-ledger",
+                "failed",
+                {"error": str(error)[:200]},
+            )
+            return False
 
 
 def _request_id(request: SovereignRequest) -> str:

@@ -147,6 +147,11 @@ class SubSovereignBase(SovereignBase, ABC):
         token = request.payload.get("capability_token")
         if token is None:
             return True
+        return self._verify_capability_token(request, parent, token)
+
+    def _verify_capability_token(
+        self, request: SovereignRequest, parent: str, token: Any
+    ) -> bool:
         if not isinstance(token, str) or not token:
             return False
         auth = getattr(self.app, "governance_auth", None) or getattr(self.app, "governance", None)

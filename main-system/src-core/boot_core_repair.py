@@ -80,40 +80,7 @@ class BootCoreRepairMixin:
                 # Another owner is already repairing — do not duplicate.
                 return
 
-            from tasks.central_repair import CentralRepairService
-
-            repair_root = self.project_root / "main-system" / "data" / "automatic-repair"
-            repair_root.mkdir(parents=True, exist_ok=True)
-            service = CentralRepairService(self.project_root, repair_root)
-            # Consult learned recipes with the consistent connection signature
-            # (continuous learning: recorded outcomes are discoverable here).
-            try:
-                suggestion = service.suggest_connection_remedy(
-                    failure_code,
-                    getattr(snapshot, "overall_state", "unknown"),
-                    "disconnected",
-                )
-                if suggestion.get("suggested"):
-                    # A learned recipe exists — record that it was consulted.
-                    service.record_connection_outcome(
-                        failure_code,
-                        getattr(snapshot, "overall_state", "unknown"),
-                        "disconnected",
-                        remedy=str(suggestion.get("remedy", "connection-watchdog")),
-                        ok=False,
-                        run_id=f"watchdog-{int(time.time())}",
-                    )
-            except Exception:
-                pass
-            # Record the connection failure for learning.
-            service.record_connection_outcome(
-                failure_code,
-                getattr(snapshot, "overall_state", "unknown"),
-                "disconnected",
-                remedy="connection-watchdog",
-                ok=False,
-                run_id=f"watchdog-{int(time.time())}",
-            )
+            self._record_connection_repair_learning(failure_code, snapshot)
             # Release the lock so the frontend or boot_core restart can proceed.
             coordinator.release(
                 owner="boot-core-connection-watchdog",
@@ -121,6 +88,44 @@ class BootCoreRepairMixin:
             )
         except Exception:
             pass  # Learning is best-effort.
+
+    def _record_connection_repair_learning(
+        self, failure_code: str, snapshot: Any
+    ) -> None:
+        from tasks.central_repair import CentralRepairService
+
+        repair_root = self.project_root / "main-system" / "data" / "automatic-repair"
+        repair_root.mkdir(parents=True, exist_ok=True)
+        service = CentralRepairService(self.project_root, repair_root)
+        # Consult learned recipes with the consistent connection signature
+        # (continuous learning: recorded outcomes are discoverable here).
+        try:
+            suggestion = service.suggest_connection_remedy(
+                failure_code,
+                getattr(snapshot, "overall_state", "unknown"),
+                "disconnected",
+            )
+            if suggestion.get("suggested"):
+                # A learned recipe exists — record that it was consulted.
+                service.record_connection_outcome(
+                    failure_code,
+                    getattr(snapshot, "overall_state", "unknown"),
+                    "disconnected",
+                    remedy=str(suggestion.get("remedy", "connection-watchdog")),
+                    ok=False,
+                    run_id=f"watchdog-{int(time.time())}",
+                )
+        except Exception:
+            pass
+        # Record the connection failure for learning.
+        service.record_connection_outcome(
+            failure_code,
+            getattr(snapshot, "overall_state", "unknown"),
+            "disconnected",
+            remedy="connection-watchdog",
+            ok=False,
+            run_id=f"watchdog-{int(time.time())}",
+        )
 
     def _start_gateway(self, allow_replacement: bool) -> None:
         try:
@@ -180,34 +185,39 @@ class BootCoreRepairMixin:
         self._write_state(repair=report)
 
         try:
-            self._ensure_runtime_paths()
-
-            with self._child_output_lock:
-                child_output = list(self._child_output)
-            diagnosis = self._crash_diagnoser.diagnose(
-                child_output, self.project_root
-            )
-            report["diagnosis"] = diagnosis
-
-            from tasks.repair_coordinator import RepairCoordinator
-
-            failure_code = str(diagnosis.get("failure_code") or "STARTUP_CRASH")
-            signal_report = RepairCoordinator(
-                self.project_root
-            ).request_governed_repair(
-                failure_code=failure_code,
-                owner="startup-sub-sovereign",
-                decision_proof={
-                    "authority": "signal-only",
-                    "exit_code": exit_code,
-                    "uptime_seconds": round(uptime, 3),
-                    "diagnosis": diagnosis,
-                },
-                signal_only=True,
-            )
-            report["ok"] = bool(signal_report.get("ok"))
-            report["signal"] = signal_report
+            self._submit_startup_repair_signal(report, exit_code, uptime)
         except Exception as error:
             report["ok"] = False
             report["error"] = f"{type(error).__name__}: {error}"
         return report
+
+    def _submit_startup_repair_signal(
+        self, report: dict[str, object], exit_code: int, uptime: float
+    ) -> None:
+        self._ensure_runtime_paths()
+
+        with self._child_output_lock:
+            child_output = list(self._child_output)
+        diagnosis = self._crash_diagnoser.diagnose(
+            child_output, self.project_root
+        )
+        report["diagnosis"] = diagnosis
+
+        from tasks.repair_coordinator import RepairCoordinator
+
+        failure_code = str(diagnosis.get("failure_code") or "STARTUP_CRASH")
+        signal_report = RepairCoordinator(
+            self.project_root
+        ).request_governed_repair(
+            failure_code=failure_code,
+            owner="startup-sub-sovereign",
+            decision_proof={
+                "authority": "signal-only",
+                "exit_code": exit_code,
+                "uptime_seconds": round(uptime, 3),
+                "diagnosis": diagnosis,
+            },
+            signal_only=True,
+        )
+        report["ok"] = bool(signal_report.get("ok"))
+        report["signal"] = signal_report

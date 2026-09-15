@@ -7,67 +7,7 @@ from typing import Any
 
 from ._helpers import _utc_now
 
-
-class PostMixin:
-    @staticmethod
-    def post_id_for(platform: str, post_url: str) -> str:
-        digest = hashlib.sha256(f"{platform}|{post_url}".encode("utf-8")).hexdigest()
-        return digest[:24]
-
-    def upsert_post(
-        self,
-        account: dict[str, Any],
-        post: dict[str, Any],
-        media_items: list[dict[str, Any]] | None = None,
-        scan_status: str = "discovered",
-        last_error: str = "",
-    ) -> str:
-        platform = str(account.get("platform", "")).strip()
-        post_url = str(post.get("post_url", "")).strip()
-        if not platform or not post_url:
-            return ""
-
-        post_id = self.post_id_for(platform, post_url)
-        now = _utc_now()
-        with self._connect() as connection:
-            existing = connection.execute(
-                """
-                SELECT media_count, downloadable_count, thumbnail_url, scan_status
-                FROM vaultly_posts
-                WHERE post_id = ?
-                """,
-                (post_id,),
-            ).fetchone()
-            existing_full = self._row_by_key(
-                connection,
-                "vaultly_posts",
-                "post_id",
-                post_id,
-            )
-            self._record_row_history(
-                connection,
-                "post",
-                post_id,
-                "superseded",
-                existing_full,
-            )
-            if media_items is None and existing is not None:
-                media_count = int(existing["media_count"])
-                downloadable_count = int(existing["downloadable_count"])
-                thumbnail_url = str(existing["thumbnail_url"])
-                existing_status = str(existing["scan_status"])
-                if existing_status in {"ready", "no_media"}:
-                    scan_status = existing_status
-            else:
-                normalized_media = media_items or []
-                media_count = len(normalized_media)
-                downloadable_count = sum(
-                    1 for media in normalized_media if str(media.get("source_url", "")).strip()
-                )
-                thumbnail_url = self._thumbnail_for_media(normalized_media)
-
-            connection.execute(
-                """
+_UPSERT_POST_SQL = """
                 INSERT INTO vaultly_posts (
                     post_id, platform, account_id, account_handle, account_display_name,
                     post_url, text, published_at, likes_text, views_text,
@@ -108,96 +48,9 @@ class PostMixin:
                         ELSE vaultly_posts.last_inspected_at
                     END,
                     updated_at = excluded.updated_at
-                """,
-                (
-                    post_id,
-                    platform,
-                    str(account.get("account_id", "")).strip(),
-                    str(account.get("handle", "")).strip(),
-                    str(account.get("display_name", "")).strip(),
-                    post_url,
-                    str(post.get("text", "")).strip(),
-                    str(post.get("published_at", "")).strip(),
-                    str(post.get("likes", "")).strip(),
-                    str(post.get("views", "")).strip(),
-                    media_count,
-                    downloadable_count,
-                    thumbnail_url,
-                    scan_status,
-                    str(last_error).strip()[:1000],
-                    now if media_items is not None else "",
-                    now,
-                    now,
-                ),
-            )
-            self._record_row_history(
-                connection,
-                "post",
-                post_id,
-                "created" if existing_full is None else "updated",
-                self._row_by_key(
-                    connection,
-                    "vaultly_posts",
-                    "post_id",
-                    post_id,
-                ),
-            )
+                """
 
-            if media_items is not None:
-                previous_media = connection.execute(
-                    """
-                    SELECT media_id, post_id, media_index, media_type, source_url, thumbnail_url, fallback_urls_json, delivery, created_at, updated_at, is_active, deactivated_at FROM vaultly_post_media
-                    WHERE post_id = ? AND is_active = 1
-                    """,
-                    (post_id,),
-                ).fetchall()
-                for previous in previous_media:
-                    media_key = str(previous["media_id"])
-                    self._record_row_history(
-                        connection,
-                        "post_media",
-                        media_key,
-                        "superseded",
-                        previous,
-                    )
-                connection.execute(
-                    """
-                    UPDATE vaultly_post_media
-                    SET is_active = 0, deactivated_at = ?, updated_at = ?
-                    WHERE post_id = ? AND is_active = 1
-                    """,
-                    (now, now, post_id),
-                )
-                for previous in previous_media:
-                    media_key = str(previous["media_id"])
-                    self._record_row_history(
-                        connection,
-                        "post_media",
-                        media_key,
-                        "deactivated",
-                        self._row_by_key(
-                            connection,
-                            "vaultly_post_media",
-                            "media_id",
-                            media_key,
-                        ),
-                    )
-                for media_index, media in enumerate(media_items):
-                    source_url = str(media.get("source_url", "")).strip()
-                    media_id = hashlib.sha256(
-                        f"{post_id}|{media_index}|{source_url}".encode("utf-8")
-                    ).hexdigest()[:32]
-                    fallback_urls = media.get("fallback_urls", [])
-                    if not isinstance(fallback_urls, list):
-                        fallback_urls = []
-                    existing_media = self._row_by_key(
-                        connection,
-                        "vaultly_post_media",
-                        "media_id",
-                        media_id,
-                    )
-                    connection.execute(
-                        """
+_UPSERT_POST_MEDIA_SQL = """
                         INSERT INTO vaultly_post_media (
                             media_id, post_id, media_index, media_type, source_url,
                             thumbnail_url, fallback_urls_json, delivery, created_at, updated_at,
@@ -215,39 +68,237 @@ class PostMixin:
                             updated_at = excluded.updated_at,
                             is_active = 1,
                             deactivated_at = ''
-                        """,
-                        (
-                            media_id,
-                            post_id,
-                            media_index,
-                            str(media.get("media_type", "")).strip(),
-                            source_url,
-                            str(media.get("thumbnail_url", "")).strip(),
-                            json.dumps([str(url) for url in fallback_urls], ensure_ascii=False),
-                            str(media.get("delivery", "")).strip(),
-                            now,
-                            now,
-                        ),
-                    )
-                    self._record_row_history(
-                        connection,
-                        "post_media",
-                        media_id,
-                        (
-                            "created"
-                            if existing_media is None
-                            else "reactivated"
-                            if not bool(existing_media["is_active"])
-                            else "updated"
-                        ),
-                        self._row_by_key(
-                            connection,
-                            "vaultly_post_media",
-                            "media_id",
-                            media_id,
-                        ),
+                        """
+
+_PREVIOUS_POST_MEDIA_SQL = """
+                    SELECT media_id, post_id, media_index, media_type, source_url, thumbnail_url, fallback_urls_json, delivery, created_at, updated_at, is_active, deactivated_at FROM vaultly_post_media
+                    WHERE post_id = ? AND is_active = 1
+                    """
+
+_POST_METRICS_SQL = """
+                SELECT media_count, downloadable_count, thumbnail_url, scan_status
+                FROM vaultly_posts
+                WHERE post_id = ?
+                """
+
+
+class PostMixin:
+    @staticmethod
+    def post_id_for(platform: str, post_url: str) -> str:
+        digest = hashlib.sha256(f"{platform}|{post_url}".encode("utf-8")).hexdigest()
+        return digest[:24]
+
+    def upsert_post(
+        self,
+        account: dict[str, Any],
+        post: dict[str, Any],
+        media_items: list[dict[str, Any]] | None = None,
+        scan_status: str = "discovered",
+        last_error: str = "",
+    ) -> str:
+        platform = str(account.get("platform", "")).strip()
+        post_url = str(post.get("post_url", "")).strip()
+        if not platform or not post_url:
+            return ""
+
+        post_id = self.post_id_for(platform, post_url)
+        now = _utc_now()
+        with self._connect() as connection:
+            existing = connection.execute(_POST_METRICS_SQL, (post_id,)).fetchone()
+            existing_full = self._row_by_key(
+                connection, "vaultly_posts", "post_id", post_id
+            )
+            self._record_row_history(
+                connection, "post", post_id, "superseded", existing_full
+            )
+            media_count, downloadable_count, thumbnail_url, scan_status = (
+                self._post_metrics(existing, media_items, scan_status)
+            )
+            connection.execute(
+                _UPSERT_POST_SQL,
+                self._post_params(
+                    account, post, post_id, platform, post_url, media_count,
+                    downloadable_count, thumbnail_url, scan_status, last_error,
+                    media_items, now,
+                ),
+            )
+            self._record_row_history(
+                connection,
+                "post",
+                post_id,
+                "created" if existing_full is None else "updated",
+                self._row_by_key(
+                    connection, "vaultly_posts", "post_id", post_id
+                ),
+            )
+            if media_items is not None:
+                self._deactivate_previous_media(connection, post_id, now)
+                for media_index, media in enumerate(media_items):
+                    self._upsert_post_media_item(
+                        connection, post_id, media_index, media, now
                     )
         return post_id
+
+    def _post_metrics(
+        self,
+        existing: sqlite3.Row | None,
+        media_items: list[dict[str, Any]] | None,
+        scan_status: str,
+    ) -> tuple[int, int, str, str]:
+        if media_items is None and existing is not None:
+            existing_status = str(existing["scan_status"])
+            if existing_status in {"ready", "no_media"}:
+                scan_status = existing_status
+            return (
+                int(existing["media_count"]),
+                int(existing["downloadable_count"]),
+                str(existing["thumbnail_url"]),
+                scan_status,
+            )
+        normalized_media = media_items or []
+        return (
+            len(normalized_media),
+            sum(
+                1 for media in normalized_media if str(media.get("source_url", "")).strip()
+            ),
+            self._thumbnail_for_media(normalized_media),
+            scan_status,
+        )
+
+    @staticmethod
+    def _post_params(
+        account: dict[str, Any],
+        post: dict[str, Any],
+        post_id: str,
+        platform: str,
+        post_url: str,
+        media_count: int,
+        downloadable_count: int,
+        thumbnail_url: str,
+        scan_status: str,
+        last_error: str,
+        media_items: list[dict[str, Any]] | None,
+        now: str,
+    ) -> tuple[Any, ...]:
+        return (
+            post_id,
+            platform,
+            str(account.get("account_id", "")).strip(),
+            str(account.get("handle", "")).strip(),
+            str(account.get("display_name", "")).strip(),
+            post_url,
+            str(post.get("text", "")).strip(),
+            str(post.get("published_at", "")).strip(),
+            str(post.get("likes", "")).strip(),
+            str(post.get("views", "")).strip(),
+            media_count,
+            downloadable_count,
+            thumbnail_url,
+            scan_status,
+            str(last_error).strip()[:1000],
+            now if media_items is not None else "",
+            now,
+            now,
+        )
+
+    def _deactivate_previous_media(
+        self,
+        connection: sqlite3.Connection,
+        post_id: str,
+        now: str,
+    ) -> None:
+        previous_media = connection.execute(
+            _PREVIOUS_POST_MEDIA_SQL,
+            (post_id,),
+        ).fetchall()
+        for previous in previous_media:
+            media_key = str(previous["media_id"])
+            self._record_row_history(
+                connection,
+                "post_media",
+                media_key,
+                "superseded",
+                previous,
+            )
+        connection.execute(
+            """
+            UPDATE vaultly_post_media
+            SET is_active = 0, deactivated_at = ?, updated_at = ?
+            WHERE post_id = ? AND is_active = 1
+            """,
+            (now, now, post_id),
+        )
+        for previous in previous_media:
+            media_key = str(previous["media_id"])
+            self._record_row_history(
+                connection,
+                "post_media",
+                media_key,
+                "deactivated",
+                self._row_by_key(
+                    connection,
+                    "vaultly_post_media",
+                    "media_id",
+                    media_key,
+                ),
+            )
+
+    def _upsert_post_media_item(
+        self,
+        connection: sqlite3.Connection,
+        post_id: str,
+        media_index: int,
+        media: dict[str, Any],
+        now: str,
+    ) -> None:
+        source_url = str(media.get("source_url", "")).strip()
+        media_id = hashlib.sha256(
+            f"{post_id}|{media_index}|{source_url}".encode("utf-8")
+        ).hexdigest()[:32]
+        fallback_urls = media.get("fallback_urls", [])
+        if not isinstance(fallback_urls, list):
+            fallback_urls = []
+        existing_media = self._row_by_key(
+            connection,
+            "vaultly_post_media",
+            "media_id",
+            media_id,
+        )
+        connection.execute(
+            _UPSERT_POST_MEDIA_SQL,
+            (
+                media_id,
+                post_id,
+                media_index,
+                str(media.get("media_type", "")).strip(),
+                source_url,
+                str(media.get("thumbnail_url", "")).strip(),
+                json.dumps([str(url) for url in fallback_urls], ensure_ascii=False),
+                str(media.get("delivery", "")).strip(),
+                now,
+                now,
+            ),
+        )
+        self._record_row_history(
+            connection,
+            "post_media",
+            media_id,
+            self._media_change_kind(existing_media),
+            self._row_by_key(
+                connection,
+                "vaultly_post_media",
+                "media_id",
+                media_id,
+            ),
+        )
+
+    @staticmethod
+    def _media_change_kind(existing_media: sqlite3.Row | None) -> str:
+        if existing_media is None:
+            return "created"
+        if not bool(existing_media["is_active"]):
+            return "reactivated"
+        return "updated"
 
     @staticmethod
     def _thumbnail_for_media(media_items: list[dict[str, Any]]) -> str:
@@ -331,41 +382,8 @@ class PostMixin:
                 """,
                 (*params, max(1, min(300, limit)), max(0, offset)),
             ).fetchall()
-            post_ids = [str(row["post_id"]) for row in rows]
-            media_by_post: dict[str, list[dict[str, Any]]] = {post_id: [] for post_id in post_ids}
-            if post_ids:
-                placeholders = ",".join("?" for _ in post_ids)
-                media_rows = connection.execute(
-                    f"""
-                    SELECT post_id, media_id, media_index, media_type, source_url,
-                           thumbnail_url, fallback_urls_json, delivery
-                    FROM vaultly_post_media
-                    WHERE post_id IN ({placeholders}) AND is_active = 1
-                    ORDER BY post_id, media_index
-                    """,
-                    tuple(post_ids),
-                ).fetchall()
-                for media_row in media_rows:
-                    media = dict(media_row)
-                    try:
-                        media["fallback_urls"] = json.loads(
-                            str(media.pop("fallback_urls_json"))
-                        )
-                    except json.JSONDecodeError:
-                        media["fallback_urls"] = []
-                    media_by_post.setdefault(str(media["post_id"]), []).append(media)
-
-            history_rows = connection.execute(
-                """
-                SELECT post_url, COUNT(*) AS downloaded_count
-                FROM vaultly_media_history
-                GROUP BY post_url
-                """
-            ).fetchall()
-        downloaded_counts = {
-            str(row["post_url"]): int(row["downloaded_count"])
-            for row in history_rows
-        }
+            media_by_post = self._media_by_post(connection, rows)
+            downloaded_counts = self._downloaded_counts(connection)
         return [
             {
                 **dict(row),
@@ -374,6 +392,55 @@ class PostMixin:
             }
             for row in rows
         ]
+
+    def _media_by_post(
+        self,
+        connection: sqlite3.Connection,
+        rows: list[sqlite3.Row],
+    ) -> dict[str, list[dict[str, Any]]]:
+        post_ids = [str(row["post_id"]) for row in rows]
+        media_by_post: dict[str, list[dict[str, Any]]] = {
+            post_id: [] for post_id in post_ids
+        }
+        if not post_ids:
+            return media_by_post
+        placeholders = ",".join("?" for _ in post_ids)
+        media_rows = connection.execute(
+            f"""
+            SELECT post_id, media_id, media_index, media_type, source_url,
+                   thumbnail_url, fallback_urls_json, delivery
+            FROM vaultly_post_media
+            WHERE post_id IN ({placeholders}) AND is_active = 1
+            ORDER BY post_id, media_index
+            """,
+            tuple(post_ids),
+        ).fetchall()
+        for media_row in media_rows:
+            media = dict(media_row)
+            try:
+                media["fallback_urls"] = json.loads(
+                    str(media.pop("fallback_urls_json"))
+                )
+            except json.JSONDecodeError:
+                media["fallback_urls"] = []
+            media_by_post.setdefault(str(media["post_id"]), []).append(media)
+        return media_by_post
+
+    @staticmethod
+    def _downloaded_counts(
+        connection: sqlite3.Connection,
+    ) -> dict[str, int]:
+        history_rows = connection.execute(
+            """
+            SELECT post_url, COUNT(*) AS downloaded_count
+            FROM vaultly_media_history
+            GROUP BY post_url
+            """
+        ).fetchall()
+        return {
+            str(row["post_url"]): int(row["downloaded_count"])
+            for row in history_rows
+        }
 
     def get_post_by_url(self, platform: str, post_url: str) -> dict[str, Any] | None:
         with self._connect() as connection:

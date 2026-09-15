@@ -17,22 +17,13 @@ class VaultlyStateMixin:
         post_scan_jobs = self._post_scan_jobs_with_automation(
             self.repository.list_post_scan_jobs()
         )
-        post_query = payload.get("posts", {})
-        if not isinstance(post_query, dict):
-            post_query = {}
-        try:
-            posts_limit = int(post_query.get("limit", 40) or 40)
-        except (TypeError, ValueError):
-            posts_limit = 40
-        try:
-            posts_offset = int(post_query.get("offset", 0) or 0)
-        except (TypeError, ValueError):
-            posts_offset = 0
-        posts_limit = max(1, min(100, posts_limit))
-        posts_offset = max(0, posts_offset)
-        posts_platform = str(post_query.get("platform", "")).strip()
-        posts_status = str(post_query.get("status", "")).strip()
-        posts_search = str(post_query.get("query", "")).strip()
+        (
+            posts_limit,
+            posts_offset,
+            posts_platform,
+            posts_status,
+            posts_search,
+        ) = self._post_query_params(payload)
         posts_total = self.repository.count_posts(
             platform=posts_platform,
             status=posts_status,
@@ -48,17 +39,68 @@ class VaultlyStateMixin:
             post_scan_jobs,
             destination_health,
         )
+        return self._state_payload(
+            accounts,
+            jobs,
+            post_scan_jobs,
+            removed_accounts,
+            destination,
+            destination_health,
+            diagnostics,
+            posts_limit,
+            posts_offset,
+            posts_platform,
+            posts_status,
+            posts_search,
+            posts_total,
+        )
+
+    @staticmethod
+    def _post_query_params(
+        payload: dict[str, Any],
+    ) -> tuple[int, int, str, str, str]:
+        post_query = payload.get("posts", {})
+        if not isinstance(post_query, dict):
+            post_query = {}
+        try:
+            posts_limit = int(post_query.get("limit", 40) or 40)
+        except (TypeError, ValueError):
+            posts_limit = 40
+        try:
+            posts_offset = int(post_query.get("offset", 0) or 0)
+        except (TypeError, ValueError):
+            posts_offset = 0
+        posts_limit = max(1, min(100, posts_limit))
+        posts_offset = max(0, posts_offset)
+        return (
+            posts_limit,
+            posts_offset,
+            str(post_query.get("platform", "")).strip(),
+            str(post_query.get("status", "")).strip(),
+            str(post_query.get("query", "")).strip(),
+        )
+
+    @staticmethod
+    def _platform_summaries() -> list[dict[str, Any]]:
+        return [
+            {
+                "id": definition.id,
+                "name": definition.name,
+                "home_url": definition.home_url,
+            }
+            for definition in PLATFORMS.values()
+        ]
+
+    def _state_payload(
+        self, accounts, jobs, post_scan_jobs, removed_accounts,
+        destination, destination_health, diagnostics,
+        posts_limit, posts_offset, posts_platform, posts_status,
+        posts_search, posts_total,
+    ) -> dict[str, Any]:
         return {
             "ok": True,
             "version": self.VERSION,
-            "platforms": [
-                {
-                    "id": definition.id,
-                    "name": definition.name,
-                    "home_url": definition.home_url,
-                }
-                for definition in PLATFORMS.values()
-            ],
+            "platforms": self._platform_summaries(),
             "accounts": accounts,
             "filter_terms": self.repository.list_filter_terms(),
             "removed_accounts": removed_accounts,

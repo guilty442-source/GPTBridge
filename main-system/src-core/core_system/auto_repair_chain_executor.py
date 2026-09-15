@@ -52,51 +52,7 @@ class GovernedExecutor:
         )
 
         try:
-            # Verify grant matches plan
-            if not self._verify_grant(plan, grant):
-                raise PermissionError("Grant does not cover repair plan")
-
-            # Check for uncommitted changes (A259: stop on overlap)
-            if self._has_uncommitted_changes(plan):
-                raise PermissionError("Uncommitted changes overlap repair target")
-
-            # Execute each step
-            completed_steps = []
-            for step in plan.steps:
-                step_result = self._execute_step(step, grant)
-                completed_steps.append(step_result)
-
-                if not step_result.get("ok", False):
-                    # Trigger rollback
-                    self._rollback(plan, execution)
-                    execution = RepairExecution(
-                        execution_id=execution.execution_id,
-                        plan_id=execution.plan_id,
-                        executor_id=execution.executor_id,
-                        started_at=execution.started_at,
-                        completed_at=datetime.now(timezone.utc).isoformat(),
-                        steps_completed=completed_steps,
-                        postimage_hashes={},
-                        rollback_triggered=True,
-                        error=f"Step failed: {step_result.get('error')}",
-                    )
-                    break
-            else:
-                # All steps succeeded - compute postimage hashes
-                post_hashes = self._compute_hashes(plan.preimage_hashes.keys())
-                diff = self._generate_diff(plan.preimage_hashes, post_hashes)
-
-                execution = RepairExecution(
-                    execution_id=execution.execution_id,
-                    plan_id=execution.plan_id,
-                    executor_id=execution.executor_id,
-                    started_at=execution.started_at,
-                    completed_at=datetime.now(timezone.utc).isoformat(),
-                    steps_completed=completed_steps,
-                    postimage_hashes=post_hashes,
-                    diff=diff,
-                )
-
+            execution = self._run_plan_steps(execution, plan, grant)
         except Exception as e:
             execution = RepairExecution(
                 execution_id=execution.execution_id,
@@ -119,6 +75,56 @@ class GovernedExecutor:
         })
 
         return execution
+
+    def _run_plan_steps(
+        self,
+        execution: RepairExecution,
+        plan: RepairPlan,
+        grant: PermissionGrant,
+    ) -> RepairExecution:
+        # Verify grant matches plan
+        if not self._verify_grant(plan, grant):
+            raise PermissionError("Grant does not cover repair plan")
+
+        # Check for uncommitted changes (A259: stop on overlap)
+        if self._has_uncommitted_changes(plan):
+            raise PermissionError("Uncommitted changes overlap repair target")
+
+        # Execute each step
+        completed_steps = []
+        for step in plan.steps:
+            step_result = self._execute_step(step, grant)
+            completed_steps.append(step_result)
+
+            if not step_result.get("ok", False):
+                # Trigger rollback
+                self._rollback(plan, execution)
+                return RepairExecution(
+                    execution_id=execution.execution_id,
+                    plan_id=execution.plan_id,
+                    executor_id=execution.executor_id,
+                    started_at=execution.started_at,
+                    completed_at=datetime.now(timezone.utc).isoformat(),
+                    steps_completed=completed_steps,
+                    postimage_hashes={},
+                    rollback_triggered=True,
+                    error=f"Step failed: {step_result.get('error')}",
+                )
+
+        # All steps succeeded - compute postimage hashes
+        post_hashes = self._compute_hashes(plan.preimage_hashes.keys())
+        diff = self._generate_diff(plan.preimage_hashes, post_hashes)
+
+        return RepairExecution(
+            execution_id=execution.execution_id,
+            plan_id=execution.plan_id,
+            executor_id=execution.executor_id,
+            started_at=execution.started_at,
+            completed_at=datetime.now(timezone.utc).isoformat(),
+            steps_completed=completed_steps,
+            postimage_hashes=post_hashes,
+            diff=diff,
+        )
 
     def _verify_grant(self, plan: RepairPlan, grant: PermissionGrant) -> bool:
         """Verify grant covers all plan targets."""

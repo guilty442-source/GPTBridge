@@ -130,106 +130,127 @@ class BrowserAutomationSession:
         provider = str(agent.get("provider") or "").strip().casefold()
         try:
             session_id = await self._ensure_agent_session(agent)
-
-            # Fill input and submit via JavaScript execution
-            input_selector = INPUT_SELECTORS.get(
-                provider, ("textarea", '[contenteditable="true"]')
-            )[0]
-            send_selector = SEND_SELECTORS.get(
-                provider, ('button[type="submit"]',)
-            )[0]
-
-            fill_script = f"""
-                (() => {{
-                    const input = document.querySelector({input_selector!r});
-                    if (!input) return {{ found: false }};
-                    input.focus();
-                    if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {{
-                        input.value = {prompt!r};
-                        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    }} else {{
-                        input.textContent = {prompt!r};
-                        input.dispatchEvent(new InputEvent('input', {{ bubbles: true }}));
-                    }}
-                    return {{ found: true }};
-                }})()
-            """
-
-            result = await self._execute_script(session_id, fill_script)
-            if not result.get("ok") or not result.get("result", {}).get("found"):
-                error_code = "BROWSER_LOGIN_OR_INPUT_REQUIRED"
-                return self._waiting_result(provider, error_code, submitted=False)
-
-            submit_script = f"""
-                (() => {{
-                    const btn = document.querySelector({send_selector!r});
-                    if (!btn) return {{ sent: false }};
-                    btn.click();
-                    return {{ sent: true }};
-                }})()
-            """
-            submit_result = await self._execute_script(session_id, submit_script)
-            sent = submit_result.get("ok") and submit_result.get("result", {}).get("sent")
-
-            if not sent:
-                return self._waiting_result(
-                    provider, "BROWSER_SEND_CONTROL_NOT_FOUND", submitted=False
-                )
+            early = await self._submit_prompt(session_id, provider, prompt)
+            if early is not None:
+                return early
 
             # Wait for response
-            response_selector = RESPONSE_SELECTORS.get(provider, ('[class*="assistant" i]',))[0]
-            extract_script = f"""
-                (() => {{
-                    const el = document.querySelector({response_selector!r});
-                    if (!el) return {{ content: '' }};
-                    return {{ content: el.textContent || el.innerText || '' }};
-                }})()
-            """
-
-            content = await self._wait_for_response(session_id, extract_script)
+            content = await self._wait_for_response(
+                session_id, self._extract_script(provider)
+            )
             if not content:
                 return self._waiting_result(
                     provider, "BROWSER_RESPONSE_CAPTURE_REQUIRED", submitted=True
                 )
-
-            return {
-                "status": "completed",
-                "provider": provider,
-                "content": content,
-                "error": "",
-                "error_code": "",
-                "transport": "embedded-browser-view",
-                "uses_api_key": False,
-                "memory_candidates": [],
-                "fallback": {
-                    "used": False,
-                    "browser_only": True,
-                    "cross_provider_substitution": False,
-                },
-                "browser_handoff": {
-                    "url": self._get_url(session_id) or "",
-                    "submitted": True,
-                    "send_method": "embedded-js-click",
-                    "response_captured": True,
-                },
-            }
+            return self._completed_result(provider, content, session_id)
         except Exception as exc:
-            failure = self._browser_failure(exc)
-            return {
-                "status": "failed",
-                "provider": provider,
-                "content": "",
-                "error": str(failure["message"]),
-                "error_code": str(failure["error_code"]),
-                "transport": "embedded-browser-view",
-                "uses_api_key": False,
-                "memory_candidates": [],
-                "fallback": {
-                    "used": False,
-                    "browser_only": True,
-                    "cross_provider_substitution": False,
-                },
-            }
+            return self._prompt_failure(provider, exc)
+
+    async def _submit_prompt(
+        self, session_id: str, provider: str, prompt: str
+    ) -> dict[str, Any] | None:
+        """Fill input and submit via JavaScript execution.
+
+        Returns an early failure/awaiting result, or None when submitted.
+        """
+        input_selector = INPUT_SELECTORS.get(
+            provider, ("textarea", '[contenteditable="true"]')
+        )[0]
+        send_selector = SEND_SELECTORS.get(
+            provider, ('button[type="submit"]',)
+        )[0]
+
+        fill_script = f"""
+            (() => {{
+                const input = document.querySelector({input_selector!r});
+                if (!input) return {{ found: false }};
+                input.focus();
+                if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {{
+                    input.value = {prompt!r};
+                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                }} else {{
+                    input.textContent = {prompt!r};
+                    input.dispatchEvent(new InputEvent('input', {{ bubbles: true }}));
+                }}
+                return {{ found: true }};
+            }})()
+        """
+
+        result = await self._execute_script(session_id, fill_script)
+        if not result.get("ok") or not result.get("result", {}).get("found"):
+            error_code = "BROWSER_LOGIN_OR_INPUT_REQUIRED"
+            return self._waiting_result(provider, error_code, submitted=False)
+
+        submit_script = f"""
+            (() => {{
+                const btn = document.querySelector({send_selector!r});
+                if (!btn) return {{ sent: false }};
+                btn.click();
+                return {{ sent: true }};
+            }})()
+        """
+        submit_result = await self._execute_script(session_id, submit_script)
+        sent = submit_result.get("ok") and submit_result.get("result", {}).get("sent")
+
+        if not sent:
+            return self._waiting_result(
+                provider, "BROWSER_SEND_CONTROL_NOT_FOUND", submitted=False
+            )
+        return None
+
+    @staticmethod
+    def _extract_script(provider: str) -> str:
+        response_selector = RESPONSE_SELECTORS.get(provider, ('[class*="assistant" i]',))[0]
+        return f"""
+            (() => {{
+                const el = document.querySelector({response_selector!r});
+                if (!el) return {{ content: '' }};
+                return {{ content: el.textContent || el.innerText || '' }};
+            }})()
+        """
+
+    def _completed_result(
+        self, provider: str, content: str, session_id: str
+    ) -> dict[str, Any]:
+        return {
+            "status": "completed",
+            "provider": provider,
+            "content": content,
+            "error": "",
+            "error_code": "",
+            "transport": "embedded-browser-view",
+            "uses_api_key": False,
+            "memory_candidates": [],
+            "fallback": {
+                "used": False,
+                "browser_only": True,
+                "cross_provider_substitution": False,
+            },
+            "browser_handoff": {
+                "url": self._get_url(session_id) or "",
+                "submitted": True,
+                "send_method": "embedded-js-click",
+                "response_captured": True,
+            },
+        }
+
+    def _prompt_failure(self, provider: str, exc: Exception) -> dict[str, Any]:
+        failure = self._browser_failure(exc)
+        return {
+            "status": "failed",
+            "provider": provider,
+            "content": "",
+            "error": str(failure["message"]),
+            "error_code": str(failure["error_code"]),
+            "transport": "embedded-browser-view",
+            "uses_api_key": False,
+            "memory_candidates": [],
+            "fallback": {
+                "used": False,
+                "browser_only": True,
+                "cross_provider_substitution": False,
+            },
+        }
 
     async def shutdown(self) -> None:
         for agent_id, session_id in list(self._sessions.items()):

@@ -102,75 +102,9 @@ class VaultlyPostScanMixin:
         )
 
         try:
-            for account_index, account in enumerate(accounts, start=1):
-                if self._is_post_scan_cancelled(scan_job_id):
-                    self.repository.update_post_scan_job(
-                        scan_job_id,
-                        status="cancelled",
-                        message="貼文索引已取消",
-                        finished_at=self._now(),
-                        **counters,
-                    )
-                    return
-                handle = str(account.get("handle", "")).strip()
-                self.repository.update_post_scan_job(
-                    scan_job_id,
-                    progress_current=account_index - 1,
-                    message=f"正在索引 @{handle or account.get('account_id')}",
-                    **counters,
-                )
-                try:
-                    result = await self._index_account_posts(
-                        account,
-                        int(job.get("limit_per_account", 12) or 12),
-                        bool(job.get("inspect_existing", False)),
-                    )
-                    for key in counters:
-                        counters[key] += int(result.get(key, 0) or 0)
-                except asyncio.CancelledError:
-                    raise
-                except Exception as exc:
-                    counters["failed"] += 1
-                    self.repository.mark_account_scan_failure(
-                        str(account.get("account_id", "")),
-                        str(exc),
-                    )
-                self.repository.update_post_scan_job(
-                    scan_job_id,
-                    progress_current=account_index,
-                    message=f"完成 @{handle or account.get('account_id')}",
-                    **counters,
-                )
-
-            if self._is_post_scan_cancelled(scan_job_id):
-                self.repository.update_post_scan_job(
-                    scan_job_id,
-                    status="cancelled",
-                    message="貼文索引已取消",
-                    finished_at=self._now(),
-                    **counters,
-                )
-                return
-            self.repository.update_post_scan_job(
-                scan_job_id,
-                status="completed",
-                message=(
-                    f"貼文索引完成：發現 {counters['discovered']}，"
-                    f"檢查 {counters['inspected']}，略過既有 {counters['skipped_existing']}，"
-                    f"失敗 {counters['failed']}"
-                ),
-                finished_at=self._now(),
-                **counters,
-            )
+            await self._index_all_accounts(scan_job_id, job, accounts, counters)
         except asyncio.CancelledError:
-            if self._is_post_scan_cancelled(scan_job_id):
-                self.repository.update_post_scan_job(
-                    scan_job_id,
-                    status="cancelled",
-                    message="貼文索引已取消",
-                    finished_at=self._now(),
-                    **counters,
-                )
+            if self._finish_post_scan_cancelled(scan_job_id, counters):
                 return
             self.repository.update_post_scan_job(
                 scan_job_id,
@@ -190,6 +124,86 @@ class VaultlyPostScanMixin:
         finally:
             self._cancelled_post_scan_jobs.discard(scan_job_id)
 
+    def _finish_post_scan_cancelled(
+        self, scan_job_id: str, counters: dict[str, int]
+    ) -> bool:
+        if not self._is_post_scan_cancelled(scan_job_id):
+            return False
+        self.repository.update_post_scan_job(
+            scan_job_id,
+            status="cancelled",
+            message="貼文索引已取消",
+            finished_at=self._now(),
+            **counters,
+        )
+        return True
+
+    async def _index_all_accounts(
+        self,
+        scan_job_id: str,
+        job: dict[str, Any],
+        accounts: list[dict[str, Any]],
+        counters: dict[str, int],
+    ) -> None:
+        for account_index, account in enumerate(accounts, start=1):
+            if self._finish_post_scan_cancelled(scan_job_id, counters):
+                return
+            await self._index_account_entry(
+                scan_job_id, job, account, account_index, counters
+            )
+
+        if self._finish_post_scan_cancelled(scan_job_id, counters):
+            return
+        self.repository.update_post_scan_job(
+            scan_job_id,
+            status="completed",
+            message=(
+                f"貼文索引完成：發現 {counters['discovered']}，"
+                f"檢查 {counters['inspected']}，略過既有 {counters['skipped_existing']}，"
+                f"失敗 {counters['failed']}"
+            ),
+            finished_at=self._now(),
+            **counters,
+        )
+
+    async def _index_account_entry(
+        self,
+        scan_job_id: str,
+        job: dict[str, Any],
+        account: dict[str, Any],
+        account_index: int,
+        counters: dict[str, int],
+    ) -> None:
+        handle = str(account.get("handle", "")).strip()
+        self.repository.update_post_scan_job(
+            scan_job_id,
+            progress_current=account_index - 1,
+            message=f"正在索引 @{handle or account.get('account_id')}",
+            **counters,
+        )
+        try:
+            result = await self._index_account_posts(
+                account,
+                int(job.get("limit_per_account", 12) or 12),
+                bool(job.get("inspect_existing", False)),
+            )
+            for key in counters:
+                counters[key] += int(result.get(key, 0) or 0)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            counters["failed"] += 1
+            self.repository.mark_account_scan_failure(
+                str(account.get("account_id", "")),
+                str(exc),
+            )
+        self.repository.update_post_scan_job(
+            scan_job_id,
+            progress_current=account_index,
+            message=f"完成 @{handle or account.get('account_id')}",
+            **counters,
+        )
+
     async def _index_account_posts(
         self,
         account: dict[str, Any],
@@ -206,19 +220,14 @@ class VaultlyPostScanMixin:
         newest_post_url = ""
         newest_published_at = ""
         counters = {
-            "discovered": 0,
-            "inspected": 0,
-            "skipped_existing": 0,
-            "failed": 0,
+            "discovered": 0, "inspected": 0, "skipped_existing": 0, "failed": 0,
         }
 
         async with self._post_scan_locks[platform]:
             self.repository.mark_account_scan_started(account_id)
             adapter = get_adapter(platform)
             page = await self.session.ensure_external_page(
-                f"vaultly:posts:{platform}",
-                "",
-                (),
+                f"vaultly:posts:{platform}", "", (),
             )
             posts = await adapter.discover_posts(
                 page,
@@ -236,44 +245,58 @@ class VaultlyPostScanMixin:
                     newest_published_at = str(post.get("published_at", "")).strip()
                 if post_url == last_seen_post_url and not inspect_existing:
                     break
-                counters["discovered"] += 1
-                existing = self.repository.get_post_by_url(platform, post_url)
-                self._store_post_snapshot(
-                    account,
-                    post,
-                    definition,
-                    scan_status="discovered",
-                    media_items=None,
+                await self._index_single_post(
+                    page, adapter, account, post, definition, counters,
+                    inspect_existing,
                 )
-                if (
-                    existing is not None
-                    and str(existing.get("scan_status", "")) in {"ready", "no_media"}
-                    and not inspect_existing
-                ):
-                    counters["skipped_existing"] += 1
-                    continue
-                try:
-                    inspected = await adapter.inspect_post(page, post)
-                    self._store_post_snapshot(account, inspected, definition)
-                    counters["inspected"] += 1
-                except Exception as exc:
-                    counters["failed"] += 1
-                    self._store_post_snapshot(
-                        account,
-                        post,
-                        definition,
-                        scan_status="error",
-                        last_error=str(exc),
-                        media_items=None,
-                    )
             self.repository.mark_account_scan_success(
-                account_id,
-                newest_post_url,
-                newest_published_at,
-                counters["discovered"],
-                counters["inspected"],
+                account_id, newest_post_url, newest_published_at,
+                counters["discovered"], counters["inspected"],
             )
         return counters
+
+    async def _index_single_post(
+        self,
+        page: Any,
+        adapter: Any,
+        account: dict[str, Any],
+        post: dict[str, Any],
+        definition: Any,
+        counters: dict[str, int],
+        inspect_existing: bool,
+    ) -> None:
+        platform = str(account.get("platform", "")).strip()
+        post_url = str(post.get("post_url", "")).strip()
+        counters["discovered"] += 1
+        existing = self.repository.get_post_by_url(platform, post_url)
+        self._store_post_snapshot(
+            account,
+            post,
+            definition,
+            scan_status="discovered",
+            media_items=None,
+        )
+        if (
+            existing is not None
+            and str(existing.get("scan_status", "")) in {"ready", "no_media"}
+            and not inspect_existing
+        ):
+            counters["skipped_existing"] += 1
+            return
+        try:
+            inspected = await adapter.inspect_post(page, post)
+            self._store_post_snapshot(account, inspected, definition)
+            counters["inspected"] += 1
+        except Exception as exc:
+            counters["failed"] += 1
+            self._store_post_snapshot(
+                account,
+                post,
+                definition,
+                scan_status="error",
+                last_error=str(exc),
+                media_items=None,
+            )
 
     def _store_post_snapshot(
         self,

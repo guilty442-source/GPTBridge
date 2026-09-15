@@ -12,6 +12,23 @@ from .collab_repo_constants import utc_now
 class CollabRepoAgentsMixin:
     """Agent CRUD and business-settings methods for AiCollaborationRepository."""
 
+    _ALLOWED_BUSINESS_CAPABILITIES = frozenset(
+        {
+            "general",
+            "comprehensive",
+            "orchestration",
+            "search",
+            "advanced_search",
+            "calculation",
+            "longform",
+            "reasoning",
+            "social_media",
+            "trends",
+            "breaking_news",
+            "google_retrieval",
+        }
+    )
+
     def list_agents(self) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
@@ -76,46 +93,12 @@ class CollabRepoAgentsMixin:
         if not existing_agents:
             raise ValueError("找不到指定的 AI")
         existing = existing_agents[0]
-        normalized_star_training = ""
-        if agent_id == "chatgpt":
-            normalized_star_training = self._validated_external_url(
-                star_training_url
-                if star_training_url is not None
-                else str(existing.get("star_training_url") or normalized_general)
-            )
-        allowed_capabilities = {
-            "general",
-            "comprehensive",
-            "orchestration",
-            "search",
-            "advanced_search",
-            "calculation",
-            "longform",
-            "reasoning",
-            "social_media",
-            "trends",
-            "breaking_news",
-            "google_retrieval",
-        }
-        capabilities = list(
-            dict.fromkeys(
-                str(item or "").strip().casefold()
-                for item in (business_capabilities or [])
-                if str(item or "").strip().casefold() in allowed_capabilities
-            )
+        normalized_star_training = self._normalized_star_training_url(
+            agent_id, existing, star_training_url, normalized_general
         )
-        if agent_id == "chatgpt":
-            capabilities = list(
-                dict.fromkeys([*capabilities, "comprehensive", "orchestration"])
-            )
-        else:
-            capabilities = [
-                item
-                for item in capabilities
-                if item not in {"comprehensive", "orchestration"}
-            ]
-        if not capabilities:
-            raise ValueError("至少需要一個有效的業務能力")
+        capabilities = self._normalized_business_capabilities(
+            agent_id, business_capabilities
+        )
         with self._connect() as connection:
             updated = connection.execute(
                 """
@@ -140,6 +123,48 @@ class CollabRepoAgentsMixin:
             if updated.rowcount != 1:
                 raise ValueError("找不到指定的 AI")
         return self.get_agents([agent_id])[0]
+
+    def _normalized_star_training_url(
+        self,
+        agent_id: str,
+        existing: dict[str, Any],
+        star_training_url: str | None,
+        normalized_general: str,
+    ) -> str:
+        if agent_id != "chatgpt":
+            return ""
+        return self._validated_external_url(
+            star_training_url
+            if star_training_url is not None
+            else str(existing.get("star_training_url") or normalized_general)
+        )
+
+    def _normalized_business_capabilities(
+        self,
+        agent_id: str,
+        business_capabilities: list[str] | None,
+    ) -> list[str]:
+        capabilities = list(
+            dict.fromkeys(
+                str(item or "").strip().casefold()
+                for item in (business_capabilities or [])
+                if str(item or "").strip().casefold()
+                in self._ALLOWED_BUSINESS_CAPABILITIES
+            )
+        )
+        if agent_id == "chatgpt":
+            capabilities = list(
+                dict.fromkeys([*capabilities, "comprehensive", "orchestration"])
+            )
+        else:
+            capabilities = [
+                item
+                for item in capabilities
+                if item not in {"comprehensive", "orchestration"}
+            ]
+        if not capabilities:
+            raise ValueError("至少需要一個有效的業務能力")
+        return capabilities
 
     @staticmethod
     def _agent_row(row: sqlite3.Row) -> dict[str, Any]:

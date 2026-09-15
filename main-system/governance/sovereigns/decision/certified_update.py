@@ -36,30 +36,10 @@ class DecisionCertifiedUpdateMixin:
         self, request: SovereignRequest
     ) -> SovereignOutcome:
         """A152/A154/A330: certified update decision."""
-        update_type = request.payload.get("update_type")
-        if not update_type:
-            return refusal_outcome(
-                "MISSING_UPDATE_TYPE", self.verified_basis("A152", "A330")
-            )
-        if request.payload.get("certified") is not True:
-            return refusal_outcome(
-                "CERTIFICATION_MISSING", self.verified_basis("A152", "A330")
-            )
-        update_set = request.payload.get("update_set")
-        if not isinstance(update_set, (list, tuple)) or not update_set:
-            return refusal_outcome(
-                "EMPTY_UPDATE_SET", self.verified_basis("A152", "A330")
-            )
-        artifact_hashes = request.payload.get("artifact_hashes")
-        if not isinstance(artifact_hashes, dict) or not artifact_hashes:
-            return refusal_outcome(
-                "MISSING_ARTIFACT_HASHES", self.verified_basis("A152", "A330")
-            )
-        operation_id = str(request.payload.get("operation_id") or "")
-        if not operation_id:
-            return refusal_outcome(
-                "MISSING_OPERATION_ID", self.verified_basis("A152", "A330")
-            )
+        error, fields = self._validate_certified_update_request(request)
+        if error is not None:
+            return error
+        update_type, update_set, artifact_hashes, operation_id = fields
 
         # Idempotent replay guard
         if operation_id in self._certified_updates:
@@ -81,6 +61,47 @@ class DecisionCertifiedUpdateMixin:
             )
 
         # Delegate A330 execution to synchronization-sovereign
+        return await self._delegate_certified_update(
+            request, update_type, update_set, artifact_hashes, operation_id
+        )
+
+    def _validate_certified_update_request(
+        self, request: SovereignRequest
+    ) -> tuple[SovereignOutcome | None, tuple | None]:
+        update_type = request.payload.get("update_type")
+        if not update_type:
+            return refusal_outcome(
+                "MISSING_UPDATE_TYPE", self.verified_basis("A152", "A330")
+            ), None
+        if request.payload.get("certified") is not True:
+            return refusal_outcome(
+                "CERTIFICATION_MISSING", self.verified_basis("A152", "A330")
+            ), None
+        update_set = request.payload.get("update_set")
+        if not isinstance(update_set, (list, tuple)) or not update_set:
+            return refusal_outcome(
+                "EMPTY_UPDATE_SET", self.verified_basis("A152", "A330")
+            ), None
+        artifact_hashes = request.payload.get("artifact_hashes")
+        if not isinstance(artifact_hashes, dict) or not artifact_hashes:
+            return refusal_outcome(
+                "MISSING_ARTIFACT_HASHES", self.verified_basis("A152", "A330")
+            ), None
+        operation_id = str(request.payload.get("operation_id") or "")
+        if not operation_id:
+            return refusal_outcome(
+                "MISSING_OPERATION_ID", self.verified_basis("A152", "A330")
+            ), None
+        return None, (update_type, update_set, artifact_hashes, operation_id)
+
+    async def _delegate_certified_update(
+        self,
+        request: SovereignRequest,
+        update_type: Any,
+        update_set: Any,
+        artifact_hashes: dict,
+        operation_id: str,
+    ) -> SovereignOutcome:
         sync_outcome = await self.delegate_to(
             "synchronization-sovereign",
             SovereignRequest(
