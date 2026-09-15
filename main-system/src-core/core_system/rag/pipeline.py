@@ -1,78 +1,36 @@
-"""RAG Pipeline — Canonical RAG path implementation (A371-A374).
+"""RAG Pipeline — canonical RAG path (A371-A374) + A44 degraded delegation.
 
-A371: DEFAULT-PATH: source content > qdrant dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
-A374: Binding order: 1 QDRANT_CANONICAL_RUNTIME > 2 PostgreSQL metadata/FTS/index_state > 3 Python domain model
-A373: CANONICAL-TAKEOVER: normal read/write must prove Qdrant dense retrieval and PostgreSQL metadata/FTS/index_state are the live path
-A374: INDEX-STATE: every indexed resource/chunk records embedding_model, embedding_dimension, chunk_size, chunk_overlap, indexed_at_utc
+A371/A374: Qdrant dense retrieval > PostgreSQL metadata/FTS/index_state >
+Python domain model > typed result.  A373: canonical read/write must prove
+both stores are live; DEGRADED state delegates to ``DegradedRagPipeline``.
 """
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
-import json
 import logging
-import os
 import sqlite3
 import time
 import uuid
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
 
-import psycopg
-from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
-
-from shared_layer.metadata_contract import (
-    FIELD_CONTENT_HASH,
-    FIELD_MODULE_ID,
-    FIELD_RESOURCE_ID,
-    FIELD_STATUS,
-    FIELD_UPDATED_AT,
-    FIELD_VERSION,
-    STATUS_INDEXED,
-)
+from qdrant_client.http.models import PointStruct
 
 _logger = logging.getLogger("gptbridge.rag")
-
-# A374: INDEX-STATE fields
-INDEX_STATE_FIELDS = (
-    "embedding_model",
-    "embedding_dimension",
-    "chunk_size",
-    "chunk_overlap",
-    "indexed_at_utc",
-)
-
 
 
 from .rag_qdrant import IndexState, QdrantCanonicalRuntime, RagPipelineConfig, RagQueryResult
 from .rag_metadata import PostgreSQLMetadataAuthority
+from .pipeline_degraded import DegradedRagPipeline
 from .pipeline_domain import PythonDomainModel
 from .runtime_state import (
-    CanonicalCheckError,
     CrossStoreOutbox,
-    OutboxStep,
-    QueueOperation,
-    QueueStatus,
     RagRuntimeState,
     RagRuntimeStateMachine,
     ReconciliationQueue,
-    ReconciliationQueueItem,
-    SagaResult,
     TombstoneGuard,
-    TransitionError,
 )
-
-
-
-
-
-
-
-
 
 
 class CanonicalRagPipeline:
@@ -94,6 +52,7 @@ class CanonicalRagPipeline:
         self.postgresql = PostgreSQLMetadataAuthority(config.postgresql_dsn)
         self.domain_model = PythonDomainModel(config)
         self._initialized = False
+        self._degraded_pipeline: Optional[DegradedRagPipeline] = None
         # A374: runtime state machine.  The durable queue is backed by a
         # local SQLite store for the in-process authority; the canonical
         # PostgreSQL queue is mirrored by PostgreSQLMetadataAuthority when
@@ -118,6 +77,12 @@ class CanonicalRagPipeline:
     @property
     def state_machine(self) -> RagRuntimeStateMachine:
         return self._state_machine
+
+    def _get_degraded_pipeline(self) -> DegradedRagPipeline:
+        """Lazily initialize and return the degraded pipeline."""
+        if self._degraded_pipeline is None:
+            self._degraded_pipeline = DegradedRagPipeline(self.config)
+        return self._degraded_pipeline
 
     async def initialize(self) -> bool:
         """Initialize all canonical components in order (A374).
@@ -172,15 +137,36 @@ class CanonicalRagPipeline:
         metadata: dict[str, Any],
         embedding: list[float],
     ) -> IndexState:
-        """Index a resource through the canonical path (write path)."""
-        if not self.is_ready():
-            raise RuntimeError("RAG pipeline not ready")
+        """Index a resource through the canonical or degraded path depending on state."""
+        current_state = self.state
+        if current_state == RagRuntimeState.DEGRADED:
+            _logger.info("CanonicalRagPipeline: DEGRADED state, delegating index_resource to degraded pipeline")
+            return await self._get_degraded_pipeline().index_resource(module_id, resource_id, content, metadata, embedding)
+        if current_state != RagRuntimeState.CANONICAL:
+            raise RuntimeError(f"RAG pipeline not ready for indexing (state={current_state.value})")
 
+        # Canonical path
+        try:
+            return await self._canonical_index_resource(
+                module_id, resource_id, content, metadata, embedding
+            )
+        except Exception as exc:
+            _logger.error("CanonicalRagPipeline: canonical index_resource failed: %s", exc)
+            self.state_machine.report_canonical_failure(str(exc))
+            return await self._get_degraded_pipeline().index_resource(module_id, resource_id, content, metadata, embedding)
+
+    async def _canonical_index_resource(
+        self,
+        module_id: str,
+        resource_id: str,
+        content: str,
+        metadata: dict[str, Any],
+        embedding: list[float],
+    ) -> IndexState:
+        """Canonical index_resource: Qdrant write, then index_state writeback."""
         content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         point_id = str(uuid.uuid4())
         now_utc = datetime.now(timezone.utc).isoformat()
-
-        # Step 1: Write to Qdrant (canonical write)
         point = PointStruct(
             id=point_id,
             vector=embedding,
@@ -194,8 +180,6 @@ class CanonicalRagPipeline:
             },
         )
         await self.qdrant.upsert_points([point])
-
-        # Step 2: Record index state in PostgreSQL (authoritative)
         index_state = IndexState(
             resource_id=resource_id,
             module_id=module_id,
@@ -208,7 +192,6 @@ class CanonicalRagPipeline:
             qdrant_point_id=point_id,
         )
         await self.postgresql.upsert_index_state(index_state)
-
         return index_state
 
     async def query(
@@ -218,31 +201,43 @@ class CanonicalRagPipeline:
         top_k: Optional[int] = None,
         score_threshold: Optional[float] = None,
     ) -> list[RagQueryResult]:
-        """Query through the canonical RAG path (read path)."""
-        if not self.is_ready():
-            raise RuntimeError("RAG pipeline not ready")
+        """Query through the canonical or degraded RAG path depending on state."""
+        current_state = self.state
+        if current_state == RagRuntimeState.DEGRADED:
+            _logger.info("CanonicalRagPipeline: DEGRADED state, delegating query to degraded pipeline")
+            return await self._get_degraded_pipeline().query(query_embedding, module_id, top_k, score_threshold)
+        if current_state != RagRuntimeState.CANONICAL:
+            raise RuntimeError(f"RAG pipeline not ready for query (state={current_state.value})")
 
-        # A373: CANONICAL-TAKEOVER - prove Qdrant + PostgreSQL are live
-        if not self.qdrant.is_healthy():
-            raise RuntimeError("Qdrant canonical runtime not healthy")
-        if not self.postgresql.is_healthy():
-            raise RuntimeError("PostgreSQL metadata authority not healthy")
+        # Canonical path
+        try:
+            # A373: CANONICAL-TAKEOVER - prove Qdrant + PostgreSQL are live
+            if not self.qdrant.is_healthy():
+                raise RuntimeError("Qdrant canonical runtime not healthy")
+            if not self.postgresql.is_healthy():
+                raise RuntimeError("PostgreSQL metadata authority not healthy")
 
-        # Step 1: Qdrant dense retrieval
-        qdrant_hits = await self.qdrant.search(
-            query_vector=query_embedding,
-            module_id=module_id,
-            top_k=top_k,
-            score_threshold=score_threshold,
-        )
+            # Step 1: Qdrant dense retrieval
+            qdrant_hits = await self.qdrant.search(
+                query_vector=query_embedding,
+                module_id=module_id,
+                top_k=top_k,
+                score_threshold=score_threshold,
+            )
 
-        if not qdrant_hits:
-            return []
+            if not qdrant_hits:
+                return []
 
-        pg_metadata, index_states = await self._pg_evidence(qdrant_hits)
+            pg_metadata, index_states = await self._pg_evidence(qdrant_hits)
 
-        # Step 4: Build typed results via Python domain model
-        return self.domain_model.build_typed_result(qdrant_hits, pg_metadata, index_states)
+            # Step 4: Build typed results via Python domain model
+            return self.domain_model.build_typed_result(qdrant_hits, pg_metadata, index_states)
+        except Exception as exc:
+            _logger.error("CanonicalRagPipeline: canonical query failed: %s", exc)
+            # Transition to degraded mode
+            self.state_machine.report_canonical_failure(str(exc))
+            # Retry with degraded pipeline
+            return await self._get_degraded_pipeline().query(query_embedding, module_id, top_k, score_threshold)
 
     async def _pg_evidence(
         self, qdrant_hits: list[dict[str, Any]]
@@ -463,9 +458,12 @@ class CanonicalRagPipeline:
 
     async def health_check(self) -> dict[str, Any]:
         """Health check for all components (A374)."""
-        return {
+        state = self._state_machine.state
+        is_canonical = state == RagRuntimeState.CANONICAL
+        result = {
             "pipeline_ready": self.is_ready(),
-            "state": self._state_machine.state.value,
+            "state": state.value,
+            "canonical": is_canonical,
             "reconciliation_required": self._state_machine.reconciliation_required,
             "queue_pending": self._queue.pending_count(),
             "queue_complete": self._queue.is_complete(),
@@ -477,7 +475,12 @@ class CanonicalRagPipeline:
                 "healthy": self.postgresql.is_healthy(),
             },
             "domain_model": "ok",
+            "degraded_pipeline_active": self._degraded_pipeline is not None,
         }
+        if self._degraded_pipeline is not None:
+            degraded_health = await self._degraded_pipeline.health_check()
+            result["degraded_pipeline"] = degraded_health
+        return result
 
 
 __all__ = [
@@ -488,4 +491,5 @@ __all__ = [
     "QdrantCanonicalRuntime",
     "PostgreSQLMetadataAuthority",
     "PythonDomainModel",
+    "DegradedRagPipeline",
 ]
