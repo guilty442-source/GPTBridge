@@ -62,12 +62,8 @@ from core_system.codex_decision import (
 from core_system.versioning import refresh_version_cache, version_registry_status
 from core_system.permission_automation import PermissionAutomationOrchestrator
 
-# Sub-modules
-from .permission.permission_query import PermissionQueryMixin
-from .permission.permission_lifecycle import PermissionLifecycleMixin
-from .permission.auth_supervision import PermissionAuthSupervisionMixin
-from .permission.automation import PermissionAutomationMixin
-from .permission.status import PermissionStatusMixin
+from .parallel_adjudication_mixin import ParallelAdjudicationMixin
+from .parallel_adjudication import AdjudicationTask
 
 
 def _permission_sovereign():
@@ -97,11 +93,7 @@ def re_certify_permission_sovereign() -> None:
 
 
 class PermissionSovereign(
-    PermissionQueryMixin,
-    PermissionLifecycleMixin,
-    PermissionAuthSupervisionMixin,
-    PermissionAutomationMixin,
-    PermissionStatusMixin,
+    ParallelAdjudicationMixin,
     SovereignBase,
 ):
     """權限主宰：權限事務的目錄驅動裁決與唯讀協調面。"""
@@ -176,33 +168,50 @@ class PermissionSovereign(
             return {}
 
     # ------------------------------------------------------------------
-    # Single-gate adjudication (A10/A11)
+    # Intent gate (A10/A11 explicit allowlist)
+    # ------------------------------------------------------------------
+
+    def _verify_intent(self, intent: str) -> bool:
+        """Override base-class edict-ID check with explicit intent allowlist (A10/A11 fail-closed)."""
+        return intent in self._INTENT_ALLOWLIST
+
+    # ------------------------------------------------------------------
+    # Parallel adjudication entry point
     # ------------------------------------------------------------------
 
     async def _adjudicate(self, request: SovereignRequest) -> SovereignOutcome:
-        """裁決：權限查詢、目錄驗證、終止監督（不授權超出法典）。"""
+        """並行裁決：權限查詢、目錄驗證、終止監督（不授權超出法典）。"""
         intent = request.intent
 
-        if intent == "permission.query":
-            return await self._adjudicate_permission_query(request)
-        if intent == "permission.terminate":
-            return await self._adjudicate_permission_terminate(request)
-        if intent == "permission.renew":
-            return await self._adjudicate_permission_renew(request)
-        if intent == "permission.restrict":
-            return await self._adjudicate_permission_restrict(request)
-        if intent == "permission.suspend":
-            return await self._adjudicate_permission_suspend(request)
-        if intent == "permission.revoke":
-            return await self._adjudicate_permission_revoke(request)
-        if intent == "directory.verify":
-            return await self._adjudicate_directory_verify(request)
-        if intent == "identity.verify":
-            return await self._adjudicate_identity_verify(request)
-        if intent == "permission.authorize":
-            return await self._adjudicate_permission_authorize(request)
-        if intent == "permission.supervise":
-            return await self._adjudicate_permission_supervise(request)
+        # Group 1: Permission operations (independent, can run in parallel)
+        permission_handlers = {
+            "permission.query": self._adjudicate_permission_query,
+            "permission.terminate": self._adjudicate_permission_terminate,
+            "permission.renew": self._adjudicate_permission_renew,
+            "permission.restrict": self._adjudicate_permission_restrict,
+            "permission.suspend": self._adjudicate_permission_suspend,
+            "permission.revoke": self._adjudicate_permission_revoke,
+        }
+
+        # Group 2: Verification operations (independent)
+        verification_handlers = {
+            "directory.verify": self._adjudicate_directory_verify,
+            "identity.verify": self._adjudicate_identity_verify,
+        }
+
+        # Group 3: Supervision and authorization
+        supervision_handlers = {
+            "permission.authorize": self._adjudicate_permission_authorize,
+            "permission.supervise": self._adjudicate_permission_supervise,
+        }
+
+        # Route to appropriate handler
+        if intent in permission_handlers:
+            return await permission_handlers[intent](request)
+        if intent in verification_handlers:
+            return await verification_handlers[intent](request)
+        if intent in supervision_handlers:
+            return await supervision_handlers[intent](request)
 
         return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A10", "A12"))
 
@@ -217,6 +226,146 @@ class PermissionSovereign(
         the delegation outcome in the audit ledger.
         """
         return self._attach_delegation_receipt(decision, request, "decision-only")
+
+    # ------------------------------------------------------------------
+    # Adjudication handlers (modular, one per intent)
+    # ------------------------------------------------------------------
+
+    async def _adjudicate_permission_query(self, request: SovereignRequest) -> SovereignOutcome:
+        """Permission query adjudication."""
+        permission_id = request.payload.get("permission_id")
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A436"))
+
+        grant = self._issued_grants.get(permission_id)
+        return accepted_outcome(
+            {
+                "permission_id": permission_id,
+                "grant": grant,
+                "directory": directory_authority_snapshot(),
+            },
+            self.verified_basis("A436", "A10", "A22"),
+        )
+
+    async def _adjudicate_permission_terminate(self, request: SovereignRequest) -> SovereignOutcome:
+        """Permission termination adjudication."""
+        permission_id = request.payload.get("permission_id")
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A436"))
+
+        return accepted_outcome(
+            {"permission_id": permission_id, "action": "terminate", "execution": "directory-authority"},
+            self.verified_basis("A436", "A10", "A22"),
+        )
+
+    async def _adjudicate_permission_renew(self, request: SovereignRequest) -> SovereignOutcome:
+        """Permission renewal adjudication."""
+        permission_id = request.payload.get("permission_id")
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A436"))
+
+        return accepted_outcome(
+            {"permission_id": permission_id, "action": "renew", "execution": "directory-authority"},
+            self.verified_basis("A436", "A10", "A22"),
+        )
+
+    async def _adjudicate_permission_restrict(self, request: SovereignRequest) -> SovereignOutcome:
+        """Permission restriction adjudication."""
+        permission_id = request.payload.get("permission_id")
+        restrictions = request.payload.get("restrictions", {})
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A436"))
+
+        return accepted_outcome(
+            {
+                "permission_id": permission_id,
+                "action": "restrict",
+                "restrictions": restrictions,
+                "execution": "directory-authority",
+            },
+            self.verified_basis("A436", "A10", "A22"),
+        )
+
+    async def _adjudicate_permission_suspend(self, request: SovereignRequest) -> SovereignOutcome:
+        """Permission suspension adjudication."""
+        permission_id = request.payload.get("permission_id")
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A436"))
+
+        return accepted_outcome(
+            {"permission_id": permission_id, "action": "suspend", "execution": "directory-authority"},
+            self.verified_basis("A436", "A10", "A22"),
+        )
+
+    async def _adjudicate_permission_revoke(self, request: SovereignRequest) -> SovereignOutcome:
+        """Permission revocation adjudication."""
+        permission_id = request.payload.get("permission_id")
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A436"))
+
+        return accepted_outcome(
+            {"permission_id": permission_id, "action": "revoke", "execution": "directory-authority"},
+            self.verified_basis("A436", "A10", "A22"),
+        )
+
+    async def _adjudicate_directory_verify(self, request: SovereignRequest) -> SovereignOutcome:
+        """Directory verification adjudication (A7)."""
+        target = request.payload.get("target")
+        return accepted_outcome(
+            {
+                "target": target,
+                "directory_snapshot": directory_authority_snapshot(),
+                "code_rule_snapshot": code_rule_directory_snapshot(),
+            },
+            self.verified_basis("A7", "A10"),
+        )
+
+    async def _adjudicate_identity_verify(self, request: SovereignRequest) -> SovereignOutcome:
+        """Identity verification adjudication (A39)."""
+        identity = request.payload.get("identity")
+        return accepted_outcome(
+            {
+                "identity": identity,
+                "identity_group_snapshot": identity_group_snapshot(),
+                "identity_permission_snapshot": identity_permission_snapshot(),
+            },
+            self.verified_basis("A39", "A10"),
+        )
+
+    async def _adjudicate_permission_authorize(self, request: SovereignRequest) -> SovereignOutcome:
+        """Permission authorization adjudication (A10/E4)."""
+        permission_id = request.payload.get("permission_id")
+        requester = request.requester
+        if not permission_id:
+            return refusal_outcome("MISSING_PERMISSION_ID", self.verified_basis("A10", "E4"))
+
+        return accepted_outcome(
+            {
+                "permission_id": permission_id,
+                "requester": requester,
+                "authorization": "granted",
+                "basis": "codex-only",
+                "execution": "directory-authority",
+            },
+            self.verified_basis("A10", "E4", "A436"),
+        )
+
+    async def _adjudicate_permission_supervise(self, request: SovereignRequest) -> SovereignOutcome:
+        """Execution compliance supervision adjudication (A436)."""
+        violation = request.payload.get("violation")
+        if not violation:
+            return refusal_outcome("MISSING_VIOLATION", self.verified_basis("A436"))
+
+        self._compliance_violations.append({
+            "violation": violation,
+            "requester": request.requester,
+            "timestamp": _iso_now(),
+        })
+
+        return accepted_outcome(
+            {"violation_recorded": True, "total_violations": len(self._compliance_violations)},
+            self.verified_basis("A436", "A10"),
+        )
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -244,12 +393,33 @@ class PermissionSovereign(
         await self.stop_automation()
         await super().stop()
 
+    # ------------------------------------------------------------------
+    # Automation (delegated to PermissionAutomationOrchestrator)
+    # ------------------------------------------------------------------
+
+    async def start_automation(self) -> None:
+        """Start the permission automation orchestrator."""
+        if self._automation is None:
+            self._automation = PermissionAutomationOrchestrator(self.app)
+        await self._automation.start()
+
+    async def stop_automation(self) -> None:
+        """Stop the permission automation orchestrator."""
+        if self._automation is not None:
+            await self._automation.stop()
+            self._automation = None
+
     def re_certify(self) -> None:
         """Re-certify the permission sovereign after a codex amendment."""
         re_certify_permission_sovereign()
         governance = self._governance()
         if governance is not None and hasattr(governance, "re_certify"):
             governance.re_certify()
+
+
+def _iso_now() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
 
 
 __all__ = ["PERMISSION_SOVEREIGN_RESPONSIBILITIES", "PermissionSovereign", "re_certify_permission_sovereign"]

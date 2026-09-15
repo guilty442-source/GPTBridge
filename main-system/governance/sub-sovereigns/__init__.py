@@ -1,4 +1,4 @@
-"""SUB_SOVEREIGN_LAYER — 子主權層。
+r"""SUB_SOVEREIGN_LAYER — 子主權層。
 
 法典依據: architecture_activation_states[SUB_SOVEREIGN_LAYER]
 目標根目錄: E:\GPTBridge\main-system\governance\sub-sovereigns

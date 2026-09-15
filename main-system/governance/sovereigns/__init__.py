@@ -1,4 +1,4 @@
-"""SOVEREIGN_DECISION_LAYER — 主權決策層。
+r"""SOVEREIGN_DECISION_LAYER — 主權決策層。
 
 法典依據: architecture_activation_states[SOVEREIGN_DECISION_LAYER]
 目標根目錄: E:\GPTBridge\main-system\governance\sovereigns

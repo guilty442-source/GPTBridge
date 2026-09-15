@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 from core_system.resource_maintenance import IdleMemoryMaintainer
 from .server_tokens import _workspace_instance_id
-from .server_lifecycle import http_response
+from .server_http import http_response
 
 
 async def _handle_health_request(

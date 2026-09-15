@@ -167,8 +167,25 @@ def publish_execution_audit(
         line = json.dumps(entry, ensure_ascii=False, sort_keys=True, default=str)
         with _AUDIT_LOCK:
             with SOVEREIGN_AUDIT_LEDGER.open("a", encoding="utf-8") as handle:
-                handle.write(line + os.linesep)
-                handle.flush()
+                if os.name == "nt":
+                    # Cross-process byte-range lock: two processes appending
+                    # to the same ledger must never interleave a record.
+                    import msvcrt
+
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                    try:
+                        handle.seek(0, 2)
+                        handle.write(line + os.linesep)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                    finally:
+                        handle.seek(0)
+                        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    handle.write(line + os.linesep)
+                    handle.flush()
+                    os.fsync(handle.fileno())
     except OSError as error:
         raise ReceiptError(f"audit publication failed: {error}") from error
     return f"{ledger.request_id}:{len(entry['receipts'])}"

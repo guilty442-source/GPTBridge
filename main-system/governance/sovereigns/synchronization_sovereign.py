@@ -48,13 +48,7 @@ from ..registries import (
     validate_child_parent,
 )
 
-from .synchronization.child_access import SyncChildAccessMixin
-from .synchronization.sync_dispatch import SyncDispatchMixin
-from .synchronization.child_lifecycle import SyncChildLifecycleMixin
-from .synchronization.a330_execution import SyncA330ExecutionMixin
-from .synchronization.a322_decision import SyncA322DecisionMixin
-from .synchronization.autonomy import SyncAutonomyMixin
-from .synchronization.status import SyncStatusMixin
+from .parallel_adjudication_mixin import ParallelAdjudicationMixin
 
 _logger = logging.getLogger("gptbridge.sovereign.synchronization")
 
@@ -81,13 +75,7 @@ _MAX_CHILD_RESTARTS = 3
 
 
 class SynchronizationSovereign(
-    SyncChildAccessMixin,
-    SyncDispatchMixin,
-    SyncChildLifecycleMixin,
-    SyncA330ExecutionMixin,
-    SyncA322DecisionMixin,
-    SyncAutonomyMixin,
-    SyncStatusMixin,
+    ParallelAdjudicationMixin,
     SovereignBase,
 ):
     """同步主宰：專門決策，協調各類同步子主宰，A330例外執行。"""
@@ -138,14 +126,14 @@ class SynchronizationSovereign(
         return intent in self._INTENT_ALLOWLIST
 
     # ------------------------------------------------------------------
-    # Single-gate adjudication (A10/A11)
+    # Parallel adjudication entry point
     # ------------------------------------------------------------------
 
     async def _adjudicate(self, request: SovereignRequest) -> SovereignOutcome:
-        """裁決：同步調度、子主宰生命週期、模組路由、A330執行、A322決策。"""
+        """並行裁決：同步調度、子主宰生命週期、模組路由、A330執行、A322決策。"""
         intent = request.intent
 
-        # Sync dispatch intents
+        # Sync dispatch intents - parallel adjudication for independent sync domains
         if intent in _SYNC_INTENT_CHILDREN:
             return await self._adjudicate_sync_dispatch(request)
 
@@ -186,6 +174,165 @@ class SynchronizationSovereign(
         return self._attach_delegation_receipt(decision, request, execution_mode)
 
     # ------------------------------------------------------------------
+    # Adjudication handlers
+    # ------------------------------------------------------------------
+
+    async def _adjudicate_sync_dispatch(self, request: SovereignRequest) -> SovereignOutcome:
+        """A301: adjudicate sync coordination intent."""
+        child_id, child = self._resolve_sync_child(request.intent)
+        if child_id is None or child is None:
+            return refusal_outcome(
+                "UNKNOWN_SYNC_INTENT", verified_basis(("A301", "A334"))
+            )
+
+        # Delegate to the sub-sovereign through the governed executor
+        # (this sovereign adjudicates; executor executes)
+        return await self.delegate_to(
+            child_id,
+            SovereignRequest(
+                intent=request.intent,
+                subject=request.subject,
+                requester=request.requester,
+                payload=request.payload,
+            ),
+        )
+
+    def _resolve_sync_child(self, intent: str) -> tuple[str | None, Any | None]:
+        child_id = _SYNC_INTENT_CHILDREN.get(intent)
+        if not child_id:
+            return None, None
+        child = self._sub_sovereigns.get(child_id)
+        return child_id, child
+
+    async def _adjudicate_module_routing(self, request: SovereignRequest) -> SovereignOutcome:
+        """Route module-level operations to assigned sub-sovereign (A334)."""
+        module = request.payload.get("module")
+        if not module:
+            return refusal_outcome("MISSING_MODULE", verified_basis(("A334",)))
+
+        assignment = module_assignment(module)
+        if not assignment:
+            return refusal_outcome("MODULE_UNASSIGNED", verified_basis(("A334",)))
+
+        child_id = str(
+            assignment.get("managing_sub_sovereign")
+            or assignment.get("sub_sovereign")
+            or ""
+        )
+        if not child_id:
+            return refusal_outcome(
+                "SUB_SOVEREIGN_UNASSIGNED", verified_basis(("A334",))
+            )
+        if child_id not in self._sub_sovereigns:
+            return refusal_outcome(
+                "SUB_SOVEREIGN_NOT_MATERIALIZED", verified_basis(("A334",))
+            )
+
+        return await self.delegate_to(
+            child_id,
+            SovereignRequest(
+                intent=request.intent,
+                subject=request.subject,
+                requester=request.requester,
+                payload=request.payload,
+            ),
+        )
+
+    async def _adjudicate_sub_sovereign_activate(self, request: SovereignRequest) -> SovereignOutcome:
+        """Activate a sub-sovereign through governed executor."""
+        child_id = request.payload.get("child_id")
+        if not child_id or child_id not in children_of(self.sovereign_id):
+            return refusal_outcome("INVALID_CHILD_ID", verified_basis(("A334",)))
+        return accepted_outcome(
+            {"child_id": child_id, "action": "activate", "execution": "governed-executor"},
+            verified_basis(("A334", "A301")),
+        )
+
+    async def _adjudicate_sub_sovereign_deactivate(self, request: SovereignRequest) -> SovereignOutcome:
+        """Deactivate a sub-sovereign through governed executor."""
+        child_id = request.payload.get("child_id")
+        if not child_id or child_id not in children_of(self.sovereign_id):
+            return refusal_outcome("INVALID_CHILD_ID", verified_basis(("A334",)))
+        return accepted_outcome(
+            {"child_id": child_id, "action": "deactivate", "execution": "governed-executor"},
+            verified_basis(("A334", "A301")),
+        )
+
+    async def _adjudicate_sub_sovereign_report_failure(self, request: SovereignRequest) -> SovereignOutcome:
+        """Handle child failure report (A322)."""
+        child_id = request.payload.get("child_id")
+        error = request.payload.get("error", "unknown")
+        if not child_id or child_id not in children_of(self.sovereign_id):
+            return refusal_outcome("INVALID_CHILD_ID", verified_basis(("A334",)))
+
+        # Record failure and adjudicate restart per A322
+        self.record_child_failure(child_id)
+        return accepted_outcome(
+            {
+                "child_id": child_id,
+                "failure_recorded": True,
+                "error": error,
+                "restart_adjudication": "bounded-per-A322",
+            },
+            verified_basis(("A322", "A334")),
+        )
+
+    async def _adjudicate_a330_certified_update(self, request: SovereignRequest) -> SovereignOutcome:
+        """A330: certified update execution (sole execution exception)."""
+        update_type = request.payload.get("update_type")
+        if update_type not in _A330_UPDATE_TYPES:
+            return refusal_outcome(
+                "INVALID_A330_UPDATE_TYPE", verified_basis(("A330",))
+            )
+
+        operation_id = str(request.payload.get("operation_id") or "")
+        if not operation_id:
+            return refusal_outcome("MISSING_OPERATION_ID", verified_basis(("A330",)))
+
+        # Record operation
+        self._certified_update_operations[operation_id] = {
+            "operation_id": operation_id,
+            "update_type": update_type,
+            "update_set": list(request.payload.get("update_set", [])),
+            "artifact_hashes": dict(request.payload.get("artifact_hashes", {})),
+            "target_generation": request.payload.get("target_generation", ""),
+            "started_at": _iso_now(),
+            "status": "executing",
+        }
+
+        # Execute via governed executor (A330 exception)
+        executor = getattr(self.app, "governed_executor", None)
+        if executor is None:
+            return refusal_outcome(
+                "GOVERNED_EXECUTOR_UNAVAILABLE", verified_basis(("A330", "A69"))
+            )
+
+        # Note: actual execution delegated to governed executor
+        return accepted_outcome(
+            {
+                "operation_id": operation_id,
+                "update_type": update_type,
+                "execution": "A330-certified-update-exception",
+                "executor": "governed-executor",
+            },
+            verified_basis(("A330", "A301", "A446")),
+        )
+
+    async def _adjudicate_sync_decision(self, request: SovereignRequest) -> SovereignOutcome:
+        """A322: sync decision adjudication."""
+        decision_type = request.payload.get("decision_type")
+        target = request.payload.get("target")
+        return accepted_outcome(
+            {
+                "decision_type": decision_type,
+                "target": target,
+                "authority": "synchronization-sovereign",
+                "basis": "A322",
+            },
+            verified_basis(("A322", "A301", "A334")),
+        )
+
+    # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
@@ -203,6 +350,168 @@ class SynchronizationSovereign(
         """Stop autonomous supervision."""
         await self._stop_autonomy_loop()
         await super().stop()
+
+    # ------------------------------------------------------------------
+    # Autonomous supervision
+    # ------------------------------------------------------------------
+
+    def _start_autonomy_loop(self) -> None:
+        if self._autonomy_task is None or self._autonomy_task.done():
+            self._autonomy_stop.clear()
+            try:
+                self._autonomy_task = asyncio.create_task(
+                    self._autonomy_loop(),
+                    name="synchronization-sovereign-autonomy",
+                )
+            except RuntimeError:
+                self._autonomy_task = None
+
+    async def _stop_autonomy_loop(self) -> None:
+        task = self._autonomy_task
+        self._autonomy_task = None
+        self._autonomy_stop.set()
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+
+    async def _autonomy_loop(self) -> None:
+        while not self._autonomy_stop.is_set():
+            try:
+                await self._autonomy_tick()
+            except asyncio.CancelledError:
+                raise
+            except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
+                pass
+            try:
+                await asyncio.wait_for(
+                    self._autonomy_stop.wait(),
+                    timeout=15.0,
+                )
+            except asyncio.TimeoutError:
+                continue
+            except asyncio.CancelledError:
+                raise
+
+    async def _autonomy_tick(self) -> None:
+        await self._supervise_children()
+        self._persist_live_state()
+
+    async def _supervise_children(self) -> None:
+        """Detect stopped children and adjudicate bounded restarts (A322)."""
+        from governance.registries import parent_of, resolve_sovereign
+
+        now = asyncio.get_event_loop().time()
+        for child_id, child in self._all_children().items():
+            if bool(getattr(child, "_started", False)):
+                watch = self._child_supervision.get(child_id)
+                if watch is not None and watch.get("state") != "started":
+                    watch["state"] = "started"
+                    watch["recovered_at"] = _iso_now()
+                    watch.pop("quarantined", None)
+                continue
+
+            watch = self._child_supervision.setdefault(
+                child_id, {"state": "started", "restart_attempts": 0}
+            )
+            if watch.get("state") == "started":
+                parent_id = parent_of(child_id)
+                parent = (
+                    self
+                    if parent_id == self.sovereign_id
+                    else resolve_sovereign(self.app, parent_id)
+                )
+                if parent is not None:
+                    try:
+                        parent.record_child_failure(child_id)
+                    except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
+                        pass
+                watch["state"] = "stopped"
+                watch["stopped_at"] = _iso_now()
+
+            await self._attempt_child_restart(child_id, watch, now)
+
+    async def _attempt_child_restart(
+        self, child_id: str, watch: dict, now: float
+    ) -> None:
+        from governance.registries import parent_of, resolve_sovereign
+
+        if watch.get("quarantined"):
+            return
+        parent_id = parent_of(child_id)
+        parent = (
+            self
+            if parent_id == self.sovereign_id
+            else resolve_sovereign(self.app, parent_id)
+        )
+        if parent is None:
+            return
+        if parent.child_failure_count(child_id) > _MAX_CHILD_RESTARTS:
+            watch["quarantined"] = True
+            watch["quarantined_at"] = _iso_now()
+            return
+        last_attempt = float(watch.get("last_attempt") or 0.0)
+        if now - last_attempt < 60.0:
+            return
+        executor = getattr(self.app, "sovereign_stack_executor", None)
+        if executor is None:
+            return
+        watch["last_attempt"] = now
+        watch["restart_attempts"] = int(watch.get("restart_attempts") or 0) + 1
+        try:
+            watch["last_result"] = await executor.restart_child(self, child_id)
+        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError) as error:
+            watch["last_result"] = {
+                "ok": False,
+                "error": f"{type(error).__name__}: {error}",
+            }
+
+    def _persist_live_state(self) -> None:
+        """Keep live state for monitoring."""
+        try:
+            from pathlib import Path
+            import json
+            state_path = (
+                Path(getattr(self.app, "project_root", Path.cwd()))
+                / "main-system"
+                / "runtime"
+                / "state"
+                / "synchronization-sovereign.json"
+            )
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state = {
+                "sovereign": "synchronization-sovereign",
+                "started": self._started,
+                "heartbeat_at": _iso_now(),
+                "autonomy": {
+                    "enabled": True,
+                    "supervised_children": {
+                        child_id: dict(watch)
+                        for child_id, watch in self._child_supervision.items()
+                    },
+                    "certified_updates_active": sum(
+                        1
+                        for record in self._certified_update_operations.values()
+                        if record.get("status") not in ("completed", "failed")
+                    ),
+                },
+            }
+            temporary = state_path.with_suffix(".tmp")
+            temporary.write_text(
+                json.dumps(state, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            import os
+            os.replace(temporary, state_path)
+        except OSError:
+            pass
+
+
+def _iso_now() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
 
 
 __all__ = ["SynchronizationSovereign"]

@@ -6,6 +6,7 @@ import json
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
@@ -153,15 +154,23 @@ def _verify_self_health_test_files(
     barrier (article A57/edict E43): every governed tool keeps a test file
     that can be collected offline so governance health checks never depend
     on a live model server.
+
+    The per-file ``pytest --collect-only`` probes are independent read-only
+    checks, so they run in a bounded thread pool.  The bounded worker count
+    keeps local load low while the whole barrier finishes well inside the
+    audit time budget instead of serialising one interpreter start per file.
     """
 
     venv_python = root / "main-system" / ".venv" / "Scripts" / "python.exe"
     python_executable = str(venv_python) if venv_python.is_file() else sys.executable
-    for relative_path in sorted(_declared_self_health_test_files(root, errors)):
+    declared_files = sorted(_declared_self_health_test_files(root, errors))
+
+    def collect(relative_path: str) -> list[str]:
+        findings: list[str] = []
         test_path = root / relative_path
         if not test_path.is_file():
-            errors.append(f"self-health test file is missing: {relative_path}")
-            continue
+            findings.append(f"self-health test file is missing: {relative_path}")
+            return findings
         try:
             completed = subprocess.run(
                 [
@@ -181,18 +190,28 @@ def _verify_self_health_test_files(
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except subprocess.TimeoutExpired:
-            errors.append(f"self-health test collection timed out: {relative_path}")
-            continue
+            findings.append(f"self-health test collection timed out: {relative_path}")
+            return findings
         collected = _collected_test_count(completed.stdout)
         if completed.returncode != 0:
             detail = completed.stdout.strip().splitlines()[-1:] or [
                 completed.stderr.strip().splitlines()[-1:]
             ]
-            errors.append(
+            findings.append(
                 f"self-health test collection failed: {relative_path}: {detail}"
             )
         elif collected == 0:
-            errors.append(f"self-health test file collects no tests: {relative_path}")
+            findings.append(f"self-health test file collects no tests: {relative_path}")
+        return findings
+
+    workers = max(1, min(4, len(declared_files)))
+    with ThreadPoolExecutor(
+        max_workers=workers,
+        thread_name_prefix="self-health",
+    ) as executor:
+        # map preserves submission order so findings stay deterministic.
+        for findings in executor.map(collect, declared_files):
+            errors.extend(findings)
 
 
 def _collected_test_count(output: str) -> int:

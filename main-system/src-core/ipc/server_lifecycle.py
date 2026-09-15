@@ -33,6 +33,7 @@ from .server_process import (
     _kill_process,
 )
 from .server_handler import handler, _runtime_status_push_loop
+from .server_http import http_response
 from .server_lifecycle_health import _handle_health_request, _parse_request_path
 # Health request handling lives in server_lifecycle_health.py:
 #   query == "brief=1" or query == "level=brief"  (legacy + canonical brief level)
@@ -61,31 +62,6 @@ class _ExpectedProbeNoiseFilter(logging.Filter):
         )
 
 
-# ------------------------------------------------------------------
-# HTTP response helper (with fallback for older websockets)
-# ------------------------------------------------------------------
-
-# Safe fallback for older websockets versions to prevent ImportError crashes
-try:
-    from websockets.http11 import Response
-    from websockets.datastructures import Headers
-    def http_response(status_code: int, reason: str, body: bytes, content_type: str = "text/plain") -> Any:
-        return Response(
-            status_code,
-            reason,
-            Headers(
-                [
-                    ("Content-Type", content_type),
-                    ("Content-Length", str(len(body))),
-                ]
-            ),
-            body,
-        )
-except ImportError:
-    import http
-    def http_response(status_code: int, reason: str, body: bytes, content_type: str = "text/plain") -> Any:
-        status = http.HTTPStatus(status_code)
-        return (status, [("Content-Type", content_type), ("Content-Length", str(len(body)))], body)
 
 
 # ------------------------------------------------------------------
