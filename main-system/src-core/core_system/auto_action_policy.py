@@ -81,6 +81,37 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# Stat-keyed read cache for the durable state files.  The switches are read
+# on every status push and per repair/update gate check; the pending queue
+# is read every push cycle and by diagnostics.  Writers commit through
+# atomic replace, which always produces a fresh (mtime, size) signature —
+# a cached value can never alias a newer file.
+_STATE_FILE_CACHE: dict[str, tuple[tuple[int, int], Any]] = {}
+
+
+def _read_state_file(path: Path) -> Any:
+    """Read and parse a JSON state file, keyed by its stat signature."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    key = (stat.st_mtime_ns, stat.st_size)
+    cache_key = str(path)
+    cached = _STATE_FILE_CACHE.get(cache_key)
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        confirm = path.stat()
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    # Cache only when the file was stable across the read; a mid-read
+    # replace would otherwise pin stale content under the new signature.
+    if (confirm.st_mtime_ns, confirm.st_size) == key:
+        _STATE_FILE_CACHE[cache_key] = (key, data)
+    return data
+
+
 def _project_root() -> Path:
     # core_system/auto_action_policy.py -> src-core -> main-system -> GPTBridge
     return Path(__file__).resolve().parents[3]
@@ -109,13 +140,8 @@ def read_automation_switches(project_root: str | Path | None = None) -> dict[str
     """
     root = Path(project_root) if project_root else _project_root()
     path = root.joinpath(*SWITCHES_RELATIVE)
-    data: dict[str, Any] = {}
-    try:
-        loaded = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(loaded, dict):
-            data = loaded
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        data = {}
+    loaded = _read_state_file(path)
+    data: dict[str, Any] = loaded if isinstance(loaded, dict) else {}
     return {
         AUTOMATIC_REPAIR_SWITCH: bool(
             data.get(AUTOMATIC_REPAIR_SWITCH, False)
@@ -228,13 +254,10 @@ def read_pending_actions(project_root: str | Path | None = None) -> list[dict[st
     """Return the pending user-confirmation queue (may be empty)."""
     root = Path(project_root) if project_root else _project_root()
     path = pending_actions_path(root)
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return []
+    data = _read_state_file(path)
     if not isinstance(data, list):
         return []
-    return [item for item in data if isinstance(item, dict)]
+    return [dict(item) for item in data if isinstance(item, dict)]
 
 
 def _write_pending_actions(

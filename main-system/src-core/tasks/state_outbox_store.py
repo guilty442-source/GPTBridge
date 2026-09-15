@@ -95,22 +95,27 @@ class OutboxStore:
         )
         self._lock = threading.Lock()
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        # One persistent connection serves every store operation.  The old
+        # per-call ``_connect()`` paid a fresh connect + two PRAGMAs for each
+        # append/fetch/prune (and ``with conn`` never closed the handle, so
+        # every operation also leaked a connection).  ``self._lock``
+        # serializes access; WAL mode is a database property and persists.
+        self._conn = self._connect()
         self._init_schema()
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(
-            str(self._db_path), timeout=5.0, isolation_level=None
+            str(self._db_path),
+            timeout=5.0,
+            isolation_level=None,
+            check_same_thread=False,
         )
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA busy_timeout=5000")
         return conn
 
     def _init_schema(self) -> None:
-        conn = self._connect()
-        try:
-            self.ensure_schema(conn)
-        finally:
-            conn.close()
+        self.ensure_schema(self._conn)
 
     @staticmethod
     def ensure_schema(conn: sqlite3.Connection) -> None:
@@ -223,7 +228,8 @@ class OutboxStore:
         if connection is not None:
             revision, sequence = self._insert_row(connection, entity_id, row)
         else:
-            with self._lock, self._connect() as conn:
+            with self._lock:
+                conn = self._conn
                 conn.execute("BEGIN IMMEDIATE")
                 try:
                     revision, sequence = self._insert_row(conn, entity_id, row)
@@ -277,8 +283,8 @@ class OutboxStore:
     # ------------------------------------------------------------------
 
     def fetch_after(self, sequence: int, limit: int = DRAIN_BATCH_LIMIT) -> list[dict[str, Any]]:
-        with self._lock, self._connect() as conn:
-            rows = conn.execute(
+        with self._lock:
+            rows = self._conn.execute(
                 """SELECT sequence, entity_id, entity_type, operation,
                           authoritative_revision, previous_revision,
                           changed_field_allowlist, invalidation_keys,
@@ -313,15 +319,15 @@ class OutboxStore:
         return events
 
     def max_sequence(self) -> int:
-        with self._lock, self._connect() as conn:
-            row = conn.execute(
+        with self._lock:
+            row = self._conn.execute(
                 "SELECT COALESCE(MAX(sequence), 0) FROM outbox_events"
             ).fetchone()
         return int(row[0] or 0)
 
     def current_revision(self, entity_id: str) -> int:
-        with self._lock, self._connect() as conn:
-            row = conn.execute(
+        with self._lock:
+            row = self._conn.execute(
                 "SELECT revision FROM entity_revisions WHERE entity_id = ?",
                 (str(entity_id),),
             ).fetchone()
@@ -338,8 +344,8 @@ class OutboxStore:
         cutoff = min(int(below_sequence), floor)
         if cutoff <= 0:
             return 0
-        with self._lock, self._connect() as conn:
-            cur = conn.execute(
+        with self._lock:
+            cur = self._conn.execute(
                 "DELETE FROM outbox_events WHERE sequence < ?", (cutoff,)
             )
             return int(cur.rowcount or 0)

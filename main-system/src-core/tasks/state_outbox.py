@@ -41,6 +41,9 @@ from tasks.state_outbox_store import (
 )
 
 
+_PRUNE_MIN_INTERVAL_SECONDS: float = 5.0
+
+
 class OutboxPublisher:
     """Delivers outbox events to authenticated sessions (A195 DELIVERY).
 
@@ -61,6 +64,7 @@ class OutboxPublisher:
         self._release_id = component_version("main-system")
         self._sessions: dict[int, dict[str, Any]] = {}
         self._wake = asyncio.Event()
+        self._last_prune_at = 0.0
 
     @property
     def store(self) -> OutboxStore:
@@ -145,8 +149,9 @@ class OutboxPublisher:
             cursor_int = 0
         client_generation = str(generation or "").strip()
         reset = False
+        latest_sequence = self._store.max_sequence()
         if client_generation != self._backend_generation:
-            cursor_int = self._store.max_sequence()
+            cursor_int = latest_sequence
             reset = True
         session["acked"] = cursor_int
         session["sent_upto"] = cursor_int
@@ -159,7 +164,7 @@ class OutboxPublisher:
             "contract_version": OUTBOX_CONTRACT_VERSION,
             "cursor": cursor_int,
             "reset": reset,
-            "latest_sequence": self._store.max_sequence(),
+            "latest_sequence": latest_sequence,
         }
 
     def handle_ack(self, ui: Any, cursor: Any) -> None:
@@ -265,6 +270,13 @@ class OutboxPublisher:
             self._sessions.pop(key, None)
 
     def _prune(self) -> None:
+        # Acks arrive once per delivered batch; a DELETE + MAX() scan per
+        # ack dominated the ack path under event flow.  Retention is not
+        # latency-sensitive, so prune at most once every few seconds.
+        now = time.monotonic()
+        if now - self._last_prune_at < _PRUNE_MIN_INTERVAL_SECONDS:
+            return
+        self._last_prune_at = now
         if self._sessions:
             floor = min(s["acked"] for s in self._sessions.values())
         else:

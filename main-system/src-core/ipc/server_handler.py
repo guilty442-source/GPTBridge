@@ -105,18 +105,18 @@ async def handler(websocket, app_instance):
     heartbeat_dead = asyncio.Event()
     # Pongs arriving during the startup wait sit in the socket buffer until
     # the read loop starts — enforce the pong timeout only from that point.
-    read_loop_active = False
+    # The monitor runs concurrently with this coroutine, so the liveness
+    # clock is shared through a mutable holder rather than copied by value.
+    heartbeat_state = {
+        "last_pong": time.monotonic(),
+        "read_loop_active": False,
+    }
 
-    last_pong_time = time.monotonic()
     heartbeat_task = asyncio.create_task(
         _run_heartbeat_monitor(
-            ui, websocket, app_instance, heartbeat_dead,
-            last_pong_time, False,
+            ui, websocket, app_instance, heartbeat_dead, heartbeat_state,
         )
     )
-    # Track pong responses via a command handler
-    last_pong_time = time.monotonic()
-    heartbeat_task = asyncio.create_task(_heartbeat_monitor())
 
     # Gracefully wait for the backend to finish its heavy initialization.
     # If startup failed outright (startup_dead), do not stall the connection:
@@ -148,14 +148,14 @@ async def handler(websocket, app_instance):
     # Reset the liveness clock when the read loop activates: pongs buffered
     # during the startup wait have not been consumed yet, so a long
     # initialization must not immediately trip the heartbeat timeout.
-    last_pong_time = time.monotonic()
-    read_loop_active = True
+    heartbeat_state["last_pong"] = time.monotonic()
+    heartbeat_state["read_loop_active"] = True
     try:
         async for message in websocket:
             # Any inbound frame proves the client is alive — count every
             # message as liveness, not only heartbeat_pong responses, so a
             # busy session is never killed while traffic is flowing.
-            last_pong_time = time.monotonic()
+            heartbeat_state["last_pong"] = time.monotonic()
             try:
                 data = json.loads(message)
                 if not isinstance(data, dict):
@@ -179,7 +179,7 @@ async def handler(websocket, app_instance):
                     continue
 
                 if command == "heartbeat_pong":
-                    last_pong_time = time.monotonic()
+                    heartbeat_state["last_pong"] = time.monotonic()
                     continue
 
                 # A195 outbox control channel — handled in-band so cursor
@@ -295,6 +295,20 @@ def _compact_pending_actions(app_instance) -> list[dict[str, Any]]:
         return []
 
 
+def _maybe_write_connection_state(
+    project_root: Path, count: int, state: dict[str, Any]
+) -> None:
+    # The watchdog rejects a state file older than 20s, so a 10s keepalive
+    # (or any count transition) keeps it fresh while cutting the per-cycle
+    # atomic write to a fraction of its previous frequency.
+    now = time.monotonic()
+    if count == state["count"] and now - state["at"] < 10.0:
+        return
+    state["count"] = count
+    state["at"] = now
+    write_ipc_connection_state(project_root, count)
+
+
 async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event) -> None:
     """Backend-owned refresh loop pushing compact health reports to clients.
 
@@ -305,14 +319,14 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
     """
     push_interval = 2.0
     _PROJECT_ROOT = Path(__file__).resolve().parents[3]
+    _conn_state = {"count": -1, "at": 0.0}
     while not shutdown_event.is_set():
         try:
-            # Keep ipc-connections.json fresh for the connection watchdog.
-            # The watchdog rejects a state file older than 20s, while the
-            # open/close hooks only write on transitions, so a stable healthy
-            # connection would otherwise be misread as a frontend disconnect.
-            _connection_count = getattr(app_instance, "_active_ws_connections", 0)
-            write_ipc_connection_state(_PROJECT_ROOT, _connection_count)
+            _maybe_write_connection_state(
+                _PROJECT_ROOT,
+                getattr(app_instance, "_active_ws_connections", 0),
+                _conn_state,
+            )
 
             fault_event = None
             immediate = False
