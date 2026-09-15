@@ -201,29 +201,55 @@ class PostgresStoreAsyncMixin:
         token: str,
         push_id: str,
         target_tool_id: str,
+        response: Any = None,
     ) -> bool:
-        """Async version of acknowledge_push."""
+        """Async version of acknowledge_push (bidirectional: optional response)."""
         self._authorize(token, "respond", target_tool_id)
         pool = self._get_pool()
         return await asyncio.to_thread(
-            self._acknowledge_push_sync, pool, push_id, target_tool_id)
+            self._acknowledge_push_sync, pool, push_id, target_tool_id, response)
 
-    def _acknowledge_push_sync(self, pool, push_id, target_tool_id):
+    def _acknowledge_push_sync(self, pool, push_id, target_tool_id, response=None):
         with pool.acquire() as connection:
-            cursor = connection.execute(
-                "UPDATE gptbridge_transport.tool_request "
-                "SET status='completed', updated_at=now() "
-                "WHERE channel_id=%s AND request_id=%s AND target_tool_id=%s AND status='claimed' "
-                "RETURNING 1",
-                (
-                    self._channel_id,
-                    _id(push_id),
-                    _id(target_tool_id),
-                ),
-            )
+            if response is None:
+                cursor = connection.execute(
+                    "UPDATE gptbridge_transport.tool_request "
+                    "SET status='completed', updated_at=now() "
+                    "WHERE channel_id=%s AND request_id=%s AND target_tool_id=%s AND status='claimed' "
+                    "RETURNING 1",
+                    (
+                        self._channel_id,
+                        _id(push_id),
+                        _id(target_tool_id),
+                    ),
+                )
+            else:
+                cursor = connection.execute(
+                    "UPDATE gptbridge_transport.tool_request "
+                    "SET status='completed', response=%s, updated_at=now() "
+                    "WHERE channel_id=%s AND request_id=%s AND target_tool_id=%s AND status='claimed' "
+                    "RETURNING 1",
+                    (
+                        _json(response),
+                        self._channel_id,
+                        _id(push_id),
+                        _id(target_tool_id),
+                    ),
+                )
             acknowledged = cursor.fetchone() is not None
+            if acknowledged:
+                self._notify(connection, push_id)
             connection.commit()
             return acknowledged
+
+    async def aconsume_push_response(
+        self,
+        token: str,
+        push_id: str,
+        target_tool_id: str,
+    ) -> dict[str, Any] | None:
+        """Async version of consume_push_response (bidirectional push)."""
+        return await self.aconsume_response(token, push_id, target_tool_id)
 
     async def aconsume_response(
         self,

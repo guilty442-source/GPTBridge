@@ -314,15 +314,34 @@ class LocalSharedLayerStore:
         finally:
             connection.close()
 
-    def acknowledge_push(self, token: str, push_id: str, target_tool_id: str) -> bool:
-        """Acknowledge a claimed push (local transport)."""
+    def acknowledge_push(self, token: str, push_id: str, target_tool_id: str, response: Any = None) -> bool:
+        """Acknowledge a claimed push and optionally attach a response (local transport).
+
+        When *response* is provided it is stored in the ``response`` column so
+        the original sender can retrieve it via ``consume_push_response`` —
+        this makes the push channel bidirectional (A263 two-way heartbeat).
+        """
         self._authorize(token, "respond", target_tool_id)
         with self._connect() as connection:
-            cursor = connection.execute(
-                "UPDATE tool_request SET status='completed',updated_at=? WHERE channel_id=? AND request_id=? AND target_tool_id=? AND status='claimed'",
-                (_now_iso(), self._channel_id, self._id(push_id), target_tool_id),
-            )
+            if response is None:
+                cursor = connection.execute(
+                    "UPDATE tool_request SET status='completed',updated_at=? WHERE channel_id=? AND request_id=? AND target_tool_id=? AND status='claimed'",
+                    (_now_iso(), self._channel_id, self._id(push_id), target_tool_id),
+                )
+            else:
+                cursor = connection.execute(
+                    "UPDATE tool_request SET status='completed',response=?,updated_at=? WHERE channel_id=? AND request_id=? AND target_tool_id=? AND status='claimed'",
+                    (self._json(response), _now_iso(), self._channel_id, self._id(push_id), target_tool_id),
+                )
             return cursor.rowcount == 1
+
+    def consume_push_response(self, token: str, push_id: str, target_tool_id: str) -> dict[str, Any] | None:
+        """Retrieve the response the receiver attached to a push (local transport).
+
+        Reuses ``consume_response`` since the push row shares the same
+        ``tool_request`` table (request_id=push_id, requester_actor=sender).
+        """
+        return self.consume_response(token, push_id, target_tool_id)
 
 
 SharedLayerStore = LocalSharedLayerStore

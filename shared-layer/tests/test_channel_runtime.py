@@ -37,8 +37,8 @@ class _StubPushChannel(SharedLayerChannel):
             "payload": {"_governed_command": "notify", "ok": True},
         }
 
-    def acknowledge_push(self, push_id: str) -> bool:
-        self.calls.append(("ack", push_id))
+    def acknowledge_push(self, push_id: str, response=None) -> bool:
+        self.calls.append(("ack", push_id, response))
         return True
 
 
@@ -164,7 +164,7 @@ def test_push_and_claim_routing_via_governed_client() -> None:
         assert claimed["push_id"] == "push-1"
         assert claimed["acknowledged"] is True
         assert ("claim",) in channel.calls
-        assert ("ack", "push-1") in channel.calls
+        assert ("ack", "push-1", None) in channel.calls
 
     asyncio.run(scenario())
 
