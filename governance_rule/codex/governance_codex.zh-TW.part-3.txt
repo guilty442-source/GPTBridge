@@ -1,10 +1,10 @@
 {
-  "codex_version": "2026-09-15T11:18:35Z",
-  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-15T11:18:35Z",
+  "codex_version": "2026-09-15T11:21:54Z",
+  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-15T11:21:54Z",
   "part_index": 3,
   "part_count": 3,
-  "previous_part_hash": "d007192d9b4c70c338622e9c27c0f6d360bd99b0e10e2013d45824a399579e1b",
-  "assembled_payload_hash": "aaa9f964c8070135156983bdd08bd3f25d26f53ffc94f5a66c8055aa8a10f088",
+  "previous_part_hash": "cbe3d2385cabbdfa42b5e002ad2c5f56a27f5bb580981b64138cf196543e2d46",
+  "assembled_payload_hash": "1aa589865e1ab0d0a6705934900e7e9f730fb0b96240d8fa5a29acc14803ebe2",
   "tables": {
     "codex_search_fts_data": [
       {
@@ -15556,6 +15556,17 @@
         "canonical_recorded_at_utc": "2026-09-15T11:18:35Z",
         "timestamp_status": "canonical",
         "timestamp_migration_evidence": "direct-current-event"
+      },
+      {
+        "version": "2026-09-15T11:21:54Z",
+        "recorded_at_utc": "2026-09-15T11:21:54Z",
+        "recorded_at_local": "2026-09-15T19:21:54.000000+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "formal-evaluator-parity-p0-release-gate",
+        "version_epoch": "E2",
+        "canonical_recorded_at_utc": "2026-09-15T11:21:54Z",
+        "timestamp_status": "canonical",
+        "timestamp_migration_evidence": "direct-current-event"
       }
     ],
     "command_code_directory": [
@@ -31098,8 +31109,9 @@
         "certification_state": "CODEX_CERTIFICATION_INCOMPLETE",
         "evidence_summary": "active=12;pending=41",
         "pending_codes": "DIR_API_EVENT_CONTRACT|DIR_AUDIT_EVIDENCE_RETENTION|DIR_AUTHORED_SOURCE_INVENTORY|DIR_BACKUP_RECOVERY_MIGRATION|DIR_CAPABILITY_REGISTRY|DIR_CHANNEL_SESSION_ROUTE_STATE|DIR_CODEX_REFERENCE_CODE_REGISTRY|DIR_CONFIG_CREDENTIAL_SECRET|DIR_CROSS_STORE_RECONCILIATION|DIR_DATA_PLATFORM_OBSERVABILITY|DIR_DATA_SCHEMA_AUTHORITY|DIR_DEPENDENCY_COMPATIBILITY_GRAPH|DIR_GOVERNANCE_PERFORMANCE_EVIDENCE|DIR_IDENTITY_GROUP|DIR_IDENTITY_MODULE|DIR_LANGUAGE_GOVERNANCE_DERIVED_STATE|DIR_LANGUAGE_GOVERNANCE_FINAL_DECISION|DIR_LANGUAGE_GOVERNANCE_REGRESSION_CORPUS|DIR_LEGACY_ROOT_RETIREMENT|DIR_MODEL_RESOURCE_DEPENDENCY|DIR_MODULE_ASSIGNMENT|DIR_MODULE_LINE_COUNT_REGISTRY|DIR_MODULE_SELF_DECOMPOSITION|DIR_NATIVE_PROMOTION_RECORD|DIR_PERMISSION_CAPABILITY|DIR_REPAIR_ACTION_PROVENANCE|DIR_RUNTIME_INSTANCE_GENERATION|DIR_SERVICE_PROCESS_PORT_ENV|DIR_SOURCE_LINE_LIMIT_EVIDENCE|DIR_SOVEREIGN_HIERARCHY|DIR_TOOL_FAILURE_ISOLATION|DIR_TOOL_ROUTE|DIR_UI_WINDOW_FEATURE_ENTRY|DIR_UNIFIED_DATA_HEALTH|DIR_UPDATE_SYNCHRONIZATION_TRANSACTION|DIR_USER_COMMAND_SIGNATURE|DIR_VERSION_RELEASE_ARTIFACT|DIR_XINGCHENG_COMPLIANCE_FINDINGS|DIR_XINGCHENG_CONFIDENTIAL_AUDIT|DIR_XINGCHENG_FAULT_DECISION|DIR_XINGCHENG_GOVERNANCE",
-        "version_identity": "2026-09-15T11:18:35Z",
-        "status": "active"
+        "version_identity": "2026-09-15T11:21:54Z",
+        "status": "active",
+        "priority": "P0"
       },
       {
         "component_code": "SYSTEM_MODULARIZATION",
@@ -31108,8 +31120,9 @@
         "certification_state": "CODEX_CERTIFICATION_INCOMPLETE",
         "evidence_summary": "structural-active=8;pending-acceptance=17",
         "pending_codes": "AI_ASSISTANT|AI_COLLABORATION|EVENT_SERVICE|FILE_SORTER|GLOBAL_CLEANER|INVESTMENT_MOBILE|IPC_SERVICE|LAUNCHER|LOCAL_MODEL|MAIN_SYSTEM|MODEL_DIALOGUE|POSTGRESQL_AUTHORITY|QDRANT_AUTHORITY|SHARED_LAYER|STATE_SERVICE|SYSTEM_RESCUE|VAULTLY",
-        "version_identity": "2026-09-15T11:18:35Z",
-        "status": "active"
+        "version_identity": "2026-09-15T11:21:54Z",
+        "status": "active",
+        "priority": "P1"
       },
       {
         "component_code": "VERIFIED_RELEASE",
@@ -31118,8 +31131,20 @@
         "certification_state": "VERIFIED_RELEASE_DENIED",
         "evidence_summary": "directory+module+formal-evaluator+confidentiality+signature gates remain open",
         "pending_codes": "EXTERNAL_SIGNATURE|CHINESE_MIRROR_CONFIDENTIALITY|DIRECTORY_GOVERNANCE_DATA|SYSTEM_MODULARIZATION|FORMAL_EVALUATOR_PARITY",
-        "version_identity": "2026-09-15T11:18:35Z",
-        "status": "active"
+        "version_identity": "2026-09-15T11:21:54Z",
+        "status": "active",
+        "priority": "P0"
+      },
+      {
+        "component_code": "FORMAL_EVALUATOR_PARITY",
+        "structural_state": "registered-10-of-10",
+        "governance_state": "INCOMPLETE_EVIDENCE",
+        "certification_state": "CODEX_CERTIFICATION_INCOMPLETE",
+        "evidence_summary": "pending-evaluator-parity=10;obligation=OBL_FORMAL_EVALUATOR_V2_PARITY",
+        "pending_codes": "RULE_CALL_BOUNDARY|RULE_CONNECTION_ROUTE|RULE_EXECUTION_PIPELINE|RULE_HEALTH_CONTRACT|RULE_IDENTITY_CONVERSION|RULE_MACHINE_SCHEMA|RULE_PRECEDENCE_RESOLUTION|RULE_RELEASE_VERIFICATION|RULE_ROLE_SEPARATION|RULE_TEST_SUITE_CARDINALITY",
+        "version_identity": "2026-09-15T11:21:54Z",
+        "status": "active",
+        "priority": "P0"
       }
     ],
     "health_contract_schema": [
@@ -33436,18 +33461,6 @@
         "value": "DECLARED_PENDING_EVALUATOR_PARITY"
       },
       {
-        "key": "codex_version",
-        "value": "2026-09-15T11:18:35Z"
-      },
-      {
-        "key": "active_provision_binding_version",
-        "value": "2026-09-15T11:18:35Z"
-      },
-      {
-        "key": "current_version_identity",
-        "value": "E2:2026-09-15T11:18:35Z"
-      },
-      {
         "key": "physical_structural_state",
         "value": "PHYSICAL_STRUCTURAL_ACTIVE"
       },
@@ -33458,6 +33471,26 @@
       {
         "key": "verified_release_state",
         "value": "VERIFIED_RELEASE_DENIED"
+      },
+      {
+        "key": "formal_evaluator_parity_priority",
+        "value": "P0"
+      },
+      {
+        "key": "formal_evaluator_parity_release_effect",
+        "value": "INCOMPLETE_EVIDENCE|VERIFIED_RELEASE_DENIED"
+      },
+      {
+        "key": "codex_version",
+        "value": "2026-09-15T11:21:54Z"
+      },
+      {
+        "key": "active_provision_binding_version",
+        "value": "2026-09-15T11:21:54Z"
+      },
+      {
+        "key": "current_version_identity",
+        "value": "E2:2026-09-15T11:21:54Z"
       }
     ],
     "module_assignment_registry": [
@@ -83760,6 +83793,20 @@
         "recorded_at_utc": "2026-09-15T11:18:35Z",
         "timestamp_status": "verified",
         "timestamp_migration_evidence": "current-directory-and-acceptance-state"
+      },
+      {
+        "sequence": 10,
+        "change_id": "FORMAL_EVALUATOR_PARITY_P0_GATE@2026-09-15T11:21:54Z",
+        "version": "2026-09-15T11:21:54Z",
+        "recorded_date": "2026-09-15",
+        "change_scope": "formal-evaluator-parity-p0-release-gate",
+        "summary": "classify all ten pending formal evaluator parity contracts as a P0 release-blocking closure gate",
+        "previous_hash": "49b4961d2582107d0ab3e298cd5605eb7e6715fea9d99316ecd75ad5815734f5",
+        "entry_hash": "ecb7f829dc6c94db24ff503d8774f62bd9b803a83f39d51b0ee2c65ecca3eb5b",
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-15T11:21:54Z",
+        "timestamp_status": "verified",
+        "timestamp_migration_evidence": "A463+A466+formal-rule-registry-current-state"
       }
     ],
     "savings": [
@@ -84744,6 +84791,18 @@
         "content_root": "f58a1afa38c5e11d8f26139c48a9895cab451383881c0c1692522936bffc56f1",
         "identity_root": "41bf0df387e3d960a09be6ed2381ece40af325d3913ae101c01b7a218cd9ae8a",
         "full_root": "98dfd9a2a27cd4e2ef0f3ae4d2cc526c12989402c48084c000f3f8eff753c6fe",
+        "version_epoch": 2
+      },
+      {
+        "version": "2026-09-15T11:21:54Z",
+        "history_head": "ecb7f829dc6c94db24ff503d8774f62bd9b803a83f39d51b0ee2c65ecca3eb5b",
+        "provision_count": 714,
+        "identity_count": 714,
+        "lineage_count": 714,
+        "certification_state": "sealed-pending-external-signatures",
+        "content_root": "f58a1afa38c5e11d8f26139c48a9895cab451383881c0c1692522936bffc56f1",
+        "identity_root": "41bf0df387e3d960a09be6ed2381ece40af325d3913ae101c01b7a218cd9ae8a",
+        "full_root": "c607cb23125b6393e8c8e53c87d9868d058859605074b2490abb468d77323b4e",
         "version_epoch": 2
       }
     ],
@@ -91750,5 +91809,5 @@
       }
     ]
   },
-  "part_hash": "9b9a225908f498d7e1df9e59679800ebf87f233bb5dd661dd0a15c66e342f6a3"
+  "part_hash": "e54fd32cdb31065c8a05a25df69a6cbc3fc253292a6ec4c31f1c4649f3721eb0"
 }

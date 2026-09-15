@@ -1,10 +1,10 @@
 {
-  "codex_version": "2026-09-15T11:18:35Z",
-  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-15T11:18:35Z",
+  "codex_version": "2026-09-15T11:21:54Z",
+  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-15T11:21:54Z",
   "part_index": 1,
   "part_count": 3,
   "previous_part_hash": "0000000000000000000000000000000000000000000000000000000000000000",
-  "assembled_payload_hash": "aaa9f964c8070135156983bdd08bd3f25d26f53ffc94f5a66c8055aa8a10f088",
+  "assembled_payload_hash": "1aa589865e1ab0d0a6705934900e7e9f730fb0b96240d8fa5a29acc14803ebe2",
   "tables": {
     "codex_version_epochs": [],
     "epoch_seal_manifest": [],
@@ -4554,6 +4554,14 @@
       },
       {
         "version": "2026-09-15T11:18:35Z",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required",
+        "version_epoch": "E2"
+      },
+      {
+        "version": "2026-09-15T11:21:54Z",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -32513,5 +32521,5 @@
       }
     ]
   },
-  "part_hash": "fdf82c822fe03cd11ceac6f50688bf3fcb3ddbb56f5d271d2f3fcb3410aa6502"
+  "part_hash": "d44b019956413685169d8652720f9e7109563a1b1e921d93b37c4f704d234d65"
 }

@@ -1,10 +1,10 @@
 {
-  "codex_version": "2026-09-15T11:18:35Z",
-  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-15T11:18:35Z",
+  "codex_version": "2026-09-15T11:21:54Z",
+  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-15T11:21:54Z",
   "part_index": 2,
   "part_count": 3,
-  "previous_part_hash": "fdf82c822fe03cd11ceac6f50688bf3fcb3ddbb56f5d271d2f3fcb3410aa6502",
-  "assembled_payload_hash": "aaa9f964c8070135156983bdd08bd3f25d26f53ffc94f5a66c8055aa8a10f088",
+  "previous_part_hash": "d44b019956413685169d8652720f9e7109563a1b1e921d93b37c4f704d234d65",
+  "assembled_payload_hash": "1aa589865e1ab0d0a6705934900e7e9f730fb0b96240d8fa5a29acc14803ebe2",
   "tables": {
     "codex_search_fts_data": [
       {
@@ -2101,5 +2101,5 @@
       }
     ]
   },
-  "part_hash": "d007192d9b4c70c338622e9c27c0f6d360bd99b0e10e2013d45824a399579e1b"
+  "part_hash": "cbe3d2385cabbdfa42b5e002ad2c5f56a27f5bb580981b64138cf196543e2d46"
 }
