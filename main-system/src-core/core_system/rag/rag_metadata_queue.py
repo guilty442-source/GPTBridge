@@ -222,6 +222,41 @@ class RagMetadataReconciliationMixin:
     async def queue_is_complete(self) -> bool:
         return (await self.pending_reconciliation_count()) == 0
 
+    async def index_state_summary(
+        self, embedding_model: str, embedding_dimension: int
+    ) -> Optional[dict[str, int]]:
+        """Aggregate canonical index_state coverage for reconciliation parity."""
+        if not self._healthy or not self._conn:
+            return None
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT COUNT(*),
+                              COALESCE(SUM(chunk_count), 0),
+                              SUM(CASE WHEN qdrant_point_id IS NULL THEN 1 ELSE 0 END),
+                              SUM(CASE WHEN content_hash IS NULL OR content_hash = '' THEN 1 ELSE 0 END),
+                              SUM(CASE WHEN embedding_model IS DISTINCT FROM %s
+                                        OR embedding_dimension IS DISTINCT FROM %s
+                                       THEN 1 ELSE 0 END)
+                       FROM gptbridge_rag.index_state""",
+                    (embedding_model, embedding_dimension),
+                )
+                row = await cur.fetchone()
+                if row is None:
+                    return None
+                return {
+                    "documents": int(row[0] or 0),
+                    "total_chunks": int(row[1] or 0),
+                    "missing_point_ids": int(row[2] or 0),
+                    "missing_hashes": int(row[3] or 0),
+                    "mismatched_versions": int(row[4] or 0),
+                }
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: index_state_summary failed: %s", exc
+            )
+            return None
+
     async def record_outbox_step(
         self,
         *,

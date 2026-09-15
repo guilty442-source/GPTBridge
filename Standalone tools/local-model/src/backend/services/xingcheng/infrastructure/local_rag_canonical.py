@@ -158,31 +158,81 @@ class CanonicalRagAdapter:
     # -- readiness / status ---------------------------------------------------
 
     def is_ready(self) -> bool:
+        """Ready only while the governed state is CANONICAL.
+
+        DEGRADED / RECONCILIATION_FAILED kick a bounded recovery attempt on
+        the pipeline loop and report not-ready (restricted degraded mode);
+        RECONCILING means a recovery is already in flight.
+        """
         if not self._enabled:
             return False
         self._start()
         self._init_event.wait(timeout=10.0)
-        return self._ready
+        pipeline, loop = self._pipeline, self._loop
+        if pipeline is None or loop is None:
+            return self._ready
+        state = pipeline.state_machine.effective_state
+        if state == "CANONICAL":
+            self._ready = True
+            return True
+        if state in ("DEGRADED", "RECONCILIATION_FAILED"):
+            try:
+                asyncio.run_coroutine_threadsafe(
+                    pipeline.attempt_recovery(), loop
+                )
+            except RuntimeError:
+                pass
+        self._ready = False
+        return False
 
     def mark_unhealthy(self, error: str) -> None:
         self._ready = False
         self._last_error = error
+        pipeline, loop = self._pipeline, self._loop
+        if pipeline is not None and loop is not None:
+            try:
+                loop.call_soon_threadsafe(
+                    pipeline.state_machine.report_canonical_failure, error
+                )
+            except RuntimeError:
+                pass
+
+    def _runtime_status(self) -> dict[str, Any]:
+        """Pull the governed runtime state off the pipeline's state machine."""
+        pipeline, loop = self._pipeline, self._loop
+        if pipeline is None or loop is None:
+            state = "STARTING" if self._enabled else "DEGRADED"
+            return {"state": state, "effective_state": state}
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                pipeline.health_check(), loop
+            )
+            return dict(future.result(timeout=5.0))
+        except Exception as exc:
+            return {"state": "DEGRADED", "effective_state": "DEGRADED",
+                    "last_error": str(exc)}
 
     def status(self) -> dict[str, Any]:
         if self._enabled:
             self._start()
             self._init_event.wait(timeout=10.0)
+        runtime = self._runtime_status()
         return {
             "engine": "canonical-qdrant-postgresql",
-            "canonical": True,
+            "canonical": runtime.get("effective_state") == "CANONICAL",
             "ready": self._ready,
             "enabled": self._enabled,
+            "runtime": runtime,
+            "runtime_state": runtime.get("effective_state", "DEGRADED"),
+            "reconciliation_required": runtime.get(
+                "reconciliation_required", True
+            ),
             "collection": os.environ.get("QDRANT_COLLECTION", _DEFAULT_COLLECTION),
             "qdrant_url": os.environ.get("QDRANT_URL", _DEFAULT_QDRANT_URL),
             "postgresql": "configured"
             if os.environ.get("GPTBRIDGE_POSTGRES_DSN")
             else "dsn-missing",
-            "last_error": self._last_error,
+            "last_error": self._last_error or runtime.get("last_error"),
         }
 
     def close(self) -> None:

@@ -24,6 +24,7 @@ from .rag_qdrant import IndexState, QdrantCanonicalRuntime, RagPipelineConfig, R
 from .rag_metadata import PostgreSQLMetadataAuthority
 from .pipeline_degraded import DegradedRagPipeline
 from .pipeline_domain import PythonDomainModel
+from .pipeline_recovery import PipelineRecoveryMixin
 from .runtime_state import (
     CrossStoreOutbox,
     RagRuntimeState,
@@ -33,7 +34,7 @@ from .runtime_state import (
 )
 
 
-class CanonicalRagPipeline:
+class CanonicalRagPipeline(PipelineRecoveryMixin):
     """A371-A374: Canonical RAG pipeline implementation.
 
     DEFAULT-PATH: source content > qdrant dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
@@ -138,6 +139,7 @@ class CanonicalRagPipeline:
         embedding: list[float],
     ) -> IndexState:
         """Index a resource through the canonical or degraded path depending on state."""
+        await self.attempt_recovery()
         current_state = self.state
         if current_state == RagRuntimeState.DEGRADED:
             _logger.info("CanonicalRagPipeline: DEGRADED state, delegating index_resource to degraded pipeline")
@@ -202,6 +204,7 @@ class CanonicalRagPipeline:
         score_threshold: Optional[float] = None,
     ) -> list[RagQueryResult]:
         """Query through the canonical or degraded RAG path depending on state."""
+        await self.attempt_recovery()
         current_state = self.state
         if current_state == RagRuntimeState.DEGRADED:
             _logger.info("CanonicalRagPipeline: DEGRADED state, delegating query to degraded pipeline")
@@ -283,6 +286,7 @@ class CanonicalRagPipeline:
         confirms the upsert.  ``chunks`` carry deterministic
         ``qdrant_point_id``/``point_id`` UUIDs and self-describing payloads.
         """
+        await self.attempt_recovery()
         if not self.is_ready():
             raise RuntimeError("RAG pipeline not ready")
         if collection_dimension:
@@ -408,6 +412,7 @@ class CanonicalRagPipeline:
         Returns payload-shaped records (chunk-level) whose document carries an
         authoritative index_state row; hits without proof are dropped.
         """
+        await self.attempt_recovery()
         if not self.is_ready():
             raise RuntimeError("RAG pipeline not ready")
         hits = await self.qdrant.search(
@@ -450,37 +455,12 @@ class CanonicalRagPipeline:
         limit: int,
     ) -> list[dict[str, Any]]:
         """Canonical PostgreSQL FTS keyword channel (A374 step 2)."""
+        await self.attempt_recovery()
         if not self.is_ready():
             raise RuntimeError("RAG pipeline not ready")
         return await self.postgresql.keyword_search(
             query, module_ids=module_ids, limit=limit
         )
-
-    async def health_check(self) -> dict[str, Any]:
-        """Health check for all components (A374)."""
-        state = self._state_machine.state
-        is_canonical = state == RagRuntimeState.CANONICAL
-        result = {
-            "pipeline_ready": self.is_ready(),
-            "state": state.value,
-            "canonical": is_canonical,
-            "reconciliation_required": self._state_machine.reconciliation_required,
-            "queue_pending": self._queue.pending_count(),
-            "queue_complete": self._queue.is_complete(),
-            "qdrant": {
-                "healthy": self.qdrant.is_healthy(),
-                "collection": self.config.collection_name,
-            },
-            "postgresql": {
-                "healthy": self.postgresql.is_healthy(),
-            },
-            "domain_model": "ok",
-            "degraded_pipeline_active": self._degraded_pipeline is not None,
-        }
-        if self._degraded_pipeline is not None:
-            degraded_health = await self._degraded_pipeline.health_check()
-            result["degraded_pipeline"] = degraded_health
-        return result
 
 
 __all__ = [

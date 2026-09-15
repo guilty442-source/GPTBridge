@@ -231,14 +231,9 @@ class LocalRagRetrievalMixin:
         matches = reranked[:top_k]
         citations = self._citations(matches)
         if not matches:
-            message = "共享知識庫中沒有足夠相關的內容可回答。"
-            return {
-                "ok": True, "answer": message, "response": message,
-                "evidence_sufficient": False, "citations": [], "retrieved_count": 0,
-                "route": route, "router": router, "reranker": reranker,
-                "canonical": canonical_ready and not pending_reconciliation,
-                "knowledge_base": "shared", "network_used": False,
-            }
+            return self._empty_answer(
+                route, router, reranker, canonical_ready and not pending_reconciliation
+            )
         if payload.get("generate") is False:
             return {
                 "ok": True, "answer": "", "response": "", "evidence_sufficient": True,
@@ -260,6 +255,22 @@ class LocalRagRetrievalMixin:
             canonical_ready=canonical_ready and not pending_reconciliation,
             pending_reconciliation=pending_reconciliation,
         )
+
+    @staticmethod
+    def _empty_answer(
+        route: str,
+        router: dict[str, Any],
+        reranker: dict[str, Any],
+        canonical: bool,
+    ) -> dict[str, Any]:
+        message = "共享知識庫中沒有足夠相關的內容可回答。"
+        return {
+            "ok": True, "answer": message, "response": message,
+            "evidence_sufficient": False, "citations": [], "retrieved_count": 0,
+            "route": route, "router": router, "reranker": reranker,
+            "canonical": canonical, "knowledge_base": "shared",
+            "network_used": False,
+        }
 
     @staticmethod
     def _citations(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -314,6 +325,25 @@ class LocalRagRetrievalMixin:
                 "generation_attempts": attempts, "knowledge_base": "shared",
                 "network_used": False,
             }
+        return self._answer_result(
+            generated=generated, attempts=attempts, citations=citations,
+            route=route, router=router, reranker=reranker,
+            canonical_ready=canonical_ready,
+            pending_reconciliation=pending_reconciliation,
+        )
+
+    def _answer_result(
+        self,
+        *,
+        generated: dict[str, Any],
+        attempts: list[dict[str, Any]],
+        citations: list[dict[str, Any]],
+        route: str,
+        router: dict[str, Any],
+        reranker: dict[str, Any],
+        canonical_ready: bool,
+        pending_reconciliation: bool,
+    ) -> dict[str, Any]:
         answer = str(generated.get("text") or "").strip()
         return {
             "ok": True, "answer": answer, "response": answer,
@@ -357,9 +387,14 @@ class LocalRagRetrievalMixin:
         vector_status = self.vector_store.status()
         vector_ready = vector_status.get("available") is True
         canonical_status = (
-            self.canonical.status() if self.canonical is not None else {"ready": False}
+            self.canonical.status()
+            if self.canonical is not None
+            else {"ready": False, "runtime_state": "DEGRADED"}
         )
-        canonical_ready = canonical_status.get("ready") is True
+        runtime_state = str(
+            canonical_status.get("runtime_state") or "DEGRADED"
+        )
+        canonical_ready = runtime_state == "CANONICAL"
         sub_architectures = (
             "hybrid-rag",
             "code-rag",
@@ -375,6 +410,7 @@ class LocalRagRetrievalMixin:
                 if canonical_ready
                 else "bounded-degraded-hybrid-local-rag"
             ),
+            "runtime_state": runtime_state,
             "sub_architectures": list(sub_architectures),
             "sub_architecture_valid": arch_valid,
             "codex_basis": "A52/E38+A8/E21+A44/E30+A49/E35+A371-A374",

@@ -203,5 +203,16 @@ class QdrantCanonicalRuntime:
             _logger.error("QdrantCanonicalRuntime: search failed: %s", exc)
             return []
 
+    def points_count(self) -> Optional[int]:
+        """Current point count in the canonical collection (None when unavailable)."""
+        if not self._healthy or self.client is None:
+            return None
+        try:
+            info = self.client.get_collection(self.config.collection_name)
+            return int(info.points_count or 0)
+        except Exception as exc:
+            _logger.warning("QdrantCanonicalRuntime: points_count failed: %s", exc)
+            return None
+
     def is_healthy(self) -> bool:
         return self._healthy

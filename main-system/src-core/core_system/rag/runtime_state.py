@@ -115,11 +115,28 @@ class RagRuntimeStateMachine:
         self._lock = threading.RLock()
         self._last_transition_at = datetime.now(timezone.utc).isoformat()
         self._last_error: Optional[str] = None
+        self._reconciliation_failed = False
 
     @property
     def state(self) -> RagRuntimeState:
         with self._lock:
             return self._state
+
+    @property
+    def reconciliation_failed(self) -> bool:
+        """True after a RECONCILING attempt failed; service stays bounded DEGRADED."""
+        with self._lock:
+            return self._reconciliation_failed
+
+    @property
+    def effective_state(self) -> str:
+        """Status-surface state: RECONCILIATION_FAILED is a derived outcome of
+        DEGRADED after a failed reconciliation (A374 keeps exactly four
+        machine states; the failure is reported, not a fifth state)."""
+        with self._lock:
+            if self._state == RagRuntimeState.DEGRADED and self._reconciliation_failed:
+                return "RECONCILIATION_FAILED"
+            return self._state.value
 
     @property
     def queue(self) -> ReconciliationQueue:
@@ -180,6 +197,8 @@ class RagRuntimeStateMachine:
             and index_state_matches
             and self._queue.is_complete()
         ):
+            with self._lock:
+                self._reconciliation_failed = False
             self._transition(RagRuntimeState.CANONICAL)
         else:
             self._transition(RagRuntimeState.DEGRADED)
@@ -188,10 +207,12 @@ class RagRuntimeStateMachine:
     # -- CANONICAL -> DEGRADED ----------------------------------------------
 
     def report_canonical_failure(self, reason: str) -> RagRuntimeState:
-        """A374: verified Qdrant/PostgreSQL fault -> DEGRADED."""
+        """A374: verified Qdrant/PostgreSQL fault -> DEGRADED (idempotent)."""
         with self._lock:
             self._last_error = reason
-        self._transition(RagRuntimeState.DEGRADED)
+            current = self._state
+        if current != RagRuntimeState.DEGRADED:
+            self._transition(RagRuntimeState.DEGRADED)
         return self.state
 
     # -- DEGRADED -> RECONCILING --------------------------------------------
@@ -207,6 +228,8 @@ class RagRuntimeStateMachine:
             raise CanonicalCheckError(
                 "Cannot begin reconciliation: canonical services not healthy"
             )
+        with self._lock:
+            self._reconciliation_failed = False
         self._transition(RagRuntimeState.RECONCILING)
         return self.state
 
@@ -233,19 +256,26 @@ class RagRuntimeStateMachine:
         Only after all of these succeed may state return CANONICAL.
         """
         parity = counts_match and ids_match and hashes_match and versions_match
-        if not parity:
+        if not parity or not self._queue.is_complete():
+            with self._lock:
+                self._reconciliation_failed = True
+                self._last_error = "reconciliation parity or queue-drain failed"
             self._transition(RagRuntimeState.DEGRADED)
             return self.state
-        if not self._queue.is_complete():
-            self._transition(RagRuntimeState.DEGRADED)
-            return self.state
+        with self._lock:
+            self._reconciliation_failed = False
         self._transition(RagRuntimeState.CANONICAL)
         return self.state
 
     def fail_reconciliation(self, reason: str) -> RagRuntimeState:
-        """A374: RECONCILING -> DEGRADED when reconciliation cannot complete."""
+        """A374: RECONCILING -> DEGRADED when reconciliation cannot complete.
+
+        The service stays bounded at DEGRADED; the status surface reports
+        the derived RECONCILIATION_FAILED outcome until the next attempt.
+        """
         with self._lock:
             self._last_error = reason
+            self._reconciliation_failed = True
         self._transition(RagRuntimeState.DEGRADED)
         return self.state
 
@@ -302,6 +332,8 @@ class RagRuntimeStateMachine:
         with self._lock:
             return {
                 "state": self._state.value,
+                "effective_state": self.effective_state,
+                "reconciliation_failed": self._reconciliation_failed,
                 "reconciliation_required": self.reconciliation_required,
                 "queue_pending": self._queue.pending_count(),
                 "queue_complete": self._queue.is_complete(),

@@ -3,6 +3,9 @@
 Transport-agnostic value objects shared by the queue stores and the
 runtime state machine.  See ``runtime_state.py`` for the governed
 transition semantics (STARTING / CANONICAL / DEGRADED / RECONCILING).
+The status surface additionally reports the derived outcome
+RECONCILIATION_FAILED when a RECONCILING attempt failed and the service
+stays bounded at DEGRADED; it is not a fifth machine state (A374).
 """
 from __future__ import annotations
 
