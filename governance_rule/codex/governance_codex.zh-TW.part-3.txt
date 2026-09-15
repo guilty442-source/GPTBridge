@@ -1,10 +1,10 @@
 {
-  "codex_version": "2026-09-15T09:13:28Z",
-  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-15T09:13:28Z",
+  "codex_version": "2026-09-15T11:15:03Z",
+  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-15T11:15:03Z",
   "part_index": 3,
   "part_count": 3,
-  "previous_part_hash": "621e7d051c6f1b128d53d0d4da5626867b737ebed5d1d1b8c9a30a8bebb5cd76",
-  "assembled_payload_hash": "119b76e43deddb4cd29be6c725f05ff6b55f01dfa1e9f62b8f8bafb2591fc366",
+  "previous_part_hash": "3a3050cdbf85303a731b3613080eb31fd185938ac8778b6ebe11fc202ca59eb1",
+  "assembled_payload_hash": "9f3fcf7a2afc9c442c36b99a2f758175e76792ad8c8b24bc9f1c778ed1e899a1",
   "tables": {
     "codex_search_fts_data": [
       {
@@ -11578,6 +11578,17 @@
         "event": "investment-mobile-directory-correction",
         "version_epoch": "E2",
         "canonical_recorded_at_utc": "2026-09-15T09:13:28Z",
+        "timestamp_status": "canonical",
+        "timestamp_migration_evidence": "direct-current-event"
+      },
+      {
+        "version": "2026-09-15T11:15:03Z",
+        "recorded_at_utc": "2026-09-15T11:15:03Z",
+        "recorded_at_local": "2026-09-15T19:15:03.000000+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "investment-mobile-legacy-root-state",
+        "version_epoch": "E2",
+        "canonical_recorded_at_utc": "2026-09-15T11:15:03Z",
         "timestamp_status": "canonical",
         "timestamp_migration_evidence": "direct-current-event"
       }
@@ -29404,15 +29415,15 @@
       },
       {
         "key": "codex_version",
-        "value": "2026-09-15T09:13:28Z"
+        "value": "2026-09-15T11:15:03Z"
       },
       {
         "key": "active_provision_binding_version",
-        "value": "2026-09-15T09:13:28Z"
+        "value": "2026-09-15T11:15:03Z"
       },
       {
         "key": "current_version_identity",
-        "value": "E2:2026-09-15T09:13:28Z"
+        "value": "E2:2026-09-15T11:15:03Z"
       }
     ],
     "module_assignment_registry": [
@@ -79626,6 +79637,20 @@
         "recorded_at_utc": "2026-09-15T09:13:28Z",
         "timestamp_status": "verified",
         "timestamp_migration_evidence": "filesystem-and-directory-current-evidence"
+      },
+      {
+        "sequence": 8,
+        "change_id": "INVESTMENT_MOBILE_LEGACY_ROOT_CLOSURE@2026-09-15T11:15:03Z",
+        "version": "2026-09-15T11:15:03Z",
+        "recorded_date": "2026-09-15",
+        "change_scope": "investment-mobile-legacy-root-state",
+        "summary": "close superseded nested investment-mobile root after filesystem absence and A467 directory correction",
+        "previous_hash": "c069ca70fa71686745eac17b177ab4a72a9465a07dc054ce3f7ccb1fcb795633",
+        "entry_hash": "e2e711f603739b72808eb3adea8d3be695866777b2808c26bd275a05a849df76",
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-15T11:15:03Z",
+        "timestamp_status": "verified",
+        "timestamp_migration_evidence": "A467+filesystem-absence+corrected-root-exists"
       }
     ],
     "savings": [
@@ -80586,6 +80611,18 @@
         "content_root": "8145363d4647e8dd59a2b936c9d4652938c977ec06e2156e66ea09d4bcbf1ee9",
         "identity_root": "aff52239ba738cf56ff0dcee24c98db88eb630fe96de2c13190a10282673ce56",
         "full_root": "cc55f382c8365cd1967eb9695a7d57396789ca03c7f479240ba2b95c01e2713c",
+        "version_epoch": 2
+      },
+      {
+        "version": "2026-09-15T11:15:03Z",
+        "history_head": "e2e711f603739b72808eb3adea8d3be695866777b2808c26bd275a05a849df76",
+        "provision_count": 713,
+        "identity_count": 713,
+        "lineage_count": 713,
+        "certification_state": "sealed-pending-external-signatures",
+        "content_root": "8145363d4647e8dd59a2b936c9d4652938c977ec06e2156e66ea09d4bcbf1ee9",
+        "identity_root": "aff52239ba738cf56ff0dcee24c98db88eb630fe96de2c13190a10282673ce56",
+        "full_root": "5670f09d53774d78f2c7b38e8ac5902947f15b91d14e3fb7f9e94737e3fab9e5",
         "version_epoch": 2
       }
     ],
@@ -87592,5 +87629,5 @@
       }
     ]
   },
-  "part_hash": "c95b897684560bb518d4cb46c70d7a99c5f7cda279acff64b980662402b8e013"
+  "part_hash": "965ec21b78e1ad705e2c9cdc88f17b0afaf9b78e5d4c3037978f87734cb6ef7f"
 }

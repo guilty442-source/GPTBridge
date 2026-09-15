@@ -1,10 +1,10 @@
 {
-  "codex_version": "2026-09-15T09:13:28Z",
-  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-15T09:13:28Z",
+  "codex_version": "2026-09-15T11:15:03Z",
+  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-15T11:15:03Z",
   "part_index": 1,
   "part_count": 3,
   "previous_part_hash": "0000000000000000000000000000000000000000000000000000000000000000",
-  "assembled_payload_hash": "119b76e43deddb4cd29be6c725f05ff6b55f01dfa1e9f62b8f8bafb2591fc366",
+  "assembled_payload_hash": "9f3fcf7a2afc9c442c36b99a2f758175e76792ad8c8b24bc9f1c778ed1e899a1",
   "tables": {
     "codex_version_epochs": [],
     "epoch_seal_manifest": [],
@@ -374,15 +374,15 @@
         "target_root": "ARCH_CODE:INVESTMENT_MOBILE",
         "current_state": "active",
         "required_state": "active",
-        "legacy_root": "ARCH_LEGACY_CODE:INVESTMENT_MOBILE",
-        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence",
+        "legacy_root": null,
+        "activation_evidence": "filesystem+manifest+reference+test+rollback evidence|A467+old-root-absence+corrected-root-exists",
         "previous_state": "mandated",
         "changed_at_utc": "2026-09-12T14:14:41.593122Z",
         "decision_owner": "permission-sovereign",
         "verification_owner": "星澄",
         "evidence_id": "manifest-20260912-001",
-        "old_root_deletion_state": "required-after-target-acceptance",
-        "failure_state": "legacy-root-pending-removal"
+        "old_root_deletion_state": "removed-verified",
+        "failure_state": "none-recorded"
       },
       {
         "architecture_code": "LOCAL_MODEL",
@@ -4529,6 +4529,14 @@
       },
       {
         "version": "2026-09-15T09:13:28Z",
+        "signed_payload_fields": "version|content-root|history-head|identity-root",
+        "evidence_location": "external-offline-signature-bundle",
+        "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
+        "status": "external-signatures-required",
+        "version_epoch": "E2"
+      },
+      {
+        "version": "2026-09-15T11:15:03Z",
         "signed_payload_fields": "version|content-root|history-head|identity-root",
         "evidence_location": "external-offline-signature-bundle",
         "validation_rule": "human-governor-seal+Ed25519-2-of-3-verification",
@@ -33060,5 +33068,5 @@
       }
     ]
   },
-  "part_hash": "b4fb40434dc1c941ef382acbceeeeacff2ca0c31586690dd43d16720a88761d4"
+  "part_hash": "85cc059219355de81d2810f7b7edd49aeba6bbde4f3da42c45e9ff5f5bb0e8c9"
 }
