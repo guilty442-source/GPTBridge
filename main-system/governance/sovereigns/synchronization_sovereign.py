@@ -279,26 +279,32 @@ class SynchronizationSovereign(
 
     async def _adjudicate_a330_certified_update(self, request: SovereignRequest) -> SovereignOutcome:
         """A330: certified update execution (sole execution exception)."""
-        update_type = request.payload.get("update_type")
-        if update_type not in _A330_UPDATE_TYPES:
-            return refusal_outcome(
-                "INVALID_A330_UPDATE_TYPE", verified_basis(("A330",))
-            )
+        # A330/A152/A154: the sole execution exception may only be reached
+        # through the decision layer — certification is adjudicated by
+        # decision-sovereign, which delegates here with a verified
+        # single-use nonce. A direct caller (even a governed actor) cannot
+        # self-declare certification; the payload flag alone is not proof.
+        error, fields = self._validate_a330_request(request)
+        if error is not None:
+            return error
+        update_type, update_set, artifact_hashes, operation_id = fields
 
-        operation_id = str(request.payload.get("operation_id") or "")
-        if not operation_id:
-            return refusal_outcome("MISSING_OPERATION_ID", verified_basis(("A330",)))
-
-        # Record operation
-        self._certified_update_operations[operation_id] = {
-            "operation_id": operation_id,
-            "update_type": update_type,
-            "update_set": list(request.payload.get("update_set", [])),
-            "artifact_hashes": dict(request.payload.get("artifact_hashes", {})),
-            "target_generation": request.payload.get("target_generation", ""),
-            "started_at": _iso_now(),
-            "status": "executing",
-        }
+        # Idempotent replay guard
+        if operation_id in self._certified_update_operations:
+            existing = self._certified_update_operations[operation_id]
+            existing_status = existing.get("terminal_status", "")
+            if existing_status in ("global-success", "failed-isolated", "rolled-back", "partial-deferred"):
+                return accepted_outcome(
+                    {
+                        "repair_decision": "authorized",
+                        "update_type": update_type,
+                        "operation_id": operation_id,
+                        "terminal_status": existing_status,
+                        "idempotent_replay": True,
+                    },
+                    verified_basis(("A330",)),
+                )
+            return refusal_outcome("OPERATION_IN_FLIGHT", verified_basis(("A330",)))
 
         # Execute via governed executor (A330 exception)
         executor = getattr(self.app, "governed_executor", None)
@@ -307,7 +313,17 @@ class SynchronizationSovereign(
                 "GOVERNED_EXECUTOR_UNAVAILABLE", verified_basis(("A330", "A69"))
             )
 
-        # Note: actual execution delegated to governed executor
+        # Record operation
+        self._certified_update_operations[operation_id] = {
+            "operation_id": operation_id,
+            "update_type": update_type,
+            "update_set": list(update_set),
+            "artifact_hashes": dict(artifact_hashes),
+            "target_generation": request.payload.get("target_generation", ""),
+            "started_at": _iso_now(),
+            "status": "executing",
+        }
+
         return accepted_outcome(
             {
                 "operation_id": operation_id,
@@ -317,6 +333,43 @@ class SynchronizationSovereign(
             },
             verified_basis(("A330", "A301", "A446")),
         )
+
+    def _validate_a330_request(
+        self, request: SovereignRequest
+    ) -> tuple[SovereignOutcome | None, tuple | None]:
+        """Validate A330 certified update request (A330/A152/A154)."""
+        verified_delegation = request.payload.get("_verified_delegation")
+        if not isinstance(verified_delegation, dict) or (
+            verified_delegation.get("parent") != "decision-sovereign"
+        ):
+            return refusal_outcome(
+                "CERTIFICATION_AUTHORITY_MISSING",
+                verified_basis(("A330", "A152", "A154")),
+            ), None
+
+        update_type = request.payload.get("update_type")
+        if not update_type:
+            return refusal_outcome("MISSING_UPDATE_TYPE", verified_basis(("A330",))), None
+
+        if update_type not in _A330_UPDATE_TYPES:
+            return refusal_outcome("INVALID_A330_UPDATE_TYPE", verified_basis(("A330",))), None
+
+        if request.payload.get("certified") is not True:
+            return refusal_outcome("CERTIFICATION_MISSING", verified_basis(("A330",))), None
+
+        update_set = request.payload.get("update_set")
+        if not isinstance(update_set, (list, tuple)) or not update_set:
+            return refusal_outcome("EMPTY_UPDATE_SET", verified_basis(("A330",))), None
+
+        artifact_hashes = request.payload.get("artifact_hashes")
+        if not isinstance(artifact_hashes, dict) or not artifact_hashes:
+            return refusal_outcome("MISSING_ARTIFACT_HASHES", verified_basis(("A330",))), None
+
+        operation_id = str(request.payload.get("operation_id") or "")
+        if not operation_id:
+            return refusal_outcome("MISSING_OPERATION_ID", verified_basis(("A330",))), None
+
+        return None, (update_type, update_set, artifact_hashes, operation_id)
 
     async def _adjudicate_sync_decision(self, request: SovereignRequest) -> SovereignOutcome:
         """A322: sync decision adjudication."""
@@ -331,6 +384,13 @@ class SynchronizationSovereign(
             },
             verified_basis(("A322", "A301", "A334")),
         )
+
+    def _child_status(self, child_id: str, method: str = "live_status") -> dict[str, Any]:
+        child = getattr(self, "_sub_sovereigns", {}).get(child_id)
+        if child is None:
+            return {"role": child_id, "enabled": False, "materialized": False}
+        reporter = getattr(child, method, None)
+        return reporter() if callable(reporter) else {"role": child_id}
 
     # ------------------------------------------------------------------
     # Lifecycle
