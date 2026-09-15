@@ -22,7 +22,7 @@ class AuthBase:
         Delegates to ``_requester_verification.verify_requester`` so the
         fail-closed identity-attestation contract lives in one place.
         """
-        return _verify_requester_impl(self, request)
+        return await _verify_requester_impl(self, request)
 
     def _authenticate_token_claims(
         self, request: Any, token: str

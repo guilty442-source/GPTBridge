@@ -15,10 +15,14 @@ executor identity and self-verification fails closed.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Any, Callable, Mapping
 
 from core_system.codex_decision import SovereignOutcome
+
+
+def _basis_references(basis: Any) -> tuple[str, ...]:
+    """Normalize decision basis — ``DecisionBasis`` or a plain tuple."""
+    return tuple(getattr(basis, "references", basis))
 
 
 VERIFIER_ID = "independent-verifier"
@@ -61,6 +65,7 @@ class IndependentVerifier:
         self.verifier_id = str(verifier_id or VERIFIER_ID)
         self._checks: dict[str, list[VerificationCheck]] = {}
         self._cache_size = max(1, int(cache_size))
+        self._cache: dict[tuple[Any, ...], VerificationVerdict] = {}
         self._cache_hits = 0
         self._cache_misses = 0
 
@@ -78,32 +83,43 @@ class IndependentVerifier:
                 reasons=("SELF_VERIFICATION_FORBIDDEN",),
             )
         payload: Mapping[str, Any] = outcome.result or {}
-        # Cache key includes intent, executor_actor, and outcome acceptance/basis
-        # to ensure cache validity for identical verification scenarios
-        cache_key = (
-            intent,
-            executor,
-            bool(outcome.accepted),
-            tuple(outcome.basis.references) if outcome.basis else (),
-            outcome.refusal.reason_code if outcome.refusal else "",
-        )
-        verdict = self._verify_cached(cache_key, payload, intent, outcome)
+        custom_checks = self._checks.get(str(intent), ())
+        cache_key = self._cache_key(intent, executor, outcome, payload)
+        # Custom intent checks may read arbitrary payload fields, so
+        # only default-check verdicts are cacheable.
+        verdict = self._cache.get(cache_key) if not custom_checks else None
         if verdict is not None:
             self._cache_hits += 1
             return verdict
         self._cache_misses += 1
-        return self._verify_uncached(payload, intent, outcome)
+        verdict = self._verify_uncached(payload, intent, outcome)
+        if not custom_checks:
+            if len(self._cache) >= self._cache_size:
+                self._cache.clear()
+            self._cache[cache_key] = verdict
+        return verdict
 
-    @lru_cache(maxsize=256)
-    def _verify_cached(
+    def _cache_key(
         self,
-        cache_key: tuple[str, str, bool, tuple[str, ...], str],
-        payload: Mapping[str, Any],
         intent: str,
+        executor: str,
         outcome: SovereignOutcome,
-    ) -> VerificationVerdict | None:
-        # This method is cached; returns None to indicate cache miss
-        return None
+        payload: Mapping[str, Any],
+    ) -> tuple[Any, ...]:
+        # Covers every field the default checks read: outcome
+        # acceptance/basis/refusal plus the payload's execution,
+        # execution_actor, verified and verified_by claims.
+        return (
+            intent,
+            executor,
+            bool(outcome.accepted),
+            _basis_references(outcome.basis) if outcome.basis else (),
+            outcome.refusal.reason_code if outcome.refusal else "",
+            str(payload.get("execution", "none")).strip(),
+            str(payload.get("execution_actor", "")).strip(),
+            payload.get("verified") is True,
+            bool(payload.get("verified_by")),
+        )
 
     def _verify_uncached(
         self, payload: Mapping[str, Any], intent: str, outcome: SovereignOutcome
@@ -123,12 +139,12 @@ class IndependentVerifier:
         return {
             "hits": self._cache_hits,
             "misses": self._cache_misses,
-            "size": self._cache_size,
+            "size": len(self._cache),
         }
 
     def clear_cache(self) -> None:
         """Clear the verification cache."""
-        self._verify_cached.cache_clear()
+        self._cache.clear()
         self._cache_hits = 0
         self._cache_misses = 0
 
