@@ -1,12 +1,31 @@
 """Re-export facade for the portfolio documents subpackage."""
 from __future__ import annotations
 
+from .portfolio_constants import *
 from .portfolio_models import *
-from .portfolio_headers import *
+from .portfolio_snapshot import *
+from .portfolio_utils import *
+from .portfolio_xlsx_consolidated import *
+from .portfolio_xlsx_horizontal import *
+from .portfolio_xlsx_inference import *
+from .portfolio_xlsx_lowlevel import *
+from .portfolio_xlsx_mapping import *
+from .portfolio_xlsx_matrix import *
+from .portfolio_xlsx_scan import *
+from .xlsx_lowlevel_readers import *
 from .portfolio_io import *
-from .xlsx_consolidated import *
-from .xlsx_horizontal import *
-from .xlsx_lowlevel import *
+from .portfolio_providers import *
 from .portfolio_quotes import *
+from .portfolio_report import *
+from .portfolio_cli import *
+from .portfolio_snapshot import (
+    _copy_portfolio_snapshot_once,
+    _is_owned_snapshot_partial,
+    _open_portfolio_source_shared,
+    _open_xlsx_workbook_unlocked,
+    _read_portfolio_source_bytes,
+    _read_portfolio_source_text,
+    _source_revision_unchanged,
+)
 
 __all__ = ['InvestmentManagerError', 'QuoteProviderError', 'Holding', 'Quote', 'QuoteAttempt', 'QuoteContext', 'PROGRESS_JSON_PREFIX', 'DEFAULT_INTERVAL_SECONDS', 'DEFAULT_REQUEST_TIMEOUT_SECONDS', 'DEFAULT_PROVIDER_ORDER', 'DEFAULT_IMPORT_SNAPSHOT_KEEP', 'SNAPSHOT_COPY_ATTEMPTS', 'SNAPSHOT_COPY_CHUNK_BYTES', 'XLSX_INFERRED_HEADER_SCAN_ROWS', 'XLSX_HEADER_SCAN_MAX_ROWS', 'XLSX_HEADER_SCAN_MAX_COLUMNS', 'XLSX_HORIZONTAL_GROUP_WIDTH', 'CSV_EXTENSIONS', 'JSON_EXTENSIONS', 'XLSX_EXTENSIONS', 'LEGACY_EXCEL_EXTENSIONS', 'EXCEL_EXTENSIONS', 'COMMON_US_ETF_SYMBOLS', 'CRYPTO_ID_MAP', 'HEADER_ALIASES', 'XLSX_MAPPING_FIELDS', 'XLSX_REQUIRED_MAPPING_FIELDS', 'MARKET_ALIASES', 'MARKET_SESSIONS', 'normalize_header', 'normalized_header_tokens', 'header_alias_lookup', 'header_substring_aliases', 'market_alias_lookup', 'header_token_lookup', 'canonical_column', 'canonical_columns', 'canonical_header_map', 'portfolio_header_score', 'normalize_market', 'parse_float', 'infer_market', 'infer_currency', 'normalize_symbol', 'local_device_now', 'utc_now', 'utc_now_text', 'timezone_for', '_open_portfolio_source_shared', '_source_revision_unchanged', '_read_portfolio_source_bytes', '_read_portfolio_source_text', '_open_xlsx_workbook_unlocked', '_copy_portfolio_snapshot_once', '_is_owned_snapshot_partial', 'create_portfolio_file_snapshot', 'prune_portfolio_file_snapshots', 'load_portfolio', 'load_json_portfolio', 'load_csv_portfolio', 'load_xlsx_portfolio', 'xlsx_mapping_preview', 'xlsx_consolidated_report_preview_from_scan', 'xlsx_report_integer_setting', 'xlsx_report_asset_type', 'xlsx_report_principal_currency', 'xlsx_holdings_from_consolidated_report', 'load_xlsx_portfolio_consolidated_report', 'xlsx_horizontal_matrix_preview_from_scan', 'xlsx_horizontal_sheet_is_summary', 'xlsx_horizontal_sheet_defaults', 'xlsx_matrix_label', 'xlsx_matrix_group_starts', 'xlsx_matrix_numeric_value', 'xlsx_matrix_header_row', 'xlsx_matrix_related_row', 'detect_xlsx_horizontal_matrix_sheet', 'normalize_xlsx_horizontal_sheet_config', 'xlsx_fund_currency', 'xlsx_horizontal_asset_type', 'xlsx_holdings_from_horizontal_sheet', 'merge_xlsx_horizontal_holdings', 'load_xlsx_portfolio_horizontal_matrix', 'normalize_xlsx_column_mapping', 'xlsx_column_letter', 'load_xlsx_portfolio_with_mapping', 'xlsx_records_from_rows', 'xlsx_row_looks_like_header', 'looks_like_portfolio_symbol', 'looks_like_market_value', 'looks_like_currency_value', 'xlsx_row_looks_like_portfolio_data', 'infer_xlsx_headers_from_data', 'xlsx_data_profile', 'xlsx_sheet_name_score', 'score_xlsx_header_candidate', 'combine_xlsx_header_rows', 'xlsx_header_candidates', 'find_portfolio_header_row', 'scan_xlsx_workbook', 'public_xlsx_sheet_scan', 'public_xlsx_header_candidate', 'xlsx_rows', 'xlsx_rows_from_root', 'apply_xlsx_merged_cells', 'xlsx_sheet_entries', 'normalize_xlsx_relationship_target', 'natural_sort_key', 'first_xlsx_sheet_path', 'read_xlsx_shared_strings', 'xlsx_column_index', 'xlsx_cell_coordinates', 'xlsx_range_coordinates', 'read_xlsx_cell', 'rows_to_holdings', 'request_text', 'request_json', 'parse_unix_timestamp', 'market_status', 'yahoo_symbol', 'QuoteProvider', 'YahooChartProvider', 'YahooQuoteProvider', 'CoinGeckoProvider', 'AlphaVantageProvider', 'TwseProvider', 'provider_registry', 'provider_order_for_holding', 'quote_holding', 'quote_holding_candidates', 'quote_to_dict', 'round_number', 'holding_to_report', 'totals_by_currency', 'markets_summary', 'create_snapshot', 'emit_progress', 'run_manager', 'sample_template', 'build_parser', 'main']
