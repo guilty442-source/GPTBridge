@@ -112,6 +112,7 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
 SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (
     "database/",
     "local/",
+    "observability/",
     "registry/",
 )
 SHARED_LAYER_FORBIDDEN_TERMS: Final[frozenset[str]] = frozenset(
