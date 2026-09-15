@@ -36,20 +36,26 @@ from .cleanup_helpers import SECONDS_PER_DAY, LEGACY_QUARANTINE_ROOT_NAME, LEGAC
 
 from .cleanup_executor_legacy import CleanupLegacyMixin
 from .cleanup_executor_backup import CleanupBackupMixin
+from .cleanup_executor_backup_ops import CleanupBackupOpsMixin
 from .cleanup_executor_locks import CleanupLocksMixin
 from .cleanup_executor_records import CleanupRecordsMixin
 from .cleanup_executor_garbage import CleanupGarbageMixin
+from .cleanup_executor_garbage_apply import CleanupGarbageApplyMixin
 from .cleanup_executor_quarantine import CleanupQuarantineMixin
+from .cleanup_executor_quarantine_ops import CleanupQuarantineOpsMixin
 from .cleanup_executor_repair import CleanupRepairMixin
 
 
 class CleanupExecutorMixin(
     CleanupLegacyMixin,
     CleanupBackupMixin,
+    CleanupBackupOpsMixin,
     CleanupLocksMixin,
     CleanupRecordsMixin,
     CleanupGarbageMixin,
+    CleanupGarbageApplyMixin,
     CleanupQuarantineMixin,
+    CleanupQuarantineOpsMixin,
     CleanupRepairMixin,
 ):
 

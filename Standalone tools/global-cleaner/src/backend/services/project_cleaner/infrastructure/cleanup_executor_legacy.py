@@ -66,27 +66,7 @@ class CleanupLegacyMixin:
                 return self._purge_legacy_artifacts_unlocked()
 
         def _purge_legacy_artifacts_unlocked(self) -> dict[str, Any]:
-            candidates: set[Path] = set()
-            for name in (
-                "backups",
-                "release",
-                "tmp",
-                "test-results",
-                ".pytest_cache",
-                LEGACY_QUARANTINE_ROOT_NAME,
-                LEGACY_RECOVERY_ROOT_NAME,
-            ):
-                candidates.add(self.project_root / name)
-
-            tools_root = self.project_root / "platform_tools"
-            if tools_root.is_dir() and not self._is_link_or_reparse_point(tools_root):
-                for tool_dir in tools_root.iterdir():
-                    if not tool_dir.is_dir() or self._is_link_or_reparse_point(tool_dir):
-                        continue
-                    if not (tool_dir / "manifest.json").is_file():
-                        candidates.add(tool_dir)
-                    else:
-                        candidates.add(tool_dir / "build")
+            candidates = self._legacy_purge_candidates()
 
             # Keep only outermost candidates so a parent deletion owns its nested
             # backups and no child is evaluated after its parent is gone.
@@ -114,40 +94,9 @@ class CleanupLegacyMixin:
             skipped: list[dict[str, str]] = []
             removed_bytes = 0
             for target in ordered:
-                try:
-                    if (
-                        target == self.project_root
-                        or not target.exists()
-                        or self._is_link_or_reparse_point(target)
-                    ):
-                        continue
-                    relative = self._relative_path(target)
-                    item_type = "directory" if target.is_dir() else "file"
-                    protection = self._git_protection_reason(target, item_type)
-                    if protection == "directory contains git-tracked files":
-                        tracked, _status = self._git_snapshot()
-                        prefix = relative.rstrip("/") + "/"
-                        if not any(
-                            item.startswith(prefix)
-                            and (self.project_root / Path(item)).exists()
-                            for item in tracked
-                        ):
-                            protection = ""
-                    if protection:
-                        skipped.append({"path": relative, "reason": protection})
-                        continue
-                    honor_protection = Path(relative).name not in legacy_root_names
-                    removed_bytes += self._remove_legacy_tree(
-                        target,
-                        relative,
-                        honor_protection=honor_protection,
-                        removed=removed,
-                        skipped=skipped,
-                    )
-                except (OSError, ValueError) as error:
-                    skipped.append(
-                        {"path": str(target), "reason": f"{type(error).__name__}: {error}"}
-                    )
+                removed_bytes += self._purge_legacy_target(
+                    target, legacy_root_names, removed, skipped
+                )
             return {
                 "ok": not skipped,
                 "authority": "global-cleaner",
@@ -209,6 +158,81 @@ class CleanupLegacyMixin:
                     # Directory still contains protected descendants or cannot be removed.
                     pass
                 return removed_bytes
+            return self._remove_legacy_file(target, relative, removed, skipped)
+
+        def _legacy_purge_candidates(self) -> set[Path]:
+            candidates: set[Path] = set()
+            for name in (
+                "backups",
+                "release",
+                "tmp",
+                "test-results",
+                ".pytest_cache",
+                LEGACY_QUARANTINE_ROOT_NAME,
+                LEGACY_RECOVERY_ROOT_NAME,
+            ):
+                candidates.add(self.project_root / name)
+            tools_root = self.project_root / "platform_tools"
+            if tools_root.is_dir() and not self._is_link_or_reparse_point(tools_root):
+                for tool_dir in tools_root.iterdir():
+                    if not tool_dir.is_dir() or self._is_link_or_reparse_point(tool_dir):
+                        continue
+                    if not (tool_dir / "manifest.json").is_file():
+                        candidates.add(tool_dir)
+                    else:
+                        candidates.add(tool_dir / "build")
+            return candidates
+
+        def _purge_legacy_target(
+            self,
+            target: Path,
+            legacy_root_names: set[str],
+            removed: list[str],
+            skipped: list[dict[str, str]],
+        ) -> int:
+            try:
+                if (
+                    target == self.project_root
+                    or not target.exists()
+                    or self._is_link_or_reparse_point(target)
+                ):
+                    return 0
+                relative = self._relative_path(target)
+                item_type = "directory" if target.is_dir() else "file"
+                protection = self._git_protection_reason(target, item_type)
+                if protection == "directory contains git-tracked files":
+                    tracked, _status = self._git_snapshot()
+                    prefix = relative.rstrip("/") + "/"
+                    if not any(
+                        item.startswith(prefix)
+                        and (self.project_root / Path(item)).exists()
+                        for item in tracked
+                    ):
+                        protection = ""
+                if protection:
+                    skipped.append({"path": relative, "reason": protection})
+                    return 0
+                honor_protection = Path(relative).name not in legacy_root_names
+                return self._remove_legacy_tree(
+                    target,
+                    relative,
+                    honor_protection=honor_protection,
+                    removed=removed,
+                    skipped=skipped,
+                )
+            except (OSError, ValueError) as error:
+                skipped.append(
+                    {"path": str(target), "reason": f"{type(error).__name__}: {error}"}
+                )
+                return 0
+
+        @staticmethod
+        def _remove_legacy_file(
+            target: Path,
+            relative: str,
+            removed: list[str],
+            skipped: list[dict[str, str]],
+        ) -> int:
             try:
                 size = target.stat(follow_symlinks=False).st_size
                 target.unlink()

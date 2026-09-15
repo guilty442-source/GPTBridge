@@ -203,82 +203,44 @@ class CleanupLocksMixin:
             try:
                 lock_path = self._operation_lock_path(resource)
             except ValueError as exc:
-                yield {
-                    "acquired": False,
-                    "busy": False,
-                    "message": f"project cleaner mutation lock is unsafe: {exc}",
-                }
+                yield self._lock_denied(
+                    busy=False,
+                    message=f"project cleaner mutation lock is unsafe: {exc}",
+                )
                 return
             lock_path.parent.mkdir(parents=True, exist_ok=True)
             self._harden_private_path(lock_path.parent)
             process_lock = self._process_lock_for(lock_path)
             if not process_lock.acquire(blocking=False):
-                yield {
-                    "acquired": False,
-                    "busy": True,
-                    "message": "another project cleaner mutation is already running",
-                }
+                yield self._lock_denied(
+                    busy=True,
+                    message="another project cleaner mutation is already running",
+                )
                 return
 
             handle: BinaryIO | None = None
             os_locked = False
-            acquire_error = ""
             try:
-                try:
-                    lock_path.touch(exist_ok=True)
-                    handle = lock_path.open("r+b")
-                    os_locked, acquire_error = self._try_os_file_lock(handle)
-                except OSError as exc:
-                    acquire_error = str(exc)
+                handle, os_locked, acquire_error = self._acquire_os_lock(lock_path)
                 if not os_locked or handle is None:
-                    yield {
-                        "acquired": False,
-                        "busy": True,
-                        "message": (
+                    yield self._lock_denied(
+                        busy=True,
+                        message=(
                             "another project cleaner mutation is already running"
                             if not acquire_error
                             else f"project cleaner mutation lock unavailable: {acquire_error}"
                         ),
-                    }
+                    )
                     return
 
-                metadata = {
-                    "schema_version": 1,
-                    "state": "locked",
-                    "operation": operation,
-                    "pid": os.getpid(),
-                    "acquired_at": self._iso_now(),
-                }
-                try:
-                    handle.seek(0)
-                    handle.write(json.dumps(metadata, ensure_ascii=False).encode("utf-8"))
-                    handle.truncate()
-                    handle.flush()
-                    os.fsync(handle.fileno())
-                except OSError:
-                    # Lock ownership, not advisory metadata, controls exclusion.
-                    pass
+                self._write_lock_metadata(handle, operation, "locked", "acquired_at")
                 yield {"acquired": True, "busy": False, "path": str(lock_path)}
             finally:
                 if handle is not None:
                     if os_locked:
-                        try:
-                            released = {
-                                "schema_version": 1,
-                                "state": "released",
-                                "operation": operation,
-                                "pid": os.getpid(),
-                                "released_at": self._iso_now(),
-                            }
-                            handle.seek(0)
-                            handle.write(
-                                json.dumps(released, ensure_ascii=False).encode("utf-8")
-                            )
-                            handle.truncate()
-                            handle.flush()
-                            os.fsync(handle.fileno())
-                        except OSError:
-                            pass
+                        self._write_lock_metadata(
+                            handle, operation, "released", "released_at"
+                        )
                         self._release_os_file_lock(handle)
                     handle.close()
                 process_lock.release()
@@ -302,3 +264,44 @@ class CleanupLocksMixin:
                         yield lock
                         return
                 yield {"acquired": True, "busy": False}
+
+        def _acquire_os_lock(
+            self, lock_path: Path
+        ) -> tuple[BinaryIO | None, bool, str]:
+            handle: BinaryIO | None = None
+            try:
+                lock_path.touch(exist_ok=True)
+                handle = lock_path.open("r+b")
+                os_locked, acquire_error = self._try_os_file_lock(handle)
+                return handle, os_locked, acquire_error
+            except OSError as exc:
+                if handle is not None:
+                    handle.close()
+                return None, False, str(exc)
+
+        def _write_lock_metadata(
+            self,
+            handle: BinaryIO,
+            operation: str,
+            state: str,
+            timestamp_field: str,
+        ) -> None:
+            metadata = {
+                "schema_version": 1,
+                "state": state,
+                "operation": operation,
+                "pid": os.getpid(),
+                timestamp_field: self._iso_now(),
+            }
+            try:
+                handle.seek(0)
+                handle.write(json.dumps(metadata, ensure_ascii=False).encode("utf-8"))
+                handle.truncate()
+                handle.flush()
+                os.fsync(handle.fileno())
+            except OSError:
+                # Lock ownership, not advisory metadata, controls exclusion.
+                pass
+        @staticmethod
+        def _lock_denied(*, busy: bool, message: str) -> dict[str, Any]:
+            return {"acquired": False, "busy": busy, "message": message}

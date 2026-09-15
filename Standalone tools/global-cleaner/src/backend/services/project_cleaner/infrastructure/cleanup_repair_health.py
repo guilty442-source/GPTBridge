@@ -70,52 +70,10 @@ class CleanupRepairHealthMixin:
                 """Run global read-only system diagnostics owned by Global Cleaner."""
 
                 self._emit_progress("rescue", 5, "Checking project boundary")
-                required: list[dict[str, Any]] = []
-                for relative_path in SYSTEM_RESCUE_REQUIRED_PATHS:
-                    target = self.project_root / relative_path
-                    valid = False
-                    reason = ""
-                    try:
-                        valid = (
-                            self._inside_project(target)
-                            and target.is_file()
-                            and not self._is_link_or_reparse_point(target)
-                        )
-                        if not valid:
-                            reason = "missing, non-regular, or outside project boundary"
-                    except OSError as exc:
-                        reason = str(exc)
-                    required.append(
-                        {
-                            "path": relative_path,
-                            "ok": valid,
-                            "reason": reason,
-                        }
-                    )
+                required = self._health_check_required_paths()
 
                 self._emit_progress("rescue", 25, "Validating system configuration")
-                configurations: list[dict[str, Any]] = []
-                for relative_path in (
-                    "main-system/package.json",
-                    "main-system/config/tool-runtime-contract.json",
-                ):
-                    target = self.project_root / relative_path
-                    valid = False
-                    reason = ""
-                    try:
-                        loaded = json.loads(target.read_text(encoding="utf-8"))
-                        valid = isinstance(loaded, dict)
-                        if not valid:
-                            reason = "configuration root must be an object"
-                    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-                        reason = str(exc)
-                    configurations.append(
-                        {
-                            "path": relative_path,
-                            "ok": valid,
-                            "reason": reason,
-                        }
-                    )
+                configurations = self._health_check_configurations()
 
                 self._emit_progress("rescue", 45, "Checking package integrity")
                 packages = self._system_rescue_package_check()
@@ -124,112 +82,14 @@ class CleanupRepairHealthMixin:
                     include_shared=True,
                     selected_anomalies=set(SYSTEM_RESCUE_REPAIR_ANOMALIES),
                 )
-                environment = {
-                    "python": {
-                        "ok": Path(sys.executable).is_file(),
-                        "path": sys.executable,
-                    },
-                    "node": {
-                        "ok": shutil.which("node") is not None,
-                        "path": shutil.which("node") or "",
-                    },
-                    "npm": {
-                        "ok": shutil.which("npm.cmd" if os.name == "nt" else "npm")
-                        is not None,
-                        "path": shutil.which(
-                            "npm.cmd" if os.name == "nt" else "npm"
-                        )
-                        or "",
-                    },
-                }
+                environment = self._health_check_environment()
                 main_health = self._system_rescue_main_health()
-                typecheck: dict[str, Any] = {
-                    "ok": True,
-                    "skipped": True,
-                    "message": "deep type check was not requested",
-                }
-                if deep:
-                    self._emit_progress("rescue", 70, "Running deep type check")
-                    npm = "npm.cmd" if os.name == "nt" else "npm"
-                    typecheck = self._system_rescue_subprocess(
-                        [
-                            npm,
-                            "--prefix",
-                            str(self.project_root / "main-system"),
-                            "run",
-                            "type-check",
-                        ],
-                        timeout_seconds=180,
-                    )
-                    typecheck["skipped"] = False
-                    typecheck["message"] = (
-                        "type check passed"
-                        if typecheck.get("ok")
-                        else "type check failed"
-                    )
+                typecheck = self._health_check_typecheck(deep)
 
-                blocking: list[str] = []
-                blocking.extend(
-                    f"required:{item['path']}"
-                    for item in required
-                    if not item["ok"]
+                return self._health_check_result(
+                    deep, required, configurations, environment,
+                    packages, main_health, typecheck, anomalies,
                 )
-                blocking.extend(
-                    f"config:{item['path']}"
-                    for item in configurations
-                    if not item["ok"]
-                )
-                if not packages.get("ok"):
-                    blocking.append("package-integrity")
-                if not typecheck.get("ok"):
-                    blocking.append("type-check")
-                repairable_count = int(anomalies.get("repairable_count") or 0)
-                state = (
-                    "blocked"
-                    if blocking
-                    else "repairable"
-                    if repairable_count
-                    else "healthy"
-                )
-                result = {
-                    "ok": not blocking,
-                    "operation": "system-health-check",
-                    "state": state,
-                    "deep": deep,
-                    "project_root": str(self.project_root),
-                    "authority": "global-cleaner",
-                    "boundary": "project-only",
-                    "required_paths": required,
-                    "configurations": configurations,
-                    "environment": environment,
-                    "packages": packages,
-                    "main_health": main_health,
-                    "typecheck": typecheck,
-                    "anomalies": anomalies,
-                    "repairable_count": repairable_count,
-                    "blocking": blocking,
-                    "message": (
-                        "system rescue check passed"
-                        if state == "healthy"
-                        else "system rescue found recoverable anomalies"
-                        if state == "repairable"
-                        else "system rescue found blocking problems"
-                    ),
-                }
-                self._append_history(
-                    "system-health-check",
-                    ok=result["ok"],
-                    scope="global",
-                    item_count=repairable_count,
-                    errors=len(blocking),
-                )
-                self._emit_progress(
-                    "rescue",
-                    100,
-                    "System rescue check completed",
-                    state=state,
-                )
-                return result
 
             def get_status(self) -> dict[str, Any]:
                 quarantine = self.list_quarantine_batches()
@@ -273,48 +133,246 @@ class CleanupRepairHealthMixin:
                         "free_bytes": disk.free,
                         "free_percent": round(disk.free / max(1, disk.total) * 100, 2),
                     },
-                    "safety": {
-                        "preview_plan_required": True,
-                        "plan_signature": "HMAC-SHA256",
-                        "git_protection": True,
-                        "never_force_unlock": True,
-                        "transactional_quarantine": True,
-                        "permanent_delete": False,
-                        "sha256_recovery_manifests": True,
-                        "tombstones": True,
-                    },
-                    "capabilities": {
-                        "mutation_root": str(self.project_root),
-                        "read_only": [
-                            "status",
-                            "preview",
-                            "storage-analysis",
-                            "anomaly-diagnosis",
-                        ],
-                        "recoverable_mutation": [
-                            "low-risk-cleanup",
-                            "anomaly-repair",
-                            "quarantine",
-                            "restore",
-                        ],
-                        "maintenance_layers": [
-                            "cleaner",
-                            "shared",
-                            "package",
-                        ],
-                        "forbidden": [
-                            "outside-project",
-                            "source-code-edit",
-                            "git-tracked-file",
-                            "force-unlock",
-                            "process-termination",
-                            "active-package-lock",
-                            "current-dist",
-                            "rollback-incomplete",
-                            "dependency-directory",
-                            "browser-profile",
-                            "user-data",
-                        ],
-                    },
+                    "safety": self._status_safety(),
+                    "capabilities": self._status_capabilities(),
                     "message": "project cleaner status ready",
                 }
+
+            def _health_check_required_paths(self) -> list[dict[str, Any]]:
+                required: list[dict[str, Any]] = []
+                for relative_path in SYSTEM_RESCUE_REQUIRED_PATHS:
+                    target = self.project_root / relative_path
+                    valid = False
+                    reason = ""
+                    try:
+                        valid = (
+                            self._inside_project(target)
+                            and target.is_file()
+                            and not self._is_link_or_reparse_point(target)
+                        )
+                        if not valid:
+                            reason = "missing, non-regular, or outside project boundary"
+                    except OSError as exc:
+                        reason = str(exc)
+                    required.append(
+                        {"path": relative_path, "ok": valid, "reason": reason}
+                    )
+                return required
+
+            def _health_check_configurations(self) -> list[dict[str, Any]]:
+                configurations: list[dict[str, Any]] = []
+                for relative_path in (
+                    "main-system/package.json",
+                    "main-system/config/tool-runtime-contract.json",
+                ):
+                    target = self.project_root / relative_path
+                    valid = False
+                    reason = ""
+                    try:
+                        loaded = json.loads(target.read_text(encoding="utf-8"))
+                        valid = isinstance(loaded, dict)
+                        if not valid:
+                            reason = "configuration root must be an object"
+                    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                        reason = str(exc)
+                    configurations.append(
+                        {"path": relative_path, "ok": valid, "reason": reason}
+                    )
+                return configurations
+
+            @staticmethod
+            def _health_check_environment() -> dict[str, Any]:
+                npm = "npm.cmd" if os.name == "nt" else "npm"
+                return {
+                    "python": {
+                        "ok": Path(sys.executable).is_file(),
+                        "path": sys.executable,
+                    },
+                    "node": {
+                        "ok": shutil.which("node") is not None,
+                        "path": shutil.which("node") or "",
+                    },
+                    "npm": {
+                        "ok": shutil.which(npm) is not None,
+                        "path": shutil.which(npm) or "",
+                    },
+                }
+
+            def _health_check_typecheck(self, deep: bool) -> dict[str, Any]:
+                typecheck: dict[str, Any] = {
+                    "ok": True,
+                    "skipped": True,
+                    "message": "deep type check was not requested",
+                }
+                if deep:
+                    self._emit_progress("rescue", 70, "Running deep type check")
+                    npm = "npm.cmd" if os.name == "nt" else "npm"
+                    typecheck = self._system_rescue_subprocess(
+                        [
+                            npm,
+                            "--prefix",
+                            str(self.project_root / "main-system"),
+                            "run",
+                            "type-check",
+                        ],
+                        timeout_seconds=180,
+                    )
+                    typecheck["skipped"] = False
+                    typecheck["message"] = (
+                        "type check passed"
+                        if typecheck.get("ok")
+                        else "type check failed"
+                    )
+                return typecheck
+
+            @staticmethod
+            def _status_safety() -> dict[str, Any]:
+                return {
+                    "preview_plan_required": True,
+                    "plan_signature": "HMAC-SHA256",
+                    "git_protection": True,
+                    "never_force_unlock": True,
+                    "transactional_quarantine": True,
+                    "permanent_delete": False,
+                    "sha256_recovery_manifests": True,
+                    "tombstones": True,
+                }
+
+            def _status_capabilities(self) -> dict[str, Any]:
+                return {
+                    "mutation_root": str(self.project_root),
+                    "read_only": [
+                        "status",
+                        "preview",
+                        "storage-analysis",
+                        "anomaly-diagnosis",
+                    ],
+                    "recoverable_mutation": [
+                        "low-risk-cleanup",
+                        "anomaly-repair",
+                        "quarantine",
+                        "restore",
+                    ],
+                    "maintenance_layers": [
+                        "cleaner",
+                        "shared",
+                        "package",
+                    ],
+                    "forbidden": [
+                        "outside-project",
+                        "source-code-edit",
+                        "git-tracked-file",
+                        "force-unlock",
+                        "process-termination",
+                        "active-package-lock",
+                        "current-dist",
+                        "rollback-incomplete",
+                        "dependency-directory",
+                        "browser-profile",
+                        "user-data",
+                    ],
+                }
+
+            def _health_check_result(
+                self,
+                deep: bool,
+                required: list[dict[str, Any]],
+                configurations: list[dict[str, Any]],
+                environment: dict[str, Any],
+                packages: dict[str, Any],
+                main_health: dict[str, Any],
+                typecheck: dict[str, Any],
+                anomalies: dict[str, Any],
+            ) -> dict[str, Any]:
+                blocking: list[str] = []
+                blocking.extend(
+                    f"required:{item['path']}"
+                    for item in required
+                    if not item["ok"]
+                )
+                blocking.extend(
+                    f"config:{item['path']}"
+                    for item in configurations
+                    if not item["ok"]
+                )
+                if not packages.get("ok"):
+                    blocking.append("package-integrity")
+                if not typecheck.get("ok"):
+                    blocking.append("type-check")
+                repairable_count = int(anomalies.get("repairable_count") or 0)
+                state = (
+                    "blocked"
+                    if blocking
+                    else "repairable"
+                    if repairable_count
+                    else "healthy"
+                )
+                result = self._health_result_document(
+                    deep, state, required, configurations, environment,
+                    packages, main_health, typecheck, anomalies,
+                    repairable_count, blocking, str(self.project_root),
+                )
+                self._finish_health_check(result, repairable_count, blocking, state)
+                return result
+
+            @staticmethod
+            def _health_result_document(
+                deep: bool,
+                state: str,
+                required: list[dict[str, Any]],
+                configurations: list[dict[str, Any]],
+                environment: dict[str, Any],
+                packages: dict[str, Any],
+                main_health: dict[str, Any],
+                typecheck: dict[str, Any],
+                anomalies: dict[str, Any],
+                repairable_count: int,
+                blocking: list[str],
+                project_root: str,
+            ) -> dict[str, Any]:
+                return {
+    "ok": not blocking,
+    "operation": "system-health-check",
+    "state": state,
+    "deep": deep,
+    "project_root": str(self.project_root),
+    "authority": "global-cleaner",
+    "boundary": "project-only",
+    "required_paths": required,
+    "configurations": configurations,
+    "environment": environment,
+    "packages": packages,
+    "main_health": main_health,
+    "typecheck": typecheck,
+    "anomalies": anomalies,
+    "repairable_count": repairable_count,
+    "blocking": blocking,
+    "message": (
+        "system rescue check passed"
+        if state == "healthy"
+        else "system rescue found recoverable anomalies"
+        if state == "repairable"
+        else "system rescue found blocking problems"
+    ),
+}
+
+            def _finish_health_check(
+                self,
+                result: dict[str, Any],
+                repairable_count: int,
+                blocking: list[str],
+                state: str,
+            ) -> None:
+                self._append_history(
+                    "system-health-check",
+                    ok=result["ok"],
+                    scope="global",
+                    item_count=repairable_count,
+                    errors=len(blocking),
+                )
+                self._emit_progress(
+                    "rescue",
+                    100,
+                    "System rescue check completed",
+                    state=state,
+                )
