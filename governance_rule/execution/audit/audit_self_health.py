@@ -12,13 +12,43 @@ from pathlib import Path
 SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
     {
         # ── main-system (central runtime + repair authority) ──────────
-        "main-system/tests/test_main_system.py",
+        "main-system/tests/test_project_contract_matrix_part1.py",
+        "main-system/tests/test_project_contract_matrix_part2.py",
+        "main-system/tests/test_third_party_manager.py",
+        "main-system/tests/test_git_tier_governance.py",
+        "main-system/tests/test_metadata_contract.py",
+        "main-system/tests/test_governance_authentication.py",
+        "main-system/tests/test_governance_path_guard.py",
+        "main-system/tests/test_connection_watchdog_consolidated.py",
+        "main-system/tests/test_repair_learning.py",
+        "main-system/tests/test_special_unpacked_runtime_part1.py",
+        "main-system/tests/test_special_unpacked_runtime_part2.py",
+        "main-system/tests/test_project_10000_matrix.py",
         # ── governance_rule (codex + enforcement) ─────────────────────
         "governance_rule/tests/test_governance_health.py",
         # ── shared-layer (central SQL index + channel) ────────────────
         "shared-layer/tests/test_shared_layer.py",
         # ── local-model / xingcheng (native model platform) ──────────
-        "Standalone tools/local-model/tests/test_xingcheng.py",
+        "Standalone tools/local-model/tests/test_xingcheng_layering.py",
+        "Standalone tools/local-model/tests/test_model_registry_part1.py",
+        "Standalone tools/local-model/tests/test_model_registry_part2.py",
+        "Standalone tools/local-model/tests/test_model_registry_part3.py",
+        "Standalone tools/local-model/tests/test_model_registry_part4.py",
+        "Standalone tools/local-model/tests/test_transformer_runtime_part1.py",
+        "Standalone tools/local-model/tests/test_transformer_runtime_part2.py",
+        "Standalone tools/local-model/tests/test_transformer_runtime_part3.py",
+        "Standalone tools/local-model/tests/test_transformer_runtime_part4.py",
+        "Standalone tools/local-model/tests/test_transformer_training_repository.py",
+        "Standalone tools/local-model/tests/test_local_rag.py",
+        "Standalone tools/local-model/tests/test_local_sqlite_rag_repository.py",
+        "Standalone tools/local-model/tests/test_model_parameter_policy.py",
+        "Standalone tools/local-model/tests/test_reading_expert.py",
+        "Standalone tools/local-model/tests/test_gpt_training.py",
+        "Standalone tools/local-model/tests/test_google_search.py",
+        "Standalone tools/local-model/tests/test_resource_manager.py",
+        "Standalone tools/local-model/tests/test_capability_composer.py",
+        "Standalone tools/local-model/tests/test_capability_evaluation.py",
+        "Standalone tools/local-model/tests/test_coding_expert_1000_matrix.py",
         # ── global-cleaner (backup + cleanup infrastructure) ─────────
         "Standalone tools/global-cleaner/tests/test_global_cleaner.py",
         # ── ai-collaboration (governed browser automation) ───────────
@@ -41,7 +71,7 @@ def _declared_self_health_test_files(
     root: Path,
     errors: list[str],
 ) -> frozenset[str]:
-    declared_files = {"main-system/tests/test_main_system.py"}
+    declared_files = set(SELF_HEALTH_MANAGED_TEST_FILES)
     manifest_paths = [
         *root.glob("*/manifest.json"),
         *root.glob("Standalone tools/*/manifest.json"),
