@@ -24,6 +24,7 @@ from tasks.connection_watchdog import write_ipc_connection_state
 from tasks.state_change_notifier import StateChangeNotifier
 from tasks.state_outbox import OutboxPublisher
 from .server_commands import process_command_task
+from .server_handler_helpers import _run_heartbeat_monitor, _cleanup_connection
 
 
 MAX_CONNECTION_COMMAND_TASKS = 32
@@ -106,49 +107,13 @@ async def handler(websocket, app_instance):
     # the read loop starts — enforce the pong timeout only from that point.
     read_loop_active = False
 
-    async def _heartbeat_monitor() -> None:
-        HEARTBEAT_INTERVAL = 5.0
-        HEARTBEAT_TIMEOUT = 20.0
-        while not heartbeat_dead.is_set():
-            await asyncio.sleep(HEARTBEAT_INTERVAL)
-            if heartbeat_dead.is_set():
-                break
-            try:
-                # Bound the send: a backpressured or half-dead socket would
-                # otherwise stall this monitor forever without ever marking
-                # the connection dead.  A stalled send is itself a dead
-                # connection signal.
-                await asyncio.wait_for(
-                    ui.send_event(
-                        "heartbeat_ping",
-                        {"t": datetime.now(timezone.utc).isoformat()},
-                    ),
-                    timeout=HEARTBEAT_INTERVAL,
-                )
-            except Exception:
-                heartbeat_dead.set()
-                break
-            if (
-                read_loop_active
-                and time.monotonic() - last_pong_time > HEARTBEAT_TIMEOUT
-            ):
-                # Client has not responded in 20s — close dead connection
-                heartbeat_dead.set()
-                try:
-                    app_instance._log(
-                        {"type": "ipc_heartbeat_timeout", "reason": "pong_timeout"}
-                    )
-                except Exception:
-                    pass
-                try:
-                    await asyncio.wait_for(
-                        websocket.close(code=1001, reason="heartbeat_timeout"),
-                        timeout=5.0,
-                    )
-                except Exception:
-                    pass
-                break
-
+    last_pong_time = time.monotonic()
+    heartbeat_task = asyncio.create_task(
+        _run_heartbeat_monitor(
+            ui, websocket, app_instance, heartbeat_dead,
+            last_pong_time, False,
+        )
+    )
     # Track pong responses via a command handler
     last_pong_time = time.monotonic()
     heartbeat_task = asyncio.create_task(_heartbeat_monitor())
@@ -265,22 +230,10 @@ async def handler(websocket, app_instance):
     except websockets.exceptions.ConnectionClosed:
         pass
     finally:
-        heartbeat_dead.set()
-        heartbeat_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await heartbeat_task
-        for task in list(connection_tasks):
-            if not task.done():
-                task.cancel()
-        if connection_tasks:
-            await asyncio.gather(*connection_tasks, return_exceptions=True)
-        # Decrement active WebSocket connections for the connection watchdog.
-        try:
-            _active = max(0, getattr(app_instance, "_active_ws_connections", 1) - 1)
-            app_instance._active_ws_connections = _active
-            write_ipc_connection_state(_PROJECT_ROOT, _active)
-        except Exception:
-            pass
+        await _cleanup_connection(
+            app_instance, ui, heartbeat_dead, heartbeat_task,
+            connection_tasks, _PROJECT_ROOT,
+        )
         # A67 condition 4: decrement the independent authenticated-IPC counter.
         try:
             _authed = max(0, getattr(app_instance, "_authenticated_ipc_connections", 1) - 1)
