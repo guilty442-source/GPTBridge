@@ -1,7 +1,16 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
+
+MAX_ORPHANS_PER_FILE: Final[int] = 8
+
+_SYNTAX_INDENTATION_SIGNATURES: Final[tuple[str, ...]] = (
+    "IndentationError",
+    "TabError",
+    "unexpected indent",
+    "unindent does not match any outer indentation level",
+)
 
 def _contentful_indices(lines: list[str]) -> list[int]:
     indices: list[int] = []

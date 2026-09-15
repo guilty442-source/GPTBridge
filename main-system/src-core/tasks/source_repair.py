@@ -20,6 +20,7 @@ if __package__ in (None, ""):
 from core_system.versioning import component_version
 
 from .source_repair_indent import (
+    MAX_ORPHANS_PER_FILE,
     IndentationRepairer,
     candidate_indentations,
     orphan_candidate_indices,
@@ -41,15 +42,6 @@ SOURCE_ROOTS: Final[tuple[str, ...]] = (
     "main-system/src-core",
     "shared-layer/src",
 )
-MAX_ORPHANS_PER_FILE: Final[int] = 8
-
-_SYNTAX_INDENTATION_SIGNATURES: Final[tuple[str, ...]] = (
-    "IndentationError",
-    "TabError",
-    "unexpected indent",
-    "unindent does not match any outer indentation level",
-)
-
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()

@@ -7,6 +7,7 @@ Verification uses: compile-ok, tests-pass, governance-audit, stability.
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,12 @@ from core_system.auto_repair_chain_types import (
     RepairExecution,
     RepairPlan,
     VerificationResult,
+)
+from core_system.auto_repair_chain_util import (
+    ensure_sys_path,
+    file_compiles,
+    iter_scope_files,
+    step_targets,
 )
 
 
@@ -51,10 +58,14 @@ class IndependentVerifier:
         # Pre/post hashes are recorded for audit trail only, not used for decisions
         evidence["checks"]["snapshot_comparison"] = "prohibited_by_A166_A261"
 
-        # 3. Verify no uncommitted changes lost
-        uncommitted_preserved = not self._has_uncommitted_loss(plan.preimage_hashes.keys())
-        evidence["checks"]["uncommitted_preserved"] = uncommitted_preserved
-        all_passed = all_passed and uncommitted_preserved
+        # 3. Containment: every file whose content changed must be a
+        # declared step target — a change outside the plan means the
+        # executor touched uncommitted developer work (or drifted).
+        changed = self._changed_paths(plan, execution)
+        contained = changed <= step_targets(plan)
+        evidence["checks"]["uncommitted_preserved"] = contained
+        evidence["checks"]["changed_paths"] = sorted(changed)
+        all_passed = all_passed and contained
 
         # 3. Record diff size for audit trail (not for decision)
         if execution.diff:
@@ -106,31 +117,51 @@ class IndependentVerifier:
         return all_passed
 
     def _verify_compile(self, paths: list[str]) -> bool:
-        """Verify Python files compile."""
+        """Verify Python files compile — in-process, no subprocess per file."""
         for path in paths:
             if path.endswith(".py"):
                 full_path = self.project_root / path
                 if full_path.exists():
-                    result = subprocess.run(
-                        ["python", "-m", "py_compile", str(full_path)],
-                        capture_output=True,
-                        creationflags=subprocess.CREATE_NO_WINDOW,
-                    )
-                    if result.returncode != 0:
+                    ok, _ = file_compiles(full_path)
+                    if not ok:
                         return False
         return True
 
     def _verify_tests(self, path_scopes: list[str]) -> bool:
-        """Run relevant tests."""
-        # Simplified - would run actual test suite
-        return True
+        """Run the tests that live inside the granted scopes.
+
+        Scoped: only ``test_*.py``/``*_test.py`` files under the granted
+        paths, capped, with a timeout.  A scope with no tests is vacuous
+        pass (recorded in evidence by the caller's check map).
+        """
+        test_files: list[str] = []
+        for scope in path_scopes:
+            for rel, _ in iter_scope_files(self.project_root, scope):
+                name = rel.rsplit("/", 1)[-1]
+                if name.startswith("test_") and name.endswith(".py"):
+                    test_files.append(rel)
+        if not test_files:
+            return True
+        test_files = sorted(set(test_files))[:50]
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pytest", "-q", "-x", *test_files],
+                cwd=str(self.project_root),
+                capture_output=True,
+                timeout=180,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            return result.returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
 
     def _verify_governance_audit(self) -> bool:
         """Run governance audit to verify no governance violations."""
         try:
-            import sys
-            sys.path.insert(0, str(self.project_root / "main-system" / "src-core"))
-            sys.path.insert(0, str(self.project_root / "shared-layer" / "src"))
+            ensure_sys_path(
+                self.project_root / "main-system" / "src-core",
+                self.project_root / "shared-layer" / "src",
+            )
             from governance_rule.execution.audit import audit_runtime_governance
             errors = audit_runtime_governance(self.project_root, include_self_health=False)
             return len(errors) == 0
@@ -140,51 +171,36 @@ class IndependentVerifier:
     def _verify_stability(self, path_scopes: list[str]) -> bool:
         """Verify system stability - no regressions in core functionality."""
         try:
-            # Run a quick stability check: import core modules
-            import sys
-            sys.path.insert(0, str(self.project_root / "main-system" / "src-core"))
-            sys.path.insert(0, str(self.project_root / "shared-layer" / "src"))
+            ensure_sys_path(
+                self.project_root / "main-system" / "src-core",
+                self.project_root / "shared-layer" / "src",
+            )
 
             # Verify critical modules can be imported
             from core_system.governance_runtime import MainSystemGovernance
             from shared_layer.store import PostgresSharedLayerStore
 
-            # Verify no new syntax errors in repaired paths
-            for path in path_scopes:
-                if path.endswith(".py"):
-                    full_path = self.project_root / path
-                    if full_path.exists():
-                        result = subprocess.run(
-                            ["python", "-m", "py_compile", str(full_path)],
-                            capture_output=True,
-                            creationflags=subprocess.CREATE_NO_WINDOW,
-                        )
-                        if result.returncode != 0:
+            # Verify no new syntax errors in repaired paths — in-process
+            for scope in path_scopes:
+                for rel, full_path in iter_scope_files(self.project_root, scope):
+                    if rel.endswith(".py"):
+                        ok, _ = file_compiles(full_path)
+                        if not ok:
                             return False
             return True
         except Exception:
             return False
 
-    def _has_uncommitted_loss(self, paths: list[str]) -> bool:
-        """Check if any uncommitted changes were lost."""
-        try:
-            for path in paths:
-                full_path = self.project_root / path
-                if full_path.exists():
-                    result = subprocess.run(
-                        ["git", "status", "--porcelain", str(full_path)],
-                        cwd=str(self.project_root),
-                        capture_output=True,
-                        text=True,
-                        creationflags=subprocess.CREATE_NO_WINDOW,
-                    )
-                    if result.stdout.strip():
-                        # Has uncommitted changes - check if they're preserved
-                        # In practice, this would be more sophisticated
-                        pass
-        except Exception:
-            pass
-        return False
+    def _changed_paths(self, plan: RepairPlan, execution: RepairExecution) -> set[str]:
+        """Files whose content actually changed (pre vs post image)."""
+        changed = set()
+        for path, pre in plan.preimage_hashes.items():
+            if execution.postimage_hashes.get(path) != pre:
+                changed.add(path)
+        changed.update(
+            path for path in execution.postimage_hashes if path not in plan.preimage_hashes
+        )
+        return changed
 
 
 __all__ = ["IndependentVerifier"]

@@ -49,6 +49,7 @@ from core_system.auto_repair_chain_types import (
     RepairPlan,
     VerificationResult,
 )
+from core_system.auto_repair_chain_util import iter_scope_files
 from core_system.auto_repair_chain_verify import IndependentVerifier
 
 
@@ -157,11 +158,18 @@ class AutoRepairOrchestrator:
             error=execution.error,
         )
 
-        # Stage 7: Learn if verified
-        if verification_result == VerificationResult.PASSED:
-            self._learn_from_success(objective, plan, execution, grant)
+        # Stage 7: Finalize — verification verdict decides whether the
+        # retained backups are discarded (passed) or restored (failed),
+        # so an unverified change never stays on disk.
+        passed = verification_result == VerificationResult.PASSED
+        finalization = self.executor.finalize(plan, passed)
 
-        # Stage 8: Report back through information layer
+        # Stage 8: Learn — both verdicts feed the store so the recorded
+        # success rate is honest (a failed repair must not look like a
+        # repeatable success).
+        self._record_outcome(objective, plan, execution, grant, ok=passed)
+
+        # Stage 9: Report back through information layer
         return {
             "stage": "complete",
             "objective": asdict(objective),
@@ -170,22 +178,21 @@ class AutoRepairOrchestrator:
             "execution": asdict(execution),
             "verification": verification_result.value,
             "verification_evidence": verification_evidence,
+            "finalization": finalization,
         }
 
     def _create_repair_plan(self, objective: RepairObjective, grant: PermissionGrant) -> RepairPlan:
         """Create minimal targeted repair plan per A261."""
-        # Compute preimage hashes
+        # Compute preimage hashes — bounded walk (skips vendored/cache
+        # trees and oversized files so a directory scope cannot dominate
+        # repair latency).
         pre_hashes = {}
         for path in grant.path_scope:
-            full_path = self.project_root / path
-            if full_path.exists():
-                if full_path.is_file():
-                    pre_hashes[path] = hashlib.sha256(full_path.read_bytes()).hexdigest()
-                elif full_path.is_dir():
-                    for file in full_path.rglob("*"):
-                        if file.is_file():
-                            rel = file.relative_to(self.project_root).as_posix()
-                            pre_hashes[rel] = hashlib.sha256(file.read_bytes()).hexdigest()
+            for rel, file in iter_scope_files(self.project_root, path):
+                try:
+                    pre_hashes[rel] = hashlib.sha256(file.read_bytes()).hexdigest()
+                except OSError:
+                    continue
 
         # Build steps based on objective
         steps = []
@@ -217,14 +224,16 @@ class AutoRepairOrchestrator:
             estimated_duration_seconds=60,
         )
 
-    def _learn_from_success(
+    def _record_outcome(
         self,
         objective: RepairObjective,
         plan: RepairPlan,
         execution: RepairExecution,
         grant: PermissionGrant,
+        *,
+        ok: bool,
     ) -> None:
-        """Learn from successful verified repair."""
+        """Record the verified outcome; promote repeatable successes."""
         signature_hash = hashlib.sha256(
             f"{objective.fault_code}:{objective.root_cause_evidence.get('file', '')}:{plan.method}".encode()
         ).hexdigest()[:16]
@@ -235,7 +244,7 @@ class AutoRepairOrchestrator:
             message_pattern=str(objective.root_cause_evidence)[:200],
             failure_code=objective.fault_code,
             remedy=plan.method,
-            ok=True,
+            ok=ok,
             verification_result=execution.verification,
             detail={
                 "objective_id": objective.objective_id,
@@ -245,12 +254,14 @@ class AutoRepairOrchestrator:
             },
         )
 
-        # Check for promotion
-        analysis = self.learning_store.analyze_history()
-        for candidate in analysis.get("candidates", []):
-            if candidate["signature_hash"] == signature_hash:
-                self.learning_store.promote_recipe(candidate)
-                break
+        if not ok:
+            return
+        # Promotion check is scoped to this signature — no need to
+        # re-analyze unrelated history.
+        for candidate in self.learning_store.analyze_history(signature_hash).get(
+            "candidates", []
+        ):
+            self.learning_store.promote_recipe(candidate)
 
 
 def create_auto_repair_orchestrator(

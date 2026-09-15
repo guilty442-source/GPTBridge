@@ -8,11 +8,13 @@ Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from .third_party_manager_types import (
     AUTO_UPDATABLE_TOOLS,
@@ -24,6 +26,11 @@ from .third_party_manager_types import (
     UpdateExecutionResult,
 )
 
+# Default maximum concurrent updates (can be overridden by subclasses)
+DEFAULT_MAX_CONCURRENT_UPDATES: int = 3
+
+_logger = logging.getLogger("gptbridge.third_party_updates")
+
 
 class ThirdPartyUpdateMixin:
     """Third-party version probing and update execution."""
@@ -31,6 +38,9 @@ class ThirdPartyUpdateMixin:
     _version_cache: dict[str, ToolVersionInfo]
     _update_cache: dict[str, Any]
     _inventory_path: Path
+
+    # Concurrency control for parallel updates
+    max_concurrent_updates: int = DEFAULT_MAX_CONCURRENT_UPDATES
 
     def get_recorded_version(self, tool_id: str) -> str | None:
         raise NotImplementedError
@@ -105,58 +115,75 @@ class ThirdPartyUpdateMixin:
         *,
         approval_token: str | None = None,
     ) -> UpdateExecutionResult:
-        """Execute an update for a single tool (governed action)."""
-        result = UpdateExecutionResult(
-            tool_id=tool_id,
-            executed_at=_iso_now(),
-        )
+        """Execute an update for a single tool (governed action) with retry logic."""
+        max_retries = 2
+        retry_delay = 5.0  # seconds
 
-        if not self.is_auto_updatable(tool_id):
-            result.error = (
-                f"tool '{tool_id}' is not auto-updatable; "
-                "manual update required (system installer)"
+        for attempt in range(max_retries + 1):
+            result = UpdateExecutionResult(
+                tool_id=tool_id,
+                executed_at=_iso_now(),
             )
-            return result
 
-        authorized, auth_message = self._verify_approval_token(approval_token)
-        if not authorized:
-            result.error = auth_message
-            return result
+            if not self.is_auto_updatable(tool_id):
+                result.error = (
+                    f"tool '{tool_id}' is not auto-updatable; "
+                    "manual update required (system installer)"
+                )
+                return result
 
-        before = self.probe_version(tool_id)
-        result.before_version = before.detected_version
+            authorized, auth_message = self._verify_approval_token(approval_token)
+            if not authorized:
+                result.error = auth_message
+                return result
 
-        update_spec = _UPDATE_COMMANDS.get(tool_id)
-        if update_spec is None:
-            result.error = f"no update command for tool '{tool_id}'"
-            return result
+            before = self.probe_version(tool_id)
+            result.before_version = before.detected_version
 
-        command, args = update_spec
-        executable = shutil.which(command)
-        if executable is None:
-            result.error = f"executable '{command}' not found in PATH"
-            return result
+            update_spec = _UPDATE_COMMANDS.get(tool_id)
+            if update_spec is None:
+                result.error = f"no update command for tool '{tool_id}'"
+                return result
 
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                command,
-                *args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                **_background_subprocess_kwargs(),
-            )
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(), timeout=120
-            )
-            result.stdout = stdout_bytes.decode("utf-8", errors="replace")
-            result.stderr = stderr_bytes.decode("utf-8", errors="replace")
-            result.exit_code = proc.returncode
-            result.ok = proc.returncode == 0
-        except asyncio.TimeoutExpired:
-            result.error = "update timed out (120s)"
-        except OSError as exc:
-            result.error = f"update failed: {exc}"
+            command, args = update_spec
+            executable = shutil.which(command)
+            if executable is None:
+                result.error = f"executable '{command}' not found in PATH"
+                return result
 
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    command,
+                    *args,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    **_background_subprocess_kwargs(),
+                )
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    proc.communicate(), timeout=120
+                )
+                result.stdout = stdout_bytes.decode("utf-8", errors="replace")
+                result.stderr = stderr_bytes.decode("utf-8", errors="replace")
+                result.exit_code = proc.returncode
+                result.ok = proc.returncode == 0
+            except asyncio.TimeoutExpired:
+                result.error = "update timed out (120s)"
+            except OSError as exc:
+                result.error = f"update failed: {exc}"
+
+            # If successful or not retryable, return immediately
+            if result.ok or attempt == max_retries:
+                after = self.probe_version(tool_id)
+                result.after_version = after.detected_version
+                self._version_cache[tool_id] = after
+                return result
+
+            # Wait before retry
+            _logger.warning(f"Update failed for {tool_id}, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries}): {result.error}")
+            await asyncio.sleep(retry_delay)
+            retry_delay *= 2  # Exponential backoff
+
+        # Should not reach here, but just in case
         after = self.probe_version(tool_id)
         result.after_version = after.detected_version
         self._version_cache[tool_id] = after
@@ -168,7 +195,7 @@ class ThirdPartyUpdateMixin:
         approval_token: str,
         only_available: bool = True,
     ) -> dict[str, UpdateExecutionResult]:
-        """Execute updates for all auto-updatable tools."""
+        """Execute updates for all auto-updatable tools in parallel with controlled concurrency."""
         from core_system.auto_action_policy import (
             automatic_update_execution_allowed,
             record_pending_action,
@@ -215,15 +242,41 @@ class ThirdPartyUpdateMixin:
         authorized, auth_message = self._verify_approval_token(approval_token)
         if not authorized:
             raise PermissionError(f"permission-denied: {auth_message}")
-        results: dict[str, UpdateExecutionResult] = {}
+
+        # Filter tools that need updates
+        tools_to_update: list[str] = []
         for tool_id in AUTO_UPDATABLE_TOOLS:
             if only_available:
                 check = self._update_cache.get(tool_id)
                 if check is None or not check.update_available:
                     continue
-            result = await self.execute_update(tool_id, approval_token=approval_token)
-            results[tool_id] = result
-        return results
+            tools_to_update.append(tool_id)
+
+        if not tools_to_update:
+            return {}
+
+        # Execute updates in parallel with semaphore for concurrency control
+        semaphore = asyncio.Semaphore(self.max_concurrent_updates)
+
+        async def _execute_with_semaphore(tool_id: str) -> tuple[str, UpdateExecutionResult]:
+            async with semaphore:
+                result = await self.execute_update(tool_id, approval_token=approval_token)
+                return tool_id, result
+
+        # Run all updates concurrently with controlled concurrency
+        tasks = [_execute_with_semaphore(t) for t in tools_to_update]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results
+        final_results: dict[str, UpdateExecutionResult] = {}
+        for result in results:
+            if isinstance(result, Exception):
+                # Log exception but continue with other tools
+                continue
+            tool_id, exec_result = result
+            final_results[tool_id] = exec_result
+
+        return final_results
 
 
-__all__ = ["ThirdPartyUpdateMixin"]
+__all__ = ["ThirdPartyUpdateMixin", "DEFAULT_MAX_CONCURRENT_UPDATES"]

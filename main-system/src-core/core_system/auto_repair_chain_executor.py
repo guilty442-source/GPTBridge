@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import shutil
-import subprocess
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -20,6 +19,11 @@ from core_system.auto_repair_chain_types import (
     PermissionGrant,
     RepairExecution,
     RepairPlan,
+)
+from core_system.auto_repair_chain_util import (
+    atomic_write_text,
+    dirty_git_paths,
+    file_compiles,
 )
 
 
@@ -127,30 +131,24 @@ class GovernedExecutor:
         )
 
     def _verify_grant(self, plan: RepairPlan, grant: PermissionGrant) -> bool:
-        """Verify grant covers all plan targets."""
+        """Verify grant covers all plan targets (boundary-aware match)."""
+        scopes = [scope.rstrip("/") for scope in grant.path_scope]
         for path in plan.preimage_hashes.keys():
-            if not any(path.startswith(scope) for scope in grant.path_scope):
+            if not any(path == scope or path.startswith(scope + "/") for scope in scopes):
                 return False
         return True
 
     def _has_uncommitted_changes(self, plan: RepairPlan) -> bool:
-        """Check for uncommitted git changes in target files."""
-        try:
-            for path in plan.preimage_hashes.keys():
-                full_path = self.project_root / path
-                if full_path.exists():
-                    result = subprocess.run(
-                        ["git", "status", "--porcelain", str(full_path)],
-                        cwd=str(self.project_root),
-                        capture_output=True,
-                        text=True,
-                        creationflags=subprocess.CREATE_NO_WINDOW,
-                    )
-                    if result.stdout.strip():
-                        return True
-        except Exception:
-            pass
-        return False
+        """Check for uncommitted git changes in target files.
+
+        One ``git status`` call for the whole plan instead of one
+        subprocess per file.  An unverifiable working tree counts as
+        dirty (fail-closed, same contract as ``tasks.source_repair``).
+        """
+        dirty = dirty_git_paths(self.project_root)
+        if dirty is None:
+            return True
+        return any(path in dirty for path in plan.preimage_hashes.keys())
 
     def _execute_step(self, step: dict[str, Any], grant: PermissionGrant) -> dict[str, Any]:
         """Execute a single repair step."""
@@ -167,58 +165,91 @@ class GovernedExecutor:
             return {"ok": False, "error": f"Unknown action: {action}"}
 
     def _apply_targeted_patch(self, target: str, patch: Optional[str]) -> dict[str, Any]:
-        """Apply minimal targeted patch."""
-        if not patch:
-            return {"ok": False, "error": "No patch provided"}
+        """Apply the bounded deterministic repair for indentation-family faults.
+
+        The patch is produced in-process by ``IndentationRepairer`` — the
+        same bounded, unique-solution-only engine the governed
+        ``tasks.source_repair`` path uses.  An explicit ``patch`` payload
+        is rejected: replacing a file with caller-supplied content is the
+        FORBID whole-file-rewrite path.
+        """
+        if patch:
+            return {
+                "ok": False,
+                "error": "caller-supplied patch content is forbidden (whole-file-rewrite)",
+            }
 
         full_path = self.project_root / target
-        if not full_path.exists():
+        if not full_path.is_file():
             return {"ok": False, "error": f"Target not found: {target}"}
 
-        # Backup
-        backup_path = full_path.with_suffix(full_path.suffix + ".repair_backup")
-        shutil.copy2(full_path, backup_path)
+        try:
+            source = full_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            return {"ok": False, "error": f"unreadable: {error.__class__.__name__}"}
+
+        from tasks.source_repair_indent import IndentationRepairer
 
         try:
-            # Apply patch
-            content = full_path.read_text(encoding="utf-8")
-            # Simple line-based patch for indentation
-            lines = content.splitlines(keepends=True)
-            # This is simplified - real implementation would parse patch
-            full_path.write_text(patch, encoding="utf-8")
+            repaired_source, repaired_indices = IndentationRepairer(source).repair()
+        except ValueError as error:
+            if "already compiles" in str(error):
+                return {"ok": True, "action": "targeted_patch", "target": target, "changed": False}
+            return {"ok": False, "error": f"deterministic repair unavailable: {error}"}
+        except (OSError, UnicodeError) as error:
+            return {"ok": False, "error": str(error)}
 
-            # Verify
-            if target.endswith(".py"):
-                result = subprocess.run(
-                    ["python", "-m", "py_compile", str(full_path)],
-                    capture_output=True,
-                    creationflags=subprocess.CREATE_NO_WINDOW,
-                )
-                if result.returncode != 0:
-                    shutil.copy2(backup_path, full_path)
-                    return {"ok": False, "error": "Post-patch verification failed"}
+        backup_path = full_path.with_suffix(full_path.suffix + ".repair_backup")
+        try:
+            shutil.copy2(full_path, backup_path)
+            atomic_write_text(full_path, repaired_source)
+        except (OSError, PermissionError) as error:
+            return {"ok": False, "error": f"write failed: {error.__class__.__name__}"}
 
-            return {"ok": True, "action": "targeted_patch", "target": target}
-        except Exception as e:
+        ok, compile_error = file_compiles(full_path)
+        if not ok:
             shutil.copy2(backup_path, full_path)
-            return {"ok": False, "error": str(e)}
-        finally:
-            if backup_path.exists():
-                backup_path.unlink()
+            backup_path.unlink(missing_ok=True)
+            return {"ok": False, "error": f"post-patch verification failed: {compile_error}"}
+
+        # Backup is retained on purpose: it is the rollback material held
+        # until finalize() observes the independent verification verdict.
+        return {
+            "ok": True,
+            "action": "targeted_patch",
+            "target": target,
+            "changed": True,
+            "repaired_indices": repaired_indices,
+        }
 
     def _rebuild_artifact(self, target: str, grant: PermissionGrant) -> dict[str, Any]:
-        """Rebuild tool artifact via governed packager."""
+        """Rebuild tool artifact via the governed platform packager."""
+        del grant  # scope was already verified against the plan
         try:
-            # This would call the governed package rebuilder
-            # Simplified for now
-            return {"ok": True, "action": "rebuild_artifact", "target": target}
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
+            from tasks.package_rebuilder import ToolPackageRebuilder
+
+            rebuilder = ToolPackageRebuilder(
+                self.project_root,
+                self.project_root / "main-system",
+            )
+            result = rebuilder.rebuild(target)
+        except Exception as error:  # fail-closed: no partial rebuild
+            return {"ok": False, "error": f"rebuilder unavailable: {error.__class__.__name__}"}
+        return {
+            "ok": bool(result.get("ok")),
+            "action": "rebuild_artifact",
+            "target": target,
+            "error": result.get("error") or result.get("error_code"),
+        }
 
     def _reset_config(self, target: str, config: Optional[dict]) -> dict[str, Any]:
-        """Reset configuration to known good state."""
-        # Implementation would restore from certified baseline
-        return {"ok": True, "action": "config_reset", "target": target}
+        """Config reset is not wired to a certified baseline — fail closed."""
+        return {
+            "ok": False,
+            "error": "config_reset has no certified-baseline source; refusing no-op success",
+            "action": "config_reset",
+            "target": target,
+        }
 
     def _compute_hashes(self, paths: list[str]) -> dict[str, str]:
         """Compute SHA256 hashes of files."""
@@ -237,6 +268,29 @@ class GovernedExecutor:
                 diff_lines.append(f"M {path}: {pre.get(path, 'new')} -> {post.get(path, 'deleted')}")
         return "\n".join(diff_lines) if diff_lines else "no changes"
 
+    def finalize(self, plan: RepairPlan, verification_passed: bool) -> dict[str, Any]:
+        """Resolve retained backups after independent verification.
+
+        ``verification_passed=True`` discards rollback material; ``False``
+        restores every patched file from its ``.repair_backup`` preimage
+        so a repair that failed verification leaves no residue.
+        """
+        restored: list[str] = []
+        discarded: list[str] = []
+        for path in plan.preimage_hashes.keys():
+            full_path = self.project_root / path
+            backup_path = full_path.with_suffix(full_path.suffix + ".repair_backup")
+            if not backup_path.exists():
+                continue
+            if verification_passed:
+                backup_path.unlink(missing_ok=True)
+                discarded.append(path)
+            else:
+                shutil.copy2(backup_path, full_path)
+                backup_path.unlink(missing_ok=True)
+                restored.append(path)
+        return {"restored": restored, "discarded": discarded}
+
     def _rollback(self, plan: RepairPlan, execution: RepairExecution) -> None:
         """Rollback using backup files (NOT snapshot hashes)."""
         for path in plan.preimage_hashes.keys():
@@ -244,6 +298,7 @@ class GovernedExecutor:
             backup_path = full_path.with_suffix(full_path.suffix + ".repair_backup")
             if backup_path.exists():
                 shutil.copy2(backup_path, full_path)
+                backup_path.unlink(missing_ok=True)
 
 
 __all__ = ["GovernedExecutor"]

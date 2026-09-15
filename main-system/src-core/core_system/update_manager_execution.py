@@ -41,6 +41,10 @@ class UpdateExecutionMixin:
     _max_adaptive_interval: float
     _consecutive_no_changes: int
     _source_hashes: dict[str, str]
+    _last_check_time: float
+    _last_successful_update: float
+    _total_check_duration: float
+    _check_count: int
 
     def _create_manifest(self, update_type: UpdateType, modules: Optional[list[str]]) -> UpdateManifest:
         raise NotImplementedError
@@ -57,6 +61,7 @@ class UpdateExecutionMixin:
         update_type: UpdateType = UpdateType.HOT_RELOAD,
     ) -> UpdateManifest:
         """Check for updates and apply if available."""
+        start_time = time.monotonic()
         manifest = self._create_manifest(update_type, modules)
         self._current_manifest = manifest
         self.history.add(manifest)
@@ -137,11 +142,18 @@ class UpdateExecutionMixin:
             self._update_status(manifest, UpdateStatus.FAILED, str(e))
             await self._rollback(manifest)
 
+        # Update metrics
+        duration = time.monotonic() - start_time
+        self._total_check_duration += duration
+        self._check_count += 1
+        self._last_check_time = time.monotonic()
+
         return manifest
 
     async def _auto_update_loop(self) -> None:
-        """Automatic update checking loop."""
+        """Automatic update checking loop with enhanced metrics and adaptive intervals."""
         while not self._stop_auto.is_set():
+            loop_start = time.monotonic()
             try:
                 # Circuit breaker: if too many consecutive failures, back off
                 if self._consecutive_failures >= self._circuit_breaker_threshold:
@@ -222,8 +234,13 @@ class UpdateExecutionMixin:
                     self._circuit_open_until = time.time() + 300  # 5 minutes
                     _logger.warning("Auto-update circuit breaker opened for 5 minutes")
 
+            # Record loop duration for adaptive timing
+            loop_duration = time.monotonic() - loop_start
+            # Ensure minimum sleep to prevent tight loops
+            sleep_time = max(0.1, self._adaptive_interval - loop_duration)
+
             try:
-                await asyncio.sleep(self._adaptive_interval)
+                await asyncio.sleep(sleep_time)
             except asyncio.CancelledError:
                 break
 

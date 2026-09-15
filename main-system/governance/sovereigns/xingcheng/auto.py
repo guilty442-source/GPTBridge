@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any
 
 from .._base import SovereignBase, SovereignRequest, SovereignOutcome
@@ -104,19 +105,26 @@ class XingchengAutoMixin:
 
     async def _auto_loop(self) -> None:
         """Background auto-loop: observe -> analyze -> reason -> manage."""
+        # Batch size for anomaly processing
+        batch_size = 10
         while self._auto_enabled:
+            cycle_start = time.monotonic()
             try:
                 # Observe
                 snapshot = self._observe_domain()
                 self._last_snapshot = snapshot
+                self._auto_metrics["observe_cycles"] += 1
 
                 # Analyze
                 anomalies = self._analyze_domain(snapshot)
                 if anomalies:
-                    self._pending_anomalies.extend(anomalies)
-                    self._auto_metrics["anomalies_detected"] += len(anomalies)
-                    self._auto_metrics["last_anomaly"] = self._iso_now()
-                    await self._notify_anomalies()
+                    # Batch process anomalies to reduce notification overhead
+                    for i in range(0, len(anomalies), batch_size):
+                        batch = anomalies[i:i + batch_size]
+                        self._pending_anomalies.extend(batch)
+                        self._auto_metrics["anomalies_detected"] += len(batch)
+                        self._auto_metrics["last_anomaly"] = self._iso_now()
+                        await self._notify_anomalies(batch)
 
                 # Reason (internal advisory)
                 self._auto_metrics["reason_cycles"] += 1
@@ -129,8 +137,12 @@ class XingchengAutoMixin:
             except Exception as e:
                 _logger.warning("Xingcheng auto-loop error: %s", e)
 
+            # Adaptive sleep based on cycle duration
+            cycle_duration = time.monotonic() - cycle_start
+            sleep_time = max(0.1, self._auto_loop_interval - cycle_duration)
+
             try:
-                await asyncio.sleep(self._auto_loop_interval)
+                await asyncio.sleep(sleep_time)
             except asyncio.CancelledError:
                 break
 

@@ -84,6 +84,10 @@ class UpdateManager(UpdateExecutionMixin):
         self._update_count = 0
         self._failed_count = 0
         self._rollback_count = 0
+        self._last_check_time: float = 0.0
+        self._last_successful_update: float = 0.0
+        self._total_check_duration: float = 0.0
+        self._check_count: int = 0
 
     def register_callback(self, callback: Callable[[UpdateManifest], None]) -> None:
         """Register a callback for update status changes."""
@@ -134,6 +138,7 @@ class UpdateManager(UpdateExecutionMixin):
             manifest.duration_ms = int((end - start).total_seconds() * 1000)
             if status == UpdateStatus.COMPLETED:
                 self._update_count += 1
+                self._last_successful_update = time.monotonic()
             elif status == UpdateStatus.FAILED:
                 self._failed_count += 1
             elif status == UpdateStatus.ROLLED_BACK:
@@ -202,6 +207,12 @@ class UpdateManager(UpdateExecutionMixin):
                 "total_updates": self._update_count,
                 "failed_updates": self._failed_count,
                 "rollbacks": self._rollback_count,
+                "avg_check_duration_ms": round(self._total_check_duration / max(self._check_count, 1) * 1000, 2),
+                "last_check_seconds_ago": round(time.monotonic() - self._last_check_time, 1) if self._last_check_time else None,
+                "last_successful_update_seconds_ago": round(time.monotonic() - self._last_successful_update, 1) if self._last_successful_update else None,
+                "adaptive_interval_seconds": round(self._adaptive_interval, 1),
+                "consecutive_failures": self._consecutive_failures,
+                "circuit_breaker_open": time.time() < self._circuit_open_until,
             }
         }
 
