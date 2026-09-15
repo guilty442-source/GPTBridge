@@ -14,71 +14,111 @@ from governance.registries import (
     parent_of,
     validate_execution_identity,
 )
+from governance_rule.permission_directory.registries.permissions.identity_groups import (
+    identity_group_snapshot,
+)
 
 
 class ExecutionVerificationMixin:
     """A334 execution identity and module-assignment verification."""
 
     def _module_code_for_identity(self, identity: str) -> str:
-        """Resolve the codex module architecture code for a governed identity.
+            """Resolve the codex module architecture code for a governed identity.
 
-        The module code is the canonical architecture identifier used by the
-        module-assignment registry.  It is derived from the identity group
-        snapshot so the same identity always resolves to the same module
-        code regardless of the caller's context.
-        """
-        from governance_rule.permission_directory.registries.permissions.identity_groups import (
-            identity_group_snapshot,
-        )
-
-        registry = identity_group_snapshot()
-        for group in registry.groups:
-            for member in group.identities:
-                if member.identity_code == identity or member.language_name == identity:
-                    return f"module-{member.identity_code.lower()}"
-        # Fallback: derive from the identity string directly.
-        cleaned = identity.strip().lower()
-        if "/" in cleaned:
-            cleaned = cleaned.split("/")[-1]
-        return f"module-{cleaned}"
+            The naive ``tool_id.upper().replace("-", "_")`` derivation is only
+            valid for the *hosting* runtime identity.  Companions, nested sealed
+            identities (e.g. ``xingcheng`` inside ``local-model``) and resident
+            authority modules first resolve through the sealed manifest binding
+            in the identity registry to their hosting tool; unresolvable
+            identities keep the derived code so the registry lookup fails closed.
+            """
+            code = str(identity).strip().upper().replace("-", "_")
+            try:
+                if module_assignment(code) is not None:
+                    return code
+                identities = identity_group_snapshot().identities
+            except (OSError, KeyError, ValueError, RuntimeError):
+                return code
+            for bound in identities:
+                if str(getattr(bound, "bound_tool_id", "") or "").strip() != identity:
+                    continue
+                binding = getattr(bound, "manifest_binding", None)
+                template = str(getattr(binding, "path_template", "") or "")
+                if not getattr(binding, "required", False) or not template:
+                    continue
+                parts = Path(template.format(tool_id=identity)).parts
+                host = ""
+                if "Standalone tools" in parts:
+                    index = parts.index("Standalone tools")
+                    if len(parts) > index + 1:
+                        host = parts[index + 1]
+                elif len(parts) >= 2:
+                    host = parts[0]
+                if host:
+                    host_code = host.upper().replace("-", "_")
+                    try:
+                        if module_assignment(host_code) is not None:
+                            return host_code
+                    except (OSError, KeyError, ValueError, RuntimeError):
+                        pass
+            return code
 
     def _bound_manifest_identity(self, channel_id: str, tool_dir: Path) -> str:
-        """Read the bound manifest's declared identity for the channel.
+            """Read the sealed-registry bound manifest's declared identity.
 
-        The bound manifest is the manifest.json inside the tool directory.
-        It must declare the same channel identity that the sealed registry
-        assigned to the tool, otherwise the A334 gate denies execution.
-        """
-        manifest_path = tool_dir / "manifest.json"
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError, json.JSONDecodeError):
+            For a nested governed identity (e.g. ``xingcheng`` inside
+            ``local-model``) the manifest pinned by the identity registry must
+            declare that identity — proving the channel claimant is the bound
+            identity rather than a self-asserted name.
+            """
+            try:
+                identities = identity_group_snapshot().identities
+            except (OSError, KeyError, ValueError, RuntimeError):
+                return ""
+            for bound in identities:
+                if str(getattr(bound, "bound_tool_id", "") or "").strip() != channel_id:
+                    continue
+                binding = getattr(bound, "manifest_binding", None)
+                template = str(getattr(binding, "path_template", "") or "")
+                id_field = str(getattr(binding, "tool_id_field", "") or "id")
+                if not getattr(binding, "required", False) or not template:
+                    continue
+                manifest_path = (
+                    self.project_root / template.format(tool_id=channel_id)
+                ).resolve()
+                try:
+                    manifest_path.relative_to(Path(tool_dir).resolve())
+                except ValueError:
+                    continue
+                try:
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                except (OSError, ValueError, json.JSONDecodeError):
+                    continue
+                declared = str(manifest.get(id_field) or "").strip()
+                if declared:
+                    return declared
             return ""
-        if not isinstance(manifest, dict):
-            return ""
-        identities = manifest.get("governance_identities") or []
-        if not isinstance(identities, list):
-            return ""
-        for entry in identities:
-            if not isinstance(entry, dict):
-                continue
-            if str(entry.get("identity_code") or "") == channel_id:
-                return channel_id
-        return ""
 
     def _attested_execution_identity(self, tool_id: str) -> str:
-        """Resolve the attested execution identity for the given tool id.
+            """A334: the executing individual's attested identity — never an echo.
 
-        The execution identity is the individual identity bound to the
-        tool's governed runtime at launch.  It is attested by the
-        launcher and sealed in the governance bootstrap token.
-        """
-        try:
-            owner = self._runtime_owner_tool_id(tool_id)
-            runtime_id = self._governed_runtime_tool_id(owner)
-            return str(runtime_id or "")
-        except (PermissionError, OSError, KeyError, ValueError, RuntimeError):
-            return ""
+            The identity is resolved through the authenticated chain, never
+            copied from the request: the identity that actually claims the
+            shared-layer channel (sealed-registry bound, the same identity the
+            governance bootstrap token is minted for) is resolved to its
+            hosting module's registered execution identity.  A standalone
+            runtime scoped to a single tool attests that tool's chain.
+            """
+            source = str(tool_id).strip()
+            allowed = getattr(self, "allowed_tool_ids", None)
+            if allowed is not None and len(allowed) == 1:
+                source = str(next(iter(allowed))).strip() or source
+            if not source:
+                return ""
+            channel_id = self._channel_target_tool_id(source)
+            if not channel_id:
+                return ""
+            return self._module_code_for_identity(channel_id)
 
     def _verify_module_assignment(self, tool_id: str) -> Dict[str, Any] | None:
         """A334 execution gate: the module registry is the machine authority.

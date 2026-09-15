@@ -11,6 +11,11 @@ from governance_rule.governance_policy import governance_policy_snapshot
 from governance_rule.permission_directory.registries.permissions.identity_groups import (
     identity_group_snapshot,
 )
+from .audit_manifests_helpers import (
+    _validate_top_level_manifest,
+    _validate_nested_manifest,
+    _load_manifest,
+)
 
 
 def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[str]]:
@@ -26,16 +31,7 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
     manifest_tool_ids: set[str] = set()
     physical_owner_roots: set[str] = set()
 
-    # A278/A280: independent tools live under "Standalone tools/".
-    # Depth-1 manifests are direct children of the project root (e.g.
-    # governance_rule, main-system).  Depth-2 manifests are direct
-    # children of "Standalone tools/" (the independent-tools container).
-    # Depth-3 manifests are companion tools nested under a tool root
-    # (e.g. Standalone tools/local-model/model-dialogue).  Anything
-    # deeper is forbidden.
     standalone_dir = root / "Standalone tools"
-    # Collect depth-4 manifests for later validation (Pass 2c).
-    # Exclude hidden directories (e.g. .kilo, .git) from the depth check.
     depth4_manifests = sorted(
         p for p in root.glob("*/*/*/*/manifest.json")
         if not p.relative_to(root).parts[0].startswith(".")
@@ -43,164 +39,54 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
 
     # Pass 1: depth-1 manifests (direct children of project root)
     for manifest_path in sorted(root.glob("*/manifest.json")):
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            errors.append(f"invalid tool manifest: {manifest_path}: {error}")
+        manifest = _load_manifest(manifest_path, errors)
+        if manifest is None:
             continue
         tool_id = str(manifest.get("id") or "")
-        manifest_tool_ids.add(tool_id)
-        physical_owner_root = str(manifest.get("physical_owner_root") or "")
-        if physical_owner_root:
-            physical_owner_roots.add(physical_owner_root)
-        if (
-            tool_id != manifest_path.parent.name
-            and physical_owner_root != manifest_path.parent.name
-        ):
-            errors.append(f"tool identity mismatch: {manifest_path}")
-        if re.fullmatch(label_policy.tool_id_pattern, tool_id) is None:
-            errors.append(f"tool identifier is not standardized: {tool_id}")
-        if "name" in manifest or manifest.get("name_key") != "tool.name":
-            errors.append(f"tool name label is not standardized: {tool_id}")
-        if tool_id == "governance_rule":
-            expected_lifecycle = {
-                "startup": "default-before-main-system",
-                "directLoad": True,
-                "encapsulated": False,
-                "optional": False,
-                "stoppable": False,
-                "disableable": False,
-                "unloadable": False,
-            }
-            if (
-                manifest.get("status") != "running"
-                or manifest.get("lifecycle") != expected_lifecycle
-                or "executable" in manifest
-            ):
-                errors.append("governance manifest lifecycle is invalid")
-        _check_manifest_capabilities(manifest, tool_id, code_rules, label_policy, errors)
-        _check_manifest_window(manifest, tool_id, errors)
-        _check_manifest_locale(manifest_path, tool_id, code_rules, label_policy, errors)
-        _check_manifest_permissions(manifest, tool_id, errors)
+        _validate_top_level_manifest(
+            manifest_path, manifest, tool_id, label_policy, code_rules,
+            errors, manifest_tool_ids, physical_owner_roots,
+            check_governance_lifecycle=True,
+        )
 
-    # Pass 2: depth-2 manifests under "Standalone tools/" (independent
-    # tools) and depth-3 companion tools nested under a tool root.
-    # Independent tools at depth-2 under "Standalone tools/" are treated
-    # as top-level tools (they have their own owner, lifecycle, and
-    # failure boundary per A184/A278).  Companion tools at depth-3
-    # share their owner's permission profile.
+    # Pass 2: depth-2 manifests under "Standalone tools/" (independent tools)
     for manifest_path in sorted(standalone_dir.glob("*/manifest.json")):
-        # These are independent tools — re-run the depth-1 checks
-        # (they are top-level tools, not companions).
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            errors.append(f"invalid tool manifest: {manifest_path}: {error}")
+        manifest = _load_manifest(manifest_path, errors)
+        if manifest is None:
             continue
         tool_id = str(manifest.get("id") or "")
-        manifest_tool_ids.add(tool_id)
-        physical_owner_root = str(manifest.get("physical_owner_root") or "")
-        if physical_owner_root:
-            physical_owner_roots.add(physical_owner_root)
-        if (
-            tool_id != manifest_path.parent.name
-            and physical_owner_root != manifest_path.parent.name
-        ):
-            errors.append(f"tool identity mismatch: {manifest_path}")
-        if re.fullmatch(label_policy.tool_id_pattern, tool_id) is None:
-            errors.append(f"tool identifier is not standardized: {tool_id}")
-        if "name" in manifest or manifest.get("name_key") != "tool.name":
-            errors.append(f"tool name label is not standardized: {tool_id}")
-        _check_manifest_capabilities(manifest, tool_id, code_rules, label_policy, errors)
-        _check_manifest_window(manifest, tool_id, errors)
-        _check_manifest_locale(manifest_path, tool_id, code_rules, label_policy, errors)
-        _check_manifest_permissions(manifest, tool_id, errors)
+        _validate_top_level_manifest(
+            manifest_path, manifest, tool_id, label_policy, code_rules,
+            errors, manifest_tool_ids, physical_owner_roots,
+        )
 
     # Pass 2b: depth-3 companion tools under "Standalone tools/*/"
     for manifest_path in sorted(standalone_dir.glob("*/*/manifest.json")):
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            errors.append(f"invalid tool manifest: {manifest_path}: {error}")
+        manifest = _load_manifest(manifest_path, errors)
+        if manifest is None:
             continue
         tool_id = str(manifest.get("id") or "")
-        manifest_tool_ids.add(tool_id)
-        physical_owner_root = str(manifest.get("physical_owner_root") or "")
-        grandparent_name = manifest_path.parent.parent.name
-
-        # Enforce independent_tool_direct_child_only=True: a nested manifest
-        # must declare a physical_owner_root that matches its grandparent
-        # directory, and that grandparent must be a known physical owner root.
-        if not physical_owner_root:
-            errors.append(
-                f"nested tool manifest lacks physical_owner_root: {manifest_path}"
-            )
-        elif physical_owner_root != grandparent_name:
-            errors.append(
-                f"nested tool physical_owner_root does not match parent root: "
-                f"{manifest_path}"
-            )
-        elif physical_owner_root not in physical_owner_roots:
-            errors.append(
-                f"nested tool references unknown physical_owner_root: "
-                f"{manifest_path}"
-            )
-
-        if re.fullmatch(label_policy.tool_id_pattern, tool_id) is None:
-            errors.append(f"tool identifier is not standardized: {tool_id}")
-        if "name" in manifest or manifest.get("name_key") != "tool.name":
-            errors.append(f"tool name label is not standardized: {tool_id}")
-        _check_manifest_capabilities(manifest, tool_id, code_rules, label_policy, errors)
-        _check_manifest_window(manifest, tool_id, errors)
-        _check_manifest_locale(manifest_path, tool_id, code_rules, label_policy, errors)
-        permissions = manifest.get("permissions")
-        if not isinstance(permissions, dict):
-            errors.append(f"tool permissions are missing: {tool_id}")
+        _validate_nested_manifest(
+            manifest_path, manifest, tool_id, label_policy, code_rules,
+            errors, manifest_tool_ids, physical_owner_roots,
+            expected_parent_name=manifest_path.parent.parent.name,
+            depth_label="nested tool",
+        )
 
     # Pass 2c: depth-4 companion tools under "Standalone tools/*/*/"
-    # These are companions nested under a depth-3 tool (e.g. xingcheng
-    # under model-dialogue under local-model).  They must declare a
-    # physical_owner_root matching their great-grandparent (the depth-2
-    # tool root), and that root must be a known physical owner root.
     for manifest_path in depth4_manifests:
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            errors.append(f"invalid tool manifest: {manifest_path}: {error}")
+        manifest = _load_manifest(manifest_path, errors)
+        if manifest is None:
             continue
         tool_id = str(manifest.get("id") or "")
-        manifest_tool_ids.add(tool_id)
-        physical_owner_root = str(manifest.get("physical_owner_root") or "")
-        great_grandparent_name = manifest_path.parent.parent.parent.name
-
-        if not physical_owner_root:
-            errors.append(
-                f"nested tool manifest lacks physical_owner_root: {manifest_path}"
-            )
-        elif physical_owner_root != great_grandparent_name:
-            errors.append(
-                f"depth-4 tool physical_owner_root does not match root: "
-                f"{manifest_path}"
-            )
-        elif physical_owner_root not in physical_owner_roots:
-            errors.append(
-                f"depth-4 tool references unknown physical_owner_root: "
-                f"{manifest_path}"
-            )
-
-        if re.fullmatch(label_policy.tool_id_pattern, tool_id) is None:
-            errors.append(f"tool identifier is not standardized: {tool_id}")
-        if "name" in manifest or manifest.get("name_key") != "tool.name":
-            errors.append(f"tool name label is not standardized: {tool_id}")
-        _check_manifest_capabilities(manifest, tool_id, code_rules, label_policy, errors)
-        _check_manifest_window(manifest, tool_id, errors)
-        _check_manifest_locale(manifest_path, tool_id, code_rules, label_policy, errors)
-        permissions = manifest.get("permissions")
-        if not isinstance(permissions, dict):
-            errors.append(f"tool permissions are missing: {tool_id}")
+        _validate_nested_manifest(
+            manifest_path, manifest, tool_id, label_policy, code_rules,
+            errors, manifest_tool_ids, physical_owner_roots,
+            expected_parent_name=manifest_path.parent.parent.parent.name,
+            depth_label="depth-4 tool",
+        )
 
     return manifest_tool_ids, physical_owner_roots
-
 
 def _check_manifest_capabilities(
     manifest: dict,

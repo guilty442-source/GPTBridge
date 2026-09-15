@@ -35,14 +35,6 @@ from .execution_receipts import (
 )
 from .independent_verifier import VerificationVerdict
 
-_AUTHORIZATION_ERRORS = (
-    OSError,
-    ValueError,
-    KeyError,
-    RuntimeError,
-    ImportError,
-    PermissionError,
-)
 _ROUTE_ONLY_EXECUTION = frozenset(
     {"", "none", "decision-layer", "delegated-to-governed-executor"}
 )
@@ -123,18 +115,44 @@ class SovereignExecutionPipeline:
     async def _authorization_gate(
         self, request: SovereignRequest
     ) -> tuple[str, dict[str, Any]]:
-        try:
-            requester_ok = await self._sovereign._verify_requester(request)
-        except _AUTHORIZATION_ERRORS as error:
-            return "AUTHORIZATION_GATE_ERROR", {
-                "error": type(error).__name__,
-                "detail": str(error)[:200],
-            }
-        if not requester_ok:
-            return "UNAUTHORIZED_REQUESTER", {}
-        if not self._sovereign._verify_intent(request.intent):
-            return "UNAUTHORIZED_INTENT", {}
-        return "allowed", {}
+        # CONCURRENCY: requester identity and intent allowlist are independent
+        # domain checks — they run on the parallel core and join fail-closed.
+        from .parallel_core import (
+            AUTHORIZATION_GATE_DEADLINE_SECONDS,
+            DomainCheck,
+            SovereignParallelCore,
+        )
+
+        core = SovereignParallelCore(
+            label="authorization-gate",
+            deadline=AUTHORIZATION_GATE_DEADLINE_SECONDS,
+        )
+        run = await core.run_stage(
+            (
+                DomainCheck(
+                    "requester",
+                    lambda: self._sovereign._verify_requester(request),
+                ),
+                DomainCheck(
+                    "intent",
+                    lambda: self._sovereign._verify_intent(request.intent),
+                ),
+            )
+        )
+        details: dict[str, Any] = {"parallel_core": run.summary()}
+        requester = run.verdict("requester")
+        if requester is None or requester.error:
+            details["error"] = requester.error if requester else "check-missing"
+            return "AUTHORIZATION_GATE_ERROR", details
+        if not requester.ok:
+            return "UNAUTHORIZED_REQUESTER", details
+        intent = run.verdict("intent")
+        if intent is None or intent.error:
+            details["error"] = intent.error if intent else "check-missing"
+            return "AUTHORIZATION_GATE_ERROR", details
+        if not intent.ok:
+            return "UNAUTHORIZED_INTENT", details
+        return "allowed", details
 
     async def _finalize(
         self,

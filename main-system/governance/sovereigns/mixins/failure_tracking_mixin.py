@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-class FailureTrackingMixin:
+class FailureTrackingBase:
     """Mixin providing child failure tracking shared by all sovereign parents."""
 
     def __init__(self, *args, **kwargs):
@@ -26,4 +26,4 @@ class FailureTrackingMixin:
         return self._child_failure_counts.get(child_id, 0)
 
 
-__all__ = ["FailureTrackingMixin"]
+__all__ = ["FailureTrackingBase"]

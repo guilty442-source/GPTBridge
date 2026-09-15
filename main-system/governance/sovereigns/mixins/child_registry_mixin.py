@@ -12,7 +12,7 @@ from core_system.codex_decision import (
 )
 
 
-class ChildRegistryMixin:
+class ChildRegistryBase:
     """Mixin providing sub-sovereign registry and A334 parent authority."""
 
 
@@ -54,4 +54,4 @@ class ChildRegistryMixin:
         )
 
 
-__all__ = ["ChildRegistryMixin"]
+__all__ = ["ChildRegistryBase"]

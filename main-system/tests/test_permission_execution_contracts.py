@@ -52,7 +52,7 @@ class _AuthHarness(PermissionAuthSupervisionMixin, SovereignBase):
     def __init__(self, governance) -> None:
         # Deliberately bypass SovereignBase.__init__ (no codex identity read
         # in this unit test); _governance() comes from the shared base.
-        self.app = SimpleNamespace(governance=governance)
+        self._app = SimpleNamespace(governance=governance)
         self._governance_ref = None
         self._compliance_violations = []
         self._issued_grants = {}
@@ -169,7 +169,7 @@ async def test_authorize_kwargs_match_governance_signature(monkeypatch) -> None:
 
     recorded: list[dict] = []
     monkeypatch.setattr(
-        "governance.sovereigns.permission.auth_supervision.record_grant",
+        "governance.sovereigns.permission.auth_supervision_helpers.record_grant",
         lambda **kwargs: recorded.append(kwargs) or 1,
     )
     harness = _AuthHarness(_FakeGovernance())
