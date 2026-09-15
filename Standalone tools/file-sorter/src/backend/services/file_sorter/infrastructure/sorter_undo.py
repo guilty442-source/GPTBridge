@@ -56,6 +56,82 @@ from .sorter_undo_move import (
 )
 
 
+def _undo_publication_persister(
+    path: Path,
+    value: dict[str, Any],
+    operation: dict[str, Any],
+    moved_path: Path,
+    original_path: Path,
+    expected_hash: str,
+) -> Callable[[str, _FileMetadata], None]:
+    def persist_undo_publication(
+        method: str,
+        metadata: _FileMetadata,
+    ) -> None:
+        operation.update(
+            {
+                "undo_publication_confirmed": True,
+                "undo_publication_method": method,
+                "undo_publication_sha256": expected_hash,
+                "undo_publication_source": str(moved_path),
+                "undo_publication_destination": str(original_path),
+                "undo_publication_metadata": _file_metadata_to_dict(metadata),
+            }
+        )
+        value["updated_at"] = _utc_now()
+        _atomic_write_json(path, value)
+
+    return persist_undo_publication
+
+
+def _undo_journal_operation(
+    path: Path,
+    value: dict[str, Any],
+    operation: dict[str, Any],
+) -> None:
+    moved_path = Path(str(operation.get("destination", "")))
+    original_path = Path(str(operation.get("source", "")))
+    expected_hash = str(operation.get("sha256") or "")
+    original_path, moved_path, _stage = _validate_journal_operation_paths(
+        value,
+        operation,
+    )
+    if not expected_hash:
+        raise SorterV2Error("Journal does not contain a SHA-256 digest.")
+    previous_status = str(operation.get("status") or "")
+    if previous_status == "committed":
+        operation.update(
+            {
+                "undo_publication_confirmed": False,
+                "undo_publication_method": None,
+                "undo_publication_sha256": None,
+                "undo_publication_source": None,
+                "undo_publication_destination": None,
+                "undo_publication_metadata": None,
+            }
+        )
+    operation["status"] = "undoing"
+    value["updated_at"] = _utc_now()
+    _atomic_write_json(path, value)
+
+    _resume_undo_move(
+        moved_path,
+        original_path,
+        expected_hash=expected_hash,
+        operation=operation,
+        on_published=_undo_publication_persister(
+            path,
+            value,
+            operation,
+            moved_path,
+            original_path,
+            expected_hash,
+        ),
+    )
+    operation["status"] = "undone"
+    operation["undone_at"] = _utc_now()
+
+
 def _undo_journal(
     path: Path,
     value: dict[str, Any],
@@ -86,57 +162,8 @@ def _undo_journal(
         }:
             continue
         moved_path = Path(str(operation.get("destination", "")))
-        original_path = Path(str(operation.get("source", "")))
-        expected_hash = str(operation.get("sha256") or "")
         try:
-            original_path, moved_path, _stage = _validate_journal_operation_paths(
-                value,
-                operation,
-            )
-            if not expected_hash:
-                raise SorterV2Error("Journal does not contain a SHA-256 digest.")
-            previous_status = str(operation.get("status") or "")
-            if previous_status == "committed":
-                operation.update(
-                    {
-                        "undo_publication_confirmed": False,
-                        "undo_publication_method": None,
-                        "undo_publication_sha256": None,
-                        "undo_publication_source": None,
-                        "undo_publication_destination": None,
-                        "undo_publication_metadata": None,
-                    }
-                )
-            operation["status"] = "undoing"
-            value["updated_at"] = _utc_now()
-            _atomic_write_json(path, value)
-
-            def persist_undo_publication(
-                method: str,
-                metadata: _FileMetadata,
-            ) -> None:
-                operation.update(
-                    {
-                        "undo_publication_confirmed": True,
-                        "undo_publication_method": method,
-                        "undo_publication_sha256": expected_hash,
-                        "undo_publication_source": str(moved_path),
-                        "undo_publication_destination": str(original_path),
-                        "undo_publication_metadata": _file_metadata_to_dict(metadata),
-                    }
-                )
-                value["updated_at"] = _utc_now()
-                _atomic_write_json(path, value)
-
-            _resume_undo_move(
-                moved_path,
-                original_path,
-                expected_hash=expected_hash,
-                operation=operation,
-                on_published=persist_undo_publication,
-            )
-            operation["status"] = "undone"
-            operation["undone_at"] = _utc_now()
+            _undo_journal_operation(path, value, operation)
             undone_count += 1
         except (OSError, SorterV2Error, TypeError, ValueError) as error:
             operation["status"] = "undo_failed"
@@ -144,6 +171,22 @@ def _undo_journal(
             errors.append(f"{moved_path.name}: {error}")
         value["updated_at"] = _utc_now()
         _atomic_write_json(path, value)
+    return _finish_undo_journal(
+        path,
+        value,
+        transaction_id,
+        undone_count,
+        errors,
+    )
+
+
+def _finish_undo_journal(
+    path: Path,
+    value: dict[str, Any],
+    transaction_id: str,
+    undone_count: int,
+    errors: list[str],
+) -> dict[str, Any]:
     value["status"] = "undone" if not errors else "undo_failed"
     value["updated_at"] = _utc_now()
     if errors:
@@ -238,50 +281,62 @@ def recover_transactions(
     if not journals_dir.is_dir():
         return results
     for path in journals_dir.glob("*.json"):
-        try:
-            value = _read_journal(path, state_root=state_root)
-        except SorterV2Error:
-            continue
-        if target is not None and value.get("target_dir") != target:
-            continue
-        if (
-            value.get("status") in TERMINAL_TRANSACTION_STATES
-            and not _journal_has_interrupted_undo(value)
-        ):
-            continue
-        journal_target = str(value.get("target_dir", "")).strip()
-        if not journal_target or not Path(journal_target).is_absolute():
-            results.append(
-                {
-                    "transaction_id": value.get("transaction_id"),
-                    "status": "recovery_failed",
-                    "recovered_count": 0,
-                    "errors": ["Journal target is missing or invalid."],
-                }
-            )
-            continue
-        try:
-            with _TargetDirectoryLock(
-                journal_target,
-                timeout_seconds=max(0.0, lock_timeout_seconds),
-            ):
-                current = _read_journal(path, state_root=state_root)
-                if (
-                    current.get("status") in TERMINAL_TRANSACTION_STATES
-                    and not _journal_has_interrupted_undo(current)
-                ):
-                    continue
-                results.append(_recover_journal(path, current))
-        except SorterV2Error as error:
-            results.append(
-                {
-                    "transaction_id": value.get("transaction_id"),
-                    "status": "busy",
-                    "recovered_count": 0,
-                    "errors": [str(error)],
-                }
-            )
+        result = _recover_journal_entry(
+            path,
+            state_root=state_root,
+            target=target,
+            lock_timeout_seconds=lock_timeout_seconds,
+        )
+        if result is not None:
+            results.append(result)
     return results
+
+
+def _recover_journal_entry(
+    path: Path,
+    *,
+    state_root: str | Path | None,
+    target: str | None,
+    lock_timeout_seconds: float,
+) -> dict[str, Any] | None:
+    try:
+        value = _read_journal(path, state_root=state_root)
+    except SorterV2Error:
+        return None
+    if target is not None and value.get("target_dir") != target:
+        return None
+    if (
+        value.get("status") in TERMINAL_TRANSACTION_STATES
+        and not _journal_has_interrupted_undo(value)
+    ):
+        return None
+    journal_target = str(value.get("target_dir", "")).strip()
+    if not journal_target or not Path(journal_target).is_absolute():
+        return {
+            "transaction_id": value.get("transaction_id"),
+            "status": "recovery_failed",
+            "recovered_count": 0,
+            "errors": ["Journal target is missing or invalid."],
+        }
+    try:
+        with _TargetDirectoryLock(
+            journal_target,
+            timeout_seconds=max(0.0, lock_timeout_seconds),
+        ):
+            current = _read_journal(path, state_root=state_root)
+            if (
+                current.get("status") in TERMINAL_TRANSACTION_STATES
+                and not _journal_has_interrupted_undo(current)
+            ):
+                return None
+            return _recover_journal(path, current)
+    except SorterV2Error as error:
+        return {
+            "transaction_id": value.get("transaction_id"),
+            "status": "busy",
+            "recovered_count": 0,
+            "errors": [str(error)],
+        }
 
 
 def _recover_journal(
@@ -307,82 +362,11 @@ def _recover_journal(
     for operation in operations:
         if not isinstance(operation, dict):
             continue
-        source = Path(str(operation.get("source", "")))
-        destination = Path(str(operation.get("destination", "")))
-        status = str(operation.get("status", "planned"))
-        digest = str(operation.get("sha256") or "")
-        publication_proven = (
-            status == "published"
-            or operation.get("publication_confirmed") is True
-        )
-        try:
-            source, destination, stage = _validate_journal_operation_paths(
-                value,
-                operation,
-            )
-            if stage is not None and stage.exists():
-                _unlink_file_preserving_failure(stage)
-            if publication_proven and digest:
-                if (
-                    destination.is_file()
-                    and source.is_file()
-                ):
-                    if (
-                        sha256_file(destination) == digest
-                        and sha256_file(source) == digest
-                    ):
-                        expected_metadata = _file_metadata_from_dict(
-                            operation.get("metadata")
-                        )
-                        if expected_metadata is not None:
-                            _verify_file_metadata(
-                                source,
-                                expected_metadata,
-                                label="Recovery source",
-                            )
-                            _verify_file_metadata(
-                                destination,
-                                expected_metadata,
-                                label="Recovery destination",
-                            )
-                        source, destination, _ = (
-                            _validate_journal_operation_paths(
-                                value,
-                                operation,
-                            )
-                        )
-                        if (
-                            operation.get("publication_method") == "hardlink"
-                            and not os.path.samefile(source, destination)
-                        ):
-                            raise SorterV2Error(
-                                "Recovery hard-link ownership proof failed."
-                            )
-                        _unlink_file_preserving_failure(source)
-                        operation["status"] = "committed"
-                        operation["staging"] = None
-                        recovered += 1
-                        continue
-                elif (
-                    destination.is_file()
-                    and not source.exists()
-                ):
-                    if sha256_file(destination) == digest:
-                        operation["status"] = "committed"
-                        operation["staging"] = None
-                        recovered += 1
-                        continue
-            if status not in {"committed", "undone"}:
-                operation["status"] = "recovery_failed"
-                retained_error = (
-                    "Source retained; operation was not safely published."
-                )
-                operation["error"] = retained_error
-                errors.append(f"{source.name}: {retained_error}")
-        except (OSError, SorterV2Error, TypeError, ValueError) as error:
-            operation["status"] = "recovery_failed"
-            operation["error"] = str(error)
-            errors.append(f"{source.name}: {error}")
+        recovered_flag, error = _recover_journal_operation(value, operation)
+        if recovered_flag:
+            recovered += 1
+        if error is not None:
+            errors.append(error)
     unfinished = [
         item
         for item in operations
@@ -400,3 +384,90 @@ def _recover_journal(
         "recovered_count": recovered,
         "errors": errors,
     }
+
+
+def _confirm_recovered_operation(
+    value: dict[str, Any],
+    operation: dict[str, Any],
+    source: Path,
+    destination: Path,
+) -> None:
+    expected_metadata = _file_metadata_from_dict(
+        operation.get("metadata")
+    )
+    if expected_metadata is not None:
+        _verify_file_metadata(
+            source,
+            expected_metadata,
+            label="Recovery source",
+        )
+        _verify_file_metadata(
+            destination,
+            expected_metadata,
+            label="Recovery destination",
+        )
+    source, destination, _ = _validate_journal_operation_paths(
+        value,
+        operation,
+    )
+    if (
+        operation.get("publication_method") == "hardlink"
+        and not os.path.samefile(source, destination)
+    ):
+        raise SorterV2Error(
+            "Recovery hard-link ownership proof failed."
+        )
+    _unlink_file_preserving_failure(source)
+    operation["status"] = "committed"
+    operation["staging"] = None
+
+
+def _recover_journal_operation(
+    value: dict[str, Any],
+    operation: dict[str, Any],
+) -> tuple[bool, str | None]:
+    source = Path(str(operation.get("source", "")))
+    destination = Path(str(operation.get("destination", "")))
+    status = str(operation.get("status", "planned"))
+    digest = str(operation.get("sha256") or "")
+    publication_proven = (
+        status == "published"
+        or operation.get("publication_confirmed") is True
+    )
+    try:
+        source, destination, stage = _validate_journal_operation_paths(
+            value,
+            operation,
+        )
+        if stage is not None and stage.exists():
+            _unlink_file_preserving_failure(stage)
+        if publication_proven and digest:
+            if destination.is_file() and source.is_file():
+                if (
+                    sha256_file(destination) == digest
+                    and sha256_file(source) == digest
+                ):
+                    _confirm_recovered_operation(
+                        value,
+                        operation,
+                        source,
+                        destination,
+                    )
+                    return True, None
+            elif destination.is_file() and not source.exists():
+                if sha256_file(destination) == digest:
+                    operation["status"] = "committed"
+                    operation["staging"] = None
+                    return True, None
+        if status not in {"committed", "undone"}:
+            operation["status"] = "recovery_failed"
+            retained_error = (
+                "Source retained; operation was not safely published."
+            )
+            operation["error"] = retained_error
+            return False, f"{source.name}: {retained_error}"
+    except (OSError, SorterV2Error, TypeError, ValueError) as error:
+        operation["status"] = "recovery_failed"
+        operation["error"] = str(error)
+        return False, f"{source.name}: {error}"
+    return False, None

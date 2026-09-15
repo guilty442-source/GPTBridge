@@ -166,9 +166,37 @@ def prune_state(
     explicit value to opt into terminal-journal cleanup.
     """
 
-    removed_plans = 0
     removed_journals = 0
     removed_recycle_journals = 0
+    removed_plans = _prune_expired_plans(state_root)
+
+    retention_days = (
+        _journal_retention_days()
+        if journal_retention_days is None
+        else max(0, min(3650, int(journal_retention_days)))
+    )
+    if retention_days > 0:
+        for category in ("journals", "recycle-journals"):
+            removed = _prune_journal_category(
+                state_root,
+                category,
+                retention_days,
+            )
+            if category == "journals":
+                removed_journals += removed
+            else:
+                removed_recycle_journals += removed
+    return {
+        "removed_plans": removed_plans,
+        "removed_journals": removed_journals,
+        "removed_recycle_journals": removed_recycle_journals,
+    }
+
+
+def _prune_expired_plans(
+    state_root: str | Path | None,
+) -> int:
+    removed_plans = 0
     plans_dir = _state_category_root(state_root, "plans")
     if plans_dir.is_dir():
         for path in plans_dir.glob("*.json"):
@@ -187,44 +215,38 @@ def prune_state(
                 removed_plans += 1
             except (OSError, SorterV2Error):
                 continue
+    return removed_plans
 
-    retention_days = (
-        _journal_retention_days()
-        if journal_retention_days is None
-        else max(0, min(3650, int(journal_retention_days)))
-    )
-    if retention_days > 0:
-        for category in ("journals", "recycle-journals"):
-            category_root = _state_category_root(state_root, category)
-            if not category_root.is_dir():
+
+def _prune_journal_category(
+    state_root: str | Path | None,
+    category: str,
+    retention_days: int,
+) -> int:
+    removed = 0
+    category_root = _state_category_root(state_root, category)
+    if not category_root.is_dir():
+        return removed
+    for path in category_root.glob("*.json"):
+        try:
+            validated = _validated_state_document_path(
+                path,
+                state_root=state_root,
+                category=category,
+                relative_parts=1,
+                require_exists=True,
+            )
+            value = json.loads(validated.read_text(encoding="utf-8"))
+            if not isinstance(value, dict):
                 continue
-            for path in category_root.glob("*.json"):
-                try:
-                    validated = _validated_state_document_path(
-                        path,
-                        state_root=state_root,
-                        category=category,
-                        relative_parts=1,
-                        require_exists=True,
-                    )
-                    value = json.loads(validated.read_text(encoding="utf-8"))
-                    if not isinstance(value, dict):
-                        continue
-                    if category == "journals" and str(value.get("status")) not in (
-                        TERMINAL_TRANSACTION_STATES | {"completed_with_errors"}
-                    ):
-                        continue
-                    if _document_age_days(value, validated) < retention_days:
-                        continue
-                    validated.unlink()
-                    if category == "journals":
-                        removed_journals += 1
-                    else:
-                        removed_recycle_journals += 1
-                except (OSError, TypeError, ValueError, json.JSONDecodeError, SorterV2Error):
-                    continue
-    return {
-        "removed_plans": removed_plans,
-        "removed_journals": removed_journals,
-        "removed_recycle_journals": removed_recycle_journals,
-    }
+            if category == "journals" and str(value.get("status")) not in (
+                TERMINAL_TRANSACTION_STATES | {"completed_with_errors"}
+            ):
+                continue
+            if _document_age_days(value, validated) < retention_days:
+                continue
+            validated.unlink()
+            removed += 1
+        except (OSError, TypeError, ValueError, json.JSONDecodeError, SorterV2Error):
+            continue
+    return removed

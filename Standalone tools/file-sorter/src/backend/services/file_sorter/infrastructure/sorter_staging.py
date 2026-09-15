@@ -46,6 +46,7 @@ from .sorter_paths import (
 from .sorter_types import (
     PlanOperation,
     SorterV2Error,
+    _FileMetadata,
     sha256_file,
 )
 
@@ -131,26 +132,14 @@ def _publish_staging(stage: Path, destination: Path) -> None:
     _fsync_directory(destination.parent)
 
 
-def _staged_move(
+def _verify_staged_copy(
     source: Path,
-    destination: Path,
+    stage: Path,
     operation: PlanOperation,
-    journal: _Journal,
-    index: int,
-) -> str:
-    _validate_operation_paths(source.parent, operation)
-    source_metadata = _capture_file_metadata(source)
-    stage_name = (
-        destination.parent
-        / f".filesorter-{journal.transaction_id[:8]}-{operation.operation_id[:8]}.partial"
-    )
-    journal.update_operation(index, status="copying", staging=str(stage_name))
-    stage, source_hash, bytes_copied = _copy_to_staging(
-        source,
-        destination.parent,
-        journal.transaction_id,
-        operation.operation_id,
-    )
+    source_hash: str,
+    bytes_copied: int,
+    source_metadata: _FileMetadata,
+) -> None:
     _ensure_source_unchanged(source, operation)
     stage_stat = stage.stat()
     stage_hash = sha256_file(stage)
@@ -161,13 +150,18 @@ def _staged_move(
     ):
         raise SorterV2Error(f"Staging verification failed for {source}")
     _verify_file_metadata(stage, source_metadata, label="Staging")
-    journal.update_operation(
-        index,
-        status="verified",
-        staging=str(stage),
-        sha256=source_hash,
-        metadata=_file_metadata_to_dict(source_metadata),
-    )
+
+
+def _publish_staged_operation(
+    source: Path,
+    stage: Path,
+    destination: Path,
+    operation: PlanOperation,
+    source_hash: str,
+    source_metadata: _FileMetadata,
+    journal: _Journal,
+    index: int,
+) -> None:
     _validate_operation_paths(source.parent, operation)
     if _is_link_or_reparse(stage) or not stage.is_file():
         raise SorterV2Error(f"Staging path is no longer a regular file: {stage}")
@@ -201,6 +195,15 @@ def _staged_move(
         publication_confirmed=True,
         publication_method="staged-copy",
     )
+
+
+def _commit_staged_operation(
+    source: Path,
+    destination: Path,
+    operation: PlanOperation,
+    source_hash: str,
+    source_metadata: _FileMetadata,
+) -> None:
     _validate_operation_paths(source.parent, operation)
     _ensure_source_unchanged(source, operation)
     if sha256_file(source) != source_hash:
@@ -217,8 +220,125 @@ def _staged_move(
     )
     _unlink_file_preserving_failure(source)
     _fsync_directory(source.parent)
+
+
+def _stage_and_verify(
+    source: Path,
+    destination: Path,
+    operation: PlanOperation,
+    journal: _Journal,
+    index: int,
+    source_metadata: _FileMetadata,
+) -> tuple[Path, str]:
+    stage_name = (
+        destination.parent
+        / f".filesorter-{journal.transaction_id[:8]}-{operation.operation_id[:8]}.partial"
+    )
+    journal.update_operation(index, status="copying", staging=str(stage_name))
+    stage, source_hash, bytes_copied = _copy_to_staging(
+        source,
+        destination.parent,
+        journal.transaction_id,
+        operation.operation_id,
+    )
+    _verify_staged_copy(
+        source,
+        stage,
+        operation,
+        source_hash,
+        bytes_copied,
+        source_metadata,
+    )
+    journal.update_operation(
+        index,
+        status="verified",
+        staging=str(stage),
+        sha256=source_hash,
+        metadata=_file_metadata_to_dict(source_metadata),
+    )
+    return stage, source_hash
+
+
+def _staged_move(
+    source: Path,
+    destination: Path,
+    operation: PlanOperation,
+    journal: _Journal,
+    index: int,
+) -> str:
+    _validate_operation_paths(source.parent, operation)
+    source_metadata = _capture_file_metadata(source)
+    stage, source_hash = _stage_and_verify(
+        source,
+        destination,
+        operation,
+        journal,
+        index,
+        source_metadata,
+    )
+    _publish_staged_operation(
+        source,
+        stage,
+        destination,
+        operation,
+        source_hash,
+        source_metadata,
+        journal,
+        index,
+    )
+    _commit_staged_operation(
+        source,
+        destination,
+        operation,
+        source_hash,
+        source_metadata,
+    )
     journal.update_operation(index, status="committed")
     return source_hash
+
+
+def _publish_hardlink(
+    source: Path,
+    destination: Path,
+) -> bool:
+    """Hard-link ``source`` to ``destination``; False if unsupported."""
+
+    try:
+        os.link(source, destination)
+    except FileExistsError as error:
+        raise SorterV2Error(
+            f"Destination appeared after preview: {destination}"
+        ) from error
+    except OSError as error:
+        unsupported = {
+            errno.EXDEV,
+            errno.EPERM,
+            errno.EACCES,
+            getattr(errno, "EOPNOTSUPP", 95),
+            getattr(errno, "ENOTSUP", 95),
+        }
+        if error.errno in unsupported:
+            return False
+        raise
+    return True
+
+
+def _commit_hardlink_operation(
+    source: Path,
+    destination: Path,
+    operation: PlanOperation,
+    source_hash: str,
+) -> None:
+    _validate_operation_paths(source.parent, operation)
+    _ensure_source_unchanged(source, operation)
+    if sha256_file(destination) != source_hash:
+        raise SorterV2Error(f"Linked file changed before deletion: {destination}")
+    if not os.path.samefile(source, destination):
+        raise SorterV2Error(
+            f"Published hard link changed before source deletion: {destination}"
+        )
+    source.unlink()
+    _fsync_directory(source.parent)
 
 
 def _same_volume_move(
@@ -238,23 +358,8 @@ def _same_volume_move(
         publication_confirmed=False,
         publication_method="hardlink",
     )
-    try:
-        os.link(source, destination)
-    except FileExistsError as error:
-        raise SorterV2Error(
-            f"Destination appeared after preview: {destination}"
-        ) from error
-    except OSError as error:
-        unsupported = {
-            errno.EXDEV,
-            errno.EPERM,
-            errno.EACCES,
-            getattr(errno, "EOPNOTSUPP", 95),
-            getattr(errno, "ENOTSUP", 95),
-        }
-        if error.errno in unsupported:
-            return _staged_move(source, destination, operation, journal, index)
-        raise
+    if not _publish_hardlink(source, destination):
+        return _staged_move(source, destination, operation, journal, index)
     _fsync_file(destination)
     _fsync_directory(destination.parent)
     if not os.path.samefile(source, destination):
@@ -267,15 +372,6 @@ def _same_volume_move(
         publication_confirmed=True,
         publication_method="hardlink",
     )
-    _validate_operation_paths(source.parent, operation)
-    _ensure_source_unchanged(source, operation)
-    if sha256_file(destination) != source_hash:
-        raise SorterV2Error(f"Linked file changed before deletion: {destination}")
-    if not os.path.samefile(source, destination):
-        raise SorterV2Error(
-            f"Published hard link changed before source deletion: {destination}"
-        )
-    source.unlink()
-    _fsync_directory(source.parent)
+    _commit_hardlink_operation(source, destination, operation, source_hash)
     journal.update_operation(index, status="committed")
     return source_hash

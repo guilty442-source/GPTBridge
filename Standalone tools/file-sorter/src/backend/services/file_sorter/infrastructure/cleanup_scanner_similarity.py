@@ -34,77 +34,106 @@ class VideoSimilarityMixin:
         groups: list[dict[str, Any]] = []
         duplicates: list[dict[str, Any]] = []
         comparisons = 0
-        threshold = self.similar_video_threshold
         for index, base in enumerate(ordered):
             base_relative = _relative_path_text(base, self.target_dir)
             if base_relative.casefold() in used:
                 continue
-            matches: list[dict[str, Any]] = []
-            for candidate in ordered[index + 1 :]:
-                candidate_relative = _relative_path_text(candidate, self.target_dir)
-                if candidate_relative.casefold() in used:
-                    continue
-                comparisons += 1
-                try:
-                    result = model.compare(
-                        base,
-                        candidate,
-                        media_type=media_type,
-                        analysis_speed=self.analysis_speed,
-                    )
-                except Exception as exc:
-                    report["warnings"].append(
-                        f"{base_relative} / {candidate_relative}: {exc}"
-                    )
-                    continue
-                payload = result.to_dict()
-                similarity = int(payload.get("similarity") or 0)
-                if similarity < threshold or not payload.get("same_content"):
-                    continue
-                match = {
-                    "path": candidate_relative,
-                    "similar_to": base_relative,
-                    f"{media_type}_similarity": similarity,
-                    "visual_similarity_reason": str(payload.get("reason") or ""),
-                    "visual_similarity_model": str(payload.get("model") or ""),
-                }
-                matches.append(match)
+            matches, found = self._model_similarity_matches(
+                base,
+                base_relative,
+                ordered[index + 1 :],
+                used,
+                model,
+                media_type,
+                report,
+            )
+            comparisons += found
             if matches:
-                groups.append({"keep": base_relative, "matches": matches})
-                category = (
-                    CATEGORY_SIMILAR_IMAGE_DUPLICATE
-                    if media_type == "image"
-                    else CATEGORY_SIMILAR_VIDEO_DUPLICATE
+                self._record_model_similarity_group(
+                    base_relative,
+                    matches,
+                    groups,
+                    duplicates,
+                    used,
+                    media_type,
                 )
-                for match in matches:
-                    used.add(str(match["path"]).casefold())
-                    duplicates.append(match)
-                    self._add_found_file(
-                        str(match["path"]),
-                        [category],
-                        size=self._safe_stat_size(self.target_dir / str(match["path"])),
-                        metadata=dict(match),
-                    )
         prefix = "similar_image" if media_type == "image" else "similar_video"
         report[f"{prefix}_groups"] = groups
         report[f"{prefix}_duplicates"] = duplicates
         report[f"{prefix}_duplicate_count"] = len(duplicates)
         report[f"{prefix}_comparison_count"] = comparisons
 
+    def _model_similarity_matches(
+        self,
+        base: Path,
+        base_relative: str,
+        candidates: Sequence[Path],
+        used: set[str],
+        model: Any,
+        media_type: str,
+        report: dict[str, Any],
+    ) -> tuple[list[dict[str, Any]], int]:
+        matches: list[dict[str, Any]] = []
+        comparisons = 0
+        for candidate in candidates:
+            candidate_relative = _relative_path_text(candidate, self.target_dir)
+            if candidate_relative.casefold() in used:
+                continue
+            comparisons += 1
+            try:
+                result = model.compare(
+                    base,
+                    candidate,
+                    media_type=media_type,
+                    analysis_speed=self.analysis_speed,
+                )
+            except Exception as exc:
+                report["warnings"].append(
+                    f"{base_relative} / {candidate_relative}: {exc}"
+                )
+                continue
+            payload = result.to_dict()
+            similarity = int(payload.get("similarity") or 0)
+            if similarity < self.similar_video_threshold or not payload.get("same_content"):
+                continue
+            matches.append(
+                {
+                    "path": candidate_relative,
+                    "similar_to": base_relative,
+                    f"{media_type}_similarity": similarity,
+                    "visual_similarity_reason": str(payload.get("reason") or ""),
+                    "visual_similarity_model": str(payload.get("model") or ""),
+                }
+            )
+        return matches, comparisons
+
+    def _record_model_similarity_group(
+        self,
+        base_relative: str,
+        matches: list[dict[str, Any]],
+        groups: list[dict[str, Any]],
+        duplicates: list[dict[str, Any]],
+        used: set[str],
+        media_type: str,
+    ) -> None:
+        groups.append({"keep": base_relative, "matches": matches})
+        category = (
+            CATEGORY_SIMILAR_IMAGE_DUPLICATE
+            if media_type == "image"
+            else CATEGORY_SIMILAR_VIDEO_DUPLICATE
+        )
+        for match in matches:
+            used.add(str(match["path"]).casefold())
+            duplicates.append(match)
+            self._add_found_file(
+                str(match["path"]),
+                [category],
+                size=self._safe_stat_size(self.target_dir / str(match["path"])),
+                metadata=dict(match),
+            )
+
     def _append_similar_video_results(self, report: dict[str, Any]) -> None:
-        candidates = [
-            {
-                "path": str(detail["path"]),
-                "hashes": [
-                    str(value)
-                    for value in detail.get("perceptual_hashes", [])
-                    if value
-                ],
-            }
-            for detail in report.get("video_details", [])
-            if isinstance(detail, dict) and detail.get("path")
-        ]
-        candidates.sort(key=lambda item: item["path"].casefold())
+        candidates = self._similar_video_candidates(report)
         candidate_neighbors = self._video_candidate_neighbors(candidates)
         report["similar_video_candidate_pair_count"] = (
             sum(len(neighbors) for neighbors in candidate_neighbors) // 2
@@ -119,49 +148,101 @@ class VideoSimilarityMixin:
             base_path = base["path"]
             if base_path.casefold() in used_duplicates:
                 continue
-            matches: list[dict[str, Any]] = []
-            for candidate_index in sorted(candidate_neighbors[base_index]):
-                if candidate_index <= base_index:
-                    continue
-                candidate = candidates[candidate_index]
-                candidate_path = candidate["path"]
-                if candidate_path.casefold() in used_duplicates:
-                    continue
-                comparison_count += 1
-                similarity, distance = self._hash_sequence_similarity(
-                    base["hashes"],
-                    candidate["hashes"],
-                )
-                if similarity < self.similar_video_threshold:
-                    continue
-                match = {
-                    "path": candidate_path,
-                    "similar_to": base_path,
-                    "video_similarity": similarity,
-                    "perceptual_distance": distance,
-                }
-                matches.append(match)
-            if not matches:
-                continue
-            groups.append({"keep": base_path, "matches": matches})
-            for match in matches:
-                used_duplicates.add(str(match["path"]).casefold())
-                duplicates.append(match)
-                self._add_found_file(
-                    str(match["path"]),
-                    [CATEGORY_SIMILAR_VIDEO_DUPLICATE],
-                    size=self._safe_stat_size(self.target_dir / str(match["path"])),
-                    metadata={
-                        "similar_to": match["similar_to"],
-                        "video_similarity": match["video_similarity"],
-                        "perceptual_distance": match["perceptual_distance"],
-                    },
+            matches, found = self._hash_similarity_matches(
+                base,
+                base_index,
+                candidates,
+                candidate_neighbors,
+                used_duplicates,
+            )
+            comparison_count += found
+            if matches:
+                self._record_hash_similarity_group(
+                    base_path,
+                    matches,
+                    groups,
+                    duplicates,
+                    used_duplicates,
                 )
 
         report["similar_video_groups"] = groups
         report["similar_video_duplicates"] = duplicates
         report["similar_video_duplicate_count"] = len(duplicates)
         report["similar_video_comparison_count"] = comparison_count
+
+    @staticmethod
+    def _similar_video_candidates(report: dict[str, Any]) -> list[dict[str, Any]]:
+        candidates = [
+            {
+                "path": str(detail["path"]),
+                "hashes": [
+                    str(value)
+                    for value in detail.get("perceptual_hashes", [])
+                    if value
+                ],
+            }
+            for detail in report.get("video_details", [])
+            if isinstance(detail, dict) and detail.get("path")
+        ]
+        candidates.sort(key=lambda item: item["path"].casefold())
+        return candidates
+
+    def _hash_similarity_matches(
+        self,
+        base: dict[str, Any],
+        base_index: int,
+        candidates: Sequence[dict[str, Any]],
+        candidate_neighbors: list[set[int]],
+        used_duplicates: set[str],
+    ) -> tuple[list[dict[str, Any]], int]:
+        matches: list[dict[str, Any]] = []
+        comparison_count = 0
+        for candidate_index in sorted(candidate_neighbors[base_index]):
+            if candidate_index <= base_index:
+                continue
+            candidate = candidates[candidate_index]
+            candidate_path = candidate["path"]
+            if candidate_path.casefold() in used_duplicates:
+                continue
+            comparison_count += 1
+            similarity, distance = self._hash_sequence_similarity(
+                base["hashes"],
+                candidate["hashes"],
+            )
+            if similarity < self.similar_video_threshold:
+                continue
+            matches.append(
+                {
+                    "path": candidate_path,
+                    "similar_to": base["path"],
+                    "video_similarity": similarity,
+                    "perceptual_distance": distance,
+                }
+            )
+        return matches, comparison_count
+
+    def _record_hash_similarity_group(
+        self,
+        base_path: str,
+        matches: list[dict[str, Any]],
+        groups: list[dict[str, Any]],
+        duplicates: list[dict[str, Any]],
+        used_duplicates: set[str],
+    ) -> None:
+        groups.append({"keep": base_path, "matches": matches})
+        for match in matches:
+            used_duplicates.add(str(match["path"]).casefold())
+            duplicates.append(match)
+            self._add_found_file(
+                str(match["path"]),
+                [CATEGORY_SIMILAR_VIDEO_DUPLICATE],
+                size=self._safe_stat_size(self.target_dir / str(match["path"])),
+                metadata={
+                    "similar_to": match["similar_to"],
+                    "video_similarity": match["video_similarity"],
+                    "perceptual_distance": match["perceptual_distance"],
+                },
+            )
 
     def _video_candidate_neighbors(
         self,

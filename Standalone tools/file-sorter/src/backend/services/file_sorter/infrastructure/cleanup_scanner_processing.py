@@ -40,22 +40,10 @@ class MediaProcessingMixin:
             source_file_count=source_file_count,
             found_file_count=len(self._found_files),
         )
-        if image_helpers.get("error"):
-            warning = str(image_helpers["error"])
-            if warning not in report["warnings"]:
-                report["warnings"].append(warning)
+        payload = self._predict_image_payload(path, relative, report, image_helpers)
+        if payload is None:
             return
 
-        try:
-            if not self._is_contained_regular_file(path):
-                raise CleanupError(f"File escaped the scan target: {path}")
-            result = image_helpers["model"].predict(path)
-        except Exception as exc:
-            report["warnings"].append(f"{relative}: {exc}")
-            report["indeterminate_image_count"] += 1
-            return
-
-        payload = result.to_dict()
         classification = str(payload.get("classification") or "indeterminate")
         if classification == "person":
             report["person_detected_image_count"] += 1
@@ -66,7 +54,37 @@ class MediaProcessingMixin:
 
         report["non_person_images"].append(relative)
         report["non_person_image_count"] += 1
+        self._record_non_person_image(path, relative, payload)
 
+    def _predict_image_payload(
+        self,
+        path: Path,
+        relative: str,
+        report: dict[str, Any],
+        image_helpers: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        if image_helpers.get("error"):
+            warning = str(image_helpers["error"])
+            if warning not in report["warnings"]:
+                report["warnings"].append(warning)
+            return None
+
+        try:
+            if not self._is_contained_regular_file(path):
+                raise CleanupError(f"File escaped the scan target: {path}")
+            result = image_helpers["model"].predict(path)
+        except Exception as exc:
+            report["warnings"].append(f"{relative}: {exc}")
+            report["indeterminate_image_count"] += 1
+            return None
+        return result.to_dict()
+
+    def _record_non_person_image(
+        self,
+        path: Path,
+        relative: str,
+        payload: dict[str, Any],
+    ) -> None:
         self._add_found_file(
             relative,
             [CATEGORY_NON_PERSON_IMAGE],
@@ -108,7 +126,15 @@ class MediaProcessingMixin:
         issue = self._video_direct_issue(path)
         if issue is None:
             return
+        self._record_video_issue(path, relative, issue, report)
 
+    def _record_video_issue(
+        self,
+        path: Path,
+        relative: str,
+        issue: dict[str, Any],
+        report: dict[str, Any],
+    ) -> None:
         category = str(issue.get("category") or CATEGORY_BAD_VIDEO_FILE)
         size = (
             int(issue["size"])

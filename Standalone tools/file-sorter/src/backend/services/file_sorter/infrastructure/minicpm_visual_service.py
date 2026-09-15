@@ -84,13 +84,24 @@ class MiniCPMVisualRecognitionService:
 
     def predict(self, path: str | Path) -> VisualRecognitionResult:
         image_path = Path(path)
+        payload = self._read_image_payload(image_path)
+        width, height = self._decoded_image_size(image_path)
+        response = self._post_json("/api/chat", self._recognition_body(payload))
+        content = str((response.get("message") or {}).get("content") or "")
+        return self._recognition_result(content, width, height)
+
+    @staticmethod
+    def _read_image_payload(image_path: Path) -> bytes:
         try:
             payload = image_path.read_bytes()
         except OSError as exc:
             raise ValueError(f"Image cannot be read: {image_path.name}") from exc
         if not payload or len(payload) > MAX_IMAGE_BYTES:
             raise ValueError(f"Image size is unsupported: {image_path.name}")
+        return payload
 
+    @staticmethod
+    def _decoded_image_size(image_path: Path) -> tuple[int, int]:
         try:
             from PIL import Image, ImageOps
 
@@ -100,8 +111,10 @@ class MiniCPMVisualRecognitionService:
                 normalized.verify()
         except Exception as exc:
             raise ValueError(f"Image cannot be decoded: {image_path.name}") from exc
+        return width, height
 
-        body = {
+    def _recognition_body(self, payload: bytes) -> dict[str, Any]:
+        return {
             "model": MODEL_NAME,
             "keep_alive": "5m",
             "stream": False,
@@ -118,8 +131,13 @@ class MiniCPMVisualRecognitionService:
                 "images": [base64.b64encode(payload).decode("ascii")],
             }],
         }
-        response = self._post_json("/api/chat", body)
-        content = str((response.get("message") or {}).get("content") or "")
+
+    @staticmethod
+    def _recognition_result(
+        content: str,
+        width: int,
+        height: int,
+    ) -> VisualRecognitionResult:
         try:
             recognized = json.loads(content)
         except (json.JSONDecodeError, TypeError) as exc:

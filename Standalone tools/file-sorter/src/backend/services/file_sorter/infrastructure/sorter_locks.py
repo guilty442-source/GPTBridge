@@ -221,68 +221,74 @@ class _TargetDirectoryLock:
         self._descriptor: int | None = None
         self._mutex_handle: Any | None = None
 
-    def __enter__(self) -> "_TargetDirectoryLock":
-        if os.name == "nt":
-            import ctypes
-            from ctypes import wintypes
+    def _acquire_windows_mutex(self) -> None:
+        import ctypes
+        from ctypes import wintypes
 
-            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-            create_mutex = kernel32.CreateMutexW
-            create_mutex.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
-            create_mutex.restype = wintypes.HANDLE
-            wait_for_single = kernel32.WaitForSingleObject
-            wait_for_single.argtypes = [wintypes.HANDLE, wintypes.DWORD]
-            wait_for_single.restype = wintypes.DWORD
-            close_handle = kernel32.CloseHandle
-            close_handle.argtypes = [wintypes.HANDLE]
-            close_handle.restype = wintypes.BOOL
-            normalized = os.path.normcase(str(self.target))
-            digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-            handle = create_mutex(
-                None,
-                False,
-                f"Local\\GPTBridge.FileSorter.Target.{digest}",
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        create_mutex = kernel32.CreateMutexW
+        create_mutex.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+        create_mutex.restype = wintypes.HANDLE
+        wait_for_single = kernel32.WaitForSingleObject
+        wait_for_single.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        wait_for_single.restype = wintypes.DWORD
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = [wintypes.HANDLE]
+        close_handle.restype = wintypes.BOOL
+        normalized = os.path.normcase(str(self.target))
+        digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+        handle = create_mutex(
+            None,
+            False,
+            f"Local\\GPTBridge.FileSorter.Target.{digest}",
+        )
+        if not handle:
+            raise SorterV2Error(
+                f"Unable to create target lock: {self.target}"
             )
-            if not handle:
+        timeout_ms = min(
+            int(self.timeout_seconds * 1000),
+            0xFFFFFFFE,
+        )
+        result = int(wait_for_single(handle, timeout_ms))
+        if result not in {0x00000000, 0x00000080}:
+            close_handle(handle)
+            if result == 0x00000102:
                 raise SorterV2Error(
-                    f"Unable to create target lock: {self.target}"
+                    f"Timed out waiting for target lock: {self.target}"
                 )
-            timeout_ms = min(
-                int(self.timeout_seconds * 1000),
-                0xFFFFFFFE,
+            raise SorterV2Error(
+                f"Unable to acquire target lock: {self.target}"
             )
-            result = int(wait_for_single(handle, timeout_ms))
-            if result not in {0x00000000, 0x00000080}:
-                close_handle(handle)
-                if result == 0x00000102:
+        self._mutex_handle = handle
+
+    def _acquire_directory_flock(self) -> None:
+        import fcntl
+
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+        descriptor = os.open(self.target, flags)
+        deadline = time.monotonic() + self.timeout_seconds
+        while True:
+            try:
+                fcntl.flock(
+                    descriptor,
+                    fcntl.LOCK_EX | fcntl.LOCK_NB,
+                )
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    os.close(descriptor)
                     raise SorterV2Error(
                         f"Timed out waiting for target lock: {self.target}"
                     )
-                raise SorterV2Error(
-                    f"Unable to acquire target lock: {self.target}"
-                )
-            self._mutex_handle = handle
-        else:
-            import fcntl
+                time.sleep(0.05)
+        self._descriptor = descriptor
 
-            flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-            descriptor = os.open(self.target, flags)
-            deadline = time.monotonic() + self.timeout_seconds
-            while True:
-                try:
-                    fcntl.flock(
-                        descriptor,
-                        fcntl.LOCK_EX | fcntl.LOCK_NB,
-                    )
-                    break
-                except BlockingIOError:
-                    if time.monotonic() >= deadline:
-                        os.close(descriptor)
-                        raise SorterV2Error(
-                            f"Timed out waiting for target lock: {self.target}"
-                        )
-                    time.sleep(0.05)
-            self._descriptor = descriptor
+    def __enter__(self) -> "_TargetDirectoryLock":
+        if os.name == "nt":
+            self._acquire_windows_mutex()
+        else:
+            self._acquire_directory_flock()
 
         with _TARGET_LOCKS_GUARD:
             if self._key in _TARGET_LOCKS_HELD:

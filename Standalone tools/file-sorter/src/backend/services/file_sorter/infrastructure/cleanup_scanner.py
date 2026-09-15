@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import concurrent.futures
-import json
 import os
 from pathlib import Path
 from typing import Any, Sequence
@@ -15,13 +14,11 @@ from .cleanup_constants import (
     ProgressEventCallback,
     VIDEO_EXTENSIONS,
 )
-from .cleanup_duplicates import print_progress_event
 from .cleanup_scanner_processing import MediaProcessingMixin
 from .cleanup_scanner_similarity import VideoSimilarityMixin
 from .cleanup_scanner_video import VideoFingerprintMixin
 from .cleanup_utils import (
     _clamp_percent,
-    _configure_utf8_stdio,
     _is_link_or_reparse,
     _relative_path_text,
     _resolve_target_dir,
@@ -82,70 +79,137 @@ class CleanupScanner(VideoFingerprintMixin, VideoSimilarityMixin, MediaProcessin
             found_file_count=0,
         )
 
+        source_file_count = self._scan_folders(
+            folders,
+            report,
+            image_helpers,
+            image_similarity_paths,
+            video_similarity_paths,
+        )
+        self._run_similarity_analysis(
+            report,
+            image_helpers,
+            image_similarity_paths,
+            video_similarity_paths,
+        )
+
+        report["found_files"] = sorted(
+            self._found_files.values(),
+            key=lambda item: str(item.get("path", "")).casefold(),
+        )
+        report["found_file_count"] = len(report["found_files"])
+        self._emit_progress(
+            "scan_completed",
+            "Cleanup scan completed",
+            folder_current=len(folders),
+            folder_total=len(folders),
+            source_file_count=source_file_count,
+            found_file_count=report["found_file_count"],
+        )
+        return report
+
+    def _scan_folders(
+        self,
+        folders: list[Path],
+        report: dict[str, Any],
+        image_helpers: dict[str, Any],
+        image_similarity_paths: list[Path],
+        video_similarity_paths: list[Path],
+    ) -> int:
         source_file_count = 0
-        try:
-            for folder_index, folder in enumerate(folders, start=1):
-                folder_text = _relative_path_text(folder, self.target_dir)
-                self._emit_progress(
-                    "folder_scan",
-                    f"Scanning folder {folder_index}/{len(folders)}: {folder_text}",
-                    folder_current=folder_index,
-                    folder_total=len(folders),
-                    current_folder=folder_text,
+        for folder_index, folder in enumerate(folders, start=1):
+            folder_text = _relative_path_text(folder, self.target_dir)
+            self._emit_progress(
+                "folder_scan",
+                f"Scanning folder {folder_index}/{len(folders)}: {folder_text}",
+                folder_current=folder_index,
+                folder_total=len(folders),
+                current_folder=folder_text,
+                source_file_count=source_file_count,
+                found_file_count=len(self._found_files),
+            )
+            try:
+                entries = sorted(folder.iterdir(), key=lambda item: item.name.casefold())
+            except OSError as exc:
+                report["warnings"].append(f"{folder_text}: {exc}")
+                continue
+
+            source_file_count = self._scan_folder_entries(
+                entries,
+                report,
+                image_helpers,
+                image_similarity_paths,
+                video_similarity_paths,
+                folder_index=folder_index,
+                folder_total=len(folders),
+                folder_text=folder_text,
+                source_file_count=source_file_count,
+            )
+
+            self._emit_progress(
+                "folder_done",
+                f"Finished folder {folder_index}/{len(folders)}: {folder_text}",
+                folder_current=folder_index,
+                folder_total=len(folders),
+                current_folder=folder_text,
+                source_file_count=source_file_count,
+                found_file_count=len(self._found_files),
+            )
+        return source_file_count
+
+    def _scan_folder_entries(
+        self,
+        entries: list[Path],
+        report: dict[str, Any],
+        image_helpers: dict[str, Any],
+        image_similarity_paths: list[Path],
+        video_similarity_paths: list[Path],
+        *,
+        folder_index: int,
+        folder_total: int,
+        folder_text: str,
+        source_file_count: int,
+    ) -> int:
+        for path in entries:
+            if not self._is_contained_regular_file(path) or self._is_excluded(path):
+                continue
+            source_file_count += 1
+            report["source_file_count"] = source_file_count
+
+            if self.similar_image_analysis and self._is_image_candidate(path):
+                image_similarity_paths.append(path)
+                self._process_image_candidate(
+                    path,
+                    report,
+                    image_helpers,
+                    folder_index=folder_index,
+                    folder_total=folder_total,
+                    folder_text=folder_text,
                     source_file_count=source_file_count,
-                    found_file_count=len(self._found_files),
                 )
-                try:
-                    entries = sorted(folder.iterdir(), key=lambda item: item.name.casefold())
-                except OSError as exc:
-                    report["warnings"].append(f"{folder_text}: {exc}")
-                    continue
 
-                for path in entries:
-                    if not self._is_contained_regular_file(path) or self._is_excluded(path):
-                        continue
-                    source_file_count += 1
-                    report["source_file_count"] = source_file_count
-
-                    if self.similar_image_analysis and self._is_image_candidate(path):
-                        image_similarity_paths.append(path)
-                        self._process_image_candidate(
-                            path,
-                            report,
-                            image_helpers,
-                            folder_index=folder_index,
-                            folder_total=len(folders),
-                            folder_text=folder_text,
-                            source_file_count=source_file_count,
-                        )
-
-                    if self.video_cleanup and self._is_video_candidate(path):
-                        self._process_video_issue_candidate(
-                            path,
-                            report,
-                            folder_index=folder_index,
-                            folder_total=len(folders),
-                            folder_text=folder_text,
-                            source_file_count=source_file_count,
-                        )
-                        if self.similar_video_analysis:
-                            direct_issue = self._video_direct_issue(path)
-                            if direct_issue is None:
-                                video_similarity_paths.append(path)
-
-                self._emit_progress(
-                    "folder_done",
-                    f"Finished folder {folder_index}/{len(folders)}: {folder_text}",
-                    folder_current=folder_index,
-                    folder_total=len(folders),
-                    current_folder=folder_text,
+            if self.video_cleanup and self._is_video_candidate(path):
+                self._process_video_issue_candidate(
+                    path,
+                    report,
+                    folder_index=folder_index,
+                    folder_total=folder_total,
+                    folder_text=folder_text,
                     source_file_count=source_file_count,
-                    found_file_count=len(self._found_files),
                 )
+                if self.similar_video_analysis:
+                    direct_issue = self._video_direct_issue(path)
+                    if direct_issue is None:
+                        video_similarity_paths.append(path)
+        return source_file_count
 
-        finally:
-            pass
-
+    def _run_similarity_analysis(
+        self,
+        report: dict[str, Any],
+        image_helpers: dict[str, Any],
+        image_similarity_paths: list[Path],
+        video_similarity_paths: list[Path],
+    ) -> None:
         if self.similar_image_analysis:
             self._append_model_similarity_results(
                 image_similarity_paths,
@@ -164,21 +228,6 @@ class CleanupScanner(VideoFingerprintMixin, VideoSimilarityMixin, MediaProcessin
         if visual_model is not None:
             visual_model.close()
 
-        report["found_files"] = sorted(
-            self._found_files.values(),
-            key=lambda item: str(item.get("path", "")).casefold(),
-        )
-        report["found_file_count"] = len(report["found_files"])
-        self._emit_progress(
-            "scan_completed",
-            "Cleanup scan completed",
-            folder_current=len(folders),
-            folder_total=len(folders),
-            source_file_count=source_file_count,
-            found_file_count=report["found_file_count"],
-        )
-        return report
-
     def _empty_report(self, folder_count: int) -> dict[str, Any]:
         return {
             "ok": True,
@@ -187,13 +236,7 @@ class CleanupScanner(VideoFingerprintMixin, VideoSimilarityMixin, MediaProcessin
             "scan_folder_count": folder_count,
             "source_file_count": 0,
             "cleanup_action": "scan_only",
-            "image_cleanup_enabled": self.image_cleanup,
-            "similar_image_analysis_enabled": self.similar_image_analysis,
-            "image_file_count": 0,
-            "person_detected_image_count": 0,
-            "non_person_image_count": 0,
-            "non_person_images": [],
-            "indeterminate_image_count": 0,
+            **self._image_report_fields(),
             "visual_recognition_service": "openbmb/minicpm-v4.6:q8_0",
             "visual_recognition_service_enabled": bool(
                 self.image_cleanup
@@ -206,6 +249,25 @@ class CleanupScanner(VideoFingerprintMixin, VideoSimilarityMixin, MediaProcessin
                 "context_window": max(2048, min(16384, int(self.model_context_window))),
                 "max_output_tokens": max(128, min(1024, int(self.model_max_output_tokens))),
             },
+            **self._video_report_fields(),
+            "found_file_count": 0,
+            "found_files": [],
+            "warnings": [],
+        }
+
+    def _image_report_fields(self) -> dict[str, Any]:
+        return {
+            "image_cleanup_enabled": self.image_cleanup,
+            "similar_image_analysis_enabled": self.similar_image_analysis,
+            "image_file_count": 0,
+            "person_detected_image_count": 0,
+            "non_person_image_count": 0,
+            "non_person_images": [],
+            "indeterminate_image_count": 0,
+        }
+
+    def _video_report_fields(self) -> dict[str, Any]:
+        return {
             "video_cleanup_enabled": self.video_cleanup,
             "video_file_count": 0,
             "large_video_file_count": 0,
@@ -230,9 +292,6 @@ class CleanupScanner(VideoFingerprintMixin, VideoSimilarityMixin, MediaProcessin
             "image_similarity_method": (
                 "minicpm-v4.6-visual-similarity" if self.similar_video_analysis else "disabled"
             ),
-            "found_file_count": 0,
-            "found_files": [],
-            "warnings": [],
         }
 
     def _list_scan_folders(self) -> list[Path]:
@@ -367,85 +426,7 @@ class CleanupScanner(VideoFingerprintMixin, VideoSimilarityMixin, MediaProcessin
         )
 
 
-def run_cleanup_scan(
-    target_dir: str | Path,
-    *,
-    image_cleanup: bool = False,
-    similar_image_analysis: bool = False,
-    video_cleanup: bool = True,
-    similar_video_analysis: bool = False,
-    similar_video_threshold: int | None = None,
-    analysis_speed: int | None = None,
-    parallel_analysis: bool = True,
-    model_temperature: float = 0.0,
-    model_top_p: float = 0.9,
-    model_context_window: int = 8192,
-    model_max_output_tokens: int = 512,
-    progress_event_callback: ProgressEventCallback | None = None,
-) -> dict[str, Any]:
-    scanner = CleanupScanner(
-        target_dir,
-        image_cleanup=image_cleanup,
-        similar_image_analysis=similar_image_analysis,
-        video_cleanup=video_cleanup,
-        similar_video_analysis=similar_video_analysis,
-        similar_video_threshold=similar_video_threshold,
-        analysis_speed=analysis_speed,
-        parallel_analysis=parallel_analysis,
-        model_temperature=model_temperature,
-        model_top_p=model_top_p,
-        model_context_window=model_context_window,
-        model_max_output_tokens=model_max_output_tokens,
-        progress_event_callback=progress_event_callback,
-    )
-    return scanner.run()
-
-
-def main(argv: list[str] | None = None) -> int:
-    import argparse
-
-    _configure_utf8_stdio()
-    parser = argparse.ArgumentParser(
-        description="Scan media cleanup candidates without exact duplicate or similar image detection."
-    )
-    parser.add_argument("target_dir")
-    parser.add_argument("--image-cleanup", action="store_true")
-    parser.add_argument("--similar-image-analysis", action="store_true")
-    parser.add_argument("--video-cleanup", action="store_true")
-    parser.add_argument("--similar-video-analysis", action="store_true")
-    parser.add_argument(
-        "--similar-video-threshold",
-        type=int,
-        default=DEFAULT_SIMILAR_VIDEO_THRESHOLD,
-    )
-    parser.add_argument("--analysis-speed", type=int, default=DEFAULT_ANALYSIS_SPEED)
-    parser.add_argument("--no-parallel-analysis", action="store_true")
-    parser.add_argument("--model-temperature", type=float, default=0.0)
-    parser.add_argument("--model-top-p", type=float, default=0.9)
-    parser.add_argument("--model-context-window", type=int, default=8192)
-    parser.add_argument("--model-max-output-tokens", type=int, default=512)
-    parser.add_argument("--json", action="store_true")
-    parser.add_argument("--progress-jsonl", action="store_true")
-    args = parser.parse_args(argv)
-
-    selected = bool(args.image_cleanup or args.similar_image_analysis or args.video_cleanup or args.similar_video_analysis)
-    report = run_cleanup_scan(
-        args.target_dir,
-        image_cleanup=bool(args.image_cleanup),
-        similar_image_analysis=bool(args.similar_image_analysis),
-        video_cleanup=bool(args.video_cleanup or args.similar_video_analysis or not selected),
-        similar_video_analysis=bool(args.similar_video_analysis),
-        similar_video_threshold=args.similar_video_threshold,
-        analysis_speed=args.analysis_speed,
-        parallel_analysis=not bool(args.no_parallel_analysis),
-        model_temperature=args.model_temperature,
-        model_top_p=args.model_top_p,
-        model_context_window=args.model_context_window,
-        model_max_output_tokens=args.model_max_output_tokens,
-        progress_event_callback=print_progress_event if args.progress_jsonl else None,
-    )
-    print(json.dumps(report, ensure_ascii=False, indent=2 if args.json else None))
-    return 0 if report.get("ok") is not False else 1
+from .cleanup_scanner_cli import main, run_cleanup_scan  # noqa: E402, F401
 
 
 if __name__ == "__main__":

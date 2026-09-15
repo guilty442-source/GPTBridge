@@ -68,6 +68,60 @@ def _fsync_file(path: Path) -> None:
         pass
 
 
+def _windows_stream_find_functions(
+    stream_data_type: type,
+) -> tuple[Any, Any, Any]:
+    """Bind the kernel32 FindFirstStreamW/FindNextStreamW/FindClose API."""
+
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    find_first = kernel32.FindFirstStreamW
+    find_first.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.POINTER(stream_data_type),
+        wintypes.DWORD,
+    ]
+    find_first.restype = wintypes.HANDLE
+    find_next = kernel32.FindNextStreamW
+    find_next.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(stream_data_type),
+    ]
+    find_next.restype = wintypes.BOOL
+    find_close = kernel32.FindClose
+    find_close.argtypes = [wintypes.HANDLE]
+    find_close.restype = wintypes.BOOL
+    return find_first, find_next, find_close
+
+
+def _collect_alternate_streams(
+    path: Path,
+    data: Any,
+    find_next: Any,
+    handle: Any,
+) -> tuple[tuple[str, int, str], ...]:
+    import ctypes
+
+    streams: list[tuple[str, int, str]] = []
+    while True:
+        name = str(data.cStreamName)
+        if name and name.casefold() != "::$data":
+            stream_path = f"{path}{name}"
+            streams.append(
+                (name, int(data.StreamSize), sha256_file(stream_path))
+            )
+        if find_next(handle, ctypes.byref(data)):
+            continue
+        error = ctypes.get_last_error()
+        if error != 38:
+            raise ctypes.WinError(error)
+        break
+    return tuple(sorted(streams, key=lambda item: item[0].casefold()))
+
+
 def _windows_alternate_streams(
     path: Path,
 ) -> tuple[tuple[str, int, str], ...] | None:
@@ -84,25 +138,9 @@ def _windows_alternate_streams(
             ("cStreamName", wintypes.WCHAR * (260 + 36)),
         ]
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    find_first = kernel32.FindFirstStreamW
-    find_first.argtypes = [
-        wintypes.LPCWSTR,
-        wintypes.DWORD,
-        ctypes.POINTER(_WIN32_FIND_STREAM_DATA),
-        wintypes.DWORD,
-    ]
-    find_first.restype = wintypes.HANDLE
-    find_next = kernel32.FindNextStreamW
-    find_next.argtypes = [
-        wintypes.HANDLE,
-        ctypes.POINTER(_WIN32_FIND_STREAM_DATA),
-    ]
-    find_next.restype = wintypes.BOOL
-    find_close = kernel32.FindClose
-    find_close.argtypes = [wintypes.HANDLE]
-    find_close.restype = wintypes.BOOL
-
+    find_first, find_next, find_close = _windows_stream_find_functions(
+        _WIN32_FIND_STREAM_DATA
+    )
     data = _WIN32_FIND_STREAM_DATA()
     handle = find_first(str(path), 0, ctypes.byref(data), 0)
     invalid_handle = ctypes.c_void_p(-1).value
@@ -112,24 +150,10 @@ def _windows_alternate_streams(
             return None
         raise ctypes.WinError(error)
 
-    streams: list[tuple[str, int, str]] = []
     try:
-        while True:
-            name = str(data.cStreamName)
-            if name and name.casefold() != "::$data":
-                stream_path = f"{path}{name}"
-                streams.append(
-                    (name, int(data.StreamSize), sha256_file(stream_path))
-                )
-            if find_next(handle, ctypes.byref(data)):
-                continue
-            error = ctypes.get_last_error()
-            if error != 38:
-                raise ctypes.WinError(error)
-            break
+        return _collect_alternate_streams(path, data, find_next, handle)
     finally:
         find_close(handle)
-    return tuple(sorted(streams, key=lambda item: item[0].casefold()))
 
 
 def _posix_extended_attributes(
@@ -206,45 +230,62 @@ def _file_metadata_to_dict(value: _FileMetadata) -> dict[str, Any]:
     }
 
 
+_METADATA_INVALID = object()
+
+
+def _parse_alternate_streams(
+    value: Any,
+) -> tuple[tuple[str, int, str], ...] | None | object:
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        return _METADATA_INVALID
+    parsed: list[tuple[str, int, str]] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            return _METADATA_INVALID
+        parsed.append(
+            (
+                str(item.get("name", "")),
+                int(item.get("size", -1)),
+                str(item.get("sha256", "")),
+            )
+        )
+    return tuple(parsed)
+
+
+def _parse_extended_attributes(
+    value: Any,
+) -> tuple[tuple[str, str], ...] | None | object:
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        return _METADATA_INVALID
+    parsed: list[tuple[str, str]] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            return _METADATA_INVALID
+        parsed.append(
+            (
+                str(item.get("name", "")),
+                str(item.get("sha256", "")),
+            )
+        )
+    return tuple(parsed)
+
+
 def _file_metadata_from_dict(value: Any) -> _FileMetadata | None:
     if not isinstance(value, Mapping):
         return None
-    alternate_value = value.get("alternate_streams")
-    alternate_streams: tuple[tuple[str, int, str], ...] | None
-    if alternate_value is None:
-        alternate_streams = None
-    elif isinstance(alternate_value, list):
-        parsed: list[tuple[str, int, str]] = []
-        for item in alternate_value:
-            if not isinstance(item, Mapping):
-                return None
-            parsed.append(
-                (
-                    str(item.get("name", "")),
-                    int(item.get("size", -1)),
-                    str(item.get("sha256", "")),
-                )
-            )
-        alternate_streams = tuple(parsed)
-    else:
+    alternate_streams = _parse_alternate_streams(
+        value.get("alternate_streams")
+    )
+    if alternate_streams is _METADATA_INVALID:
         return None
-    extended_value = value.get("extended_attributes")
-    extended_attributes: tuple[tuple[str, str], ...] | None
-    if extended_value is None:
-        extended_attributes = None
-    elif isinstance(extended_value, list):
-        extended_parsed: list[tuple[str, str]] = []
-        for item in extended_value:
-            if not isinstance(item, Mapping):
-                return None
-            extended_parsed.append(
-                (
-                    str(item.get("name", "")),
-                    str(item.get("sha256", "")),
-                )
-            )
-        extended_attributes = tuple(extended_parsed)
-    else:
+    extended_attributes = _parse_extended_attributes(
+        value.get("extended_attributes")
+    )
+    if extended_attributes is _METADATA_INVALID:
         return None
     try:
         attributes = value.get("file_attributes")

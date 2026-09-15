@@ -123,11 +123,45 @@ class VideoFingerprintMixin:
         except Exception:
             return None
 
-        sample_count = self._video_sample_count()
         frame_width = 9
         frame_height = 8
         frame_size = frame_width * frame_height
-        command = [
+        command = self._ffmpeg_frame_command(
+            ffmpeg_executable,
+            path,
+            self._video_sample_count(),
+            frame_width,
+            frame_height,
+        )
+        raw_frames = self._run_ffmpeg_frames(command, frame_size)
+        if raw_frames is None:
+            return None
+
+        hashes = [
+            self._frame_difference_hash(raw_frames[offset : offset + frame_size])
+            for offset in range(0, len(raw_frames) - frame_size + 1, frame_size)
+        ]
+        hashes = [value for value in hashes if value]
+        if not hashes:
+            return None
+        return {
+            "method": VIDEO_FINGERPRINT_METHOD,
+            "byte_size": size,
+            "sampled_byte_count": len(raw_frames),
+            "perceptual_hashes": hashes,
+            "sample_count": len(hashes),
+            "cache_hit": False,
+        }
+
+    @staticmethod
+    def _ffmpeg_frame_command(
+        ffmpeg_executable: str,
+        path: Path,
+        sample_count: int,
+        frame_width: int,
+        frame_height: int,
+    ) -> list[str]:
+        return [
             str(ffmpeg_executable),
             "-nostdin",
             "-hide_banner",
@@ -146,6 +180,9 @@ class VideoFingerprintMixin:
             "gray",
             "pipe:1",
         ]
+
+    @staticmethod
+    def _run_ffmpeg_frames(command: list[str], frame_size: int) -> bytes | None:
         try:
             completed = subprocess.run(
                 command,
@@ -158,22 +195,7 @@ class VideoFingerprintMixin:
             return None
         if completed.returncode != 0 or len(completed.stdout) < frame_size:
             return None
-
-        hashes = [
-            self._frame_difference_hash(completed.stdout[offset : offset + frame_size])
-            for offset in range(0, len(completed.stdout) - frame_size + 1, frame_size)
-        ]
-        hashes = [value for value in hashes if value]
-        if not hashes:
-            return None
-        return {
-            "method": VIDEO_FINGERPRINT_METHOD,
-            "byte_size": size,
-            "sampled_byte_count": len(completed.stdout),
-            "perceptual_hashes": hashes,
-            "sample_count": len(hashes),
-            "cache_hit": False,
-        }
+        return completed.stdout
 
     @staticmethod
     def _frame_difference_hash(frame: bytes) -> str | None:

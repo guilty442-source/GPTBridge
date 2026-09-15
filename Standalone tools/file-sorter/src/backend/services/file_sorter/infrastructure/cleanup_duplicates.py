@@ -18,19 +18,11 @@ from .cleanup_utils import (
 )
 
 
-def find_exact_duplicate_candidates(
-    target_dir: str | Path,
+def _sized_duplicate_groups(
+    target: Path,
     *,
-    quiet_seconds: float = 2.0,
-) -> list[dict[str, Any]]:
-    """Return exact duplicate candidates while preserving one canonical copy.
-
-    Files must be non-empty, unchanged for the quiet period, and byte-for-byte
-    identical by SHA-256. Hard links to the same file are not considered
-    duplicates because recycling one would not reclaim storage.
-    """
-
-    target = _resolve_target_dir(target_dir)
+    quiet_seconds: float,
+) -> dict[int, list[tuple[Path, int]]]:
     now_ns = time.time_ns()
     by_size: dict[int, list[tuple[Path, int]]] = {}
     for path in _iter_contained_regular_files(target):
@@ -47,6 +39,58 @@ def find_exact_duplicate_candidates(
         if now_ns - stat.st_mtime_ns < max(0.0, quiet_seconds) * 1_000_000_000:
             continue
         by_size.setdefault(int(stat.st_size), []).append((path, int(stat.st_mtime_ns)))
+    return by_size
+
+
+def _digest_duplicate_candidates(
+    target: Path,
+    size: int,
+    digest: str,
+    matches: list[tuple[Path, int]],
+) -> list[dict[str, Any]]:
+    ordered = sorted(
+        matches,
+        key=lambda item: (
+            item[1],
+            str(item[0].relative_to(target)).casefold(),
+        ),
+    )
+    keep, _keep_mtime_ns = ordered[0]
+    candidates: list[dict[str, Any]] = []
+    for duplicate, duplicate_mtime_ns in ordered[1:]:
+        try:
+            if os.path.samefile(keep, duplicate):
+                continue
+        except OSError:
+            continue
+        candidates.append(
+            {
+                "path": str(duplicate),
+                "relative_path": str(duplicate.relative_to(target)),
+                "keep_path": str(keep),
+                "keep_relative_path": str(keep.relative_to(target)),
+                "size": size,
+                "mtime_ns": duplicate_mtime_ns,
+                "sha256": digest,
+            }
+        )
+    return candidates
+
+
+def find_exact_duplicate_candidates(
+    target_dir: str | Path,
+    *,
+    quiet_seconds: float = 2.0,
+) -> list[dict[str, Any]]:
+    """Return exact duplicate candidates while preserving one canonical copy.
+
+    Files must be non-empty, unchanged for the quiet period, and byte-for-byte
+    identical by SHA-256. Hard links to the same file are not considered
+    duplicates because recycling one would not reclaim storage.
+    """
+
+    target = _resolve_target_dir(target_dir)
+    by_size = _sized_duplicate_groups(target, quiet_seconds=quiet_seconds)
 
     candidates: list[dict[str, Any]] = []
     for size, sized_files in by_size.items():
@@ -62,31 +106,9 @@ def find_exact_duplicate_candidates(
         for digest, matches in by_digest.items():
             if len(matches) < 2:
                 continue
-            ordered = sorted(
-                matches,
-                key=lambda item: (
-                    item[1],
-                    str(item[0].relative_to(target)).casefold(),
-                ),
+            candidates.extend(
+                _digest_duplicate_candidates(target, size, digest, matches)
             )
-            keep, _keep_mtime_ns = ordered[0]
-            for duplicate, duplicate_mtime_ns in ordered[1:]:
-                try:
-                    if os.path.samefile(keep, duplicate):
-                        continue
-                except OSError:
-                    continue
-                candidates.append(
-                    {
-                        "path": str(duplicate),
-                        "relative_path": str(duplicate.relative_to(target)),
-                        "keep_path": str(keep),
-                        "keep_relative_path": str(keep.relative_to(target)),
-                        "size": size,
-                        "mtime_ns": duplicate_mtime_ns,
-                        "sha256": digest,
-                    }
-                )
     return candidates
 
 
@@ -118,6 +140,34 @@ def _send_to_windows_recycle_bin(path: Path) -> None:
         raise CleanupError(f"Windows Recycle Bin rejected the file (code {result}).")
 
 
+def _revalidate_duplicate_candidate(
+    target: Path,
+    duplicate: Path,
+    keep: Path,
+    *,
+    expected_size: int,
+    expected_mtime_ns: int,
+    expected_hash: str,
+) -> None:
+    for path in (duplicate, keep):
+        resolved = path.resolve(strict=True)
+        resolved.relative_to(target)
+        if _is_link_or_reparse(path) or not resolved.is_file():
+            raise CleanupError("Duplicate candidate is no longer a regular file.")
+    duplicate_stat = duplicate.stat()
+    if (
+        duplicate_stat.st_size != expected_size
+        or duplicate_stat.st_mtime_ns != expected_mtime_ns
+    ):
+        raise CleanupError("Duplicate candidate changed after observation.")
+    if os.path.samefile(duplicate, keep):
+        raise CleanupError("Duplicate candidate is a hard link to the retained file.")
+    if not expected_hash or _sha256_file(keep) != expected_hash:
+        raise CleanupError("Retained file changed after observation.")
+    if _sha256_file(duplicate) != expected_hash:
+        raise CleanupError("Duplicate content changed after observation.")
+
+
 def recycle_exact_duplicate_candidates(
     target_dir: str | Path,
     candidates: Sequence[dict[str, Any]],
@@ -136,23 +186,14 @@ def recycle_exact_duplicate_candidates(
         expected_size = int(candidate.get("size") or -1)
         expected_mtime_ns = int(candidate.get("mtime_ns") or -1)
         try:
-            for path in (duplicate, keep):
-                resolved = path.resolve(strict=True)
-                resolved.relative_to(target)
-                if _is_link_or_reparse(path) or not resolved.is_file():
-                    raise CleanupError("Duplicate candidate is no longer a regular file.")
-            duplicate_stat = duplicate.stat()
-            if (
-                duplicate_stat.st_size != expected_size
-                or duplicate_stat.st_mtime_ns != expected_mtime_ns
-            ):
-                raise CleanupError("Duplicate candidate changed after observation.")
-            if os.path.samefile(duplicate, keep):
-                raise CleanupError("Duplicate candidate is a hard link to the retained file.")
-            if not expected_hash or _sha256_file(keep) != expected_hash:
-                raise CleanupError("Retained file changed after observation.")
-            if _sha256_file(duplicate) != expected_hash:
-                raise CleanupError("Duplicate content changed after observation.")
+            _revalidate_duplicate_candidate(
+                target,
+                duplicate,
+                keep,
+                expected_size=expected_size,
+                expected_mtime_ns=expected_mtime_ns,
+                expected_hash=expected_hash,
+            )
             recycler(duplicate)
             if duplicate.exists():
                 raise CleanupError("Recycle Bin operation did not remove the source path.")

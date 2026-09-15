@@ -16,7 +16,7 @@ import stat as stat_module
 import threading
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
@@ -68,6 +68,13 @@ def _read_profile_document(
         raise SorterV2Error(f"Cannot read profile {path}: {error}") from error
     if not isinstance(value, dict):
         raise SorterV2Error(f"Invalid profile document: {path}")
+    return _profile_snapshot_from_document(path, value)
+
+
+def _profile_snapshot_from_document(
+    path: Path,
+    value: Mapping[str, Any],
+) -> ProfileSnapshot:
     target_dir = str(value.get("target_dir") or value.get("target") or "").strip()
     profile_id = str(value.get("profile_id", path.parent.name)).strip()
     profile_name = (
@@ -92,6 +99,24 @@ def _read_profile_document(
         or profile_id != expected_profile_id
     ):
         raise SorterV2Error(f"Profile identity does not match its state path: {path}")
+    return _profile_snapshot_from_values(
+        path,
+        value,
+        profile_id,
+        profile_name,
+        canonical_target,
+        raw_rules,
+    )
+
+
+def _profile_snapshot_from_values(
+    path: Path,
+    value: Mapping[str, Any],
+    profile_id: str,
+    profile_name: str | None,
+    canonical_target: Path,
+    raw_rules: Iterable[Mapping[str, Any]],
+) -> ProfileSnapshot:
     return ProfileSnapshot(
         profile_id=profile_id,
         profile_name=profile_name,
@@ -164,39 +189,67 @@ def load_profile(
         )
     with _ExclusiveFileLock(lock_path):
         if path.exists():
-            snapshot = _read_profile_document(path, state_root=state_root)
-            if Path(snapshot.target_dir) != target:
-                raise SorterV2Error(
-                    f"Profile target mismatch: {snapshot.target_dir} != {target}"
-                )
-            return snapshot
-
-        rules = _clean_rule_dicts(legacy_rules)
-        migrated_from = str(Path(legacy_path).resolve()) if legacy_path else None
-        snapshot = ProfileSnapshot(
-            profile_id=profile_id_for(target, profile),
-            profile_name=profile,
-            target_dir=str(target),
-            revision=0,
-            enabled=True,
-            duplicate_trash_enabled=False,
-            quiet_seconds=DEFAULT_QUIET_SECONDS,
-            include=DEFAULT_INCLUDE,
-            exclude=DEFAULT_EXCLUDE,
-            rules=rules,
-            path=path,
-            migrated_from=migrated_from if rules else None,
+            return _existing_profile_snapshot(path, target, state_root)
+        return _initial_profile_snapshot(
+            path,
+            target,
+            profile=profile,
+            state_root=state_root,
+            legacy_rules=legacy_rules,
+            legacy_path=legacy_path,
+            migrate=migrate,
         )
-        if migrate:
-            _validated_state_document_path(
-                path,
-                state_root=state_root,
-                category="profiles",
-                relative_parts=2,
-                require_exists=False,
-            )
-            _atomic_write_json(path, _profile_document(snapshot))
-        return snapshot
+
+
+def _existing_profile_snapshot(
+    path: Path,
+    target: Path,
+    state_root: str | Path | None,
+) -> ProfileSnapshot:
+    snapshot = _read_profile_document(path, state_root=state_root)
+    if Path(snapshot.target_dir) != target:
+        raise SorterV2Error(
+            f"Profile target mismatch: {snapshot.target_dir} != {target}"
+        )
+    return snapshot
+
+
+def _initial_profile_snapshot(
+    path: Path,
+    target: Path,
+    *,
+    profile: str | None,
+    state_root: str | Path | None,
+    legacy_rules: Iterable[Mapping[str, Any]],
+    legacy_path: str | Path | None,
+    migrate: bool,
+) -> ProfileSnapshot:
+    rules = _clean_rule_dicts(legacy_rules)
+    migrated_from = str(Path(legacy_path).resolve()) if legacy_path else None
+    snapshot = ProfileSnapshot(
+        profile_id=profile_id_for(target, profile),
+        profile_name=profile,
+        target_dir=str(target),
+        revision=0,
+        enabled=True,
+        duplicate_trash_enabled=False,
+        quiet_seconds=DEFAULT_QUIET_SECONDS,
+        include=DEFAULT_INCLUDE,
+        exclude=DEFAULT_EXCLUDE,
+        rules=rules,
+        path=path,
+        migrated_from=migrated_from if rules else None,
+    )
+    if migrate:
+        _validated_state_document_path(
+            path,
+            state_root=state_root,
+            category="profiles",
+            relative_parts=2,
+            require_exists=False,
+        )
+        _atomic_write_json(path, _profile_document(snapshot))
+    return snapshot
 
 
 def save_profile(
@@ -211,6 +264,38 @@ def save_profile(
     expected_revision: int | None = None,
     acknowledge_migration_review: bool = False,
 ) -> ProfileSnapshot:
+    path, state_root, lock_path = _validated_profile_save_paths(snapshot)
+    with _ExclusiveFileLock(lock_path):
+        if path.exists():
+            current = _read_profile_document(path, state_root=state_root)
+            current_revision = current.revision
+        else:
+            current = snapshot
+            current_revision = snapshot.revision
+        expected = snapshot.revision if expected_revision is None else expected_revision
+        if current_revision != expected:
+            raise RuleConflictError(
+                f"Profile revision changed: expected {expected}, found {current_revision}"
+            )
+        next_snapshot = _next_profile_snapshot(
+            current,
+            current_revision,
+            path,
+            rules=rules,
+            enabled=enabled,
+            duplicate_trash_enabled=duplicate_trash_enabled,
+            quiet_seconds=quiet_seconds,
+            include=include,
+            exclude=exclude,
+            acknowledge_migration_review=acknowledge_migration_review,
+        )
+        _atomic_write_json(path, _profile_document(next_snapshot))
+        return next_snapshot
+
+
+def _validated_profile_save_paths(
+    snapshot: ProfileSnapshot,
+) -> tuple[Path, Path, Path]:
     path = snapshot.path
     if path.name != "profile.json" or len(path.parents) < 3:
         raise SorterV2Error(f"Invalid profile state path: {path}")
@@ -246,70 +331,84 @@ def save_profile(
         relative_parts=2,
         require_exists=False,
     )
-    with _ExclusiveFileLock(lock_path):
-        if path.exists():
-            current = _read_profile_document(path, state_root=state_root)
-            current_revision = current.revision
-        else:
-            current = snapshot
-            current_revision = snapshot.revision
-        expected = snapshot.revision if expected_revision is None else expected_revision
-        if current_revision != expected:
-            raise RuleConflictError(
-                f"Profile revision changed: expected {expected}, found {current_revision}"
-            )
-        migration_required_review = (
-            current.migration_required_review
-            and not acknowledge_migration_review
+    return path, state_root, lock_path
+
+
+def _or_current(
+    value: Any,
+    current_value: Any,
+    transform: Callable[[Any], Any],
+) -> Any:
+    return current_value if value is None else transform(value)
+
+
+def _migration_review_state(
+    current: ProfileSnapshot,
+    enabled: bool | None,
+    acknowledge_migration_review: bool,
+) -> tuple[bool, bool]:
+    migration_required_review = (
+        current.migration_required_review
+        and not acknowledge_migration_review
+    )
+    next_enabled = current.enabled if enabled is None else bool(enabled)
+    if next_enabled and migration_required_review:
+        raise SorterV2Error(
+            "Legacy rule migration must be reviewed before automatic "
+            "classification can be enabled."
         )
-        next_enabled = current.enabled if enabled is None else bool(enabled)
-        if next_enabled and migration_required_review:
-            raise SorterV2Error(
-                "Legacy rule migration must be reviewed before automatic "
-                "classification can be enabled."
-            )
-        next_snapshot = ProfileSnapshot(
-            profile_id=current.profile_id,
-            profile_name=current.profile_name,
-            target_dir=current.target_dir,
-            revision=current_revision + 1,
-            enabled=next_enabled,
-            duplicate_trash_enabled=(
-                current.duplicate_trash_enabled
-                if duplicate_trash_enabled is None
-                else bool(duplicate_trash_enabled)
-            ),
-            quiet_seconds=(
-                current.quiet_seconds
-                if quiet_seconds is None
-                else max(0.0, float(quiet_seconds))
-            ),
-            include=(
-                current.include
-                if include is None
-                else _clean_patterns(include, default=DEFAULT_INCLUDE)
-            ),
-            exclude=(
-                current.exclude
-                if exclude is None
-                else _clean_patterns(exclude, default=DEFAULT_EXCLUDE)
-            ),
-            rules=(
-                current.rules
-                if rules is None
-                else _clean_rule_dicts(rules)
-            ),
-            path=path,
-            migrated_from=current.migrated_from,
-            migration_required_review=migration_required_review,
-            migration_rejected_rule_count=(
-                0
-                if acknowledge_migration_review
-                else current.migration_rejected_rule_count
-            ),
-        )
-        _atomic_write_json(path, _profile_document(next_snapshot))
-        return next_snapshot
+    return next_enabled, migration_required_review
+
+
+def _next_profile_snapshot(
+    current: ProfileSnapshot,
+    current_revision: int,
+    path: Path,
+    *,
+    rules: Iterable[Mapping[str, Any]] | None,
+    enabled: bool | None,
+    duplicate_trash_enabled: bool | None,
+    quiet_seconds: float | None,
+    include: Iterable[str] | None,
+    exclude: Iterable[str] | None,
+    acknowledge_migration_review: bool,
+) -> ProfileSnapshot:
+    next_enabled, migration_required_review = _migration_review_state(
+        current,
+        enabled,
+        acknowledge_migration_review,
+    )
+    return replace(
+        current,
+        revision=current_revision + 1,
+        enabled=next_enabled,
+        duplicate_trash_enabled=_or_current(
+            duplicate_trash_enabled, current.duplicate_trash_enabled, bool
+        ),
+        quiet_seconds=_or_current(
+            quiet_seconds,
+            current.quiet_seconds,
+            lambda item: max(0.0, float(item)),
+        ),
+        include=_or_current(
+            include,
+            current.include,
+            lambda items: _clean_patterns(items, default=DEFAULT_INCLUDE),
+        ),
+        exclude=_or_current(
+            exclude,
+            current.exclude,
+            lambda items: _clean_patterns(items, default=DEFAULT_EXCLUDE),
+        ),
+        rules=_or_current(rules, current.rules, _clean_rule_dicts),
+        path=path,
+        migration_required_review=migration_required_review,
+        migration_rejected_rule_count=(
+            0
+            if acknowledge_migration_review
+            else current.migration_rejected_rule_count
+        ),
+    )
 
 
 def list_profiles(

@@ -198,6 +198,47 @@ def _state_category_root(
     return category_root
 
 
+def _validate_state_path_ancestors(
+    category_root: Path,
+    relative: Path,
+) -> None:
+    current = category_root
+    for part in relative.parts[:-1]:
+        current = current / part
+        if current.exists() or current.is_symlink():
+            if _is_link_or_reparse(current) or not current.is_dir():
+                raise SorterV2Error(
+                    f"State path cannot use a link or reparse point: {current}"
+                )
+            canonical_parent = current.resolve(strict=True)
+            if not _same_path_identity(current, canonical_parent):
+                raise SorterV2Error(f"State path escaped its root: {current}")
+
+
+def _validate_existing_state_document(
+    requested: Path,
+    require_exists: bool,
+) -> None:
+    exists_or_link = requested.exists() or requested.is_symlink()
+    if require_exists and not exists_or_link:
+        raise SorterV2Error(f"State document does not exist: {requested}")
+    if exists_or_link:
+        if _is_link_or_reparse(requested):
+            raise SorterV2Error(
+                f"State document cannot be a link or reparse point: {requested}"
+            )
+        try:
+            canonical = requested.resolve(strict=True)
+        except OSError as error:
+            raise SorterV2Error(
+                f"Cannot safely resolve state document {requested}: {error}"
+            ) from error
+        if not _same_path_identity(requested, canonical):
+            raise SorterV2Error(f"State document escaped its root: {requested}")
+        if not canonical.is_file():
+            raise SorterV2Error(f"State document is not a regular file: {requested}")
+
+
 def _validated_state_document_path(
     path: Path,
     *,
@@ -220,53 +261,15 @@ def _validated_state_document_path(
         part in {"", ".", ".."} for part in relative.parts
     ):
         raise SorterV2Error(f"Invalid {category} state path: {requested}")
-
-    current = category_root
-    for part in relative.parts[:-1]:
-        current = current / part
-        if current.exists() or current.is_symlink():
-            if _is_link_or_reparse(current) or not current.is_dir():
-                raise SorterV2Error(
-                    f"State path cannot use a link or reparse point: {current}"
-                )
-            canonical_parent = current.resolve(strict=True)
-            if not _same_path_identity(current, canonical_parent):
-                raise SorterV2Error(f"State path escaped its root: {current}")
-
-    exists_or_link = requested.exists() or requested.is_symlink()
-    if require_exists and not exists_or_link:
-        raise SorterV2Error(f"State document does not exist: {requested}")
-    if exists_or_link:
-        if _is_link_or_reparse(requested):
-            raise SorterV2Error(
-                f"State document cannot be a link or reparse point: {requested}"
-            )
-        try:
-            canonical = requested.resolve(strict=True)
-        except OSError as error:
-            raise SorterV2Error(
-                f"Cannot safely resolve state document {requested}: {error}"
-            ) from error
-        if not _same_path_identity(requested, canonical):
-            raise SorterV2Error(f"State document escaped its root: {requested}")
-        if not canonical.is_file():
-            raise SorterV2Error(f"State document is not a regular file: {requested}")
+    _validate_state_path_ancestors(category_root, relative)
+    _validate_existing_state_document(requested, require_exists)
     return requested
 
 
-def _validate_operation_paths(
+def _validated_operation_destination_dir(
     target: Path,
     operation: PlanOperation,
-    *,
-    allow_missing_source: bool = False,
-) -> tuple[Path, Path]:
-    target = _validated_target_directory(target)
-    source = Path(operation.source)
-    destination = Path(operation.destination)
-    if not source.is_absolute() or source.parent != target:
-        raise SorterV2Error(f"Source escaped plan target: {source}")
-    if not destination.is_absolute():
-        raise SorterV2Error(f"Destination is not absolute: {destination}")
+) -> Path:
     folder = Path(operation.folder.strip()).expanduser()
     if folder.is_absolute():
         raise SorterV2Error(
@@ -310,10 +313,14 @@ def _validate_operation_paths(
         raise SorterV2Error(
             "Destination directory cannot cross a mounted filesystem boundary."
         )
-    if destination.parent != expected_destination_dir:
-        raise SorterV2Error(
-            f"Destination does not match the plan rule: {destination}"
-        )
+    return expected_destination_dir
+
+
+def _validate_operation_source(
+    target: Path,
+    source: Path,
+    allow_missing_source: bool,
+) -> None:
     source_exists_or_link = source.exists() or source.is_symlink()
     if not source_exists_or_link and not allow_missing_source:
         raise SorterV2Error(f"Source no longer exists: {source}")
@@ -328,6 +335,12 @@ def _validate_operation_paths(
             or canonical_source.stat().st_dev != target.stat().st_dev
         ):
             raise SorterV2Error(f"Source escaped plan target: {source}")
+
+
+def _validate_operation_destination(
+    expected_destination_dir: Path,
+    destination: Path,
+) -> None:
     if destination.exists() or destination.is_symlink():
         if _is_link_or_reparse(destination):
             raise SorterV2Error("Plan paths cannot use links or reparse points.")
@@ -338,7 +351,81 @@ def _validate_operation_paths(
             or not canonical_destination.is_file()
         ):
             raise SorterV2Error(f"Destination escaped plan target: {destination}")
+
+
+def _validate_operation_paths(
+    target: Path,
+    operation: PlanOperation,
+    *,
+    allow_missing_source: bool = False,
+) -> tuple[Path, Path]:
+    target = _validated_target_directory(target)
+    source = Path(operation.source)
+    destination = Path(operation.destination)
+    if not source.is_absolute() or source.parent != target:
+        raise SorterV2Error(f"Source escaped plan target: {source}")
+    if not destination.is_absolute():
+        raise SorterV2Error(f"Destination is not absolute: {destination}")
+    expected_destination_dir = _validated_operation_destination_dir(
+        target,
+        operation,
+    )
+    if destination.parent != expected_destination_dir:
+        raise SorterV2Error(
+            f"Destination does not match the plan rule: {destination}"
+        )
+    _validate_operation_source(target, source, allow_missing_source)
+    _validate_operation_destination(expected_destination_dir, destination)
     return source, destination
+
+
+def _journal_operation_probe(
+    operation: Mapping[str, Any],
+    source: Path,
+    destination: Path,
+    folder: str,
+) -> PlanOperation:
+    return PlanOperation(
+        operation_id=str(operation.get("operation_id") or "legacy-operation"),
+        source=str(source),
+        destination=str(destination),
+        keyword=str(operation.get("keyword", "")),
+        folder=folder,
+        rule_source=str(operation.get("rule_source", "legacy")),
+        source_size=int(operation.get("source_size") or 0),
+        source_mtime_ns=int(operation.get("source_mtime_ns") or 0),
+        transfer=str(operation.get("transfer", "unknown")),
+    )
+
+
+def _validated_journal_stage(
+    journal: Mapping[str, Any],
+    operation: Mapping[str, Any],
+    destination: Path,
+) -> Path | None:
+    stage_value = operation.get("staging")
+    if not stage_value:
+        return None
+    stage = Path(str(stage_value)).expanduser()
+    operation_id = str(operation.get("operation_id", "")).strip()
+    transaction_id = str(journal.get("transaction_id", "")).strip()
+    expected_stage_name = (
+        f".filesorter-{transaction_id[:8]}-{operation_id[:8]}.partial"
+    )
+    if (
+        not stage.is_absolute()
+        or not operation_id
+        or not transaction_id
+        or stage.name != expected_stage_name
+        or stage.parent != destination.parent
+    ):
+        raise SorterV2Error("Journal staging path is not owned by this operation.")
+    if stage.exists() or stage.is_symlink():
+        if _is_link_or_reparse(stage):
+            raise SorterV2Error("Journal staging path cannot be a link.")
+        if not _same_path_identity(stage, stage.resolve(strict=True)):
+            raise SorterV2Error("Journal staging path escaped its directory.")
+    return stage
 
 
 def _validate_journal_operation_paths(
@@ -365,43 +452,11 @@ def _validate_journal_operation_paths(
         raise SorterV2Error(
             "Journal operation lacks a bounded destination rule."
         )
-    probe = PlanOperation(
-        operation_id=str(operation.get("operation_id") or "legacy-operation"),
-        source=str(source),
-        destination=str(destination),
-        keyword=str(operation.get("keyword", "")),
-        folder=folder,
-        rule_source=str(operation.get("rule_source", "legacy")),
-        source_size=int(operation.get("source_size") or 0),
-        source_mtime_ns=int(operation.get("source_mtime_ns") or 0),
-        transfer=str(operation.get("transfer", "unknown")),
-    )
+    probe = _journal_operation_probe(operation, source, destination, folder)
     source, destination = _validate_operation_paths(
         target,
         probe,
         allow_missing_source=True,
     )
-
-    stage_value = operation.get("staging")
-    if not stage_value:
-        return source, destination, None
-    stage = Path(str(stage_value)).expanduser()
-    operation_id = str(operation.get("operation_id", "")).strip()
-    transaction_id = str(journal.get("transaction_id", "")).strip()
-    expected_stage_name = (
-        f".filesorter-{transaction_id[:8]}-{operation_id[:8]}.partial"
-    )
-    if (
-        not stage.is_absolute()
-        or not operation_id
-        or not transaction_id
-        or stage.name != expected_stage_name
-        or stage.parent != destination.parent
-    ):
-        raise SorterV2Error("Journal staging path is not owned by this operation.")
-    if stage.exists() or stage.is_symlink():
-        if _is_link_or_reparse(stage):
-            raise SorterV2Error("Journal staging path cannot be a link.")
-        if not _same_path_identity(stage, stage.resolve(strict=True)):
-            raise SorterV2Error("Journal staging path escaped its directory.")
+    stage = _validated_journal_stage(journal, operation, destination)
     return source, destination, stage
