@@ -338,6 +338,31 @@ class SystemRuntimeSovereign(
         reporter = getattr(child, method, None)
         return reporter() if callable(reporter) else {"role": child_id}
 
+    def status(self) -> dict[str, Any]:
+        from governance.registries import children_of
+
+        return self._with_status_schema({
+            "sovereign": self.sovereign_id,
+            "runtime_state": self._runtime_state,
+            "sub_sovereigns": [
+                self._child_status(child_id)
+                for child_id in children_of(self.sovereign_id)
+            ],
+            "auto_metrics": dict(self._auto_metrics),
+            "child_supervision": {
+                cid: dict(watch) for cid, watch in self._child_supervision.items()
+            },
+            "readiness": self._load_readiness_state(),
+        })
+
+    def live_status(self) -> dict[str, Any]:
+        base = self.status()
+        base["sub_sovereign_registry"] = {
+            name: sov.live_status() if hasattr(sov, "live_status") else {"role": name}
+            for name, sov in self._sub_sovereigns.items()
+        }
+        return base
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------

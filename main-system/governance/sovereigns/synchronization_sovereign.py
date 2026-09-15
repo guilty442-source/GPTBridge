@@ -415,6 +415,15 @@ class SynchronizationSovereign(
             },
         })
 
+    def live_status(self) -> dict[str, Any]:
+        base = self.status()
+        base["sub_sovereign_registry"] = {
+            name: sov.live_status() if hasattr(sov, "live_status") else {"role": name}
+            for name, sov in self._sub_sovereigns.items()
+        }
+        base["certified_updates"] = list(self._certified_update_operations.values())
+        return base
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
