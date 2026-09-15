@@ -50,6 +50,7 @@ INDEX_STATE_FIELDS = (
 
 from .rag_qdrant import IndexState, QdrantCanonicalRuntime, RagPipelineConfig, RagQueryResult
 from .rag_metadata import PostgreSQLMetadataAuthority
+from .pipeline_domain import PythonDomainModel
 from .runtime_state import (
     CanonicalCheckError,
     CrossStoreOutbox,
@@ -72,47 +73,6 @@ from .runtime_state import (
 
 
 
-
-
-class PythonDomainModel:
-    """A374 Step 3: Python domain model - sole production owner of typed results."""
-
-    def __init__(self, config: RagPipelineConfig) -> None:
-        self.config = config
-
-    def build_typed_result(
-        self,
-        qdrant_hits: list[dict[str, Any]],
-        pg_metadata: dict[str, dict[str, Any]],
-        index_states: dict[str, IndexState],
-    ) -> list[RagQueryResult]:
-        """Build typed domain results from canonical sources."""
-        results = []
-        for hit in qdrant_hits:
-            payload = hit.get("payload", {})
-            resource_id = payload.get("resource_id") or hit.get("id")
-            module_id = payload.get("module_id")
-
-            if not resource_id or not module_id:
-                continue
-
-            key = f"{module_id}:{resource_id}"
-            index_state = index_states.get(key)
-            pg_meta = pg_metadata.get(key, {})
-
-            if not index_state:
-                _logger.warning("PythonDomainModel: missing index_state for %s", key)
-                continue
-
-            results.append(RagQueryResult(
-                resource_id=resource_id,
-                module_id=module_id,
-                content=payload.get("content", ""),
-                score=hit.get("score", 0.0),
-                metadata={**payload, **pg_meta.get("metadata", {})},
-                index_state=index_state,
-            ))
-        return results
 
 
 class CanonicalRagPipeline:
@@ -279,7 +239,15 @@ class CanonicalRagPipeline:
         if not qdrant_hits:
             return []
 
-        # Step 2: Batch-fetch PostgreSQL metadata (A207 push-down)
+        pg_metadata, index_states = await self._pg_evidence(qdrant_hits)
+
+        # Step 4: Build typed results via Python domain model
+        return self.domain_model.build_typed_result(qdrant_hits, pg_metadata, index_states)
+
+    async def _pg_evidence(
+        self, qdrant_hits: list[dict[str, Any]]
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Steps 2-3: batch-fetch PostgreSQL metadata + index_state proof."""
         resource_ids = [
             hit.get("payload", {}).get("resource_id") or hit.get("id")
             for hit in qdrant_hits
@@ -289,22 +257,15 @@ class CanonicalRagPipeline:
             for hit in qdrant_hits
             if hit.get("payload", {}).get("module_id")
         )
-
-        pg_metadata = {}
-        index_states = {}
-
+        pg_metadata: dict[str, Any] = {}
+        index_states: dict[str, Any] = {}
         for mid in module_ids:
             pg_metadata.update(await self.postgresql.fetch_metadata(mid, resource_ids))
-
-        # Step 3: Fetch index states
-        for mid in module_ids:
             for rid in resource_ids:
                 state = await self.postgresql.get_index_state(mid, rid)
                 if state:
                     index_states[f"{mid}:{rid}"] = state
-
-        # Step 4: Build typed results via Python domain model
-        return self.domain_model.build_typed_result(qdrant_hits, pg_metadata, index_states)
+        return pg_metadata, index_states
 
     async def get_index_state(self, module_id: str, resource_id: str) -> Optional[IndexState]:
         """Get authoritative index state (A374)."""
@@ -318,23 +279,84 @@ class CanonicalRagPipeline:
         vectors: list[list[float]],
         collection_dimension: Optional[int] = None,
     ) -> bool:
-        """Document-level canonical write: resource + chunks + index_state + Qdrant points.
+        """Document-level canonical write (A371-A374).
 
-        ``chunks`` carry ``qdrant_point_id``/``point_id`` (deterministic
-        ``point_id_for`` UUIDs), ``sequence``/offsets and ``content``; the
-        Qdrant payload is taken from each chunk's ``payload`` mapping so the
-        dense hits are self-describing.
+        Fixed flow: resource → PostgreSQL metadata → chunk → Qdrant →
+        qdrant_point_id 回寫 PostgreSQL.  PostgreSQL is the metadata/chunk/
+        index_state authority and never stores vectors; Qdrant stores dense
+        vectors only.  index_state is written back only after Qdrant
+        confirms the upsert.  ``chunks`` carry deterministic
+        ``qdrant_point_id``/``point_id`` UUIDs and self-describing payloads.
         """
         if not self.is_ready():
             raise RuntimeError("RAG pipeline not ready")
         if collection_dimension:
             self.config.embedding_dimension = int(collection_dimension)
-        if not await self.qdrant.ensure_collection(collection_dimension):
-            return False
 
         module_id = str(document["module_id"])
         resource_id = str(document["resource_id"])
-        points = [
+        if await self._tombstoned(module_id, resource_id):
+            return False
+
+        embedding_model = str(
+            document.get("embedding_model") or self.config.embedding_model
+        )
+        if not await self._pg_document_writes(
+            document, chunks, resource_id, module_id, embedding_model
+        ):
+            return False
+
+        # Step 3: Qdrant dense vector write (canonical semantic index).
+        if not await self.qdrant.ensure_collection(collection_dimension):
+            return False
+        points = self._document_points(document, chunks, vectors, module_id, resource_id)
+        if points and not await self.qdrant.upsert_points(points):
+            return False
+
+        # Step 4: qdrant_point_id 回寫 PostgreSQL (index_state writeback).
+        return await self._writeback_index_state(
+            document, chunks, resource_id, module_id, embedding_model,
+            collection_dimension,
+        )
+
+    async def _tombstoned(self, module_id: str, resource_id: str) -> bool:
+        """A374: reject stale writes against an existing tombstone."""
+        if await self.postgresql.is_tombstoned(module_id, resource_id):
+            _logger.warning(
+                "CanonicalRagPipeline: reject index_document for tombstoned %s:%s",
+                module_id, resource_id,
+            )
+            return True
+        return False
+
+    async def _pg_document_writes(
+        self,
+        document: dict[str, Any],
+        chunks: list[dict[str, Any]],
+        resource_id: str,
+        module_id: str,
+        embedding_model: str,
+    ) -> bool:
+        """Steps 1-2: resource row, then chunk rows in the PG authority."""
+        if not await self.postgresql.ensure_resource(document):
+            return False
+        return await self.postgresql.replace_document_chunks(
+            resource_id=resource_id,
+            module_id=module_id,
+            embedding_model=embedding_model,
+            chunks=chunks,
+        )
+
+    def _document_points(
+        self,
+        document: dict[str, Any],
+        chunks: list[dict[str, Any]],
+        vectors: list[list[float]],
+        module_id: str,
+        resource_id: str,
+    ) -> list[PointStruct]:
+        """Build Qdrant PointStructs for a document's chunks."""
+        return [
             PointStruct(
                 id=str(chunk.get("qdrant_point_id") or chunk.get("point_id")),
                 vector=[float(v) for v in vector],
@@ -348,36 +370,22 @@ class CanonicalRagPipeline:
             )
             for chunk, vector in zip(chunks, vectors)
         ]
-        if points and not await self.qdrant.upsert_points(points):
-            return False
-        return await self._index_document_metadata(
-            document, chunks, collection_dimension
-        )
 
-    async def _index_document_metadata(
+    async def _writeback_index_state(
         self,
         document: dict[str, Any],
         chunks: list[dict[str, Any]],
+        resource_id: str,
+        module_id: str,
+        embedding_model: str,
         collection_dimension: Optional[int],
     ) -> bool:
-        """PostgreSQL authority writes: resource + chunks + index_state."""
-        module_id = str(document["module_id"])
-        resource_id = str(document["resource_id"])
-
-        if not await self.postgresql.ensure_resource(document):
-            return False
-        if not await self.postgresql.replace_document_chunks(
-            resource_id=resource_id,
-            module_id=module_id,
-            embedding_model=str(document.get("embedding_model") or self.config.embedding_model),
-            chunks=chunks,
-        ):
-            return False
+        """Step 4: write index_state back to PostgreSQL after Qdrant confirms."""
         first_point = str(chunks[0].get("qdrant_point_id") or chunks[0].get("point_id")) if chunks else ""
         state = IndexState(
             resource_id=resource_id,
             module_id=module_id,
-            embedding_model=str(document.get("embedding_model") or self.config.embedding_model),
+            embedding_model=embedding_model,
             embedding_dimension=int(collection_dimension or self.config.embedding_dimension),
             chunk_size=int(self.config.chunk_size),
             chunk_overlap=int(self.config.chunk_overlap),
@@ -454,9 +462,13 @@ class CanonicalRagPipeline:
         )
 
     async def health_check(self) -> dict[str, Any]:
-        """Health check for all components."""
+        """Health check for all components (A374)."""
         return {
             "pipeline_ready": self.is_ready(),
+            "state": self._state_machine.state.value,
+            "reconciliation_required": self._state_machine.reconciliation_required,
+            "queue_pending": self._queue.pending_count(),
+            "queue_complete": self._queue.is_complete(),
             "qdrant": {
                 "healthy": self.qdrant.is_healthy(),
                 "collection": self.config.collection_name,
@@ -468,21 +480,6 @@ class CanonicalRagPipeline:
         }
 
 
-def create_rag_pipeline_from_env() -> CanonicalRagPipeline:
-    """Create pipeline from environment variables."""
-    config = RagPipelineConfig(
-        qdrant_url=os.environ.get("QDRANT_URL", "http://localhost:6333"),
-        qdrant_api_key=os.environ.get("QDRANT_API_KEY"),
-        collection_name=os.environ.get("QDRANT_COLLECTION", "gptbridge_rag"),
-        postgresql_dsn=os.environ.get("POSTGRESQL_DSN", ""),
-        embedding_model=os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small"),
-        embedding_dimension=int(os.environ.get("EMBEDDING_DIMENSION", "1536")),
-        chunk_size=int(os.environ.get("CHUNK_SIZE", "512")),
-        chunk_overlap=int(os.environ.get("CHUNK_OVERLAP", "64")),
-    )
-    return CanonicalRagPipeline(config)
-
-
 __all__ = [
     "CanonicalRagPipeline",
     "RagPipelineConfig",
@@ -491,5 +488,4 @@ __all__ = [
     "QdrantCanonicalRuntime",
     "PostgreSQLMetadataAuthority",
     "PythonDomainModel",
-    "create_rag_pipeline_from_env",
 ]

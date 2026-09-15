@@ -83,12 +83,17 @@ class RagPipelineConfig:
     qdrant_api_key: Optional[str]
     collection_name: str
     postgresql_dsn: str
-    embedding_model: str = "text-embedding-3-small"
-    embedding_dimension: int = 1536
-    chunk_size: int = 512
-    chunk_overlap: int = 64
+    # Governed local embedding contract (A49): qwen3-embedding:4b via the
+    # local Ollama runtime, 2560 dimensions — matches the canonical
+    # gptbridge_shared_knowledge collection.  No remote embedding provider
+    # may be the default canonical path.
+    embedding_model: str = "qwen3-embedding:4b"
+    embedding_dimension: int = 2560
+    embedding_provider: str = "ollama"
+    chunk_size: int = 1200
+    chunk_overlap: int = 200
     top_k: int = 10
-    score_threshold: float = 0.7
+    score_threshold: float = 0.0
 
 
 class QdrantCanonicalRuntime:

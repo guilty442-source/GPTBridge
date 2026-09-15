@@ -14,7 +14,24 @@ from .pipeline import (
     QdrantCanonicalRuntime,
     PostgreSQLMetadataAuthority,
     PythonDomainModel,
-    create_rag_pipeline_from_env,
+)
+from .pipeline_factory import create_rag_pipeline_from_env
+
+from .runtime_state import (
+    CanonicalCheckError,
+    CrossStoreOutbox,
+    OutboxStep,
+    QueueOperation,
+    QueueStatus,
+    RagRuntimeState,
+    RagRuntimeStateMachine,
+    ReconciliationQueue,
+    ReconciliationQueueItem,
+    SagaResult,
+    TombstoneGuard,
+    TombstoneRecord,
+    TransitionError,
+    make_idempotency_key,
 )
 
 _EMBEDDINGS_EXPORTS = {
@@ -60,6 +77,21 @@ __all__ = [
     "PostgreSQLMetadataAuthority",
     "PythonDomainModel",
     "create_rag_pipeline_from_env",
+    # Runtime state machine (A374)
+    "CanonicalCheckError",
+    "CrossStoreOutbox",
+    "OutboxStep",
+    "QueueOperation",
+    "QueueStatus",
+    "RagRuntimeState",
+    "RagRuntimeStateMachine",
+    "ReconciliationQueue",
+    "ReconciliationQueueItem",
+    "SagaResult",
+    "TombstoneGuard",
+    "TombstoneRecord",
+    "TransitionError",
+    "make_idempotency_key",
     # Embeddings
     "EmbeddingProvider",
     "OpenAIEmbeddingProvider",

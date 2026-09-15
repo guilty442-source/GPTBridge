@@ -127,8 +127,12 @@ class CanonicalRagAdapter:
                         "QDRANT_COLLECTION", _DEFAULT_COLLECTION
                     ),
                     postgresql_dsn=dsn,
+                    # Governed local contract: qwen3-embedding:4b via the
+                    # local Ollama runtime, 2560-dim — matches the canonical
+                    # gptbridge_shared_knowledge collection.
                     embedding_model=embedding_model,
-                    embedding_dimension=0,
+                    embedding_dimension=2560,
+                    embedding_provider="ollama",
                     chunk_size=1200,
                     chunk_overlap=200,
                     top_k=48,

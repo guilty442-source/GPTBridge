@@ -17,6 +17,84 @@ from typing import Any, Optional, Sequence
 _logger = logging.getLogger("gptbridge.rag")
 
 
+_RESOURCE_UPSERT_SQL = """INSERT INTO gptbridge_index.resource
+      (resource_id, platform_id, module_id, owner_id,
+       data_category, resource_type, resource_label,
+       classification, locator_id, content_hash, version,
+       index_status, metadata, logical_key)
+   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'indexed',%s,%s)
+   ON CONFLICT (resource_id) DO UPDATE SET
+       resource_label = EXCLUDED.resource_label,
+       classification = EXCLUDED.classification,
+       content_hash = EXCLUDED.content_hash,
+       version = EXCLUDED.version,
+       index_status = 'indexed',
+       metadata = EXCLUDED.metadata,
+       updated_at = now()"""
+
+_CHUNK_INSERT_SQL = """INSERT INTO gptbridge_rag.chunk
+      (chunk_id, resource_id, module_id, sequence,
+       character_start, character_end, qdrant_point_id,
+       embedding_model, locator_fragment, metadata)
+   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
+
+
+def _resource_params(document: dict[str, Any]) -> tuple:
+    """INSERT params for gptbridge_index.resource."""
+    metadata = {
+        "document_id": document.get("document_id"),
+        "source": document.get("source"),
+        "title": document.get("title"),
+        "character_count": document.get("character_count"),
+        "chunk_count": document.get("chunk_count"),
+        "embedding_model": document.get("embedding_model"),
+    }
+    label = str(document["resource_label"])
+    return (
+        str(document["resource_id"]),
+        str(document.get("platform_id") or ""),
+        str(document["module_id"]),
+        str(document["owner_id"]),
+        str(document["data_category"]),
+        str(document["resource_type"]),
+        label,
+        str(document.get("classification") or "private"),
+        str(document["locator_id"]),
+        str(document.get("sha256") or document.get("content_hash") or ""),
+        int(document.get("version") or 1),
+        json.dumps(metadata, ensure_ascii=False),
+        label,
+    )
+
+
+def _chunk_params(
+    chunk: dict[str, Any],
+    resource_id: str,
+    module_id: str,
+    embedding_model: str,
+) -> tuple:
+    """INSERT params for gptbridge_rag.chunk."""
+    point_id = chunk.get("qdrant_point_id") or chunk.get("point_id")
+    metadata = {
+        "resource_label": chunk.get("resource_label"),
+        "source": chunk.get("source"),
+        "title": chunk.get("title"),
+        "content": chunk.get("content"),
+    }
+    return (
+        str(chunk["chunk_id"]),
+        resource_id,
+        module_id,
+        int(chunk["sequence"]),
+        int(chunk["character_start"]),
+        int(chunk["character_end"]),
+        str(uuid.UUID(str(point_id))) if point_id else None,
+        embedding_model,
+        str(chunk.get("locator_fragment") or f"#chunk-{chunk['sequence']}"),
+        json.dumps(metadata, ensure_ascii=False),
+    )
+
+
 class RagMetadataDocumentsMixin:
     """Document-level canonical writes and FTS keyword search."""
 
@@ -26,47 +104,7 @@ class RagMetadataDocumentsMixin:
             return False
         try:
             async with self._conn.cursor() as cur:
-                await cur.execute(
-                    """INSERT INTO gptbridge_index.resource
-                          (resource_id, platform_id, module_id, owner_id,
-                           data_category, resource_type, resource_label,
-                           classification, locator_id, content_hash, version,
-                           index_status, metadata, logical_key)
-                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'indexed',%s,%s)
-                       ON CONFLICT (resource_id) DO UPDATE SET
-                           resource_label = EXCLUDED.resource_label,
-                           classification = EXCLUDED.classification,
-                           content_hash = EXCLUDED.content_hash,
-                           version = EXCLUDED.version,
-                           index_status = 'indexed',
-                           metadata = EXCLUDED.metadata,
-                           updated_at = now()""",
-                    (
-                        str(document["resource_id"]),
-                        str(document.get("platform_id") or ""),
-                        str(document["module_id"]),
-                        str(document["owner_id"]),
-                        str(document["data_category"]),
-                        str(document["resource_type"]),
-                        str(document["resource_label"]),
-                        str(document.get("classification") or "private"),
-                        str(document["locator_id"]),
-                        str(document.get("sha256") or document.get("content_hash") or ""),
-                        int(document.get("version") or 1),
-                        json.dumps(
-                            {
-                                "document_id": document.get("document_id"),
-                                "source": document.get("source"),
-                                "title": document.get("title"),
-                                "character_count": document.get("character_count"),
-                                "chunk_count": document.get("chunk_count"),
-                                "embedding_model": document.get("embedding_model"),
-                            },
-                            ensure_ascii=False,
-                        ),
-                        str(document["resource_label"]),
-                    ),
-                )
+                await cur.execute(_RESOURCE_UPSERT_SQL, _resource_params(document))
             return True
         except Exception as exc:
             _logger.error(
@@ -92,33 +130,9 @@ class RagMetadataDocumentsMixin:
                     (resource_id,),
                 )
                 for chunk in chunks:
-                    point_id = chunk.get("qdrant_point_id") or chunk.get("point_id")
                     await cur.execute(
-                        """INSERT INTO gptbridge_rag.chunk
-                              (chunk_id, resource_id, module_id, sequence,
-                               character_start, character_end, qdrant_point_id,
-                               embedding_model, locator_fragment, metadata)
-                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                        (
-                            str(chunk["chunk_id"]),
-                            resource_id,
-                            module_id,
-                            int(chunk["sequence"]),
-                            int(chunk["character_start"]),
-                            int(chunk["character_end"]),
-                            str(uuid.UUID(str(point_id))) if point_id else None,
-                            embedding_model,
-                            str(chunk.get("locator_fragment") or f"#chunk-{chunk['sequence']}"),
-                            json.dumps(
-                                {
-                                    "resource_label": chunk.get("resource_label"),
-                                    "source": chunk.get("source"),
-                                    "title": chunk.get("title"),
-                                    "content": chunk.get("content"),
-                                },
-                                ensure_ascii=False,
-                            ),
-                        ),
+                        _CHUNK_INSERT_SQL,
+                        _chunk_params(chunk, resource_id, module_id, embedding_model),
                     )
             return True
         except Exception as exc:

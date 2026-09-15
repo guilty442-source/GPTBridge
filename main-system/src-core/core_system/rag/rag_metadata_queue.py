@@ -17,6 +17,74 @@ from .runtime_state import ReconciliationQueueItem
 _logger = logging.getLogger("gptbridge.rag")
 
 
+_TOMBSTONE_SELECT_SQL = """SELECT tombstone_generation, source_revision
+   FROM gptbridge_rag.tombstone
+   WHERE module_id = %s AND resource_id = %s"""
+
+_TOMBSTONE_UPSERT_SQL = """INSERT INTO gptbridge_rag.tombstone
+      (resource_id, module_id, tombstone_generation,
+       source_revision, content_hash, reason)
+   VALUES (%s, %s, %s, %s, %s, %s)
+   ON CONFLICT (module_id, resource_id) DO UPDATE SET
+       tombstone_generation = EXCLUDED.tombstone_generation,
+       source_revision = EXCLUDED.source_revision,
+       content_hash = EXCLUDED.content_hash,
+       reason = EXCLUDED.reason,
+       created_at = now(),
+       purged = false"""
+
+_INDEX_STATE_EXTENDED_UPSERT_SQL = """INSERT INTO gptbridge_rag.index_state
+      (resource_id, module_id, embedding_model, embedding_dimension,
+       chunk_size, chunk_overlap, indexed_at, content_hash,
+       qdrant_point_id, postgresql_record_id, source_revision,
+       tombstone_generation, embedding_version, chunking_version,
+       parser_version, rag_schema_version, pipeline_version,
+       backend_generation, status)
+   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+   ON CONFLICT (resource_id) DO UPDATE SET
+       module_id = EXCLUDED.module_id,
+       embedding_model = EXCLUDED.embedding_model,
+       embedding_dimension = EXCLUDED.embedding_dimension,
+       chunk_size = EXCLUDED.chunk_size,
+       chunk_overlap = EXCLUDED.chunk_overlap,
+       indexed_at = EXCLUDED.indexed_at,
+       content_hash = EXCLUDED.content_hash,
+       qdrant_point_id = EXCLUDED.qdrant_point_id,
+       postgresql_record_id = EXCLUDED.postgresql_record_id,
+       source_revision = EXCLUDED.source_revision,
+       tombstone_generation = EXCLUDED.tombstone_generation,
+       embedding_version = EXCLUDED.embedding_version,
+       chunking_version = EXCLUDED.chunking_version,
+       parser_version = EXCLUDED.parser_version,
+       rag_schema_version = EXCLUDED.rag_schema_version,
+       pipeline_version = EXCLUDED.pipeline_version,
+       backend_generation = EXCLUDED.backend_generation,
+       status = EXCLUDED.status"""
+
+
+def _extended_index_state_params(
+    state: IndexState,
+    source_revision: int,
+    tombstone_generation: int,
+    embedding_version: int,
+    chunking_version: int,
+    parser_version: int,
+    rag_schema_version: int,
+    pipeline_version: int,
+    backend_generation: int,
+    status: str,
+) -> tuple:
+    """INSERT params for the extended index_state upsert."""
+    return (
+        state.resource_id, state.module_id, state.embedding_model,
+        state.embedding_dimension, state.chunk_size, state.chunk_overlap,
+        state.indexed_at_utc, state.content_hash, state.qdrant_point_id,
+        state.postgresql_record_id, source_revision, tombstone_generation,
+        embedding_version, chunking_version, parser_version,
+        rag_schema_version, pipeline_version, backend_generation, status,
+    )
+
+
 class RagMetadataReconciliationMixin:
     """A374 durable stores: tombstone, reconciliation queue, outbox steps."""
 
@@ -36,12 +104,7 @@ class RagMetadataReconciliationMixin:
             return None
         try:
             async with self._conn.cursor() as cur:
-                await cur.execute(
-                    """SELECT tombstone_generation, source_revision
-                       FROM gptbridge_rag.tombstone
-                       WHERE module_id = %s AND resource_id = %s""",
-                    (module_id, resource_id),
-                )
+                await cur.execute(_TOMBSTONE_SELECT_SQL, (module_id, resource_id))
                 row = await cur.fetchone()
                 existing_gen = int(row[0]) if row else 0
                 existing_rev = int(row[1]) if row else 0
@@ -53,17 +116,7 @@ class RagMetadataReconciliationMixin:
                     return None
                 next_gen = existing_gen + 1
                 await cur.execute(
-                    """INSERT INTO gptbridge_rag.tombstone
-                          (resource_id, module_id, tombstone_generation,
-                           source_revision, content_hash, reason)
-                       VALUES (%s, %s, %s, %s, %s, %s)
-                       ON CONFLICT (module_id, resource_id) DO UPDATE SET
-                           tombstone_generation = EXCLUDED.tombstone_generation,
-                           source_revision = EXCLUDED.source_revision,
-                           content_hash = EXCLUDED.content_hash,
-                           reason = EXCLUDED.reason,
-                           created_at = now(),
-                           purged = false""",
+                    _TOMBSTONE_UPSERT_SQL,
                     (resource_id, module_id, next_gen, source_revision, content_hash, reason),
                 )
                 return {
@@ -219,38 +272,9 @@ class RagMetadataReconciliationMixin:
         try:
             async with self._conn.cursor() as cur:
                 await cur.execute(
-                    """INSERT INTO gptbridge_rag.index_state
-                          (resource_id, module_id, embedding_model, embedding_dimension,
-                           chunk_size, chunk_overlap, indexed_at, content_hash,
-                           qdrant_point_id, postgresql_record_id, source_revision,
-                           tombstone_generation, embedding_version, chunking_version,
-                           parser_version, rag_schema_version, pipeline_version,
-                           backend_generation, status)
-                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                       ON CONFLICT (resource_id) DO UPDATE SET
-                           module_id = EXCLUDED.module_id,
-                           embedding_model = EXCLUDED.embedding_model,
-                           embedding_dimension = EXCLUDED.embedding_dimension,
-                           chunk_size = EXCLUDED.chunk_size,
-                           chunk_overlap = EXCLUDED.chunk_overlap,
-                           indexed_at = EXCLUDED.indexed_at,
-                           content_hash = EXCLUDED.content_hash,
-                           qdrant_point_id = EXCLUDED.qdrant_point_id,
-                           postgresql_record_id = EXCLUDED.postgresql_record_id,
-                           source_revision = EXCLUDED.source_revision,
-                           tombstone_generation = EXCLUDED.tombstone_generation,
-                           embedding_version = EXCLUDED.embedding_version,
-                           chunking_version = EXCLUDED.chunking_version,
-                           parser_version = EXCLUDED.parser_version,
-                           rag_schema_version = EXCLUDED.rag_schema_version,
-                           pipeline_version = EXCLUDED.pipeline_version,
-                           backend_generation = EXCLUDED.backend_generation,
-                           status = EXCLUDED.status""",
-                    (
-                        state.resource_id, state.module_id, state.embedding_model,
-                        state.embedding_dimension, state.chunk_size, state.chunk_overlap,
-                        state.indexed_at_utc, state.content_hash, state.qdrant_point_id,
-                        state.postgresql_record_id, source_revision, tombstone_generation,
+                    _INDEX_STATE_EXTENDED_UPSERT_SQL,
+                    _extended_index_state_params(
+                        state, source_revision, tombstone_generation,
                         embedding_version, chunking_version, parser_version,
                         rag_schema_version, pipeline_version, backend_generation, status,
                     ),

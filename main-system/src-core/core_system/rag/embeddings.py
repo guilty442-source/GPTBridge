@@ -79,13 +79,13 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 
 
 class OllamaEmbeddingProvider(EmbeddingProvider):
-    """Ollama local embedding provider."""
+    """Ollama local embedding provider (governed canonical default)."""
 
     def __init__(
         self,
         base_url: str = "http://localhost:11434",
-        model: str = "nomic-embed-text",
-        dimension: int = 768,
+        model: str = "qwen3-embedding:4b",
+        dimension: int = 2560,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._model = model
@@ -103,17 +103,14 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
     async def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        embeddings = []
-        for text in texts:
-            response = await self._client.post(
-                f"{self._base_url}/api/embeddings",
-                json={"model": self._model, "prompt": text},
-                timeout=30.0,
-            )
-            response.raise_for_status()
-            data = response.json()
-            embeddings.append(data["embedding"])
-        return embeddings
+        response = await self._client.post(
+            f"{self._base_url}/api/embed",
+            json={"model": self._model, "input": texts},
+            timeout=60.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data["embeddings"]
 
     async def health_check(self) -> bool:
         try:
@@ -163,26 +160,31 @@ class LocalEmbeddingProvider(EmbeddingProvider):
 
 
 def create_embedding_provider_from_env() -> EmbeddingProvider:
-    """Create embedding provider from environment variables."""
-    provider = os.environ.get("EMBEDDING_PROVIDER", "openai").lower()
+    """Create embedding provider from environment variables.
+
+    The governed canonical default is the local Ollama runtime serving
+    qwen3-embedding:4b (2560-dim).  Remote providers are only reachable by
+    explicit EMBEDDING_PROVIDER override and are never the default path.
+    """
+    provider = os.environ.get("EMBEDDING_PROVIDER", "ollama").lower()
 
     if provider == "ollama":
         return OllamaEmbeddingProvider(
             base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
-            model=os.environ.get("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text"),
-            dimension=int(os.environ.get("EMBEDDING_DIMENSION", "768")),
+            model=os.environ.get("OLLAMA_EMBEDDING_MODEL", "qwen3-embedding:4b"),
+            dimension=int(os.environ.get("EMBEDDING_DIMENSION", "2560")),
         )
     elif provider == "local":
         return LocalEmbeddingProvider(
             model=os.environ.get("LOCAL_EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
         )
     else:
-        # Default to OpenAI-compatible
+        # Explicit opt-in only: OpenAI-compatible endpoint.
         return OpenAIEmbeddingProvider(
             api_key=os.environ.get("OPENAI_API_KEY", ""),
             base_url=os.environ.get("OPENAI_BASE_URL"),
-            model=os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small"),
-            dimension=int(os.environ.get("EMBEDDING_DIMENSION", "1536")),
+            model=os.environ.get("EMBEDDING_MODEL", "qwen3-embedding:4b"),
+            dimension=int(os.environ.get("EMBEDDING_DIMENSION", "2560")),
         )
 
 

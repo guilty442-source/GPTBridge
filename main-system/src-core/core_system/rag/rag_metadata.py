@@ -196,6 +196,28 @@ _SAGA_DDL = (
 )
 
 
+_INDEX_STATE_UPSERT_SQL = """INSERT INTO gptbridge_rag.index_state
+      (resource_id, module_id, embedding_model, embedding_dimension,
+       chunk_size, chunk_overlap, indexed_at, content_hash,
+       qdrant_point_id, postgresql_record_id,
+       qdrant_collection, chunk_count, status)
+   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'indexed')
+   ON CONFLICT (resource_id) DO UPDATE SET
+       module_id = EXCLUDED.module_id,
+       embedding_model = EXCLUDED.embedding_model,
+       embedding_dimension = EXCLUDED.embedding_dimension,
+       chunk_size = EXCLUDED.chunk_size,
+       chunk_overlap = EXCLUDED.chunk_overlap,
+       indexed_at = EXCLUDED.indexed_at,
+       content_hash = EXCLUDED.content_hash,
+       qdrant_point_id = EXCLUDED.qdrant_point_id,
+       postgresql_record_id = EXCLUDED.postgresql_record_id,
+       qdrant_collection = EXCLUDED.qdrant_collection,
+       chunk_count = EXCLUDED.chunk_count,
+       status = 'indexed',
+       updated_at = now()"""
+
+
 class PostgreSQLMetadataAuthority(
     RagMetadataDocumentsMixin, RagMetadataReconciliationMixin
 ):
@@ -283,26 +305,7 @@ class PostgreSQLMetadataAuthority(
         try:
             async with self._conn.cursor() as cur:
                 await cur.execute(
-                    """INSERT INTO gptbridge_rag.index_state
-                          (resource_id, module_id, embedding_model, embedding_dimension,
-                           chunk_size, chunk_overlap, indexed_at, content_hash,
-                           qdrant_point_id, postgresql_record_id,
-                           qdrant_collection, chunk_count, status)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'indexed')
-                       ON CONFLICT (resource_id) DO UPDATE SET
-                           module_id = EXCLUDED.module_id,
-                           embedding_model = EXCLUDED.embedding_model,
-                           embedding_dimension = EXCLUDED.embedding_dimension,
-                           chunk_size = EXCLUDED.chunk_size,
-                           chunk_overlap = EXCLUDED.chunk_overlap,
-                           indexed_at = EXCLUDED.indexed_at,
-                           content_hash = EXCLUDED.content_hash,
-                           qdrant_point_id = EXCLUDED.qdrant_point_id,
-                           postgresql_record_id = EXCLUDED.postgresql_record_id,
-                           qdrant_collection = EXCLUDED.qdrant_collection,
-                           chunk_count = EXCLUDED.chunk_count,
-                           status = 'indexed',
-                           updated_at = now()""",
+                    _INDEX_STATE_UPSERT_SQL,
                     (
                         state.resource_id,
                         state.module_id,
