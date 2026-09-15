@@ -302,6 +302,11 @@ class ToolLocalCleanup:
         cleaned_bytes = 0
         error_count = 0
         git_tracked = self._git_tracked_paths()
+        from .tool_local_cleanup_helpers import (
+            _cleanup_matching_directories,
+            _cleanup_matching_files,
+            _sweep_empty_directories,
+        )
 
         for walk_root, directory_names, file_names in os.walk(
             self.tool_root,
@@ -317,156 +322,25 @@ class ToolLocalCleanup:
             if self._is_protected(relative):
                 directory_names[:] = []
                 continue
-
-            kept_directories: list[str] = []
-            for name in directory_names:
-                candidate = current_raw / name
-                relative_dir = (current_raw / name).relative_to(self.tool_root)
-                matched_rule = next(
-                    (
-                        rule
-                        for rule in DIRECTORY_RULES
-                        if (
-                            rule.get("names")
-                            and name.casefold()
-                            in {str(item).casefold() for item in rule["names"]}
-                        )
-                        or (
-                            rule.get("relative_patterns")
-                            and f"/{relative_dir.as_posix()}/" in {
-                                f"/{str(pattern).strip('/')}/"
-                                for pattern in rule["relative_patterns"]
-                            }
-                        )
-                    ),
-                    None,
-                )
-                if matched_rule is not None:
-                    if not _inside(candidate, self.tool_root):
-                        continue
-                    min_age_days = max(
-                        0.0, float(matched_rule.get("min_age_days") or 0)
-                    )
-                    if self._age_days(candidate, now) < min_age_days:
-                        continue
-                    dir_prefix = f"{relative_dir.as_posix().rstrip(chr(47))}/"
-                    if git_tracked is None:
-                        skipped.append(
-                            {
-                                "path": relative_dir.as_posix(),
-                                "reason": "git protection unavailable",
-                            }
-                        )
-                        continue
-                    if any(item.startswith(dir_prefix) for item in git_tracked):
-                        skipped.append(
-                            {
-                                "path": relative_dir.as_posix(),
-                                "reason": "directory contains git-tracked files",
-                            }
-                        )
-                        continue
-                    try:
-                        if matched_rule.get("contents_only"):
-                            _emit_contents(candidate, self.tool_root)
-                            cleaned_directories.append(
-                                relative_dir.as_posix()
-                            )
-                            continue
-                        cleaned_bytes += _dir_size(candidate)
-                        _remove_path(candidate)
-                        cleaned_directories.append(relative_dir.as_posix())
-                    except OSError as error:
-                        error_count += 1
-                        skipped.append(
-                            {
-                                "path": relative_dir.as_posix(),
-                                "reason": f"{type(error).__name__}: {error}",
-                            }
-                        )
-                    continue
-                if name.casefold() in EXCLUDED_DIRECTORY_NAMES:
-                    continue
-                kept_directories.append(name)
-            directory_names[:] = kept_directories
-
-            for name in file_names:
-                candidate = current_raw / name
-                if not _inside(candidate, self.tool_root):
-                    continue
-                rule = next(
-                    (
-                        rule
-                        for rule in FILE_RULES
-                        if any(
-                            candidate.name.casefold().endswith(
-                                pattern.lstrip("*").casefold()
-                            )
-                            for pattern in rule["patterns"]
-                        )
-                    ),
-                    None,
-                )
-                if rule is None:
-                    continue
-                relative_file = candidate.relative_to(self.tool_root).as_posix()
-                if git_tracked is None:
-                    skipped.append(
-                        {
-                            "path": relative_file,
-                            "reason": "git protection unavailable",
-                        }
-                    )
-                    continue
-                if relative_file in git_tracked:
-                    continue
-                age_days = self._age_days(candidate, now)
-                if age_days < float(rule["min_age_days"]):
-                    continue
-                try:
-                    cleaned_bytes += candidate.stat(follow_symlinks=False).st_size
-                    _remove_path(candidate)
-                    cleaned_files.append(relative_file)
-                except OSError as error:
-                    error_count += 1
-                    skipped.append(
-                        {
-                            "path": relative_file,
-                            "reason": f"{type(error).__name__}: {error}",
-                        }
-                    )
-
-        for walk_root, directory_names, file_names in os.walk(
-            self.tool_root,
-            topdown=False,
-            followlinks=False,
-        ):
-            current_raw = Path(walk_root)
-            try:
-                relative = current_raw.relative_to(self.tool_root)
-            except ValueError:
-                continue
-            if current_raw == self.tool_root or not self._can_sweep_empty(relative):
-                continue
-            if current_raw.is_symlink():
-                continue
-            try:
-                if any(current_raw.iterdir()):
-                    continue
-            except OSError:
-                continue
-            try:
-                _remove_path(current_raw)
-                cleaned_directories.append(relative.as_posix())
-            except OSError as error:
-                error_count += 1
-                skipped.append(
-                    {
-                        "path": relative.as_posix(),
-                        "reason": f"{type(error).__name__}: {error}",
-                    }
-                )
-
+            kept = _cleanup_matching_directories(
+                self.tool_root, walk_root, directory_names, now,
+                git_tracked, self._age_days, self._is_protected,
+                cleaned_directories, skipped,
+                [cleaned_bytes], [error_count],
+            )
+            directory_names[:] = kept
+            _cleanup_matching_files(
+                self.tool_root, walk_root, file_names, now,
+                git_tracked, self._age_days,
+                cleaned_files, skipped,
+                [cleaned_bytes], [error_count],
+            )
+        
+        _sweep_empty_directories(
+            self.tool_root, self._can_sweep_empty,
+            cleaned_directories, skipped, [error_count],
+        )
+        
         return LocalCleanupResult(
             ok=error_count == 0,
             operation="local-self-cleanup",
