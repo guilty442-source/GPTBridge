@@ -13,6 +13,7 @@ access class, a scope hash, codex version, correlation id and result only
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -108,6 +109,15 @@ def _empty_state() -> dict[str, Any]:
     }
 
 
+# The persisted store is read on every official-entry operation (session
+# mint, per-read revocation check, grant verify).  Keying the parsed state
+# on ``st_mtime_ns``/size collapses those reads to one ``stat`` while any
+# writer — this process or another — still invalidates immediately because
+# the atomic replace always produces a fresh mtime.  Callers receive a
+# deep copy so mutation of the returned mapping can never poison the cache.
+_entry_state_cache: dict[tuple[int, int], dict[str, Any]] = {}
+
+
 def _load_state() -> dict[str, Any]:
     """Read the persisted entry state; fail closed when corrupt.
 
@@ -116,6 +126,17 @@ def _load_state() -> dict[str, Any]:
     share conflict; genuinely corrupt content still denies (fail-closed).
     """
     path = _state_path()
+    key: tuple[int, int] | None = None
+    try:
+        stat_result = path.stat()
+        if stat_result.st_size:
+            key = (stat_result.st_mtime_ns, stat_result.st_size)
+    except OSError:
+        key = None
+    if key is not None:
+        cached = _entry_state_cache.get(key)
+        if cached is not None:
+            return copy.deepcopy(cached)
     last_os_error: OSError | None = None
     for _attempt in range(5):
         try:
@@ -144,9 +165,12 @@ def _load_state() -> dict[str, Any]:
         data.get("revocation_generation"), int
     ):
         raise PermissionError("CODEX_STATE_CORRUPT:schema")
-    for key in ("sessions", "grants", "consumed_nonces"):
-        if not isinstance(data.get(key), dict):
-            data[key] = {}
+    for section in ("sessions", "grants", "consumed_nonces"):
+        if not isinstance(data.get(section), dict):
+            data[section] = {}
+    if key is not None:
+        _entry_state_cache.clear()
+        _entry_state_cache[key] = copy.deepcopy(data)
     return data
 
 
@@ -173,6 +197,17 @@ def _store_state(state: dict[str, Any]) -> None:
         try:
             temporary.write_text(payload, encoding="utf-8")
             os.replace(temporary, path)
+            # Publish the freshly written state under its new mtime/size so
+            # the next reader hits the cache instead of re-reading the file
+            # this process just wrote.
+            try:
+                stat_result = path.stat()
+                _entry_state_cache.clear()
+                _entry_state_cache[
+                    (stat_result.st_mtime_ns, stat_result.st_size)
+                ] = copy.deepcopy(state)
+            except OSError:
+                _entry_state_cache.clear()
             return
         except OSError as error:
             last_error = error
@@ -189,11 +224,51 @@ def _store_state(state: dict[str, Any]) -> None:
     )
 
 
+# Retention bounds for persisted entries.  A session record is dead once
+# expired (the nonce can never be presented again) and a consumed marker is
+# dead once every session that could mint it has expired; grants are dead
+# at expiry.  A short grace window keeps recently-closed records available
+# for forensics while bounding the store — without it the file grows one
+# record per session open and every entry operation re-reads the full map.
+_SESSION_RETENTION_SECONDS: Final[float] = 300.0
+_CONSUMED_RETENTION_SECONDS: Final[float] = 3600.0
+_GRANT_RETENTION_SECONDS: Final[float] = 300.0
+
+
+def _prune_expired(state: dict[str, Any], now: float) -> None:
+    """Drop dead session/grant/consumed records; live entries untouched."""
+    sessions = state.get("sessions")
+    if isinstance(sessions, dict):
+        state["sessions"] = {
+            nonce: record
+            for nonce, record in sessions.items()
+            if float(record.get("expires_at", 0.0)) > now - _SESSION_RETENTION_SECONDS
+        }
+    grants = state.get("grants")
+    if isinstance(grants, dict):
+        state["grants"] = {
+            nonce: record
+            for nonce, record in grants.items()
+            if float(record.get("expires_at", 0.0)) > now - _GRANT_RETENTION_SECONDS
+        }
+    consumed = state.get("consumed_nonces")
+    if isinstance(consumed, dict):
+        cutoff = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - _CONSUMED_RETENTION_SECONDS)
+        )
+        state["consumed_nonces"] = {
+            nonce: stamp
+            for nonce, stamp in consumed.items()
+            if str(stamp) >= cutoff
+        }
+
+
 def mutate_entry_state(mutator: Any) -> Any:
     """Load state, apply ``mutator`` and persist atomically under lock."""
     with _STATE_LOCK:
         state = _load_state()
         result = mutator(state)
+        _prune_expired(state, time.time())
         _store_state(state)
         return result
 
