@@ -32,49 +32,62 @@ except Exception:
     enforce = None
 
 from .cleanup_helpers import SECONDS_PER_DAY, LEGACY_QUARANTINE_ROOT_NAME, LEGACY_RECOVERY_ROOT_NAME, QUARANTINE_RELATIVE_PATH, RECOVERY_RELATIVE_PATH, CLEANER_RUNTIME_RELATIVE_PATH, DEFAULT_QUARANTINE_TTL_HOURS, DEFAULT_PLAN_TTL_MINUTES, MAX_REPORTED_SKIPS, MAX_HISTORY_RECORDS, PROGRESS_JSON_PREFIX, MANAGED_BACKUP_SCHEMA_VERSION, MANAGED_BACKUP_RETENTION_PER_OWNER, MANAGED_BACKUP_RELATIVE_ROOT, BACKUP_EXTRACT_RELATIVE_ROOT, SYSTEM_RESCUE_REQUIRED_PATHS, SYSTEM_RESCUE_REPAIR_ANOMALIES, PLAN_SCHEMA_VERSION, QUARANTINE_SCHEMA_VERSION, CORE_EXCLUDED_DIRECTORY_NAMES, CORE_PROTECTED_RELATIVE_PATHS, SOURCE_LIKE_SUFFIXES, _PROCESS_LOCKS_GUARD, _PROCESS_LOCKS, FALLBACK_RULES, ProgressCallback, _background_subprocess_kwargs, _deep_merge, _parse_iso
+from .cleanup_planner_scan import CleanupPlannerScanMixin
 
 
-class CleanupPlannerMixin:
+class CleanupPlannerMixin(CleanupPlannerScanMixin):
     def _load_rules(self) -> tuple[dict[str, Any], list[str]]:
         warnings: list[str] = []
-        bundled_path = Path(__file__).resolve().parent.parent / "domain" / "cleanup_rules.json"
         rules = json.loads(json.dumps(FALLBACK_RULES))
+        self._merge_rule_layers(rules, warnings)
+        self._normalize_rules(rules, warnings)
+        return rules, warnings
+
+    def _merge_rule_layers(
+        self, rules: dict[str, Any], warnings: list[str]
+    ) -> None:
+        bundled_path = Path(__file__).resolve().parent.parent / "domain" / "cleanup_rules.json"
         if bundled_path.exists():
             try:
                 payload = json.loads(bundled_path.read_text(encoding="utf-8"))
                 if isinstance(payload, dict):
-                    rules = _deep_merge(rules, payload)
+                    rules.update(_deep_merge(rules, payload))
             except (OSError, json.JSONDecodeError) as exc:
                 warnings.append(f"bundled rule file invalid: {exc}")
         if self.rules_override_path.exists():
             try:
                 payload = json.loads(self.rules_override_path.read_text(encoding="utf-8"))
-                list_fields = (
-                    "excluded_directory_names",
-                    "protected_relative_paths",
-                    "directory_rules",
-                    "file_rules",
-                )
-                valid_override = (
-                    isinstance(payload, dict)
-                    and int(payload.get("schema_version") or 0) == PLAN_SCHEMA_VERSION
-                    and all(
-                        field not in payload or isinstance(payload.get(field), list)
-                        for field in list_fields
-                    )
-                    and all(
-                        field not in payload or isinstance(payload.get(field), dict)
-                        for field in ("analysis",)
-                    )
-                )
-                if valid_override:
-                    rules = _deep_merge(rules, payload)
-                else:
-                    warnings.append(
-                        "rule override ignored: schema or field types are invalid"
-                    )
             except (OSError, json.JSONDecodeError) as exc:
                 warnings.append(f"rule override invalid: {exc}")
+                return
+            list_fields = (
+                "excluded_directory_names",
+                "protected_relative_paths",
+                "directory_rules",
+                "file_rules",
+            )
+            valid_override = (
+                isinstance(payload, dict)
+                and int(payload.get("schema_version") or 0) == PLAN_SCHEMA_VERSION
+                and all(
+                    field not in payload or isinstance(payload.get(field), list)
+                    for field in list_fields
+                )
+                and all(
+                    field not in payload or isinstance(payload.get(field), dict)
+                    for field in ("analysis",)
+                )
+            )
+            if valid_override:
+                rules.update(_deep_merge(rules, payload))
+            else:
+                warnings.append(
+                    "rule override ignored: schema or field types are invalid"
+                )
+
+    def _normalize_rules(
+        self, rules: dict[str, Any], warnings: list[str]
+    ) -> None:
         excluded = {
             str(item)
             for item in rules.get("excluded_directory_names", [])
@@ -95,7 +108,6 @@ class CleanupPlannerMixin:
         )
         if int(rules.get("schema_version") or 0) != PLAN_SCHEMA_VERSION:
             warnings.append("rule schema version does not match cleaner schema")
-        return rules, warnings
 
 
     @staticmethod
@@ -104,45 +116,7 @@ class CleanupPlannerMixin:
 
         if os.name == "nt":
             try:
-                from ctypes import wintypes
-
-                kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-                create_file = kernel32.CreateFileW
-                create_file.argtypes = [
-                    wintypes.LPCWSTR,
-                    wintypes.DWORD,
-                    wintypes.DWORD,
-                    wintypes.LPVOID,
-                    wintypes.DWORD,
-                    wintypes.DWORD,
-                    wintypes.HANDLE,
-                ]
-                create_file.restype = wintypes.HANDLE
-                flush_file_buffers = kernel32.FlushFileBuffers
-                flush_file_buffers.argtypes = [wintypes.HANDLE]
-                flush_file_buffers.restype = wintypes.BOOL
-                close_handle = kernel32.CloseHandle
-                close_handle.argtypes = [wintypes.HANDLE]
-                close_handle.restype = wintypes.BOOL
-
-                file_share_all = 0x00000001 | 0x00000002 | 0x00000004
-                open_existing = 3
-                file_flag_backup_semantics = 0x02000000
-                handle = create_file(
-                    str(directory),
-                    0,
-                    file_share_all,
-                    None,
-                    open_existing,
-                    file_flag_backup_semantics,
-                    None,
-                )
-                invalid_handle = ctypes.c_void_p(-1).value
-                if handle not in (None, 0, invalid_handle):
-                    try:
-                        flush_file_buffers(handle)
-                    finally:
-                        close_handle(handle)
+                CleanupPlannerMixin._fsync_parent_directory_windows(directory)
                 return
             except (OSError, AttributeError, ValueError):
                 return
@@ -157,6 +131,49 @@ class CleanupPlannerMixin:
         finally:
             if descriptor is not None:
                 os.close(descriptor)
+
+
+    @staticmethod
+    def _fsync_parent_directory_windows(directory: Path) -> None:
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        create_file = kernel32.CreateFileW
+        create_file.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.HANDLE,
+        ]
+        create_file.restype = wintypes.HANDLE
+        flush_file_buffers = kernel32.FlushFileBuffers
+        flush_file_buffers.argtypes = [wintypes.HANDLE]
+        flush_file_buffers.restype = wintypes.BOOL
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = [wintypes.HANDLE]
+        close_handle.restype = wintypes.BOOL
+
+        file_share_all = 0x00000001 | 0x00000002 | 0x00000004
+        open_existing = 3
+        file_flag_backup_semantics = 0x02000000
+        handle = create_file(
+            str(directory),
+            0,
+            file_share_all,
+            None,
+            open_existing,
+            file_flag_backup_semantics,
+            None,
+        )
+        invalid_handle = ctypes.c_void_p(-1).value
+        if handle not in (None, 0, invalid_handle):
+            try:
+                flush_file_buffers(handle)
+            finally:
+                close_handle(handle)
 
 
     def _atomic_write_json(self, path: Path, payload: dict[str, Any]) -> None:
@@ -333,120 +350,15 @@ class CleanupPlannerMixin:
             errors.append({"path": ".git", "type": "git", "message": git_status.get("error") or "git unavailable"})
 
         for root_index, raw_root in enumerate(candidate_roots):
-            root = self._safe_resolve(raw_root)
-            if not root.exists():
-                continue
-            if not self._inside_project(root) or self._is_protected(root):
-                self._append_skip(skipped, {"path": str(raw_root), "reason": "protected or outside project"})
-                continue
-            for current_raw, dirnames, filenames in os.walk(root, followlinks=False):
-                current = Path(current_raw)
-                if self._is_protected(current):
-                    dirnames[:] = []
-                    continue
-                kept: list[str] = []
-                for dirname in sorted(dirnames):
-                    child = current / dirname
-                    rule = self._directory_rule(
-                        dirname,
-                        path=child,
-                        scope=normalized_scope,
-                    )
-                    if (
-                        rule is None
-                        and dirname.casefold() in excluded_names
-                    ) or self._is_protected(child):
-                        continue
-                    if self._is_link_or_reparse_point(child):
-                        self._append_skip(skipped, {"path": self._relative_path(child), "type": "directory", "reason": "link or reparse point"})
-                        continue
-                    if rule is None:
-                        kept.append(dirname)
-                        continue
-                    min_age_days = max(0.0, float(rule.get("min_age_days") or 0))
-                    if self._age_days(child, now) < min_age_days:
-                        continue
-                    safe, reason = self._safe_candidate(child, "directory")
-                    if safe and bool(rule.get("protect_user_content")) and self._directory_contains_user_content(child):
-                        safe, reason = False, "directory contains source-like user content"
-                    if not safe:
-                        self._append_skip(skipped, {"path": self._relative_path(child), "type": "directory", "reason": reason})
-                        continue
-                    try:
-                        snapshot = self._candidate_snapshot(child, "directory")
-                        rel_path = self._relative_path(child)
-                        item_id = hashlib.sha256(f"directory:{rel_path}:{snapshot['digest']}".encode("utf-8")).hexdigest()[:24]
-                        contents_only = bool(
-                            self.rules.get("delete_files_only", True)
-                        ) or bool(rule.get("contents_only"))
-                        if contents_only and int(
-                            snapshot.get("file_count") or 0
-                        ) == 0:
-                            continue
-                        items.append(
-                            {
-                                "item_id": item_id,
-                                "path": rel_path,
-                                "type": "directory",
-                                "size_bytes": snapshot["size_bytes"],
-                                "entry_count": snapshot["entry_count"],
-                                "reason": str(rule.get("reason") or "generated directory"),
-                                "rule_id": str(rule.get("id") or "directory-rule"),
-                                "risk": str(rule.get("risk") or "low"),
-                                "age_days": round(self._age_days(child, now), 2),
-                                "min_age_days": min_age_days,
-                                "contents_only": contents_only,
-                                "allow_direct_delete": bool(
-                                    rule.get("allow_direct_delete")
-                                ),
-                                "fingerprint": snapshot,
-                            }
-                        )
-                    except OSError as exc:
-                        errors.append({"path": self._relative_path(child), "type": "directory", "message": str(exc)})
-                    continue
-                dirnames[:] = kept
-
-                for filename in sorted(filenames):
-                    path = current / filename
-                    if self._is_protected(path) or self._is_link_or_reparse_point(path):
-                        continue
-                    rule = self._file_rule(path, now)
-                    if rule is None:
-                        continue
-                    safe, reason = self._safe_candidate(
-                        path,
-                        "file",
-                        check_git=not bool(rule.get("allow_tracked")),
-                    )
-                    if not safe:
-                        self._append_skip(skipped, {"path": self._relative_path(path), "type": "file", "reason": reason})
-                        continue
-                    try:
-                        snapshot = self._candidate_snapshot(path, "file")
-                        rel_path = self._relative_path(path)
-                        item_id = hashlib.sha256(f"file:{rel_path}:{snapshot['digest']}".encode("utf-8")).hexdigest()[:24]
-                        items.append(
-                            {
-                                "item_id": item_id,
-                                "path": rel_path,
-                                "type": "file",
-                                "size_bytes": snapshot["size_bytes"],
-                                "entry_count": 1,
-                                "reason": str(rule.get("reason") or "generated file"),
-                                "rule_id": str(rule.get("id") or "file-rule"),
-                                "risk": str(rule.get("risk") or "low"),
-                                "allow_tracked": bool(rule.get("allow_tracked")),
-                                "allow_direct_delete": bool(
-                                    rule.get("allow_direct_delete")
-                                ),
-                                "age_days": round(self._age_days(path, now), 2),
-                                "min_age_days": max(0.0, float(rule.get("min_age_days") or 0)),
-                                "fingerprint": snapshot,
-                            }
-                        )
-                    except OSError as exc:
-                        errors.append({"path": self._relative_path(path), "type": "file", "message": str(exc)})
+            self._plan_scan_root(
+                raw_root,
+                normalized_scope=normalized_scope,
+                now=now,
+                excluded_names=excluded_names,
+                items=items,
+                skipped=skipped,
+                errors=errors,
+            )
             self._emit_progress(
                 "scan",
                 15 + int((root_index + 1) / max(1, len(candidate_roots)) * 65),
@@ -454,42 +366,11 @@ class CleanupPlannerMixin:
                 item_count=len(items),
             )
 
-        total_bytes = sum(int(item.get("size_bytes") or 0) for item in items)
-        file_count = sum(1 for item in items if item.get("type") == "file")
-        dir_count = sum(1 for item in items if item.get("type") == "directory")
-        health = self._cleanup_health(normalized_scope, items, skipped, errors)
-        plan_payload = {
-            "scope": normalized_scope,
-            "requested_scope": requested_scope,
-            "items": items,
-            "item_count": len(items),
-            "file_count": file_count,
-            "dir_count": dir_count,
-            "total_bytes": total_bytes,
-            "summary": self._summarize_items(items),
-            "health": health,
-            "skipped": skipped,
-            "skipped_count": len(skipped),
-            "errors": errors,
-            "error_count": len(errors),
-            "git": git_status,
-            "rule_schema_version": self.rules.get("schema_version"),
-        }
-        plan_id, plan_token = self._persist_plan(plan_payload)
-        self._append_history(
-            "preview",
-            ok=True,
-            scope=normalized_scope,
-            plan_id=plan_id,
-            item_count=len(items),
-            bytes=total_bytes,
+        return self._finalize_plan(
+            normalized_scope,
+            requested_scope,
+            items,
+            skipped,
+            errors,
+            git_status,
         )
-        self._emit_progress("scan", 100, "清理計畫完成", plan_id=plan_id, item_count=len(items))
-        return {
-            "ok": True,
-            **plan_payload,
-            "plan_id": plan_id,
-            "plan_token": plan_token,
-            "plan_expires_in_minutes": self._plan_ttl_minutes(),
-            "message": f"{normalized_scope} cleanup plan completed (items={len(items)})",
-        }
