@@ -375,6 +375,15 @@ class PermissionSovereign(
             "automation_active": self._automation is not None,
         })
 
+    def live_status(self) -> dict[str, Any]:
+        base = self.status()
+        base["compliance_violations"] = self._compliance_violations[-10:]
+        base["issued_grants"] = {
+            pid: grant for pid, grant in self._issued_grants.items()
+            if grant.get("status") == "active"
+        }
+        return base
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------

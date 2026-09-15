@@ -392,6 +392,29 @@ class SynchronizationSovereign(
         reporter = getattr(child, method, None)
         return reporter() if callable(reporter) else {"role": child_id}
 
+    def status(self) -> dict[str, Any]:
+        from governance.registries import children_of
+
+        return self._with_status_schema({
+            "sovereign": self.sovereign_id,
+            "sub_sovereigns": [
+                self._child_status(child_id)
+                for child_id in children_of(self.sovereign_id)
+            ],
+            "certified_updates": {
+                "active": sum(
+                    1 for op in self._certified_update_operations.values()
+                    if op.get("status") not in ("completed", "failed")
+                ),
+                "total": len(self._certified_update_operations),
+            },
+            "autonomy": {
+                "enabled": self._autonomy_task is not None
+                and not self._autonomy_task.done(),
+                "supervised_children": len(self._child_supervision),
+            },
+        })
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
