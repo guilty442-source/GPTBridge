@@ -346,22 +346,26 @@ class FailoverSharedLayerStore:
         request_id: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         """Retrieve local audit events by correlation or request ID."""
+        columns = (
+            "event_id, correlation_id, request_id, decision_id, actor, "
+            "module_id, resource_id, action, outcome, details, occurred_at"
+        )
         with self._lock:
             if correlation_id:
                 rows = self._reconcile_conn.execute(
-                    "SELECT * FROM local_audit_event WHERE correlation_id = ? "
+                    f"SELECT {columns} FROM local_audit_event WHERE correlation_id = ? "
                     "ORDER BY occurred_at ASC",
                     (correlation_id,),
                 ).fetchall()
             elif request_id:
                 rows = self._reconcile_conn.execute(
-                    "SELECT * FROM local_audit_event WHERE request_id = ? "
+                    f"SELECT {columns} FROM local_audit_event WHERE request_id = ? "
                     "ORDER BY occurred_at ASC",
                     (request_id,),
                 ).fetchall()
             else:
                 rows = self._reconcile_conn.execute(
-                    "SELECT * FROM local_audit_event ORDER BY occurred_at ASC LIMIT 100"
+                    f"SELECT {columns} FROM local_audit_event ORDER BY occurred_at ASC LIMIT 100"
                 ).fetchall()
         return [dict(row) for row in rows]
 

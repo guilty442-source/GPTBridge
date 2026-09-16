@@ -221,6 +221,15 @@ class ReconciliationQueue:
                     )
             self.connection.commit()
 
+    _QUEUE_COLUMNS = (
+        "operation_id, idempotency_key, resource_id, locator_id, "
+        "source_revision, content_hash, operation, tombstone_generation, "
+        "embedding_model, embedding_version, chunk_size, chunk_overlap, "
+        "chunking_version, parser_version, schema_version, created_at, "
+        "attempts, next_retry_at, deadline, status, correlation_id, "
+        "last_error, degraded_indexed_at, canonical_synced_at, payload"
+    )
+
     def enqueue(self, item: ReconciliationQueueItem) -> None:
         """Insert a durable queue item.  Idempotent on idempotency_key."""
         with self._lock:
@@ -272,8 +281,8 @@ class ReconciliationQueue:
         now = datetime.now(timezone.utc).isoformat()
         with self._lock:
             rows = self.connection.execute(
-                """
-                SELECT * FROM rag_reconciliation_queue
+                f"""
+                SELECT {self._QUEUE_COLUMNS} FROM rag_reconciliation_queue
                 WHERE status = 'pending'
                   AND (next_retry_at IS NULL OR next_retry_at <= ?)
                 ORDER BY created_at ASC
@@ -281,13 +290,20 @@ class ReconciliationQueue:
                 """,
                 (now, max(1, int(limit))),
             ).fetchall()
-            leased: list[ReconciliationQueueItem] = []
-            for row in rows:
+            # Single UPDATE for the whole batch — no per-row N+1.
+            ids = [
+                row["operation_id"] if isinstance(row, sqlite3.Row) else row[0]
+                for row in rows
+            ]
+            if ids:
+                placeholders = ", ".join("?" for _ in ids)
                 self.connection.execute(
-                    "UPDATE rag_reconciliation_queue SET status='leased', attempts=attempts+1 WHERE operation_id=?",
-                    (row["operation_id"] if isinstance(row, sqlite3.Row) else row[0],),
+                    "UPDATE rag_reconciliation_queue "
+                    "SET status='leased', attempts=attempts+1 "
+                    f"WHERE operation_id IN ({placeholders})",
+                    tuple(ids),
                 )
-                leased.append(ReconciliationQueueItem.from_row(row))
+            leased = [ReconciliationQueueItem.from_row(row) for row in rows]
             self.connection.commit()
         return leased
 
@@ -373,7 +389,7 @@ class ReconciliationQueue:
     def all_items(self) -> list[ReconciliationQueueItem]:
         with self._lock:
             rows = self.connection.execute(
-                "SELECT * FROM rag_reconciliation_queue ORDER BY created_at ASC"
+                f"SELECT {self._QUEUE_COLUMNS} FROM rag_reconciliation_queue ORDER BY created_at ASC"
             ).fetchall()
         return [ReconciliationQueueItem.from_row(row) for row in rows]
 

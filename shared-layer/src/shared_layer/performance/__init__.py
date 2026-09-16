@@ -158,6 +158,63 @@ from .perf_regression_control import (
     RegressionController,
     write_regression_control_report,
 )
+from .dep_graph import (
+    DependencyType,
+    NodeLanguage,
+    DepNode,
+    DepEdge,
+    DependencyGraph,
+    build_python_import_graph,
+    build_typescript_package_graph,
+    build_cc_include_graph,
+    build_csharp_project_graph,
+    build_sql_migration_graph,
+    build_cross_language_build_graph,
+    build_all_dependency_graphs,
+)
+from .dep_classifier import (
+    DependencyClass,
+    ClassificationEvidence,
+    classify_dependency,
+    classify_all_dependencies,
+    get_remove_candidates,
+    get_optional_without_evidence,
+)
+from .dep_version_registry import (
+    REGISTRY_VERSION,
+    ApprovedDependency,
+    DependencyVersionRegistry,
+    compute_source_hash,
+    seed_default_registry,
+)
+from .build_baseline import (
+    BUILD_BASELINE_VERSION,
+    BuildStepResult,
+    BuildBaselineRecord,
+    BuildBaselineStore,
+    run_python_import_baseline,
+    run_typescript_typecheck_baseline,
+    run_cc_compile_baseline,
+    run_sql_migration_validation_baseline,
+    run_full_build_baseline,
+)
+from .build_impact import (
+    ChangeType,
+    BuildImpactResult,
+    classify_change,
+    analyze_build_impact,
+    get_minimal_rebuild_set,
+)
+from .dep_consolidator import (
+    ConsolidationFinding,
+    ConsolidationReport,
+    find_unused_dependencies,
+    find_duplicate_versions,
+    find_transitive_pollution,
+    find_duplicate_build_entries,
+    find_lazy_load_candidates,
+    run_consolidation_analysis,
+)
 
 __all__ = [
     "ProfileResult",

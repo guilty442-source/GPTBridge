@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 from qdrant_client.http.models import PointStruct
 
-from .rag_qdrant import IndexState
+from .rag_qdrant import IndexState, sanitize_payload
 from .runtime_state import RagRuntimeState
 
 _logger = logging.getLogger("gptbridge.rag")
@@ -38,6 +38,8 @@ class PipelineDocumentsMixin:
         ``chunks`` carry deterministic ``qdrant_point_id``/``point_id``
         UUIDs and self-describing payloads.
         """
+        if self._blocked_reason:
+            raise RuntimeError(self._blocked_reason)
         await self.attempt_recovery()
         module_id = str(document["module_id"])
         resource_id = str(document["resource_id"])
@@ -135,13 +137,15 @@ class PipelineDocumentsMixin:
             PointStruct(
                 id=str(chunk.get("qdrant_point_id") or chunk.get("point_id")),
                 vector=[float(v) for v in vector],
-                payload={
-                    "module_id": module_id,
-                    "document_resource_id": resource_id,
-                    "document_id": document.get("document_id"),
-                    "indexed_at_utc": datetime.now(timezone.utc).isoformat(),
-                    **(chunk.get("payload") or {}),
-                },
+                payload=sanitize_payload(
+                    {
+                        "module_id": module_id,
+                        "document_resource_id": resource_id,
+                        "document_id": document.get("document_id"),
+                        "indexed_at_utc": datetime.now(timezone.utc).isoformat(),
+                        **(chunk.get("payload") or {}),
+                    }
+                ),
             )
             for chunk, vector in zip(chunks, vectors)
         ]

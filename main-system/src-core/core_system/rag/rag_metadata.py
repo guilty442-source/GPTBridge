@@ -279,7 +279,7 @@ class PostgreSQLMetadataAuthority(
                 await cur.execute(
                     """SELECT resource_id, module_id, embedding_model, embedding_dimension,
                           chunk_size, chunk_overlap, indexed_at, content_hash,
-                          qdrant_point_id, postgresql_record_id
+                          qdrant_point_id, postgresql_record_id, status
                        FROM gptbridge_rag.index_state
                        WHERE resource_id = %s AND module_id = %s""",
                     (resource_id, module_id),
@@ -297,6 +297,7 @@ class PostgreSQLMetadataAuthority(
                         content_hash=row[7],
                         qdrant_point_id=row[8],
                         postgresql_record_id=row[9],
+                        status=str(row[10] or "indexed"),
                     )
         except Exception as exc:
             _logger.error("PostgreSQLMetadataAuthority: get_index_state failed: %s", exc)

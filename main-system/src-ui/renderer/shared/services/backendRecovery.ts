@@ -18,8 +18,12 @@ type RecoveryResult = {
 let lastRequestAt = 0
 let attempts = 0
 
-function gptBridgeApi(): any {
-  return (window as any).gptBridge
+interface GptBridgeApi {
+  restartBackend?: () => Promise<unknown>
+}
+
+function gptBridgeApi(): GptBridgeApi | undefined {
+  return window.gptBridge as GptBridgeApi | undefined
 }
 
 export function resetBackendRecovery(): void {

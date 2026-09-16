@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .perf_baseline import PerformanceBaselineRecord
+from .regression import _pct
 
 
 @dataclass(frozen=True)
@@ -50,12 +51,6 @@ class OperationTrend:
     metric_trends: dict[str, MetricTrend]
     overall_direction: str        # "improving" / "regressing" / "stable" / "unknown"
     regressions: tuple[RegressionAttribution, ...]
-
-
-def _pct(before: float, after: float) -> float:
-    if before == 0:
-        return 0.0 if after == 0 else float("inf")
-    return ((after - before) / before) * 100.0
 
 
 def _classify_direction(total_delta: float, recent_delta: float) -> str:

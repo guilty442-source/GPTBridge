@@ -201,7 +201,67 @@ def _normalized_test_reference(raw: str) -> str:
     return raw.strip().strip("\"'").replace("\\", "/").lstrip("./")
 
 
-_SELF_HEALTH_BATCH_CHUNKS = 4
+_SELF_HEALTH_BATCH_CHUNKS = 6
+
+# Relative pytest-collection weight per owning area: the native model tests
+# import heavy ML dependencies (torch et al.) and dominate a chunk's runtime,
+# so chunks are balanced by estimated weight rather than raw file count.
+_SELF_HEALTH_AREA_WEIGHTS: tuple[tuple[str, int], ...] = (
+    ("Standalone tools/local-model/", 4),
+    ("shared-layer/", 3),
+    ("Standalone tools/ai-assistant/", 3),
+    ("governance_rule/", 2),
+    ("main-system/", 2),
+    ("Standalone tools/global-cleaner/", 2),
+)
+
+
+def _test_file_weight(relative_path: str) -> int:
+    for prefix, weight in _SELF_HEALTH_AREA_WEIGHTS:
+        if relative_path.startswith(prefix):
+            return weight
+    return 1
+
+
+# global-cleaner tests import the bare top-level ``backend`` package from
+# their own ``src`` root; collecting them together with another tool's test
+# files that pre-load a different ``backend`` root breaks their imports.
+# Files from an isolated area are therefore collected in dedicated batches.
+_SELF_HEALTH_ISOLATED_AREAS: tuple[str, ...] = (
+    "Standalone tools/global-cleaner/",
+)
+
+
+def _balance_chunks(
+    declared_files: list[str],
+    chunk_count: int,
+) -> list[list[str]]:
+    """Greedy weight-balanced chunking (deterministic for a fixed input).
+
+    Isolated areas get their own batches first; the remaining chunk budget
+    is filled by weight-balanced greedy assignment of every other file.
+    """
+    isolated: list[list[str]] = []
+    for area in _SELF_HEALTH_ISOLATED_AREAS:
+        group = sorted(path for path in declared_files if path.startswith(area))
+        if group:
+            isolated.append(group)
+    shared = [
+        path
+        for path in declared_files
+        if not path.startswith(_SELF_HEALTH_ISOLATED_AREAS)
+    ]
+    remaining = max(1, chunk_count - len(isolated))
+    chunks: list[list[str]] = [[] for _ in range(remaining)]
+    loads = [0] * remaining
+    for relative_path in sorted(
+        shared,
+        key=lambda path: (-_test_file_weight(path), path),
+    ):
+        target = min(range(remaining), key=lambda index: (loads[index], index))
+        chunks[target].append(relative_path)
+        loads[target] += _test_file_weight(relative_path)
+    return [*isolated, *(sorted(chunk) for chunk in chunks if chunk)]
 
 
 def _batched_collection_results(
@@ -221,10 +281,7 @@ def _batched_collection_results(
     if chunk_count == 1 or len(declared_files) < _SELF_HEALTH_BATCH_CHUNKS * 2:
         return _collect_one_batch(root, python_executable, declared_files)
 
-    chunks = [
-        declared_files[index::chunk_count] for index in range(chunk_count)
-    ]
-    chunks = [chunk for chunk in chunks if chunk]
+    chunks = _balance_chunks(declared_files, chunk_count)
     with ThreadPoolExecutor(
         max_workers=len(chunks),
         thread_name_prefix="self-health-batch",

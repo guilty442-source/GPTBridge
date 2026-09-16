@@ -36,7 +36,9 @@ from .store_helpers import (
     _POOL_MAX_CONN,
     _POOL_MIN_CONN,
     _POOL_TIMEOUT,
+    _PRIORITY_VALUES,
     _QUERY_TIMEOUT,
+    _normalize_priority_class,
     decode as _decode,
     encode_json as _json,
     normalize_id as _id,
@@ -231,24 +233,62 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
         request_id: str,
         target_tool_id: str,
         payload: Any,
+        *,
+        priority_class: str = "interactive",
+        deadline_at: Any = None,
+        idempotency_key: str = "",
     ) -> None:
         actor = self._authorize(token, "request", target_tool_id)
+        priority = _normalize_priority_class(priority_class)
+        if idempotency_key:
+            existing = self.find_request_by_idempotency(token, target_tool_id, idempotency_key)
+            if existing is not None:
+                return
         pool = self._get_pool()
         with pool.acquire() as connection:
             connection.execute(
                 "INSERT INTO gptbridge_transport.tool_request "
-                "(channel_id, request_id, requester_actor, target_tool_id, payload, status, created_at, updated_at) "
-                "VALUES (%s, %s, %s, %s, %s, 'queued', now(), now())",
+                "(channel_id, request_id, requester_actor, target_tool_id, payload, status, "
+                "priority_class, priority_value, deadline_at, idempotency_key, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, 'queued', %s, %s, %s, NULLIF(%s, ''), now(), now()) "
+                "ON CONFLICT DO NOTHING",
                 (
                     self._channel_id,
                     _id(request_id),
                     actor,
                     _id(target_tool_id),
                     _json(payload),
+                    priority,
+                    _PRIORITY_VALUES[priority],
+                    deadline_at,
+                    _id(idempotency_key) if idempotency_key else "",
                 ),
             )
             self._notify(connection, request_id)
             connection.commit()
+
+    def find_request_by_idempotency(
+        self,
+        token: str,
+        target_tool_id: str,
+        idempotency_key: str,
+    ) -> dict[str, Any] | None:
+        """Idempotent retry lookup: an existing request with the same key."""
+        self._authorize(token, "request", target_tool_id)
+        pool = self._get_pool()
+        with pool.acquire() as connection:
+            row = connection.execute(
+                "SELECT request_id, status, response FROM gptbridge_transport.tool_request "
+                "WHERE target_tool_id=%s AND idempotency_key=%s",
+                (_id(target_tool_id), _id(idempotency_key)),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "request_id": row["request_id"],
+            "status": row["status"],
+            "response": _decode(row["response"]),
+        }
 
     def notify_channel(self, token: str, target_tool_id: str) -> None:
         self._authorize(token, "process", target_tool_id)
@@ -368,15 +408,20 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
         self,
         token: str,
         target_tool_id: str,
+        *,
+        lease_duration_seconds: float = 300.0,
     ) -> dict[str, Any] | None:
         self._authorize(token, "process", target_tool_id)
         pool = self._get_pool()
         with pool.acquire() as connection:
             connection.execute("BEGIN")
+            self._reclaim_expired_in_transaction(connection, target_tool_id)
             row = connection.execute(
                 "SELECT request_id, requester_actor, payload FROM gptbridge_transport.tool_request "
                 "WHERE channel_id=%s AND target_tool_id=%s AND status='queued' "
-                "ORDER BY created_at, request_id "
+                "AND (next_retry_at IS NULL OR next_retry_at <= now()) "
+                "AND (deadline_at IS NULL OR deadline_at > now()) "
+                "ORDER BY priority_value, created_at, request_id "
                 "LIMIT 1 FOR UPDATE SKIP LOCKED",
                 (
                     self._channel_id,
@@ -386,12 +431,15 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
             if row is None:
                 connection.execute("ROLLBACK")
                 return None
-            connection.execute(
+            lease = connection.execute(
                 "UPDATE gptbridge_transport.tool_request "
-                "SET status='claimed', updated_at=now() "
-                "WHERE channel_id=%s AND request_id=%s AND status='queued'",
-                (self._channel_id, row["request_id"]),
-            )
+                "SET status='claimed', claimed_at=now(), "
+                "lease_until=now() + (%s || ' seconds')::interval, "
+                "attempt_count=attempt_count + 1, next_retry_at=NULL, updated_at=now() "
+                "WHERE channel_id=%s AND request_id=%s AND status='queued' "
+                "RETURNING lease_until, attempt_count",
+                (str(float(lease_duration_seconds)), self._channel_id, row["request_id"]),
+            ).fetchone()
             self._notify(connection, row["request_id"])
             connection.commit()
         return {
@@ -399,7 +447,29 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
             "requester_actor": row["requester_actor"],
             "target_tool_id": target_tool_id,
             "payload": _decode(row["payload"]),
+            "lease_until": lease["lease_until"] if lease else None,
+            "attempt_count": lease["attempt_count"] if lease else 0,
         }
+
+    def _reclaim_expired_in_transaction(self, connection: Any, target_tool_id: str) -> int:
+        cursor = connection.execute(
+            "UPDATE gptbridge_transport.tool_request "
+            "SET status='queued', claimed_at=NULL, lease_until=NULL, "
+            "next_retry_at=now(), updated_at=now() "
+            "WHERE channel_id=%s AND target_tool_id=%s AND status='claimed' "
+            "AND lease_until IS NOT NULL AND lease_until < now() RETURNING 1",
+            (self._channel_id, _id(target_tool_id)),
+        )
+        return len(cursor.fetchall())
+
+    def reclaim_expired(self, token: str, target_tool_id: str) -> int:
+        """Re-queue requests whose lease expired (crashed worker recovery)."""
+        self._authorize(token, "claim", target_tool_id)
+        pool = self._get_pool()
+        with pool.acquire() as connection:
+            reclaimed = self._reclaim_expired_in_transaction(connection, target_tool_id)
+            connection.commit()
+            return reclaimed
 
     def respond(
         self,

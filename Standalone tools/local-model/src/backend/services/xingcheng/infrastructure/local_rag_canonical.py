@@ -221,11 +221,25 @@ class CanonicalRagAdapter:
             except RuntimeError:
                 pass
 
+    # Canonical takeover surface states (RAG-02): the internal A374 machine
+    # keeps STARTING/CANONICAL/DEGRADED/RECONCILING; the gateway exposes the
+    # governed five-state model.
+    _SURFACE_STATES = {
+        "STARTING": "BOOTSTRAPPING",
+        "CANONICAL": "CANONICAL_READY",
+        "DEGRADED": "DEGRADED_READY",
+        "RECONCILING": "RECONCILING",
+        "RECONCILIATION_FAILED": "DEGRADED_READY",
+    }
+
     def _runtime_status(self) -> dict[str, Any]:
         """Pull the governed runtime state off the pipeline's state machine."""
         pipeline, loop = self._pipeline, self._loop
         if pipeline is None or loop is None:
-            state = "STARTING" if self._enabled else "DEGRADED"
+            if self._init_event.is_set() or not self._enabled:
+                state = "DEGRADED"  # init attempt finished without a pipeline
+            else:
+                state = "STARTING"
             return {"state": state, "effective_state": state}
         try:
             future = asyncio.run_coroutine_threadsafe(
@@ -236,18 +250,30 @@ class CanonicalRagAdapter:
             return {"state": "DEGRADED", "effective_state": "DEGRADED",
                     "last_error": str(exc)}
 
+    def _gateway_state(self, runtime: dict[str, Any]) -> str:
+        """Map internal state to the governed takeover surface state."""
+        if runtime.get("blocked") or runtime.get("blocked_reason"):
+            return "BLOCKED"
+        effective = str(runtime.get("effective_state") or "DEGRADED")
+        return self._SURFACE_STATES.get(effective, "DEGRADED_READY")
+
     def status(self) -> dict[str, Any]:
         if self._enabled:
             self._start()
             self._init_event.wait(timeout=10.0)
         runtime = self._runtime_status()
+        gateway_state = self._gateway_state(runtime)
         return {
             "engine": "canonical-qdrant-postgresql",
-            "canonical": runtime.get("effective_state") == "CANONICAL",
+            "canonical": gateway_state == "CANONICAL_READY",
             "ready": self._ready,
             "enabled": self._enabled,
             "runtime": runtime,
-            "runtime_state": runtime.get("effective_state", "DEGRADED"),
+            "runtime_state": gateway_state,
+            "gateway_state": gateway_state,
+            "pipeline_state": runtime.get("effective_state", "DEGRADED"),
+            "blocked": gateway_state == "BLOCKED",
+            "blocked_reason": runtime.get("blocked_reason"),
             "reconciliation_required": runtime.get(
                 "reconciliation_required", True
             ),

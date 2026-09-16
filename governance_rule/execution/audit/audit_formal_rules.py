@@ -29,6 +29,8 @@ from governance_rule.execution.formal_rules import (
     load_formal_rules,
     missing_evaluator_codes,
 )
+# Import evaluators to register predicates
+import governance_rule.execution.formal_rules.evaluators  # noqa: F401
 from governance_rule.execution.formal_rules.obligations import (
     LIFECYCLE_MAIN,
     LIFECYCLE_TERMINAL,
@@ -47,6 +49,9 @@ _REQUIRED_OBLIGATION_CODES = frozenset(
         "OBL_CHANNEL_ANOMALY_ISOLATION",
         "OBL_NATIVE_PROMOTION_RECORD_CHECKER",
         "OBL_LANGUAGE_DEPENDENCY_DAG_GATE",
+        # A491 names twelve blocking obligations; these two were missing.
+        "OBL_DIRECTORY_GOVERNANCE_DATA_CLOSURE",
+        "OBL_FORMAL_EVALUATOR_V2_PARITY",
     }
 )
 
@@ -77,7 +82,11 @@ def check_formal_rules(root: Path, errors: list[str]) -> None:
                 f"formal rule mapping {provision_id} not present in active registry"
             )
     for rule in ruleset.active_rules():
-        if rule.controlling_provision_id not in mapped:
+        # A450 MIGRATION: a declared rule still awaiting parity
+        # (status ``declared-pending-evaluator-parity``) carries recorded
+        # formalization debt; only a fully active rule without any VERIFIED
+        # mapping row is a hard finding.
+        if rule.status == "active" and rule.controlling_provision_id not in mapped:
             errors.append(
                 f"active formal rule {rule.rule_code} (A{rule.controlling_provision_id}) "
                 "missing VERIFIED mapping row"

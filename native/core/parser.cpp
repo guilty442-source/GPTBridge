@@ -5,10 +5,13 @@
 // No C++ exceptions cross the ABI boundary (noexcept).
 // No unbounded allocation; no per-request thread pool.
 #include "parser.hpp"
+#include "memory.hpp"
 
 #include <cctype>
 
 namespace gptbridge_native_parser {
+
+namespace mem = gptbridge_native_mem;
 
 namespace {
 
@@ -29,13 +32,14 @@ inline bool is_space_char(unsigned char c) noexcept {
 }  // namespace
 
 int64_t token_estimate(const char* text, int64_t text_len) noexcept {
-    if (text == nullptr || text_len <= 0) {
+    // text: BORROWED_READONLY — Python owns the UTF-8 buffer.
+    const auto view = mem::borrow_const(text, text_len);
+    if (!view.valid() || text_len <= 0) {
         return 0;
     }
 
     int64_t count = 0;
     bool in_word = false;
-    bool in_punct = false;
 
     for (int64_t i = 0; i < text_len; ++i) {
         unsigned char c = static_cast<unsigned char>(text[i]);
@@ -45,21 +49,13 @@ int64_t token_estimate(const char* text, int64_t text_len) noexcept {
                 ++count;  // start of a new word token
                 in_word = true;
             }
-            in_punct = false;
         } else if (is_space_char(c)) {
             in_word = false;
-            in_punct = false;
         } else {
             // Punctuation: each non-word, non-space char is its own token
-            if (!in_punct) {
-                ++count;
-            } else {
-                // Consecutive punctuation chars are separate tokens
-                // (matching the regex [^\w\s] which matches each char)
-                ++count;
-            }
+            // (matching the regex [^\w\s] which matches each char).
+            ++count;
             in_word = false;
-            in_punct = true;
         }
     }
 
@@ -71,8 +67,11 @@ int batch_token_estimate(
     const int64_t* text_lens,
     int64_t count,
     int64_t* results_ptr) noexcept {
+    // texts_ptr/text_lens: BORROWED_READONLY;
+    // results_ptr: CALLER_PROVIDED_OUTPUT.
+    const auto out = mem::caller_output(results_ptr, count);
     if (texts_ptr == nullptr || text_lens == nullptr ||
-        results_ptr == nullptr || count <= 0) {
+        !out.valid() || count <= 0) {
         return 1;  // invalid arguments
     }
 

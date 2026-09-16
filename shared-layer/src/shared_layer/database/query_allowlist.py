@@ -1029,6 +1029,148 @@ _TEMPLATES: dict[str, str] = {
         "FROM gptbridge_index.integration_rule "
         "WHERE active = true ORDER BY rule_number"
     ),
+
+    # --- Read models / CQRS boundary (migration 087) ---
+    # Active-version rows.  filter param semantics:
+    #   resource_summary/module/rag -> module_id (or resource_type / state)
+    #   transport                  -> state
+    # NULL filter returns all rows (state NULL matches nothing, so the
+    # `OR %s IS NULL` term is required and kept symmetric across projections).
+    "readmodel.rows.resource_summary": (
+        "SELECT r.module_id, r.resource_type, r.resource_count, "
+        "r.total_revisions, r.distinct_hash_count, r.index_pending_count, "
+        "r.last_activity_at, r.source_revision, r.projection_version, r.updated_at "
+        "FROM gptbridge_readmodel.resource_summary r "
+        "JOIN gptbridge_readmodel.projection_version pv "
+        "  ON pv.projection_name = %s AND pv.state = 'active' "
+        " AND pv.projection_version = r.projection_version "
+        "WHERE (r.module_id = %s OR %s IS NULL) "
+        "ORDER BY r.module_id, r.resource_type"
+    ),
+    "readmodel.rows.module_status_summary": (
+        "SELECT m.module_id, m.resource_count, m.transport_queued_count, "
+        "m.transport_pushed_count, m.transport_claimed_count, "
+        "m.transport_completed_count, m.last_resource_activity, "
+        "m.last_transport_activity, m.healthy, m.source_revision, "
+        "m.projection_version, m.updated_at "
+        "FROM gptbridge_readmodel.module_status_summary m "
+        "JOIN gptbridge_readmodel.projection_version pv "
+        "  ON pv.projection_name = %s AND pv.state = 'active' "
+        " AND pv.projection_version = m.projection_version "
+        "WHERE (m.module_id = %s OR %s IS NULL) "
+        "ORDER BY m.module_id"
+    ),
+    "readmodel.rows.transport_status_summary": (
+        "SELECT t.state, t.count, t.oldest_created_at, t.newest_created_at, "
+        "t.last_activity_at, t.source_revision, t.projection_version, t.updated_at "
+        "FROM gptbridge_readmodel.transport_status_summary t "
+        "JOIN gptbridge_readmodel.projection_version pv "
+        "  ON pv.projection_name = %s AND pv.state = 'active' "
+        " AND pv.projection_version = t.projection_version "
+        "WHERE (t.state = %s OR %s IS NULL) "
+        "ORDER BY t.state"
+    ),
+    "readmodel.rows.rag_status_summary": (
+        "SELECT g.module_id, g.chunk_count, g.resource_version_count, "
+        "g.index_state_active_count, g.outbox_pending_count, g.outbox_failed_count, "
+        "g.embedding_model, g.last_indexed_at, g.source_revision, "
+        "g.projection_version, g.updated_at "
+        "FROM gptbridge_readmodel.rag_status_summary g "
+        "JOIN gptbridge_readmodel.projection_version pv "
+        "  ON pv.projection_name = %s AND pv.state = 'active' "
+        " AND pv.projection_version = g.projection_version "
+        "WHERE (g.module_id = %s OR %s IS NULL) "
+        "ORDER BY g.module_id"
+    ),
+    "readmodel.rows.database_status_snapshot": (
+        "SELECT d.projection_version, d.workspace, d.pg_version, d.db_size_bytes, "
+        "d.schema_count, d.table_count, d.rls_enforced_table_count, "
+        "d.resource_count, d.transport_count, d.audit_last_24h_count, "
+        "d.chunk_count, d.lineage_node_count, d.source_revision, d.updated_at "
+        "FROM gptbridge_readmodel.database_status_snapshot d "
+        "JOIN gptbridge_readmodel.projection_version pv "
+        "  ON pv.projection_name = %s AND pv.state = 'active' "
+        " AND pv.projection_version = d.projection_version "
+        "ORDER BY d.projection_version DESC LIMIT 1"
+    ),
+    "readmodel.lag": (
+        "SELECT projection_name, projection_revision, authority_revision, "
+        "revision_lag, lag_seconds, watermark_unit, status, refreshed_at "
+        "FROM gptbridge_readmodel.get_projection_lag(%s)"
+    ),
+    "readmodel.refresh": (
+        "SELECT gptbridge_readmodel.refresh_projection(%s)"
+    ),
+    "readmodel.start_build": (
+        "SELECT gptbridge_readmodel.start_projection_build(%s)"
+    ),
+    "readmodel.compute": (
+        "SELECT gptbridge_readmodel.compute_projection_rows(%s, %s)"
+    ),
+    "readmodel.publish": (
+        "SELECT gptbridge_readmodel.publish_projection_build(%s, %s)"
+    ),
+    "readmodel.drop": (
+        "SELECT gptbridge_readmodel.drop_projection(%s)"
+    ),
+    "readmodel.watermark": (
+        "SELECT gptbridge_readmodel.watermark_for(%s)"
+    ),
+
+    # --- RAG capacity governance (migration 088) ---
+    "ragpolicy.current": (
+        "SELECT gptbridge_ragpolicy.current_capacity_policy()"
+    ),
+    "ragpolicy.upsert": (
+        "SELECT gptbridge_ragpolicy.upsert_capacity_policy("
+        "%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    ),
+    "ragpolicy.queue.set": (
+        "SELECT gptbridge_ragpolicy.set_queue_state(%s, %s, %s, %s)"
+    ),
+    "ragpolicy.queue.admit": (
+        "SELECT gptbridge_ragpolicy.queue_admission(%s, %s, %s)"
+    ),
+    "ragpolicy.phase_latency.record": (
+        "SELECT gptbridge_ragpolicy.record_phase_latency(%s, %s, %s)"
+    ),
+    "ragpolicy.trace.record": (
+        "SELECT gptbridge_ragpolicy.record_retrieval_trace("
+        "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    ),
+    "ragpolicy.generation.init": (
+        "SELECT gptbridge_ragpolicy.initialize_generation(%s, %s, %s, %s)"
+    ),
+    "ragpolicy.generation.advance": (
+        "SELECT gptbridge_ragpolicy.advance_generation(%s, %s, %s)"
+    ),
+    "ragpolicy.slo.list": (
+        "SELECT metric_name, target_value, direction, unit, description "
+        "FROM gptbridge_ragpolicy.list_rag_slo()"
+    ),
+    "ragpolicy.queue.list": (
+        "SELECT queue_name, state, threshold_depth, current_depth, reason, "
+        "updated_at FROM gptbridge_ragpolicy.queue_state ORDER BY queue_name"
+    ),
+    "ragpolicy.generation.list": (
+        "SELECT generation_id, logical_alias, physical_name, schema_version, "
+        "embedding_model, embedding_dimension, state, initial_points, "
+        "verification_result, alias_swapped_at, error_message, created_at, "
+        "updated_at FROM gptbridge_ragpolicy.qdrant_collection_generation "
+        "ORDER BY created_at DESC LIMIT %s"
+    ),
+    "ragpolicy.trace.list": (
+        "SELECT trace_id, request_id, rag_type, round_no, query, "
+        "rewritten_query, hit_ids, evidence_score, stop_reason, module_ids, "
+        "generation_id, policy_version, created_at "
+        "FROM gptbridge_ragpolicy.retrieval_trace "
+        "WHERE request_id = %s ORDER BY round_no"
+    ),
+    "ragpolicy.latency.list": (
+        "SELECT phase, elapsed_ms, created_at "
+        "FROM gptbridge_ragpolicy.phase_latency "
+        "WHERE request_id = %s ORDER BY phase"
+    ),
 }
 
 QUERY_TEMPLATES: Mapping[str, str] = MappingProxyType(_TEMPLATES)

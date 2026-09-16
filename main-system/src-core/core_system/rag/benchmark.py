@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from ..perf.stats import percentile
+
 _logger = logging.getLogger("gptbridge.rag.benchmark")
 
 
@@ -246,7 +248,7 @@ class RetrievalBenchmark:
             wrong_module_hit_rate=wrong_module / total,
             avg_latency_ms=statistics.mean(latencies) if latencies else 0,
             p50_latency_ms=statistics.median(latencies) if latencies else 0,
-            p95_latency_ms=self._percentile(latencies, 95) if latencies else 0,
+            p95_latency_ms=percentile(latencies, 0.95) if latencies else 0,
         )
 
     @staticmethod
@@ -264,15 +266,6 @@ class RetrievalBenchmark:
         idcg = sum(r / math.log2(i + 2) for i, r in enumerate(ideal_rels))
 
         return dcg / idcg if idcg > 0 else 0.0
-
-    @staticmethod
-    def _percentile(values: list[float], p: float) -> float:
-        """Compute percentile."""
-        if not values:
-            return 0.0
-        sorted_vals = sorted(values)
-        idx = int(len(sorted_vals) * p / 100)
-        return sorted_vals[min(idx, len(sorted_vals) - 1)]
 
     def compare_methods(
         self,

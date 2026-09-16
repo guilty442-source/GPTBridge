@@ -15,7 +15,11 @@ import time
 from pathlib import Path
 
 from .git_repository import GitRepository
+from .merge_precheck import pre_merge_check
+from .merge_queue import MergeQueue
 from .process_lock import LockBusyError, ProcessFileLock
+from .recovery import create_recovery_ref
+from .release_checkpoint import record_checkpoint
 from .self_commit import run_once
 from .worktree_manager import WorktreeManager
 
@@ -86,6 +90,8 @@ def synchronize(
             return "error:worker-diff-check:" + "|".join(invalid_diffs)
 
         main_repo = GitRepository(main["path"])
+        queue = MergeQueue(root)
+        merged_any = False
         for item in worktrees:
             branch = _branch_name(item.get("branch", ""))
             if not branch or branch in {"HEAD", "main"}:
@@ -93,17 +99,57 @@ def synchronize(
             ancestor = main_repo.run(["merge-base", "--is-ancestor", branch, "main"])
             if ancestor.returncode == 0:
                 continue
+            worker_id = Path(item["path"]).name
+            source_sha = main_repo.run(["rev-parse", branch]).stdout.strip()
+            base_sha = main_repo.run(["rev-parse", "main"]).stdout.strip()
+            existing = queue.find_entry(branch, source_sha)
+            if existing and existing.get("status") in {"conflicted", "blocked", "failed"}:
+                return f"conflict:{branch}:retry-blocked"
+            entry = existing or queue.enqueue(
+                worker_id,
+                branch,
+                source_sha,
+                base_main_commit=base_sha,
+                escalated_by=SYNC_ACTOR,
+            )
+            if entry.get("status") == "error":
+                return f"error:merge-queue:{entry.get('detail', 'enqueue-failed')}"
+            queue.mark_running(entry["queue_id"])
+
+            precheck = pre_merge_check(main_repo, source_sha, target="main")
+            if not precheck["has_ancestor"]:
+                queue.mark_blocked(entry["queue_id"], "no-common-ancestor")
+                return f"conflict:{branch}:no-merge-base"
+            if not precheck["diff_check_clean"]:
+                queue.mark_conflicted(entry["queue_id"], "diff-check-failed")
+                return f"conflict:{branch}:diff-check"
+
+            recovery_ref = create_recovery_ref(
+                main_repo, entry["queue_id"], target="main", actor=SYNC_ACTOR
+            )
             merged = main_repo.run(
-                ["merge", "--no-edit", branch],
+                ["merge", "--no-edit", source_sha],
                 confirmed=True,
                 actor=SYNC_ACTOR,
             )
             if merged.returncode != 0:
                 main_repo.run(["merge", "--abort"], confirmed=True, actor=SYNC_ACTOR)
+                queue.mark_conflicted(
+                    entry["queue_id"], f"merge-failed; recovery={recovery_ref}"
+                )
                 return f"conflict:{branch}"
+            merged_any = True
+            queue.mark_merged(
+                entry["queue_id"], f"merged {source_sha} into main; recovery={recovery_ref}"
+            )
 
         if not _audit_passes(main["path"]):
             return "error:integrated-main-governance-audit"
+
+        if merged_any:
+            record_checkpoint(
+                main["path"], audit_result="pass", actor=SYNC_ACTOR
+            )
 
         for item in worktrees:
             branch = _branch_name(item.get("branch", ""))

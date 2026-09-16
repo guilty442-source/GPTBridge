@@ -146,6 +146,13 @@ def _normalize(value: Any) -> Any:
 FORMAL_RULE_REGISTRY = "formal_rule_registry"
 FORMAL_RULE_MAPPING = "formal_rule_mapping"
 
+# A rule leaves enforcement only through an explicit terminal lifecycle; a
+# rule declared with parity debt (``declared-pending-evaluator-parity``)
+# remains in force and still requires a machine evaluator (A445).
+_TERMINAL_RULE_STATUSES = frozenset(
+    {"retired", "superseded", "withdrawn", "inactive"}
+)
+
 
 def _registry_rows(
     connection: sqlite3.Connection, table: str
@@ -167,7 +174,18 @@ class FormalRuleSet:
     mappings: tuple[dict[str, str], ...] = ()
 
     def active_rules(self) -> tuple[FormalRule, ...]:
-        return tuple(rule for rule in self.rules if rule.status == "active")
+        """In-force rules: every row whose lifecycle is not terminal.
+
+        Declared rules awaiting evaluator parity are still in force — the
+        evaluator is required and a rule without one is never treated PASS
+        (A445 FORBID:missing-formal-rule-treated-PASS).  Filtering on a
+        single historic status value would silently disable enforcement.
+        """
+        return tuple(
+            rule
+            for rule in self.rules
+            if str(rule.status).strip().lower() not in _TERMINAL_RULE_STATUSES
+        )
 
     def rule(self, rule_code: str) -> FormalRule | None:
         for rule in self.rules:
@@ -183,6 +201,13 @@ class FormalRuleSet:
         )
 
 
+def _ensure_evaluators_loaded() -> None:
+    """Ensure evaluator module is loaded and registrations finalized."""
+    if not _EVALUATORS:
+        import governance_rule.execution.formal_rules.evaluators as evaluators_module
+        evaluators_module.finalize_registrations()
+
+
 def load_formal_rules(
     database: Path = CODEX_DATABASE_PATH,
 ) -> FormalRuleSet:
@@ -192,6 +217,7 @@ def load_formal_rules(
     unreadable state the set degrades to empty (fail-closed callers treat
     a missing rule as FAIL).
     """
+    _ensure_evaluators_loaded()
     try:
         with codex_readonly_connection(database) as connection:
             rules = tuple(
@@ -317,10 +343,6 @@ def missing_evaluator_codes(ruleset: FormalRuleSet | None = None) -> tuple[str, 
         if rule.rule_code not in _EVALUATORS
     )
 
-
-# Import evaluators at the end so their @register_rule decorators run after
-# ``register_rule`` is defined (avoids a partially-initialised circular import).
-from governance_rule.execution.formal_rules import evaluators as _evaluators  # noqa: E402,F401
 
 __all__ = [
     "FORMAL_RULE_MAPPING",

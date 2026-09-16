@@ -14,18 +14,21 @@ import sys
 import time
 from pathlib import Path
 
+from .audit_chain import chained_audit_log
+from .branch_policy import normalize_branch
 from .automation_supervisor_state import (
     SUPERVISOR_ACTOR,
     SUPERVISOR_LOCK,
     _branch_of,
     _lock_is_active_here,
+    _read_registry,
     _setup_logging,
     _state_dir,
     _terminate_tree,
     _write_registry,
 )
 from .git_repository import GitRepository
-from .process_lock import LockBusyError, ProcessFileLock
+from .process_lock import LockBusyError, ProcessFileLock, pid_alive
 from .worktree_manager import WorktreeManager
 from .workspace_sync import synchronize
 
@@ -102,6 +105,20 @@ def _spawn_watcher(
     return _Watcher(worktree, branch, process, log_path)
 
 
+def _jittered_debounce(base: float, salt: str) -> float:
+    """Commit-storm control (spec 92): deterministic jitter around the base.
+
+    Keeps watchers from all firing in the same second after their debounce
+    expires simultaneously.  The jitter is a stable hash of the branch name,
+    so it never changes governance semantics — it only staggers I/O peaks.
+    """
+    import hashlib
+
+    digest = hashlib.sha256(salt.encode("utf-8")).hexdigest()
+    spread = int(digest[:8], 16) % 26  # 0..25 seconds
+    return max(1.0, base + float(spread))
+
+
 def supervise(
     root: str | Path,
     *,
@@ -145,8 +162,19 @@ def _refresh_watchers(
     watch_interval: float,
     debounce: float,
 ) -> None:
-    """Reconcile supervised watchers with the live worktree list."""
-    worktrees = manager.list_worktrees()
+    """Reconcile supervised watchers with the live worktree list.
+
+    The main checkout is never supervised by a self-commit watcher
+    (acceptance §35 / A163: main is integration-only — only the
+    coordinator may commit there via governed merges).
+    """
+    root_resolved = Path(root).resolve()
+    worktrees = [
+        item
+        for item in manager.list_worktrees()
+        if Path(item["path"]).resolve() != root_resolved
+        and normalize_branch(item.get("branch", "")) != "main"
+    ]
     known = {Path(item["path"]).resolve() for item in worktrees}
 
     for watcher_path in list(watchers):
@@ -155,6 +183,8 @@ def _refresh_watchers(
 
     for item in worktrees:
         resolved = str(Path(item["path"]).resolve())
+        branch = _branch_of(root, resolved)
+        effective_debounce = _jittered_debounce(debounce, branch)
         existing = watchers.get(resolved)
         if existing is not None:
             if existing.alive():
@@ -167,16 +197,15 @@ def _refresh_watchers(
                            existing.process.pid, resolved)
             _terminate_tree(existing.process.pid)
             watcher = _spawn_watcher(
-                root, resolved, _branch_of(root, resolved),
-                directory, watch_interval, debounce,
+                root, resolved, branch,
+                directory, watch_interval, effective_debounce,
             )
             watcher.restarts = existing.restarts + 1
             watchers[resolved] = watcher
             continue
-        branch = _branch_of(root, resolved)
         watcher = _spawn_watcher(
             root, resolved, branch, directory,
-            watch_interval, debounce,
+            watch_interval, effective_debounce,
         )
         watchers[resolved] = watcher
         logger.info("spawned watcher pid=%d %s (%s)",
@@ -204,6 +233,60 @@ def _run_sync_cycle(
     return last_sync_at
 
 
+def _startup_reconciliation(
+    root: str | Path,
+    manager: WorktreeManager,
+    logger: logging.Logger,
+) -> None:
+    """Crash recovery: never trust the registry left by a dead supervisor.
+
+    Read registry -> verify PID liveness -> verify worktree/branch mapping
+    -> verify lock ownership -> audit stale entries -> rebuild watcher
+    mapping (done by the normal refresh afterwards).  Missing PIDs are
+    audited as STALE_PROCESS_DETECTED, not silently dropped.
+    """
+    chained_audit_log(
+        1, "supervisor startup reconciliation", SUPERVISOR_ACTOR, True,
+        "RECOVERY_STARTED", operation="supervisor-recovery",
+        phase="result", result="started",
+    )
+    previous = _read_registry(root)
+    stale: list[int] = []
+    if previous:
+        known = {
+            str(Path(item["path"]).resolve())
+            for item in manager.list_worktrees()
+        }
+        for child in previous.get("children", []):
+            pid = int(child.get("pid", 0) or 0)
+            worktree = str(child.get("worktree", ""))
+            alive = bool(pid) and pid_alive(pid)
+            registered = (
+                str(Path(worktree).resolve()) in known if worktree else False
+            )
+            if pid and not alive:
+                stale.append(pid)
+                chained_audit_log(
+                    1, "supervisor stale watcher", SUPERVISOR_ACTOR, True,
+                    f"STALE_PROCESS_DETECTED pid={pid} worktree={worktree}",
+                    operation="supervisor-recovery",
+                    phase="result", result="stale-process",
+                )
+            elif not registered:
+                chained_audit_log(
+                    1, "supervisor orphan watcher", SUPERVISOR_ACTOR, True,
+                    f"ORPHAN_WATCHER pid={pid} worktree={worktree}",
+                    operation="supervisor-recovery",
+                    phase="result", result="orphan-watcher",
+                )
+    chained_audit_log(
+        1, "supervisor startup reconciliation", SUPERVISOR_ACTOR, True,
+        f"RECOVERY_COMPLETED stale={stale}",
+        operation="supervisor-recovery", phase="result", result="completed",
+    )
+    logger.info("startup reconciliation done (stale=%s)", stale)
+
+
 def _initial_registry(
     *,
     sync_interval: float,
@@ -214,6 +297,7 @@ def _initial_registry(
     return {
         "pid": os.getpid(),
         "started_at": time.time(),
+        "state": "RUNNING",
         "sync_interval": sync_interval,
         "health_interval": health_interval,
         "commit_dirty": commit_dirty,
@@ -223,6 +307,121 @@ def _initial_registry(
         "sync_cycles": 0,
         "children": [],
     }
+
+
+def _health_surfaces(root: str | Path) -> dict[str, object]:
+    """Extended supervisor health: central, hooks, queue, audit, claims."""
+    health: dict[str, object] = {}
+    try:
+        from .central import tri_state
+        from .merge_queue import MergeQueue
+        from .server_hooks import server_hook_health
+        from . import audit_chain
+
+        state = tri_state(root)
+        health["central"] = {
+            "state": state["state"],
+            "local_main_sha": state["local_main_sha"],
+            "central_main_sha": state["central_main_sha"],
+            "origin_main_sha": state["origin_main_sha"],
+        }
+        hooks = server_hook_health(root)
+        health["server_hook_health"] = hooks["server_hook_health"]
+        health["central_write_enabled"] = hooks["central_write_enabled"]
+        health["merge_queue"] = MergeQueue(root).stats()
+        health["audit"] = audit_chain.chain_health()
+        try:
+            from .claims import ClaimRegistry
+
+            registry = ClaimRegistry(root)
+            health["active_claims"] = len(registry.active())
+        except Exception:
+            health["active_claims"] = "unavailable"
+        timeouts_path = _state_dir(root) / "git-timeouts.json"
+        if timeouts_path.is_file():
+            import json as _json
+
+            try:
+                health["timed_out_git_operations"] = _json.loads(
+                    timeouts_path.read_text(encoding="utf-8")
+                ).get("timed_out_git_operations", 0)
+            except (OSError, _json.JSONDecodeError):
+                health["timed_out_git_operations"] = "unreadable"
+        else:
+            health["timed_out_git_operations"] = 0
+    except Exception as exc:
+        health["health_error"] = type(exc).__name__
+    return health
+
+
+def _deep_health_surfaces(root: str | Path) -> dict[str, object]:
+    """DEEP_HEALTH (spec 88): low-frequency, heavier integrity checks.
+
+    Deliberately NOT run in the 20s health cycle: fsck, commit-graph verify,
+    multi-pack-index verify, object database domain checks and ref pressure.
+    """
+    deep: dict[str, object] = {}
+    try:
+        from .git_repository import GitRepository
+        from .git_perf import snapshot as perf_snapshot
+        from . import git_cache
+
+        repo = GitRepository(root)
+        git_dir = repo.run(["rev-parse", "--git-dir"]).stdout.strip()
+        resolved = Path(git_dir)
+        if not resolved.is_absolute():
+            resolved = Path(root) / resolved
+        resolved = resolved.resolve()
+        common = repo.run(["rev-parse", "--git-common-dir"]).stdout.strip()
+        common_dir = Path(common)
+        if not common_dir.is_absolute():
+            common_dir = Path(root) / common_dir
+        common_dir = common_dir.resolve()
+
+        graph_dir = common_dir / "objects" / "info" / "commit-graphs"
+        midx = common_dir / "objects" / "pack" / "multi-pack-index"
+        deep["commit_graph"] = {
+            "exists": graph_dir.is_dir()
+            or (common_dir / "objects" / "info" / "commit-graph").exists(),
+            "chain_files": len(
+                list(graph_dir.glob("graph-*.graph"))
+            ) if graph_dir.is_dir() else 0,
+        }
+        deep["midx_exists"] = midx.is_file()
+        fsck = repo.run(["fsck", "--no-dangling"], timeout=120)
+        deep["fsck"] = {
+            "clean": fsck.returncode == 0,
+            "detail": (fsck.stderr or fsck.stdout or "")[:300],
+        }
+        deep["git_perf"] = perf_snapshot(root)
+        deep["ref_pressure"] = _ref_pressure(root, common_dir)
+        deep["cache_entries"] = git_cache.stats()
+    except Exception as exc:
+        deep["deep_error"] = type(exc).__name__
+    return deep
+
+
+def _ref_pressure(root: str | Path, common_dir: Path) -> dict[str, int]:
+    """Ref counts per category (spec 96): local / remote / recovery / codex."""
+    try:
+        from .git_repository import GitRepository
+
+        repo = GitRepository(root)
+        refs = repo.run(["for-each-ref", "--format=%(refname)"]).stdout.splitlines()
+        counts = {
+            "local_branches": sum(r.startswith("refs/heads/") for r in refs),
+            "remote_tracking": sum(r.startswith("refs/remotes/") for r in refs),
+            "recovery": sum(r.startswith("refs/gptbridge/recovery/") for r in refs),
+            "temporary": sum(
+                r.startswith(("refs/gptbridge/tmp/", "refs/workers/")) for r in refs
+            ),
+            "codex": sum(r.startswith("refs/codex/") for r in refs),
+            "tags": sum(r.startswith("refs/tags/") for r in refs),
+            "total": len(refs),
+        }
+        return counts
+    except Exception:
+        return {}
 
 
 def supervise_loop(
@@ -240,6 +439,7 @@ def supervise_loop(
 ) -> None:
     """Run the supervision loop.  The caller owns ``lock_path``."""
     manager = WorktreeManager(GitRepository(root))
+    _startup_reconciliation(root, manager, logger)
     registry = _initial_registry(
         sync_interval=sync_interval,
         health_interval=health_interval,
@@ -248,30 +448,60 @@ def supervise_loop(
     )
     watchers: dict[str, _Watcher] = {}
     last_sync_at = time.time()
+    last_health_at = 0.0
+    last_deep_health_at = 0.0
     logger.info("supervisor started pid=%d root=%s", os.getpid(), root)
 
     while True:
         try:
-            _refresh_watchers(
-                root, manager, watchers, directory, logger,
-                watch_interval, debounce,
-            )
+            # Graceful shutdown: stop file removal (or foreign lock owner)
+            # -> DRAINING: no new merges, finish the current critical
+            # section, stop watchers, flush, write final state, exit.
+            if not lock_path.exists() or not _lock_is_active_here(lock_path):
+                if registry.get("state") != "DRAINING":
+                    registry["state"] = "DRAINING"
+                    logger.info("stop requested; draining")
+            draining = registry.get("state") == "DRAINING"
 
-            if time.time() - last_sync_at >= sync_interval:
-                last_sync_at = _run_sync_cycle(
-                    root, registry, logger,
-                    commit_dirty=commit_dirty, push=push,
+            if not draining:
+                _refresh_watchers(
+                    root, manager, watchers, directory, logger,
+                    watch_interval, debounce,
                 )
+                if time.time() - last_sync_at >= sync_interval:
+                    last_sync_at = _run_sync_cycle(
+                        root, registry, logger,
+                        commit_dirty=commit_dirty, push=push,
+                    )
+
+            if time.time() - last_health_at >= max(60.0, health_interval * 3):
+                registry["health"] = _health_surfaces(root)
+                last_health_at = time.time()
+
+            # DEEP_HEALTH (spec 88): heavy integrity checks at low frequency
+            # (fsck / commit-graph / midx / ref pressure).  p95 of the 20s
+            # health cycle must never run fsck.
+            if time.time() - last_deep_health_at >= max(3600.0, sync_interval * 60):
+                registry["deep_health"] = _deep_health_surfaces(root)
+                last_deep_health_at = time.time()
 
             registry["children"] = [w.to_dict() for w in watchers.values()]
             _write_registry(directory, registry)
 
-            if not lock_path.exists() or not _lock_is_active_here(lock_path):
-                logger.info("stop requested; shutting down")
+            if draining:
+                logger.info("draining complete; shutting down")
                 break
         except Exception as exc:  # never let the supervisor die silently
             logger.error("supervisor loop error: %s", type(exc).__name__)
         time.sleep(health_interval)
+
+    registry["state"] = "STOPPED"
+    registry["stopped_at"] = time.time()
+    registry["children"] = []
+    try:
+        _write_registry(directory, registry)
+    except OSError:
+        pass
     for watcher in watchers.values():
         _terminate_tree(watcher.process.pid)
     logger.info("supervisor stopped")

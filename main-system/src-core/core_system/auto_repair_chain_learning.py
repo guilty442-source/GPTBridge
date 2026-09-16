@@ -240,7 +240,12 @@ class RepairLearningStore:
         """Get all learned recipes."""
         with sqlite3.connect(self._db_path, timeout=10) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute("SELECT * FROM learned_recipes ORDER BY promoted_at DESC")
+            cursor = conn.execute(
+                "SELECT recipe_id, signature_hash, error_class, message_pattern, "
+                "remedy, success_rate, occurrence_count, verification_proof_json, "
+                "promoted_at, promoted_by "
+                "FROM learned_recipes ORDER BY promoted_at DESC"
+            )
             return [dict(row) for row in cursor]
 
 

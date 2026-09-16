@@ -246,6 +246,7 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "123_cache_invalidation_policy.sql",
         "124_data_layer_dependency_graph.sql",
         "125_integration_rule.sql",
+        "126_transport_lease_idempotency_catchup.sql",
     ):
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")

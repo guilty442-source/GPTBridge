@@ -55,6 +55,11 @@ class PipelineRecoveryMixin:
         queue replay + parity + queue-drain verification; failure stays
         bounded at DEGRADED and is surfaced as RECONCILIATION_FAILED.
         No-op outside DEGRADED or while canonical services are down."""
+        if self._blocked_reason:
+            # Hard contract violation (dimension mismatch, non-loopback URL,
+            # unverifiable contract): surface BLOCKED, never self-heal into
+            # RECONCILING/CANONICAL on service health alone.
+            return self.state
         if self.state != RagRuntimeState.DEGRADED:
             return self.state
         if not (self.qdrant.is_healthy() and self.postgresql.is_healthy()):
@@ -359,14 +364,22 @@ class PipelineRecoveryMixin:
             "pipeline_ready": self.is_ready(),
             "state": state.value,
             "effective_state": self._state_machine.effective_state,
+            "gateway_state": self.gateway_state(),
+            "blocked": self._blocked_reason is not None,
+            "blocked_reason": self._blocked_reason,
             "reconciliation_failed": self._state_machine.reconciliation_failed,
-            "canonical": is_canonical,
+            "canonical": is_canonical and self._blocked_reason is None,
             "reconciliation_required": self._state_machine.reconciliation_required,
             "queue_pending": self._queue.pending_count(),
             "queue_complete": self._queue.is_complete(),
             "qdrant": {
                 "healthy": self.qdrant.is_healthy(),
                 "collection": self.config.collection_name,
+                "loopback": getattr(self.qdrant, "last_error", None) is None
+                or not str(getattr(self.qdrant, "last_error", "")).startswith(
+                    "QDRANT_URL_NOT_LOOPBACK"
+                ),
+                "collection_error": getattr(self.qdrant, "collection_error", None),
             },
             "postgresql": {
                 "healthy": self.postgresql.is_healthy(),

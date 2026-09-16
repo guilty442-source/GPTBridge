@@ -286,10 +286,22 @@ class ResilientPostgresStore:
             self._health_check_stop.wait(self._config.health_check_interval)
 
     def _perform_health_check(self) -> None:
-        """Perform a single health check."""
+        """Perform a single health check.
+
+        The base store may expose either a per-call connection factory
+        (``_connect``) or a connection pool (``_get_pool``); probe whichever
+        exists so the health check reflects the real store.
+        """
         try:
-            with self._base_store._connect() as conn:
-                conn.execute("SELECT 1")
+            base = self._base_store
+            connect = getattr(base, "_connect", None)
+            if callable(connect):
+                with connect() as conn:
+                    conn.execute("SELECT 1")
+            else:
+                pool = base._get_pool()
+                with pool.acquire() as conn:
+                    conn.execute("SELECT 1")
             self._health_check_ok = True
         except Exception as exc:
             self._health_check_ok = False

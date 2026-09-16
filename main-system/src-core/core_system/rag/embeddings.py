@@ -34,14 +34,20 @@ class EmbeddingProvider(ABC):
 
 
 class OpenAIEmbeddingProvider(EmbeddingProvider):
-    """OpenAI-compatible embedding provider."""
+    """OpenAI-compatible embedding provider (explicit opt-in only).
+
+    Canonical contract is qwen3-embedding:4b / 2560-dim via the local Ollama
+    runtime; this provider is never a default path and its defaults match
+    the canonical contract so an uninstantiated override can never produce
+    an incompatible-dimension vector for the canonical collection.
+    """
 
     def __init__(
         self,
         api_key: str,
         base_url: Optional[str] = None,
-        model: str = "text-embedding-3-small",
-        dimension: int = 1536,
+        model: str = "qwen3-embedding:4b",
+        dimension: int = 2560,
     ) -> None:
         self._model = model
         self._dimension = dimension
@@ -124,7 +130,12 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
 
 
 class LocalEmbeddingProvider(EmbeddingProvider):
-    """Local sentence-transformers embedding provider (fallback)."""
+    """Local sentence-transformers embedding provider (non-canonical fallback).
+
+    Output dimension follows the loaded model and is NOT the canonical
+    2560-dim contract — this provider may only serve degraded/test paths and
+    must never feed the canonical Qdrant collection.
+    """
 
     def __init__(self, model: str = "all-MiniLM-L6-v2") -> None:
         self._model_name = model

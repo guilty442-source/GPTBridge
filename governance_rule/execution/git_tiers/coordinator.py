@@ -313,6 +313,12 @@ class GitCoordinator:
                 snapshot = _capture_repo_snapshot(PROJECT_ROOT)
                 entry.status = "running"
                 entry.write()
+                from .recovery import create_recovery_ref
+
+                recovery_ref = create_recovery_ref(
+                    self._repo, f"coord-{slot.worker_id}", target=target,
+                    actor=self._actor,
+                )
                 if self._repo.current_branch() != target:
                     entry.status = "failed"
                     entry.detail = f"target worktree is not on {target}"
@@ -386,9 +392,19 @@ class GitCoordinator:
                 entry.status = "merged"
                 entry.detail = (
                     f"merged {slot.branch}@{source_revision} into {target}; "
-                    f"previous target: {snapshot['head_revision']}"
+                    f"previous target: {snapshot['head_revision']}; "
+                    f"recovery: {recovery_ref}"
                 )
                 entry.write()
+                try:
+                    from .release_checkpoint import record_checkpoint
+
+                    record_checkpoint(
+                        PROJECT_ROOT, audit_result="pass",
+                        queue_id=f"coord-{slot.worker_id}", actor=self._actor,
+                    )
+                except Exception:
+                    pass
                 return entry
         except (OSError, PermissionError, RuntimeError) as exc:
             entry.status = "failed"

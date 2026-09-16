@@ -161,8 +161,18 @@ def status(root: str | Path) -> dict[str, object]:
     if registry:
         summary["supervisor_pid"] = registry.get("pid")
         summary["started_at"] = registry.get("started_at")
+        summary["state"] = registry.get("state", "RUNNING" if running else "STOPPED")
         summary["sync_cycles"] = registry.get("sync_cycles", 0)
         summary["last_sync_result"] = registry.get("last_sync_result", "")
         summary["push"] = registry.get("push", False)
         summary["children"] = registry.get("children", [])
+        if isinstance(registry.get("health"), dict):
+            summary["health"] = registry["health"]
+    if "health" not in summary:
+        try:
+            from .automation_supervisor_loop import _health_surfaces
+
+            summary["health"] = _health_surfaces(root)
+        except Exception:
+            pass
     return summary

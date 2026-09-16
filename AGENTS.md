@@ -178,6 +178,121 @@ is in `main-system/runtime/state/resource-governor.json`.
 
 Implementation: `scripts/resource-governor.py`.
 
+## Adaptive SQL Layer
+
+`shared-layer/src/shared_layer/adaptive/` is the bounded, pre-approved control
+layer for the local data platform (admission control, dynamic pool/batch,
+retry, per-domain breakers, maintenance scheduling, cost gate, SQLite
+fallback and Qdrant budgets).  Every adaptive parameter moves only inside
+`AdaptiveEnvelope` (pool 2–8, batch 50–500, reconcile workers 1–2).
+
+Transport priority queue: submissions declare `priority_class`
+(`critical` / `interactive` / `background` / `maintenance`), claim orders by
+`priority_value` then FIFO and skips requests past `deadline_at`
+(migration `058_transport_priority_queue.sql`, wired in `store.py` /
+`store_async.py` and `database/query_allowlist.py`).
+
+Call sites that want adaptive behaviour consult the shared plane:
+
+```python
+from shared_layer.adaptive import get_plane
+
+plane = get_plane()
+plane.observe(LoadSignals(pg_latency_ms=..., transport_backlog=...))
+decision = plane.admit("reconcile", module_id="file-sorter", budget=budget)
+decision = plane.admit_write("index", priority_class, signals)
+retry = plane.retry_for(error, attempt)
+batch, delay, reason = plane.plan_upserts(metadata_pending=..., pending_points=...)
+```
+
+The plane is opt-in and safe before any observation: with no signals it
+answers ALLOW, so wiring a call site never changes behaviour until a signal
+producer feeds `observe()`.  Tests: `shared-layer/tests/test_adaptive_control.py`.
+
+## Access Control Plane
+
+`shared-layer/src/shared_layer/security/` covers identity, connection,
+credential, session, permission, rotation and revocation:
+
+- DSN purpose separation (`runtime` / `reader` / `admin` / `backup`); the
+  admin/backup DSN is unavailable inside a runtime context
+  (`GPTBRIDGE_RUNTIME_CONTEXT=1`) and elevated credentials are hard-blocked
+  from spawned tools (`toolbox_constants._NETWORK_ISOLATION_BLOCKED_ENV`).
+- Short-term session identity: `SessionIdentity` + `apply_session_identity()`
+  bind `gptbridge.actor_id/module_id/request_id/decision_id/correlation_id`
+  transaction-locally via bound `set_config`.
+- Credential metadata only in PostgreSQL (`gptbridge_security.credential`,
+  migration `087_security_identity_control.sql`); plaintext is rejected by
+  `assert_metadata_only`; fingerprints are HMAC-SHA256.
+- Rotation with grace period (create → verify → switch → grace → revoke) and
+  strict emergency revocation (disable → terminate → rotate → raise
+  generation → audit).
+- Security generation fence: sensitive writes fail closed under a stale
+  `gptbridge.security_generation`; raise via
+  `gptbridge_security.raise_security_generation(reason, actor)`.
+- SQLite boundaries (path allowlist + process identity + locator scope +
+  owner-only ACL) and mandatory Qdrant scoping (`require_scope`, module_id
+  always required).
+- Least-privilege certification: `least_privilege_report()` +
+  `certification_errors()` (no SUPERUSER/CREATEDB/CREATEROLE/BYPASSRLS,
+  no PUBLIC grants).
+  Tests: `shared-layer/tests/test_security_control.py`.
+
+## Cross-Engine Workflow (Saga)
+
+`shared-layer/src/shared_layer/workflow/` makes one business operation across
+PostgreSQL + SQLite + Qdrant + NTFS recoverable, re-runnable and verifiable —
+without distributed transactions / 2PC:
+
+- Single-engine work stays in an ACID transaction; multi-engine work runs as
+  a Saga with PostgreSQL as the operation authority
+  (`gptbridge_workflow.operation` / `operation_step`, migration
+  `113_workflow_operation.sql`).
+- Steps are idempotent and checkpoint-resumable; the fixed compensation
+  table maps each step to rollback / compensate / invalidate / supersede /
+  reconcile / append-only (audit appends are never rolled back).
+- Timeouts are resolved by lookup + verify, not treated as failures;
+  exhausted or unknown states end in `REQUIRES_RECONCILE` / `QUARANTINED`.
+- Operations run under leases (`claimed_by` / `lease_until`) so a crashed
+  worker does not leave `RUNNING` forever; long steps heartbeat, short SQL
+  steps do not.
+- Transactional outbox + inbox dedup (at-least-once + idempotent execution;
+  never exactly-once claims). Central transport stays PostgreSQL; SQLite
+  keeps only a module-private fallback that can never declare central
+  completion.
+- Publish barrier: `PREPARING → INDEXING → VERIFYING → READY`; only `READY`
+  is readable, and cross-engine verdicts degrade to `DEGRADED` / `CONFLICT`
+  instead of pretending success.
+- Atomic file writes (`temp → fsync → hash → rename`), tombstone deletes,
+  operation fingerprints (Python/SQL parity), and a guard that forbids
+  cross-engine work inside an open PostgreSQL transaction.
+  Tests: `shared-layer/tests/test_workflow_consistency.py`.
+
+## Architecture Registry (single source of truth)
+
+`governance_rule/execution/audit/architecture_registry.json` is the one
+machine-readable topology authority: every component declares
+`component_id / architectural_role / runtime_form / owner_sovereign /
+owner_sub_sovereign / execution_identity / physical_path / lifecycle /
+canonical / dependencies / information_channels`.
+
+- `architectural_role` (governance / startup / decision / information / data /
+  execution / model / development-maintenance …) is deliberately separate
+  from `runtime_form` (python-process / electron-app / standalone-service /
+  database / external-service …), so "directory", "tool", "module",
+  "service" and "layer" can no longer conflict.
+- Active sovereigns are `decision / permission / system-runtime /
+  synchronization / xingcheng-domain`; retired ones (`maintenance`,
+  `automation`) exist only as compatibility shims and may never own a
+  component.
+- The governance audit runs `check_architecture_registry`: Codex == registry
+  == permission-directory routes == module manifests == sovereign ownership
+  == physical directories, in one pass.  Drift is a failure, not a warning.
+- Do not create a second copy of the topology: docs, manifests and code must
+  reference this registry instead of restating it.
+
+Tests: `governance_rule/tests/test_architecture_registry.py`.
+
 ## Governance
 
 - Codex files (`governance_rule/codex/*.py`) are **read-only** — do not modify without explicit user approval.

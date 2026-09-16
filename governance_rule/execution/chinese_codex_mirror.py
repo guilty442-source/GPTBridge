@@ -1,4 +1,4 @@
-"""Load the single Chinese Codex mirror from its three ordered physical parts."""
+"""Load the single Chinese Codex mirror from its five ordered physical parts."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 
-PART_NAMES = tuple(f"governance_codex.zh-TW.part-{index}.txt" for index in range(1, 4))
+PART_NAMES = tuple(f"governance_codex.zh-TW.part-{index}.txt" for index in range(1, 6))
 
 
 def _canonical(value: object) -> bytes:
@@ -18,7 +18,7 @@ def _canonical(value: object) -> bytes:
 
 
 def load_chinese_codex_parts(codex_root: Path) -> dict[str, Any]:
-    """Validate and assemble the one logical mirror without creating a fourth copy."""
+    """Validate and assemble the one logical mirror from its ordered parts."""
     parts = [
         json.loads((codex_root / name).read_text(encoding="utf-8"))
         for name in PART_NAMES
@@ -31,7 +31,7 @@ def load_chinese_codex_parts(codex_root: Path) -> dict[str, Any]:
     for expected_index, part in enumerate(parts, 1):
         if (
             part.get("part_index") != expected_index
-            or part.get("part_count") != 3
+            or part.get("part_count") != len(PART_NAMES)
             or str(part.get("codex_version")) != version
             or str(part.get("mirror_id")) != mirror_id
             or str(part.get("assembled_payload_hash")) != assembled_hash

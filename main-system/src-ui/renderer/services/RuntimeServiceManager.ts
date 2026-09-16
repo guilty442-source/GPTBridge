@@ -20,7 +20,7 @@ export interface ServiceState {
 }
 
 type ElectronApi = {
-  invoke: (channel: string, ...args: unknown[]) => Promise<any>
+  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>
 }
 
 type AppStatus = {
@@ -142,7 +142,7 @@ export class RuntimeServiceManager {
     // A67 FORBID:stale-status — on transient IPC failure we re-fetch fresh
     // status rather than keeping a stale snapshot indefinitely.
     this.heartbeatTimer = setInterval(async () => {
-      const api = (window as any).electron as ElectronApi | undefined
+      const api = window.electron as ElectronApi | undefined
       if (!api?.invoke) return
       try {
         const status = (await api.invoke('app:get-status')) as AppStatus
@@ -249,12 +249,12 @@ export class RuntimeServiceManager {
 
 export const serviceManager = new RuntimeServiceManager()
 
-async function waitForBackendReady(api: any, timeoutMs = 12000) {
+async function waitForBackendReady(api: ElectronApi, timeoutMs = 12000) {
   const startedAt = Date.now()
-  let lastStatus: any = null
+  let lastStatus: AppStatus | null = null
 
   while (Date.now() - startedAt < timeoutMs) {
-    lastStatus = await api.invoke('app:get-status')
+    lastStatus = (await api.invoke('app:get-status')) as AppStatus
     if (lastStatus?.systemReady) return lastStatus
     await new Promise((resolve) => setTimeout(resolve, 300))
   }
@@ -274,7 +274,10 @@ async function waitForWebSocketReady(timeoutMs = 15000) {
 }
 
 async function inspectPlatformTools(api: ElectronApi) {
-  const result = await api.invoke('app:get-platform-tool-sizes')
+  const result = (await api.invoke('app:get-platform-tool-sizes')) as {
+    ok?: boolean
+    tools?: unknown[]
+  }
   if (!result?.ok || !Array.isArray(result.tools)) {
     throw new Error('Platform tool inventory unavailable')
   }
@@ -282,7 +285,7 @@ async function inspectPlatformTools(api: ElectronApi) {
 }
 
 export async function startStartupPipeline() {
-  const api = (window as any).electron as ElectronApi | undefined
+  const api = window.electron as ElectronApi | undefined
 
   const preloadReady = await serviceManager.registerAndRun(
     'preload',

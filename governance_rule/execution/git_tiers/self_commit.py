@@ -36,6 +36,7 @@ import time
 from pathlib import Path
 
 from . import audit_log
+from .audit_chain import chained_audit_log
 from .git_repository import GitRepository
 from .process_lock import LockBusyError, ProcessFileLock, lock_is_active
 from .worktree_manager import WorktreeManager
@@ -77,14 +78,10 @@ def operation_in_progress(repo: GitRepository) -> bool:
 
 
 def _porcelain(repo: GitRepository) -> dict[str, str]:
-    """Map of {status: path} from `git status --porcelain` (respects ignore)."""
-    result = repo.run(["status", "--porcelain"])
-    entries: dict[str, str] = {}
-    for line in (result.stdout or "").splitlines():
-        if len(line) < 4:
-            continue
-        entries[line[3:].strip()] = line[:2].strip()
-    return entries
+    """Map of {status: path} from porcelain v2 -z (respects ignore)."""
+    from .porcelain import status_v2
+
+    return status_v2(repo, include_branch=False).legacy_map()
 
 
 def _state_fingerprint(repo: GitRepository) -> str:
@@ -167,7 +164,7 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
             actor=actor,
         )
         if commit_result.returncode != 0:
-            audit_log(
+            chained_audit_log(
                 2,
                 "auto-commit fail",
                 actor,
@@ -192,7 +189,7 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
             pass
 
     commit_hash = repo.head()
-    audit_log(
+    chained_audit_log(
         2,
         "auto-commit",
         actor,
@@ -238,6 +235,8 @@ def watch(
     repo = GitRepository(worktree)
     last_state: str = ""
     stable_since: float = 0.0
+    commits_in_window: int = 0
+    window_started: float = time.monotonic()
     print(f"[self-commit] watching {repo.path} "
           f"(interval={interval}s, debounce={debounce}s)", file=sys.stderr)
     while True:
@@ -249,8 +248,21 @@ def watch(
             last_state = state
             stable_since = time.monotonic()
         elif state and (time.monotonic() - stable_since) >= debounce:
-            run_once(repo.path, actor=actor)
+            status = run_once(repo.path, actor=actor)
             last_state = ""
+            window = time.monotonic() - window_started
+            # Adaptive debounce (spec 93): under heavy commit activity the
+            # debounce grows so watchers don't thundering-herd; under quiet
+            # load it shrinks back.  Bounded, never unlimited delay.
+            if status == "committed":
+                commits_in_window += 1
+                if window >= 60.0:
+                    if commits_in_window >= 4:  # busy
+                        debounce = min(debounce * 1.5, 300.0)
+                    elif debounce > 60.0:  # calm
+                        debounce = max(60.0, debounce * 0.8)
+                    commits_in_window = 0
+                    window_started = time.monotonic()
         elif not state:
             last_state = ""
         time.sleep(interval)

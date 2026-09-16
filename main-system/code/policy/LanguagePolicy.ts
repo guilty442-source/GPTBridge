@@ -72,8 +72,11 @@ export type Layer = 'presentation' | 'channel-api' | 'application-use-case' | 'd
 
 export function getLanguageForFile(filePath: string): Language | null {
   const ext = filePath.substring(filePath.lastIndexOf('.'));
-  for (const [lang, exts] of Object.entries(CANONICAL_EXTENSIONS)) {
-    if (exts.includes(ext as any)) return lang as Language;
+  const entries = Object.entries(CANONICAL_EXTENSIONS) as Array<
+    [Language, readonly string[]]
+  >;
+  for (const [lang, exts] of entries) {
+    if (exts.includes(ext)) return lang;
   }
   return null;
 }
@@ -84,7 +87,8 @@ export function isValidLocation(filePath: string, language: Language): boolean {
 }
 
 export function isCrossLanguageAllowed(from: Language, to: Language): boolean {
-  const forbidden = FORBIDDEN_CROSS_BOUNDARIES[from];
+  const forbidden: readonly string[] | undefined =
+    FORBIDDEN_CROSS_BOUNDARIES[from];
   if (!forbidden) return true;
-  return !forbidden.includes(to as any);
+  return !forbidden.includes(to);
 }

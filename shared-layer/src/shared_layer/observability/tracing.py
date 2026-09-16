@@ -153,27 +153,6 @@ def with_correlation_id(correlation_id: str | None = None) -> Callable[[], str]:
         _correlation_id_var.reset(token)
 
 
-@contextmanager
-def with_correlation_context(context: CorrelationContext) -> None:
-    """Context manager for full correlation context."""
-    cid_token = _correlation_id_var.set(context.correlation_id)
-    ctx_token = _correlation_context_var.set(
-        {
-            "correlation_id": context.correlation_id,
-            "parent_id": context.parent_id,
-            "trace_id": context.trace_id,
-            "span_id": context.span_id,
-            "baggage": context.baggage,
-            "metadata": context.metadata,
-        }
-    )
-    try:
-        yield
-    finally:
-        _correlation_id_var.reset(cid_token)
-        _correlation_context_var.reset(ctx_token)
-
-
 def inject_correlation_headers(headers: dict[str, str]) -> dict[str, str]:
     """Inject current correlation context into headers dict."""
     cid = get_correlation_id()

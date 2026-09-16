@@ -41,12 +41,15 @@ export function readDiskMetrics(
   rootPath: string
 ): { totalBytes: number; freeBytes: number; usagePercent: number } | null {
   try {
-    const stats = fs.statfsSync(rootPath)
-    const blockSize = Number((stats as any).bsize ?? 0)
-    const totalBlocks = Number((stats as any).blocks ?? 0)
-    const freeBlocks = Number(
-      (stats as any).bavail ?? (stats as any).bfree ?? 0
-    )
+    const stats = fs.statfsSync(rootPath) as {
+      bsize?: number
+      blocks?: number
+      bavail?: number
+      bfree?: number
+    }
+    const blockSize = Number(stats.bsize ?? 0)
+    const totalBlocks = Number(stats.blocks ?? 0)
+    const freeBlocks = Number(stats.bavail ?? stats.bfree ?? 0)
 
     if (blockSize <= 0 || totalBlocks <= 0) return null
 

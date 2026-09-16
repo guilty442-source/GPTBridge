@@ -1,15 +1,41 @@
 #!/usr/bin/env python3
+"""Governed server-side pre-receive (A53/E39, A375; task §16).
+
+Installed into the central bare repo's ``hooks/`` by
+``git_tiers.server_hooks``; also usable directly in ``.git/hooks``.
+
+Blocks unless governance authority approves:
+  * ref deletion (any ref)
+  * protected branch deletion / rewrite (branch_policy)
+  * protected tag rewrite (release/*, codex-* namespaces)
+  * non-fast-forward updates (any branch)
+
+Additionally ``main`` accepts ONLY fast-forward updates — non-ff on main
+is denied unconditionally (even with approval, which may only unblock
+*other* Tier-3 refs).
+"""
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(
+    os.environ.get("GPTBRIDGE_PROJECT_ROOT")
+    or Path(__file__).resolve().parents[2]
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from governance_rule.execution.git_tiers import audit_log
+from governance_rule.execution.git_tiers.audit_chain import chained_audit_log as audit_log
+from governance_rule.execution.git_tiers.branch_policy import (
+    is_main,
+    is_protected,
+    is_protected_tag,
+    normalize_branch,
+)
+from governance_rule.execution.git_tiers.git_repository import GitRepository
+
+_REPO = GitRepository(Path(os.environ.get("GIT_DIR", ".")).resolve() if os.environ.get("GIT_DIR") else Path.cwd())
 
 
 def _zero(oid: str) -> bool:
@@ -17,18 +43,16 @@ def _zero(oid: str) -> bool:
 
 
 def _ancestor(old_oid: str, new_oid: str) -> bool:
-    return subprocess.run(
-        ["git", "merge-base", "--is-ancestor", old_oid, new_oid],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    return _REPO.run(
+        ["merge-base", "--is-ancestor", old_oid, new_oid],
+        actor="governance/pre-receive",
     ).returncode == 0
 
 
 def main() -> int:
     actor = os.environ.get("GIT_AUTHOR_NAME", os.environ.get("USERNAME", "unknown"))
     high_risk: list[str] = []
+    main_violations: list[str] = []
     updates: list[str] = []
     for line in sys.stdin:
         fields = line.split()
@@ -37,13 +61,39 @@ def main() -> int:
             return 1
         old_oid, new_oid, ref = fields
         updates.append(ref)
-        if _zero(new_oid):
-            high_risk.append(f"delete:{ref}")
-        elif not _zero(old_oid) and (ref.startswith("refs/tags/") or not _ancestor(old_oid, new_oid)):
-            high_risk.append(f"rewrite:{ref}")
+        deleting = _zero(new_oid)
+        creating = _zero(old_oid)
+        if ref.startswith("refs/heads/"):
+            branch = normalize_branch(ref)
+            if deleting:
+                if is_protected(branch):
+                    high_risk.append(f"protected-branch-delete:{ref}")
+                else:
+                    high_risk.append(f"delete:{ref}")
+            elif not creating and not _ancestor(old_oid, new_oid):
+                if is_main(branch):
+                    main_violations.append(f"non-fast-forward:{ref}")
+                else:
+                    high_risk.append(f"rewrite:{ref}")
+        elif ref.startswith("refs/tags/"):
+            if deleting or not creating:
+                if is_protected_tag(ref):
+                    high_risk.append(f"protected-tag-rewrite:{ref}")
+                else:
+                    high_risk.append(f"tag-rewrite:{ref}")
+        else:
+            if deleting:
+                high_risk.append(f"delete:{ref}")
     approved = os.environ.get("GOVERNANCE_AUTHORITY_APPROVAL", "").casefold() in {
         "1", "true", "yes",
     }
+    if main_violations:
+        audit_log(
+            3, "receive", actor, False, ",".join(main_violations),
+            operation="receive", result="denied",
+        )
+        print("[pre-receive] BLOCKED: main accepts fast-forward only", file=sys.stderr)
+        return 1
     if high_risk and not approved:
         audit_log(3, "receive", actor, False, ",".join(high_risk), operation="receive", result="denied")
         print("[pre-receive] BLOCKED: deletion or history rewrite requires governance approval", file=sys.stderr)

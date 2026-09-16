@@ -21,7 +21,13 @@ from qdrant_client.http.models import PointStruct
 _logger = logging.getLogger("gptbridge.rag")
 
 
-from .rag_qdrant import IndexState, QdrantCanonicalRuntime, RagPipelineConfig, RagQueryResult
+from .rag_qdrant import (
+    IndexState,
+    QdrantCanonicalRuntime,
+    RagPipelineConfig,
+    RagQueryResult,
+    sanitize_payload,
+)
 from .rag_metadata import PostgreSQLMetadataAuthority
 from .pipeline_degraded import DegradedRagPipeline
 from .pipeline_documents import PipelineDocumentsMixin
@@ -83,6 +89,11 @@ class CanonicalRagPipeline(
         self._state_machine = RagRuntimeStateMachine(
             self._queue, self._tombstone, self._outbox
         )
+        # Canonical takeover: sticky hard-contract violation (dimension
+        # mismatch, non-loopback Qdrant URL, unverifiable contract).  While
+        # set the surface state is BLOCKED and canonical reads/writes raise
+        # instead of silently delegating to the degraded backend.
+        self._blocked_reason: Optional[str] = None
 
     @property
     def state(self) -> RagRuntimeState:
@@ -118,11 +129,20 @@ class CanonicalRagPipeline(
         qdrant_ok = await self.qdrant.initialize()
         if qdrant_ok:
             await self.qdrant.ensure_collection()
+        if self.qdrant.collection_error or (
+            self.qdrant.last_error or ""
+        ).startswith("QDRANT_URL_NOT_LOOPBACK"):
+            # Hard contract violation — BLOCKED, never silently degraded.
+            self._blocked_reason = (
+                self.qdrant.collection_error or self.qdrant.last_error
+            )
 
         # Step 2: PostgreSQL metadata authority
         pg_ok = await self.postgresql.initialize()
 
-        self._initialized = qdrant_ok and pg_ok
+        self._initialized = (
+            qdrant_ok and pg_ok and self._blocked_reason is None
+        )
         _logger.info("CanonicalRagPipeline: initialized=%s (qdrant=%s, pg=%s)", self._initialized, qdrant_ok, pg_ok)
 
         # A374: evaluate startup readiness gate.
@@ -145,9 +165,33 @@ class CanonicalRagPipeline(
         )
         return self._initialized
 
+    @property
+    def blocked_reason(self) -> Optional[str]:
+        return self._blocked_reason
+
+    def gateway_state(self) -> str:
+        """Canonical takeover surface state (BOOTSTRAPPING/CANONICAL_READY/
+        DEGRADED_READY/RECONCILING/BLOCKED).  The internal A374 machine keeps
+        exactly four states; this maps them to the governed surface names."""
+        if self._blocked_reason:
+            return "BLOCKED"
+        mapping = {
+            "STARTING": "BOOTSTRAPPING",
+            "CANONICAL": "CANONICAL_READY",
+            "DEGRADED": "DEGRADED_READY",
+            "RECONCILING": "RECONCILING",
+            "RECONCILIATION_FAILED": "DEGRADED_READY",
+        }
+        return mapping.get(self._state_machine.effective_state, "BOOTSTRAPPING")
+
     def is_ready(self) -> bool:
         """A373: Prove Qdrant + PostgreSQL are live path."""
-        return self._initialized and self.qdrant.is_healthy() and self.postgresql.is_healthy()
+        return (
+            self._initialized
+            and self._blocked_reason is None
+            and self.qdrant.is_healthy()
+            and self.postgresql.is_healthy()
+        )
 
     async def index_resource(
         self,
@@ -158,6 +202,8 @@ class CanonicalRagPipeline(
         embedding: list[float],
     ) -> IndexState:
         """Index a resource through the canonical or degraded path depending on state."""
+        if self._blocked_reason:
+            raise RuntimeError(self._blocked_reason)
         await self.attempt_recovery()
         current_state = self.state
         if current_state == RagRuntimeState.DEGRADED:
@@ -188,17 +234,20 @@ class CanonicalRagPipeline(
         content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         point_id = str(uuid.uuid4())
         now_utc = datetime.now(timezone.utc).isoformat()
+        # Payload contract: opaque ids + filterable metadata only — content
+        # and physical locators live in PostgreSQL, never in Qdrant.
         point = PointStruct(
             id=point_id,
             vector=embedding,
-            payload={
-                "resource_id": resource_id,
-                "module_id": module_id,
-                "content": content,
-                "content_hash": content_hash,
-                "indexed_at_utc": now_utc,
-                **metadata,
-            },
+            payload=sanitize_payload(
+                {
+                    "resource_id": resource_id,
+                    "module_id": module_id,
+                    "content_hash": content_hash,
+                    "indexed_at_utc": now_utc,
+                    **metadata,
+                }
+            ),
         )
         await self.qdrant.upsert_points([point])
         index_state = IndexState(
@@ -223,6 +272,8 @@ class CanonicalRagPipeline(
         score_threshold: Optional[float] = None,
     ) -> list[RagQueryResult]:
         """Query through the canonical or degraded RAG path depending on state."""
+        if self._blocked_reason:
+            raise RuntimeError(self._blocked_reason)
         await self.attempt_recovery()
         current_state = self.state
         if current_state == RagRuntimeState.DEGRADED:
@@ -251,9 +302,18 @@ class CanonicalRagPipeline(
                 return []
 
             pg_metadata, index_states = await self._pg_evidence(qdrant_hits)
+            pg_chunks = await self.postgresql.fetch_chunks_for_points(
+                (module_id,) if module_id else tuple(
+                    str(h.get("payload", {}).get("module_id") or "")
+                    for h in qdrant_hits
+                ),
+                [str(h.get("id")) for h in qdrant_hits],
+            )
 
             # Step 4: Build typed results via Python domain model
-            return self.domain_model.build_typed_result(qdrant_hits, pg_metadata, index_states)
+            return self.domain_model.build_typed_result(
+                qdrant_hits, pg_metadata, index_states, pg_chunks=pg_chunks
+            )
         except Exception as exc:
             _logger.error("CanonicalRagPipeline: canonical query failed: %s", exc)
             # Transition to degraded mode
@@ -301,6 +361,8 @@ class CanonicalRagPipeline(
         Returns payload-shaped records (chunk-level) whose document carries an
         authoritative index_state row; hits without proof are dropped.
         """
+        if self._blocked_reason:
+            raise RuntimeError(self._blocked_reason)
         await self.attempt_recovery()
         if not self.is_ready():
             raise RuntimeError("RAG pipeline not ready")
@@ -312,6 +374,14 @@ class CanonicalRagPipeline(
         )
         if not hits:
             return []
+        # Canonical read barrier: one batch PG lookup proves every hit —
+        # chunk metadata exists, resource is not tombstoned, module scope is
+        # in the governed request scope — and hydrates content from the PG
+        # authority (Qdrant payloads never carry content).
+        chunk_rows = await self.postgresql.fetch_chunks_for_points(
+            tuple(module_ids), [str(hit.get("id")) for hit in hits]
+        )
+        scope = {str(mid) for mid in module_ids}
         proved: list[dict[str, Any]] = []
         for hit in hits:
             payload = hit.get("payload") or {}
@@ -319,13 +389,19 @@ class CanonicalRagPipeline(
             document_resource_id = str(
                 payload.get("document_resource_id") or payload.get("resource_id") or ""
             )
-            if not module_id or not document_resource_id:
+            if not module_id or module_id not in scope or not document_resource_id:
                 continue
+            row = chunk_rows.get(str(hit.get("id")))
+            if row is None:
+                continue  # no canonical chunk metadata / tombstoned
+            if str(row.get("resource_id")) != document_resource_id:
+                continue  # canonical metadata conflicts with the vector hit
             state = await self.postgresql.get_index_state(module_id, document_resource_id)
-            if state is None or str(state.status if hasattr(state, "status") else "indexed") == "tombstoned":
+            if state is None or str(state.status).lower() not in ("indexed", "active"):
                 continue
             record = {
                 **payload,
+                **{key: value for key, value in row.items() if key != "point_id"},
                 "id": str(hit.get("id")),
                 "point_id": str(hit.get("id")),
                 "module_id": module_id,

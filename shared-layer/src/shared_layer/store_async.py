@@ -9,7 +9,13 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from .store_helpers import decode as _decode, normalize_id as _id, encode_json as _json
+from .store_helpers import (
+    _PRIORITY_VALUES,
+    _normalize_priority_class,
+    decode as _decode,
+    normalize_id as _id,
+    encode_json as _json,
+)
 
 
 class PostgresStoreAsyncMixin:
@@ -43,7 +49,8 @@ class PostgresStoreAsyncMixin:
             row = connection.execute(
                 "SELECT request_id, requester_actor, payload FROM gptbridge_transport.tool_request "
                 "WHERE channel_id=%s AND target_tool_id=%s AND status='queued' "
-                "ORDER BY created_at, request_id "
+                "AND (deadline_at IS NULL OR deadline_at > now()) "
+                "ORDER BY priority_value, created_at, request_id "
                 "LIMIT 1 FOR UPDATE SKIP LOCKED",
                 (self._channel_id, _id(target_tool_id)),
             ).fetchone()
@@ -71,25 +78,50 @@ class PostgresStoreAsyncMixin:
         request_id: str,
         target_tool_id: str,
         payload: Any,
+        *,
+        priority_class: str = "interactive",
+        deadline_at: Any = None,
     ) -> None:
         """Async version of submit_request."""
         actor = self._authorize(token, "request", target_tool_id)
+        priority = _normalize_priority_class(priority_class)
         pool = self._get_pool()
         await asyncio.to_thread(
-            self._submit_request_sync, pool, actor, request_id, target_tool_id, payload)
+            self._submit_request_sync,
+            pool,
+            actor,
+            request_id,
+            target_tool_id,
+            payload,
+            priority,
+            deadline_at,
+        )
 
-    def _submit_request_sync(self, pool, actor, request_id, target_tool_id, payload):
+    def _submit_request_sync(
+        self,
+        pool,
+        actor,
+        request_id,
+        target_tool_id,
+        payload,
+        priority: str = "interactive",
+        deadline_at: Any = None,
+    ):
         with pool.acquire() as connection:
             connection.execute(
                 "INSERT INTO gptbridge_transport.tool_request "
-                "(channel_id, request_id, requester_actor, target_tool_id, payload, status, created_at, updated_at) "
-                "VALUES (%s, %s, %s, %s, %s, 'queued', now(), now())",
+                "(channel_id, request_id, requester_actor, target_tool_id, payload, status, "
+                "priority_class, priority_value, deadline_at, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, 'queued', %s, %s, %s, now(), now())",
                 (
                     self._channel_id,
                     _id(request_id),
                     actor,
                     _id(target_tool_id),
                     _json(payload),
+                    priority,
+                    _PRIORITY_VALUES[priority],
+                    deadline_at,
                 ),
             )
             self._notify(connection, request_id)

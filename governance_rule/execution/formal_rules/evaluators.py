@@ -8,51 +8,114 @@ facts are fail-closed by the evaluation engine (never PASS).
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+import importlib
+from typing import Any, Callable, Mapping
 
-from governance_rule.execution.formal_rules import register_rule
+# Store pending registrations to avoid circular import at module load time
+_pending_registrations: list[tuple[str, Callable]] = []
+
+
+def register_rule(rule_code: str):
+    """Decorator that stores registration for later finalization."""
+    def decorator(evaluator: Callable) -> Callable:
+        _pending_registrations.append((rule_code, evaluator))
+        return evaluator
+    return decorator
+
+
+def finalize_registrations() -> None:
+    """Register all pending evaluators with the formal_rules registry.
+
+    This must be called after the formal_rules package is fully initialized.
+    """
+    formal_rules = importlib.import_module("governance_rule.execution.formal_rules")
+    real_register = formal_rules.register_rule
+    for rule_code, evaluator in _pending_registrations:
+        real_register(rule_code)(evaluator)
+    _pending_registrations.clear()
+
 
 # ---------------------------------------------------------------------------
 # RULE_CALL_BOUNDARY (A437)
 # ---------------------------------------------------------------------------
 
 
+_BOUNDARY_NAMESPACES = (
+    "process",
+    "module",
+    "owner",
+    "trust",
+    "principal",
+    "generation",
+    "state_owner",
+)
+
+
 @register_rule("RULE_CALL_BOUNDARY")
 def _call_boundary(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate: all-same (process/module/owner/trust/principal/generation/
-    state owner) and no io/serialization/side-effect -> PURE_INTERNAL_CALL."""
-    identity_keys = (
-        "process",
-        "module",
-        "owner",
-        "trust",
-        "principal",
-        "generation",
-        "state_owner",
-    )
-    identities = {facts.get(key) for key in identity_keys}
-    if len(identities) == 1 and next(iter(identities)) is not None:
-        same_identity = True
+    """Predicate (A437): paired caller/callee fields equal by namespace and no
+    io/serialization/side-effect -> PURE_INTERNAL_CALL.
+
+    Paired facts (``caller.<namespace>`` / ``callee.<namespace>``) compare the
+    two call contexts per namespace.  A flat single-context fact set describes
+    one context shared by both sides.  Missing pair evidence, a changed
+    namespace or any effect classifies as a governed boundary call
+    (fail-closed); names across different namespaces are never compared.
+    """
+    paired = [
+        ns
+        for ns in _BOUNDARY_NAMESPACES
+        if f"caller.{ns}" in facts or f"callee.{ns}" in facts
+    ]
+    if paired:
+        incomplete = [
+            ns
+            for ns in _BOUNDARY_NAMESPACES
+            if f"caller.{ns}" not in facts or f"callee.{ns}" not in facts
+        ]
+        if incomplete:
+            return (
+                False,
+                "GOVERNED_BOUNDARY_CALL",
+                f"incomplete caller/callee evidence for {incomplete}",
+            )
+        changed = [
+            ns
+            for ns in _BOUNDARY_NAMESPACES
+            if facts[f"caller.{ns}"] != facts[f"callee.{ns}"]
+        ]
     else:
-        same_identity = False
-    forbidden_effects = (
+        present = [ns for ns in _BOUNDARY_NAMESPACES if ns in facts]
+        if not present:
+            return (
+                False,
+                "GOVERNED_BOUNDARY_CALL",
+                "no caller/callee identity facts supplied",
+            )
+        if any(facts.get(ns) in (None, "") for ns in present):
+            return (
+                False,
+                "GOVERNED_BOUNDARY_CALL",
+                "identity facts contain empty values",
+            )
+        changed = []
+    effects = (
         bool(facts.get("io")),
         bool(facts.get("serialization")),
         bool(facts.get("side_effect")),
     )
-    no_effects = not any(forbidden_effects)
-    if same_identity and no_effects:
-        return True, "PURE_INTERNAL_CALL", "all-same and no io/serialization/side-effect"
-    diff = [key for key in identity_keys if facts.get(key) is not None]
+    if not changed and not any(effects):
+        return (
+            True,
+            "PURE_INTERNAL_CALL",
+            "caller/callee equal by namespace and no io/serialization/side-effect",
+        )
     reasons = []
-    if not same_identity:
-        reasons.append("identity changed across a boundary")
-    if not no_effects:
+    if changed:
+        reasons.append(f"identity changed across a boundary: {', '.join(changed)}")
+    if any(effects):
         reasons.append("io/serialization/side-effect present")
-    boundary = "cross-boundary" if not same_identity else "side-effect-bearing"
-    decision = "GOVERNED_BOUNDARY_CALL"
-    reason = f"{boundary} ({', '.join(reasons)}) requires governed contract"
-    return False, decision, reason
+    return False, "GOVERNED_BOUNDARY_CALL", "; ".join(reasons)
 
 
 # ---------------------------------------------------------------------------
@@ -60,40 +123,73 @@ def _call_boundary(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 # ---------------------------------------------------------------------------
 
 _CANONICAL_ROLES = {
-    "SOVEREIGN": {"decision", "receipt"},
-    "SUB_SOVEREIGN": {"dispatch", "receipt"},
-    "EXECUTOR": {"execution", "receipt"},
-    "INFORMATION_LAYER": {"receipt"},
-    "PERMISSION_SOVEREIGN": {"validation", "receipt"},
-    "XINGCHENG": {"review", "receipt"},
+    "SOVEREIGN": frozenset({"decision", "receipt"}),
+    "SUB_SOVEREIGN": frozenset({"manage", "dispatch", "receipt"}),
+    "EXECUTOR": frozenset({"execution", "receipt"}),
+    "INFORMATION_LAYER": frozenset({"contract", "status", "receipt"}),
+    "PERMISSION_SOVEREIGN": frozenset({"validation", "receipt"}),
+    # A336/A337/A378: native programming review, whole-system automation
+    # coordination and governed tool invocation/dispatch within 星澄's
+    # privileged institution; mutation still needs scope+authorization.
+    "XINGCHENG": frozenset(
+        {"review", "coordinate", "invocation", "dispatch", "execution", "receipt"}
+    ),
 }
 
 _FORBIDDEN_BY_ROLE = {
-    "SOVEREIGN": {"execution", "dispatch"},
-    "SUB_SOVEREIGN": {"execution", "decision"},
-    "EXECUTOR": {"decision", "dispatch"},
-    "INFORMATION_LAYER": {"decision", "execution", "dispatch"},
-    "PERMISSION_SOVEREIGN": {"execution", "decision", "dispatch"},
-    "XINGCHENG": {"execution", "decision", "dispatch"},
+    "SOVEREIGN": frozenset({"execution", "dispatch"}),
+    "SUB_SOVEREIGN": frozenset({"execution", "decision"}),
+    "EXECUTOR": frozenset({"decision", "dispatch"}),
+    "INFORMATION_LAYER": frozenset({"decision", "execution", "dispatch"}),
+    "PERMISSION_SOVEREIGN": frozenset({"decision", "execution", "dispatch"}),
+    # A378 FORBID: grant/revoke permission, alter Codex, bypass sovereign
+    # decisions — review/coordination never carries decision power.
+    "XINGCHENG": frozenset({"decision"}),
 }
+
+_CAPABILITY_FLAGS = ("decision", "dispatch", "execution", "receipt")
+
+
+def _role_identity_matches(role: str, identity: str) -> bool:
+    """One active request role identity: the identity is the role itself or a
+    role-scoped sub-role activation such as ``XINGCHENG:COORDINATION`` (A438:
+    a component may implement multiple interfaces only under one role identity
+    per request; role mixing inside one execution context is forbidden)."""
+    identity = identity.strip().upper()
+    return identity == role or identity.startswith(role + ":") or identity.startswith(
+        role + "_"
+    ) or identity.startswith(role + "-")
 
 
 @register_rule("RULE_ROLE_SEPARATION")
 def _role_separation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate: operation matches canonical role."""
-    role = str(facts.get("role", "")).upper()
-    operation = str(facts.get("operation", "")).lower()
+    """Predicate (A438): one active request role matches Codex-authorized
+    capability including 星澄 special-law roles."""
+    role = str(facts.get("role", "")).upper().strip()
+    operation = str(facts.get("operation", "")).lower().strip()
     if role not in _CANONICAL_ROLES:
         return False, "FAIL", f"unknown canonical role: {role!r}"
-    if operation in _FORBIDDEN_BY_ROLE.get(role, set()):
+    active_identity = str(facts.get("active_role_identity", "") or "").strip()
+    if active_identity and not _role_identity_matches(role, active_identity):
         return (
             False,
             "FAIL",
-            f"role {role} must not perform operation {operation!r}",
+            f"active role identity {active_identity!r} is not a {role} activation "
+            "(role mixing)",
         )
     allowed = _CANONICAL_ROLES[role]
-    if operation and operation not in allowed:
-        return False, "FAIL", f"role {role} cannot claim operation {operation!r}"
+    forbidden = _FORBIDDEN_BY_ROLE.get(role, frozenset())
+    claims = [operation] if operation else []
+    claims.extend(
+        flag
+        for flag in _CAPABILITY_FLAGS
+        if bool(facts.get(flag)) and flag not in claims
+    )
+    for claim in claims:
+        if claim in forbidden:
+            return False, "FAIL", f"role {role} must not perform operation {claim!r}"
+        if claim not in allowed:
+            return False, "FAIL", f"role {role} cannot claim operation {claim!r}"
     return True, "PASS", f"operation {operation or 'none'} matches role {role}"
 
 
@@ -110,22 +206,39 @@ _CARDINALITY_RULES = {
 
 @register_rule("RULE_IDENTITY_CONVERSION")
 def _identity_conversion(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate: registered resolver yields declared cardinality."""
+    """Predicate (A439): certified current-generation resolver validates
+    registry membership, status, cardinality and receipt."""
     namespace = str(facts.get("input_namespace", "")).strip()
     input_id = str(facts.get("input_id", "") or "").strip()
     generation = facts.get("generation")
+    registry_generation = facts.get("registry_generation")
     registry_hash = str(facts.get("registry_hash", "")).strip()
+    resolver_id = str(facts.get("resolver_id", "") or "").strip()
+    resolver_receipt = facts.get("resolver_receipt")
     output_ids = facts.get("output_ids")
-    if not isinstance(output_ids, (list, tuple)):
-        return False, "FAIL", "output_ids must be a sequence"
     if namespace not in _CARDINALITY_RULES:
         return False, "FAIL", f"unregistered identity namespace {namespace!r}"
     if not input_id:
         return False, "FAIL", "empty input identity"
     if generation is None:
         return False, "FAIL", "registry generation is required (no stale-generation cache)"
+    if registry_generation is None:
+        return False, "FAIL", "registry generation evidence is required (resolver receipt binding)"
+    if str(generation) != str(registry_generation):
+        return (
+            False,
+            "FAIL",
+            f"stale generation: input generation {generation} != registry generation {registry_generation}",
+        )
     if not registry_hash:
         return False, "FAIL", "registry evidence hash is required"
+    if not resolver_id:
+        return False, "FAIL", "certified resolver identity is required"
+    receipt_error = _resolver_receipt_error(resolver_receipt, resolver_id, generation)
+    if receipt_error:
+        return False, "FAIL", receipt_error
+    if not isinstance(output_ids, (list, tuple)):
+        return False, "FAIL", "output_ids must be a sequence"
     low, high = _CARDINALITY_RULES[namespace]
     count = len(output_ids)
     if count < low or (high is not None and count > high):
@@ -136,6 +249,26 @@ def _identity_conversion(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
             f"namespace {namespace} declares {expected} results, got {count}",
         )
     return True, "PASS", f"declared cardinality satisfied for {namespace}"
+
+
+def _resolver_receipt_error(
+    receipt: Any, resolver_id: str, generation: Any
+) -> str:
+    """Validate the resolver receipt binding (A439 receipt, no fabrication)."""
+    if isinstance(receipt, Mapping):
+        receipt_resolver = str(receipt.get("resolver_id", "") or "").strip()
+        if receipt_resolver and receipt_resolver != resolver_id:
+            return "resolver receipt belongs to another resolver"
+        receipt_generation = receipt.get("registry_generation")
+        if receipt_generation is not None and str(receipt_generation) != str(generation):
+            return "resolver receipt generation mismatch"
+        status = str(receipt.get("status", "") or "").strip().lower()
+        if status and status not in {"ok", "valid", "verified", "current", "resolved"}:
+            return f"resolver receipt status {status!r} is not certified"
+        return "" if receipt else "resolver receipt is required"
+    if not str(receipt or "").strip():
+        return "resolver receipt is required"
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -243,32 +376,107 @@ _PIPELINE_STAGES = (
 _REDUCED_STAGES = ("INTAKE", "EXECUTE", "RESULT")
 
 
+def _stage_value(facts: Mapping[str, Any], field: str, stage: str) -> Any:
+    values = facts.get(field)
+    if not isinstance(values, Mapping):
+        return None
+    return values.get(stage)
+
+
+def _stage_contract_error(facts: Mapping[str, Any], stage: str) -> str | None:
+    """One A446 stage contract: owner + input/output schema + timeout +
+    idempotency + fault codes + receipt type."""
+    owner = _stage_value(facts, "stage_owners", stage)
+    if not str(owner or "").strip():
+        return f"{stage} has no stage owner"
+    schemas = _stage_value(facts, "schemas", stage)
+    if (
+        not isinstance(schemas, Mapping)
+        or not str(schemas.get("input", "") or "").strip()
+        or not str(schemas.get("output", "") or "").strip()
+    ):
+        return f"{stage} has no input/output schema"
+    timeout = _stage_value(facts, "timeouts", stage)
+    try:
+        timeout_value = float(timeout)
+    except (TypeError, ValueError):
+        return f"{stage} has no numeric timeout"
+    if timeout_value <= 0:
+        return f"{stage} timeout must be positive"
+    idempotency = _stage_value(facts, "idempotency", stage)
+    if idempotency in (None, "", False):
+        return f"{stage} has no idempotency declaration"
+    faults = _stage_value(facts, "fault_codes", stage)
+    if not isinstance(faults, (list, tuple)) or not faults:
+        return f"{stage} has no fault codes"
+    receipt = _stage_value(facts, "receipts", stage)
+    if not str(receipt or "").strip():
+        return f"{stage} has no receipt type"
+    return None
+
+
+def _stage_order_error(present: list[str], required: tuple[str, ...]) -> str | None:
+    duplicates = sorted({stage for stage in present if present.count(stage) > 1})
+    if duplicates:
+        return f"duplicate stages {duplicates}"
+    missing = [stage for stage in required if stage not in present]
+    if missing:
+        return f"missing stages {missing}"
+    indices = [present.index(stage) for stage in required]
+    if indices != sorted(indices):
+        return f"stages out of order: {present}"
+    return None
+
+
 @register_rule("RULE_EXECUTION_PIPELINE")
 def _execution_pipeline(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate: required stages present for boundary facts."""
+    """Predicate (A446): ordered unique stages validate owners, schemas,
+    timeouts, idempotency, faults, receipts and executor-verifier separation.
+    """
     stages = facts.get("stages")
     side_effect = facts.get("side_effect")
-    operation = str(facts.get("operation", "")).strip()
+    operation = str(facts.get("operation", "")).strip().upper()
     boundary = bool(facts.get("boundary"))
     if not isinstance(stages, (list, tuple)):
         return False, "FAIL", "stages must be a sequence"
-    present = [str(s).upper() for s in stages]
+    present = [str(stage).upper() for stage in stages]
     if boundary or side_effect:
-        missing = [s for s in _PIPELINE_STAGES if s not in present]
-        if missing:
+        order_error = _stage_order_error(present, _PIPELINE_STAGES)
+        if order_error:
             return (
                 False,
                 "FAIL",
-                f"governed mutation requires stages {list(_PIPELINE_STAGES)}, missing {missing}",
+                "governed mutation requires ordered unique "
+                f"{list(_PIPELINE_STAGES)}: {order_error}",
             )
-        return True, "PASS", f"full {len(_PIPELINE_STAGES)}-stage pipeline present"
+        contract_errors = [
+            error
+            for stage in _PIPELINE_STAGES
+            if (error := _stage_contract_error(facts, stage)) is not None
+        ]
+        if contract_errors:
+            return False, "FAIL", "; ".join(contract_errors)
+        verifier = str(facts.get("verifier", "") or "").strip()
+        if not verifier:
+            return False, "FAIL", "independent verifier identity is required"
+        executor = str(
+            facts.get("executor")
+            or _stage_value(facts, "stage_owners", "EXECUTE")
+            or ""
+        ).strip()
+        if executor and executor == verifier:
+            return False, "FAIL", "executor must not verify its own work (A446/A451)"
+        return True, "PASS", f"full {len(_PIPELINE_STAGES)}-stage pipeline validated"
     if operation and operation in _PIPELINE_STAGES and operation not in present:
         return False, "FAIL", f"declared stage {operation} not present in pipeline"
-    reduced_ok = all(stage in present for stage in _REDUCED_STAGES)
-    if reduced_ok:
+    if present == list(_REDUCED_STAGES):
         return True, "PASS", "owner-internal support path uses reduced pipeline"
-    missing = [s for s in _PIPELINE_STAGES if s not in present]
-    return False, "FAIL", f"unrecognised stage set; missing {missing}"
+    return (
+        False,
+        "FAIL",
+        f"unrecognised stage set {present}; expected "
+        f"{list(_PIPELINE_STAGES)} or {list(_REDUCED_STAGES)}",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -406,3 +614,329 @@ def _release_verification(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     if trust_anchor != "VALID":
         return False, "INCOMPLETE_EVIDENCE", f"trust anchor not validated ({trust_anchor!r})"
     return True, "VERIFIED_RELEASE", "technical pass + external signatures + trust anchor"
+
+
+# ---------------------------------------------------------------------------
+# RULE_CODEX_CONVERGENCE_V1 (A77)
+# ---------------------------------------------------------------------------
+
+
+@register_rule("RULE_CODEX_CONVERGENCE_V1")
+def _codex_convergence(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A77): no conflicting active duplicate, dynamic fact encoded
+    only in Article, superseded effective/default-search result, multiple formal
+    owners, unregistered directory, or conflicting closure policy. Unresolved
+    classification or parity evidence is INCOMPLETE_EVIDENCE; otherwise PASS."""
+    conflicts = facts.get("conflicts") or {}
+    active_duplicates = facts.get("active_duplicates") or []
+    dynamic_facts = facts.get("dynamic_facts") or []
+    superseded_results = facts.get("superseded_results") or []
+    formal_owners = facts.get("formal_owners") or []
+    unregistered_dirs = facts.get("unregistered_directories") or []
+    closure_conflicts = facts.get("closure_conflicts") or []
+    classification = str(facts.get("classification", "")).strip()
+    parity_evidence = facts.get("parity_evidence")
+
+    if active_duplicates:
+        return False, "FAIL_CLOSED", f"active duplicates detected: {active_duplicates}"
+    if dynamic_facts:
+        return False, "FAIL_CLOSED", f"dynamic facts outside Article: {dynamic_facts}"
+    if superseded_results:
+        return False, "FAIL_CLOSED", f"superseded results still active: {superseded_results}"
+    if len(formal_owners) > 1:
+        return False, "FAIL_CLOSED", f"multiple formal owners: {formal_owners}"
+    if unregistered_dirs:
+        return False, "FAIL_CLOSED", f"unregistered directories: {unregistered_dirs}"
+    if closure_conflicts:
+        return False, "FAIL_CLOSED", f"conflicting closure policy: {closure_conflicts}"
+    if classification and classification not in ("PASS", "FAIL", "INCOMPLETE_EVIDENCE"):
+        return False, "INCOMPLETE_EVIDENCE", f"unresolved classification: {classification}"
+    if parity_evidence is None:
+        return False, "INCOMPLETE_EVIDENCE", "parity evidence required"
+    return True, "PASS", "codex convergence validated"
+
+
+# ---------------------------------------------------------------------------
+# RULE_DELEGATED_A498_V1 (A498)
+# ---------------------------------------------------------------------------
+
+
+@register_rule("RULE_DELEGATED_A498_V1")
+def _delegated_a498(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A498): machine_schema_registry is sole canonical typed contract
+    registry including field types, nullability, enums, ranges, compatibility,
+    hash, lineage, unknown-field policy. Chinese mirror parts are object/map.
+    CODEX_READ_SESSION_V1.single_use is boolean true. IDENTITY_CONVERSION_V1
+    matches A439 canonical output. IDENTITY_RESOLUTION_EVIDENCE_V1 carries
+    resolver receipt without second output envelope. All 10 formal rule evidence
+    schemas and GATE_EVIDENCE_V1 use versioned canonical IDs and
+    machine_schema_lineage. AUDIT_EVENT_V1 includes redaction_class and A448
+    required set. Technical and certification states are separate required fields.
+    JSON text only as canonical schema descriptor inside normalized registry
+    columns, never as authoritative domain row payload."""
+    registry = facts.get("machine_schema_registry")
+    chinese_mirror = facts.get("chinese_mirror_parts")
+    codex_read_session = facts.get("codex_read_session")
+    identity_conversion = facts.get("identity_conversion")
+    identity_resolution = facts.get("identity_resolution_evidence")
+    formal_rule_schemas = facts.get("formal_rule_evidence_schemas")
+    gate_evidence = facts.get("gate_evidence")
+    audit_event = facts.get("audit_event")
+    json_usage = facts.get("json_text_usage")
+
+    if not registry:
+        return False, "FAIL_CLOSED", "machine_schema_registry missing"
+    if not isinstance(chinese_mirror, Mapping) or not chinese_mirror:
+        return False, "FAIL_CLOSED", "chinese mirror parts must be object/map"
+    if not isinstance(codex_read_session, Mapping):
+        return False, "FAIL_CLOSED", "CODEX_READ_SESSION_V1 missing"
+    if not codex_read_session.get("single_use") is True:
+        return False, "FAIL_CLOSED", "CODEX_READ_SESSION_V1.single_use must be true"
+    if not identity_conversion:
+        return False, "FAIL_CLOSED", "IDENTITY_CONVERSION_V1 missing"
+    if not identity_resolution:
+        return False, "FAIL_CLOSED", "IDENTITY_RESOLUTION_EVIDENCE_V1 missing"
+    if not isinstance(formal_rule_schemas, (list, tuple)) or len(formal_rule_schemas) != 10:
+        return False, "FAIL_CLOSED", "exactly 10 formal rule evidence schemas required"
+    if not gate_evidence:
+        return False, "FAIL_CLOSED", "GATE_EVIDENCE_V1 missing"
+    if not audit_event or "redaction_class" not in audit_event:
+        return False, "FAIL_CLOSED", "AUDIT_EVENT_V1 missing redaction_class"
+    if json_usage and json_usage != "descriptor-only":
+        return False, "FAIL_CLOSED", f"JSON text usage invalid: {json_usage}"
+    return True, "PASS", "A498 delegated contract validated"
+
+
+# ---------------------------------------------------------------------------
+# RULE_DELEGATION_VALIDATION_V1 (A334)
+# ---------------------------------------------------------------------------
+
+
+@register_rule("RULE_DELEGATION_VALIDATION_V1")
+def _delegation_validation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A334): validate in declared order; any mandatory failure denies;
+    replay, expiry, scope expansion deny."""
+    steps = facts.get("validation_steps") or []
+    order = facts.get("declared_order") or []
+    mandatory = facts.get("mandatory_steps") or []
+    replay = facts.get("replay_detected", False)
+    expired = facts.get("expired", False)
+    scope_expansion = facts.get("scope_expansion", False)
+
+    if replay:
+        return False, "FAIL_CLOSED", "replay detected"
+    if expired:
+        return False, "FAIL_CLOSED", "delegation expired"
+    if scope_expansion:
+        return False, "FAIL_CLOSED", "scope expansion not allowed"
+
+    if steps != order:
+        return False, "FAIL_CLOSED", "validation steps out of declared order"
+
+    for step in mandatory:
+        if step not in steps:
+            return False, "FAIL_CLOSED", f"mandatory step missing: {step}"
+        step_result = facts.get(f"step_{step}_result")
+        if step_result != "PASS":
+            return False, "FAIL_CLOSED", f"mandatory step {step} failed: {step_result}"
+
+    return True, "PASS", "delegation validation passed"
+
+
+# ---------------------------------------------------------------------------
+# RULE_EXECUTION_VERIFICATION_SEPARATION_V1 (A446)
+# ---------------------------------------------------------------------------
+
+
+@register_rule("RULE_EXECUTION_VERIFICATION_SEPARATION_V1")
+def _execution_verification_separation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A446): independent verification required operations cannot
+    use executor as sole verifier; missing evidence is incomplete; mismatch fails."""
+    executor = str(facts.get("executor", "")).strip()
+    verifier = str(facts.get("verifier", "")).strip()
+    evidence = facts.get("verification_evidence")
+    operation_requires_verification = bool(facts.get("requires_independent_verification", True))
+
+    if not operation_requires_verification:
+        return True, "PASS", "operation does not require independent verification"
+
+    if not executor:
+        return False, "FAIL_CLOSED", "executor identity required"
+    if not verifier:
+        return False, "FAIL_CLOSED", "verifier identity required"
+    if executor == verifier:
+        return False, "FAIL_CLOSED", "executor must not verify its own work"
+    if evidence is None:
+        return False, "INCOMPLETE_EVIDENCE", "verification evidence required"
+
+    return True, "PASS", "independent verification separation validated"
+
+
+# ---------------------------------------------------------------------------
+# RULE_FILE_OPERATION_RELIABILITY_V1 (A446)
+# ---------------------------------------------------------------------------
+
+
+@register_rule("RULE_FILE_OPERATION_RELIABILITY_V1")
+def _file_operation_reliability(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A446): state-changing file operation requires declared lock,
+    staging, integrity, journal, recovery and final receipt evidence."""
+    operation = str(facts.get("operation", "")).strip()
+    lock = facts.get("lock_evidence")
+    staging = facts.get("staging_evidence")
+    integrity = facts.get("integrity_evidence")
+    journal = facts.get("journal_evidence")
+    recovery = facts.get("recovery_evidence")
+    receipt = facts.get("final_receipt")
+
+    if not operation:
+        return False, "FAIL_CLOSED", "operation type required"
+
+    required = {
+        "lock": lock,
+        "staging": staging,
+        "integrity": integrity,
+        "journal": journal,
+        "recovery": recovery,
+        "receipt": receipt,
+    }
+    missing = [k for k, v in required.items() if not v]
+    if missing:
+        return False, "FAIL_CLOSED", f"missing file operation evidence: {', '.join(missing)}"
+
+    return True, "PASS", f"file operation {operation} reliability validated"
+
+
+# ---------------------------------------------------------------------------
+# RULE_MATURE_CAPABILITY_PRESERVATION_V1 (A77)
+# ---------------------------------------------------------------------------
+
+
+@register_rule("RULE_MATURE_CAPABILITY_PRESERVATION_V1")
+def _mature_capability_preservation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A77): capability removal, degradation, or loss of contract,
+    test, or evidence path without explicit supersession fails."""
+    capability_id = str(facts.get("capability_id", "")).strip()
+    action = str(facts.get("action", "")).strip().lower()
+    supersession = facts.get("explicit_supersession")
+    contract_preserved = facts.get("contract_preserved", False)
+    test_preserved = facts.get("test_preserved", False)
+    evidence_preserved = facts.get("evidence_path_preserved", False)
+
+    if not capability_id:
+        return False, "FAIL_CLOSED", "capability_id required"
+
+    if action in ("remove", "degrade", "loss"):
+        if not supersession:
+            return False, "FAIL_CLOSED", f"capability {capability_id} {action} without explicit supersession"
+        if not (contract_preserved and test_preserved and evidence_preserved):
+            return False, "FAIL_CLOSED", f"capability {capability_id} {action} loses contract/test/evidence"
+
+    return True, "PASS", f"capability {capability_id} preservation validated"
+
+
+# ---------------------------------------------------------------------------
+# RULE_RUNTIME_AUTHORITY_RESOLUTION_V1 (A334)
+# ---------------------------------------------------------------------------
+
+
+@register_rule("RULE_RUNTIME_AUTHORITY_RESOLUTION_V1")
+def _runtime_authority_resolution(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A334): registered active module; exactly one assignment; active
+    parent; valid separated authorities; executor exact match; current
+    generation; no overlap."""
+    module = str(facts.get("module_code", "")).strip()
+    assignment = facts.get("module_assignment")
+    parent = facts.get("parent_sovereign")
+    authorities = facts.get("separated_authorities") or {}
+    executor = str(facts.get("executor", "")).strip()
+    generation = facts.get("generation")
+    overlap = facts.get("authority_overlap", False)
+
+    if not module:
+        return False, "FAIL_CLOSED", "module_code required"
+    if not assignment:
+        return False, "FAIL_CLOSED", "module assignment required"
+    if str(assignment).count(";") > 0:
+        return False, "FAIL_CLOSED", "multiple assignments for module"
+    if not parent:
+        return False, "FAIL_CLOSED", "parent sovereign required"
+    required_auth = {"decision", "permission", "execution", "runtime"}
+    if set(authorities.keys()) != required_auth:
+        return False, "FAIL_CLOSED", f"separated authorities must be exactly {required_auth}, got {set(authorities.keys())}"
+    if not executor:
+        return False, "FAIL_CLOSED", "executor identity required"
+    if generation is None:
+        return False, "FAIL_CLOSED", "current generation required"
+    if overlap:
+        return False, "FAIL_CLOSED", "authority overlap detected"
+
+    return True, "PASS", f"runtime authority for {module} resolved"
+
+
+# ---------------------------------------------------------------------------
+# RULE_SQL_GOVERNANCE_CLOSURE (A516)
+# ---------------------------------------------------------------------------
+
+
+@register_rule("RULE_SQL_GOVERNANCE_CLOSURE")
+def _sql_governance_closure(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A516): PASS only when every required SQL governance root is
+    present and valid, declared_schema_hash equals replayed_schema_hash equals
+    live_introspected_schema_hash, open_findings equals zero and tests pass;
+    missing evidence is INCOMPLETE_EVIDENCE; drift, security excess, chain
+    break or reconciliation violation is FAIL; both non-PASS states deny release."""
+    roots = facts.get("governance_roots") or {}
+    declared_hash = str(facts.get("declared_schema_hash", "")).strip()
+    replayed_hash = str(facts.get("replayed_schema_hash", "")).strip()
+    live_hash = str(facts.get("live_introspected_schema_hash", "")).strip()
+    open_findings = facts.get("open_findings", 0)
+    tests_pass = facts.get("tests_pass", False)
+    drift = facts.get("schema_drift", False)
+    security_excess = facts.get("security_excess", False)
+    chain_break = facts.get("chain_break", False)
+    reconciliation_violation = facts.get("reconciliation_violation", False)
+
+    if not roots:
+        return False, "INCOMPLETE_EVIDENCE", "governance roots evidence required"
+    if not declared_hash or not replayed_hash or not live_hash:
+        return False, "INCOMPLETE_EVIDENCE", "schema hashes required"
+    if declared_hash != replayed_hash or declared_hash != live_hash:
+        return False, "FAIL_CLOSED", "schema hash mismatch: declared != replayed != live"
+    if open_findings != 0:
+        return False, "FAIL_CLOSED", f"open findings: {open_findings}"
+    if not tests_pass:
+        return False, "FAIL_CLOSED", "tests do not pass"
+    if drift or security_excess or chain_break or reconciliation_violation:
+        return False, "FAIL_CLOSED", f"drift={drift} security_excess={security_excess} chain_break={chain_break} reconciliation_violation={reconciliation_violation}"
+
+    return True, "PASS", "SQL governance closure validated"
+
+
+# ---------------------------------------------------------------------------
+# RULE_SQL_MIGRATION_AUTHORITY (A502)
+# ---------------------------------------------------------------------------
+
+
+@register_rule("RULE_SQL_MIGRATION_AUTHORITY")
+def _sql_migration_authority(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A502): current_postgresql_schema_hash equals
+    ordered_verified_migrations_result_hash and directory/catalog parity is
+    exact; otherwise SCHEMA_DRIFT and FAIL_CLOSED."""
+    current_hash = str(facts.get("current_postgresql_schema_hash", "")).strip()
+    migrations_hash = str(facts.get("ordered_verified_migrations_result_hash", "")).strip()
+    directory_parity = facts.get("directory_catalog_parity", False)
+    catalog_parity = facts.get("catalog_parity", False)
+
+    if not current_hash:
+        return False, "FAIL_CLOSED", "current_postgresql_schema_hash required"
+    if not migrations_hash:
+        return False, "FAIL_CLOSED", "ordered_verified_migrations_result_hash required"
+    if current_hash != migrations_hash:
+        return False, "SCHEMA_DRIFT_FAIL_CLOSED", "current schema hash != migrations result hash"
+    if not directory_parity:
+        return False, "SCHEMA_DRIFT_FAIL_CLOSED", "directory parity mismatch"
+    if not catalog_parity:
+        return False, "SCHEMA_DRIFT_FAIL_CLOSED", "catalog parity mismatch"
+
+    return True, "PASS", "SQL migration authority validated"

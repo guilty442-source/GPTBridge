@@ -9,6 +9,21 @@ from pathlib import Path
 from typing import Final
 
 
+def _read_cached(
+    source: Path,
+    read_cache: dict[Path, str] | None,
+) -> str:
+    """Read a source file once per audit run (sub-scans overlap)."""
+    if read_cache is not None:
+        cached = read_cache.get(source)
+        if cached is not None:
+            return cached
+    content = source.read_text(encoding="utf-8")
+    if read_cache is not None:
+        read_cache[source] = content
+    return content
+
+
 def _check_package_layers(
     root: Path,
     package_root: str,
@@ -36,6 +51,8 @@ def _check_shared_layer_sources(
     allowed_prefixes: tuple[str, ...],
     forbidden_terms: tuple[str, ...],
     errors: list[str],
+    *,
+    read_cache: dict[Path, str] | None = None,
 ) -> None:
     """Check shared-layer sources for ownership and forbidden business terms."""
     for source in shared_root.rglob("*.py"):
@@ -46,7 +63,7 @@ def _check_shared_layer_sources(
         ):
             errors.append(f"unowned shared-layer source: {relative}")
         try:
-            content = source.read_text(encoding="utf-8").casefold()
+            content = _read_cached(source, read_cache).casefold()
         except (OSError, UnicodeError) as error:
             errors.append(f"shared-layer source is unreadable: {relative}: {error}")
             continue
@@ -63,6 +80,8 @@ def _check_cross_tool_imports(
     root: Path,
     owned_import_prefixes: dict[str, str],
     errors: list[str],
+    *,
+    read_cache: dict[Path, str] | None = None,
 ) -> None:
     """Check for forbidden cross-tool internal imports.
 
@@ -93,7 +112,7 @@ def _check_cross_tool_imports(
     for source in sources_to_scan:
         relative = source.relative_to(root).as_posix()
         try:
-            content = source.read_text(encoding="utf-8")
+            content = _read_cached(source, read_cache)
         except (OSError, UnicodeError) as error:
             errors.append(f"owned import source is unreadable: {relative}: {error}")
             continue
@@ -114,12 +133,14 @@ def _check_ai_assistant_network(
     assistant_package: Path,
     forbidden_patterns: dict[str, re.Pattern[str]],
     errors: list[str],
+    *,
+    read_cache: dict[Path, str] | None = None,
 ) -> None:
     """Check AI assistant sources for forbidden direct network access."""
     for source in assistant_package.rglob("*.py"):
         relative = source.relative_to(root).as_posix()
         try:
-            content = source.read_text(encoding="utf-8")
+            content = _read_cached(source, read_cache)
         except (OSError, UnicodeError) as error:
             errors.append(f"AI assistant source is unreadable: {relative}: {error}")
             continue
@@ -161,11 +182,13 @@ def _check_main_system_business(
     root: Path,
     forbidden_terms: tuple[str, ...],
     errors: list[str],
+    *,
+    read_cache: dict[Path, str] | None = None,
 ) -> None:
     """Check main-system sources for forbidden business terms and legacy sources."""
     main_ipc = root / "main-system/src-core/ipc/server.py"
     try:
-        main_ipc_source = main_ipc.read_text(encoding="utf-8")
+        main_ipc_source = _read_cached(main_ipc, read_cache)
     except (OSError, UnicodeError) as error:
         errors.append(f"main IPC source is unreadable: {error}")
     else:
@@ -190,7 +213,7 @@ def _check_main_system_business(
     for source in (root / "main-system/src-core").rglob("*.py"):
         relative = source.relative_to(root).as_posix()
         try:
-            content = source.read_text(encoding="utf-8").casefold()
+            content = _read_cached(source, read_cache).casefold()
         except (OSError, UnicodeError) as error:
             errors.append(f"main-system source is unreadable: {relative}: {error}")
             continue

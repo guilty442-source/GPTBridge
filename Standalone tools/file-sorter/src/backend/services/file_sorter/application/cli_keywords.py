@@ -300,17 +300,3 @@ def keyword_matches(file_stem: str, keyword: str) -> bool:
         if not before_is_ascii_word and not after_is_ascii_word:
             return True
         search_from = position + 1
-
-
-
-def unique_destination(destination_dir: Path, file_name: str) -> Path:
-    destination = destination_dir / file_name
-    if not destination.exists():
-        return destination
-
-    source_name = Path(file_name)
-    for index in range(1, 100_000):
-        candidate = destination_dir / f"{source_name.stem}_{index}{source_name.suffix}"
-        if not candidate.exists():
-            return candidate
-    raise FileSorterError(f"無法為同名檔案產生安全名稱：{file_name}")

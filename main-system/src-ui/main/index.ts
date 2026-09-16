@@ -22,6 +22,7 @@ import { registerIpcHandlers } from './ipcHandlers'
 let mainWindow: BrowserWindow | null = null
 let currentUiZoom = 1
 let mainRendererReloadTimer: NodeJS.Timeout | null = null
+let mainBundleRelaunchTimer: NodeJS.Timeout | null = null
 const sourceProduction = !app.isPackaged
 
 if (sourceProduction) {
@@ -198,6 +199,42 @@ function stopMainRendererWatch() {
   }
 }
 
+// A rebuilt main-process bundle (dist-ui/main/index.js) is written in place
+// after `npm run build:app` regenerates it.  Relaunch in-place so the new
+// bundle starts without a visible "close + reopen".  app.relaunch() only
+// re-executes once the current instance exits and app.exit() skips the
+// before-quit contract, so the managed backend is NOT stopped — the fresh
+// instance re-attaches to the running boot_core (A60/A61).
+function startMainBundleWatch() {
+  if (process.env.GPTBRIDGE_RENDERER_DEV_URL) return
+  const mainEntry = path.join(__dirname, 'index.js')
+  if (!fs.existsSync(mainEntry)) return
+  const scheduleRelaunch = () => {
+    if (mainBundleRelaunchTimer) {
+      clearTimeout(mainBundleRelaunchTimer)
+      mainBundleRelaunchTimer = null
+    }
+    mainBundleRelaunchTimer = setTimeout(() => {
+      reportRuntimeEvent('ui.main-bundle-relaunch')
+      app.relaunch()
+      app.exit(0)
+    }, 750)
+  }
+  fs.watchFile(mainEntry, { interval: 500 }, scheduleRelaunch)
+}
+
+function stopMainBundleWatch() {
+  if (mainBundleRelaunchTimer) {
+    clearTimeout(mainBundleRelaunchTimer)
+    mainBundleRelaunchTimer = null
+  }
+  try {
+    fs.unwatchFile(path.join(__dirname, 'index.js'))
+  } catch {
+    // best effort
+  }
+}
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 
 if (!hasSingleInstanceLock) {
@@ -238,6 +275,7 @@ if (!hasSingleInstanceLock) {
       // spawn.  The launcher only spawns boot_core and tracks its liveness.
       await createWindow()
       startMainRendererWatch()
+      startMainBundleWatch()
       reportRuntimeEvent('window.ready')
 
       // Start the backend in the background.  A60: the launcher only spawns
@@ -299,6 +337,7 @@ function shutdownApplication(): void {
     closeAllSessions()
     stopEmbeddedBrowserBridge()
     stopMainRendererWatch()
+    stopMainBundleWatch()
     if (shouldManageBackend) {
       // Backend shutdown is awaited but bounded ?'a stalled graceful stop
       // must never leave the UI running as a detached orphan.

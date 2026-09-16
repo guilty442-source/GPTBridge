@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator, Optional
 
+from urllib.parse import urlparse
+
 import psycopg
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, MatchAny, PayloadSchemaType
@@ -46,6 +48,54 @@ INDEX_STATE_FIELDS = (
     "indexed_at_utc",
 )
 
+# Canonical takeover (RAG-01..07): Qdrant is the dense vector authority only.
+# Payloads may carry opaque ids + filterable metadata — never content or
+# physical locators; PostgreSQL owns content/FTS/locators.
+FORBIDDEN_PAYLOAD_FIELDS = frozenset(
+    {"content", "text", "path", "physical_location", "windows_path", "source"}
+)
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
+
+
+def is_loopback_url(url: str) -> bool:
+    """RAG rule 2: Qdrant is local-owned, local-only — loopback hosts only."""
+    host = (urlparse(str(url)).hostname or "").strip().lower()
+    return host in _LOOPBACK_HOSTS
+
+
+def sanitize_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Strip fields that must never enter the Qdrant canonical payload.
+
+    Removes the five named forbidden fields plus ``source`` (a physical
+    path) and any key that itself denotes a path/location — deterministic,
+    no silent pass-through of caller-supplied keys.
+    """
+    clean: dict[str, Any] = {}
+    for key, value in (payload or {}).items():
+        lowered = str(key).lower()
+        if lowered in FORBIDDEN_PAYLOAD_FIELDS:
+            continue
+        if "path" in lowered or "location" in lowered:
+            continue
+        clean[str(key)] = value
+    return clean
+
+
+def _collection_vector_size(info: Any) -> Optional[int]:
+    """Read the configured vector size off a Qdrant collection info object."""
+    try:
+        vectors = info.config.params.vectors
+    except AttributeError:
+        return None
+    size = getattr(vectors, "size", None)
+    if size is not None:
+        return int(size)
+    if isinstance(vectors, dict) and vectors:
+        first = next(iter(vectors.values()))
+        inner = getattr(first, "size", None)
+        return int(inner) if inner is not None else None
+    return None
+
 
 @dataclass(frozen=True)
 class IndexState:
@@ -61,6 +111,7 @@ class IndexState:
     qdrant_point_id: str
     postgresql_record_id: Optional[str] = None
     generation_id: Optional[str] = None  # A486: bind to index generation
+    status: str = "indexed"  # read barrier: only 'indexed'/'active' may serve
 
 
 @dataclass(frozen=True)
@@ -111,9 +162,20 @@ class QdrantCanonicalRuntime:
         self.client: Optional[QdrantClient] = None
         self._healthy = False
         self._alias_name = config.collection_name  # The logical alias name
+        # Canonical takeover: sticky contract violations surface as BLOCKED.
+        self.collection_error: Optional[str] = None
+        self.last_error: Optional[str] = None
 
     async def initialize(self) -> bool:
         """Initialize Qdrant connection and ensure alias target collection exists."""
+        if not is_loopback_url(self.config.qdrant_url):
+            self.last_error = (
+                f"QDRANT_URL_NOT_LOOPBACK: {self.config.qdrant_url} — the "
+                "canonical vector index is local-owned and loopback-only"
+            )
+            _logger.error("QdrantCanonicalRuntime: %s", self.last_error)
+            self._healthy = False
+            return False
         try:
             self.client = QdrantClient(
                 url=self.config.qdrant_url,
@@ -127,6 +189,7 @@ class QdrantCanonicalRuntime:
             return True
         except Exception as exc:
             _logger.warning("QdrantCanonicalRuntime: initialization failed: %s", exc)
+            self.last_error = str(exc)
             self._healthy = False
             return False
 
@@ -149,6 +212,20 @@ class QdrantCanonicalRuntime:
                     ),
                 )
                 _logger.info("QdrantCanonicalRuntime: created collection %s", self.config.collection_name)
+                return True
+            # Existing collection: verify the vector contract; a dimension
+            # mismatch is a hard INDEX_MISMATCH — never overwrite or silently
+            # fall back onto an incompatible collection.
+            existing_size = _collection_vector_size(
+                self.client.get_collection(self.config.collection_name)
+            )
+            if size > 0 and existing_size is not None and existing_size != size:
+                self.collection_error = (
+                    f"INDEX_MISMATCH:collection={self.config.collection_name} "
+                    f"dimension={existing_size} expected={size}"
+                )
+                _logger.error("QdrantCanonicalRuntime: %s", self.collection_error)
+                return False
             return True
         except Exception as exc:
             _logger.error("QdrantCanonicalRuntime: ensure_collection failed: %s", exc)

@@ -17,6 +17,13 @@ from typing import Any, Optional
 import psycopg
 from psycopg.rows import dict_row
 
+try:
+    from shared_layer.database.lineage import record_qdrant_point
+    LINEAGE_AVAILABLE = record_qdrant_point is not None
+except ImportError:  # pragma: no cover — shared-layer not on this process path
+    LINEAGE_AVAILABLE = False
+    record_qdrant_point = None  # type: ignore[assignment]
+
 _logger = logging.getLogger("gptbridge.rag.outbox")
 
 
@@ -297,6 +304,7 @@ class OutboxWorker:
     async def _apply_event(self, event: OutboxEvent) -> bool:
         """Apply single outbox event to Qdrant."""
         from qdrant_client.http.models import PointStruct
+        from .rag_qdrant import sanitize_payload
 
         if event.operation == OutboxOperation.UPSERT:
             if not event.payload:
@@ -304,9 +312,12 @@ class OutboxWorker:
             point = PointStruct(
                 id=event.payload.get("id", str(uuid.uuid4())),
                 vector=event.payload["vector"],
-                payload=event.payload["payload"],
+                payload=sanitize_payload(event.payload["payload"]),
             )
-            return await self.qdrant.upsert_points([point], generation_id=event.generation_id)
+            success = await self.qdrant.upsert_points([point], generation_id=event.generation_id)
+            if success:
+                self._record_point_lineage(event, point)
+            return success
 
         elif event.operation == OutboxOperation.DELETE:
             return await self.qdrant.delete_resource(
@@ -324,36 +335,47 @@ class OutboxWorker:
             point = PointStruct(
                 id=event.payload.get("id", str(uuid.uuid4())),
                 vector=event.payload["vector"],
-                payload=event.payload["payload"],
+                payload=sanitize_payload(event.payload["payload"]),
             )
-            return await self.qdrant.upsert_points([point], generation_id=event.generation_id)
+            success = await self.qdrant.upsert_points([point], generation_id=event.generation_id)
+            if success:
+                self._record_point_lineage(event, point)
+            return success
 
         _logger.warning("OutboxWorker: unknown operation %s", event.operation)
         return False
 
+    def _record_point_lineage(self, event: OutboxEvent, point: Any) -> None:
+        """Record an applied Qdrant point + embedded_from/indexed_from arcs.
 
-def transactional_upsert_example():
-    """Usage example showing transactional pattern.
-
-    with psycopg.connect(dsn) as conn:
-        with conn.cursor() as cur:
-            # 1. Update canonical metadata
-            cur.execute("UPDATE rag_resources SET ..., updated_at = now() WHERE ...")
-            cur.execute("INSERT INTO rag_index_state ... ON CONFLICT ...")
-
-            # 2. Create outbox event in SAME transaction
-            outbox_repo = OutboxRepository(dsn)
-            outbox_repo.create_event(
-                operation=OutboxOperation.UPSERT,
-                resource_id="res-123",
-                module_id="mod-456",
-                generation_id="gen-20260916-001",
-                content_hash="sha256:...",
-                payload={"id": "...", "vector": [...], "payload": {...}},
-            )
-
-            # 3. Commit - both metadata and outbox atomically persisted
-            conn.commit()
-
-    # Later, OutboxWorker picks up and applies to Qdrant
-    """
+        Best-effort: a lineage failure is only logged and never fails the
+        outbox event.  A stable run_id (the outbox event id) keeps the graph
+        idempotent across retries and reconciles.
+        """
+        if not LINEAGE_AVAILABLE:
+            return
+        try:
+            payload = event.payload or {}
+            meta = payload.get("payload") or {}
+            chunk_id = str(meta.get("chunk_id") or point.id)
+            module_id = event.module_id or meta.get("module_id")
+            resource_id = event.resource_id or meta.get("resource_id")
+            if not module_id or not resource_id:
+                return
+            with psycopg.connect(self.outbox.dsn) as conn:
+                record_qdrant_point(
+                    conn,
+                    point_id=str(point.id),
+                    chunk_id=chunk_id,
+                    module_id=str(module_id),
+                    resource_id=str(resource_id),
+                    generation_id=event.generation_id,
+                    embedding_model=meta.get("embedding_model"),
+                    embedding_dimension=meta.get("embedding_dimension"),
+                    run_id=str(event.event_id),
+                    source_version=payload.get("source_version"),
+                    content_hash=event.content_hash,
+                    metadata={"operation": event.operation.value},
+                )
+        except Exception as exc:
+            _logger.warning("OutboxWorker point lineage not recorded (non-fatal): %s", exc)

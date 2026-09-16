@@ -10,11 +10,15 @@ import ast
 import logging
 import re
 import subprocess
+import sys
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+
+# Windows no-window policy for subprocess
+CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 from .version_control import ChunkManager, DiffResult, VersionController, ResourceState
 
@@ -80,6 +84,7 @@ class GitDiffExtractor:
                 capture_output=True,
                 text=True,
                 check=True,
+                creationflags=CREATE_NO_WINDOW,
             )
             changes = []
             for line in result.stdout.strip().split("\n"):
@@ -125,6 +130,7 @@ class GitDiffExtractor:
                 capture_output=True,
                 text=True,
                 check=True,
+                creationflags=CREATE_NO_WINDOW,
             )
             return result.stdout
         except subprocess.CalledProcessError as e:
@@ -446,6 +452,7 @@ class CodeRAGIndexer:
                 capture_output=True,
                 text=True,
                 check=True,
+                creationflags=CREATE_NO_WINDOW,
             )
             return result.stdout.strip()
         except Exception:
@@ -459,6 +466,7 @@ class CodeRAGIndexer:
                 capture_output=True,
                 text=True,
                 check=True,
+                creationflags=CREATE_NO_WINDOW,
             )
             return result.stdout.strip()
         except Exception:
@@ -508,23 +516,27 @@ class CodeRAGIndexer:
             )
 
             if success:
-                # Upsert to Qdrant
+                # Upsert to Qdrant — payload contract: filterable metadata
+                # only; content/file_path live in PostgreSQL, never Qdrant.
                 from qdrant_client.http.models import PointStruct
+                from .rag_qdrant import sanitize_payload
                 point = PointStruct(
                     id=new_version.version,
                     vector=vector,
-                    payload={
-                        "resource_id": resource_id,
-                        "module_id": module_id,
-                        "content": chunk_content,
-                        "content_hash": content_hash,
-                        "generation_id": generation_id,
-                        "symbol_id": symbol.symbol_id,
-                        "symbol_kind": symbol.kind,
-                        "file_path": symbol.file_path,
-                        "line_start": symbol.line_start,
-                        "line_end": symbol.line_end,
-                    },
+                    payload=sanitize_payload(
+                        {
+                            "resource_id": resource_id,
+                            "module_id": module_id,
+                            "content": chunk_content,
+                            "content_hash": content_hash,
+                            "generation_id": generation_id,
+                            "symbol_id": symbol.symbol_id,
+                            "symbol_kind": symbol.kind,
+                            "file_path": symbol.file_path,
+                            "line_start": symbol.line_start,
+                            "line_end": symbol.line_end,
+                        }
+                    ),
                 )
                 self.qdrant.upsert_points([point], generation_id=generation_id)
 

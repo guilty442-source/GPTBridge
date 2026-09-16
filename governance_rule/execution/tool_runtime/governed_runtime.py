@@ -204,7 +204,7 @@ class GovernedToolRuntime(GovernedRuntimeWorkerMixin, GovernedRuntimeMaintenance
         self.authentication = load_authentication(self.root)
         self._init_channels(channel_modes)
         self._init_token_and_port()
-        self._init_callbacks(startup, shutdown, cancellation, health, idle_cleanup)
+        self._init_callbacks(startup, shutdown, cancellation, executor, health, idle_cleanup)
         self._init_state(self_repair, self_repair_clear_pycache, local_cleanup)
         _assert_sub_sovereign(self)
         self._start_time = time.monotonic()
@@ -253,6 +253,7 @@ class GovernedToolRuntime(GovernedRuntimeWorkerMixin, GovernedRuntimeMaintenance
         startup: Lifecycle | None,
         shutdown: Lifecycle | None,
         cancellation: Cancellation | None,
+        executor: Executor,
         health: Callable[[], dict[str, Any]] | None,
         idle_cleanup: Callable[[], Any] | None,
     ) -> None:

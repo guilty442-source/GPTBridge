@@ -128,9 +128,11 @@ def audit_log(
     returncode: int | None = None,
 ) -> dict[str, object]:
     """Write an audit ledger entry (A46 compliance)."""
-    from .snapshot import _capture_repo_snapshot
+    from .snapshot import capture_light_snapshot
 
-    snapshot = repo_snapshot if repo_snapshot is not None else _capture_repo_snapshot()
+    snapshot = (
+        repo_snapshot if repo_snapshot is not None else capture_light_snapshot()
+    )
     if not operation:
         operation = command.strip().split()[0] if command.strip() else "unknown"
     AUDIT_LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)

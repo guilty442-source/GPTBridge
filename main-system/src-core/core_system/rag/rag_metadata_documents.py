@@ -180,6 +180,79 @@ class RagMetadataDocumentsMixin:
             )
             return None
 
+    async def fetch_chunks_for_points(
+        self,
+        module_ids: tuple[str, ...],
+        point_ids: Sequence[str],
+    ) -> dict[str, dict[str, Any]]:
+        """Canonical read barrier + content hydration for Qdrant hits.
+
+        Returns chunk records keyed by ``qdrant_point_id`` (text).  Only
+        chunks whose resource is not tombstoned/deleted and that carry no
+        authoritative tombstone row are returned — a hit missing from this
+        map can never enter the evidence pool.
+        """
+        if not self._healthy or not self._conn or not module_ids or not point_ids:
+            return {}
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT chunk.qdrant_point_id::text, chunk.chunk_id,
+                              chunk.resource_id, chunk.module_id, chunk.sequence,
+                              chunk.character_start, chunk.character_end,
+                              chunk.metadata AS chunk_metadata,
+                              resource.metadata AS resource_metadata,
+                              resource.index_status
+                       FROM gptbridge_rag.chunk AS chunk
+                       JOIN gptbridge_index.resource AS resource
+                         ON resource.resource_id = chunk.resource_id
+                       WHERE chunk.module_id = ANY(%s)
+                         AND chunk.qdrant_point_id::text = ANY(%s)
+                         AND resource.index_status NOT IN
+                             ('tombstoned', 'deleted', 'purged')
+                         AND NOT EXISTS (
+                             SELECT 1 FROM gptbridge_rag.tombstone AS t
+                             WHERE t.module_id = chunk.module_id
+                               AND t.resource_id = chunk.resource_id
+                               AND t.purged = false
+                         )""",
+                    (list(module_ids), [str(p) for p in point_ids]),
+                )
+                rows = await cur.fetchall()
+            return {
+                str(row[0]): self._chunk_barrier_row(row) for row in rows if row[0]
+            }
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: fetch_chunks_for_points failed: %s",
+                exc,
+            )
+            return {}
+
+    @staticmethod
+    def _chunk_barrier_row(row: Any) -> dict[str, Any]:
+        chunk_meta = row[7] if isinstance(row[7], dict) else {}
+        resource_meta = row[8] if isinstance(row[8], dict) else {}
+        return {
+            "point_id": str(row[0]),
+            "chunk_id": str(row[1]),
+            "resource_id": str(row[2]),
+            "document_resource_id": str(row[2]),
+            "document_id": str(resource_meta.get("document_id") or ""),
+            "module_id": str(row[3]),
+            "sequence": int(row[4]),
+            "character_start": int(row[5]),
+            "character_end": int(row[6]),
+            "title": str(
+                chunk_meta.get("title") or resource_meta.get("title") or ""
+            ),
+            "source": str(
+                resource_meta.get("source") or chunk_meta.get("source") or ""
+            ),
+            "content": str(chunk_meta.get("content") or ""),
+            "resource_status": str(row[9] or ""),
+        }
+
     async def keyword_search(
         self,
         query: str,

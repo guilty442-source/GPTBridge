@@ -8,7 +8,7 @@ without index_state proof are dropped (A373 canonical-takeover).
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from .rag_qdrant import IndexState, RagPipelineConfig, RagQueryResult
 
@@ -26,6 +26,7 @@ class PythonDomainModel:
         qdrant_hits: list[dict[str, Any]],
         pg_metadata: dict[str, dict[str, Any]],
         index_states: dict[str, IndexState],
+        pg_chunks: Optional[dict[str, dict[str, Any]]] = None,
     ) -> list[RagQueryResult]:
         """Build typed domain results from canonical sources."""
         results = []
@@ -45,10 +46,13 @@ class PythonDomainModel:
                 _logger.warning("PythonDomainModel: missing index_state for %s", key)
                 continue
 
+            # Content is authoritative in PostgreSQL; Qdrant payloads never
+            # carry it.  Hydrate from the barrier batch when available.
+            chunk_row = (pg_chunks or {}).get(str(hit.get("id")), {})
             results.append(RagQueryResult(
                 resource_id=resource_id,
                 module_id=module_id,
-                content=payload.get("content", ""),
+                content=str(chunk_row.get("content") or payload.get("content") or ""),
                 score=hit.get("score", 0.0),
                 metadata={**payload, **pg_meta.get("metadata", {})},
                 index_state=index_state,

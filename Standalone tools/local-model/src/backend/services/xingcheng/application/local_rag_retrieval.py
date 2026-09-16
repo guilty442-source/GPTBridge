@@ -235,18 +235,26 @@ class LocalRagRetrievalMixin:
                 route, router, reranker, canonical_ready and not pending_reconciliation
             )
         if payload.get("generate") is False:
+            canonical = canonical_ready and not pending_reconciliation
             return {
                 "ok": True, "answer": "", "response": "", "evidence_sufficient": True,
                 "citations": citations, "retrieved_count": len(citations),
                 "route": route, "router": router, "reranker": reranker,
+                "reranker_fallback": reranker.get("fallback"),
                 "generation_skipped": True,
                 "retrieval": (
                     "canonical-qdrant-dense+postgresql-fts+index-state+rrf"
-                    if canonical_ready and not pending_reconciliation
+                    if canonical
                     else "local-vector-degraded-cache+local-sqlite3-fts+rrf"
                 ),
-                "canonical": canonical_ready and not pending_reconciliation,
+                "canonical": canonical,
                 "canonical_pending_reconciliation": pending_reconciliation,
+                "reconciliation_required": not canonical,
+                "authority": (
+                    "canonical-qdrant-postgresql"
+                    if canonical
+                    else "non-canonical-reconciliation-required"
+                ),
                 "knowledge_base": "shared", "network_used": False,
             }
         return self._answer(
@@ -268,7 +276,15 @@ class LocalRagRetrievalMixin:
             "ok": True, "answer": message, "response": message,
             "evidence_sufficient": False, "citations": [], "retrieved_count": 0,
             "route": route, "router": router, "reranker": reranker,
-            "canonical": canonical, "knowledge_base": "shared",
+            "reranker_fallback": reranker.get("fallback"),
+            "canonical": canonical,
+            "reconciliation_required": not canonical,
+            "authority": (
+                "canonical-qdrant-postgresql"
+                if canonical
+                else "non-canonical-reconciliation-required"
+            ),
+            "knowledge_base": "shared",
             "network_used": False,
         }
 
@@ -350,6 +366,7 @@ class LocalRagRetrievalMixin:
             "evidence_sufficient": True, "citations": citations,
             "retrieved_count": len(citations), "route": route, "router": router,
             "reranker": reranker, "generation_model": generated.get("model"),
+            "reranker_fallback": reranker.get("fallback"),
             "generation_attempts": attempts, "generation": generated,
             "embedding_model": str(self.transformer_runtime.EMBEDDING_MODEL),
             "retrieval": (
@@ -359,6 +376,12 @@ class LocalRagRetrievalMixin:
             ),
             "canonical": canonical_ready,
             "canonical_pending_reconciliation": pending_reconciliation,
+            "reconciliation_required": not canonical_ready,
+            "authority": (
+                "canonical-qdrant-postgresql"
+                if canonical_ready
+                else "non-canonical-reconciliation-required"
+            ),
             "grounding_policy": "shared-retrieved-context-only-with-inline-citations",
             "knowledge_base": "shared", "available_to_all_local_models": True,
             "network_used": False, "remote_model_used": False,
@@ -392,9 +415,9 @@ class LocalRagRetrievalMixin:
             else {"ready": False, "runtime_state": "DEGRADED"}
         )
         runtime_state = str(
-            canonical_status.get("runtime_state") or "DEGRADED"
+            canonical_status.get("runtime_state") or "DEGRADED_READY"
         )
-        canonical_ready = runtime_state == "CANONICAL"
+        canonical_ready = runtime_state in ("CANONICAL", "CANONICAL_READY")
         sub_architectures = (
             "hybrid-rag",
             "code-rag",
@@ -411,6 +434,9 @@ class LocalRagRetrievalMixin:
                 else "bounded-degraded-hybrid-local-rag"
             ),
             "runtime_state": runtime_state,
+            "gateway_state": canonical_status.get("gateway_state", runtime_state),
+            "blocked": bool(canonical_status.get("blocked")),
+            "blocked_reason": canonical_status.get("blocked_reason"),
             "sub_architectures": list(sub_architectures),
             "sub_architecture_valid": arch_valid,
             "codex_basis": "A52/E38+A8/E21+A44/E30+A49/E35+A371-A374",

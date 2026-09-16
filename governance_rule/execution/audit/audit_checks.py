@@ -161,6 +161,7 @@ from .audit_authority import (
     check_tool_isolation_hardening,
 )
 from .audit_activation import check_activation_states
+from .audit_architecture import check_architecture_registry
 from .audit_directories import check_directory_audit
 from .audit_formal_rules import (
     check_formal_rules,
@@ -261,6 +262,7 @@ def audit_runtime_governance(
         lambda r: _collect(check_tool_isolation_hardening, r),
         _manifest_pair,
         lambda r: _collect(check_codex_consistency, r),
+        lambda r: _collect(check_architecture_registry, r),
         lambda r: _collect(check_directory_audit, r),
         lambda r: _collect(check_activation_states, r),
         lambda r: _collect(check_formal_rules, r),
