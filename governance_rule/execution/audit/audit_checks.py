@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,9 +21,12 @@ from .audit_artifacts import (
     check_contract_handshake,
     check_data_lineage,
     check_ddl_audit,
+    check_deletion_coordinator,
     check_embedded_browser,
+    check_generation_fence_helper,
     check_git_tiers,
     check_metadata_contract,
+    check_orphan_scanner,
     check_permission_snapshot,
     check_permission_snapshot_helper,
     check_provenance_helper,
@@ -30,6 +34,9 @@ from .audit_artifacts import (
     check_schema_ownership_lock,
     check_sql_migrations,
     check_sqlite_template,
+    check_sqlite_generation_fence,
+    check_two_stage_deletion,
+    check_workload_class,
     check_write_provenance,
 )
 from .audit_authority import (
@@ -120,6 +127,37 @@ _FINGERPRINT_EXCLUDED_FILES = frozenset(
 def _audit_cache_enabled() -> bool:
     value = str(os.environ.get("GPTBRIDGE_AUDIT_CACHE", "1")).strip().casefold()
     return value not in {"0", "false", "off", "no"}
+
+
+def _audit_workers(check_count: int) -> int:
+    """Pick the audit thread count.
+
+    The checks are a mix of I/O waits and pure-Python scanning; past four
+    workers the GIL hand-off overhead outweighs the parallelism (measured
+    on the 16-thread build machine: 8 workers were ~25% slower than 4).
+    ``GPTBRIDGE_AUDIT_WORKERS`` overrides the default.
+    """
+    override = str(os.environ.get("GPTBRIDGE_AUDIT_WORKERS", "")).strip()
+    if override.isdigit() and int(override) > 0:
+        return max(1, min(int(override), check_count))
+    return max(1, min(4, check_count))
+
+
+def _sweep_stale_temp_files(directory: Path, max_age_seconds: float = 3600.0) -> None:
+    """Remove abandoned atomic-write temp files left by crashed audits."""
+    now = time.time()
+    try:
+        entries = list(os.scandir(directory))
+    except OSError:
+        return
+    for entry in entries:
+        if not entry.name.endswith(".tmp"):
+            continue
+        try:
+            if now - entry.stat().st_mtime > max_age_seconds:
+                os.unlink(entry.path)
+        except OSError:
+            continue
 
 
 def _audit_input_fingerprint(root: Path) -> str | None:
@@ -245,6 +283,7 @@ def audit_runtime_governance(
     only PASS results are ever cached.
     """
     root = project_root.resolve()
+    _sweep_stale_temp_files(Path(__file__).resolve().parent)
 
     fingerprint: str | None = None
     if use_cache and _audit_cache_enabled():
@@ -302,6 +341,12 @@ def audit_runtime_governance(
         lambda r: _collect(check_ddl_audit, r),
         lambda r: _collect(check_contract_handshake, r),
         lambda r: _collect(check_permission_snapshot_helper, r),
+        lambda r: _collect(check_sqlite_generation_fence, r),
+        lambda r: _collect(check_workload_class, r),
+        lambda r: _collect(check_two_stage_deletion, r),
+        lambda r: _collect(check_orphan_scanner, r),
+        lambda r: _collect(check_deletion_coordinator, r),
+        lambda r: _collect(check_generation_fence_helper, r),
         lambda r: _collect(check_embedded_browser, r),
     ]
     if include_self_health:
@@ -312,7 +357,7 @@ def audit_runtime_governance(
     # Executor.map preserves submission order; a check raising is contained
     # as an error entry rather than aborting the remaining checks.
     with ThreadPoolExecutor(
-        max_workers=min(8, len(checks)),
+        max_workers=_audit_workers(len(checks)),
         thread_name_prefix="governance-audit",
     ) as executor:
         results = list(executor.map(lambda check: check(root), checks))

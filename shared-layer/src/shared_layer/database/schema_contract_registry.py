@@ -72,9 +72,11 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "created_at", "updated_at",
             "backend_generation", "stale",
             "authority_class", "executor_id", "correlation_id", "source_revision",
+            "deletion_stage", "tombstoned_at", "purge_after",
         ),
         indexes=("resource_module_category_idx", "resource_status_idx", "resource_metadata_idx",
-                 "resource_authority_class_idx", "resource_correlation_idx", "resource_executor_idx"),
+                 "resource_authority_class_idx", "resource_correlation_idx", "resource_executor_idx",
+                 "resource_deletion_stage_idx"),
     ),
     TableContract(
         schema="gptbridge_index",
@@ -120,6 +122,7 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "parser_version", "rag_schema_version", "pipeline_version",
             "backend_generation",
             "authority_class", "executor_id", "correlation_id",
+            "deletion_stage",
         ),
     ),
     TableContract(
@@ -235,6 +238,23 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "description", "updated_at",
         ),
     ),
+    TableContract(
+        schema="gptbridge_index",
+        table="sqlite_generation",
+        columns=(
+            "module_id", "database_path", "backend_generation",
+            "last_synced_at", "stale", "updated_at",
+        ),
+        indexes=("sqlite_generation_stale_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="workload_class",
+        columns=(
+            "class_name", "pool_owner", "statement_timeout_ms",
+            "lock_timeout_ms", "priority", "description", "updated_at",
+        ),
+    ),
 )
 
 _DECLARED_ROLES: tuple[RoleContract, ...] = (
@@ -253,7 +273,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 24  # 001 through 024
+EXPECTED_MIGRATION_COUNT = 27  # 001 through 027
 
 
 @dataclass

@@ -30,6 +30,15 @@ _LAZY_EXPORTS = {
     "set_migration_executor": ("provenance", "set_migration_executor"),
     "clear_migration_executor": ("provenance", "clear_migration_executor"),
     "capture_snapshot": ("permission_snapshot", "capture_snapshot"),
+    "get_current_generation": ("generation_fence", "get_current_generation"),
+    "bump_generation": ("generation_fence", "bump_generation"),
+    "is_connection_stale": ("generation_fence", "is_connection_stale"),
+    "get_stale_sqlite_databases": ("generation_fence", "get_stale_sqlite_databases"),
+    "upsert_sqlite_generation": ("generation_fence", "upsert_sqlite_generation"),
+    "tombstone": ("deletion_coordinator", "tombstone"),
+    "advance_stage": ("deletion_coordinator", "advance_stage"),
+    "get_purge_eligible": ("deletion_coordinator", "get_purge_eligible"),
+    "scan_orphans": ("orphan_scanner", "scan_orphans"),
 }
 
 __all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]

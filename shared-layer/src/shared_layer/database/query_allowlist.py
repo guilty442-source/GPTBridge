@@ -310,6 +310,43 @@ _TEMPLATES: dict[str, str] = {
         "FROM gptbridge_audit.ddl_event WHERE schema_name = %s "
         "ORDER BY occurred_at DESC LIMIT %s"
     ),
+
+    # --- Workload class (migration 026) ---
+    "workload_class.get": (
+        "SELECT class_name, pool_owner, statement_timeout_ms, lock_timeout_ms, "
+        "priority, description "
+        "FROM gptbridge_index.workload_class WHERE class_name = %s"
+    ),
+    "workload_class.list": (
+        "SELECT class_name, pool_owner, statement_timeout_ms, lock_timeout_ms, priority "
+        "FROM gptbridge_index.workload_class ORDER BY class_name"
+    ),
+
+    # --- Generation fence (migration 016/025) ---
+    "generation.sqlite_stale": (
+        "SELECT module_id, database_path, backend_generation, last_synced_at "
+        "FROM gptbridge_index.sqlite_generation WHERE stale = true "
+        "ORDER BY updated_at"
+    ),
+
+    # --- Two-stage deletion (migration 027) ---
+    "deletion.tombstone": (
+        "SELECT gptbridge_index.tombstone_resource(%s, %s)"
+    ),
+    "deletion.advance": (
+        "SELECT gptbridge_index.advance_deletion_stage(%s)"
+    ),
+    "deletion.purge_eligible": (
+        "SELECT resource_id, module_id, tombstoned_at, purge_after "
+        "FROM gptbridge_index.resource "
+        "WHERE deletion_stage = 'tombstone' AND purge_after IS NOT NULL "
+        "AND now() >= purge_after ORDER BY purge_after LIMIT %s"
+    ),
+    "deletion.by_stage": (
+        "SELECT resource_id, module_id, deletion_stage, tombstoned_at, purge_after "
+        "FROM gptbridge_index.resource WHERE deletion_stage = %s "
+        "ORDER BY tombstoned_at LIMIT %s"
+    ),
 }
 
 QUERY_TEMPLATES: Mapping[str, str] = MappingProxyType(_TEMPLATES)

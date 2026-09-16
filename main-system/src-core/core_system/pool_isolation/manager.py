@@ -33,6 +33,17 @@ class PoolOwner(Enum):
     MODULE_PRIVATE = "module-private"
 
 
+# C3/C4: Workload class → pool owner mapping (migration 026).
+WORKLOAD_CLASS_TO_OWNER: dict[str, PoolOwner] = {
+    "interactive": PoolOwner.CENTRAL_INDEX,
+    "transport": PoolOwner.TRANSPORT,
+    "audit": PoolOwner.AUDIT,
+    "reconciliation": PoolOwner.CENTRAL_INDEX,
+    "maintenance": PoolOwner.CENTRAL_INDEX,
+    "migration": PoolOwner.CENTRAL_INDEX,
+}
+
+
 @dataclass(frozen=True)
 class PoolBudget:
     """A368: Budget limits for a connection pool."""
@@ -221,6 +232,24 @@ class PoolIsolationManager:
         """Get an existing pool."""
         pool_key = f"{owner.value}:{module_id}" if module_id else owner.value
         return self._pools.get(pool_key)
+
+    async def acquire_for_workload(
+        self,
+        workload_class: str,
+    ) -> psycopg.AsyncConnection:
+        """C4: Acquire a connection from the pool matching the workload class.
+
+        Sets ``gptbridge.workload_class`` on the connection so the
+        ``apply_workload_class()`` function (migration 026) can apply
+        the correct statement_timeout and lock_timeout.
+        """
+        owner = WORKLOAD_CLASS_TO_OWNER.get(workload_class, PoolOwner.CENTRAL_INDEX)
+        pool = await self.get_pool(owner)
+        if pool is None:
+            raise RuntimeError(f"No pool initialized for workload class: {workload_class}")
+        conn = await pool.acquire()
+        await conn.execute("SET LOCAL gptbridge.workload_class = %s", (workload_class,))
+        return conn
 
     async def initialize_pool(
         self,

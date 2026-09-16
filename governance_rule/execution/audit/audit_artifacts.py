@@ -145,6 +145,9 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "022_schema_ownership_lock.sql",
         "023_ddl_audit.sql",
         "024_contract_version_handshake.sql",
+        "025_sqlite_generation_fence.sql",
+        "026_workload_class.sql",
+        "027_two_stage_deletion.sql",
     ):
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")
@@ -321,6 +324,81 @@ def check_permission_snapshot_helper(root: Path, errors: list[str]) -> None:
     text = helper.read_text(encoding="utf-8")
     if "capture_snapshot" not in text:
         errors.append("Permission snapshot helper is missing: capture_snapshot")
+
+
+def check_sqlite_generation_fence(root: Path, errors: list[str]) -> None:
+    """Verify SQLite generation fence migration (025) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "025_sqlite_generation_fence.sql"
+    if not migration.is_file():
+        errors.append("SQLite generation fence migration 025 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("sqlite_generation", "upsert_sqlite_generation", "stale"):
+        if required not in text:
+            errors.append(f"SQLite generation fence migration 025 is missing: {required}")
+
+
+def check_workload_class(root: Path, errors: list[str]) -> None:
+    """Verify workload class migration (026) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "026_workload_class.sql"
+    if not migration.is_file():
+        errors.append("Workload class migration 026 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("workload_class", "interactive", "transport", "audit",
+                     "reconciliation", "maintenance", "migration",
+                     "statement_timeout_ms", "apply_workload_class"):
+        if required not in text:
+            errors.append(f"Workload class migration 026 is missing: {required}")
+
+
+def check_two_stage_deletion(root: Path, errors: list[str]) -> None:
+    """Verify two-stage deletion migration (027) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "027_two_stage_deletion.sql"
+    if not migration.is_file():
+        errors.append("Two-stage deletion migration 027 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("deletion_stage", "tombstone", "retention", "purged",
+                     "tombstone_resource", "advance_deletion_stage",
+                     "get_purge_eligible", "purge_after"):
+        if required not in text:
+            errors.append(f"Two-stage deletion migration 027 is missing: {required}")
+
+
+def check_orphan_scanner(root: Path, errors: list[str]) -> None:
+    """Verify the runtime orphan scanner module exists."""
+    scanner = root / "shared-layer" / "src" / "shared_layer" / "database" / "orphan_scanner.py"
+    if not scanner.is_file():
+        errors.append("Orphan scanner module is missing")
+        return
+    text = scanner.read_text(encoding="utf-8")
+    if "scan_orphans" not in text:
+        errors.append("Orphan scanner is missing: scan_orphans")
+
+
+def check_deletion_coordinator(root: Path, errors: list[str]) -> None:
+    """Verify the runtime deletion coordinator module exists."""
+    coordinator = root / "shared-layer" / "src" / "shared_layer" / "database" / "deletion_coordinator.py"
+    if not coordinator.is_file():
+        errors.append("Deletion coordinator module is missing")
+        return
+    text = coordinator.read_text(encoding="utf-8")
+    for required in ("tombstone", "advance_stage", "get_purge_eligible"):
+        if required not in text:
+            errors.append(f"Deletion coordinator is missing: {required}")
+
+
+def check_generation_fence_helper(root: Path, errors: list[str]) -> None:
+    """Verify the runtime generation fence helper module exists."""
+    helper = root / "shared-layer" / "src" / "shared_layer" / "database" / "generation_fence.py"
+    if not helper.is_file():
+        errors.append("Generation fence helper module is missing")
+        return
+    text = helper.read_text(encoding="utf-8")
+    for required in ("get_current_generation", "bump_generation", "is_connection_stale"):
+        if required not in text:
+            errors.append(f"Generation fence helper is missing: {required}")
 
 
 def check_embedded_browser(root: Path, errors: list[str]) -> None:
