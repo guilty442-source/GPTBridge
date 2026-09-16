@@ -47,10 +47,10 @@ class SovereignStackActivationMixin:
         app.maintenance_sovereign = sovereign._sub_sovereigns.get(
             "health-maintenance-test-sub-sovereign"
         )
-        synchronization = getattr(app, "synchronization_sovereign", None)
+        automation = getattr(app, "automation_sovereign", None)
         sync_children = (
-            getattr(synchronization, "_sub_sovereigns", {})
-            if synchronization is not None
+            getattr(automation, "_sub_sovereigns", {})
+            if automation is not None
             else {}
         )
         # A485: the learning sub-sovereign is a privileged-institution-managed
@@ -196,7 +196,7 @@ class SovereignStackActivationMixin:
         from core_system.sovereign_utils import _iso_now
 
         for parent in (
-            getattr(self.app, "synchronization_sovereign", None),
+            getattr(self.app, "automation_sovereign", None),
             getattr(self.app, "permission_sovereign", None),
             sovereign,
             getattr(self.app, "system_runtime_sovereign", None),

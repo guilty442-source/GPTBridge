@@ -1,11 +1,11 @@
-"""Synchronization Sovereign — 同步主宰（專門決策主宰，A330 認證更新執行例外）。
+"""Automation Sovereign — 自動化主宰（專門決策主宰，A330 認證更新執行例外）。
 
 法典依據:
 - sovereign_id: automation-sovereign (position 18)
-- area: synchronization-decision
+- area: automation-decision
 - rank: specialized-decision-sovereign-with-A330-certified-update-execution-exception
-- basis: A301
-- duties: resource-sync|channel-sync|release-sync|learning-sync|runtime-sync|repair-sync|cleanup-sync|log-sync
+- basis: A301|A322|A330|A334
+- duties: resource-sync|channel-sync|release-sync|runtime-sync|repair-sync|cleanup-sync|log-sync|dependency-sync
 - powers: adjudicate-sync-decisions|A330-certified-update-execution
 - prohibitions: FORBID:general-execution (except A330)
 
@@ -14,11 +14,13 @@ disposition+acceptance decision only.
 A322: SOLE-DECISION over sync target + dependency order + atomic boundary
 + conflict isolation + retry/cancel + convergence acceptance.
 A334: this sovereign is the codex-registered single parent of every
-synchronization sub-sovereign.  Child identity -> primary domain and the
+automation sub-sovereign.  Child identity -> primary domain and the
 delegation target are resolved from ``sovereign_hierarchy_registry`` at
 adjudication time; nothing here hard-codes the hierarchy.
 A330: certified update-set execution exception — the only execution
 power, and only after the certification proof adjudication passes.
+A486: RENAME:synchronization-sovereign canonically renamed automation-sovereign;
+DISPLAY:automation-sovereign is the sole active identity.
 
 Lifecycle boundary: the governed executor materializes and starts each
 child ONLY after ``authorize_child_activation`` (or the dispatch wrapper
@@ -50,7 +52,7 @@ from ..registries import (
 
 from .parallel_adjudication_mixin import ParallelAdjudicationMixin
 
-_logger = logging.getLogger("gptbridge.sovereign.synchronization")
+_logger = logging.getLogger("gptbridge.sovereign.automation")
 
 # Sync intent -> codex child identity (A334)
 _SYNC_INTENT_CHILDREN: dict[str, str] = {
@@ -73,11 +75,11 @@ _A330_UPDATE_TYPES: frozenset[str] = frozenset(
 _MAX_CHILD_RESTARTS = 3
 
 
-class SynchronizationSovereign(
+class AutomationSovereign(
     ParallelAdjudicationMixin,
     SovereignBase,
 ):
-    """同步主宰：專門決策，協調各類同步子主宰，A330例外執行。"""
+    """自動化主宰：專門決策，協調各類同步子主宰，A330例外執行。"""
 
     sovereign_id = "automation-sovereign"
 
@@ -160,7 +162,7 @@ class SynchronizationSovereign(
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
-        """同步主宰委派執行（A446/A121）。
+        """自動化主宰委派執行（A446/A121）。
 
         This sovereign is decision-only except for A330 certified update
         execution.  The delegate_to calls inside _adjudicate already
@@ -427,7 +429,7 @@ class SynchronizationSovereign(
     # ------------------------------------------------------------------
 
     async def start(self) -> dict[str, Any]:
-        """Mark the Synchronization Sovereign active."""
+        """Mark the Automation Sovereign active."""
         state = await super().start()
         app_registry = getattr(self.app, "_sub_sovereigns", None)
         if isinstance(app_registry, dict):
@@ -568,7 +570,7 @@ class SynchronizationSovereign(
                 / "main-system"
                 / "runtime"
                 / "state"
-                / "synchronization-sovereign.json"
+                / "automation-sovereign.json"
             )
             state_path.parent.mkdir(parents=True, exist_ok=True)
             state = {
@@ -604,4 +606,4 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-__all__ = ["SynchronizationSovereign"]
+__all__ = ["AutomationSovereign"]

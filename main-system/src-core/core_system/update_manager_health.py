@@ -164,7 +164,7 @@ class UpdateHealthMonitor(UpdateHealthChecksMixin):
         """Verify sovereign stack is initialized."""
         try:
             required = ["decision_sovereign", "permission_sovereign", "system_runtime_sovereign",
-                       "synchronization_sovereign", "xingcheng_sovereign"]
+                       "automation_sovereign", "xingcheng_sovereign"]
             missing = [s for s in required if not hasattr(self.app, s) or getattr(self.app, s) is None]
             if missing:
                 return HealthCheckResult(

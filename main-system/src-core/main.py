@@ -37,7 +37,7 @@ from governance.sovereigns import (
     DecisionSovereign,
     PermissionSovereign,
     SystemRuntimeSovereign,
-    SynchronizationSovereign,
+    AutomationSovereign,
     XingchengSovereign,
 )
 
@@ -73,7 +73,7 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
         self.decision_sovereign = DecisionSovereign(self)
         self.permission_sovereign = PermissionSovereign(self)
         self.system_runtime_sovereign = SystemRuntimeSovereign(self)
-        self.synchronization_sovereign = SynchronizationSovereign(self)
+        self.automation_sovereign = AutomationSovereign(self)
         self.xingcheng_sovereign = XingchengSovereign(self)
 
         # System-wide automation coordinator (A63/A64 decision-layer).
@@ -175,7 +175,7 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
             "decision_sovereign": self.decision_sovereign.live_status(),
             "permission_sovereign": self.permission_sovereign.coordination_status(),
             "system_runtime_sovereign": self.system_runtime_sovereign.live_status(),
-            "synchronization_sovereign": self.synchronization_sovereign.live_status(),
+            "automation_sovereign": self.automation_sovereign.live_status(),
             "xingcheng_sovereign": self.xingcheng_sovereign.live_status(),
             "system_automation": self.system_automation_coordinator.system_status(),
             "sub_sovereigns": self._collect_sub_sovereign_status(),
@@ -316,7 +316,7 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
         sovereign_tasks = [
             self.permission_sovereign.start(),
             self.system_runtime_sovereign.start(),
-            self.synchronization_sovereign.start(),
+            self.automation_sovereign.start(),
             self.xingcheng_sovereign.start(),
         ]
         try:
@@ -335,7 +335,7 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
         supervision_tasks = [
             self.permission_sovereign.start_supervision(),
             self.system_runtime_sovereign.start_supervision(),
-            self.synchronization_sovereign.start_supervision(),
+            self.automation_sovereign.start_supervision(),
             self.xingcheng_sovereign.start_supervision(),
         ]
         try:

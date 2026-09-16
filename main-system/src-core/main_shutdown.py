@@ -102,7 +102,7 @@ class GPTBridgeAppShutdownMixin:
         except Exception:
             pass
         for _sovereign in (
-            self.synchronization_sovereign,  # type: ignore[attr-defined]
+            self.automation_sovereign,  # type: ignore[attr-defined]
             self.xingcheng_sovereign,  # type: ignore[attr-defined]
             self.system_runtime_sovereign,  # type: ignore[attr-defined]
             self.permission_sovereign,  # type: ignore[attr-defined]

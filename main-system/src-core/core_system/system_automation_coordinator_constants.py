@@ -10,6 +10,6 @@ _SOVEREIGN_ATTRS = (
     "decision_sovereign",
     "permission_sovereign",
     "system_runtime_sovereign",
-    "synchronization_sovereign",
+    "automation_sovereign",
     "xingcheng_sovereign",
 )

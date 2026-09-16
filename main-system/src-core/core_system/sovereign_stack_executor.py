@@ -46,9 +46,9 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
                 "PermissionSovereign",
             ),
             (
-                "synchronization_sovereign",
-                "governance.sovereigns.synchronization_sovereign",
-                "SynchronizationSovereign",
+                "automation_sovereign",
+                "governance.sovereigns.automation_sovereign",
+                "AutomationSovereign",
             ),
             (
                 "system_runtime_sovereign",
@@ -83,7 +83,7 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
         for top in (
             getattr(app, "system_runtime_sovereign", None),
             getattr(app, "permission_sovereign", None),
-            getattr(app, "synchronization_sovereign", None),
+            getattr(app, "automation_sovereign", None),
         ):
             if top is not None and not getattr(top, "_started", False):
                 try:
@@ -99,15 +99,12 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
     def _parent_object(self, sovereign: Any, parent_id: str) -> Any:
         """Resolve a registered parent identity to the live sovereign."""
         app = self.app
-        synchronization = getattr(app, "synchronization_sovereign", None)
+        automation = getattr(app, "automation_sovereign", None)
         return {
             "decision-sovereign": sovereign,
             "permission-sovereign": getattr(app, "permission_sovereign", None),
-            "synchronization-sovereign": synchronization,
-            # Codex id renamed to automation-sovereign (97e8a34); the code
-            # object keeps the synchronization class/attr until the full
-            # rename lands.
-            "automation-sovereign": synchronization,
+            "synchronization-sovereign": automation,
+            "automation-sovereign": automation,
             "system-runtime-sovereign": getattr(
                 app, "system_runtime_sovereign", None
             ),
@@ -149,7 +146,7 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
             for parent in {
                 sovereign,
                 getattr(app, "permission_sovereign", None),
-                getattr(app, "synchronization_sovereign", None),
+                getattr(app, "automation_sovereign", None),
                 getattr(app, "system_runtime_sovereign", None),
                 getattr(app, "xingcheng_sovereign", None),
             }:

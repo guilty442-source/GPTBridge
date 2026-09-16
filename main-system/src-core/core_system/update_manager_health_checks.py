@@ -89,10 +89,10 @@ class UpdateHealthChecksMixin:
             if not dec_ok:
                 errors.append("Decision sovereign missing")
 
-            # Check sync sovereign
-            sync_ok = hasattr(self.app, "synchronization_sovereign") and self.app.synchronization_sovereign is not None
-            if not sync_ok:
-                errors.append("Sync sovereign missing")
+            # Check automation sovereign
+            auto_ok = hasattr(self.app, "automation_sovereign") and self.app.automation_sovereign is not None
+            if not auto_ok:
+                errors.append("Automation sovereign missing")
 
             # Check hot reload watcher
             watcher_ok = hasattr(self.app, "hot_reload_watcher") and self.app.hot_reload_watcher is not None

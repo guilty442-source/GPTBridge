@@ -50,8 +50,6 @@ class SovereignStackChildrenMixin:
             "system-runtime-sovereign",
             "permission-sovereign",
             "decision-sovereign",
-            "synchronization-sovereign",
-            # Codex id renamed to automation-sovereign (97e8a34).
             "automation-sovereign",
             # A485: 星澄 manages the learning sub-sovereign.
             "星澄",
@@ -78,10 +76,10 @@ class SovereignStackChildrenMixin:
             if result
         ]
 
-        synchronization = getattr(self.app, "synchronization_sovereign", None)
+        automation = getattr(self.app, "automation_sovereign", None)
         sync_children = (
-            getattr(synchronization, "_sub_sovereigns", {})
-            if synchronization is not None
+            getattr(automation, "_sub_sovereigns", {})
+            if automation is not None
             else {}
         )
         # A485: the learning sub-sovereign is managed exclusively by 星澄;

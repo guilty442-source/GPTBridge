@@ -17,7 +17,7 @@ from .sovereigns import (
     PermissionSovereign,
     SovereignBase,
     SovereignIdentity,
-    SynchronizationSovereign,
+    AutomationSovereign,
     SystemRuntimeSovereign,
     XingchengSovereign,
 )
@@ -62,6 +62,7 @@ SystemSubSovereign = _sub_sovereigns.SystemSubSovereign
 
 __all__ = [
     "AutomaticLogSyncSubSovereign",
+    "AutomationSovereign",
     "ChangeAcceptanceSubSovereign",
     "ChannelContractSyncSubSovereign",
     "CleanupRetentionSyncSubSovereign",
@@ -83,7 +84,6 @@ __all__ = [
     "SovereignIdentity",
     "StartupSubSovereign",
     "SubSovereignBase",
-    "SynchronizationSovereign",
     "SystemRuntimeSovereign",
     "SystemSubSovereign",
     "XingchengSovereign",

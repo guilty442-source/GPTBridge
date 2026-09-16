@@ -40,7 +40,7 @@ class PreflightConfirmationMixin:
         app = self.app
         if getattr(app, "startup_dead", False) or not getattr(app, "maintenance_ready", False):
             return False
-        if getattr(app, "synchronization_sovereign", None) is None:
+        if getattr(app, "automation_sovereign", None) is None:
             return False
         if getattr(app, "decision_sovereign", None) is None:
             return False

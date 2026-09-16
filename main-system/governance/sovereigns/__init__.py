@@ -10,7 +10,7 @@ from ._base import SovereignBase, SovereignIdentity
 from .decision_sovereign import DecisionSovereign
 from .permission_sovereign import PermissionSovereign
 from .system_runtime_sovereign import SystemRuntimeSovereign
-from .synchronization_sovereign import SynchronizationSovereign
+from .automation_sovereign import AutomationSovereign
 from .xingcheng_sovereign import XingchengSovereign
 
 __all__ = [
@@ -19,6 +19,6 @@ __all__ = [
     "DecisionSovereign",
     "PermissionSovereign",
     "SystemRuntimeSovereign",
-    "SynchronizationSovereign",
+    "AutomationSovereign",
     "XingchengSovereign",
 ]

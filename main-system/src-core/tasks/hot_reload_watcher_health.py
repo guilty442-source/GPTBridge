@@ -74,11 +74,11 @@ class HotReloadHealthMixin:
             healthy = False
             errors.append("Decision sovereign: missing")
 
-        # Check synchronization sovereign
-        sync_sovereign = getattr(app, "synchronization_sovereign", None)
-        if sync_sovereign is None:
+        # Check automation sovereign
+        automation_sovereign = getattr(app, "automation_sovereign", None)
+        if automation_sovereign is None:
             healthy = False
-            errors.append("Synchronization sovereign: missing")
+            errors.append("Automation sovereign: missing")
 
         # Update channel health
         if healthy:
