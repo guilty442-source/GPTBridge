@@ -25,8 +25,15 @@ _EXAMPLE_INSERT_SQL = """
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
 
-_DATASET_BY_HASH_SQL = """
-                SELECT * FROM transformer_training_dataset
+_DATASET_COLUMNS = (
+    "dataset_id, content_sha256, format_version, base_model_id, "
+    "runtime_model_id, example_count, training_example_count, "
+    "validation_example_count, minimum_quality_score, source_manifest_json, "
+    "snapshot_path, snapshot_sha256, state, created_by, created_at"
+)
+
+_DATASET_BY_HASH_SQL = f"""
+                SELECT {_DATASET_COLUMNS} FROM transformer_training_dataset
                 WHERE content_sha256 = ?
                 """
 
@@ -191,7 +198,7 @@ class TransformerTrainingDatasetsMixin(TransformerTrainingSchemaMixin):
             },
         )
         row = connection.execute(
-            "SELECT * FROM transformer_training_dataset WHERE dataset_id = ?",
+            f"SELECT {_DATASET_COLUMNS} FROM transformer_training_dataset WHERE dataset_id = ?",
             (insert["dataset_id"],),
         ).fetchone()
         return row, True

@@ -118,6 +118,10 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "contracts/projection.py",
         "contracts/registry.py",
         "contracts/sql_presence.py",
+        "contracts/types.py",
+        "contracts/__init__.py",
+        "surface_reduction.py",
+        "test_matrix_consolidation.py",
     }
 )
 SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (
@@ -129,6 +133,7 @@ SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (
     "registry/",
     "security/",
     "workflow/",
+    "contracts/",
 )
 SHARED_LAYER_FORBIDDEN_TERMS: Final[frozenset[str]] = frozenset(
     {

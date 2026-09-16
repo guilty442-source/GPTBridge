@@ -67,7 +67,10 @@ class TransformerTrainingRepository(
                 for table in _STATUS_TABLE_NAMES
             }
             state = connection.execute(
-                "SELECT * FROM transformer_runtime_model_state "
+                "SELECT singleton_id, base_model_id, runtime_model_id, "
+                "active_adapter_id, previous_adapter_id, "
+                "automatic_weight_replacement, updated_at "
+                "FROM transformer_runtime_model_state "
                 "WHERE singleton_id = 1"
             ).fetchone()
         audit = self.verify_audit_chain()

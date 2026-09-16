@@ -22,8 +22,14 @@ _JOB_UPDATE_SQL = """
             WHERE job_id = ?
             """
 
+_JOB_COLUMNS = (
+    "job_id, dataset_id, base_model_id, training_method, configuration_json, "
+    "configuration_sha256, status, output_path, error_code, error_message, "
+    "requested_by, retry_of_job_id, created_at, started_at, completed_at"
+)
+
 _JOB_SELECT_SQL = (
-    "SELECT * FROM transformer_training_job WHERE job_id = ?"
+    f"SELECT {_JOB_COLUMNS} FROM transformer_training_job WHERE job_id = ?"
 )
 
 

@@ -8,6 +8,27 @@ from pathlib import Path
 from typing import Any, Iterator, Sequence
 
 
+# Explicit projection columns — no SELECT * (columns must stay in DDL order).
+_COLS_MODEL_DATA = (
+    "model_data_id, platform_id, owner_id, publisher, model_data_name, "
+    "model_data_version, data_category, data_classification, model_store_path, "
+    "location_type, endpoint, status, metadata, created_at, updated_at"
+)
+_COLS_KNOWLEDGE = (
+    "knowledge_id, platform_id, owner_id, knowledge_name, knowledge_category, "
+    "data_classification, source_path, status, metadata, created_at, updated_at"
+)
+_COLS_CAPABILITY = (
+    "capability_id, platform_id, owner_id, capability_name, capability_version, "
+    "modality, capability_engine, model_data_id, status, metadata, "
+    "created_at, updated_at"
+)
+_COLS_RAG_REFERENCE = (
+    "reference_id, platform_id, module_id, owner_id, collection, document_id, "
+    "chunk_id, point_id, source, title, knowledge_id, status, metadata, created_at"
+)
+
+
 class LocalSqliteCognitionRepository:
     """Local sqlite3 source of truth for the cognition module.
 
@@ -89,6 +110,8 @@ class LocalSqliteCognitionRepository:
                 """
             )
 
+
+
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.database_path, timeout=5)
@@ -168,7 +191,7 @@ class LocalSqliteCognitionRepository:
     def load_model_data(self, *, model_data_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT * FROM cognition_model_data WHERE model_data_id = ?",
+                f"SELECT {_COLS_MODEL_DATA} FROM cognition_model_data WHERE model_data_id = ?",
                 (model_data_id,),
             ).fetchone()
         if row is None:
@@ -179,12 +202,12 @@ class LocalSqliteCognitionRepository:
         with self._connect() as connection:
             if owner_id:
                 rows = connection.execute(
-                    "SELECT * FROM cognition_model_data WHERE owner_id = ? ORDER BY model_data_name ASC",
+                    f"SELECT {_COLS_MODEL_DATA} FROM cognition_model_data WHERE owner_id = ? ORDER BY model_data_name ASC",
                     (owner_id,),
                 ).fetchall()
             else:
                 rows = connection.execute(
-                    "SELECT * FROM cognition_model_data ORDER BY model_data_name ASC"
+                    f"SELECT {_COLS_MODEL_DATA} FROM cognition_model_data ORDER BY model_data_name ASC"
                 ).fetchall()
         return [self._row_model_data(row) for row in rows]
 
@@ -245,7 +268,7 @@ class LocalSqliteCognitionRepository:
     def load_knowledge(self, *, knowledge_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT * FROM cognition_knowledge WHERE knowledge_id = ?",
+                f"SELECT {_COLS_KNOWLEDGE} FROM cognition_knowledge WHERE knowledge_id = ?",
                 (knowledge_id,),
             ).fetchone()
         if row is None:
@@ -256,12 +279,12 @@ class LocalSqliteCognitionRepository:
         with self._connect() as connection:
             if owner_id:
                 rows = connection.execute(
-                    "SELECT * FROM cognition_knowledge WHERE owner_id = ? ORDER BY knowledge_name ASC",
+                    f"SELECT {_COLS_KNOWLEDGE} FROM cognition_knowledge WHERE owner_id = ? ORDER BY knowledge_name ASC",
                     (owner_id,),
                 ).fetchall()
             else:
                 rows = connection.execute(
-                    "SELECT * FROM cognition_knowledge ORDER BY knowledge_name ASC"
+                    f"SELECT {_COLS_KNOWLEDGE} FROM cognition_knowledge ORDER BY knowledge_name ASC"
                 ).fetchall()
         return [self._row_knowledge(row) for row in rows]
 
@@ -320,7 +343,7 @@ class LocalSqliteCognitionRepository:
     def load_model_capability(self, *, capability_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT * FROM cognition_model_capability WHERE capability_id = ?",
+                f"SELECT {_COLS_CAPABILITY} FROM cognition_model_capability WHERE capability_id = ?",
                 (capability_id,),
             ).fetchone()
         if row is None:
@@ -333,12 +356,12 @@ class LocalSqliteCognitionRepository:
         with self._connect() as connection:
             if owner_id:
                 rows = connection.execute(
-                    "SELECT * FROM cognition_model_capability WHERE owner_id = ? ORDER BY capability_name ASC",
+                    f"SELECT {_COLS_CAPABILITY} FROM cognition_model_capability WHERE owner_id = ? ORDER BY capability_name ASC",
                     (owner_id,),
                 ).fetchall()
             else:
                 rows = connection.execute(
-                    "SELECT * FROM cognition_model_capability ORDER BY capability_name ASC"
+                    f"SELECT {_COLS_CAPABILITY} FROM cognition_model_capability ORDER BY capability_name ASC"
                 ).fetchall()
         return [self._row_capability(row) for row in rows]
 
@@ -410,13 +433,13 @@ class LocalSqliteCognitionRepository:
         with self._connect() as connection:
             if module_id:
                 rows = connection.execute(
-                    "SELECT * FROM cognition_rag_reference "
+                    f"SELECT {_COLS_RAG_REFERENCE} FROM cognition_rag_reference "
                     "WHERE module_id = ? ORDER BY created_at DESC LIMIT ?",
                     (module_id, max(1, int(limit))),
                 ).fetchall()
             else:
                 rows = connection.execute(
-                    "SELECT * FROM cognition_rag_reference "
+                    f"SELECT {_COLS_RAG_REFERENCE} FROM cognition_rag_reference "
                     "ORDER BY created_at DESC LIMIT ?",
                     (max(1, int(limit)),),
                 ).fetchall()
