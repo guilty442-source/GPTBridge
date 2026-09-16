@@ -60,6 +60,19 @@ from .audit_artifacts import (
     check_transport_hot_path_index,
     check_wal_checkpoint_monitor,
     check_workload_pool_query_class,
+    # Phase F
+    check_canary_upgrade,
+    check_compatibility_matrix,
+    check_database_release_manifest,
+    check_migration_breaking_change,
+    check_qdrant_contract_version,
+    check_query_contract_version,
+    check_release_audit,
+    check_release_manifest_file,
+    check_release_manifest_module,
+    check_rls_role_migration,
+    check_roll_forward,
+    check_sqlite_template_release,
 )
 from .audit_authority import (
     check_architecture_sources,
@@ -221,6 +234,18 @@ def audit_runtime_governance(
         lambda r: _collect(check_locator_cache_module, r),
         lambda r: _collect(check_prepared_query_catalog_module, r),
         lambda r: _collect(check_performance_baseline_module, r),
+        lambda r: _collect(check_database_release_manifest, r),
+        lambda r: _collect(check_release_manifest_file, r),
+        lambda r: _collect(check_release_manifest_module, r),
+        lambda r: _collect(check_compatibility_matrix, r),
+        lambda r: _collect(check_migration_breaking_change, r),
+        lambda r: _collect(check_query_contract_version, r),
+        lambda r: _collect(check_rls_role_migration, r),
+        lambda r: _collect(check_sqlite_template_release, r),
+        lambda r: _collect(check_qdrant_contract_version, r),
+        lambda r: _collect(check_canary_upgrade, r),
+        lambda r: _collect(check_release_audit, r),
+        lambda r: _collect(check_roll_forward, r),
         lambda r: _collect(check_embedded_browser, r),
     ]
     if include_self_health:

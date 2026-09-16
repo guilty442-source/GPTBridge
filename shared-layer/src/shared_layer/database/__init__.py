@@ -64,6 +64,9 @@ _LAZY_EXPORTS = {
     "record_baseline": ("performance_baseline", "record"),
     "get_latest_baseline": ("performance_baseline", "get_latest"),
     "compare_baseline": ("performance_baseline", "compare"),
+    "load_release_manifest": ("release_manifest", "load_manifest"),
+    "validate_runtime_compatibility": ("release_manifest", "validate_runtime"),
+    "get_release_compatibility_matrix": ("release_manifest", "get_compatibility_matrix"),
 }
 
 __all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]

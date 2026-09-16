@@ -160,6 +160,16 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "037_sqlite_classification.sql",
         "038_incremental_reconcile.sql",
         "039_performance_baseline.sql",
+        "040_database_release_manifest.sql",
+        "041_compatibility_matrix.sql",
+        "042_migration_breaking_change.sql",
+        "043_query_contract_version.sql",
+        "044_rls_role_migration.sql",
+        "045_sqlite_template_release.sql",
+        "046_qdrant_contract_version.sql",
+        "047_canary_upgrade.sql",
+        "048_release_audit.sql",
+        "049_roll_forward.sql",
     ):
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")
@@ -472,6 +482,184 @@ def check_slo_metrics(root: Path, errors: list[str]) -> None:
                      "qdrant-stale-rate", "restore-success"):
         if required not in text:
             errors.append(f"SLO metrics migration 031 is missing: {required}")
+
+
+def check_database_release_manifest(root: Path, errors: list[str]) -> None:
+    """Verify database release manifest migration (040) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "040_database_release_manifest.sql"
+    if not migration.is_file():
+        errors.append("Database release manifest migration 040 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("database_release", "transition_release_state",
+                     "get_active_release", "supersede_active_release",
+                     "DRAFT", "VALIDATED", "CERTIFIED", "STAGED",
+                     "ACTIVE", "SUPERSEDED", "ARCHIVED", "REJECTED"):
+        if required not in text:
+            errors.append(f"Database release manifest migration 040 is missing: {required}")
+
+
+def check_release_manifest_file(root: Path, errors: list[str]) -> None:
+    """Verify the database-release.json manifest file exists."""
+    manifest = root / "shared-layer" / "database-release.json"
+    if not manifest.is_file():
+        errors.append("database-release.json manifest is missing")
+        return
+    import json
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (ValueError, json.JSONDecodeError) as exc:
+        errors.append(f"database-release.json is invalid: {exc}")
+        return
+    for key in ("release_id", "schema_version", "migration_head",
+                "rls_version", "role_version", "sqlite_template_version",
+                "reconcile_contract_version", "qdrant_contract_version",
+                "query_contract_version", "minimum_runtime_version",
+                "compatibility_range", "state"):
+        if key not in data:
+            errors.append(f"database-release.json is missing key: {key}")
+
+
+def check_release_manifest_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime release manifest module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "release_manifest.py"
+    if not module.is_file():
+        errors.append("Release manifest module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("load_manifest", "validate_runtime", "get_compatibility_matrix"):
+        if required not in text:
+            errors.append(f"Release manifest module is missing: {required}")
+
+
+def check_compatibility_matrix(root: Path, errors: list[str]) -> None:
+    """Verify compatibility matrix migration (041) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "041_compatibility_matrix.sql"
+    if not migration.is_file():
+        errors.append("Compatibility matrix migration 041 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("release_compatibility", "check_compatibility",
+                     "upsert_compatibility", "full", "read-only", "rejected"):
+        if required not in text:
+            errors.append(f"Compatibility matrix migration 041 is missing: {required}")
+
+
+def check_migration_breaking_change(root: Path, errors: list[str]) -> None:
+    """Verify migration breaking change migration (042) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "042_migration_breaking_change.sql"
+    if not migration.is_file():
+        errors.append("Migration breaking change migration 042 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("migration_classification", "classify_migration",
+                     "get_breaking_migrations",
+                     "compatible", "conditional", "breaking",
+                     "pre_migration", "rollback_plan"):
+        if required not in text:
+            errors.append(f"Migration breaking change migration 042 is missing: {required}")
+
+
+def check_query_contract_version(root: Path, errors: list[str]) -> None:
+    """Verify query contract version migration (043) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "043_query_contract_version.sql"
+    if not migration.is_file():
+        errors.append("Query contract version migration 043 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("query_contract", "register_query_contract",
+                     "deprecate_query_contract", "retire_query_contract",
+                     "get_active_query_contract",
+                     "active", "deprecated", "retired"):
+        if required not in text:
+            errors.append(f"Query contract version migration 043 is missing: {required}")
+
+
+def check_rls_role_migration(root: Path, errors: list[str]) -> None:
+    """Verify RLS/Role migration migration (044) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "044_rls_role_migration.sql"
+    if not migration.is_file():
+        errors.append("RLS/Role migration 044 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("rls_role_migration", "record_rls_role_migration",
+                     "get_rls_role_version",
+                     "create_role", "grant", "create_policy",
+                     "security_definer_grant"):
+        if required not in text:
+            errors.append(f"RLS/Role migration 044 is missing: {required}")
+
+
+def check_sqlite_template_release(root: Path, errors: list[str]) -> None:
+    """Verify SQLite template release migration (045) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "045_sqlite_template_release.sql"
+    if not migration.is_file():
+        errors.append("SQLite template release migration 045 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("sqlite_template_release", "register_sqlite_template",
+                     "get_active_sqlite_template", "can_write_sqlite",
+                     "template_version", "minimum_writer_version"):
+        if required not in text:
+            errors.append(f"SQLite template release migration 045 is missing: {required}")
+
+
+def check_qdrant_contract_version(root: Path, errors: list[str]) -> None:
+    """Verify Qdrant contract version migration (046) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "046_qdrant_contract_version.sql"
+    if not migration.is_file():
+        errors.append("Qdrant contract version migration 046 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("qdrant_contract", "register_qdrant_contract",
+                     "deprecate_qdrant_contract", "retire_qdrant_contract",
+                     "get_active_qdrant_contract",
+                     "vector_dimension", "distance_metric", "embedding_model"):
+        if required not in text:
+            errors.append(f"Qdrant contract version migration 046 is missing: {required}")
+
+
+def check_canary_upgrade(root: Path, errors: list[str]) -> None:
+    """Verify canary upgrade migration (047) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "047_canary_upgrade.sql"
+    if not migration.is_file():
+        errors.append("Canary upgrade migration 047 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("canary_upgrade", "start_canary_upgrade",
+                     "complete_canary_upgrade", "promote_canary_to_production",
+                     "restoring", "migrating", "certifying",
+                     "succeeded", "failed"):
+        if required not in text:
+            errors.append(f"Canary upgrade migration 047 is missing: {required}")
+
+
+def check_release_audit(root: Path, errors: list[str]) -> None:
+    """Verify release audit migration (048) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "048_release_audit.sql"
+    if not migration.is_file():
+        errors.append("Release audit migration 048 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("database_release_audit", "start_release_audit",
+                     "complete_release_audit", "get_release_audit_history",
+                     "schema_hash", "migration_set"):
+        if required not in text:
+            errors.append(f"Release audit migration 048 is missing: {required}")
+
+
+def check_roll_forward(root: Path, errors: list[str]) -> None:
+    """Verify roll forward migration (049) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "049_roll_forward.sql"
+    if not migration.is_file():
+        errors.append("Roll forward migration 049 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("roll_forward_migration", "record_roll_forward",
+                     "verify_roll_forward", "get_roll_forwards_for",
+                     "fixes_migration_id", "corrective_sql"):
+        if required not in text:
+            errors.append(f"Roll forward migration 049 is missing: {required}")
 
 
 def check_workload_pool_query_class(root: Path, errors: list[str]) -> None:

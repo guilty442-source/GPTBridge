@@ -440,6 +440,113 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         ),
         indexes=("perf_baseline_op_idx",),
     ),
+    # Phase F: database release management
+    TableContract(
+        schema="gptbridge_index",
+        table="database_release",
+        columns=(
+            "release_id", "schema_version", "migration_head",
+            "rls_version", "role_version", "sqlite_template_version",
+            "reconcile_contract_version", "qdrant_contract_version",
+            "query_contract_version", "backup_format_version",
+            "minimum_runtime_version", "compatibility_range",
+            "state", "certification_result", "previous_release_id",
+            "created_at", "activated_at", "superseded_at", "created_by",
+        ),
+        indexes=("db_release_state_idx", "db_release_previous_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="release_compatibility",
+        columns=(
+            "release_id", "runtime_version", "mode", "reason", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="migration_classification",
+        columns=(
+            "migration_id", "migration_name", "change_type",
+            "pre_migration", "data_transform", "compatibility_window_days",
+            "post_migration", "rollback_plan", "recovery_plan",
+            "classified_at", "classified_by",
+        ),
+        indexes=("migration_class_type_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="query_contract",
+        columns=(
+            "contract_name", "version", "full_name", "sql_template",
+            "status", "deprecated_at", "retired_at", "successor_version",
+            "introduced_in_release", "retired_in_release",
+            "description", "updated_at",
+        ),
+        indexes=("query_contract_name_idx", "query_contract_status_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="rls_role_migration",
+        columns=(
+            "migration_id", "rls_role_version", "change_type",
+            "target_object", "change_sql", "rollback_sql",
+            "introduced_in_release", "applied_at", "applied_by",
+        ),
+        indexes=("rls_role_mig_version_idx", "rls_role_mig_type_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="sqlite_template_release",
+        columns=(
+            "template_version", "schema_version", "minimum_reader_version",
+            "minimum_writer_version", "ddl_hash", "introduced_in_release",
+            "status", "deprecated_at", "retired_at", "description", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="qdrant_contract",
+        columns=(
+            "contract_version", "collection_name", "vector_dimension",
+            "distance_metric", "embedding_model", "payload_schema",
+            "required_module_id", "resource_id_format", "chunk_id_format",
+            "revision_field", "introduced_in_release", "status",
+            "deprecated_at", "retired_at", "successor_version",
+            "description", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="canary_upgrade",
+        columns=(
+            "canary_id", "release_id", "source_backup_id",
+            "canary_database_name", "started_at", "completed_at",
+            "status", "certification_id", "schema_hash",
+            "failure_reason", "promoted_to_production", "promoted_at",
+        ),
+        indexes=("canary_release_idx", "canary_status_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="database_release_audit",
+        columns=(
+            "audit_id", "release_id", "previous_release_id",
+            "migration_set", "executor", "started_at", "completed_at",
+            "backup_id", "certification_id", "schema_hash",
+            "result", "failure_reason", "audited_at",
+        ),
+        indexes=("release_audit_release_idx", "release_audit_result_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="roll_forward_migration",
+        columns=(
+            "corrective_migration_id", "fixes_migration_id", "fixes_release_id",
+            "description", "corrective_sql", "verification_sql",
+            "applied_at", "applied_by", "verified", "verified_at",
+        ),
+        indexes=("roll_forward_fixes_idx",),
+    ),
 )
 
 _DECLARED_ROLES: tuple[RoleContract, ...] = (
@@ -458,7 +565,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 39  # 001 through 039
+EXPECTED_MIGRATION_COUNT = 49  # 001 through 049
 
 
 @dataclass

@@ -1,0 +1,20 @@
+{
+  "release_id": "DB-2026.09.16-01",
+  "schema_version": 39,
+  "migration_head": 39,
+  "rls_version": 1,
+  "role_version": 1,
+  "sqlite_template_version": 1,
+  "reconcile_contract_version": 1,
+  "qdrant_contract_version": 1,
+  "query_contract_version": 1,
+  "backup_format_version": 1,
+  "minimum_runtime_version": "1.0.0",
+  "compatibility_range": {
+    "min_runtime": "1.0.0",
+    "max_runtime": "2.0.0",
+    "read_only_from": "0.9.0"
+  },
+  "state": "DRAFT",
+  "previous_release_id": null
+}

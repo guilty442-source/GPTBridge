@@ -142,14 +142,17 @@ _TEMPLATES: dict[str, str] = {
     "transport.submit": (
         "INSERT INTO gptbridge_transport.tool_request "
         "(channel_id, request_id, requester_actor, target_tool_id, payload, status, "
-        "created_at, updated_at) VALUES (%s, %s, %s, %s, %s, 'queued', now(), now())"
+        "priority_class, priority_value, deadline_at, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, 'queued', %s, "
+        "gptbridge_transport.priority_value_for(%s), %s, now(), now())"
     ),
     "transport.claim": (
         "SELECT request_id, requester_actor, payload "
         "FROM gptbridge_transport.tool_request "
         "WHERE channel_id = %s AND target_tool_id = %s AND status = 'queued' "
         "AND (next_retry_at IS NULL OR next_retry_at <= now()) "
-        "ORDER BY created_at, request_id LIMIT 1 FOR UPDATE SKIP LOCKED"
+        "AND (deadline_at IS NULL OR deadline_at > now()) "
+        "ORDER BY priority_value, created_at, request_id LIMIT 1 FOR UPDATE SKIP LOCKED"
     ),
     "transport.claim_update": (
         "UPDATE gptbridge_transport.tool_request "
@@ -484,6 +487,90 @@ _TEMPLATES: dict[str, str] = {
         "sample_count, baseline_at "
         "FROM gptbridge_index.performance_baseline "
         "ORDER BY baseline_at DESC LIMIT %s"
+    ),
+
+    # --- Database release manifest (migration 040) ---
+    "database_release.active": (
+        "SELECT release_id, schema_version, migration_head, rls_version, "
+        "role_version, sqlite_template_version, qdrant_contract_version, "
+        "query_contract_version, minimum_runtime_version "
+        "FROM gptbridge_index.database_release WHERE state = 'ACTIVE' "
+        "ORDER BY activated_at DESC LIMIT 1"
+    ),
+    "database_release.list": (
+        "SELECT release_id, state, schema_version, migration_head, "
+        "created_at, activated_at "
+        "FROM gptbridge_index.database_release ORDER BY created_at DESC LIMIT %s"
+    ),
+
+    # --- Compatibility matrix (migration 041) ---
+    "release_compatibility.list": (
+        "SELECT release_id, runtime_version, mode, reason "
+        "FROM gptbridge_index.release_compatibility "
+        "ORDER BY release_id, runtime_version"
+    ),
+
+    # --- Migration classification (migration 042) ---
+    "migration_classification.list": (
+        "SELECT migration_id, migration_name, change_type "
+        "FROM gptbridge_index.migration_classification ORDER BY migration_id"
+    ),
+    "migration_classification.breaking": (
+        "SELECT migration_id, migration_name, rollback_plan, recovery_plan "
+        "FROM gptbridge_index.migration_classification "
+        "WHERE change_type = 'breaking' ORDER BY migration_id"
+    ),
+
+    # --- Query contract version (migration 043) ---
+    "query_contract.active": (
+        "SELECT contract_name, version, sql_template, description "
+        "FROM gptbridge_index.query_contract WHERE status = 'active' "
+        "ORDER BY contract_name, version DESC"
+    ),
+
+    # --- RLS/Role migration (migration 044) ---
+    "rls_role_migration.list": (
+        "SELECT migration_id, rls_role_version, change_type, target_object, "
+        "applied_at, applied_by "
+        "FROM gptbridge_index.rls_role_migration ORDER BY applied_at DESC LIMIT %s"
+    ),
+
+    # --- SQLite template release (migration 045) ---
+    "sqlite_template.active": (
+        "SELECT template_version, schema_version, minimum_reader_version, "
+        "minimum_writer_version, ddl_hash "
+        "FROM gptbridge_index.sqlite_template_release "
+        "WHERE status = 'active' ORDER BY template_version DESC LIMIT 1"
+    ),
+
+    # --- Qdrant contract (migration 046) ---
+    "qdrant_contract.active": (
+        "SELECT contract_version, collection_name, vector_dimension, "
+        "distance_metric, embedding_model "
+        "FROM gptbridge_index.qdrant_contract WHERE status = 'active' "
+        "ORDER BY contract_version DESC LIMIT 1"
+    ),
+
+    # --- Canary upgrade (migration 047) ---
+    "canary_upgrade.list": (
+        "SELECT canary_id, release_id, status, started_at, completed_at, "
+        "promoted_to_production "
+        "FROM gptbridge_index.canary_upgrade ORDER BY started_at DESC LIMIT %s"
+    ),
+
+    # --- Release audit (migration 048) ---
+    "release_audit.history": (
+        "SELECT audit_id, executor, result, started_at, completed_at, "
+        "schema_hash, failure_reason "
+        "FROM gptbridge_index.database_release_audit "
+        "WHERE release_id = %s ORDER BY audited_at DESC"
+    ),
+
+    # --- Roll forward (migration 049) ---
+    "roll_forward.list": (
+        "SELECT corrective_migration_id, fixes_migration_id, description, "
+        "applied_at, verified "
+        "FROM gptbridge_index.roll_forward_migration ORDER BY corrective_migration_id"
     ),
 }
 
