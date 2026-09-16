@@ -270,6 +270,46 @@ _TEMPLATES: dict[str, str] = {
         "SELECT migration_id, checksum, applied_at "
         "FROM gptbridge_migration.history ORDER BY migration_id"
     ),
+
+    # --- Contract version (migration 024) ---
+    "contract_version.get": (
+        "SELECT contract_name, current_version, min_compatible_version, description "
+        "FROM gptbridge_index.contract_version WHERE contract_name = %s"
+    ),
+    "contract_version.list": (
+        "SELECT contract_name, current_version, min_compatible_version "
+        "FROM gptbridge_index.contract_version ORDER BY contract_name"
+    ),
+    "contract_version.check_compatible": (
+        "SELECT gptbridge_index.check_contract_compatibility(%s, %s)"
+    ),
+
+    # --- Permission snapshot (migration 021) ---
+    "permission_snapshot.get_by_event": (
+        "SELECT snapshot_id, actor_id, session_user, target_module, "
+        "target_resource_id, target_classification, evaluated_roles, "
+        "evaluated_policies, decision_summary, rls_context, "
+        "can_read, can_write, can_write_resource, captured_at "
+        "FROM gptbridge_audit.permission_snapshot WHERE event_id = %s"
+    ),
+    "permission_snapshot.get_by_actor": (
+        "SELECT snapshot_id, target_module, target_resource_id, "
+        "can_write, can_write_resource, captured_at "
+        "FROM gptbridge_audit.permission_snapshot "
+        "WHERE actor_id = %s ORDER BY captured_at DESC LIMIT %s"
+    ),
+
+    # --- DDL audit (migration 023) ---
+    "ddl_audit.recent": (
+        "SELECT ddl_event_id, command_tag, object_identity, schema_name, "
+        "object_name, session_user, migration_executor, occurred_at "
+        "FROM gptbridge_audit.ddl_event ORDER BY occurred_at DESC LIMIT %s"
+    ),
+    "ddl_audit.by_schema": (
+        "SELECT ddl_event_id, command_tag, object_name, session_user, occurred_at "
+        "FROM gptbridge_audit.ddl_event WHERE schema_name = %s "
+        "ORDER BY occurred_at DESC LIMIT %s"
+    ),
 }
 
 QUERY_TEMPLATES: Mapping[str, str] = MappingProxyType(_TEMPLATES)

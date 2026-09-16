@@ -110,4 +110,49 @@ def clear_provenance(connection: Connection[Any]) -> None:
         connection.execute(statement)
 
 
-__all__ = ["set_provenance", "clear_provenance"]
+def set_contract_version(
+    connection: Connection[Any],
+    contract_version: str,
+) -> None:
+    """Declare the contract version for this connection's session.
+
+    Must be called before any write to a governed table.  The contract
+    version fence trigger (migration 024) rejects writes from sessions
+    that declared an incompatible version.
+
+    Uses ``SET`` (session-level, not transaction-scoped) so the version
+    persists across transactions in the same connection.
+    """
+    statement = sql.SQL("SET gptbridge.contract_version = {val}").format(
+        val=sql.Literal(contract_version),
+    )
+    connection.execute(statement)
+
+
+def set_migration_executor(connection: Connection[Any]) -> None:
+    """Mark this connection as authorized to run DDL.
+
+    Must be called before running migrations.  The DDL guard event trigger
+    (migration 022) rejects DDL from sessions that did not set this flag.
+    """
+    statement = sql.SQL("SET gptbridge.is_migration_executor = {val}").format(
+        val=sql.Literal("true"),
+    )
+    connection.execute(statement)
+
+
+def clear_migration_executor(connection: Connection[Any]) -> None:
+    """Clear the migration executor flag after DDL is complete."""
+    statement = sql.SQL("SET gptbridge.is_migration_executor = {val}").format(
+        val=sql.Literal("false"),
+    )
+    connection.execute(statement)
+
+
+__all__ = [
+    "set_provenance",
+    "clear_provenance",
+    "set_contract_version",
+    "set_migration_executor",
+    "clear_migration_executor",
+]

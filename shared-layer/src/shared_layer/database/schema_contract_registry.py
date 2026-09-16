@@ -205,6 +205,36 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         ),
         indexes=("data_lineage_source_module_idx", "data_lineage_writer_idx"),
     ),
+    TableContract(
+        schema="gptbridge_audit",
+        table="permission_snapshot",
+        columns=(
+            "snapshot_id", "event_id", "actor_id", "session_user",
+            "target_module", "target_resource_id", "target_classification",
+            "evaluated_roles", "evaluated_policies", "decision_summary",
+            "rls_context", "can_read", "can_write", "can_write_resource",
+            "captured_at",
+        ),
+        indexes=("permission_snapshot_event_idx", "permission_snapshot_actor_idx", "permission_snapshot_module_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_audit",
+        table="ddl_event",
+        columns=(
+            "ddl_event_id", "command_tag", "object_identity", "object_type",
+            "schema_name", "object_name", "session_user",
+            "migration_executor", "statement_hash", "occurred_at",
+        ),
+        indexes=("ddl_event_occurred_idx", "ddl_event_object_idx", "ddl_event_tag_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="contract_version",
+        columns=(
+            "contract_name", "current_version", "min_compatible_version",
+            "description", "updated_at",
+        ),
+    ),
 )
 
 _DECLARED_ROLES: tuple[RoleContract, ...] = (
@@ -223,7 +253,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 20  # 001 through 020
+EXPECTED_MIGRATION_COUNT = 24  # 001 through 024
 
 
 @dataclass

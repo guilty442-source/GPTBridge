@@ -26,6 +26,10 @@ _LAZY_EXPORTS = {
     "PostgreSQLPool": ("pool", "PostgreSQLPool"),
     "set_provenance": ("provenance", "set_provenance"),
     "clear_provenance": ("provenance", "clear_provenance"),
+    "set_contract_version": ("provenance", "set_contract_version"),
+    "set_migration_executor": ("provenance", "set_migration_executor"),
+    "clear_migration_executor": ("provenance", "clear_migration_executor"),
+    "capture_snapshot": ("permission_snapshot", "capture_snapshot"),
 }
 
 __all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]

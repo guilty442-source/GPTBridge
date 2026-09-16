@@ -142,8 +142,8 @@ class TestProvenanceHelper:
 
 
 class TestSchemaContractRegistry:
-    def test_expected_migration_count_is_20(self):
-        assert EXPECTED_MIGRATION_COUNT == 20
+    def test_expected_migration_count_is_24(self):
+        assert EXPECTED_MIGRATION_COUNT == 24
 
     def test_contract_includes_data_lineage_table(self):
         contract = declared_contract()
