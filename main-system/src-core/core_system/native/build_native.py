@@ -29,10 +29,14 @@ extension = Extension(
     [
         str(HERE / "_binding.cpp"),
         str(NATIVE_ROOT / "bridge" / "gptbridge_native.c"),
+        str(NATIVE_ROOT / "core" / "parser.cpp"),
+        str(NATIVE_ROOT / "core" / "vector.cpp"),
+        str(NATIVE_ROOT / "core" / "transformer.cpp"),
     ],
     include_dirs=[
         pybind11.get_include(),
         str(NATIVE_ROOT / "include"),
+        str(NATIVE_ROOT / "core"),
     ],
     language="c++",
     optional=True,
