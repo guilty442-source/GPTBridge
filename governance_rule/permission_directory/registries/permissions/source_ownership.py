@@ -119,6 +119,7 @@ SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (
     "database/",
     "local/",
     "observability/",
+    "performance/",
     "registry/",
     "security/",
     "workflow/",

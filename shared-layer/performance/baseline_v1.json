@@ -1,0 +1,359 @@
+{
+  "baseline_id": "performance-baseline-v1.0",
+  "baseline_version": "1.0",
+  "recorded_at": "2026-09-16T06:23:19.739792+00:00",
+  "machine_profile": {
+    "python_version": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "processor": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+    "cpu_count": 16,
+    "memory_total_bytes": 67848171520,
+    "machine": "AMD64",
+    "baseline_tool_version": "1.0"
+  },
+  "benchmarks": {
+    "native.parser.token_estimate": {
+      "capability_id": "native.parser.token_estimate",
+      "results": [
+        {
+          "size": "small",
+          "warmth": "cold",
+          "concurrency": 1,
+          "wall_p50": 7.670000195503235e-05,
+          "wall_p95": 0.00010769999789772555,
+          "wall_p99": 0.00010769999789772555,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 9101,
+          "allocation_p50": 1867,
+          "call_count_median": 4,
+          "correctness_passed": true
+        },
+        {
+          "size": "small",
+          "warmth": "warm",
+          "concurrency": 1,
+          "wall_p50": 7.069999992381781e-05,
+          "wall_p95": 9.030000364873558e-05,
+          "wall_p99": 9.030000364873558e-05,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 9077,
+          "allocation_p50": 1843,
+          "call_count_median": 4,
+          "correctness_passed": true
+        },
+        {
+          "size": "medium",
+          "warmth": "cold",
+          "concurrency": 1,
+          "wall_p50": 0.002638999998453073,
+          "wall_p95": 0.0038650999995297752,
+          "wall_p99": 0.0038650999995297752,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 334221,
+          "allocation_p50": 1811,
+          "call_count_median": 4,
+          "correctness_passed": true
+        },
+        {
+          "size": "medium",
+          "warmth": "warm",
+          "concurrency": 1,
+          "wall_p50": 0.0036733000015374273,
+          "wall_p95": 0.003703799993672874,
+          "wall_p99": 0.003703799993672874,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 334181,
+          "allocation_p50": 1787,
+          "call_count_median": 4,
+          "correctness_passed": true
+        },
+        {
+          "size": "large",
+          "warmth": "cold",
+          "concurrency": 1,
+          "wall_p50": 0.02933330000087153,
+          "wall_p95": 0.030012199997145217,
+          "wall_p99": 0.030012199997145217,
+          "cpu_p50": 0.03125,
+          "peak_memory_p50": 3346653,
+          "allocation_p50": 1763,
+          "call_count_median": 4,
+          "correctness_passed": true
+        },
+        {
+          "size": "large",
+          "warmth": "warm",
+          "concurrency": 1,
+          "wall_p50": 0.030043599996133707,
+          "wall_p95": 0.031384999994770624,
+          "wall_p99": 0.031384999994770624,
+          "cpu_p50": 0.03125,
+          "peak_memory_p50": 3346645,
+          "allocation_p50": 1755,
+          "call_count_median": 4,
+          "correctness_passed": true
+        }
+      ],
+      "classification": "cpu_bound",
+      "strategy": "consider NATIVE_CANDIDATE if profile-proven bottleneck",
+      "verdict": "OPTIMIZE_PYTHON",
+      "evidence": {
+        "bottleneck_class": "cpu_bound",
+        "python_wall_p50": 0.027310000004945323,
+        "native_wall_p50": null,
+        "parity_passed": true,
+        "fallback_preserved": true,
+        "minimum_meaningful_improvement": 1.5,
+        "classification": "cpu_bound",
+        "strategy": "consider NATIVE_CANDIDATE if profile-proven bottleneck",
+        "hottest": [
+          [
+            "E:\\GPTBridge\\shared-layer/src\\shared_layer\\performance\\parser_benchmark.py:34(python_token_estimate)",
+            1,
+            0.027
+          ],
+          [
+            "{method 'findall' of 're.Pattern' objects}",
+            1,
+            0.024
+          ],
+          [
+            "{built-in method builtins.len}",
+            1,
+            0.0
+          ],
+          [
+            "{method 'disable' of '_lsprof.Profiler' objects}",
+            1,
+            0.0
+          ]
+        ]
+      }
+    },
+    "native.vector.similarity": {
+      "capability_id": "native.vector.similarity",
+      "results": [
+        {
+          "size": "small",
+          "warmth": "cold",
+          "concurrency": 1,
+          "wall_p50": 0.00014790000568609685,
+          "wall_p95": 0.00014799999917158857,
+          "wall_p99": 0.00014799999917158857,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 3008,
+          "allocation_p50": 2529,
+          "call_count_median": 396,
+          "correctness_passed": true
+        },
+        {
+          "size": "small",
+          "warmth": "warm",
+          "concurrency": 1,
+          "wall_p50": 0.00011409999569877982,
+          "wall_p95": 0.00012490000517573208,
+          "wall_p99": 0.00012490000517573208,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 3008,
+          "allocation_p50": 2529,
+          "call_count_median": 396,
+          "correctness_passed": true
+        },
+        {
+          "size": "medium",
+          "warmth": "cold",
+          "concurrency": 1,
+          "wall_p50": 0.0006204999954206869,
+          "wall_p95": 0.0006442999947466888,
+          "wall_p99": 0.0006442999947466888,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 3008,
+          "allocation_p50": 2529,
+          "call_count_median": 2316,
+          "correctness_passed": true
+        },
+        {
+          "size": "medium",
+          "warmth": "warm",
+          "concurrency": 1,
+          "wall_p50": 0.0005416999993030913,
+          "wall_p95": 0.0006110000031185336,
+          "wall_p99": 0.0006110000031185336,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 3008,
+          "allocation_p50": 2529,
+          "call_count_median": 2316,
+          "correctness_passed": true
+        },
+        {
+          "size": "large",
+          "warmth": "cold",
+          "concurrency": 1,
+          "wall_p50": 0.0022969999990891665,
+          "wall_p95": 0.00233979999757139,
+          "wall_p99": 0.00233979999757139,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 3008,
+          "allocation_p50": 2529,
+          "call_count_median": 9228,
+          "correctness_passed": true
+        },
+        {
+          "size": "large",
+          "warmth": "warm",
+          "concurrency": 1,
+          "wall_p50": 0.0025858000008156523,
+          "wall_p95": 0.0033544000034453347,
+          "wall_p99": 0.0033544000034453347,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 3008,
+          "allocation_p50": 2529,
+          "call_count_median": 9228,
+          "correctness_passed": true
+        }
+      ],
+      "classification": "unknown",
+      "strategy": "reprofile with representative workload",
+      "verdict": "KEEP_PYTHON",
+      "native_wall_p50": null,
+      "evidence": {
+        "bottleneck_class": "unknown",
+        "python_wall_p50": 0.0022702999995090067,
+        "native_wall_p50": null,
+        "parity_passed": true,
+        "fallback_preserved": true,
+        "minimum_meaningful_improvement": 2.0,
+        "classification": "unknown",
+        "strategy": "reprofile with representative workload",
+        "hottest": [
+          [
+            "E:\\GPTBridge\\shared-layer/src\\shared_layer\\performance\\vector_benchmark.py:75(_python_fn)",
+            1,
+            0.002
+          ],
+          [
+            "E:\\GPTBridge\\shared-layer/src\\shared_layer\\performance\\vector_benchmark.py:37(python_cosine_similarity)",
+            1,
+            0.002
+          ],
+          [
+            "{built-in method builtins.sum}",
+            3,
+            0.002
+          ],
+          [
+            "E:\\GPTBridge\\shared-layer/src\\shared_layer\\performance\\vector_benchmark.py:32(python_dot)",
+            1,
+            0.001
+          ],
+          [
+            "E:\\GPTBridge\\shared-layer/src\\shared_layer\\performance\\vector_benchmark.py:34(<genexpr>)",
+            3073,
+            0.001
+          ]
+        ],
+        "native_compared": false
+      }
+    },
+    "native.transformer.attention": {
+      "capability_id": "native.transformer.attention",
+      "results": [
+        {
+          "size": "small",
+          "warmth": "cold",
+          "concurrency": 1,
+          "wall_p50": 0.00018540000019129366,
+          "wall_p95": 0.0002674999996088445,
+          "wall_p99": 0.0002674999996088445,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 4077,
+          "allocation_p50": 3262,
+          "call_count_median": 26,
+          "correctness_passed": true
+        },
+        {
+          "size": "small",
+          "warmth": "warm",
+          "concurrency": 1,
+          "wall_p50": 0.000185500000952743,
+          "wall_p95": 0.00018850000196835026,
+          "wall_p99": 0.00018850000196835026,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 3957,
+          "allocation_p50": 3190,
+          "call_count_median": 26,
+          "correctness_passed": true
+        },
+        {
+          "size": "medium",
+          "warmth": "cold",
+          "concurrency": 1,
+          "wall_p50": 0.002945799998997245,
+          "wall_p95": 0.0031128999980865046,
+          "wall_p99": 0.0031128999980865046,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 11317,
+          "allocation_p50": 4102,
+          "call_count_median": 74,
+          "correctness_passed": true
+        },
+        {
+          "size": "medium",
+          "warmth": "warm",
+          "concurrency": 1,
+          "wall_p50": 0.00262020000081975,
+          "wall_p95": 0.0026338000025134534,
+          "wall_p99": 0.0026338000025134534,
+          "cpu_p50": 0.0,
+          "peak_memory_p50": 11197,
+          "allocation_p50": 3982,
+          "call_count_median": 74,
+          "correctness_passed": true
+        }
+      ],
+      "classification": "unknown",
+      "strategy": "reprofile with representative workload",
+      "verdict": "KEEP_PYTHON",
+      "numpy_wall_p50": 0.0004619999963324517,
+      "evidence": {
+        "bottleneck_class": "unknown",
+        "python_wall_p50": 0.003008100000442937,
+        "native_wall_p50": null,
+        "parity_passed": true,
+        "fallback_preserved": true,
+        "minimum_meaningful_improvement": 1.5,
+        "classification": "unknown",
+        "strategy": "reprofile with representative workload",
+        "hottest": [
+          [
+            "E:\\GPTBridge\\shared-layer/src\\shared_layer\\performance\\transformer_benchmark.py:126(_python_fn)",
+            1,
+            0.003
+          ],
+          [
+            "E:\\GPTBridge\\shared-layer/src\\shared_layer\\performance\\transformer_benchmark.py:58(python_attention)",
+            1,
+            0.003
+          ],
+          [
+            "E:\\GPTBridge\\shared-layer/src\\shared_layer\\performance\\transformer_benchmark.py:48(python_softmax)",
+            1,
+            0.0
+          ],
+          [
+            "E:\\GPTBridge\\shared-layer/src\\shared_layer\\performance\\transformer_benchmark.py:53(<listcomp>)",
+            1,
+            0.0
+          ],
+          [
+            "E:\\GPTBridge\\shared-layer/src\\shared_layer\\performance\\transformer_benchmark.py:55(<listcomp>)",
+            1,
+            0.0
+          ]
+        ],
+        "numpy_wall_p50": 0.0004619999963324517,
+        "numpy_speedup": 6.511
+      }
+    }
+  }
+}
