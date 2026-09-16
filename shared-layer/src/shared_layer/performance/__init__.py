@@ -55,6 +55,18 @@ from .regression import (
     compare_baselines,
     detect_regression,
 )
+from .budgets import (
+    PerformanceBudget,
+    BudgetCheckResult,
+    get_budget,
+    list_budgets,
+    check_budget,
+    check_all_budgets,
+)
+from .regression_benchmarks import (
+    run_regression_benchmarks,
+    write_regression_report,
+)
 
 __all__ = [
     "ProfileResult",
@@ -84,4 +96,12 @@ __all__ = [
     "RegressionEvidence",
     "compare_baselines",
     "detect_regression",
+    "PerformanceBudget",
+    "BudgetCheckResult",
+    "get_budget",
+    "list_budgets",
+    "check_budget",
+    "check_all_budgets",
+    "run_regression_benchmarks",
+    "write_regression_report",
 ]

@@ -200,7 +200,7 @@ class CitationFormatter:
     @staticmethod
     def parse_citation_ids(text: str) -> list[str]:
         """Parse citation IDs from LLM response text."""
-        return re.findall(r'\[R(\d+)\]', text)
+        return CitationValidator.CITATION_PATTERN.findall(text)
 
 
 def build_citation_from_hit(

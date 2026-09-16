@@ -6,10 +6,9 @@ Implements configurable chunking with overlap and metadata preservation.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, field
 from typing import Any, Iterator, Optional
-
-import tiktoken
 
 
 @dataclass(frozen=True)
@@ -41,6 +40,10 @@ class FixedSizeChunking(ChunkingStrategy):
     ) -> None:
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+        # Lazy import: tiktoken is a heavy import (regex + registry load).
+        # Deferring it to first instantiation keeps cold startup fast for
+        # modules that only need the chunking types, not the encoder.
+        import tiktoken
         self.encoding = tiktoken.get_encoding(encoding_name)
 
     def count_tokens(self, text: str) -> int:
@@ -64,14 +67,16 @@ class FixedSizeChunking(ChunkingStrategy):
         chunks = []
         start_token = 0
         chunk_index = 0
+        # O(n) cumulative character tracking: each token is decoded at most
+        # twice (once as part of a chunk, once as part of an overlap).
+        # The previous implementation re-decoded tokens[:start_token] for
+        # every chunk, making the whole method O(n²).
+        char_start = 0
 
         while start_token < len(tokens):
             end_token = min(start_token + self.chunk_size, len(tokens))
             chunk_tokens = tokens[start_token:end_token]
             chunk_text = self.encoding.decode(chunk_tokens)
-
-            # Calculate character positions (approximate)
-            char_start = len(self.encoding.decode(tokens[:start_token]))
             char_end = char_start + len(chunk_text)
 
             chunks.append(Chunk(
@@ -86,13 +91,20 @@ class FixedSizeChunking(ChunkingStrategy):
             chunk_index += 1
             if end_token >= len(tokens):
                 break
-            start_token = end_token - self.chunk_overlap
+            next_start = end_token - self.chunk_overlap
+            # Adjust char_start for the overlap: subtract the decoded
+            # length of the overlap tokens from the current char_end.
+            overlap_decode = self.encoding.decode(tokens[next_start:end_token])
+            char_start = char_end - len(overlap_decode)
+            start_token = next_start
 
         return chunks
 
 
 class SemanticChunking(ChunkingStrategy):
     """Semantic chunking based on paragraph/sentence boundaries."""
+
+    _SENTENCE_RE = re.compile(r'(?<=[.!?])\s+')
 
     def __init__(
         self,
@@ -102,6 +114,7 @@ class SemanticChunking(ChunkingStrategy):
     ) -> None:
         self.max_chunk_size = max_chunk_size
         self.min_chunk_size = min_chunk_size
+        import tiktoken
         self.encoding = tiktoken.get_encoding(encoding_name)
 
     def count_tokens(self, text: str) -> int:
@@ -110,7 +123,7 @@ class SemanticChunking(ChunkingStrategy):
     def _split_into_sentences(self, text: str) -> list[str]:
         """Split text into sentences."""
         # Simple sentence splitting - can be improved with spaCy/NLTK
-        sentences = re.split(r'(?<=[.!?])\s+', text)
+        sentences = self._SENTENCE_RE.split(text)
         return [s.strip() for s in sentences if s.strip()]
 
     def chunk(self, text: str, metadata: dict[str, Any]) -> list[Chunk]:

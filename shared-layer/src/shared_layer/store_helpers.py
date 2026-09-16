@@ -57,6 +57,26 @@ def normalize_id(value: str) -> str:
     return normalized
 
 
+# Keep in sync with shared-layer/migrations/041_transport_priority_queue.sql
+# (gptbridge_transport.priority_value_for) and shared_layer.adaptive.
+_PRIORITY_VALUES: Final[dict[str, int]] = {
+    "critical": 0,
+    "interactive": 100,
+    "background": 500,
+    "maintenance": 900,
+}
+
+
+def normalize_priority_class(priority_class: str) -> str:
+    normalized = str(priority_class or "interactive").strip().casefold()
+    if normalized not in _PRIORITY_VALUES:
+        raise ValueError(f"UNKNOWN_PRIORITY_CLASS:{priority_class}")
+    return normalized
+
+
+_normalize_priority_class = normalize_priority_class
+
+
 __all__ = [
     "_CHANS",
     "_MAX_ID",
@@ -65,8 +85,11 @@ __all__ = [
     "_POOL_MIN_CONN",
     "_POOL_MAX_CONN",
     "_POOL_TIMEOUT",
+    "_PRIORITY_VALUES",
+    "_normalize_priority_class",
     "now_iso",
     "decode",
     "encode_json",
     "normalize_id",
+    "normalize_priority_class",
 ]

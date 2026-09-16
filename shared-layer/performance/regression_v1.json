@@ -1,0 +1,124 @@
+{
+  "report_id": "runtime-optimization-v1",
+  "recorded_at": "2026-09-16T06:38:23.007287+00:00",
+  "machine_profile": {
+    "python_version": "3.11.9",
+    "cpu_count": 16,
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "v1_baseline_id": "performance-baseline-v1.0",
+  "optimizations": {
+    "chunking": {
+      "capability_id": "python.rag.chunking",
+      "optimization": "O(n²) -> O(n) cumulative char tracking",
+      "v1_wall_p50_ms": 57.180700001481455,
+      "v2_wall_p50_ms": 29.598799999803305,
+      "speedup": 1.932,
+      "correctness_preserved": true,
+      "classification": "cpu_bound",
+      "budget_checks": [
+        {
+          "metric": "warm_p50_ms",
+          "status": "PASS",
+          "message": "warm_p50_ms 29.60 <= budget 50.00"
+        },
+        {
+          "metric": "peak_memory_kb",
+          "status": "FAIL",
+          "message": "peak_memory_kb 3314.42 exceeds budget 2048.00 by 61.8% (above 20.0% tolerance)"
+        },
+        {
+          "metric": "allocation_count",
+          "status": "PASS",
+          "message": "allocation_count 2599.00 <= budget 100000.00"
+        },
+        {
+          "metric": "call_count",
+          "status": "PASS",
+          "message": "call_count 1010.00 <= budget 50000.00"
+        }
+      ]
+    },
+    "encode_json": {
+      "capability_id": "python.store.encode_json",
+      "optimization": "fast-path length check (avoid double-encode)",
+      "wall_p50_ms": 0.07809999806340784,
+      "wall_p95_ms": 0.11580000136746094,
+      "allocation_count": 2977,
+      "call_count": 11,
+      "budget_checks": [
+        {
+          "metric": "warm_p50_ms",
+          "status": "PASS",
+          "message": "warm_p50_ms 0.08 <= budget 0.50"
+        },
+        {
+          "metric": "allocation_count",
+          "status": "FAIL",
+          "message": "allocation_count 2977.00 exceeds budget 1000.00 by 197.7% (above 20.0% tolerance)"
+        },
+        {
+          "metric": "call_count",
+          "status": "PASS",
+          "message": "call_count 11.00 <= budget 100.00"
+        }
+      ]
+    },
+    "reconcile_batch": {
+      "capability_id": "python.reconcile.mark_pending",
+      "optimization": "mark_pending_batch (executemany + single commit)",
+      "v1_wall_p50_ms": 0.3839000055450015,
+      "v2_wall_p50_ms": 0.15580000035697594,
+      "speedup": 2.464,
+      "correctness_preserved": true,
+      "budget_checks": [
+        {
+          "metric": "warm_p50_ms",
+          "status": "PASS",
+          "message": "warm_p50_ms 0.16 <= budget 1.00"
+        },
+        {
+          "metric": "allocation_count",
+          "status": "PASS",
+          "message": "allocation_count 2476.00 <= budget 5000.00"
+        },
+        {
+          "metric": "call_count",
+          "status": "PASS",
+          "message": "call_count 7.00 <= budget 1000.00"
+        }
+      ]
+    },
+    "import_time": {
+      "capability_id": "python.rag.import_time",
+      "optimization": "lazy-import tiktoken/openai/httpx",
+      "measured_module": "json",
+      "import_ms": 5.382400006055832,
+      "saved_on_cold_startup_ms": 5.382400006055832,
+      "note": "json import is now deferred to first FixedSizeChunking/SemanticChunking init"
+    }
+  },
+  "reclassification": {
+    "native.parser.token_estimate": {
+      "v1_verdict": "OPTIMIZE_PYTHON",
+      "v1_class": "cpu_bound",
+      "post_optimization_verdict": "OPTIMIZE_PYTHON",
+      "post_optimization_class": "cpu_bound",
+      "reason": "CPU bottleneck remains after Python optimization; eligible for NATIVE_CANDIDATE if native path is built"
+    },
+    "native.vector.similarity": {
+      "v1_verdict": "KEEP_PYTHON",
+      "v1_class": "unknown",
+      "post_optimization_verdict": "KEEP_PYTHON",
+      "post_optimization_class": "unknown",
+      "reason": "no change (KEEP_PYTHON stays KEEP_PYTHON)"
+    },
+    "native.transformer.attention": {
+      "v1_verdict": "KEEP_PYTHON",
+      "v1_class": "unknown",
+      "post_optimization_verdict": "KEEP_PYTHON",
+      "post_optimization_class": "unknown",
+      "reason": "no change (KEEP_PYTHON stays KEEP_PYTHON)"
+    }
+  }
+}

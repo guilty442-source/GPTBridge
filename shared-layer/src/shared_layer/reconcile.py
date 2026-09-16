@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
+from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,36 @@ class ReconcileStateStore:
         )
         self.connection.commit()
 
+    def mark_pending_batch(
+        self,
+        records: Iterable[tuple[str, str, int, str, str | None]],
+    ) -> int:
+        """Batch variant of ``mark_pending`` — one commit per call.
+
+        ``records`` yields ``(module_id, resource_id, version, updated_at,
+        content_hash)`` tuples.  Reconcile scanners that discover many
+        pending resources in one pass should use this instead of calling
+        ``mark_pending`` per row, which would fsync once per row and
+        starve the transport.
+        """
+        rows = list(records)
+        if not rows:
+            return 0
+        self.connection.executemany(
+            """INSERT INTO reconcile_state
+                (module_id, resource_id, local_version, local_updated_at,
+                 local_content_hash, reconcile_status)
+               VALUES (?, ?, ?, ?, ?, 'pending')
+               ON CONFLICT (module_id, resource_id) DO UPDATE SET
+                 local_version = excluded.local_version,
+                 local_updated_at = excluded.local_updated_at,
+                 local_content_hash = excluded.local_content_hash,
+                 reconcile_status = 'pending', reconciled_at = NULL""",
+            rows,
+        )
+        self.connection.commit()
+        return len(rows)
+
     def pending(self, module_id: str, limit: int = 100) -> list[PendingReconcileRecord]:
         rows = self.connection.execute(
             """SELECT module_id, resource_id, local_version, local_updated_at,
@@ -104,6 +135,30 @@ class ReconcileStateStore:
             (status, reconciled_at, module_id, resource_id),
         )
         self.connection.commit()
+
+    def mark_results(
+        self, results: Iterable[tuple[str, str, str]], reconciled_at: str
+    ) -> int:
+        """Batch variant of ``mark_result`` — one commit per call.
+
+        ``results`` yields ``(module_id, resource_id, status)`` tuples;
+        every status must be ``in-sync`` or ``conflict``.  Reconcile
+        workers drain in bounded batches, so batching the write is the
+        honest throughput path — per-row commit would fsync once per
+        row and starve the transport.
+        """
+        rows = list(results)
+        for _, _, status in rows:
+            if status not in {"in-sync", "conflict"}:
+                raise ValueError("invalid reconcile status")
+        self.connection.executemany(
+            """UPDATE reconcile_state SET reconcile_status = ?, reconciled_at = ?
+               WHERE module_id = ? AND resource_id = ?""",
+            [(status, reconciled_at, module_id, resource_id)
+             for module_id, resource_id, status in rows],
+        )
+        self.connection.commit()
+        return len(rows)
 
 
 __all__ = ["PendingReconcileRecord", "ReconcileStateStore"]

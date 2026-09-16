@@ -10,9 +10,6 @@ import os
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
-import httpx
-from openai import AsyncOpenAI
-
 
 class EmbeddingProvider(ABC):
     """Abstract embedding provider."""
@@ -48,6 +45,10 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
     ) -> None:
         self._model = model
         self._dimension = dimension
+        # Lazy import: openai pulls in httpx, pydantic, and other heavy
+        # dependencies.  Deferring it to first instantiation keeps cold
+        # startup fast for modules that only need the type definitions.
+        from openai import AsyncOpenAI
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
@@ -90,6 +91,8 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._dimension = dimension
+        # Lazy import: httpx is only needed when actually making requests.
+        import httpx
         self._client = httpx.AsyncClient(timeout=60.0)
 
     @property
