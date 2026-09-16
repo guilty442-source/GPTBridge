@@ -66,6 +66,22 @@ CREATE TABLE IF NOT EXISTS resource_metadata (
     classification TEXT,
     index_status TEXT,
     metadata TEXT,
+    -- Authority marker (migration 019): every record explicitly carries
+    -- its authority class so degraded/cache data is never mistaken for
+    -- authoritative (A8/E21 + A44/E30 + A10/E10).
+    authority_class TEXT NOT NULL DEFAULT 'module-private' CHECK (
+        authority_class IN (
+            'central-official',
+            'module-private',
+            'derived',
+            'cache',
+            'degraded-copy'
+        )
+    ),
+    -- Write provenance (migration 020): who wrote this row and why.
+    executor_id TEXT,
+    correlation_id TEXT,
+    source_revision INTEGER,
     PRIMARY KEY (module_id, resource_id)
 );
 

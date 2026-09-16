@@ -138,6 +138,9 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "006_audit_append_only_enforcement.sql",
         "007_transport_idempotency_key.sql",
         "008_rls_role_isolation.sql",
+        "018_data_lineage.sql",
+        "019_authority_marker.sql",
+        "020_write_provenance.sql",
     ):
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")
@@ -154,6 +157,85 @@ def check_sqlite_template(root: Path, errors: list[str]) -> None:
                                "resource_metadata", "audit_event", "reconcile_state"):
             if required_table not in template_text:
                 errors.append(f"SQLite module template is missing table: {required_table}")
+        # Authority marker (migration 019) + write provenance (migration 020)
+        for required_column in ("authority_class", "executor_id", "correlation_id"):
+            if required_column not in template_text:
+                errors.append(
+                    f"SQLite module template is missing column: {required_column}"
+                )
+
+
+def check_data_lineage(root: Path, errors: list[str]) -> None:
+    """Verify data lineage migration (018) defines required objects."""
+    lineage_migration = root / "shared-layer" / "migrations" / "018_data_lineage.sql"
+    if not lineage_migration.is_file():
+        errors.append("Data lineage migration 018 is missing")
+        return
+    text = lineage_migration.read_text(encoding="utf-8")
+    for required_object in (
+        "gptbridge_index.data_lineage",
+        "auto_populate_lineage",
+        "resource_lineage_populate",
+        "resource_lineage",
+    ):
+        if required_object not in text:
+            errors.append(
+                f"Data lineage migration 018 is missing object: {required_object}"
+            )
+
+
+def check_authority_marker(root: Path, errors: list[str]) -> None:
+    """Verify authority marker migration (019) defines required columns."""
+    authority_migration = root / "shared-layer" / "migrations" / "019_authority_marker.sql"
+    if not authority_migration.is_file():
+        errors.append("Authority marker migration 019 is missing")
+        return
+    text = authority_migration.read_text(encoding="utf-8")
+    for required_token in (
+        "authority_class",
+        "central-official",
+        "module-private",
+        "degraded-copy",
+    ):
+        if required_token not in text:
+            errors.append(
+                f"Authority marker migration 019 is missing token: {required_token}"
+            )
+
+
+def check_write_provenance(root: Path, errors: list[str]) -> None:
+    """Verify write provenance migration (020) defines required objects."""
+    provenance_migration = root / "shared-layer" / "migrations" / "020_write_provenance.sql"
+    if not provenance_migration.is_file():
+        errors.append("Write provenance migration 020 is missing")
+        return
+    text = provenance_migration.read_text(encoding="utf-8")
+    for required_object in (
+        "executor_id",
+        "correlation_id",
+        "source_revision",
+        "auto_populate_provenance",
+        "resource_provenance_populate",
+        "audit_event_provenance_populate",
+    ):
+        if required_object not in text:
+            errors.append(
+                f"Write provenance migration 020 is missing object: {required_object}"
+            )
+
+
+def check_provenance_helper(root: Path, errors: list[str]) -> None:
+    """Verify the runtime provenance helper module exists and exports."""
+    helper = root / "shared-layer" / "src" / "shared_layer" / "database" / "provenance.py"
+    if not helper.is_file():
+        errors.append("Provenance helper module is missing")
+        return
+    text = helper.read_text(encoding="utf-8")
+    for required_symbol in ("set_provenance", "clear_provenance", "gptbridge.actor_id"):
+        if required_symbol not in text:
+            errors.append(
+                f"Provenance helper is missing symbol: {required_symbol}"
+            )
 
 
 def check_embedded_browser(root: Path, errors: list[str]) -> None:

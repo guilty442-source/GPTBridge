@@ -31,11 +31,13 @@ _TEMPLATES: dict[str, str] = {
         "SELECT resource_id, platform_id, module_id, owner_id, data_category, "
         "resource_type, resource_label, classification, locator_id, content_hash, "
         "version, index_status, metadata, created_at, updated_at, "
-        "backend_generation, stale "
+        "backend_generation, stale, authority_class, "
+        "executor_id, correlation_id, source_revision "
         "FROM gptbridge_index.resource WHERE resource_id = %s"
     ),
     "resource.get_by_module": (
-        "SELECT resource_id, version, content_hash, status, updated_at "
+        "SELECT resource_id, version, content_hash, status, updated_at, "
+        "authority_class "
         "FROM gptbridge_index.resource WHERE module_id = %s "
         "ORDER BY updated_at DESC LIMIT %s"
     ),
@@ -47,19 +49,19 @@ _TEMPLATES: dict[str, str] = {
         "INSERT INTO gptbridge_index.resource "
         "(resource_id, platform_id, module_id, owner_id, data_category, "
         "resource_type, resource_label, classification, locator_id, content_hash, "
-        "version, index_status, metadata) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        "version, index_status, metadata, authority_class) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
     ),
     "resource.upsert": (
         "INSERT INTO gptbridge_index.resource "
         "(resource_id, platform_id, module_id, owner_id, data_category, "
         "resource_type, resource_label, classification, locator_id, content_hash, "
-        "version, index_status, metadata) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+        "version, index_status, metadata, authority_class) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
         "ON CONFLICT (resource_id) DO UPDATE SET "
         "version = excluded.version, content_hash = excluded.content_hash, "
         "index_status = excluded.index_status, metadata = excluded.metadata, "
-        "updated_at = now()"
+        "authority_class = excluded.authority_class, updated_at = now()"
     ),
     "resource.count_by_module": (
         "SELECT count(*) FROM gptbridge_index.resource WHERE module_id = %s"
@@ -68,6 +70,30 @@ _TEMPLATES: dict[str, str] = {
         "SELECT resource_id, module_id, pg_revision, pg_hash, backend_generation, "
         "pg_stale, qdrant_revision, qdrant_hash, qdrant_generation, consistency_status "
         "FROM gptbridge_index.resource_consistency WHERE module_id = %s"
+    ),
+
+    # --- Data lineage (migration 018) ---
+    "lineage.get_by_resource": (
+        "SELECT resource_id, source_module, source_revision, produce_method, "
+        "sync_path, last_writer_id, last_writer_at, "
+        "last_writer_actor_id, last_writer_executor_id, "
+        "last_writer_decision_id, last_writer_correlation_id, lineage_metadata "
+        "FROM gptbridge_index.data_lineage WHERE resource_id = %s"
+    ),
+    "lineage.get_by_correlation": (
+        "SELECT resource_id, source_module, source_revision, last_writer_at "
+        "FROM gptbridge_index.data_lineage "
+        "WHERE last_writer_correlation_id = %s ORDER BY last_writer_at"
+    ),
+    "lineage.resource_lineage_view": (
+        "SELECT resource_id, module_id, authority_class, pg_revision, pg_hash, "
+        "source_module, source_revision, produce_method, sync_path, "
+        "last_writer_id, last_writer_at, last_writer_actor_id, "
+        "last_writer_executor_id, last_writer_decision_id, "
+        "last_writer_correlation_id, locator_id, locator_status, "
+        "qdrant_authority_class, qdrant_revision, qdrant_hash, "
+        "qdrant_index_status, qdrant_consistency "
+        "FROM gptbridge_index.resource_lineage WHERE resource_id = %s"
     ),
 
     # --- RAG chunk (gptbridge_rag.chunk) ---
@@ -102,13 +128,14 @@ _TEMPLATES: dict[str, str] = {
     "rag.index_state.upsert": (
         "INSERT INTO gptbridge_rag.index_state "
         "(resource_id, module_id, embedding_model, qdrant_collection, chunk_count, "
-        "status, version, qdrant_point_id, source_revision, content_hash, backend_generation) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+        "status, version, qdrant_point_id, source_revision, content_hash, "
+        "backend_generation, authority_class) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
         "ON CONFLICT (resource_id) DO UPDATE SET "
         "chunk_count = excluded.chunk_count, status = excluded.status, "
         "version = excluded.version, qdrant_point_id = excluded.qdrant_point_id, "
         "source_revision = excluded.source_revision, content_hash = excluded.content_hash, "
-        "updated_at = now()"
+        "authority_class = excluded.authority_class, updated_at = now()"
     ),
 
     # --- Transport (gptbridge_transport.tool_request) ---

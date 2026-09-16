@@ -71,8 +71,10 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "content_hash", "version", "index_status", "metadata",
             "created_at", "updated_at",
             "backend_generation", "stale",
+            "authority_class", "executor_id", "correlation_id", "source_revision",
         ),
-        indexes=("resource_module_category_idx", "resource_status_idx", "resource_metadata_idx"),
+        indexes=("resource_module_category_idx", "resource_status_idx", "resource_metadata_idx",
+                 "resource_authority_class_idx", "resource_correlation_idx", "resource_executor_idx"),
     ),
     TableContract(
         schema="gptbridge_index",
@@ -117,6 +119,7 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "tombstone_generation", "embedding_version", "chunking_version",
             "parser_version", "rag_schema_version", "pipeline_version",
             "backend_generation",
+            "authority_class", "executor_id", "correlation_id",
         ),
     ),
     TableContract(
@@ -144,8 +147,10 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "event_id", "actor_id", "module_id", "resource_id", "action",
             "outcome", "decision_id", "details", "occurred_at",
             "acting_module_id", "idempotency_key", "sequence_number",
+            "executor_id", "correlation_id", "source_revision",
         ),
-        indexes=("audit_event_sequence_idx", "audit_event_occurred_at_idx", "audit_module_id_idx"),
+        indexes=("audit_event_sequence_idx", "audit_event_occurred_at_idx", "audit_module_id_idx",
+                 "audit_event_correlation_idx"),
     ),
     TableContract(
         schema="gptbridge_index",
@@ -188,6 +193,18 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "status", "result", "created_at", "created_by",
         ),
     ),
+    TableContract(
+        schema="gptbridge_index",
+        table="data_lineage",
+        columns=(
+            "resource_id", "source_module", "source_revision", "produce_method",
+            "sync_path", "last_writer_id", "last_writer_at",
+            "last_writer_actor_id", "last_writer_executor_id",
+            "last_writer_decision_id", "last_writer_correlation_id",
+            "lineage_metadata",
+        ),
+        indexes=("data_lineage_source_module_idx", "data_lineage_writer_idx"),
+    ),
 )
 
 _DECLARED_ROLES: tuple[RoleContract, ...] = (
@@ -206,7 +223,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 17  # 001 through 017
+EXPECTED_MIGRATION_COUNT = 20  # 001 through 020
 
 
 @dataclass

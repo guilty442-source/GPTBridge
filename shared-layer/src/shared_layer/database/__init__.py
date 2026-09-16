@@ -24,6 +24,8 @@ _LAZY_EXPORTS = {
     "DatabaseHealth": ("health", "DatabaseHealth"),
     "DatabaseHealthCheck": ("health", "DatabaseHealthCheck"),
     "PostgreSQLPool": ("pool", "PostgreSQLPool"),
+    "set_provenance": ("provenance", "set_provenance"),
+    "clear_provenance": ("provenance", "clear_provenance"),
 }
 
 __all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]

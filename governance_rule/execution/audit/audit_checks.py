@@ -15,13 +15,17 @@ from governance_rule.permission_directory.registries.permissions.source_ownershi
 )
 
 from .audit_artifacts import (
+    check_authority_marker,
     check_codex_consistency,
+    check_data_lineage,
     check_embedded_browser,
     check_git_tiers,
     check_metadata_contract,
+    check_provenance_helper,
     check_reconcile_modules,
     check_sql_migrations,
     check_sqlite_template,
+    check_write_provenance,
 )
 from .audit_authority import (
     check_architecture_sources,
@@ -284,6 +288,10 @@ def audit_runtime_governance(
         lambda r: _collect(check_reconcile_modules, r),
         lambda r: _collect(check_sql_migrations, r),
         lambda r: _collect(check_sqlite_template, r),
+        lambda r: _collect(check_data_lineage, r),
+        lambda r: _collect(check_authority_marker, r),
+        lambda r: _collect(check_write_provenance, r),
+        lambda r: _collect(check_provenance_helper, r),
         lambda r: _collect(check_embedded_browser, r),
     ]
     if include_self_health:
