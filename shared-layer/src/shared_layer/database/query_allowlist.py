@@ -842,6 +842,104 @@ _TEMPLATES: dict[str, str] = {
         "tamper_state, signed_at "
         "FROM gptbridge_index.get_latest_signature(%s)"
     ),
+
+    # --- Recovery plan (migration 098) ---
+    "recovery_plan.active": (
+        "SELECT plan_id, version, steps, verification_rules, required_authority "
+        "FROM gptbridge_index.get_active_recovery_plan(%s)"
+    ),
+
+    # --- Recovery incident (migration 095) ---
+    "recovery_incident.active": (
+        "SELECT incident_id, incident_type, severity, status, detected_at "
+        "FROM gptbridge_index.get_active_incidents()"
+    ),
+
+    # --- Recovery state machine (migration 098) ---
+    "recovery_state.current": (
+        "SELECT gptbridge_index.get_current_recovery_state(%s)"
+    ),
+
+    # --- PG offline recovery (migration 095) ---
+    "pg_offline_recovery.list": (
+        "SELECT recovery_id, fallback_status, confirmation_attempts, "
+        "degraded_at, recovered_at FROM gptbridge_index.pg_offline_recovery "
+        "ORDER BY failure_detected_at DESC LIMIT %s"
+    ),
+
+    # --- PG recovery verification (migration 098) ---
+    "pg_recovery_verify.list": (
+        "SELECT verification_id, overall_recoverable, failure_reason, verified_at "
+        "FROM gptbridge_index.pg_recovery_verification "
+        "WHERE incident_id = %s ORDER BY verified_at DESC"
+    ),
+
+    # --- Reconcile recovery (migration 095) ---
+    "reconcile_recovery.list": (
+        "SELECT phase_id, status, pending_snapshot_count, reconciled_count, "
+        "conflict_count, verified_count "
+        "FROM gptbridge_index.reconcile_recovery_phase "
+        "WHERE incident_id = %s ORDER BY started_at DESC"
+    ),
+
+    # --- Recovery generation (migration 098) ---
+    "recovery_generation.current": (
+        "SELECT gptbridge_index.get_current_generation()"
+    ),
+
+    # --- Recovery barrier (migration 095) ---
+    "recovery_barrier.active": (
+        "SELECT barrier_id, barrier_type, raised_at, barrier_active "
+        "FROM gptbridge_index.recovery_barrier "
+        "WHERE barrier_active = true ORDER BY raised_at DESC"
+    ),
+
+    # --- Transport recovery (migration 098) ---
+    "transport_recovery.unknown": (
+        "SELECT recovery_id, idempotency_key, request_id, commit_state, detected_at "
+        "FROM gptbridge_index.get_unknown_commits(%s)"
+    ),
+
+    # --- Lease recovery (migration 098) ---
+    "lease_recovery.expired": (
+        "SELECT lease_recovery_id, request_id, lease_until, lease_status "
+        "FROM gptbridge_index.get_expired_leases(%s)"
+    ),
+
+    # --- SQLite fallback freeze (migration 101) ---
+    "sqlite_fallback.state": (
+        "SELECT gptbridge_index.get_fallback_state(%s)"
+    ),
+
+    # --- Qdrant recovery (migration 101) ---
+    "qdrant_recovery.list": (
+        "SELECT recovery_id, qdrant_status, indexing_backlog_count, "
+        "missing_points_count, rebuilt_points_count "
+        "FROM gptbridge_index.qdrant_recovery "
+        "ORDER BY detected_at DESC LIMIT %s"
+    ),
+
+    # --- Qdrant full rebuild (migration 102) ---
+    "qdrant_full_rebuild.list": (
+        "SELECT rebuild_id, status, total_chunks, processed_chunks, "
+        "verified_chunks FROM gptbridge_index.qdrant_full_rebuild "
+        "ORDER BY started_at DESC LIMIT %s"
+    ),
+
+    # --- Chaos drill (migration 111) ---
+    "chaos_drill.list": (
+        "SELECT drill_id, scenario_code, scenario_name, status, overall_passed "
+        "FROM gptbridge_index.chaos_drill "
+        "ORDER BY started_at DESC LIMIT %s"
+    ),
+
+    # --- Recovery certification (migration 112) ---
+    "recovery_certification.list": (
+        "SELECT certification_id, plan_id, certification_status, "
+        "integrity_result, reconcile_result, audit_result "
+        "FROM gptbridge_index.recovery_certification "
+        "ORDER BY created_at DESC LIMIT %s"
+    ),
 }
 
 QUERY_TEMPLATES: Mapping[str, str] = MappingProxyType(_TEMPLATES)

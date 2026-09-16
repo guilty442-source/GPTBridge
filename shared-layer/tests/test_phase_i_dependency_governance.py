@@ -384,8 +384,8 @@ class TestQueryAllowlistPhaseI:
         assert is_allowlisted("release_signature.latest")
 
 class TestSchemaContractRegistryPhaseI:
-    def test_expected_migration_count_is_85(self):
-        assert EXPECTED_MIGRATION_COUNT == 85
+    def test_expected_migration_count_is_112(self):
+        assert EXPECTED_MIGRATION_COUNT == 112
 
     def test_contract_includes_version_lock(self):
         contract = declared_contract()

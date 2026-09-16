@@ -206,6 +206,34 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "083_dependency_drift.sql",
         "084_offline_bundle.sql",
         "085_release_signature.sql",
+        "086_lineage_core.sql",
+        "087_security_identity_control.sql",
+        "088_recovery_plan.sql",
+        "089_recovery_incident.sql",
+        "090_recovery_state_machine.sql",
+        "091_pg_offline_recovery.sql",
+        "092_pg_recovery_verification.sql",
+        "093_reconcile_recovery_phase.sql",
+        "094_recovery_generation.sql",
+        "095_recovery_barrier.sql",
+        "096_transport_recovery.sql",
+        "097_unknown_commit_resolution.sql",
+        "098_lease_recovery.sql",
+        "099_sqlite_fallback_freeze.sql",
+        "100_recovery_priority.sql",
+        "101_qdrant_recovery.sql",
+        "102_qdrant_full_rebuild.sql",
+        "103_sqlite_single_recovery.sql",
+        "104_codex_sqlite_recovery.sql",
+        "105_backup_restore_orchestration.sql",
+        "106_pitr_boundary.sql",
+        "107_recovery_retry_policy.sql",
+        "108_recovery_checkpoint.sql",
+        "109_recovery_idempotency.sql",
+        "110_recovery_safety_fence.sql",
+        "111_chaos_drill.sql",
+        "112_recovery_certification.sql",
+        "113_workflow_operation.sql",
     ):
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")
@@ -1086,6 +1114,281 @@ def check_dependency_governor_module(root: Path, errors: list[str]) -> None:
                      "sign_release", "verify_release_signature"):
         if required not in text:
             errors.append(f"Dependency governor module is missing: {required}")
+
+
+def check_recovery_plan(root: Path, errors: list[str]) -> None:
+    """Verify recovery plan migration (088) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "088_recovery_plan.sql"
+    if not migration.is_file():
+        errors.append("Recovery plan migration 088 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("recovery_plan", "register_recovery_plan",
+                     "certify_recovery_plan", "activate_recovery_plan",
+                     "get_active_recovery_plan",
+                     "incident_type", "steps", "verification_rules"):
+        if required not in text:
+            errors.append(f"Recovery plan migration 088 is missing: {required}")
+
+
+def check_recovery_incident(root: Path, errors: list[str]) -> None:
+    """Verify recovery incident migration (089)."""
+    migration = root / "shared-layer" / "migrations" / "089_recovery_incident.sql"
+    if not migration.is_file():
+        errors.append("Recovery incident migration 089 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("recovery_incident", "open_recovery_incident",
+                     "advance_incident_status", "get_active_incidents"):
+        if required not in text:
+            errors.append(f"Recovery incident migration 089 is missing: {required}")
+
+
+def check_recovery_state_machine(root: Path, errors: list[str]) -> None:
+    """Verify recovery state machine migration (090)."""
+    migration = root / "shared-layer" / "migrations" / "090_recovery_state_machine.sql"
+    if not migration.is_file():
+        errors.append("Recovery state machine migration 090 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("recovery_state_machine", "recovery_state_transition",
+                     "transition_recovery_state", "get_current_recovery_state",
+                     "HEALTHY", "DEGRADED", "RECOVERING", "QUARANTINED"):
+        if required not in text:
+            errors.append(f"Recovery state machine migration 090 is missing: {required}")
+
+
+def check_pg_offline_recovery(root: Path, errors: list[str]) -> None:
+    """Verify PG offline recovery migration (091)."""
+    migration = root / "shared-layer" / "migrations" / "091_pg_offline_recovery.sql"
+    if not migration.is_file():
+        errors.append("PG offline recovery migration 091 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("pg_offline_recovery", "confirm_pg_failure",
+                     "enter_degraded_mode", "fallback_status"):
+        if required not in text:
+            errors.append(f"PG offline recovery migration 091 is missing: {required}")
+
+
+def check_pg_recovery_verification(root: Path, errors: list[str]) -> None:
+    """Verify PG recovery verification migration (092)."""
+    migration = root / "shared-layer" / "migrations" / "092_pg_recovery_verification.sql"
+    if not migration.is_file():
+        errors.append("PG recovery verification migration 092 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("pg_recovery_verification", "record_pg_recovery_verification",
+                     "is_pg_recoverable", "connection_ok", "schema_version_ok",
+                     "rls_ok", "audit_ok", "transport_ok", "integrity_ok",
+                     "generation_ok", "overall_recoverable"):
+        if required not in text:
+            errors.append(f"PG recovery verification migration 092 is missing: {required}")
+
+
+def check_reconcile_recovery_phase(root: Path, errors: list[str]) -> None:
+    """Verify reconcile recovery phase migration (093)."""
+    migration = root / "shared-layer" / "migrations" / "093_reconcile_recovery_phase.sql"
+    if not migration.is_file():
+        errors.append("Reconcile recovery phase migration 093 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("reconcile_recovery_phase", "start_reconcile_recovery",
+                     "advance_reconcile_recovery", "is_reconcile_complete"):
+        if required not in text:
+            errors.append(f"Reconcile recovery phase migration 093 is missing: {required}")
+
+
+def check_recovery_generation(root: Path, errors: list[str]) -> None:
+    """Verify recovery generation migration (094)."""
+    migration = root / "shared-layer" / "migrations" / "094_recovery_generation.sql"
+    if not migration.is_file():
+        errors.append("Recovery generation migration 094 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("recovery_generation", "create_recovery_generation",
+                     "get_current_generation", "degraded", "recovered"):
+        if required not in text:
+            errors.append(f"Recovery generation migration 094 is missing: {required}")
+
+
+def check_recovery_barrier(root: Path, errors: list[str]) -> None:
+    """Verify recovery barrier migration (095)."""
+    migration = root / "shared-layer" / "migrations" / "095_recovery_barrier.sql"
+    if not migration.is_file():
+        errors.append("Recovery barrier migration 095 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("recovery_barrier", "raise_recovery_barrier",
+                     "release_recovery_barrier", "is_recovery_barrier_active",
+                     "RECOVERING_READ_ONLY"):
+        if required not in text:
+            errors.append(f"Recovery barrier migration 095 is missing: {required}")
+
+
+def check_transport_recovery(root: Path, errors: list[str]) -> None:
+    """Verify transport recovery migration (096)."""
+    migration = root / "shared-layer" / "migrations" / "096_transport_recovery.sql"
+    if not migration.is_file():
+        errors.append("Transport recovery migration 096 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("transport_recovery", "register_unknown_commit",
+                     "resolve_commit_state", "get_unknown_commits",
+                     "idempotency_key", "COMMITTED", "NOT_COMMITTED", "UNKNOWN"):
+        if required not in text:
+            errors.append(f"Transport recovery migration 096 is missing: {required}")
+
+
+def check_lease_recovery(root: Path, errors: list[str]) -> None:
+    """Verify lease recovery migration (098)."""
+    migration = root / "shared-layer" / "migrations" / "098_lease_recovery.sql"
+    if not migration.is_file():
+        errors.append("Lease recovery migration 098 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("lease_recovery", "check_lease_expiry",
+                     "reclaim_lease", "get_expired_leases",
+                     "lease_until", "worker_generation"):
+        if required not in text:
+            errors.append(f"Lease recovery migration 098 is missing: {required}")
+
+
+def check_sqlite_fallback_freeze(root: Path, errors: list[str]) -> None:
+    """Verify SQLite fallback freeze migration (099)."""
+    migration = root / "shared-layer" / "migrations" / "099_sqlite_fallback_freeze.sql"
+    if not migration.is_file():
+        errors.append("SQLite fallback freeze migration 099 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("sqlite_fallback_freeze", "transition_fallback_state",
+                     "get_fallback_state",
+                     "fallback_open", "fallback_draining",
+                     "fallback_frozen", "fallback_closed"):
+        if required not in text:
+            errors.append(f"SQLite fallback freeze migration 099 is missing: {required}")
+
+
+def check_qdrant_recovery(root: Path, errors: list[str]) -> None:
+    """Verify Qdrant recovery migration (101)."""
+    migration = root / "shared-layer" / "migrations" / "101_qdrant_recovery.sql"
+    if not migration.is_file():
+        errors.append("Qdrant recovery migration 101 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("qdrant_recovery", "start_qdrant_recovery",
+                     "update_qdrant_recovery", "indexing_backlog_count"):
+        if required not in text:
+            errors.append(f"Qdrant recovery migration 101 is missing: {required}")
+
+
+def check_qdrant_full_rebuild(root: Path, errors: list[str]) -> None:
+    """Verify Qdrant full rebuild migration (102)."""
+    migration = root / "shared-layer" / "migrations" / "102_qdrant_full_rebuild.sql"
+    if not migration.is_file():
+        errors.append("Qdrant full rebuild migration 102 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("qdrant_full_rebuild", "start_qdrant_full_rebuild",
+                     "advance_qdrant_rebuild", "collection_generation",
+                     "old_collection_retired"):
+        if required not in text:
+            errors.append(f"Qdrant full rebuild migration 102 is missing: {required}")
+
+
+def check_recovery_checkpoint(root: Path, errors: list[str]) -> None:
+    """Verify recovery checkpoint migration (108)."""
+    migration = root / "shared-layer" / "migrations" / "108_recovery_checkpoint.sql"
+    if not migration.is_file():
+        errors.append("Recovery checkpoint migration 108 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("recovery_checkpoint", "save_recovery_checkpoint",
+                     "resume_recovery_checkpoint", "get_latest_checkpoint",
+                     "current_phase", "last_processed_revision", "batch_cursor"):
+        if required not in text:
+            errors.append(f"Recovery checkpoint migration 108 is missing: {required}")
+
+
+def check_recovery_idempotency(root: Path, errors: list[str]) -> None:
+    """Verify recovery idempotency migration (109)."""
+    migration = root / "shared-layer" / "migrations" / "109_recovery_idempotency.sql"
+    if not migration.is_file():
+        errors.append("Recovery idempotency migration 109 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("recovery_idempotency", "check_or_mark_idempotent",
+                     "mark_idempotent_complete", "operation_key"):
+        if required not in text:
+            errors.append(f"Recovery idempotency migration 109 is missing: {required}")
+
+
+def check_recovery_safety_fence(root: Path, errors: list[str]) -> None:
+    """Verify recovery safety fence migration (110)."""
+    migration = root / "shared-layer" / "migrations" / "110_recovery_safety_fence.sql"
+    if not migration.is_file():
+        errors.append("Recovery safety fence migration 110 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("recovery_safety_fence", "check_safety_fence",
+                     "record_fence_block", "drop_authoritative_database",
+                     "truncate_official_data", "rewrite_governance_codex",
+                     "change_rls_policy", "grant_elevated_role"):
+        if required not in text:
+            errors.append(f"Recovery safety fence migration 110 is missing: {required}")
+
+
+def check_chaos_drill(root: Path, errors: list[str]) -> None:
+    """Verify chaos drill migration (111)."""
+    migration = root / "shared-layer" / "migrations" / "111_chaos_drill.sql"
+    if not migration.is_file():
+        errors.append("Chaos drill migration 111 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("chaos_drill", "start_chaos_drill", "complete_chaos_drill",
+                     "no_authority_inversion", "no_duplicate_write",
+                     "no_lost_commit", "no_silent_conflict",
+                     "no_uncontrolled_retry"):
+        if required not in text:
+            errors.append(f"Chaos drill migration 111 is missing: {required}")
+
+
+def check_recovery_certification(root: Path, errors: list[str]) -> None:
+    """Verify recovery certification migration (112)."""
+    migration = root / "shared-layer" / "migrations" / "112_recovery_certification.sql"
+    if not migration.is_file():
+        errors.append("Recovery certification migration 112 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("recovery_certification", "record_recovery_certification",
+                     "certify_recovery_plan_v2", "is_recovery_plan_certified",
+                     "integrity_result", "reconcile_result", "audit_result",
+                     "certification_status", "CERTIFIED"):
+        if required not in text:
+            errors.append(f"Recovery certification migration 112 is missing: {required}")
+
+
+def check_recovery_orchestrator_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime recovery orchestrator module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "recovery_orchestrator.py"
+    if not module.is_file():
+        errors.append("Recovery orchestrator module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("register_recovery_plan", "open_recovery_incident",
+                     "transition_recovery_state", "create_recovery_generation",
+                     "get_current_generation", "start_pg_offline_recovery",
+                     "confirm_pg_failure", "record_pg_recovery_verification",
+                     "is_pg_recoverable", "register_unknown_commit",
+                     "resolve_commit_state", "check_lease_expiry",
+                     "reclaim_lease", "raise_recovery_barrier",
+                     "is_recovery_barrier_active", "release_recovery_barrier",
+                     "save_recovery_checkpoint", "check_or_mark_idempotent",
+                     "mark_idempotent_complete", "check_safety_fence",
+                     "record_fence_block", "is_recovery_plan_certified",
+                     "start_chaos_drill", "complete_chaos_drill"):
+        if required not in text:
+            errors.append(f"Recovery orchestrator module is missing: {required}")
 
 
 def check_database_release_manifest(root: Path, errors: list[str]) -> None:

@@ -908,6 +908,297 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         ),
         indexes=("release_sig_release_idx", "release_sig_tamper_idx"),
     ),
+    # Phase J: recovery orchestration
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_plan",
+        columns=(
+            "plan_id", "version", "incident_type", "full_plan_id",
+            "preconditions", "steps", "timeouts", "rollback_strategy",
+            "verification_rules", "required_authority", "status",
+            "created_at", "certified_at", "certified_by", "updated_at",
+        ),
+        indexes=("recovery_plan_incident_idx", "recovery_plan_status_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_incident",
+        columns=(
+            "incident_id", "plan_id", "incident_type", "detected_at",
+            "detected_by", "description", "affected_components",
+            "severity", "status", "recovery_generation",
+            "degraded_generation", "resolved_generation",
+            "resolved_at", "resolved_by", "resolution_notes",
+            "incident_log", "updated_at",
+        ),
+        indexes=("recovery_incident_status_idx", "recovery_incident_type_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_state_machine",
+        columns=(
+            "state_id", "incident_id", "from_state", "to_state",
+            "transition_at", "transitioned_by", "reason",
+        ),
+        indexes=("recovery_state_incident_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_state_transition",
+        columns=("from_state", "to_state", "allowed", "requires_authority"),
+        indexes=(),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="pg_offline_recovery",
+        columns=(
+            "recovery_id", "incident_id", "failure_detected_at",
+            "confirmed_at", "confirmation_attempts", "degraded_at",
+            "recovered_at", "degraded_generation", "recovered_generation",
+            "modules_on_fallback", "fallback_status", "notes",
+        ),
+        indexes=("pg_offline_status_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="pg_recovery_verification",
+        columns=(
+            "verification_id", "incident_id", "verified_at", "verified_by",
+            "connection_ok", "schema_version_ok", "database_release_ok",
+            "roles_ok", "rls_ok", "audit_ok", "transport_ok",
+            "integrity_ok", "generation_ok", "overall_recoverable",
+            "failure_reason",
+        ),
+        indexes=("pg_recovery_verify_incident_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="reconcile_recovery_phase",
+        columns=(
+            "phase_id", "incident_id", "started_at", "completed_at",
+            "status", "pending_snapshot_count", "reconciled_count",
+            "conflict_count", "verified_count", "last_processed_revision",
+            "batch_cursor", "conflict_details", "failure_reason",
+        ),
+        indexes=("reconcile_recovery_incident_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_generation",
+        columns=(
+            "generation_id", "generation_number", "incident_id",
+            "generation_type", "previous_generation", "started_at",
+            "ended_at", "description",
+        ),
+        indexes=("recovery_gen_number_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_barrier",
+        columns=(
+            "barrier_id", "incident_id", "barrier_type", "raised_at",
+            "raised_by", "reason", "critical_reconcile_complete",
+            "authority_conflicts_resolved", "integrity_pass",
+            "barrier_active", "released_at", "released_by", "release_reason",
+        ),
+        indexes=("recovery_barrier_active_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="transport_recovery",
+        columns=(
+            "recovery_id", "incident_id", "request_id", "idempotency_key",
+            "operation_id", "resource_revision", "commit_state",
+            "detected_at", "resolved_at", "resolved_state",
+            "resolution_method", "resolution_notes",
+        ),
+        indexes=("transport_recovery_idempotency_idx", "transport_recovery_unknown_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="unknown_commit_resolution",
+        columns=(
+            "resolution_id", "transport_recovery_id", "idempotency_key",
+            "operation_id", "resource_revision", "lookup_method",
+            "lookup_result", "found_committed", "resolved_state",
+            "resolved_at", "resolved_by", "notes",
+        ),
+        indexes=("unknown_commit_res_key_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="lease_recovery",
+        columns=(
+            "lease_recovery_id", "incident_id", "request_id",
+            "original_worker", "original_claimed_at", "lease_until",
+            "worker_generation", "lease_status", "checked_at",
+            "reclaimed_at", "reclaimed_by", "attempt_history",
+        ),
+        indexes=("lease_recovery_status_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="sqlite_fallback_freeze",
+        columns=(
+            "freeze_id", "incident_id", "module_id", "fallback_state",
+            "entered_at", "transitioned_at", "transitioned_by",
+            "pending_count", "drained_count", "notes",
+        ),
+        indexes=("sqlite_fallback_state_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_priority",
+        columns=(
+            "priority_id", "priority_class", "priority_level",
+            "description", "max_parallel", "timeout_seconds", "created_at",
+        ),
+        indexes=(),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="qdrant_recovery",
+        columns=(
+            "recovery_id", "incident_id", "detected_at", "detected_by",
+            "qdrant_status", "indexing_backlog_count",
+            "missing_points_count", "stale_points_count",
+            "rebuilt_points_count", "verified_points_count",
+            "recovered_at", "notes",
+        ),
+        indexes=("qdrant_recovery_status_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="qdrant_full_rebuild",
+        columns=(
+            "rebuild_id", "incident_id", "old_collection_name",
+            "new_collection_name", "collection_generation", "status",
+            "total_chunks", "processed_chunks", "verified_chunks",
+            "started_at", "completed_at", "switched_at",
+            "old_collection_retired", "failure_reason",
+        ),
+        indexes=("qdrant_rebuild_status_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="sqlite_single_recovery",
+        columns=(
+            "recovery_id", "incident_id", "module_id", "database_path",
+            "database_class", "failure_type", "recovery_action",
+            "started_at", "completed_at", "status",
+            "restored_from_backup_id", "new_generation", "notes",
+        ),
+        indexes=("sqlite_single_rec_module_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="codex_sqlite_recovery",
+        columns=(
+            "recovery_id", "incident_id", "codex_db_path", "failure_type",
+            "status", "known_hash", "actual_hash", "hash_verified",
+            "restored_from_source", "restored_at", "verified_at",
+            "resumed_at", "started_at", "notes",
+        ),
+        indexes=("codex_sqlite_rec_status_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="backup_restore_orchestration",
+        columns=(
+            "orchestration_id", "incident_id", "backup_id", "backup_hash",
+            "hash_verified", "temp_instance_name", "status",
+            "started_at", "completed_at", "schema_verified",
+            "release_verified", "rls_verified", "audit_verified",
+            "integrity_verified", "promoted", "post_backup_reconciled",
+            "failure_reason",
+        ),
+        indexes=("backup_restore_status_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="pitr_boundary",
+        columns=(
+            "pitr_id", "incident_id", "restore_target",
+            "database_generation", "audit_head_hash",
+            "transport_cutoff", "reconcile_cutoff",
+            "pg_state_at_target", "sqlite_state_ahead",
+            "qdrant_state_ahead", "cross_engine_reconcile_done",
+            "cross_engine_reconcile_started_at",
+            "cross_engine_reconcile_completed_at",
+            "started_at", "notes",
+        ),
+        indexes=("pitr_boundary_incident_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_retry_policy",
+        columns=(
+            "policy_id", "plan_id", "step_name", "max_attempts",
+            "timeout_seconds", "backoff_strategy",
+            "initial_delay_seconds", "max_delay_seconds",
+            "escalation_action", "created_at",
+        ),
+        indexes=("recovery_retry_plan_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_checkpoint",
+        columns=(
+            "checkpoint_id", "recovery_run_id", "incident_id",
+            "current_phase", "last_completed_step",
+            "last_processed_revision", "batch_cursor", "generation",
+            "total_processed", "total_failed", "saved_at",
+            "resumed_at", "resumed_count", "status",
+        ),
+        indexes=("recovery_checkpoint_run_idx", "recovery_checkpoint_active_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_idempotency",
+        columns=(
+            "idempotency_id", "recovery_run_id", "operation_key",
+            "operation_type", "completed", "completed_at",
+            "result", "attempts", "created_at",
+        ),
+        indexes=("recovery_idempotency_run_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_safety_fence",
+        columns=(
+            "fence_id", "forbidden_action", "description",
+            "requires_authority", "blocked_count", "last_blocked_at",
+            "created_at",
+        ),
+        indexes=(),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="chaos_drill",
+        columns=(
+            "drill_id", "scenario_code", "scenario_name", "description",
+            "plan_id", "started_at", "completed_at", "status",
+            "no_authority_inversion", "no_duplicate_write",
+            "no_lost_commit", "no_silent_conflict",
+            "no_uncontrolled_retry", "overall_passed",
+            "failure_reason", "drill_log",
+        ),
+        indexes=("chaos_drill_status_idx", "chaos_drill_scenario_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="recovery_certification",
+        columns=(
+            "certification_id", "plan_id", "plan_version",
+            "test_scenario", "database_release_id",
+            "starting_generation", "ending_generation",
+            "rpo_result", "rto_result", "rpo_seconds", "rto_seconds",
+            "integrity_result", "reconcile_result", "audit_result",
+            "certification_status", "certified_at", "certified_by",
+            "expires_at", "notes", "created_at",
+        ),
+        indexes=("recovery_cert_plan_idx", "recovery_cert_status_idx"),
+    ),
 )
 
 _DECLARED_ROLES: tuple[RoleContract, ...] = (
@@ -926,7 +1217,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 85  # 001 through 085
+EXPECTED_MIGRATION_COUNT = 112  # 001 through 112
 
 
 @dataclass
