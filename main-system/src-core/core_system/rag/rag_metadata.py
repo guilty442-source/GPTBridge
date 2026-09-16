@@ -33,6 +33,7 @@ from shared_layer.metadata_contract import (
     STATUS_INDEXED,
 )
 
+from .generation import _GENERATION_DDL
 from .rag_metadata_documents import RagMetadataDocumentsMixin
 from .rag_metadata_queue import RagMetadataReconciliationMixin
 from .rag_qdrant import IndexState
@@ -203,6 +204,44 @@ _SAGA_DDL = (
         PRIMARY KEY (module_id, resource_id)
     )
     """,
+    """
+    -- RAG-08: canonical transactional outbox.  Payload carries opaque
+    -- references only (chunk_ids/point_ids) — never content or locators.
+    CREATE TABLE IF NOT EXISTS gptbridge_rag.outbox_event (
+        event_id UUID PRIMARY KEY,
+        request_id TEXT NOT NULL,
+        operation TEXT NOT NULL CHECK (operation IN (
+            'UPSERT_RESOURCE','DELETE_RESOURCE','REINDEX_RESOURCE',
+            'RECONCILE_RESOURCE','UPDATE_METADATA',
+            'UPSERT','DELETE','REINDEX')),
+        module_id TEXT NOT NULL,
+        resource_id TEXT NOT NULL,
+        source_version BIGINT NOT NULL DEFAULT 0,
+        content_hash TEXT NOT NULL DEFAULT '',
+        generation_id TEXT NOT NULL DEFAULT '',
+        payload JSONB,
+        state TEXT NOT NULL DEFAULT 'PENDING' CHECK (state IN (
+            'PENDING','PROCESSING','RETRY','SUCCEEDED','DEAD_LETTER')),
+        attempt_count INT NOT NULL DEFAULT 0,
+        next_retry_at TIMESTAMPTZ,
+        last_error TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        completed_at TIMESTAMPTZ
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_outbox_event_state_created
+    ON gptbridge_rag.outbox_event (state, created_at)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_outbox_event_retry
+    ON gptbridge_rag.outbox_event (next_retry_at) WHERE state = 'RETRY'
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_outbox_event_generation
+    ON gptbridge_rag.outbox_event (generation_id, state)
+    """,
 )
 
 
@@ -265,9 +304,9 @@ class PostgreSQLMetadataAuthority(
                 await cur.execute(statement)
 
     async def _ensure_saga_tables(self) -> None:
-        """A374 durable saga stores: queue, outbox steps, tombstones."""
+        """A374 durable saga stores + RAG-11 generation registry."""
         async with self._conn.cursor() as cur:
-            for statement in _SAGA_DDL:
+            for statement in (*_SAGA_DDL, *_GENERATION_DDL):
                 await cur.execute(statement)
 
     async def get_index_state(self, module_id: str, resource_id: str) -> Optional[IndexState]:

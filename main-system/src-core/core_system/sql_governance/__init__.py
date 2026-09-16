@@ -204,19 +204,7 @@ CREATE INDEX IF NOT EXISTS idx_outbox_event_retry
 ON gptbridge_rag.outbox_event (next_retry_at)
 WHERE state = 'RETRY';
 
--- Inbox Deduplication (A506 - INBOX_DEDUP)
-CREATE TABLE IF NOT EXISTS gptbridge_rag.inbox_dedup (
-    message_id TEXT PRIMARY KEY,
-    idempotency_key TEXT NOT NULL UNIQUE,
-    received_at TIMESTAMPTZ NOT NULL,
-    processed_at TIMESTAMPTZ,
-    receipt JSONB,
-    duplicate BOOLEAN DEFAULT FALSE
-);
-
-CREATE INDEX IF NOT EXISTS idx_inbox_dedup_received
-ON gptbridge_rag.inbox_dedup (received_at);
-
+""" + INBOX_DEDUP_TABLE_SQL + """
 -- Migration Receipts (A506)
 CREATE TABLE IF NOT EXISTS gptbridge_rag.migration_receipts (
     receipt_id TEXT PRIMARY KEY,

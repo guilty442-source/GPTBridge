@@ -70,8 +70,10 @@ from .session_identity import (
 )
 from .sqlite_scope import (
     SqliteAccessRequest,
+    SqliteScopeBinding,
     SqliteScopeError,
     assess_access,
+    assert_binding,
     expected_acl_commands,
     writable_roots,
 )
@@ -102,6 +104,7 @@ __all__ = [
     "SecurityGenerationError",
     "SessionIdentity",
     "SqliteAccessRequest",
+    "SqliteScopeBinding",
     "SqliteScopeError",
     "apply_session_identity",
     "assert_generation_current",
@@ -111,6 +114,7 @@ __all__ = [
     "assert_payload_scoped",
     "assert_separated_credentials",
     "assess_access",
+    "assert_binding",
     "certification_errors",
     "expected_acl_commands",
     "fingerprint",

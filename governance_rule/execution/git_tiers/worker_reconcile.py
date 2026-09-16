@@ -80,6 +80,7 @@ class ReconcileMixin:
             out = subprocess.run(
                 ["tasklist", "/FO", "CSV", "/NH"],
                 capture_output=True, text=True, timeout=10,
+                creationflags=subprocess.CREATE_NO_WINDOW,
             ).stdout
             for line in out.splitlines():
                 parts = line.split(",")

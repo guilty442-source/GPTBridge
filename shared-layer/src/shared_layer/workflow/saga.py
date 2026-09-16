@@ -15,6 +15,7 @@ Contract:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
@@ -30,6 +31,16 @@ class StepHandler(Protocol):
     def verify(self, operation: Operation, step: StepSpec) -> bool: ...
 
     def compensate(self, operation: Operation, step: StepSpec, result: StepResult) -> StepResult: ...
+
+
+class StepHandlerResolver(Protocol):
+    """Resolves the handler for a step (step id / action type / engine)."""
+
+    def resolve(self, step: StepSpec) -> StepHandler | None: ...
+
+
+SagaObserver = Callable[[str, Operation, StepSpec, dict[str, Any]], None]
+StepHeartbeat = Callable[[Operation, StepSpec], None]
 
 
 @dataclass
@@ -60,11 +71,13 @@ class SagaExecutor:
         self,
         operation: Operation,
         plan: StepPlan,
-        handlers: dict[Engine, StepHandler],
+        handlers: Mapping[Engine, StepHandler] | StepHandlerResolver,
         *,
         now: float,
         pg_transaction_open: bool = False,
         sleep: Callable[[float], None] | None = None,
+        observer: SagaObserver | None = None,
+        heartbeat: StepHeartbeat | None = None,
     ) -> SagaOutcome:
         outcome = SagaOutcome(operation=operation)
         assert_short_transaction(pg_transaction_open)
@@ -73,7 +86,7 @@ class SagaExecutor:
 
         for step_id in operation.resume_plan(plan):
             spec = plan.step(step_id)
-            handler = handlers.get(spec.engine)
+            handler = self._resolve_handler(handlers, spec)
             if handler is None:
                 outcome.quarantined_reason = f"NO_HANDLER:{spec.engine.value}"
                 operation.transition(OperationStatus.QUARANTINED, now=now)
@@ -83,27 +96,45 @@ class SagaExecutor:
             attempt = 0
             while True:
                 attempt += 1
+                self._emit(observer, "step_started", operation, spec, {"attempt": attempt})
                 result = self._perform(handler, operation, spec)
                 if result.status == StepStatus.COMPLETED.value:
                     operation.record_step(result, now=now)
+                    self._emit(
+                        observer, "step_completed", operation, spec,
+                        self._result_detail(result, attempt),
+                    )
                     outcome.steps_executed.append(step_id)
                     break
                 if result.status in (StepStatus.TIMEOUT.value, StepStatus.UNKNOWN.value):
                     result = self._resolve_uncertain(handler, operation, spec, result)
                     if result.status == StepStatus.COMPLETED.value:
                         operation.record_step(result, now=now)
+                        self._emit(
+                            observer, "step_completed", operation, spec,
+                            self._result_detail(result, attempt),
+                        )
                         outcome.steps_executed.append(step_id)
                         break
                 if spec.long_running:
                     operation.heartbeat(now=now, lease_seconds=self.lease_seconds)
-                if attempt < self.max_attempts and spec.strategy in (
+                    if heartbeat is not None:
+                        heartbeat(operation, spec)
+                retrying = attempt < self.max_attempts and spec.strategy in (
                     OutcomeStrategy.RETRY_IDEMPOTENT,
                     OutcomeStrategy.VERIFY_THEN_DECIDE,
-                ):
+                )
+                self._emit(
+                    observer, "step_failed", operation, spec,
+                    self._result_detail(result, attempt, retrying=retrying),
+                )
+                if retrying:
                     if sleep is not None:
                         sleep(min(2.0 ** (attempt - 1), 8.0))
                     continue
-                return self._compensate(operation, spec, result, handler, outcome, now=now)
+                return self._compensate(
+                    operation, spec, result, handler, outcome, now=now, observer=observer
+                )
 
         operation.record_step(
             StepResult(
@@ -162,17 +193,30 @@ class SagaExecutor:
         outcome: SagaOutcome,
         *,
         now: float,
+        observer: SagaObserver | None = None,
     ) -> SagaOutcome:
         operation.record_step(result, now=now)
         operation.transition(OperationStatus.COMPENSATING, now=now)
         strategy = spec.strategy
+        self._emit(
+            observer, "compensation_started", operation, spec,
+            {"strategy": strategy.value},
+        )
         if strategy is OutcomeStrategy.APPEND_ONLY:
             outcome.compensations.append(f"{spec.step_id}:append-only")
             operation.transition(OperationStatus.REQUIRES_RECONCILE, now=now)
+            self._emit(
+                observer, "compensation_completed", operation, spec,
+                {"strategy": strategy.value, "action": "append-only"},
+            )
             return outcome
         if strategy is OutcomeStrategy.RECONCILE:
             outcome.compensations.append(f"{spec.step_id}:reconcile-queued")
             operation.transition(OperationStatus.REQUIRES_RECONCILE, now=now)
+            self._emit(
+                observer, "compensation_completed", operation, spec,
+                {"strategy": strategy.value, "action": "reconcile-queued"},
+            )
             return outcome
         try:
             compensated = handler.compensate(operation, spec, result)
@@ -184,7 +228,53 @@ class SagaExecutor:
         if compensated.status in (StepStatus.COMPENSATED.value, StepStatus.INVALIDATED.value, StepStatus.SUPERSEDED.value):
             operation.record_step(compensated, now=now)
         operation.transition(OperationStatus.FAILED, now=now)
+        self._emit(
+            observer, "compensation_completed", operation, spec,
+            {"strategy": strategy.value, "status": compensated.status},
+        )
         return outcome
 
+    # -- hook helpers --------------------------------------------------------
 
-__all__ = ["SagaExecutor", "SagaOutcome", "StepHandler"]
+    @staticmethod
+    def _resolve_handler(
+        handlers: Mapping[Engine, StepHandler] | StepHandlerResolver, spec: StepSpec
+    ) -> StepHandler | None:
+        if isinstance(handlers, Mapping):
+            return handlers.get(spec.engine)
+        return handlers.resolve(spec)
+
+    @staticmethod
+    def _emit(
+        observer: SagaObserver | None,
+        event_type: str,
+        operation: Operation,
+        spec: StepSpec,
+        detail: dict[str, Any],
+    ) -> None:
+        if observer is None:
+            return
+        observer(event_type, operation, spec, detail)
+
+    @staticmethod
+    def _result_detail(
+        result: StepResult, attempt: int, *, retrying: bool = False
+    ) -> dict[str, Any]:
+        detail: dict[str, Any] = {"attempt": attempt, "status": result.status}
+        if result.detail:
+            detail["detail"] = result.detail
+        if result.error_code:
+            detail["error_code"] = result.error_code
+        if retrying:
+            detail["retrying"] = True
+        return detail
+
+
+__all__ = [
+    "SagaExecutor",
+    "SagaObserver",
+    "SagaOutcome",
+    "StepHandler",
+    "StepHandlerResolver",
+    "StepHeartbeat",
+]

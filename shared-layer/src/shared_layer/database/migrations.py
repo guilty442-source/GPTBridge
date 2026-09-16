@@ -7,18 +7,51 @@ from pathlib import Path
 from psycopg import Connection
 
 
+MIGRATION_RUNNER_LOCK_KEY = "gptbridge_migration.runner"
+
+
 @dataclass(frozen=True)
 class MigrationResult:
     applied: tuple[str, ...]
 
 
 class MigrationRunner:
-    """Checksum-locked, Python-driven SQL migrations."""
+    """Checksum-locked, Python-driven SQL migrations.
+
+    A501/A502: the runner declares itself as the migration executor for the
+    duration of the run — the 022/128 DDL guard requires both the declaration
+    and migration-owner/owner role membership — and serializes concurrent
+    runners with a session advisory lock.  The declaration is always reset
+    afterwards, so a reused session cannot run out-of-band DDL.
+    """
 
     def __init__(self, directory: Path | str) -> None:
         self.directory = Path(directory)
 
     def run(self, connection: Connection) -> MigrationResult:
+        if not self._acquire_lock(connection):
+            raise RuntimeError("MIGRATION_RUNNER_LOCK_BUSY")
+        connection.execute("SET gptbridge.is_migration_executor = 'true'")
+        try:
+            return self._apply(connection)
+        finally:
+            connection.execute("RESET gptbridge.is_migration_executor")
+            connection.execute(
+                "SELECT pg_advisory_unlock(hashtext(%s))",
+                (MIGRATION_RUNNER_LOCK_KEY,),
+            )
+
+    def _acquire_lock(self, connection: Connection) -> bool:
+        row = connection.execute(
+            "SELECT pg_try_advisory_lock(hashtext(%s))",
+            (MIGRATION_RUNNER_LOCK_KEY,),
+        ).fetchone()
+        if row is None:
+            return False
+        value = row["pg_try_advisory_lock"] if isinstance(row, dict) else row[0]
+        return bool(value)
+
+    def _apply(self, connection: Connection) -> MigrationResult:
         connection.execute("CREATE SCHEMA IF NOT EXISTS gptbridge_migration")
         connection.execute("""CREATE TABLE IF NOT EXISTS gptbridge_migration.history (
             migration_id text PRIMARY KEY, checksum text NOT NULL,

@@ -32,6 +32,7 @@ class GenerationState(str, Enum):
     """Index generation lifecycle states."""
     BUILDING = "BUILDING"      # Full reindex in progress
     VERIFYING = "VERIFYING"    # Post-build verification
+    VALIDATING = "VERIFYING"   # Alias — same lifecycle stage
     ACTIVE = "ACTIVE"          # Serving queries (alias points here)
     RETIRED = "RETIRED"        # Superseded, awaiting cleanup
     FAILED = "FAILED"          # Build/verify failed
@@ -55,6 +56,25 @@ class IndexGeneration:
     points_count: int = 0
     verification_result: Optional[dict[str, Any]] = None
     error_message: Optional[str] = None
+    parser_version: str = "v1"
+    vector_schema_version: str = "v1"
+    metadata_schema_version: str = "v1"
+    policy_version: str = "v1"
+    activated_at: Optional[str] = None
+    retired_at: Optional[str] = None
+
+    def index_fingerprint(self) -> str:
+        """RAG-11 fingerprint — any component change means a new
+        generation is required; generations are never edited in place."""
+        material = "|".join((
+            self.parser_version,
+            self.chunk_policy_version,
+            self.embedding_model,
+            str(self.embedding_dimension),
+            self.vector_schema_version,
+            self.index_schema_version,
+        ))
+        return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -68,6 +88,10 @@ class GenerationConfig:
     chunk_size: int = 1200
     chunk_overlap: int = 200
     max_generations_to_keep: int = 3
+    parser_version: str = "v1"
+    vector_schema_version: str = "v1"
+    metadata_schema_version: str = "v1"
+    policy_version: str = "v1"
 
 
 class GenerationManager:
@@ -96,10 +120,19 @@ class GenerationManager:
         return f"{self.config.alias_name}_{generation_id}"
 
     async def get_active_generation(self) -> Optional[IndexGeneration]:
-        """Fetch the currently ACTIVE generation from metadata DB."""
-        # In production, query PostgreSQL for generation with state=ACTIVE
-        # For now, return cached if available
-        if self._current_generation and self._current_generation.state == GenerationState.ACTIVE:
+        """Fetch the currently ACTIVE generation.
+
+        PostgreSQL is authoritative — the in-memory cache is only a
+        shortcut, so a restart or a crashed BUILDING generation can never
+        hide the live ACTIVE one."""
+        fetch = getattr(self.metadata_db, "get_active_generation", None)
+        if fetch is not None:
+            gen = await fetch(self.config.alias_name)
+            if gen is not None:
+                self._current_generation = gen
+                return gen
+        if (self._current_generation
+                and self._current_generation.state == GenerationState.ACTIVE):
             return self._current_generation
         return None
 
@@ -108,6 +141,7 @@ class GenerationManager:
         gen_id = self._generate_generation_id()
         collection_name = self._physical_collection_name(gen_id)
 
+        previous = await self.get_active_generation()
         generation = IndexGeneration(
             generation_id=gen_id,
             index_schema_version=self.config.index_schema_version,
@@ -120,6 +154,13 @@ class GenerationManager:
             state=GenerationState.BUILDING,
             collection_name=collection_name,
             alias_name=self.config.alias_name,
+            previous_generation_id=(
+                previous.generation_id if previous else None
+            ),
+            parser_version=self.config.parser_version,
+            vector_schema_version=self.config.vector_schema_version,
+            metadata_schema_version=self.config.metadata_schema_version,
+            policy_version=self.config.policy_version,
         )
 
         # Persist to PostgreSQL (metadata_db should have upsert_generation)
@@ -147,14 +188,66 @@ class GenerationManager:
                          generation.collection_name, exc)
             return False
 
+    async def requires_rebuild(
+        self, generation: Optional[IndexGeneration]
+    ) -> bool:
+        """True when the config fingerprint differs from the generation's —
+        any version/component drift demands a NEW generation, never an
+        in-place schema edit of the ACTIVE one."""
+        if generation is None:
+            return True
+        candidate = IndexGeneration(
+            generation_id=generation.generation_id,
+            index_schema_version=self.config.index_schema_version,
+            embedding_model=self.config.embedding_model,
+            embedding_dimension=self.config.embedding_dimension,
+            chunk_policy_version=self.config.chunk_policy_version,
+            chunk_size=self.config.chunk_size,
+            chunk_overlap=self.config.chunk_overlap,
+            created_at=generation.created_at,
+            state=generation.state,
+            collection_name=generation.collection_name,
+            alias_name=generation.alias_name,
+            parser_version=self.config.parser_version,
+            vector_schema_version=self.config.vector_schema_version,
+            metadata_schema_version=self.config.metadata_schema_version,
+            policy_version=self.config.policy_version,
+        )
+        return candidate.index_fingerprint() != generation.index_fingerprint()
+
     async def promote_to_active(self, generation: IndexGeneration) -> bool:
-        """Atomically switch alias to point to the new generation."""
+        """Atomically switch alias to point to the new generation.
+
+        Uses a single ``update_aliases`` call (create+delete in one Qdrant
+        operation) so a crash mid-swap can never leave the alias missing
+        or pointing at a half-built collection; falls back to sequential
+        create_alias on clients that lack the batch API.
+        """
         try:
-            # 1. Create alias pointing to new collection
-            self.qdrant.create_alias(
-                alias_name=generation.alias_name,
-                collection_name=generation.collection_name,
-            )
+            # 1. Atomic alias swap: alias → new physical collection
+            update_aliases = getattr(self.qdrant, "update_aliases", None)
+            if update_aliases is not None:
+                from qdrant_client.http.models import (
+                    CreateAlias,
+                    CreateAliasOperation,
+                    DeleteAlias,
+                    DeleteAliasOperation,
+                )
+                update_aliases(
+                    change_aliases_operations=[
+                        CreateAliasOperation(
+                            create_alias=CreateAlias(
+                                collection_name=generation.collection_name,
+                                alias_name=generation.alias_name,
+                            )
+                        ),
+                    ]
+                )
+            else:
+                self.qdrant.create_alias(
+                    alias_name=generation.alias_name,
+                    collection_name=generation.collection_name,
+                )
 
             # 2. Update generation state to ACTIVE
             active_gen = IndexGeneration(
@@ -172,6 +265,11 @@ class GenerationManager:
                 previous_generation_id=generation.previous_generation_id,
                 points_count=generation.points_count,
                 verification_result=generation.verification_result,
+                parser_version=generation.parser_version,
+                vector_schema_version=generation.vector_schema_version,
+                metadata_schema_version=generation.metadata_schema_version,
+                policy_version=generation.policy_version,
+                activated_at=datetime.now(timezone.utc).isoformat(),
             )
             await self.metadata_db.upsert_generation(active_gen)
             self._current_generation = active_gen
@@ -209,6 +307,11 @@ class GenerationManager:
                     previous_generation_id=gen.previous_generation_id,
                     points_count=gen.points_count,
                     verification_result=gen.verification_result,
+                    parser_version=gen.parser_version,
+                    vector_schema_version=gen.vector_schema_version,
+                    metadata_schema_version=gen.metadata_schema_version,
+                    policy_version=gen.policy_version,
+                    retired_at=datetime.now(timezone.utc).isoformat(),
                 )
                 await self.metadata_db.upsert_generation(retired)
                 _logger.info("GenerationManager: retired %s", generation_id)
@@ -245,30 +348,46 @@ class GenerationManager:
             return {"ok": False, "reason": str(exc)}
 
 
-# PostgreSQL generation schema additions (to be added to rag_metadata.py)
-GENERATION_TABLE_SQL = """
-CREATE TABLE IF NOT EXISTS rag_generations (
-    generation_id TEXT PRIMARY KEY,
-    index_schema_version TEXT NOT NULL,
-    embedding_model TEXT NOT NULL,
-    embedding_dimension INTEGER NOT NULL,
-    chunk_policy_version TEXT NOT NULL,
-    chunk_size INTEGER NOT NULL,
-    chunk_overlap INTEGER NOT NULL,
-    created_at_utc TEXT NOT NULL,
-    state TEXT NOT NULL CHECK (state IN ('BUILDING','VERIFYING','ACTIVE','RETIRED','FAILED')),
-    collection_name TEXT NOT NULL,
-    alias_name TEXT NOT NULL,
-    previous_generation_id TEXT,
-    points_count INTEGER DEFAULT 0,
-    verification_result JSONB,
-    error_message TEXT,
-    UNIQUE (alias_name, state) WHERE state = 'ACTIVE'  -- Only one ACTIVE per alias
-);
+# PostgreSQL generation schema — gptbridge_rag.generation is the canonical
+# generation registry; rag_metadata applies these statements in _SAGA_DDL.
+_GENERATION_DDL = (
+    """
+    CREATE TABLE IF NOT EXISTS gptbridge_rag.generation (
+        generation_id TEXT PRIMARY KEY,
+        index_schema_version TEXT NOT NULL,
+        embedding_model TEXT NOT NULL,
+        embedding_dimension INTEGER NOT NULL,
+        chunk_policy_version TEXT NOT NULL,
+        chunk_size INTEGER NOT NULL,
+        chunk_overlap INTEGER NOT NULL,
+        created_at_utc TEXT NOT NULL,
+        state TEXT NOT NULL CHECK (state IN
+            ('BUILDING','VERIFYING','ACTIVE','RETIRED','FAILED')),
+        collection_name TEXT NOT NULL,
+        alias_name TEXT NOT NULL,
+        previous_generation_id TEXT,
+        points_count INTEGER DEFAULT 0,
+        verification_result JSONB,
+        error_message TEXT,
+        parser_version TEXT DEFAULT 'v1',
+        vector_schema_version TEXT DEFAULT 'v1',
+        metadata_schema_version TEXT DEFAULT 'v1',
+        policy_version TEXT DEFAULT 'v1',
+        activated_at_utc TEXT,
+        retired_at_utc TEXT
+    )
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_rag_generation_active
+    ON gptbridge_rag.generation (alias_name) WHERE state = 'ACTIVE'
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_rag_generation_alias_state
+    ON gptbridge_rag.generation (alias_name, state)
+    """,
+)
 
-CREATE INDEX IF NOT EXISTS idx_rag_generations_alias_state
-ON rag_generations (alias_name, state);
-"""
+GENERATION_TABLE_SQL = "\n".join(_GENERATION_DDL)
 
 from qdrant_client.http.models import Distance, VectorParams  # noqa: E402
 

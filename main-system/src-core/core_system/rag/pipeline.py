@@ -28,10 +28,12 @@ from .rag_qdrant import (
     RagQueryResult,
     sanitize_payload,
 )
+from shared_layer.security.qdrant_scope import QdrantScopeError
 from .rag_metadata import PostgreSQLMetadataAuthority
 from .pipeline_degraded import DegradedRagPipeline
 from .pipeline_documents import PipelineDocumentsMixin
 from .pipeline_domain import PythonDomainModel
+from .pipeline_outbox import PipelineOutboxMixin
 from .pipeline_recovery import PipelineRecoveryMixin
 from .pipeline_retrieval import PipelineRetrievalMixin
 from .runtime_state import (
@@ -46,6 +48,7 @@ from .runtime_state import (
 class CanonicalRagPipeline(
     PipelineRetrievalMixin,
     PipelineRecoveryMixin,
+    PipelineOutboxMixin,
     PipelineDocumentsMixin,
 ):
     """A371-A374: canonical path — Qdrant dense retrieval > PostgreSQL
@@ -94,6 +97,9 @@ class CanonicalRagPipeline(
         # set the surface state is BLOCKED and canonical reads/writes raise
         # instead of silently delegating to the degraded backend.
         self._blocked_reason: Optional[str] = None
+        # RAG-11: set while a BUILDING generation / alias migration runs;
+        # surfaces as MIGRATING on the gateway state.
+        self._migrating = False
 
     @property
     def state(self) -> RagRuntimeState:
@@ -175,6 +181,8 @@ class CanonicalRagPipeline(
         exactly four states; this maps them to the governed surface names."""
         if self._blocked_reason:
             return "BLOCKED"
+        if self._migrating:
+            return "MIGRATING"
         mapping = {
             "STARTING": "BOOTSTRAPPING",
             "CANONICAL": "CANONICAL_READY",
@@ -272,6 +280,8 @@ class CanonicalRagPipeline(
         score_threshold: Optional[float] = None,
     ) -> list[RagQueryResult]:
         """Query through the canonical or degraded RAG path depending on state."""
+        if not str(module_id or "").strip():
+            raise QdrantScopeError("QDRANT_MODULE_SCOPE_REQUIRED")
         if self._blocked_reason:
             raise RuntimeError(self._blocked_reason)
         await self.attempt_recovery()

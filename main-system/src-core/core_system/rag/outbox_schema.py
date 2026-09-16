@@ -12,7 +12,11 @@ CREATE TABLE IF NOT EXISTS gptbridge_rag.outbox_event (
     event_id UUID PRIMARY KEY,
     request_id TEXT NOT NULL,
 
-    operation TEXT NOT NULL CHECK (operation IN ('UPSERT','DELETE','REINDEX','UPDATE_METADATA')),
+    operation TEXT NOT NULL CHECK (operation IN (
+        'UPSERT_RESOURCE','DELETE_RESOURCE','REINDEX_RESOURCE',
+        'RECONCILE_RESOURCE','UPDATE_METADATA',
+        'UPSERT','DELETE','REINDEX'  -- legacy pre-Phase-2 spellings
+    )),
     module_id TEXT NOT NULL,
     resource_id TEXT NOT NULL,
 

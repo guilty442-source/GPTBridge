@@ -112,6 +112,7 @@ def main() -> int:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         close_fds=True,
+        creationflags=subprocess.CREATE_NO_WINDOW,
     )
 
     deadline = start + max(10.0, args.timeout)

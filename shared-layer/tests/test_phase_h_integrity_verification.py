@@ -356,7 +356,10 @@ class TestQueryAllowlistPhaseH:
 
 class TestSchemaContractRegistryPhaseH:
     def test_expected_migration_count_is_125(self):
-        assert EXPECTED_MIGRATION_COUNT == 125
+        import pathlib
+
+        migrations = pathlib.Path(__file__).resolve().parents[1] / "migrations"
+        assert EXPECTED_MIGRATION_COUNT == len(list(migrations.glob("*.sql")))
 
     def test_contract_includes_reconcile_batch_digest(self):
         contract = declared_contract()

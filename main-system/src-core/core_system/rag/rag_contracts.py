@@ -83,9 +83,27 @@ class GenerationState(str, Enum):
     """Index generation states."""
     BUILDING = "BUILDING"
     VERIFYING = "VERIFYING"
+    VALIDATING = "VERIFYING"   # takeover spec name — same lifecycle step
     ACTIVE = "ACTIVE"
     RETIRED = "RETIRED"
     FAILED = "FAILED"
+
+
+class OutboxOperation(str, Enum):
+    """Canonical outbox operations (gptbridge_rag.outbox_event).
+
+    The ``*_RESOURCE`` names are the canonical Phase-2 vocabulary; the
+    bare ``UPSERT``/``DELETE``/``REINDEX`` spellings are accepted legacy
+    wire values written by pre-Phase-2 producers.
+    """
+    UPSERT_RESOURCE = "UPSERT_RESOURCE"
+    DELETE_RESOURCE = "DELETE_RESOURCE"
+    REINDEX_RESOURCE = "REINDEX_RESOURCE"
+    RECONCILE_RESOURCE = "RECONCILE_RESOURCE"
+    UPDATE_METADATA = "UPDATE_METADATA"
+    UPSERT = "UPSERT"
+    DELETE = "DELETE"
+    REINDEX = "REINDEX"
 
 
 class RetrievalPhase(str, Enum):
@@ -627,6 +645,7 @@ __all__ = [
     # Outbox
     "OutboxEvent",
     "OutboxState",
+    "OutboxOperation",
     # Provenance
     "ProvenanceRecord",
     # Policy

@@ -317,6 +317,7 @@ class RecallPhase:
         query_embedding: list[float],
         module_id: Optional[str] = None,
         query_text: Optional[str] = None,
+        module_ids: Optional[tuple[str, ...]] = None,
     ) -> dict[str, list[RetrievalCandidate]]:
         """Run recall from all sources."""
         results = {}
@@ -325,6 +326,7 @@ class RecallPhase:
         dense_hits = await self.qdrant.search(
             query_vector=query_embedding,
             module_id=module_id,
+            module_ids=module_ids,
             top_k=self.policy.dense_candidates,
         )
         results["dense"] = [

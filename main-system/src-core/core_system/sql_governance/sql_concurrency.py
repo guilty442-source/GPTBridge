@@ -175,10 +175,10 @@ class SessionBinding:
     operation_id: str
     authorized: bool = False  # Must match signed authorization projection
 
-    # Three-layer identity (A505)
+    # Three-layer identity (A505): requester_identity above is the
+    # business-actor layer; these two complete pool/module layers.
     database_login_role: str = ""      # Pool layer
     application_principal: str = ""    # Module/service layer
-    requester_identity: str = ""       # Business actor layer
 
 
 # ============================================================================
@@ -211,6 +211,23 @@ class MigrationReceipt:
 # ============================================================================
 # Outbox/Inbox Contracts (A506)
 # ============================================================================
+
+class OutboxState(str, Enum):
+    """Outbox event lifecycle — matches gptbridge_rag.outbox_event CHECK."""
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    SUCCEEDED = "SUCCEEDED"
+    RETRY = "RETRY"
+    DEAD_LETTER = "DEAD_LETTER"
+
+
+class OutboxOperation(str, Enum):
+    """Outbox operation kinds — matches the operation CHECK constraint."""
+    UPSERT = "UPSERT"
+    DELETE = "DELETE"
+    REINDEX = "REINDEX"
+    UPDATE_METADATA = "UPDATE_METADATA"
+
 
 @dataclass(frozen=True)
 class OutboxContract:

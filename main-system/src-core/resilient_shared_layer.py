@@ -80,12 +80,18 @@ class ResilientSharedLayerStore:
                     import os
                     from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-                    values = conninfo_to_dict(os.environ.get("GPTBRIDGE_POSTGRES_DSN", ""))
-                    if not values.get("dbname"):
-                        values["dbname"] = "gptbridge"
+                    runtime_values = conninfo_to_dict(
+                        os.environ.get("GPTBRIDGE_POSTGRES_DSN", "")
+                    )
+                    if not runtime_values.get("dbname"):
+                        runtime_values["dbname"] = "gptbridge"
+                    admin_values = conninfo_to_dict(
+                        os.environ.get("GPTBRIDGE_POSTGRES_ADMIN_DSN", "")
+                    )
 
                     settings = DatabaseSettings(
-                        admin_dsn=make_conninfo(**values),
+                        admin_dsn=make_conninfo(**admin_values) if admin_values else "",
+                        runtime_dsn=make_conninfo(**runtime_values),
                         database="gptbridge",
                     )
                     self._pool = ConnectionManager(

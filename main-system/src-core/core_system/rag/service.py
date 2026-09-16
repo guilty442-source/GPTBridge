@@ -21,6 +21,7 @@ from .health_gate import CanonicalHealthGate, CanonicalState, CanonicalHealthRep
 from .citation import Citation, CitationValidator, CitationFormatter, build_citation_from_hit
 from .benchmark import RetrievalBenchmark, BenchmarkQuery, RetrievalResult, BenchmarkMetrics
 from .rag_qdrant import QdrantCanonicalRuntime, RagPipelineConfig, IndexState, RagQueryResult
+from shared_layer.security.qdrant_scope import QdrantScopeError
 from .rag_metadata import PostgreSQLMetadataAuthority
 from .pipeline_degraded import DegradedRagPipeline
 
@@ -102,7 +103,6 @@ class CanonicalGateway:
         point_payload = {
             "resource_id": resource_id,
             "module_id": module_id,
-            "content": content,
             "content_hash": metadata.get("content_hash", ""),
             "generation_id": generation_id,
             "indexed_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -148,6 +148,8 @@ class CanonicalGateway:
         score_threshold: Optional[float] = None,
     ) -> list[VerifiedHit]:
         """Query through canonical path with generation binding."""
+        if not str(module_id or "").strip():
+            raise QdrantScopeError("QDRANT_MODULE_SCOPE_REQUIRED")
         # 1. Search Qdrant via alias (ACTIVE generation)
         hits = await self.qdrant.search(
             query_vector=query_embedding,

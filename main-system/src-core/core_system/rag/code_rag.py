@@ -366,7 +366,7 @@ class CodeRAGIndexer:
         self.ast_analyzer = PythonASTAnalyzer(repo_root)
         self.dep_graph = DependencyGraph()
 
-    def index_commit(self, base_commit: str, head_commit: str, generation_id: str) -> CodeChangeSet:
+    async def index_commit(self, base_commit: str, head_commit: str, generation_id: str) -> CodeChangeSet:
         """Process a commit and incrementally update the index."""
         _logger.info("CodeRAGIndexer: processing commit %s..%s", base_commit[:8], head_commit[:8])
 
@@ -405,7 +405,7 @@ class CodeRAGIndexer:
         )
 
         # 6. Incremental Qdrant update
-        self._apply_incremental_update(change_set, generation_id)
+        await self._apply_incremental_update(change_set, generation_id)
 
         # 7. Invalidate AST cache for changed files
         for fc in file_changes:
@@ -472,7 +472,7 @@ class CodeRAGIndexer:
         except Exception:
             return ""
 
-    def _apply_incremental_update(
+    async def _apply_incremental_update(
         self,
         change_set: CodeChangeSet,
         generation_id: str,
@@ -527,18 +527,23 @@ class CodeRAGIndexer:
                         {
                             "resource_id": resource_id,
                             "module_id": module_id,
-                            "content": chunk_content,
                             "content_hash": content_hash,
                             "generation_id": generation_id,
                             "symbol_id": symbol.symbol_id,
                             "symbol_kind": symbol.kind,
-                            "file_path": symbol.file_path,
                             "line_start": symbol.line_start,
                             "line_end": symbol.line_end,
                         }
                     ),
                 )
-                self.qdrant.upsert_points([point], generation_id=generation_id)
+                if not await self.qdrant.upsert_points(
+                    [point], generation_id=generation_id
+                ):
+                    _logger.error(
+                        "CodeRAGIndexer: Qdrant upsert failed for %s:%s",
+                        module_id,
+                        resource_id,
+                    )
 
     def _build_symbol_chunk(self, symbol: CodeSymbol) -> str:
         """Build searchable chunk content for a symbol."""

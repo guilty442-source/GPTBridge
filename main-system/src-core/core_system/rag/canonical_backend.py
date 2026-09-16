@@ -563,7 +563,7 @@ class CanonicalRagBackend:
     # SEARCH: Canonical Read Barrier
     # =========================================================================
 
-    def search(self, request: RagSearchRequest) -> RagSearchResult:
+    async def search(self, request: RagSearchRequest) -> RagSearchResult:
         """Search via Qdrant alias with full Canonical Read Barrier verification.
 
         Verification chain:
@@ -586,9 +586,9 @@ class CanonicalRagBackend:
                     active_generation = active_gen.generation_id
 
             # Search Qdrant alias
-            hits = self.qdrant.search(
+            hits = await self.qdrant.search(
                 query_vector=list(request.query_vector),
-                module_id=request.module_ids[0] if request.module_ids else None,
+                module_ids=tuple(request.module_ids) if request.module_ids else None,
                 top_k=request.top_k,
                 score_threshold=request.score_threshold,
                 generation_id=request.generation_id,

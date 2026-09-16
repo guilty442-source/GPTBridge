@@ -186,7 +186,7 @@ class HybridRagRetriever(BaseRagRetriever):
         async def _run_recall():
             return await self.recall_phase.recall(
                 query_embedding=list(request.query_vector),
-                module_id=request.module_ids[0] if request.module_ids else None,
+                module_ids=tuple(request.module_ids) if request.module_ids else None,
                 query_text=request.query,
             )
 
@@ -312,7 +312,7 @@ class CodeRagRetriever(BaseRagRetriever):
             # 1. Dense semantic search
             dense = await self.recall_phase.recall(
                 query_embedding=list(request.query_vector),
-                module_id=request.module_ids[0] if request.module_ids else None,
+                module_ids=tuple(request.module_ids) if request.module_ids else None,
             )
 
             # 2. Symbol exact lookup

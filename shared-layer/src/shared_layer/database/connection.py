@@ -8,6 +8,11 @@ from typing import Any, Iterator
 from psycopg import Connection, connect
 from psycopg.rows import dict_row
 
+from ..security.dsn_policy import (
+    DsnPolicyError,
+    assert_no_admin_privileges,
+    runtime_context_active,
+)
 from .config import DatabaseSettings
 
 
@@ -29,7 +34,16 @@ class ConnectionManager:
         self.settings = settings
         if min_size < 0 or max_size < 1 or min_size > max_size:
             raise ValueError("INVALID_CONNECTION_POOL_SIZE")
-        self._dsn = database_dsn(settings.admin_dsn, settings.database)
+        # A501/A503: the runtime pool resolves the least-privilege runtime
+        # binding; a declared runtime context fails closed without it and the
+        # admin binding is never silently reused as the runtime credential.
+        runtime_dsn = settings.runtime_dsn.strip()
+        self._runtime_isolated = bool(runtime_dsn)
+        if not runtime_dsn:
+            if runtime_context_active():
+                raise DsnPolicyError("RUNTIME_DSN_REQUIRED_IN_RUNTIME_CONTEXT")
+            runtime_dsn = settings.admin_dsn.strip()
+        self._dsn = database_dsn(runtime_dsn, settings.database)
         self._min_size = min_size
         self._max_size = max_size
         self._idle: LifoQueue[Connection[dict[str, Any]]] = LifoQueue(max_size)
@@ -38,7 +52,16 @@ class ConnectionManager:
         self._opened = False
 
     def _new_connection(self) -> Connection[dict[str, Any]]:
-        return connect(self._dsn, row_factory=dict_row)
+        connection = connect(self._dsn, row_factory=dict_row)
+        if self._runtime_isolated and isinstance(connection, Connection):
+            # A501/A506: a dedicated runtime binding must not carry elevated
+            # role flags; the probe fails closed and the connection is closed.
+            try:
+                assert_no_admin_privileges(connection)
+            except Exception:
+                connection.close()
+                raise
+        return connection
 
     def open(self) -> None:
         with self._lock:

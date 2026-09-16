@@ -36,6 +36,11 @@ from shared_layer.metadata_contract import (
     FIELD_VERSION,
     STATUS_INDEXED,
 )
+from shared_layer.security.qdrant_scope import (
+    QdrantScopeError,
+    assert_payload_scoped,
+    require_scope,
+)
 
 _logger = logging.getLogger("gptbridge.rag")
 
@@ -274,16 +279,34 @@ class QdrantCanonicalRuntime:
     ) -> bool:
         """Upsert vectors to Qdrant (canonical write path).
 
+        Every point payload is sanitized (no content/physical locators may
+        enter the canonical index, A371) and must carry the mandatory
+        ``module_id`` scope field (A52 qdrant-scope, fail closed).
+
         If generation_id provided, writes to that physical collection.
         Otherwise writes to the alias (ACTIVE generation).
         """
         if not self._healthy or self.client is None:
             return False
         target = self._get_target_collection(generation_id)
+        validated: list[Any] = []
+        for point in points:
+            if isinstance(point, dict):
+                payload = dict(point.get("payload") or {})
+                cleaned = sanitize_payload(payload)
+                assert_payload_scoped(cleaned)
+                validated.append({**point, "payload": cleaned})
+            else:
+                payload = dict(getattr(point, "payload", None) or {})
+                cleaned = sanitize_payload(payload)
+                assert_payload_scoped(cleaned)
+                validated.append(
+                    PointStruct(id=point.id, vector=point.vector, payload=cleaned)
+                )
         try:
             self.client.upsert(
                 collection_name=target,
-                points=points,
+                points=validated,
                 wait=True,
             )
             return True
@@ -303,25 +326,33 @@ class QdrantCanonicalRuntime:
     ) -> list[dict[str, Any]]:
         """Search Qdrant for similar vectors (canonical read path).
 
+        ``module_id``/``module_ids`` scope is mandatory: a search without a
+        non-empty module scope raises ``QdrantScopeError`` (fail closed) and
+        can never turn into a whole-collection scan.  The scope filter is
+        always applied, merged with any additional filter conditions.
+
         Queries the alias by default (ACTIVE generation). Pass generation_id
         to query a specific physical collection.
         """
+        scope_modules = [str(m).strip() for m in (module_ids or ()) if str(m).strip()]
+        if not scope_modules and module_id:
+            scope_modules = [str(module_id)]
+        scope = require_scope(scope_modules)
         if not self._healthy or self.client is None:
             return []
         target = self._get_target_collection(generation_id)
         try:
-            must_conditions = []
-            if module_ids:
-                must_conditions.append(FieldCondition(key="module_id", match=MatchAny(any=list(module_ids))))
-            elif module_id:
-                must_conditions.append(FieldCondition(key="module_id", match=MatchValue(value=module_id)))
+            must_conditions: list[Any] = [
+                FieldCondition(
+                    key="module_id", match=MatchAny(any=list(scope.module_ids))
+                )
+            ]
+            if additional_filter is not None and getattr(
+                additional_filter, "must", None
+            ):
+                must_conditions.extend(additional_filter.must)
 
-            if additional_filter:
-                # Merge additional filter conditions
-                if hasattr(additional_filter, 'must'):
-                    must_conditions.extend(additional_filter.must)
-
-            query_filter = Filter(must=must_conditions) if must_conditions else None
+            query_filter = Filter(must=must_conditions)
 
             response = self.client.query_points(
                 collection_name=target,
@@ -349,13 +380,21 @@ class QdrantCanonicalRuntime:
         self,
         query_vector: list[float],
         payload_filter: Filter,
+        *,
+        module_id: str = "",
+        module_ids: Optional[tuple[str, ...]] = None,
         top_k: Optional[int] = None,
         score_threshold: Optional[float] = None,
         generation_id: Optional[str] = None,
     ) -> list[dict[str, Any]]:
-        """Search with arbitrary payload filter (for hybrid/reranker pre-filtering)."""
+        """Search with an additional payload filter (hybrid/reranker pre-filter).
+
+        The module scope remains mandatory and is applied by :meth:`search`.
+        """
         return await self.search(
             query_vector=query_vector,
+            module_id=module_id or None,
+            module_ids=module_ids,
             top_k=top_k,
             score_threshold=score_threshold,
             generation_id=generation_id,
@@ -368,21 +407,53 @@ class QdrantCanonicalRuntime:
         resource_id: str,
         generation_id: Optional[str] = None,
     ) -> bool:
-        """Delete all points for a resource (tombstone/archive reconcile)."""
+        """Delete all points for a resource (tombstone/archive reconcile).
+
+        A non-empty module scope is mandatory.  The filter matches both the
+        canonical ``resource_id`` and the legacy ``document_resource_id``
+        payload key so a producer/consumer key drift cannot silently leave
+        orphan vectors; deletion is verified by a follow-up count and only
+        reported successful when zero points remain.
+        """
+        scope = require_scope([module_id])
         if not self._healthy or self.client is None:
             return False
         target = self._get_target_collection(generation_id)
+        resource_selector = Filter(
+            must=[
+                FieldCondition(
+                    key="module_id", match=MatchValue(value=scope.module_ids[0])
+                )
+            ],
+            should=[
+                FieldCondition(key="resource_id", match=MatchValue(value=resource_id)),
+                FieldCondition(
+                    key="document_resource_id", match=MatchValue(value=resource_id)
+                ),
+            ],
+        )
         try:
             self.client.delete(
                 collection_name=target,
-                points_selector=Filter(
-                    must=[
-                        FieldCondition(key="module_id", match=MatchValue(value=module_id)),
-                        FieldCondition(key="document_resource_id", match=MatchValue(value=resource_id)),
-                    ]
-                ),
+                points_selector=resource_selector,
                 wait=True,
             )
+            remaining = self.client.count(
+                collection_name=target,
+                count_filter=resource_selector,
+                exact=True,
+            )
+            count = int(getattr(remaining, "count", 0) or 0)
+            if count:
+                _logger.error(
+                    "QdrantCanonicalRuntime: %d points remain after delete on %s "
+                    "(module=%s resource=%s)",
+                    count,
+                    target,
+                    scope.module_ids[0],
+                    resource_id,
+                )
+                return False
             return True
         except Exception as exc:
             _logger.error("QdrantCanonicalRuntime: delete on %s failed: %s", target, exc)

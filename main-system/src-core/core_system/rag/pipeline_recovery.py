@@ -394,4 +394,27 @@ class PipelineRecoveryMixin:
         if self._degraded_pipeline is not None:
             degraded_health = await self._degraded_pipeline.health_check()
             result["degraded_pipeline"] = degraded_health
+
+        # Phase-2 unified status surface
+        result["active_generation"] = getattr(self, "_active_generation", None)
+        result["canonical_vector_database"] = "qdrant"
+        result["embedding_model"] = self.config.embedding_model
+        result["embedding_dimension"] = self.config.embedding_dimension
+        outbox_stats = getattr(self.postgresql, "outbox_stats", None)
+        result["outbox"] = (
+            await outbox_stats() if outbox_stats is not None
+            else {"pending": self._queue.pending_count()}
+        )
+        recon_status = getattr(self.postgresql, "reconciliation_status", None)
+        result["reconciliation"] = (
+            await recon_status() if recon_status is not None else {
+                "required": self._state_machine.reconciliation_required,
+                "pending": self._queue.pending_count(),
+            }
+        )
+        result["degraded_backend"] = {
+            "enabled": True,
+            "active": self._degraded_pipeline is not None,
+            "canonical": False,
+        }
         return result

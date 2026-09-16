@@ -24,6 +24,7 @@ from .rag_contracts import (
     RagBackendHealth,
     RagRetrievalRequest,
     RagRetrievalResult,
+    BackendType,
 )
 
 

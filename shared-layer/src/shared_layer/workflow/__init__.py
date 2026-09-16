@@ -8,6 +8,9 @@ workflow with PostgreSQL as the operation authority.
   * idempotent steps + operation fingerprints,
   * fixed compensation table (rollback / compensate / invalidate /
     supersede / reconcile / append-only),
+  * step handler registry + production entry (``run_operation``) wired to
+    the migration-113 SQL contract,
+  * reconcile worker for parked ``REQUIRES_RECONCILE`` operations,
   * transactional outbox + inbox dedup (at-least-once + idempotent),
   * publish barrier (READY is the only readable state),
   * atomic file writes and tombstone deletes,
@@ -42,6 +45,7 @@ from .fallback import (
     resolve_conflict,
 )
 from .fingerprint import is_same_operation, operation_hash, payload_hash
+from .handlers import CallableStepHandler, NoHandlerError, StepHandlerRegistry
 from .operation import Operation, OperationLease, OperationStateError
 from .outbox import (
     DELIVERY_CONTRACT,
@@ -54,7 +58,39 @@ from .outbox import (
     OutboxEvent,
     deduplicated_result,
 )
-from .saga import SagaExecutor, SagaOutcome, StepHandler
+from .persistence import (
+    OPERATION_CLAIM_NEXT_SQL,
+    OPERATION_CLAIM_SQL,
+    OPERATION_EVENT_INSERT_SQL,
+    OPERATION_HEARTBEAT_SQL,
+    OPERATION_INSERT_SQL,
+    OPERATION_SAVE_SQL,
+    OPERATION_STEP_UPSERT_SQL,
+    RECONCILE_CLAIM_SQL,
+    InMemorySagaStore,
+    PostgresSagaStore,
+    SagaStore,
+    SagaStoreError,
+    StoredEvent,
+    validate_event_type,
+)
+from .reconcile_worker import (
+    ReconcileCallback,
+    ReconcileDecision,
+    ReconcileReceipt,
+    ReconcileVerdict,
+    ReconcileVerdictError,
+    ReconcileWorker,
+)
+from .runtime import RunReceipt, SagaRuntimeError, run_operation
+from .saga import (
+    SagaExecutor,
+    SagaObserver,
+    SagaOutcome,
+    StepHandler,
+    StepHandlerResolver,
+    StepHeartbeat,
+)
 from .steps import COMPENSATION_TABLE, RAG_INGEST_PLAN, StepPlan, StepResult, StepSpec
 from .transaction_guard import (
     FORBIDDEN_IN_TRANSACTION,
@@ -78,6 +114,7 @@ __all__ = [
     "AtomicFileError",
     "BarrierError",
     "COMPENSATION_TABLE",
+    "CallableStepHandler",
     "ConflictFacts",
     "ConflictResolution",
     "ConsistencyState",
@@ -89,11 +126,20 @@ __all__ = [
     "FileCommit",
     "INBOX_INSERT_SQL",
     "INBOX_LOOKUP_SQL",
+    "InMemorySagaStore",
     "Inbox",
     "InboxEntry",
     "LOCAL_ONLY_TELEMETRY",
     "LocalOperation",
     "LocalOperationStatus",
+    "NoHandlerError",
+    "OPERATION_CLAIM_NEXT_SQL",
+    "OPERATION_CLAIM_SQL",
+    "OPERATION_EVENT_INSERT_SQL",
+    "OPERATION_HEARTBEAT_SQL",
+    "OPERATION_INSERT_SQL",
+    "OPERATION_SAVE_SQL",
+    "OPERATION_STEP_UPSERT_SQL",
     "OUTBOX_ENQUEUE_SQL",
     "OUTBOX_FETCH_SQL",
     "Operation",
@@ -103,18 +149,35 @@ __all__ = [
     "OperationStatus",
     "OutboxEvent",
     "OutcomeStrategy",
+    "PostgresSagaStore",
     "PublishBarrier",
     "RAG_INGEST_PLAN",
     "READABLE_STATES",
+    "RECONCILE_CLAIM_SQL",
+    "ReconcileCallback",
+    "ReconcileDecision",
+    "ReconcileReceipt",
+    "ReconcileVerdict",
+    "ReconcileVerdictError",
+    "ReconcileWorker",
     "ResourceState",
+    "RunReceipt",
     "SAGA_EVENTS",
     "SagaExecutor",
+    "SagaObserver",
     "SagaOutcome",
+    "SagaRuntimeError",
+    "SagaStore",
+    "SagaStoreError",
     "StepHandler",
+    "StepHandlerRegistry",
+    "StepHandlerResolver",
+    "StepHeartbeat",
     "StepPlan",
     "StepResult",
     "StepSpec",
     "StepStatus",
+    "StoredEvent",
     "TERMINAL_STATUSES",
     "TransactionBoundaryError",
     "assert_activity_allowed",
@@ -127,7 +190,9 @@ __all__ = [
     "payload_hash",
     "remove_committed",
     "resolve_conflict",
+    "run_operation",
     "stage_tombstone",
+    "validate_event_type",
     "verify_file",
     "write_atomic",
 ]

@@ -179,7 +179,11 @@ class TestSchemaContractRegistry:
         assert "gptbridge_index_executor" in role_names
 
     def test_expected_migration_count(self):
-        assert EXPECTED_MIGRATION_COUNT == 125
+        migrations_dir = (
+            Path(__file__).resolve().parents[1] / "migrations"
+        )
+        actual = len(list(migrations_dir.glob("*.sql")))
+        assert EXPECTED_MIGRATION_COUNT == actual
 
     def test_resource_table_has_backend_generation(self):
         contract = declared_contract()

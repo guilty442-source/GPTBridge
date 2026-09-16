@@ -1,0 +1,170 @@
+{
+  "baseline_id": "LanguageArchitectureBaselineV1",
+  "baseline_version": 1,
+  "status": "LANGUAGE_ARCHITECTURE_CONVERGED",
+  "verdict": "CONVERGED_WITH_ACCEPTED_DEBT",
+  "generated_at_utc": "2026-09-16T10:41:00.867458+00:00",
+  "source_revision": "d1e60fa80c23da399336aa19ee0d3d1ff842fc2c",
+  "worktree_dirty_at_capture": true,
+  "authored_languages": {
+    "python": {
+      "role": "control/semantics/business owner",
+      "files": 1468
+    },
+    "typescript": {
+      "role": "presentation/client only",
+      "files": 112
+    },
+    "c": {
+      "role": "versioned ABI thunk only",
+      "files": 1
+    },
+    "cpp": {
+      "role": "private performance implementation",
+      "files": 10
+    },
+    "csharp": {
+      "role": "Windows/.NET adapter only",
+      "files": 1
+    },
+    "sql": {
+      "role": "bounded set-based data operations",
+      "files": 138
+    }
+  },
+  "source_extension_allowlist": [
+    ".py",
+    ".ts",
+    ".tsx",
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".cs",
+    ".sql"
+  ],
+  "auxiliary_non_contract_files": [
+    ".json",
+    ".md",
+    ".css",
+    ".txt",
+    ".html",
+    ".yml",
+    ".yaml",
+    ".toml",
+    ".ini",
+    ".jsonc",
+    ".bat",
+    ".cmd",
+    ".vbs",
+    ".cjs",
+    ".js",
+    ".Modelfile",
+    ".db",
+    ".sqlite3",
+    ".pyd"
+  ],
+  "boundary_graph_authority": {
+    "path": "governance_rule/execution/audit/architecture_registry.json",
+    "sha256": "f85ced6e951fcf058af054e28d4a0369954c5eb4adeb44afe3cc6c28350ee039",
+    "components": 35
+  },
+  "native_entity_tree": {
+    "bridge": [
+      "native/bridge/gptbridge_native.c"
+    ],
+    "include": [
+      "native/include/gptbridge_native.h"
+    ],
+    "core": [
+      "native/core/memory.hpp",
+      "native/core/parser.cpp",
+      "native/core/parser.hpp",
+      "native/core/simd.hpp",
+      "native/core/transformer.cpp",
+      "native/core/transformer.hpp",
+      "native/core/vector.cpp",
+      "native/core/vector.hpp"
+    ]
+  },
+  "abi_baseline": {
+    "header": "native/include/gptbridge_native.h",
+    "header_sha256": "a2eb29a12f052ed19b24d6ef3f2cb826a137e3411e148916e0796ccb7891e710",
+    "bridge_sha256": "20f94cad4702ff547331b6968a57dcae3ce0e51b2bb30ff5dc2cc7819ebc3ac4",
+    "exports": [
+      "gptbridge_native_is_windows",
+      "gptbridge_native_monotonic_seconds",
+      "gptbridge_native_working_set_bytes",
+      "gptbridge_native_private_bytes",
+      "gptbridge_native_release_working_set"
+    ],
+    "export_count": 5,
+    "types": [
+      "int",
+      "double",
+      "int64_t"
+    ]
+  },
+  "canonical_type_registry": {
+    "path": "shared-layer/src/shared_layer/contracts/",
+    "registry_version": 1,
+    "registered_types": [
+      "i32",
+      "u32",
+      "i64",
+      "u64",
+      "f32",
+      "f64",
+      "bool",
+      "string",
+      "bytes",
+      "timestamp_utc",
+      "duration",
+      "deadline",
+      "identifier",
+      "list",
+      "object",
+      "typed_buffer",
+      "status"
+    ]
+  },
+  "toolchain": {
+    "python": "3.11.9",
+    "typescript": "5.9.3",
+    "node": "26.8.1"
+  },
+  "test_matrix": {
+    "python_test_files": 158,
+    "migrations": 129
+  },
+  "verification_evidence": {
+    "governance_audit": "PASS",
+    "tsc_noEmit": "PASS",
+    "contract_parity_tests": "54/54 PASS",
+    "rag_boundary_tests": "99/99 PASS",
+    "native_perf_e2e": "59/59 PASS",
+    "shared_layer_suite": "1622 passed / 5 failed (pre-existing)"
+  },
+  "accepted_debt": [
+    "auxiliary host scripts (.cjs/.js/.bat/.vbs/.cmd) exist as launcher/tooling only; no contract surface",
+    "shared_layer/performance and core_system/perf coexist as two perf planes (shared-plane vs core-domain); boundary declared, merge deferred",
+    "pre-existing test failures unrelated to language architecture: native benchmark worker crashes, migration-count expectation 125 vs 129, transformer model-routing drift"
+  ],
+  "debt_exclusions_verified": {
+    "abi_mismatch": "none \u2014 ABI header hash pinned, 5 exports fixed-width only",
+    "duplicate_authority": "resolved \u2014 inbox_dedup DDL single source (outbox_inbox.py); learned_recipes/repair_outcomes collision resolved via file separation (auto-repair-learning.sqlite3); sql_concurrency.SessionBinding duplicate field fixed; OutboxState split RagOutboxState(rag_outbox) vs contracts(outbox_event)",
+    "untyped_public_boundary": "none \u2014 CanonicalTypeRegistry projects all six languages",
+    "fallback_semantic_mismatch": "none \u2014 RAG degraded path markers verified by 42 takeover tests",
+    "broken_cancellation": "none \u2014 cooperative cancellation tested in native runtime (19/19)",
+    "critical_flaky_contract_tests": "none observed in contract/boundary suites"
+  },
+  "reentry_triggers": [
+    "new programming language",
+    "language owner change",
+    "cross-language boundary change",
+    "breaking ABI change",
+    "new public contract family",
+    "fallback policy change"
+  ],
+  "post_freeze_policy": "normal development uses baseline-delta / affected-scope verification; reentry triggers above require full architecture review"
+}

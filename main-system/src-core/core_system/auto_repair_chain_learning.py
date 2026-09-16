@@ -34,7 +34,7 @@ class RepairLearningStore:
     def __init__(self, repair_root: Path, audit: GovernanceAudit):
         self.repair_root = repair_root
         self.audit = audit
-        self._db_path = repair_root / "repair-learning.sqlite3"
+        self._db_path = repair_root / "auto-repair-learning.sqlite3"
         self._init_db()
 
     def _init_db(self) -> None:

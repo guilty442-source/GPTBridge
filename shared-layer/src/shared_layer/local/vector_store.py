@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Final, Iterator
 
 from .native_kernel import available as _native_available
+from ..security.qdrant_scope import QdrantScopeError
 
 COLLECTION: Final[str] = "gptbridge_shared_knowledge"
 DEFAULT_ENDPOINT: Final[str] = "local"
@@ -249,6 +250,11 @@ class LocalVectorStore:
         # but we bound the candidate set with a SQL-level ceiling so the
         # application-side sort operates on a bounded result, not the full
         # table.
+        # A52 qdrant-scope: the degraded local cache obeys the same scope
+        # discipline as the canonical index — an empty module scope is
+        # rejected fail-closed instead of scanning every cached module.
+        if not module_ids:
+            raise QdrantScopeError("QDRANT_MODULE_SCOPE_REQUIRED")
         query_vector = _normalize([float(value) for value in vector])
         bounded_limit = max(int(limit) * 4, min(int(limit) * 4, 500))
         rows = self._fetch_rows(module_ids, bounded_limit)

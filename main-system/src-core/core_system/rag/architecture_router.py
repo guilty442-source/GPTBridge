@@ -18,11 +18,10 @@ from .rag_contracts import (
     RagSearchResult,
     RagReconcileRequest,
     RagReconcileResult,
-    CanonicalState,
 )
 from .canonical_backend import CanonicalRagBackend
 from .degraded_backend import DegradedRagBackend
-from .health_gate import CanonicalHealthGate
+from .health_gate import CanonicalHealthGate, CanonicalState
 
 _logger = logging.getLogger("gptbridge.rag.router")
 
@@ -81,14 +80,17 @@ class RagArchitectureRouter:
             return self.degraded.delete_resource(request)
         return self._current_backend.delete_resource(request)
 
-    def search(self, request: Any) -> Any:
-        """Route search to appropriate backend."""
+    async def search(self, request: Any) -> Any:
+        """Route search to appropriate backend (canonical search is async)."""
         if self._current_backend is None:
             health = self.canonical.health()
             if health.healthy:
-                return self.canonical.search(request)
+                return await self.canonical.search(request)
             return self.degraded.search(request)
-        return self._current_backend.search(request)
+        backend = self._current_backend
+        if backend is self.canonical:
+            return await self.canonical.search(request)
+        return backend.search(request)
 
     def reconcile(self, request: Any) -> Any:
         """Route reconciliation to appropriate backend."""

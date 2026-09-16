@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
@@ -35,8 +35,8 @@ class OutboxOperation(str, Enum):
     UPDATE_METADATA = "UPDATE_METADATA"  # Metadata only
 
 
-class OutboxState(str, Enum):
-    """Outbox event lifecycle states."""
+class RagOutboxState(str, Enum):
+    """rag_outbox table lifecycle states (DONE/FAILED terminal set)."""
     PENDING = "PENDING"        # Waiting for worker
     PROCESSING = "PROCESSING"  # Worker picked up
     DONE = "DONE"              # Successfully applied to Qdrant
@@ -55,7 +55,7 @@ class OutboxEvent:
     content_hash: Optional[str] = None
     payload: Optional[dict[str, Any]] = None  # Full point data for UPSERT
     attempts: int = 0
-    state: OutboxState = OutboxState.PENDING
+    state: RagOutboxState = RagOutboxState.PENDING
     last_error: Optional[str] = None
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -186,7 +186,7 @@ class OutboxRepository:
                     content_hash=row["content_hash"],
                     payload=row["payload"],
                     attempts=row["attempts"],
-                    state=OutboxState(row["state"]),
+                    state=RagOutboxState(row["state"]),
                     last_error=row["last_error"],
                     created_at=row["created_at_utc"],
                     updated_at=row["updated_at_utc"],
@@ -234,7 +234,7 @@ class OutboxRepository:
             if not row:
                 return False
             attempts = row["attempts"] + 1
-            new_state = OutboxState.DEAD_LETTER.value if attempts >= max_attempts else OutboxState.FAILED.value
+            new_state = RagOutboxState.DEAD_LETTER.value if attempts >= max_attempts else RagOutboxState.FAILED.value
 
             cur.execute(
                 """

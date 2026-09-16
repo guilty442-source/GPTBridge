@@ -1,9 +1,12 @@
 """Degradation budgets: SQLite fallback and Qdrant indexing.
 
 SQLite fallback: while PostgreSQL is down, the fallback may only grow inside
-approved limits; past them, new non-essential writes stop (fail-closed).
-Essential traffic (audit, governance writes, critical transport) keeps its
-existing path and is only reported, never silently dropped.
+approved limits; past them, new writes stop (fail-closed).  Essential
+traffic (audit, governance writes, critical transport) is reported and must
+use its existing canonical/closed path — it never bypasses the
+module-private fallback bound (A508/A512): over-limit essential writes get
+``DEGRADE`` (not an allowed fallback write), never a silent extension of the
+bounded buffer.
 
 Qdrant indexing: vector upserts are rate limited and paused while transport
 is peaking; PostgreSQL metadata must complete first.
@@ -48,8 +51,11 @@ class SqliteFallbackBudget:
         if not exceeded:
             return Decision(DecisionKind.ALLOW, "fallback:within-budget")
         if priority_class in (PriorityClass.CRITICAL, PriorityClass.INTERACTIVE):
+            # A508/A512: essential traffic keeps its existing canonical path
+            # and is reported, but it may not bypass the module-private
+            # bounded fallback.  DEGRADE is not an allowed fallback write.
             return Decision(
-                DecisionKind.ALLOW,
+                DecisionKind.DEGRADE,
                 f"fallback:essential-write-over-limit:{','.join(exceeded)}",
             )
         return Decision(

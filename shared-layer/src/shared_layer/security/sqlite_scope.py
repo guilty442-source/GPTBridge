@@ -41,6 +41,24 @@ class SqliteAccessRequest:
     acl_owner_only: bool = True
 
 
+@dataclass(frozen=True)
+class SqliteScopeBinding:
+    """Declared boundary facts for one governed SQLite writer (A512).
+
+    ``workspace_root`` anchors the path allowlist; ``process_identity`` must
+    equal the module identity; ``acl_owner_only`` asserts the installer's
+    owner-only ACL has been applied.  A writer that cannot produce a binding
+    must fail closed instead of opening/writing the private database.
+    """
+
+    module_id: str
+    workspace_root: str
+    process_identity: str
+    locator_module_id: str = ""
+    acl_owner_only: bool = True
+    path: str = ""
+
+
 def writable_roots(module_id: str) -> tuple[str, ...]:
     return (
         *WRITABLE_ROOT_PREFIXES,
@@ -99,6 +117,34 @@ def assess_access(request: SqliteAccessRequest, workspace_root: str | Path) -> N
         raise SqliteScopeError(f"SQLITE_PATH_NOT_ALLOWLISTED:{relative}")
 
 
+def assert_binding(
+    binding: SqliteScopeBinding,
+    path: str | Path | None = None,
+) -> None:
+    """Fail closed unless the declared binding validates for ``path``.
+
+    Wires all four layers (path allowlist, process identity, locator scope,
+    owner-only ACL expectation) into one call so an open/write path can use
+    it directly.  A missing/unresolved path is itself a failure.
+    """
+    target = str(path or binding.path or "").strip()
+    if not target or target == ":memory:":
+        raise SqliteScopeError("SQLITE_SCOPE_PATH_UNRESOLVED")
+    if not str(binding.workspace_root).strip():
+        raise SqliteScopeError("SQLITE_SCOPE_WORKSPACE_REQUIRED")
+    assess_access(
+        SqliteAccessRequest(
+            module_id=binding.module_id,
+            path=target,
+            write=True,
+            locator_module_id=binding.locator_module_id,
+            process_identity=binding.process_identity,
+            acl_owner_only=binding.acl_owner_only,
+        ),
+        binding.workspace_root,
+    )
+
+
 def expected_acl_commands(path: str | Path) -> list[str]:
     """The icacls commands the installer must apply for an owner-only file."""
     target = str(Path(path))
@@ -114,9 +160,11 @@ __all__ = [
     "MODULE_SETTINGS_TEMPLATE",
     "MODULE_STATE_TEMPLATE",
     "SqliteAccessRequest",
+    "SqliteScopeBinding",
     "SqliteScopeError",
     "WRITABLE_ROOT_PREFIXES",
     "assess_access",
+    "assert_binding",
     "expected_acl_commands",
     "writable_roots",
 ]

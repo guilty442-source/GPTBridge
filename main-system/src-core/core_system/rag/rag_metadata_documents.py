@@ -180,6 +180,49 @@ class RagMetadataDocumentsMixin:
             )
             return None
 
+    async def fetch_resource_chunks(
+        self, module_id: str, resource_id: str
+    ) -> list[dict[str, Any]]:
+        """Fetch a resource's chunk rows with content for outbox replay.
+
+        Content lives in ``chunk.metadata->>'content'`` (PostgreSQL is the
+        content authority; Qdrant payloads never carry it).
+        """
+        if not self._healthy or not self._conn:
+            return []
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT chunk_id, qdrant_point_id::text, sequence,
+                              character_start, character_end, metadata
+                       FROM gptbridge_rag.chunk
+                       WHERE module_id = %s AND resource_id = %s
+                       ORDER BY sequence""",
+                    (module_id, resource_id),
+                )
+                rows = await cur.fetchall()
+            out: list[dict[str, Any]] = []
+            for row in rows:
+                meta = row[5] if isinstance(row[5], dict) else {}
+                out.append({
+                    "chunk_id": str(row[0]),
+                    "qdrant_point_id": str(row[1]) if row[1] else None,
+                    "sequence": int(row[2]),
+                    "character_start": int(row[3]),
+                    "character_end": int(row[4]),
+                    "content": str(meta.get("content") or ""),
+                    "payload": {
+                        "content_hash": str(meta.get("content_hash") or ""),
+                    },
+                })
+            return out
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: fetch_resource_chunks failed: %s",
+                exc,
+            )
+            return []
+
     async def fetch_chunks_for_points(
         self,
         module_ids: tuple[str, ...],

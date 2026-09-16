@@ -322,6 +322,163 @@ class RagMetadataReconciliationMixin:
             )
             return None
 
+    # -- RAG-11: generation registry -------------------------------------------
+
+    async def upsert_generation(self, generation: Any) -> bool:
+        """Persist IndexGeneration to gptbridge_rag.generation."""
+        if not self._healthy or not self._conn:
+            return False
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """INSERT INTO gptbridge_rag.generation
+                          (generation_id, index_schema_version,
+                           embedding_model, embedding_dimension,
+                           chunk_policy_version, chunk_size, chunk_overlap,
+                           created_at_utc, state, collection_name,
+                           alias_name, previous_generation_id, points_count,
+                           verification_result, error_message,
+                           parser_version, vector_schema_version,
+                           metadata_schema_version, policy_version,
+                           activated_at_utc, retired_at_utc)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                               %s,%s,%s,%s,%s,%s)
+                       ON CONFLICT (generation_id) DO UPDATE SET
+                           state = EXCLUDED.state,
+                           points_count = EXCLUDED.points_count,
+                           verification_result = EXCLUDED.verification_result,
+                           error_message = EXCLUDED.error_message,
+                           activated_at_utc = EXCLUDED.activated_at_utc,
+                           retired_at_utc = EXCLUDED.retired_at_utc""",
+                    (
+                        generation.generation_id,
+                        generation.index_schema_version,
+                        generation.embedding_model,
+                        int(generation.embedding_dimension),
+                        generation.chunk_policy_version,
+                        int(generation.chunk_size),
+                        int(generation.chunk_overlap),
+                        generation.created_at,
+                        generation.state.value
+                        if hasattr(generation.state, "value")
+                        else str(generation.state),
+                        generation.collection_name,
+                        generation.alias_name,
+                        generation.previous_generation_id,
+                        int(generation.points_count),
+                        json.dumps(generation.verification_result)
+                        if generation.verification_result is not None
+                        else None,
+                        generation.error_message,
+                        generation.parser_version,
+                        generation.vector_schema_version,
+                        generation.metadata_schema_version,
+                        generation.policy_version,
+                        generation.activated_at,
+                        generation.retired_at,
+                    ),
+                )
+            return True
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: upsert_generation failed: %s",
+                exc,
+            )
+            return False
+
+    async def get_generation(self, generation_id: str) -> Optional[Any]:
+        """Fetch one generation row as IndexGeneration."""
+        if not self._healthy or not self._conn:
+            return None
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT generation_id, index_schema_version,
+                              embedding_model, embedding_dimension,
+                              chunk_policy_version, chunk_size, chunk_overlap,
+                              created_at_utc, state, collection_name,
+                              alias_name, previous_generation_id,
+                              points_count, verification_result,
+                              error_message, parser_version,
+                              vector_schema_version, metadata_schema_version,
+                              policy_version, activated_at_utc, retired_at_utc
+                       FROM gptbridge_rag.generation
+                       WHERE generation_id = %s""",
+                    (generation_id,),
+                )
+                row = await cur.fetchone()
+            if row is None:
+                return None
+            return self._generation_row(row)
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: get_generation failed: %s", exc
+            )
+            return None
+
+    async def get_active_generation(self, alias_name: str) -> Optional[Any]:
+        """Fetch the single ACTIVE generation for an alias (enforced by
+        the uq_rag_generation_active partial unique index)."""
+        if not self._healthy or not self._conn:
+            return None
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT generation_id, index_schema_version,
+                              embedding_model, embedding_dimension,
+                              chunk_policy_version, chunk_size, chunk_overlap,
+                              created_at_utc, state, collection_name,
+                              alias_name, previous_generation_id,
+                              points_count, verification_result,
+                              error_message, parser_version,
+                              vector_schema_version, metadata_schema_version,
+                              policy_version, activated_at_utc, retired_at_utc
+                       FROM gptbridge_rag.generation
+                       WHERE alias_name = %s AND state = 'ACTIVE'""",
+                    (alias_name,),
+                )
+                row = await cur.fetchone()
+            if row is None:
+                return None
+            return self._generation_row(row)
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: get_active_generation failed: %s",
+                exc,
+            )
+            return None
+
+    @staticmethod
+    def _generation_row(row: Any) -> Any:
+        from .generation import GenerationState, IndexGeneration
+
+        result = row[13]
+        if isinstance(result, str):
+            result = json.loads(result)
+        return IndexGeneration(
+            generation_id=row[0],
+            index_schema_version=row[1],
+            embedding_model=row[2],
+            embedding_dimension=int(row[3]),
+            chunk_policy_version=row[4],
+            chunk_size=int(row[5]),
+            chunk_overlap=int(row[6]),
+            created_at=row[7],
+            state=GenerationState(str(row[8])),
+            collection_name=row[9],
+            alias_name=row[10],
+            previous_generation_id=row[11],
+            points_count=int(row[12] or 0),
+            verification_result=result,
+            error_message=row[14],
+            parser_version=row[15] or "v1",
+            vector_schema_version=row[16] or "v1",
+            metadata_schema_version=row[17] or "v1",
+            policy_version=row[18] or "v1",
+            activated_at=row[19],
+            retired_at=row[20],
+        )
+
     async def record_outbox_step(
         self,
         *,
@@ -382,4 +539,267 @@ class RagMetadataReconciliationMixin:
             return True
         except Exception as exc:
             _logger.error("PostgreSQLMetadataAuthority: upsert_index_state_extended failed: %s", exc)
+            return False
+
+    # -- RAG-08: canonical outbox_event --------------------------------------
+    # gptbridge_rag.outbox_event is THE canonical outbox (A486/A487):
+    # metadata + index_state + outbox commit in ONE transaction; Qdrant is
+    # never part of that transaction — a worker applies events afterwards.
+
+    async def document_write_tx(
+        self,
+        *,
+        document: dict[str, Any],
+        chunks: list[dict[str, Any]],
+        embedding_model: str,
+        outbox_event: dict[str, Any],
+    ) -> bool:
+        """Atomic canonical write: resource + chunks + outbox event in ONE
+        PostgreSQL transaction.  Qdrant is deliberately excluded — it is
+        applied by the outbox worker after commit."""
+        if not self._healthy or not self._conn:
+            return False
+        try:
+            async with self._conn.transaction():
+                if not await self.ensure_resource(document):
+                    raise RuntimeError("ensure_resource failed")
+                if not await self.replace_document_chunks(
+                    resource_id=str(document["resource_id"]),
+                    module_id=str(document["module_id"]),
+                    embedding_model=embedding_model,
+                    chunks=chunks,
+                ):
+                    raise RuntimeError("replace_document_chunks failed")
+                await self._insert_outbox_event(outbox_event)
+            return True
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: document_write_tx failed: %s", exc
+            )
+            return False
+
+    async def _insert_outbox_event(self, event: dict[str, Any]) -> None:
+        """INSERT into gptbridge_rag.outbox_event on the managed connection —
+        joins any surrounding ``conn.transaction()`` block."""
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                """INSERT INTO gptbridge_rag.outbox_event
+                      (event_id, request_id, operation, module_id, resource_id,
+                       source_version, content_hash, generation_id, payload,
+                       state, attempt_count, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s,
+                           'PENDING', 0, now(), now())""",
+                (
+                    event["event_id"],
+                    event["request_id"],
+                    event["operation"],
+                    event["module_id"],
+                    event["resource_id"],
+                    int(event.get("source_version") or 0),
+                    str(event.get("content_hash") or ""),
+                    str(event.get("generation_id") or ""),
+                    json.dumps(event.get("payload") or {}),
+                ),
+            )
+
+    async def insert_outbox_event(self, event: dict[str, Any]) -> bool:
+        """Standalone event insert (own statement; use document_write_tx for
+        the atomic write path)."""
+        if not self._healthy or not self._conn:
+            return False
+        try:
+            await self._insert_outbox_event(event)
+            return True
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: insert_outbox_event failed: %s",
+                exc,
+            )
+            return False
+
+    async def fetch_outbox_events(self, limit: int = 25) -> list[dict[str, Any]]:
+        """Lease PENDING + due-RETRY events (SKIP LOCKED)."""
+        if not self._healthy or not self._conn:
+            return []
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT event_id, request_id, operation, module_id,
+                              resource_id, source_version, content_hash,
+                              generation_id, payload, attempt_count
+                       FROM gptbridge_rag.outbox_event
+                       WHERE state = 'PENDING'
+                          OR (state = 'RETRY' AND next_retry_at <= now())
+                       ORDER BY created_at
+                       LIMIT %s
+                       FOR UPDATE SKIP LOCKED""",
+                    (limit,),
+                )
+                rows = await cur.fetchall()
+            return [
+                {
+                    "event_id": str(r[0]), "request_id": r[1],
+                    "operation": r[2], "module_id": r[3],
+                    "resource_id": r[4], "source_version": r[5],
+                    "content_hash": r[6], "generation_id": r[7],
+                    "payload": r[8] if isinstance(r[8], dict) else {},
+                    "attempt_count": int(r[9] or 0),
+                }
+                for r in rows
+            ]
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: fetch_outbox_events failed: %s", exc
+            )
+            return []
+
+    async def mark_outbox(
+        self,
+        event_id: str,
+        state: str,
+        *,
+        error: Optional[str] = None,
+        next_retry_at: Optional[str] = None,
+        terminal: bool = False,
+    ) -> bool:
+        """Transition an outbox event; terminal states stamp completed_at."""
+        if not self._healthy or not self._conn:
+            return False
+        completed = ", completed_at = now()" if terminal else ""
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    f"""UPDATE gptbridge_rag.outbox_event
+                        SET state = %s, attempt_count = attempt_count + 1,
+                            last_error = %s, next_retry_at = %s,
+                            updated_at = now(){completed}
+                        WHERE event_id = %s""",
+                    (state, error, next_retry_at, event_id),
+                )
+            return True
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: mark_outbox failed: %s", exc
+            )
+            return False
+
+    async def outbox_stats(self) -> dict[str, int]:
+        """Outbox backlog grouped by state — DEAD_LETTER stays observable."""
+        result = {"pending": 0, "processing": 0, "retry": 0,
+                  "succeeded": 0, "dead_letter": 0}
+        if not self._healthy or not self._conn:
+            return result
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT state, COUNT(*) FROM gptbridge_rag.outbox_event
+                       GROUP BY state"""
+                )
+                for state, count in await cur.fetchall():
+                    key = str(state).lower()
+                    if key in result:
+                        result[key] = int(count)
+            return result
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: outbox_stats failed: %s", exc
+            )
+            return result
+
+    # -- RAG-09: reconciliation status surface --------------------------------
+
+    async def reconciliation_status(self) -> dict[str, Any]:
+        """Aggregated pending_rag_mutation status for the health surface."""
+        if not self._healthy or not self._conn:
+            return {"required": False, "pending_count": 0}
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT
+                          COUNT(*) FILTER (WHERE status IN
+                              ('pending','leased','reconciling')),
+                          COUNT(*) FILTER (WHERE status = 'failed'),
+                          COUNT(*) FILTER (WHERE status = 'dead_letter'),
+                          MAX(canonical_synced_at),
+                          MIN(created_at) FILTER (WHERE status = 'pending'),
+                          (SELECT last_error FROM gptbridge_rag.reconciliation_queue
+                            WHERE last_error IS NOT NULL
+                            ORDER BY created_at DESC LIMIT 1)
+                       FROM gptbridge_rag.reconciliation_queue"""
+                )
+                row = await cur.fetchone()
+            pending = int(row[0] or 0)
+            oldest = row[4]
+            age = None
+            if oldest is not None:
+                try:
+                    age = (
+                        datetime.now(timezone.utc) - oldest
+                    ).total_seconds() if hasattr(oldest, "tzinfo") else None
+                except Exception:
+                    age = None
+            return {
+                "required": pending > 0,
+                "pending_count": pending,
+                "processing_count": 0,
+                "failed_count": int(row[1] or 0) + int(row[2] or 0),
+                "last_success_at": row[3].isoformat() if row[3] else None,
+                "last_error": row[5],
+                "oldest_pending_age": age,
+            }
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: reconciliation_status failed: %s",
+                exc,
+            )
+            return {"required": False, "pending_count": 0}
+
+    # -- RAG-10: provenance staleness ------------------------------------------
+
+    async def mark_derived_stale(
+        self, module_id: str, source_resource_id: str
+    ) -> int:
+        """A374 provenance: when a source is deleted/updated, derived
+        resources must not remain canonical evidence — mark them STALE."""
+        if not self._healthy or not self._conn:
+            return 0
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """UPDATE gptbridge_rag.index_state
+                          SET status = 'stale', indexed_at = now()
+                        WHERE module_id = %s
+                          AND resource_id IN (
+                              SELECT DISTINCT derived_resource_id
+                              FROM gptbridge_rag.provenance
+                              WHERE source_resource_id = %s)
+                          AND status = 'indexed'""",
+                    (module_id, source_resource_id),
+                )
+                return int(cur.rowcount or 0)
+        except Exception as exc:
+            _logger.warning(
+                "PostgreSQLMetadataAuthority: mark_derived_stale failed: %s", exc
+            )
+            return 0
+
+    async def mark_index_state(self, module_id: str, resource_id: str,
+                               state: str) -> bool:
+        """Explicit index_state transition (DELETED after verified purge,
+        STALE on supersede, etc.)."""
+        if not self._healthy or not self._conn:
+            return False
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """UPDATE gptbridge_rag.index_state
+                          SET status = %s, indexed_at = now()
+                        WHERE module_id = %s AND resource_id = %s""",
+                    (state, module_id, resource_id),
+                )
+            return True
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: mark_index_state failed: %s", exc
+            )
             return False
