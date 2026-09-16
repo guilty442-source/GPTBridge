@@ -347,6 +347,68 @@ _TEMPLATES: dict[str, str] = {
         "FROM gptbridge_index.resource WHERE deletion_stage = %s "
         "ORDER BY tombstoned_at LIMIT %s"
     ),
+
+    # --- Rebuild certification (migration 028) ---
+    "rebuild_cert.latest": (
+        "SELECT certification_id, engine, target, rebuild_reason, "
+        "certified, certified_at, certified_by "
+        "FROM gptbridge_index.rebuild_certification "
+        "ORDER BY certified_at DESC LIMIT %s"
+    ),
+    "rebuild_cert.by_engine": (
+        "SELECT certification_id, target, certified, certified_at "
+        "FROM gptbridge_index.rebuild_certification "
+        "WHERE engine = %s ORDER BY certified_at DESC LIMIT %s"
+    ),
+
+    # --- Watchdog / bloat / RPO-RTO / capacity (migration 029) ---
+    "watchdog.long_tx": (
+        "SELECT pid, session_user, state, transaction_age_seconds, "
+        "idle_in_transaction_seconds, lock_holder, detected_at "
+        "FROM gptbridge_index.long_transaction_watchdog "
+        "ORDER BY detected_at DESC LIMIT %s"
+    ),
+    "bloat.latest": (
+        "SELECT schema_name, table_name, dead_tuples, live_tuples, "
+        "table_size_bytes, collected_at "
+        "FROM gptbridge_index.bloat_report "
+        "ORDER BY collected_at DESC LIMIT %s"
+    ),
+    "rpo_rto.list": (
+        "SELECT engine, rpo_seconds, rto_seconds, backup_frequency_seconds "
+        "FROM gptbridge_index.rpo_rto_class ORDER BY engine"
+    ),
+    "capacity.list": (
+        "SELECT metric_name, warning_level, critical_level, fail_closed_level, unit "
+        "FROM gptbridge_index.capacity_threshold ORDER BY metric_name"
+    ),
+
+    # --- Read-only domain (migration 030) ---
+    "readonly_domain.list": (
+        "SELECT domain_name, is_readonly, reason, activated_at "
+        "FROM gptbridge_index.readonly_domain ORDER BY domain_name"
+    ),
+
+    # --- Startup certification (migration 030) ---
+    "startup_cert.latest": (
+        "SELECT certification_id, ready, schema_version_verified, rls_verified, "
+        "required_roles_verified, migration_head_verified, "
+        "audit_append_only_verified, authority_contract_verified, "
+        "contract_version_verified, certified_at "
+        "FROM gptbridge_index.startup_certification "
+        "ORDER BY certified_at DESC LIMIT 1"
+    ),
+
+    # --- SLO metrics (migration 031) ---
+    "slo_metric.list": (
+        "SELECT metric_name, target_value, target_direction, unit, window_seconds "
+        "FROM gptbridge_index.slo_metric ORDER BY metric_name"
+    ),
+    "slo_observation.recent": (
+        "SELECT metric_name, observed_value, met_target, observed_at "
+        "FROM gptbridge_index.slo_observation "
+        "ORDER BY observed_at DESC LIMIT %s"
+    ),
 }
 
 QUERY_TEMPLATES: Mapping[str, str] = MappingProxyType(_TEMPLATES)

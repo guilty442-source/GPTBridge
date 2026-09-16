@@ -39,6 +39,16 @@ _LAZY_EXPORTS = {
     "advance_stage": ("deletion_coordinator", "advance_stage"),
     "get_purge_eligible": ("deletion_coordinator", "get_purge_eligible"),
     "scan_orphans": ("orphan_scanner", "scan_orphans"),
+    "certify_rebuild": ("rebuild_certifier", "certify"),
+    "is_rebuild_certified": ("rebuild_certifier", "is_certified"),
+    "check_long_transactions": ("watchdog", "check_long_transactions"),
+    "collect_bloat_report": ("watchdog", "collect_bloat_report"),
+    "get_rpo_rto_classes": ("watchdog", "get_rpo_rto_classes"),
+    "get_capacity_thresholds": ("watchdog", "get_capacity_thresholds"),
+    "certify_startup": ("startup_certifier", "certify_startup"),
+    "is_database_ready": ("startup_certifier", "is_ready"),
+    "set_domain_readonly": ("readonly_domain", "set_readonly"),
+    "is_domain_readonly": ("readonly_domain", "is_readonly"),
 }
 
 __all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]

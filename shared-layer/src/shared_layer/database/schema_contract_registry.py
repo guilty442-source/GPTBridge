@@ -255,6 +255,91 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "lock_timeout_ms", "priority", "description", "updated_at",
         ),
     ),
+    TableContract(
+        schema="gptbridge_index",
+        table="rebuild_certification",
+        columns=(
+            "certification_id", "engine", "target", "rebuild_reason",
+            "checks_performed", "check_count", "passed_count", "certified",
+            "resource_count", "content_hash", "schema_version",
+            "rls_verified", "locator_verified", "certified_at", "certified_by",
+        ),
+        indexes=("rebuild_cert_engine_idx", "rebuild_cert_target_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="long_transaction_watchdog",
+        columns=(
+            "watchdog_id", "pid", "session_user", "state", "query",
+            "transaction_age_seconds", "idle_in_transaction_seconds",
+            "lock_holder", "threshold_seconds", "action_taken", "detected_at",
+        ),
+        indexes=("watchdog_detected_idx", "watchdog_pid_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="bloat_report",
+        columns=(
+            "bloat_id", "schema_name", "table_name",
+            "estimated_bloat_percent", "dead_tuples", "live_tuples",
+            "last_autovacuum", "autovacuum_count", "last_analyze",
+            "table_size_bytes", "index_size_bytes", "collected_at",
+        ),
+        indexes=("bloat_collected_idx", "bloat_table_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="rpo_rto_class",
+        columns=(
+            "engine", "rpo_seconds", "rto_seconds",
+            "backup_frequency_seconds", "description", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="capacity_threshold",
+        columns=(
+            "metric_name", "warning_level", "critical_level",
+            "fail_closed_level", "unit", "description", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="readonly_domain",
+        columns=(
+            "domain_name", "is_readonly", "reason",
+            "activated_at", "activated_by", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="startup_certification",
+        columns=(
+            "certification_id", "schema_version_verified", "rls_verified",
+            "required_roles_verified", "migration_head_verified",
+            "audit_append_only_verified", "authority_contract_verified",
+            "contract_version_verified", "ready", "checks",
+            "certified_at", "certified_by",
+        ),
+        indexes=("startup_cert_at_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="slo_metric",
+        columns=(
+            "metric_name", "target_value", "target_direction",
+            "unit", "window_seconds", "description", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="slo_observation",
+        columns=(
+            "observation_id", "metric_name", "observed_value",
+            "met_target", "observed_at",
+        ),
+        indexes=("slo_obs_metric_idx", "slo_obs_at_idx"),
+    ),
 )
 
 _DECLARED_ROLES: tuple[RoleContract, ...] = (
@@ -273,7 +358,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 27  # 001 through 027
+EXPECTED_MIGRATION_COUNT = 31  # 001 through 031
 
 
 @dataclass

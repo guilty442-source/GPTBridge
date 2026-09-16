@@ -148,6 +148,10 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "025_sqlite_generation_fence.sql",
         "026_workload_class.sql",
         "027_two_stage_deletion.sql",
+        "028_rebuild_certification.sql",
+        "029_watchdog_bloat_rpo_rto.sql",
+        "030_readonly_domain_startup_cert.sql",
+        "031_slo_metrics.sql",
     ):
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")
@@ -399,6 +403,116 @@ def check_generation_fence_helper(root: Path, errors: list[str]) -> None:
     for required in ("get_current_generation", "bump_generation", "is_connection_stale"):
         if required not in text:
             errors.append(f"Generation fence helper is missing: {required}")
+
+
+def check_rebuild_certification(root: Path, errors: list[str]) -> None:
+    """Verify rebuild certification migration (028) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "028_rebuild_certification.sql"
+    if not migration.is_file():
+        errors.append("Rebuild certification migration 028 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("rebuild_certification", "record_rebuild_certification",
+                     "is_engine_certified", "certified"):
+        if required not in text:
+            errors.append(f"Rebuild certification migration 028 is missing: {required}")
+
+
+def check_watchdog_bloat_rpo_rto(root: Path, errors: list[str]) -> None:
+    """Verify watchdog/bloat/RPO-RTO/capacity migration (029) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "029_watchdog_bloat_rpo_rto.sql"
+    if not migration.is_file():
+        errors.append("Watchdog/bloat/RPO-RTO migration 029 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("long_transaction_watchdog", "bloat_report",
+                     "rpo_rto_class", "capacity_threshold",
+                     "postgresql-central", "governance-codex-sqlite",
+                     "module-sqlite", "qdrant",
+                     "warning_level", "critical_level", "fail_closed_level"):
+        if required not in text:
+            errors.append(f"Watchdog/bloat/RPO-RTO migration 029 is missing: {required}")
+
+
+def check_readonly_domain_startup_cert(root: Path, errors: list[str]) -> None:
+    """Verify read-only domain + startup cert migration (030) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "030_readonly_domain_startup_cert.sql"
+    if not migration.is_file():
+        errors.append("Read-only domain + startup cert migration 030 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("readonly_domain", "set_domain_readonly",
+                     "is_domain_readonly", "startup_certification",
+                     "record_startup_certification", "is_database_ready",
+                     "schema_version_verified", "rls_verified",
+                     "audit_append_only_verified", "authority_contract_verified"):
+        if required not in text:
+            errors.append(f"Read-only domain + startup cert migration 030 is missing: {required}")
+
+
+def check_slo_metrics(root: Path, errors: list[str]) -> None:
+    """Verify SLO metrics migration (031) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "031_slo_metrics.sql"
+    if not migration.is_file():
+        errors.append("SLO metrics migration 031 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("slo_metric", "slo_observation",
+                     "record_slo_observation",
+                     "central-query-p95", "transport-claim-latency",
+                     "reconcile-backlog", "sqlite-lock-rate",
+                     "qdrant-stale-rate", "restore-success"):
+        if required not in text:
+            errors.append(f"SLO metrics migration 031 is missing: {required}")
+
+
+def check_rebuild_certifier_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime rebuild certifier module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "rebuild_certifier.py"
+    if not module.is_file():
+        errors.append("Rebuild certifier module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("certify", "is_certified"):
+        if required not in text:
+            errors.append(f"Rebuild certifier is missing: {required}")
+
+
+def check_watchdog_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime watchdog module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "watchdog.py"
+    if not module.is_file():
+        errors.append("Watchdog module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("check_long_transactions", "collect_bloat_report",
+                     "get_rpo_rto_classes", "get_capacity_thresholds"):
+        if required not in text:
+            errors.append(f"Watchdog module is missing: {required}")
+
+
+def check_startup_certifier_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime startup certifier module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "startup_certifier.py"
+    if not module.is_file():
+        errors.append("Startup certifier module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("certify_startup", "is_ready"):
+        if required not in text:
+            errors.append(f"Startup certifier is missing: {required}")
+
+
+def check_readonly_domain_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime read-only domain module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "readonly_domain.py"
+    if not module.is_file():
+        errors.append("Read-only domain module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("set_readonly", "is_readonly"):
+        if required not in text:
+            errors.append(f"Read-only domain module is missing: {required}")
 
 
 def check_embedded_browser(root: Path, errors: list[str]) -> None:
