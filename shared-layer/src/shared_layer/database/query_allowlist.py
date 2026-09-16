@@ -749,6 +749,99 @@ _TEMPLATES: dict[str, str] = {
         "SELECT action_id, trigger_type, action_taken, domain, triggered_at "
         "FROM gptbridge_index.get_active_fail_closed(%s)"
     ),
+
+    # --- Version lock (migration 074) ---
+    "version_lock.list": (
+        "SELECT component, version_string, major_version, minor_version, "
+        "patch_version, locked_at FROM gptbridge_index.version_lock "
+        "WHERE release_id = %s ORDER BY component"
+    ),
+
+    # --- Compatibility matrix ext (migration 075) ---
+    "compat_matrix_ext.list": (
+        "SELECT postgresql_version, psycopg_version, "
+        "sqlite_runtime_version, qdrant_server_version, status, tested_at "
+        "FROM gptbridge_index.compatibility_matrix_ext "
+        "WHERE release_id = %s ORDER BY updated_at DESC"
+    ),
+    "compat_matrix_ext.forbidden": (
+        "SELECT postgresql_version, psycopg_version, "
+        "sqlite_runtime_version, qdrant_server_version, notes "
+        "FROM gptbridge_index.get_forbidden_combinations()"
+    ),
+
+    # --- Upgrade classification (migration 076) ---
+    "upgrade_classification.list": (
+        "SELECT component, from_version, to_version, upgrade_class, "
+        "required_validation, allows_unattended, classified_at "
+        "FROM gptbridge_index.upgrade_classification "
+        "ORDER BY classified_at DESC LIMIT %s"
+    ),
+
+    # --- Driver compatibility test (migration 077) ---
+    "driver_compat.failed": (
+        "SELECT test_id, driver_name, driver_version, test_category, "
+        "failure_reason, tested_at "
+        "FROM gptbridge_index.get_failed_driver_tests(NULL, %s)"
+    ),
+
+    # --- PG major upgrade rehearsal (migration 078) ---
+    "pg_rehearsal.list": (
+        "SELECT rehearsal_id, from_version, to_version, status, "
+        "started_at, completed_at "
+        "FROM gptbridge_index.pg_major_upgrade_rehearsal "
+        "ORDER BY started_at DESC LIMIT %s"
+    ),
+
+    # --- SQLite runtime compat (migration 079) ---
+    "sqlite_runtime_compat.list": (
+        "SELECT python_version, sqlite_library_version, "
+        "fts5_available, wal_mode_available, json1_available, tested_at "
+        "FROM gptbridge_index.sqlite_runtime_compat "
+        "ORDER BY tested_at DESC LIMIT %s"
+    ),
+
+    # --- Qdrant contract compat (migration 080) ---
+    "qdrant_compat.list": (
+        "SELECT from_version, to_version, check_category, passed, "
+        "tested_at FROM gptbridge_index.qdrant_contract_compat "
+        "ORDER BY tested_at DESC LIMIT %s"
+    ),
+
+    # --- SBOM (migration 081) ---
+    "sbom.list": (
+        "SELECT component, component_type, version, source, source_hash, "
+        "install_path, verified FROM gptbridge_index.sbom_dependency_inventory "
+        "WHERE release_id = %s ORDER BY component_type, component"
+    ),
+
+    # --- Vulnerability risk (migration 082) ---
+    "vulnerability.critical": (
+        "SELECT vuln_id, component, affected_versions, fixed_version, "
+        "cve_id, risk_level, recommended_action, upgrade_deadline_days "
+        "FROM gptbridge_index.get_critical_vulnerabilities()"
+    ),
+
+    # --- Dependency drift (migration 083) ---
+    "dependency_drift.unverified": (
+        "SELECT drift_id, component, expected_version, installed_version, "
+        "drift_status, detected_at "
+        "FROM gptbridge_index.get_unverified_dependencies()"
+    ),
+
+    # --- Offline bundle (migration 084) ---
+    "offline_bundle.list": (
+        "SELECT bundle_id, component, version, package_type, platform, "
+        "file_hash, verified FROM gptbridge_index.offline_bundle "
+        "WHERE release_id = %s ORDER BY component, version"
+    ),
+
+    # --- Release signature (migration 085) ---
+    "release_signature.latest": (
+        "SELECT signature_id, bundle_hash, component_count, "
+        "tamper_state, signed_at "
+        "FROM gptbridge_index.get_latest_signature(%s)"
+    ),
 }
 
 QUERY_TEMPLATES: Mapping[str, str] = MappingProxyType(_TEMPLATES)

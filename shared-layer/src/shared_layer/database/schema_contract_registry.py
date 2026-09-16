@@ -775,6 +775,139 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         ),
         indexes=("fail_closed_active_idx", "fail_closed_domain_idx"),
     ),
+    # Phase I: dependency & version governance
+    TableContract(
+        schema="gptbridge_index",
+        table="version_lock",
+        columns=(
+            "lock_id", "release_id", "component", "major_version",
+            "minor_version", "patch_version", "version_string",
+            "locked_at", "locked_by", "description",
+        ),
+        indexes=("version_lock_release_idx", "version_lock_component_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="compatibility_matrix_ext",
+        columns=(
+            "matrix_id", "release_id", "postgresql_version",
+            "psycopg_version", "sqlite_runtime_version",
+            "qdrant_server_version", "qdrant_client_version",
+            "python_version", "status", "tested_at", "tested_by",
+            "test_result", "notes", "updated_at",
+        ),
+        indexes=("compat_matrix_ext_release_idx", "compat_matrix_ext_status_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="upgrade_classification",
+        columns=(
+            "classification_id", "component", "from_version", "to_version",
+            "upgrade_class", "required_validation", "allows_unattended",
+            "requires_backup", "requires_clone_test",
+            "requires_certification", "rollback_allowed",
+            "description", "classified_by", "classified_at",
+        ),
+        indexes=("upgrade_class_component_idx", "upgrade_class_class_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="driver_compatibility_test",
+        columns=(
+            "test_id", "driver_name", "driver_version", "test_category",
+            "passed", "tested_at", "tested_by", "test_details",
+            "failure_reason", "duration_ms",
+        ),
+        indexes=("driver_compat_driver_idx", "driver_compat_passed_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="pg_major_upgrade_rehearsal",
+        columns=(
+            "rehearsal_id", "from_version", "to_version", "status",
+            "started_at", "completed_at", "backup_id", "clone_database",
+            "migration_check_passed", "rls_check_passed",
+            "transport_test_passed", "reconcile_test_passed",
+            "performance_baseline_id", "certification_id",
+            "failure_reason", "rehearsal_log",
+        ),
+        indexes=("pg_rehearsal_status_idx", "pg_rehearsal_version_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="sqlite_runtime_compat",
+        columns=(
+            "compat_id", "python_version", "sqlite_library_version",
+            "sqlite_source", "fts5_available", "wal_mode_available",
+            "json1_available", "tested_at", "tested_by",
+            "test_result", "notes",
+        ),
+        indexes=("sqlite_rt_compat_py_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="qdrant_contract_compat",
+        columns=(
+            "compat_id", "from_version", "to_version", "check_category",
+            "passed", "tested_at", "tested_by", "test_details",
+            "failure_reason", "migration_notes",
+        ),
+        indexes=("qdrant_compat_version_idx", "qdrant_compat_passed_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="sbom_dependency_inventory",
+        columns=(
+            "sbom_id", "release_id", "component", "component_type",
+            "version", "source", "source_hash", "install_path",
+            "license_name", "verified", "verified_at", "verified_by",
+            "notes", "created_at",
+        ),
+        indexes=("sbom_release_idx", "sbom_component_idx", "sbom_verified_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="vulnerability_risk",
+        columns=(
+            "vuln_id", "component", "affected_versions", "fixed_version",
+            "cve_id", "risk_level", "recommended_action",
+            "upgrade_deadline_days", "description", "detected_at",
+            "resolved_at", "resolved_by", "resolution_notes",
+        ),
+        indexes=("vuln_risk_component_idx", "vuln_risk_unresolved_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="dependency_drift",
+        columns=(
+            "drift_id", "release_id", "component", "expected_version",
+            "installed_version", "drift_status", "detected_at",
+            "detected_by", "resolved_at", "resolved_by", "resolution",
+        ),
+        indexes=("dep_drift_status_idx", "dep_drift_component_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="offline_bundle",
+        columns=(
+            "bundle_id", "release_id", "component", "version",
+            "package_type", "platform", "storage_locator", "file_hash",
+            "file_size_bytes", "hash_algorithm", "verified",
+            "verified_at", "verified_by", "created_at", "notes",
+        ),
+        indexes=("offline_bundle_release_idx", "offline_bundle_component_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="release_signature",
+        columns=(
+            "signature_id", "release_id", "bundle_hash", "component_count",
+            "component_hashes", "signature_algorithm", "signed_by",
+            "signed_at", "verified_at", "verified_by",
+            "verification_result", "tamper_state",
+        ),
+        indexes=("release_sig_release_idx", "release_sig_tamper_idx"),
+    ),
 )
 
 _DECLARED_ROLES: tuple[RoleContract, ...] = (
@@ -793,7 +926,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 73  # 001 through 073
+EXPECTED_MIGRATION_COUNT = 85  # 001 through 085
 
 
 @dataclass

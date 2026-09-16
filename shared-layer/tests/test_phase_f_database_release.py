@@ -346,8 +346,8 @@ class TestQueryAllowlistPhaseF:
 
 
 class TestSchemaContractRegistryPhaseF:
-    def test_expected_migration_count_is_73(self):
-        assert EXPECTED_MIGRATION_COUNT == 73
+    def test_expected_migration_count_is_85(self):
+        assert EXPECTED_MIGRATION_COUNT == 85
 
     def test_contract_includes_database_release(self):
         contract = declared_contract()

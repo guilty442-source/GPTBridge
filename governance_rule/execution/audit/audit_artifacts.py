@@ -194,6 +194,18 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "071_restore_verification.sql",
         "072_tamper_state.sql",
         "073_fail_closed.sql",
+        "074_version_lock.sql",
+        "075_compatibility_matrix_ext.sql",
+        "076_upgrade_classification.sql",
+        "077_driver_compatibility_test.sql",
+        "078_pg_major_upgrade_rehearsal.sql",
+        "079_sqlite_runtime_compat.sql",
+        "080_qdrant_contract_compat.sql",
+        "081_sbom_dependency_inventory.sql",
+        "082_vulnerability_risk.sql",
+        "083_dependency_drift.sql",
+        "084_offline_bundle.sql",
+        "085_release_signature.sql",
     ):
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")
@@ -876,6 +888,204 @@ def check_integrity_verifier_module(root: Path, errors: list[str]) -> None:
                      "trigger_fail_closed", "is_fail_closed_active"):
         if required not in text:
             errors.append(f"Integrity verifier module is missing: {required}")
+
+
+def check_version_lock(root: Path, errors: list[str]) -> None:
+    """Verify version lock migration (074) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "074_version_lock.sql"
+    if not migration.is_file():
+        errors.append("Version lock migration 074 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("version_lock", "lock_version", "get_version_lock",
+                     "get_all_version_locks", "component", "version_string"):
+        if required not in text:
+            errors.append(f"Version lock migration 074 is missing: {required}")
+
+
+def check_compatibility_matrix_ext(root: Path, errors: list[str]) -> None:
+    """Verify extended compatibility matrix migration (075)."""
+    migration = root / "shared-layer" / "migrations" / "075_compatibility_matrix_ext.sql"
+    if not migration.is_file():
+        errors.append("Compatibility matrix ext migration 075 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("compatibility_matrix_ext", "record_compatibility",
+                     "check_combination_allowed", "get_forbidden_combinations",
+                     "postgresql_version", "psycopg_version",
+                     "sqlite_runtime_version", "qdrant_server_version"):
+        if required not in text:
+            errors.append(f"Compatibility matrix ext migration 075 is missing: {required}")
+
+
+def check_upgrade_classification(root: Path, errors: list[str]) -> None:
+    """Verify upgrade classification migration (076)."""
+    migration = root / "shared-layer" / "migrations" / "076_upgrade_classification.sql"
+    if not migration.is_file():
+        errors.append("Upgrade classification migration 076 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("upgrade_classification", "classify_upgrade",
+                     "get_upgrade_class", "patch", "minor", "major",
+                     "required_validation", "allows_unattended"):
+        if required not in text:
+            errors.append(f"Upgrade classification migration 076 is missing: {required}")
+
+
+def check_driver_compatibility_test(root: Path, errors: list[str]) -> None:
+    """Verify driver compatibility test migration (077)."""
+    migration = root / "shared-layer" / "migrations" / "077_driver_compatibility_test.sql"
+    if not migration.is_file():
+        errors.append("Driver compatibility test migration 077 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("driver_compatibility_test", "record_driver_test",
+                     "is_driver_version_verified", "get_failed_driver_tests",
+                     "connection_pool", "transaction", "row_factory",
+                     "skip_locked"):
+        if required not in text:
+            errors.append(f"Driver compatibility test migration 077 is missing: {required}")
+
+
+def check_pg_major_upgrade_rehearsal(root: Path, errors: list[str]) -> None:
+    """Verify PG major upgrade rehearsal migration (078)."""
+    migration = root / "shared-layer" / "migrations" / "078_pg_major_upgrade_rehearsal.sql"
+    if not migration.is_file():
+        errors.append("PG major upgrade rehearsal migration 078 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("pg_major_upgrade_rehearsal", "start_pg_rehearsal",
+                     "advance_pg_rehearsal", "get_rehearsal_summary",
+                     "migration_check", "rls_check", "transport_test",
+                     "reconcile_test", "performance_baseline"):
+        if required not in text:
+            errors.append(f"PG major upgrade rehearsal migration 078 is missing: {required}")
+
+
+def check_sqlite_runtime_compat(root: Path, errors: list[str]) -> None:
+    """Verify SQLite runtime compat migration (079)."""
+    migration = root / "shared-layer" / "migrations" / "079_sqlite_runtime_compat.sql"
+    if not migration.is_file():
+        errors.append("SQLite runtime compat migration 079 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("sqlite_runtime_compat", "record_sqlite_runtime_compat",
+                     "check_sqlite_runtime_compat",
+                     "python_version", "sqlite_library_version",
+                     "fts5_available", "wal_mode_available", "json1_available"):
+        if required not in text:
+            errors.append(f"SQLite runtime compat migration 079 is missing: {required}")
+
+
+def check_qdrant_contract_compat(root: Path, errors: list[str]) -> None:
+    """Verify Qdrant contract compat migration (080)."""
+    migration = root / "shared-layer" / "migrations" / "080_qdrant_contract_compat.sql"
+    if not migration.is_file():
+        errors.append("Qdrant contract compat migration 080 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("qdrant_contract_compat", "record_qdrant_compat",
+                     "is_qdrant_upgrade_safe",
+                     "collection_schema", "payload_filter", "snapshot_format",
+                     "index_config", "client_api", "point_id_behavior"):
+        if required not in text:
+            errors.append(f"Qdrant contract compat migration 080 is missing: {required}")
+
+
+def check_sbom_dependency_inventory(root: Path, errors: list[str]) -> None:
+    """Verify SBOM dependency inventory migration (081)."""
+    migration = root / "shared-layer" / "migrations" / "081_sbom_dependency_inventory.sql"
+    if not migration.is_file():
+        errors.append("SBOM dependency inventory migration 081 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("sbom_dependency_inventory", "record_sbom_entry",
+                     "verify_sbom_entry", "get_sbom_for_release",
+                     "component", "component_type", "version",
+                     "source", "source_hash", "install_path"):
+        if required not in text:
+            errors.append(f"SBOM dependency inventory migration 081 is missing: {required}")
+
+
+def check_vulnerability_risk(root: Path, errors: list[str]) -> None:
+    """Verify vulnerability risk migration (082)."""
+    migration = root / "shared-layer" / "migrations" / "082_vulnerability_risk.sql"
+    if not migration.is_file():
+        errors.append("Vulnerability risk migration 082 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("vulnerability_risk", "record_vulnerability",
+                     "resolve_vulnerability", "get_critical_vulnerabilities",
+                     "critical_security", "important",
+                     "compatible_maintenance", "optional",
+                     "immediate_upgrade", "scheduled_upgrade"):
+        if required not in text:
+            errors.append(f"Vulnerability risk migration 082 is missing: {required}")
+
+
+def check_dependency_drift(root: Path, errors: list[str]) -> None:
+    """Verify dependency drift migration (083)."""
+    migration = root / "shared-layer" / "migrations" / "083_dependency_drift.sql"
+    if not migration.is_file():
+        errors.append("Dependency drift migration 083 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("dependency_drift", "record_dependency_drift",
+                     "resolve_dependency_drift", "get_unverified_dependencies",
+                     "UNVERIFIED_DEPENDENCY", "MISMATCH", "VERIFIED",
+                     "expected_version", "installed_version"):
+        if required not in text:
+            errors.append(f"Dependency drift migration 083 is missing: {required}")
+
+
+def check_offline_bundle(root: Path, errors: list[str]) -> None:
+    """Verify offline bundle migration (084)."""
+    migration = root / "shared-layer" / "migrations" / "084_offline_bundle.sql"
+    if not migration.is_file():
+        errors.append("Offline bundle migration 084 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("offline_bundle", "register_offline_bundle",
+                     "verify_offline_bundle", "get_offline_bundle",
+                     "component", "version", "package_type",
+                     "storage_locator", "file_hash"):
+        if required not in text:
+            errors.append(f"Offline bundle migration 084 is missing: {required}")
+
+
+def check_release_signature(root: Path, errors: list[str]) -> None:
+    """Verify release signature migration (085)."""
+    migration = root / "shared-layer" / "migrations" / "085_release_signature.sql"
+    if not migration.is_file():
+        errors.append("Release signature migration 085 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("release_signature", "sign_release",
+                     "verify_release_signature", "get_latest_signature",
+                     "bundle_hash", "component_count", "component_hashes",
+                     "tamper_state"):
+        if required not in text:
+            errors.append(f"Release signature migration 085 is missing: {required}")
+
+
+def check_dependency_governor_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime dependency governor module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "dependency_governor.py"
+    if not module.is_file():
+        errors.append("Dependency governor module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("compute_bundle_hash", "lock_version", "get_version_lock",
+                     "record_compatibility", "check_combination_allowed",
+                     "classify_upgrade", "get_upgrade_class",
+                     "record_driver_test", "is_driver_version_verified",
+                     "start_pg_rehearsal", "advance_pg_rehearsal",
+                     "record_sqlite_runtime_compat", "record_qdrant_compat",
+                     "record_sbom_entry", "record_vulnerability",
+                     "record_dependency_drift", "register_offline_bundle",
+                     "sign_release", "verify_release_signature"):
+        if required not in text:
+            errors.append(f"Dependency governor module is missing: {required}")
 
 
 def check_database_release_manifest(root: Path, errors: list[str]) -> None:

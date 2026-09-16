@@ -94,6 +94,25 @@ _LAZY_EXPORTS = {
     "record_tamper_state": ("integrity_verifier", "record_tamper_state"),
     "trigger_fail_closed": ("integrity_verifier", "trigger_fail_closed"),
     "is_fail_closed_active": ("integrity_verifier", "is_fail_closed_active"),
+    # Phase I: dependency & version governance
+    "lock_version": ("dependency_governor", "lock_version"),
+    "get_version_lock": ("dependency_governor", "get_version_lock"),
+    "record_compatibility": ("dependency_governor", "record_compatibility"),
+    "check_combination_allowed": ("dependency_governor", "check_combination_allowed"),
+    "classify_upgrade": ("dependency_governor", "classify_upgrade"),
+    "get_upgrade_class": ("dependency_governor", "get_upgrade_class"),
+    "record_driver_test": ("dependency_governor", "record_driver_test"),
+    "is_driver_version_verified": ("dependency_governor", "is_driver_version_verified"),
+    "start_pg_rehearsal": ("dependency_governor", "start_pg_rehearsal"),
+    "advance_pg_rehearsal": ("dependency_governor", "advance_pg_rehearsal"),
+    "record_sqlite_runtime_compat": ("dependency_governor", "record_sqlite_runtime_compat"),
+    "record_qdrant_compat": ("dependency_governor", "record_qdrant_compat"),
+    "record_sbom_entry": ("dependency_governor", "record_sbom_entry"),
+    "record_vulnerability": ("dependency_governor", "record_vulnerability"),
+    "record_dependency_drift": ("dependency_governor", "record_dependency_drift"),
+    "register_offline_bundle": ("dependency_governor", "register_offline_bundle"),
+    "sign_release": ("dependency_governor", "sign_release"),
+    "verify_release_signature": ("dependency_governor", "verify_release_signature"),
 }
 
 __all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]
