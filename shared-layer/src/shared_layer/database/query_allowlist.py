@@ -666,6 +666,89 @@ _TEMPLATES: dict[str, str] = {
         "deleted_at, verified "
         "FROM gptbridge_index.purge_audit_log ORDER BY deleted_at DESC LIMIT %s"
     ),
+
+    # --- Audit hash chain (migration 064) ---
+    "audit_hash_chain.verify": (
+        "SELECT event_id, sequence, expected_hash, actual_hash, chain_intact "
+        "FROM gptbridge_audit.verify_audit_chain(%s)"
+    ),
+    "audit_hash_chain.head": (
+        "SELECT gptbridge_audit.get_audit_head_hash()"
+    ),
+
+    # --- Reconcile batch digest (migration 065) ---
+    "reconcile_batch.list": (
+        "SELECT reconcile_run_id, module_id, source_generation, "
+        "first_revision, last_revision, record_count, batch_hash, "
+        "result_hash, status, started_at "
+        "FROM gptbridge_index.reconcile_batch_digest "
+        "ORDER BY started_at DESC LIMIT %s"
+    ),
+
+    # --- Resource content hash (migration 066) ---
+    "resource_content_hash.list": (
+        "SELECT resource_id, resource_hash, metadata_hash, locator_hash, "
+        "revision, tamper_state, computed_at "
+        "FROM gptbridge_index.resource_content_hash "
+        "ORDER BY computed_at DESC LIMIT %s"
+    ),
+    "resource_content_hash.tampered": (
+        "SELECT resource_id, tamper_state, revision, computed_at "
+        "FROM gptbridge_index.get_tampered_resources(%s)"
+    ),
+
+    # --- SQLite database digest (migration 067) ---
+    "sqlite_digest.list": (
+        "SELECT digest_id, module_id, database_path, schema_hash, "
+        "revision_head, row_count, generation, tamper_state, computed_at "
+        "FROM gptbridge_index.sqlite_database_digest "
+        "ORDER BY computed_at DESC LIMIT %s"
+    ),
+    "sqlite_digest.tampered": (
+        "SELECT module_id, database_path, tamper_state, computed_at "
+        "FROM gptbridge_index.get_tampered_sqlite_dbs(%s)"
+    ),
+
+    # --- Qdrant integrity mapping (migration 068) ---
+    "qdrant_integrity.issues": (
+        "SELECT chunk_id, resource_id, integrity_state, qdrant_point_id "
+        "FROM gptbridge_index.get_qdrant_integrity_issues(%s)"
+    ),
+
+    # --- Merkle root (migration 069) ---
+    "merkle_root.list": (
+        "SELECT merkle_id, domain, domain_id, leaf_count, merkle_root, "
+        "tamper_state, computed_at "
+        "FROM gptbridge_index.merkle_root ORDER BY computed_at DESC LIMIT %s"
+    ),
+
+    # --- Integrity snapshot (migration 070) ---
+    "integrity_snapshot.latest": (
+        "SELECT snapshot_id, database_generation, schema_hash, "
+        "audit_head_hash, resource_merkle_root, migration_head, "
+        "tamper_state, created_at "
+        "FROM gptbridge_index.get_latest_snapshot()"
+    ),
+
+    # --- Restore verification (migration 071) ---
+    "restore_verification.recent": (
+        "SELECT verification_id, target_database, overall_passed, "
+        "failure_reason, restored_at "
+        "FROM gptbridge_index.restore_verification "
+        "ORDER BY restored_at DESC LIMIT %s"
+    ),
+
+    # --- Tamper state (migration 072) ---
+    "tamper_state.active": (
+        "SELECT state_id, entity_type, entity_id, tamper_state, detected_at "
+        "FROM gptbridge_index.get_active_tamper_issues(%s)"
+    ),
+
+    # --- Fail-closed (migration 073) ---
+    "fail_closed.active": (
+        "SELECT action_id, trigger_type, action_taken, domain, triggered_at "
+        "FROM gptbridge_index.get_active_fail_closed(%s)"
+    ),
 }
 
 QUERY_TEMPLATES: Mapping[str, str] = MappingProxyType(_TEMPLATES)

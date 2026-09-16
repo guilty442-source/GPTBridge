@@ -184,6 +184,16 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "061_archive_restore_test.sql",
         "062_capacity_quota.sql",
         "063_purge_audit.sql",
+        "064_audit_hash_chain.sql",
+        "065_reconcile_batch_digest.sql",
+        "066_resource_content_hash.sql",
+        "067_sqlite_database_digest.sql",
+        "068_qdrant_integrity_mapping.sql",
+        "069_merkle_root.sql",
+        "070_integrity_snapshot.sql",
+        "071_restore_verification.sql",
+        "072_tamper_state.sql",
+        "073_fail_closed.sql",
     ):
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")
@@ -698,6 +708,174 @@ def check_lifecycle_manager_module(root: Path, errors: list[str]) -> None:
                      "has_active_hold", "register_archive"):
         if required not in text:
             errors.append(f"Lifecycle manager module is missing: {required}")
+
+
+def check_audit_hash_chain(root: Path, errors: list[str]) -> None:
+    """Verify audit hash chain migration (064) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "064_audit_hash_chain.sql"
+    if not migration.is_file():
+        errors.append("Audit hash chain migration 064 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("event_hash", "previous_event_hash", "sequence",
+                     "compute_event_hash", "populate_event_hash_chain",
+                     "verify_audit_chain", "get_audit_head_hash"):
+        if required not in text:
+            errors.append(f"Audit hash chain migration 064 is missing: {required}")
+
+
+def check_reconcile_batch_digest(root: Path, errors: list[str]) -> None:
+    """Verify reconcile batch digest migration (065) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "065_reconcile_batch_digest.sql"
+    if not migration.is_file():
+        errors.append("Reconcile batch digest migration 065 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("reconcile_batch_digest", "batch_hash", "result_hash",
+                     "start_reconcile_batch", "complete_reconcile_batch",
+                     "verify_reconcile_batch",
+                     "source_generation", "first_revision", "last_revision"):
+        if required not in text:
+            errors.append(f"Reconcile batch digest migration 065 is missing: {required}")
+
+
+def check_resource_content_hash(root: Path, errors: list[str]) -> None:
+    """Verify resource content hash migration (066) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "066_resource_content_hash.sql"
+    if not migration.is_file():
+        errors.append("Resource content hash migration 066 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("resource_content_hash", "resource_hash", "metadata_hash",
+                     "locator_hash", "record_resource_hash",
+                     "verify_resource_hash", "get_tampered_resources"):
+        if required not in text:
+            errors.append(f"Resource content hash migration 066 is missing: {required}")
+
+
+def check_sqlite_database_digest(root: Path, errors: list[str]) -> None:
+    """Verify SQLite database digest migration (067) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "067_sqlite_database_digest.sql"
+    if not migration.is_file():
+        errors.append("SQLite database digest migration 067 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("sqlite_database_digest", "schema_hash", "revision_head",
+                     "row_count", "critical_table_digest",
+                     "record_sqlite_digest", "verify_sqlite_digest",
+                     "get_tampered_sqlite_dbs"):
+        if required not in text:
+            errors.append(f"SQLite database digest migration 067 is missing: {required}")
+
+
+def check_qdrant_integrity_mapping(root: Path, errors: list[str]) -> None:
+    """Verify Qdrant integrity mapping migration (068) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "068_qdrant_integrity_mapping.sql"
+    if not migration.is_file():
+        errors.append("Qdrant integrity mapping migration 068 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("qdrant_integrity_map", "chunk_hash", "embedding_version",
+                     "qdrant_point_id", "resource_revision",
+                     "record_qdrant_integrity", "verify_qdrant_integrity",
+                     "get_qdrant_integrity_issues"):
+        if required not in text:
+            errors.append(f"Qdrant integrity mapping migration 068 is missing: {required}")
+
+
+def check_merkle_root(root: Path, errors: list[str]) -> None:
+    """Verify Merkle root migration (069) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "069_merkle_root.sql"
+    if not migration.is_file():
+        errors.append("Merkle root migration 069 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("merkle_root", "compute_merkle_root", "record_merkle_root",
+                     "verify_merkle_root", "get_merkle_root_for_domain",
+                     "leaf_count", "leaf_hashes"):
+        if required not in text:
+            errors.append(f"Merkle root migration 069 is missing: {required}")
+
+
+def check_integrity_snapshot(root: Path, errors: list[str]) -> None:
+    """Verify integrity snapshot migration (070) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "070_integrity_snapshot.sql"
+    if not migration.is_file():
+        errors.append("Integrity snapshot migration 070 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("integrity_snapshot", "schema_hash", "audit_head_hash",
+                     "resource_merkle_root", "migration_head",
+                     "create_integrity_snapshot", "get_latest_snapshot",
+                     "database_generation"):
+        if required not in text:
+            errors.append(f"Integrity snapshot migration 070 is missing: {required}")
+
+
+def check_restore_verification(root: Path, errors: list[str]) -> None:
+    """Verify restore verification migration (071) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "071_restore_verification.sql"
+    if not migration.is_file():
+        errors.append("Restore verification migration 071 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("restore_verification", "expected_schema_hash",
+                     "actual_schema_hash", "schema_match", "audit_match",
+                     "merkle_match", "overall_passed",
+                     "record_restore_verification", "get_failed_restores"):
+        if required not in text:
+            errors.append(f"Restore verification migration 071 is missing: {required}")
+
+
+def check_tamper_state(root: Path, errors: list[str]) -> None:
+    """Verify tamper state migration (072) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "072_tamper_state.sql"
+    if not migration.is_file():
+        errors.append("Tamper state migration 072 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("tamper_state_registry", "record_tamper_state",
+                     "resolve_tamper_state", "get_active_tamper_issues",
+                     "verified", "unverified", "mismatch",
+                     "tampered", "incomplete", "rebuild_required"):
+        if required not in text:
+            errors.append(f"Tamper state migration 072 is missing: {required}")
+
+
+def check_fail_closed(root: Path, errors: list[str]) -> None:
+    """Verify fail-closed migration (073) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "073_fail_closed.sql"
+    if not migration.is_file():
+        errors.append("Fail-closed migration 073 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("fail_closed_action", "trigger_fail_closed",
+                     "release_fail_closed", "is_fail_closed_active",
+                     "get_active_fail_closed",
+                     "read_only", "quarantine", "recovery",
+                     "codex_hash_mismatch", "audit_chain_broken"):
+        if required not in text:
+            errors.append(f"Fail-closed migration 073 is missing: {required}")
+
+
+def check_integrity_verifier_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime integrity verifier module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "integrity_verifier.py"
+    if not module.is_file():
+        errors.append("Integrity verifier module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("compute_hash", "compute_merkle_root",
+                     "populate_event_hash_chain", "verify_audit_chain",
+                     "get_audit_head_hash", "start_reconcile_batch",
+                     "complete_reconcile_batch", "record_resource_hash",
+                     "verify_resource_hash", "record_sqlite_digest",
+                     "record_qdrant_integrity", "verify_qdrant_integrity",
+                     "record_merkle_root", "create_integrity_snapshot",
+                     "record_restore_verification", "record_tamper_state",
+                     "trigger_fail_closed", "is_fail_closed_active"):
+        if required not in text:
+            errors.append(f"Integrity verifier module is missing: {required}")
 
 
 def check_database_release_manifest(root: Path, errors: list[str]) -> None:

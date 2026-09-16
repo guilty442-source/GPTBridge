@@ -77,6 +77,23 @@ _LAZY_EXPORTS = {
     "release_retention_hold": ("lifecycle_manager", "release_hold"),
     "has_active_retention_hold": ("lifecycle_manager", "has_active_hold"),
     "register_archive_catalog": ("lifecycle_manager", "register_archive"),
+    # Phase H: integrity verification
+    "populate_event_hash_chain": ("integrity_verifier", "populate_event_hash_chain"),
+    "verify_audit_chain": ("integrity_verifier", "verify_audit_chain"),
+    "get_audit_head_hash": ("integrity_verifier", "get_audit_head_hash"),
+    "start_reconcile_batch": ("integrity_verifier", "start_reconcile_batch"),
+    "complete_reconcile_batch": ("integrity_verifier", "complete_reconcile_batch"),
+    "record_resource_content_hash": ("integrity_verifier", "record_resource_hash"),
+    "verify_resource_content_hash": ("integrity_verifier", "verify_resource_hash"),
+    "record_sqlite_database_digest": ("integrity_verifier", "record_sqlite_digest"),
+    "record_qdrant_integrity_mapping": ("integrity_verifier", "record_qdrant_integrity"),
+    "verify_qdrant_integrity_mapping": ("integrity_verifier", "verify_qdrant_integrity"),
+    "record_merkle_root": ("integrity_verifier", "record_merkle_root"),
+    "create_integrity_snapshot": ("integrity_verifier", "create_integrity_snapshot"),
+    "record_restore_verification": ("integrity_verifier", "record_restore_verification"),
+    "record_tamper_state": ("integrity_verifier", "record_tamper_state"),
+    "trigger_fail_closed": ("integrity_verifier", "trigger_fail_closed"),
+    "is_fail_closed_active": ("integrity_verifier", "is_fail_closed_active"),
 }
 
 __all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]

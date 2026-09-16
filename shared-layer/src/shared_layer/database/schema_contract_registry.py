@@ -674,6 +674,107 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         indexes=("purge_audit_resource_idx", "purge_audit_executor_idx",
                  "purge_audit_date_idx"),
     ),
+    # Phase H: integrity verification
+    TableContract(
+        schema="gptbridge_index",
+        table="reconcile_batch_digest",
+        columns=(
+            "reconcile_run_id", "module_id", "source_generation",
+            "first_revision", "last_revision", "record_count",
+            "batch_hash", "result_hash", "status", "started_at",
+            "completed_at", "verified_at", "failure_reason",
+            "previous_run_id",
+        ),
+        indexes=("reconcile_digest_module_idx", "reconcile_digest_status_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="resource_content_hash",
+        columns=(
+            "resource_id", "resource_hash", "metadata_hash", "locator_hash",
+            "revision", "hash_algorithm", "computed_at", "verified_at",
+            "tamper_state",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="sqlite_database_digest",
+        columns=(
+            "digest_id", "module_id", "database_path", "schema_hash",
+            "revision_head", "row_count", "critical_table_digest",
+            "generation", "computed_at", "verified_at", "tamper_state",
+        ),
+        indexes=("sqlite_digest_module_idx", "sqlite_digest_tamper_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="qdrant_integrity_map",
+        columns=(
+            "chunk_id", "resource_id", "chunk_hash", "embedding_version",
+            "qdrant_point_id", "resource_revision", "pg_recorded_at",
+            "qdrant_verified_at", "qdrant_point_exists", "hash_match",
+            "version_match", "integrity_state", "updated_at",
+        ),
+        indexes=("qdrant_integrity_state_idx", "qdrant_integrity_resource_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="merkle_root",
+        columns=(
+            "merkle_id", "domain", "domain_id", "leaf_count", "merkle_root",
+            "leaf_hashes", "computed_at", "verified_at", "tamper_state",
+        ),
+        indexes=("merkle_domain_idx", "merkle_tamper_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="integrity_snapshot",
+        columns=(
+            "snapshot_id", "database_generation", "schema_hash",
+            "audit_head_hash", "resource_merkle_root", "migration_head",
+            "sqlite_digest_count", "qdrant_integrity_count",
+            "reconcile_batch_count", "release_id", "backup_id",
+            "created_at", "verified_at", "tamper_state",
+        ),
+        indexes=("integrity_snapshot_gen_idx", "integrity_snapshot_tamper_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="restore_verification",
+        columns=(
+            "verification_id", "snapshot_id", "restored_at", "restored_by",
+            "target_database", "expected_schema_hash", "actual_schema_hash",
+            "expected_audit_head_hash", "actual_audit_head_hash",
+            "expected_resource_merkle_root", "actual_resource_merkle_root",
+            "expected_generation", "actual_generation",
+            "expected_migration_head", "actual_migration_head",
+            "schema_match", "audit_match", "merkle_match",
+            "generation_match", "migration_match",
+            "overall_passed", "failure_reason", "verified_at",
+        ),
+        indexes=("restore_verify_date_idx", "restore_verify_passed_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="tamper_state_registry",
+        columns=(
+            "state_id", "entity_type", "entity_id", "tamper_state",
+            "detected_at", "detected_by", "details", "resolved_at",
+            "resolved_by", "resolution_notes", "updated_at",
+        ),
+        indexes=("tamper_state_entity_idx", "tamper_state_state_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="fail_closed_action",
+        columns=(
+            "action_id", "trigger_type", "trigger_entity_id",
+            "trigger_details", "action_taken", "domain", "triggered_at",
+            "triggered_by", "released_at", "released_by",
+            "release_reason", "active",
+        ),
+        indexes=("fail_closed_active_idx", "fail_closed_domain_idx"),
+    ),
 )
 
 _DECLARED_ROLES: tuple[RoleContract, ...] = (
@@ -692,7 +793,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 63  # 001 through 063
+EXPECTED_MIGRATION_COUNT = 73  # 001 through 073
 
 
 @dataclass

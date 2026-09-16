@@ -88,6 +88,18 @@ from .audit_artifacts import (
     check_sqlite_per_class_retention,
     check_transport_retention,
     check_unified_lifecycle_state,
+    # Phase H
+    check_audit_hash_chain,
+    check_reconcile_batch_digest,
+    check_resource_content_hash,
+    check_sqlite_database_digest,
+    check_qdrant_integrity_mapping,
+    check_merkle_root,
+    check_integrity_snapshot,
+    check_restore_verification,
+    check_tamper_state,
+    check_fail_closed,
+    check_integrity_verifier_module,
 )
 from .audit_authority import (
     check_architecture_sources,
@@ -275,6 +287,17 @@ def audit_runtime_governance(
         lambda r: _collect(check_capacity_quota, r),
         lambda r: _collect(check_purge_audit, r),
         lambda r: _collect(check_lifecycle_manager_module, r),
+        lambda r: _collect(check_audit_hash_chain, r),
+        lambda r: _collect(check_reconcile_batch_digest, r),
+        lambda r: _collect(check_resource_content_hash, r),
+        lambda r: _collect(check_sqlite_database_digest, r),
+        lambda r: _collect(check_qdrant_integrity_mapping, r),
+        lambda r: _collect(check_merkle_root, r),
+        lambda r: _collect(check_integrity_snapshot, r),
+        lambda r: _collect(check_restore_verification, r),
+        lambda r: _collect(check_tamper_state, r),
+        lambda r: _collect(check_fail_closed, r),
+        lambda r: _collect(check_integrity_verifier_module, r),
         lambda r: _collect(check_embedded_browser, r),
     ]
     if include_self_health:
