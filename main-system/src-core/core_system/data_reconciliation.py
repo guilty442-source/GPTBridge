@@ -58,6 +58,7 @@ class ReconcileResult:
     local_version: int
     central_version: int | None
     detail: str = ""
+    conflict_type: str = ""  # 'revision_conflict', 'missing_resource', etc.
 
 
 class ReconcileService:
@@ -219,6 +220,7 @@ class ReconcileService:
                     action="pushed",
                     local_version=local_version,
                     central_version=None,
+                    conflict_type="missing_resource",
                 )
             elif central["version"] < local_version:
                 # Local is ahead — push to central
@@ -252,6 +254,7 @@ class ReconcileService:
                     local_version=local_version,
                     central_version=int(central["version"]),
                     detail="version-match-hash-mismatch",
+                    conflict_type="hash_mismatch",
                 )
             else:
                 # Already in sync

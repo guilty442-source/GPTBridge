@@ -49,8 +49,14 @@ CREATE TABLE IF NOT EXISTS resource_metadata (
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     status TEXT NOT NULL DEFAULT 'active' CHECK (
         status IN ('active', 'indexed', 'pending', 'missing',
-                   'moving', 'archived', 'deleted', 'referenced')
+                   'moving', 'archived', 'deleted', 'referenced',
+                   'stale')
     ),
+    -- Cross-engine consistency contract (A371-A374):
+    --   revision = version, generation = backend_generation, hash = content_hash
+    --   Any side whose version is behind is marked 'stale', never silently overwritten.
+    backend_generation INTEGER NOT NULL DEFAULT 1,
+    stale INTEGER NOT NULL DEFAULT 0 CHECK (stale IN (0, 1)),
     platform_id TEXT NOT NULL DEFAULT 'local-model-platform',
     owner_id TEXT NOT NULL,
     data_category TEXT,
@@ -109,6 +115,23 @@ CREATE TABLE IF NOT EXISTS reconcile_state (
     reconcile_status TEXT NOT NULL DEFAULT 'pending' CHECK (
         reconcile_status IN ('pending', 'in-sync', 'conflict', 'skipped')
     ),
+    -- A371-A374: conflict classification for downstream repair
+    conflict_type TEXT CHECK (
+        conflict_type IN (
+            'revision_conflict',
+            'missing_resource',
+            'hash_mismatch',
+            'deleted_remote',
+            'schema_mismatch',
+            'authorization_changed'
+        )
+    ),
+    -- A371-A374: cross-engine correlation for audit chain
+    correlation_id TEXT,
+    request_id TEXT,
+    decision_id TEXT,
+    -- A8/E21: idempotency key for failover flapping protection
+    idempotency_key TEXT,
     reconciled_at TEXT,
     PRIMARY KEY (module_id, resource_id)
 );

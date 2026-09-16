@@ -148,6 +148,36 @@ Design notes:
 
 Implementation: `governance_rule/execution/git_tiers/automation_supervisor.py`.
 
+## Resource Governor
+
+Adaptive CPU/memory governor that watches every process owned by the current
+user and lowers resource pressure automatically: sustained CPU hogs get
+`BELOW_NORMAL` priority, extreme hogs get their CPU affinity capped to half of
+the logical CPUs, and large idle processes have their working set trimmed
+(`EmptyWorkingSet`).  Actions revert after ~5 calm minutes.  Protected:
+Windows system processes, security software (including the user's antivirus)
+and the governor itself.
+
+```powershell
+# status / one-shot (dry-run first) / start / stop
+& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --status
+& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --once --dry-run
+& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --start
+& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --stop
+
+# cross-reboot persistence (per-user Run key: no elevation needed)
+& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --install-logon
+& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --uninstall-logon
+```
+
+Tunables: `--interval` (default 20s), `--cpu-busy` (50% of one core),
+`--cpu-extreme` (150%), `--mem-trim-mb` (1500), `--sustain` (3 samples),
+`--no-affinity`.  Actions are logged to
+`main-system/runtime/logs/resource-governor.jsonl`; the latest cycle snapshot
+is in `main-system/runtime/state/resource-governor.json`.
+
+Implementation: `scripts/resource-governor.py`.
+
 ## Governance
 
 - Codex files (`governance_rule/codex/*.py`) are **read-only** — do not modify without explicit user approval.

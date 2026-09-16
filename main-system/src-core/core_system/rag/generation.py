@@ -279,5 +279,3 @@ __all__ = [
     "GenerationManager",
     "GENERATION_TABLE_SQL",
 ]
-
-(End of file - total 247 lines)
