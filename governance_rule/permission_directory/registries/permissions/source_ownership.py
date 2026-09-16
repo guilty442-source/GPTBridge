@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import re
 from typing import Final
@@ -109,13 +110,18 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "heartbeat_mixin.py",
         "architecture_boundary.py",
         "process_control.py",
+        "health_states.py",
+        "startup_gate.py",
     }
 )
 SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (
+    "adaptive/",
     "database/",
     "local/",
     "observability/",
     "registry/",
+    "security/",
+    "workflow/",
 )
 SHARED_LAYER_FORBIDDEN_TERMS: Final[frozenset[str]] = frozenset(
     {
@@ -197,14 +203,52 @@ def source_ownership_errors(project_root: Path) -> list[str]:
     root = Path(project_root).resolve()
     errors: list[str] = []
     shared_root = root / SHARED_LAYER_ROOT
+    assistant_package = root / AI_ASSISTANT_PACKAGE_ROOT
 
-    _check_shared_layer_sources(
-        root, shared_root,
-        SHARED_LAYER_ALLOWED_SOURCES,
-        SHARED_LAYER_ALLOWED_PREFIXES,
-        SHARED_LAYER_FORBIDDEN_TERMS,
-        errors,
-    )
+    # The four source scans are independent and mostly I/O bound; running
+    # them concurrently (with one shared read cache, so overlapping files
+    # are read once) keeps the critical path short.  Findings are merged
+    # in the original declaration order so the audit stays deterministic.
+    read_cache: dict[Path, str] = {}
+    shared_errors: list[str] = []
+    cross_errors: list[str] = []
+    assistant_errors: list[str] = []
+    business_errors: list[str] = []
+    with ThreadPoolExecutor(
+        max_workers=4,
+        thread_name_prefix="source-ownership",
+    ) as executor:
+        futures = [
+            executor.submit(
+                _check_shared_layer_sources,
+                root, shared_root,
+                SHARED_LAYER_ALLOWED_SOURCES,
+                SHARED_LAYER_ALLOWED_PREFIXES,
+                SHARED_LAYER_FORBIDDEN_TERMS,
+                shared_errors,
+                read_cache=read_cache,
+            ),
+            executor.submit(
+                _check_cross_tool_imports,
+                root, OWNED_IMPORT_PREFIXES, cross_errors,
+                read_cache=read_cache,
+            ),
+            executor.submit(
+                _check_ai_assistant_network,
+                root, assistant_package,
+                AI_ASSISTANT_FORBIDDEN_NETWORK_PATTERNS, assistant_errors,
+                read_cache=read_cache,
+            ),
+            executor.submit(
+                _check_main_system_business,
+                root, MAIN_SYSTEM_FORBIDDEN_BUSINESS_TERMS, business_errors,
+                read_cache=read_cache,
+            ),
+        ]
+        for future in futures:
+            future.result()
+
+    errors.extend(shared_errors)
 
     for owner, sources in REQUIRED_OWNED_SOURCES.items():
         for relative in sources:
@@ -215,9 +259,8 @@ def source_ownership_errors(project_root: Path) -> list[str]:
         if (root / relative).exists():
             errors.append(f"legacy business source remains in shared layer: {relative}")
 
-    _check_cross_tool_imports(root, OWNED_IMPORT_PREFIXES, errors)
+    errors.extend(cross_errors)
 
-    assistant_package = root / AI_ASSISTANT_PACKAGE_ROOT
     for layer in AI_ASSISTANT_REQUIRED_LAYERS:
         if not (assistant_package / layer / "__init__.py").is_file():
             errors.append(f"AI assistant layer is missing: {layer}")
@@ -227,9 +270,7 @@ def source_ownership_errors(project_root: Path) -> list[str]:
                 f"AI assistant source is outside an owned layer: "
                 f"{source.relative_to(root).as_posix()}"
             )
-    _check_ai_assistant_network(
-        root, assistant_package, AI_ASSISTANT_FORBIDDEN_NETWORK_PATTERNS, errors,
-    )
+    errors.extend(assistant_errors)
 
     _check_package_layers(
         root, XINGCHENG_PACKAGE_ROOT, XINGCHENG_REQUIRED_LAYERS,
@@ -284,7 +325,7 @@ def source_ownership_errors(project_root: Path) -> list[str]:
         "system-rescue", errors,
     )
 
-    _check_main_system_business(root, MAIN_SYSTEM_FORBIDDEN_BUSINESS_TERMS, errors)
+    errors.extend(business_errors)
 
     return errors
 

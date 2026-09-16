@@ -940,6 +940,95 @@ _TEMPLATES: dict[str, str] = {
         "FROM gptbridge_index.recovery_certification "
         "ORDER BY created_at DESC LIMIT %s"
     ),
+
+    # --- Data layer contract (migration 114) ---
+    "data_layer_contract.active": (
+        "SELECT contract_id, contract_version, database_release_id, "
+        "postgresql_schema_version, sqlite_template_version, "
+        "qdrant_contract_version, security_generation, data_generation "
+        "FROM gptbridge_index.get_active_data_layer_contract()"
+    ),
+
+    # --- Dependency classification (migration 115) ---
+    "dependency_classification.list": (
+        "SELECT component_name, dependency_type, component_category, "
+        "failure_effect, criticality "
+        "FROM gptbridge_index.dependency_classification "
+        "ORDER BY dependency_type, component_name"
+    ),
+
+    # --- Startup phase (migration 116) ---
+    "startup_phase.order": (
+        "SELECT phase_number, phase_name, required_components, "
+        "write_enabled, can_accept_requests "
+        "FROM gptbridge_index.startup_phase ORDER BY phase_number"
+    ),
+
+    # --- Startup phase gate (migration 117) ---
+    "startup_gate.list": (
+        "SELECT gate_id, phase_number, gate_name, gate_type, "
+        "passed, required_for_write "
+        "FROM gptbridge_index.startup_phase_gate "
+        "WHERE phase_number = %s ORDER BY gate_name"
+    ),
+
+    # --- Schema readiness (migration 118) ---
+    "schema_readiness.list": (
+        "SELECT schema_name, ready, schema_version, migration_head, "
+        "rls_enabled, force_rls "
+        "FROM gptbridge_index.schema_readiness ORDER BY schema_name"
+    ),
+
+    # --- RAG readiness gate (migration 119) ---
+    "rag_readiness.latest": (
+        "SELECT rag_ready, pg_rag_metadata_ready, qdrant_ready, "
+        "metadata_authority_wired, collection_contract_valid "
+        "FROM gptbridge_index.rag_readiness_gate "
+        "ORDER BY checked_at DESC LIMIT 1"
+    ),
+
+    # --- Shutdown phase (migration 120) ---
+    "shutdown_phase.order": (
+        "SELECT phase_number, phase_name, actions, timeout_seconds "
+        "FROM gptbridge_index.shutdown_phase ORDER BY phase_number"
+    ),
+
+    # --- Shutdown audit (migration 121) ---
+    "shutdown_audit.latest": (
+        "SELECT shutdown_id, shutdown_status, started_at, completed_at, "
+        "drain_result, pending_operations "
+        "FROM gptbridge_index.shutdown_audit "
+        "ORDER BY started_at DESC LIMIT %s"
+    ),
+
+    # --- Unclean shutdown detection (migration 122) ---
+    "unclean_shutdown.latest": (
+        "SELECT detection_id, was_graceful, extra_recovery_steps, "
+        "steps_completed, all_steps_done "
+        "FROM gptbridge_index.unclean_shutdown_detection "
+        "ORDER BY detected_at DESC LIMIT 1"
+    ),
+
+    # --- Cache invalidation policy (migration 123) ---
+    "cache_invalidation_policy.list": (
+        "SELECT cache_name, check_generation_compatible, "
+        "check_revision_compatible, check_ttl_valid, ttl_seconds, on_mismatch "
+        "FROM gptbridge_index.cache_invalidation_policy"
+    ),
+
+    # --- Dependency graph (migration 124) ---
+    "dependency_graph.edges": (
+        "SELECT from_component, to_component, edge_type, boundary "
+        "FROM gptbridge_index.data_layer_dependency_graph "
+        "ORDER BY from_component, to_component"
+    ),
+
+    # --- Integration rules (migration 125) ---
+    "integration_rule.list": (
+        "SELECT rule_number, rule_text, rule_category, violation_effect "
+        "FROM gptbridge_index.integration_rule "
+        "WHERE active = true ORDER BY rule_number"
+    ),
 }
 
 QUERY_TEMPLATES: Mapping[str, str] = MappingProxyType(_TEMPLATES)

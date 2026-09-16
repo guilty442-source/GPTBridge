@@ -355,8 +355,8 @@ class TestQueryAllowlistPhaseH:
         assert is_allowlisted("fail_closed.active")
 
 class TestSchemaContractRegistryPhaseH:
-    def test_expected_migration_count_is_112(self):
-        assert EXPECTED_MIGRATION_COUNT == 112
+    def test_expected_migration_count_is_125(self):
+        assert EXPECTED_MIGRATION_COUNT == 125
 
     def test_contract_includes_reconcile_batch_digest(self):
         contract = declared_contract()

@@ -234,6 +234,18 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "111_chaos_drill.sql",
         "112_recovery_certification.sql",
         "113_workflow_operation.sql",
+        "114_data_layer_contract.sql",
+        "115_dependency_classification.sql",
+        "116_startup_phase.sql",
+        "117_startup_phase_gate.sql",
+        "118_schema_readiness.sql",
+        "119_rag_readiness_gate.sql",
+        "120_shutdown_phase.sql",
+        "121_shutdown_audit.sql",
+        "122_unclean_shutdown_detection.sql",
+        "123_cache_invalidation_policy.sql",
+        "124_data_layer_dependency_graph.sql",
+        "125_integration_rule.sql",
     ):
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")
@@ -1389,6 +1401,219 @@ def check_recovery_orchestrator_module(root: Path, errors: list[str]) -> None:
                      "start_chaos_drill", "complete_chaos_drill"):
         if required not in text:
             errors.append(f"Recovery orchestrator module is missing: {required}")
+
+
+def check_data_layer_contract(root: Path, errors: list[str]) -> None:
+    """Verify data layer contract migration (114)."""
+    migration = root / "shared-layer" / "migrations" / "114_data_layer_contract.sql"
+    if not migration.is_file():
+        errors.append("Data layer contract migration 114 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("data_layer_contract", "register_data_layer_contract",
+                     "activate_data_layer_contract",
+                     "get_active_data_layer_contract",
+                     "contract_version", "startup_order", "shutdown_order",
+                     "degradation_policy", "recovery_policy"):
+        if required not in text:
+            errors.append(f"Data layer contract migration 114 is missing: {required}")
+
+
+def check_dependency_classification(root: Path, errors: list[str]) -> None:
+    """Verify dependency classification migration (115)."""
+    migration = root / "shared-layer" / "migrations" / "115_dependency_classification.sql"
+    if not migration.is_file():
+        errors.append("Dependency classification migration 115 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("dependency_classification", "authority", "required",
+                     "degradable", "optional", "classify_dependency",
+                     "get_dependency_classification",
+                     "postgresql", "sqlite_codex", "qdrant"):
+        if required not in text:
+            errors.append(f"Dependency classification migration 115 is missing: {required}")
+
+
+def check_startup_phase(root: Path, errors: list[str]) -> None:
+    """Verify startup phase migration (116)."""
+    migration = root / "shared-layer" / "migrations" / "116_startup_phase.sql"
+    if not migration.is_file():
+        errors.append("Startup phase migration 116 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("startup_phase", "BOOTSTRAP", "GOVERNANCE_VALIDATED",
+                     "DATABASE_FOUNDATION_READY", "CENTRAL_AUTHORITY_READY",
+                     "PRIVATE_STATE_READY", "SEMANTIC_INDEX_READY",
+                     "RECOVERY_READY", "READ_MODELS_READY", "CORE_READY",
+                     "get_startup_order"):
+        if required not in text:
+            errors.append(f"Startup phase migration 116 is missing: {required}")
+
+
+def check_startup_phase_gate(root: Path, errors: list[str]) -> None:
+    """Verify startup phase gate migration (117)."""
+    migration = root / "shared-layer" / "migrations" / "117_startup_phase_gate.sql"
+    if not migration.is_file():
+        errors.append("Startup phase gate migration 117 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("startup_phase_gate", "register_startup_gate",
+                     "set_gate_result", "is_phase_complete",
+                     "can_enable_write", "governance_ready",
+                     "security_ready", "authority_ready", "audit_ready"):
+        if required not in text:
+            errors.append(f"Startup phase gate migration 117 is missing: {required}")
+
+
+def check_schema_readiness(root: Path, errors: list[str]) -> None:
+    """Verify schema readiness migration (118)."""
+    migration = root / "shared-layer" / "migrations" / "118_schema_readiness.sql"
+    if not migration.is_file():
+        errors.append("Schema readiness migration 118 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("schema_readiness", "set_schema_readiness",
+                     "is_schema_ready", "is_pg_certified",
+                     "is_audit_writable", "can_enable_business_write",
+                     "gptbridge_index", "gptbridge_transport",
+                     "gptbridge_audit", "gptbridge_rag", "gptbridge_identity"):
+        if required not in text:
+            errors.append(f"Schema readiness migration 118 is missing: {required}")
+
+
+def check_rag_readiness_gate(root: Path, errors: list[str]) -> None:
+    """Verify RAG readiness gate migration (119)."""
+    migration = root / "shared-layer" / "migrations" / "119_rag_readiness_gate.sql"
+    if not migration.is_file():
+        errors.append("RAG readiness gate migration 119 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("rag_readiness_gate", "evaluate_rag_readiness",
+                     "is_rag_ready", "pg_rag_metadata_ready",
+                     "qdrant_ready", "metadata_authority_wired",
+                     "collection_contract_valid"):
+        if required not in text:
+            errors.append(f"RAG readiness gate migration 119 is missing: {required}")
+
+
+def check_shutdown_phase(root: Path, errors: list[str]) -> None:
+    """Verify shutdown phase migration (120)."""
+    migration = root / "shared-layer" / "migrations" / "120_shutdown_phase.sql"
+    if not migration.is_file():
+        errors.append("Shutdown phase migration 120 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("shutdown_phase", "STOP_ACCEPTING_NEW_WORK",
+                     "DRAIN_TRANSPORT", "FLUSH_AUDIT",
+                     "CLOSE_QDRANT_CLIENT", "CLOSE_SQLITE",
+                     "CLOSE_POSTGRES_POOLS", "get_shutdown_order"):
+        if required not in text:
+            errors.append(f"Shutdown phase migration 120 is missing: {required}")
+
+
+def check_shutdown_audit(root: Path, errors: list[str]) -> None:
+    """Verify shutdown audit migration (121)."""
+    migration = root / "shared-layer" / "migrations" / "121_shutdown_audit.sql"
+    if not migration.is_file():
+        errors.append("Shutdown audit migration 121 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("shutdown_audit", "start_shutdown_audit",
+                     "complete_shutdown_audit",
+                     "was_last_shutdown_graceful",
+                     "shutdown_status", "graceful", "unclean"):
+        if required not in text:
+            errors.append(f"Shutdown audit migration 121 is missing: {required}")
+
+
+def check_unclean_shutdown_detection(root: Path, errors: list[str]) -> None:
+    """Verify unclean shutdown detection migration (122)."""
+    migration = root / "shared-layer" / "migrations" / "122_unclean_shutdown_detection.sql"
+    if not migration.is_file():
+        errors.append("Unclean shutdown detection migration 122 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("unclean_shutdown_detection", "detect_unclean_shutdown",
+                     "mark_unclean_step_done",
+                     "is_unclean_recovery_complete",
+                     "transport_lease_recovery",
+                     "unknown_commit_verification",
+                     "sqlite_wal_verification"):
+        if required not in text:
+            errors.append(f"Unclean shutdown detection migration 122 is missing: {required}")
+
+
+def check_cache_invalidation_policy(root: Path, errors: list[str]) -> None:
+    """Verify cache invalidation policy migration (123)."""
+    migration = root / "shared-layer" / "migrations" / "123_cache_invalidation_policy.sql"
+    if not migration.is_file():
+        errors.append("Cache invalidation policy migration 123 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("cache_invalidation_policy", "register_cache_policy",
+                     "should_invalidate_cache",
+                     "check_generation_compatible",
+                     "check_revision_compatible", "check_ttl_valid"):
+        if required not in text:
+            errors.append(f"Cache invalidation policy migration 123 is missing: {required}")
+
+
+def check_dependency_graph(root: Path, errors: list[str]) -> None:
+    """Verify dependency graph migration (124)."""
+    migration = root / "shared-layer" / "migrations" / "124_data_layer_dependency_graph.sql"
+    if not migration.is_file():
+        errors.append("Dependency graph migration 124 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("data_layer_dependency_graph", "get_dependencies",
+                     "get_dependents", "governance_codex",
+                     "identity_permission", "postgresql",
+                     "structured_authority", "semantic_canonical",
+                     "bounded_local_state", "non_canonical"):
+        if required not in text:
+            errors.append(f"Dependency graph migration 124 is missing: {required}")
+
+
+def check_integration_rule(root: Path, errors: list[str]) -> None:
+    """Verify integration rule migration (125)."""
+    migration = root / "shared-layer" / "migrations" / "125_integration_rule.sql"
+    if not migration.is_file():
+        errors.append("Integration rule migration 125 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("integration_rule", "get_integration_rules",
+                     "check_integration_rule",
+                     "central structured authority",
+                     "canonical semantic index",
+                     "durable workflow",
+                     "bounded", "rebuildable"):
+        if required not in text:
+            errors.append(f"Integration rule migration 125 is missing: {required}")
+
+
+def check_data_layer_contract_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime data layer contract module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "data_layer_contract.py"
+    if not module.is_file():
+        errors.append("Data layer contract module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("register_data_layer_contract", "activate_data_layer_contract",
+                     "get_active_data_layer_contract", "classify_dependency",
+                     "get_startup_order", "get_shutdown_order",
+                     "register_startup_gate", "set_gate_result",
+                     "is_phase_complete", "can_enable_write",
+                     "set_schema_readiness", "is_schema_ready",
+                     "is_pg_certified", "can_enable_business_write",
+                     "evaluate_rag_readiness", "is_rag_ready",
+                     "start_shutdown_audit", "complete_shutdown_audit",
+                     "was_last_shutdown_graceful", "detect_unclean_shutdown",
+                     "mark_unclean_step_done", "is_unclean_recovery_complete",
+                     "register_cache_policy", "should_invalidate_cache",
+                     "get_dependencies", "get_dependents",
+                     "get_integration_rules", "check_integration_rule"):
+        if required not in text:
+            errors.append(f"Data layer contract module is missing: {required}")
 
 
 def check_database_release_manifest(root: Path, errors: list[str]) -> None:

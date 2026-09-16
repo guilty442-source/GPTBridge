@@ -1199,6 +1199,136 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         ),
         indexes=("recovery_cert_plan_idx", "recovery_cert_status_idx"),
     ),
+    # Phase K: data layer contract
+    TableContract(
+        schema="gptbridge_index",
+        table="data_layer_contract",
+        columns=(
+            "contract_id", "contract_version", "database_release_id",
+            "postgresql_schema_version", "sqlite_template_version",
+            "qdrant_contract_version", "security_generation",
+            "data_generation", "required_capabilities",
+            "optional_capabilities", "startup_order", "shutdown_order",
+            "degradation_policy", "recovery_policy", "status",
+            "created_at", "activated_at", "updated_at",
+        ),
+        indexes=("data_layer_contract_status_idx", "data_layer_contract_version_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="dependency_classification",
+        columns=(
+            "classification_id", "component_name", "dependency_type",
+            "component_category", "failure_effect", "criticality",
+            "fallback_component", "fallback_boundary", "description",
+            "created_at", "updated_at",
+        ),
+        indexes=("dep_class_type_idx", "dep_class_category_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="startup_phase",
+        columns=(
+            "phase_id", "phase_number", "phase_name", "description",
+            "required_components", "write_enabled", "can_accept_requests",
+            "created_at",
+        ),
+        indexes=(),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="startup_phase_gate",
+        columns=(
+            "gate_id", "phase_number", "gate_name", "gate_type",
+            "check_expression", "required_for_write",
+            "required_for_requests", "passed", "checked_at",
+            "failure_reason", "created_at",
+        ),
+        indexes=("startup_gate_phase_idx", "startup_gate_write_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="schema_readiness",
+        columns=(
+            "readiness_id", "schema_name", "ready", "checked_at",
+            "schema_version", "migration_head", "rls_enabled",
+            "force_rls", "required_roles_present",
+            "public_grants_revoked", "security_generation",
+            "failure_reason", "updated_at",
+        ),
+        indexes=("schema_readiness_ready_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="rag_readiness_gate",
+        columns=(
+            "gate_id", "checked_at", "pg_rag_metadata_ready",
+            "qdrant_ready", "metadata_authority_wired",
+            "collection_contract_valid", "rag_ready", "failure_reason",
+        ),
+        indexes=("rag_gate_ready_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="shutdown_phase",
+        columns=(
+            "phase_id", "phase_number", "phase_name", "description",
+            "actions", "timeout_seconds", "created_at",
+        ),
+        indexes=(),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="shutdown_audit",
+        columns=(
+            "shutdown_id", "started_at", "completed_at",
+            "shutdown_status", "drain_result", "pending_operations",
+            "pending_transport", "reconcile_pending",
+            "database_generation", "security_generation",
+            "active_leases_released", "active_leases_expired",
+            "sqlite_checkpoints_done", "qdrant_cursor_saved",
+            "audit_flushed", "notes",
+        ),
+        indexes=("shutdown_audit_status_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="unclean_shutdown_detection",
+        columns=(
+            "detection_id", "detected_at", "last_shutdown_id",
+            "was_graceful", "extra_recovery_steps", "steps_completed",
+            "all_steps_done", "completed_at",
+        ),
+        indexes=("unclean_detect_at_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="cache_invalidation_policy",
+        columns=(
+            "policy_id", "cache_name", "check_generation_compatible",
+            "check_revision_compatible", "check_ttl_valid",
+            "ttl_seconds", "on_mismatch", "created_at",
+        ),
+        indexes=("cache_inval_name_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="data_layer_dependency_graph",
+        columns=(
+            "edge_id", "from_component", "to_component",
+            "edge_type", "boundary", "description", "created_at",
+        ),
+        indexes=("dep_graph_from_idx", "dep_graph_to_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="integration_rule",
+        columns=(
+            "rule_id", "rule_number", "rule_text", "rule_category",
+            "enforced_by", "violation_effect", "active", "created_at",
+        ),
+        indexes=("integration_rule_number_idx",),
+    ),
 )
 
 _DECLARED_ROLES: tuple[RoleContract, ...] = (
@@ -1217,7 +1347,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 112  # 001 through 112
+EXPECTED_MIGRATION_COUNT = 125  # 001 through 125
 
 
 @dataclass
