@@ -547,6 +547,133 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         ),
         indexes=("roll_forward_fixes_idx",),
     ),
+    # Phase G: data lifecycle management
+    TableContract(
+        schema="gptbridge_index",
+        table="lifecycle_state",
+        columns=(
+            "entity_type", "entity_id", "lifecycle_state",
+            "previous_state", "reason", "transitioned_at", "transitioned_by",
+        ),
+        indexes=("lifecycle_state_idx", "lifecycle_state_transitioned_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="transport_retention_policy",
+        columns=(
+            "status", "hot_retention_days", "archive_after_days",
+            "can_purge", "purge_after_days", "description", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="audit_retention_layer",
+        columns=(
+            "layer_name", "retention_days", "next_layer",
+            "compression_enabled", "description", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="sqlite_retention_policy",
+        columns=(
+            "db_class", "retention_days", "archive_eligible",
+            "archive_after_days", "purge_eligible", "purge_after_days",
+            "version_history_required", "description", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="qdrant_vector_lifecycle",
+        columns=(
+            "resource_id", "collection_name", "point_id", "vector_state",
+            "resource_lifecycle_state", "pg_marked_at", "qdrant_deleted_at",
+            "verified_at", "pg_confirmed_at", "deletion_reason", "updated_at",
+        ),
+        indexes=("qdrant_vec_lc_state_idx", "qdrant_vec_lc_collection_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="purge_queue",
+        columns=(
+            "queue_id", "resource_id", "module_id", "entity_type",
+            "requested_at", "retention_until", "reason", "requested_by",
+            "approval_id", "purge_status", "purged_at", "purge_audit_id",
+            "updated_at",
+        ),
+        indexes=("purge_queue_status_idx", "purge_queue_resource_idx",
+                 "purge_queue_retention_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="archive_catalog",
+        columns=(
+            "archive_id", "source_engine", "source_schema", "source_table",
+            "module_id", "time_range_start", "time_range_end",
+            "record_count", "schema_version", "release_id",
+            "storage_locator", "storage_format", "integrity_hash",
+            "encoding", "archive_format_version", "checksum_algorithm",
+            "restore_tested_at", "restore_test_result",
+            "created_at", "verified_at", "verification_result", "description",
+        ),
+        indexes=("archive_catalog_source_idx", "archive_catalog_time_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="retention_hold",
+        columns=(
+            "hold_id", "entity_type", "entity_id", "hold_reason",
+            "hold_description", "hold_active", "placed_by", "placed_at",
+            "released_by", "released_at", "expected_release_at", "updated_at",
+        ),
+        indexes=("retention_hold_entity_idx", "retention_hold_active_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="dependency_check",
+        columns=(
+            "check_id", "resource_id", "checked_at", "checked_by",
+            "has_dependencies", "dependency_details", "can_purge",
+            "purge_queue_id",
+        ),
+        indexes=("dependency_check_resource_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="archive_restore_test",
+        columns=(
+            "test_id", "archive_id", "tested_at", "tested_by",
+            "temporary_database", "schema_check_passed", "row_count_match",
+            "hash_verify_passed", "query_test_passed",
+            "expected_record_count", "actual_record_count",
+            "expected_hash", "actual_hash", "test_result",
+            "overall_passed", "failure_reason",
+        ),
+        indexes=("archive_restore_test_idx", "archive_restore_passed_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="capacity_quota",
+        columns=(
+            "domain_name", "source_schema", "source_table",
+            "soft_limit_mb", "hard_limit_mb", "archive_threshold_mb",
+            "emergency_threshold_mb", "current_size_mb", "current_row_count",
+            "last_measured_at", "description", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="purge_audit_log",
+        columns=(
+            "purge_id", "resource_id", "entity_type", "module_id",
+            "actor", "executor", "approval_id", "purge_queue_id",
+            "previous_hash", "deleted_from", "deleted_from_detail",
+            "deleted_at", "verification_result", "verified", "verified_at",
+            "audit_hash", "created_at",
+        ),
+        indexes=("purge_audit_resource_idx", "purge_audit_executor_idx",
+                 "purge_audit_date_idx"),
+    ),
 )
 
 _DECLARED_ROLES: tuple[RoleContract, ...] = (
@@ -565,7 +692,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 49  # 001 through 049
+EXPECTED_MIGRATION_COUNT = 63  # 001 through 063
 
 
 @dataclass

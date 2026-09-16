@@ -67,6 +67,16 @@ _LAZY_EXPORTS = {
     "load_release_manifest": ("release_manifest", "load_manifest"),
     "validate_runtime_compatibility": ("release_manifest", "validate_runtime"),
     "get_release_compatibility_matrix": ("release_manifest", "get_compatibility_matrix"),
+    "transition_lifecycle_state": ("lifecycle_manager", "transition_state"),
+    "get_lifecycle_state": ("lifecycle_manager", "get_state"),
+    "enqueue_purge": ("lifecycle_manager", "enqueue_purge"),
+    "get_purge_eligible": ("lifecycle_manager", "get_purge_eligible"),
+    "check_resource_dependencies": ("lifecycle_manager", "check_dependencies"),
+    "record_purge_audit": ("lifecycle_manager", "record_purge"),
+    "place_retention_hold": ("lifecycle_manager", "place_hold"),
+    "release_retention_hold": ("lifecycle_manager", "release_hold"),
+    "has_active_retention_hold": ("lifecycle_manager", "has_active_hold"),
+    "register_archive_catalog": ("lifecycle_manager", "register_archive"),
 }
 
 __all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]

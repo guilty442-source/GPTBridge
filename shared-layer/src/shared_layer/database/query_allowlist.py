@@ -572,6 +572,100 @@ _TEMPLATES: dict[str, str] = {
         "applied_at, verified "
         "FROM gptbridge_index.roll_forward_migration ORDER BY corrective_migration_id"
     ),
+
+    # --- Lifecycle state (migration 050) ---
+    "lifecycle_state.get": (
+        "SELECT lifecycle_state, previous_state, reason, transitioned_at "
+        "FROM gptbridge_index.lifecycle_state "
+        "WHERE entity_type = %s AND entity_id = %s"
+    ),
+    "lifecycle_state.by_state": (
+        "SELECT entity_id, transitioned_at, reason "
+        "FROM gptbridge_index.lifecycle_state "
+        "WHERE entity_type = %s AND lifecycle_state = %s "
+        "ORDER BY transitioned_at LIMIT %s"
+    ),
+
+    # --- Transport retention (migration 051) ---
+    "transport_retention.list": (
+        "SELECT status, hot_retention_days, archive_after_days, can_purge, "
+        "purge_after_days FROM gptbridge_index.transport_retention_policy "
+        "ORDER BY status"
+    ),
+    "transport_retention.archive_eligible": (
+        "SELECT request_id, channel_id, target_tool_id, status, updated_at "
+        "FROM gptbridge_index.get_transport_archive_eligible(%s)"
+    ),
+
+    # --- Audit retention (migration 052) ---
+    "audit_retention.layers": (
+        "SELECT layer_name, retention_days, next_layer, compression_enabled "
+        "FROM gptbridge_index.audit_retention_layer ORDER BY retention_days"
+    ),
+
+    # --- SQLite retention (migration 053) ---
+    "sqlite_retention.by_class": (
+        "SELECT db_class, retention_days, archive_eligible, archive_after_days, "
+        "purge_eligible, purge_after_days, version_history_required "
+        "FROM gptbridge_index.sqlite_retention_policy ORDER BY db_class"
+    ),
+
+    # --- Qdrant vector lifecycle (migration 054) ---
+    "qdrant_vector.pending_deletion": (
+        "SELECT resource_id, collection_name, point_id, pg_marked_at "
+        "FROM gptbridge_index.get_vectors_pending_deletion(%s)"
+    ),
+
+    # --- Purge queue (migration 055) ---
+    "purge_queue.eligible": (
+        "SELECT queue_id, resource_id, module_id, entity_type, retention_until "
+        "FROM gptbridge_index.get_purge_eligible(%s)"
+    ),
+    "purge_queue.list": (
+        "SELECT queue_id, resource_id, entity_type, purge_status, "
+        "requested_at, retention_until "
+        "FROM gptbridge_index.purge_queue ORDER BY requested_at DESC LIMIT %s"
+    ),
+
+    # --- Archive catalog (migration 056) ---
+    "archive_catalog.list": (
+        "SELECT archive_id, source_engine, source_table, record_count, "
+        "created_at, verified_at "
+        "FROM gptbridge_index.archive_catalog ORDER BY created_at DESC LIMIT %s"
+    ),
+
+    # --- Retention hold (migration 059) ---
+    "retention_hold.active": (
+        "SELECT hold_id, entity_type, entity_id, hold_reason, placed_at "
+        "FROM gptbridge_index.retention_hold WHERE hold_active = true "
+        "ORDER BY placed_at DESC LIMIT %s"
+    ),
+
+    # --- Dependency check (migration 060) ---
+    "dependency_check.recent": (
+        "SELECT check_id, resource_id, has_dependencies, can_purge, checked_at "
+        "FROM gptbridge_index.dependency_check ORDER BY checked_at DESC LIMIT %s"
+    ),
+
+    # --- Archive restore test (migration 061) ---
+    "archive_restore_test.recent": (
+        "SELECT test_id, archive_id, overall_passed, tested_at, failure_reason "
+        "FROM gptbridge_index.archive_restore_test ORDER BY tested_at DESC LIMIT %s"
+    ),
+
+    # --- Capacity quota (migration 062) ---
+    "capacity_quota.list": (
+        "SELECT domain_name, soft_limit_mb, hard_limit_mb, archive_threshold_mb, "
+        "emergency_threshold_mb, current_size_mb "
+        "FROM gptbridge_index.capacity_quota ORDER BY domain_name"
+    ),
+
+    # --- Purge audit (migration 063) ---
+    "purge_audit.recent": (
+        "SELECT purge_id, resource_id, actor, executor, deleted_from, "
+        "deleted_at, verified "
+        "FROM gptbridge_index.purge_audit_log ORDER BY deleted_at DESC LIMIT %s"
+    ),
 }
 
 QUERY_TEMPLATES: Mapping[str, str] = MappingProxyType(_TEMPLATES)

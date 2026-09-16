@@ -170,6 +170,20 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "047_canary_upgrade.sql",
         "048_release_audit.sql",
         "049_roll_forward.sql",
+        "058_transport_priority_queue.sql",
+        "050_unified_lifecycle_state.sql",
+        "051_transport_retention.sql",
+        "052_audit_retention_layering.sql",
+        "053_sqlite_per_class_retention.sql",
+        "054_qdrant_vector_lifecycle.sql",
+        "055_purge_queue.sql",
+        "056_archive_catalog.sql",
+        "057_archive_versioning.sql",
+        "059_retention_hold.sql",
+        "060_dependency_check.sql",
+        "061_archive_restore_test.sql",
+        "062_capacity_quota.sql",
+        "063_purge_audit.sql",
     ):
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")
@@ -482,6 +496,208 @@ def check_slo_metrics(root: Path, errors: list[str]) -> None:
                      "qdrant-stale-rate", "restore-success"):
         if required not in text:
             errors.append(f"SLO metrics migration 031 is missing: {required}")
+
+
+def check_unified_lifecycle_state(root: Path, errors: list[str]) -> None:
+    """Verify unified lifecycle state migration (050) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "050_unified_lifecycle_state.sql"
+    if not migration.is_file():
+        errors.append("Unified lifecycle state migration 050 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("lifecycle_state", "transition_lifecycle_state",
+                     "get_lifecycle_state", "get_entities_by_state",
+                     "ACTIVE", "STALE", "SUPERSEDED", "TOMBSTONED",
+                     "ARCHIVED", "PURGED"):
+        if required not in text:
+            errors.append(f"Unified lifecycle state migration 050 is missing: {required}")
+
+
+def check_transport_retention(root: Path, errors: list[str]) -> None:
+    """Verify transport retention migration (051) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "051_transport_retention.sql"
+    if not migration.is_file():
+        errors.append("Transport retention migration 051 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("transport_retention_policy", "get_transport_archive_eligible",
+                     "get_transport_purge_eligible",
+                     "completed", "failed", "dead_letter",
+                     "hot_retention_days", "archive_after_days"):
+        if required not in text:
+            errors.append(f"Transport retention migration 051 is missing: {required}")
+
+
+def check_audit_retention_layering(root: Path, errors: list[str]) -> None:
+    """Verify audit retention layering migration (052) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "052_audit_retention_layering.sql"
+    if not migration.is_file():
+        errors.append("Audit retention layering migration 052 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("audit_retention_layer", "get_audit_archive_eligible",
+                     "get_audit_long_term_eligible",
+                     "hot", "archive", "long_term"):
+        if required not in text:
+            errors.append(f"Audit retention layering migration 052 is missing: {required}")
+
+
+def check_sqlite_per_class_retention(root: Path, errors: list[str]) -> None:
+    """Verify SQLite per-class retention migration (053) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "053_sqlite_per_class_retention.sql"
+    if not migration.is_file():
+        errors.append("SQLite per-class retention migration 053 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("sqlite_retention_policy", "get_sqlite_retention_for_class",
+                     "retention_days", "archive_eligible", "purge_eligible"):
+        if required not in text:
+            errors.append(f"SQLite per-class retention migration 053 is missing: {required}")
+
+
+def check_qdrant_vector_lifecycle(root: Path, errors: list[str]) -> None:
+    """Verify Qdrant vector lifecycle migration (054) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "054_qdrant_vector_lifecycle.sql"
+    if not migration.is_file():
+        errors.append("Qdrant vector lifecycle migration 054 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("qdrant_vector_lifecycle", "mark_vector_for_resource_state",
+                     "confirm_vector_deleted", "get_vectors_pending_deletion",
+                     "ACTIVE", "STALE", "RETRIEVAL_FORBIDDEN",
+                     "DELETE_PENDING", "VERIFIED_DELETED"):
+        if required not in text:
+            errors.append(f"Qdrant vector lifecycle migration 054 is missing: {required}")
+
+
+def check_purge_queue(root: Path, errors: list[str]) -> None:
+    """Verify purge queue migration (055) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "055_purge_queue.sql"
+    if not migration.is_file():
+        errors.append("Purge queue migration 055 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("purge_queue", "enqueue_purge", "approve_purge",
+                     "get_purge_eligible", "mark_purged",
+                     "retention_until", "purge_status"):
+        if required not in text:
+            errors.append(f"Purge queue migration 055 is missing: {required}")
+
+
+def check_archive_catalog(root: Path, errors: list[str]) -> None:
+    """Verify archive catalog migration (056) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "056_archive_catalog.sql"
+    if not migration.is_file():
+        errors.append("Archive catalog migration 056 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("archive_catalog", "register_archive", "verify_archive",
+                     "find_archives", "storage_locator", "integrity_hash",
+                     "record_count", "schema_version"):
+        if required not in text:
+            errors.append(f"Archive catalog migration 056 is missing: {required}")
+
+
+def check_archive_versioning(root: Path, errors: list[str]) -> None:
+    """Verify archive versioning migration (057) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "057_archive_versioning.sql"
+    if not migration.is_file():
+        errors.append("Archive versioning migration 057 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("archive_version_manifest", "mark_restore_tested",
+                     "get_untested_archives",
+                     "encoding", "archive_format_version", "checksum_algorithm"):
+        if required not in text:
+            errors.append(f"Archive versioning migration 057 is missing: {required}")
+
+
+def check_retention_hold(root: Path, errors: list[str]) -> None:
+    """Verify retention hold migration (059) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "059_retention_hold.sql"
+    if not migration.is_file():
+        errors.append("Retention hold migration 059 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("retention_hold", "place_hold", "release_hold",
+                     "has_active_hold",
+                     "audit_investigation", "governance_review",
+                     "legal_hold", "compliance_hold"):
+        if required not in text:
+            errors.append(f"Retention hold migration 059 is missing: {required}")
+
+
+def check_dependency_check(root: Path, errors: list[str]) -> None:
+    """Verify dependency check migration (060) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "060_dependency_check.sql"
+    if not migration.is_file():
+        errors.append("Dependency check migration 060 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("dependency_check", "check_resource_dependencies",
+                     "can_purge", "has_dependencies", "dependency_details"):
+        if required not in text:
+            errors.append(f"Dependency check migration 060 is missing: {required}")
+
+
+def check_archive_restore_test(root: Path, errors: list[str]) -> None:
+    """Verify archive restore test migration (061) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "061_archive_restore_test.sql"
+    if not migration.is_file():
+        errors.append("Archive restore test migration 061 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("archive_restore_test", "record_restore_test",
+                     "get_failed_restore_tests",
+                     "schema_check_passed", "row_count_match",
+                     "hash_verify_passed", "query_test_passed",
+                     "overall_passed"):
+        if required not in text:
+            errors.append(f"Archive restore test migration 061 is missing: {required}")
+
+
+def check_capacity_quota(root: Path, errors: list[str]) -> None:
+    """Verify capacity quota migration (062) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "062_capacity_quota.sql"
+    if not migration.is_file():
+        errors.append("Capacity quota migration 062 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("capacity_quota", "update_capacity_measurement",
+                     "check_capacity_status",
+                     "soft_limit_mb", "hard_limit_mb",
+                     "archive_threshold_mb", "emergency_threshold_mb"):
+        if required not in text:
+            errors.append(f"Capacity quota migration 062 is missing: {required}")
+
+
+def check_purge_audit(root: Path, errors: list[str]) -> None:
+    """Verify purge audit migration (063) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "063_purge_audit.sql"
+    if not migration.is_file():
+        errors.append("Purge audit migration 063 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("purge_audit_log", "record_purge", "verify_purge",
+                     "get_purge_history",
+                     "previous_hash", "deleted_from", "audit_hash"):
+        if required not in text:
+            errors.append(f"Purge audit migration 063 is missing: {required}")
+
+
+def check_lifecycle_manager_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime lifecycle manager module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "lifecycle_manager.py"
+    if not module.is_file():
+        errors.append("Lifecycle manager module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("transition_state", "get_state", "enqueue_purge",
+                     "get_purge_eligible", "check_dependencies",
+                     "record_purge", "place_hold", "release_hold",
+                     "has_active_hold", "register_archive"):
+        if required not in text:
+            errors.append(f"Lifecycle manager module is missing: {required}")
 
 
 def check_database_release_manifest(root: Path, errors: list[str]) -> None:

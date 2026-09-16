@@ -179,7 +179,7 @@ class TestSchemaContractRegistry:
         assert "gptbridge_index_executor" in role_names
 
     def test_expected_migration_count(self):
-        assert EXPECTED_MIGRATION_COUNT == 49
+        assert EXPECTED_MIGRATION_COUNT == 63
 
     def test_resource_table_has_backend_generation(self):
         contract = declared_contract()
