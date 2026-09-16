@@ -340,6 +340,106 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         ),
         indexes=("slo_obs_metric_idx", "slo_obs_at_idx"),
     ),
+    # Phase E: performance and observability
+    TableContract(
+        schema="gptbridge_index",
+        table="workload_pool_config",
+        columns=(
+            "pool_name", "max_connections", "max_open", "max_idle",
+            "wait_timeout_seconds", "description", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="query_class",
+        columns=(
+            "class_name", "pool_name", "statement_timeout_ms",
+            "lock_timeout_ms", "retry_limit", "batch_size",
+            "priority", "description", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="query_fingerprint",
+        columns=(
+            "fingerprint_id", "query_key", "query_hash",
+            "execution_count", "total_latency_ms", "mean_latency_ms",
+            "p95_latency_ms", "rows_returned_total", "rows_scanned_total",
+            "shared_blocks_hit_total", "shared_blocks_read_total",
+            "last_executed_at", "first_seen_at", "updated_at",
+        ),
+        indexes=("query_fp_key_idx", "query_fp_latency_idx", "query_fp_count_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_transport",
+        table="tool_request_history",
+        columns=(
+            "request_id", "channel_id", "target_tool_id", "status",
+            "archived_at",
+        ),
+        indexes=("tool_request_history_archived_idx", "tool_request_history_status_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_audit",
+        table="event_history",
+        columns=(
+            "event_id", "event_type", "actor", "occurred_at",
+            "archived_at",
+        ),
+        indexes=("event_history_archived_idx", "event_history_occurred_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="partition_threshold",
+        columns=(
+            "table_schema", "table_name", "row_count_threshold",
+            "size_mb_threshold", "latency_ms_threshold",
+            "partition_enabled", "updated_at",
+        ),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="wal_checkpoint_snapshot",
+        columns=(
+            "snapshot_id", "wal_size_bytes", "checkpoint_count",
+            "checkpoint_duration_ms", "checkpoint_buffers_written",
+            "checkpoint_sync_time_ms", "wal_segments_count",
+            "wal_rate_mb_per_min", "collected_at",
+        ),
+        indexes=("wal_snap_collected_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="sqlite_database_class",
+        columns=(
+            "module_id", "database_path", "db_class",
+            "synchronous_setting", "backup_frequency_seconds",
+            "integrity_check_frequency_seconds", "retention_days",
+            "reconcile_required", "description", "updated_at",
+        ),
+        indexes=("sqlite_class_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="reconcile_pending_queue",
+        columns=(
+            "queue_id", "module_id", "resource_id", "source_revision",
+            "dirty", "enqueued_at", "last_reconciled_revision",
+            "last_reconciled_at", "reconcile_attempts",
+        ),
+        indexes=("reconcile_queue_dirty_idx", "reconcile_queue_module_idx",
+                 "reconcile_queue_resource_idx"),
+    ),
+    TableContract(
+        schema="gptbridge_index",
+        table="performance_baseline",
+        columns=(
+            "baseline_id", "operation_name", "p50_latency_ms",
+            "p95_latency_ms", "p99_latency_ms", "sample_count",
+            "baseline_at", "description",
+        ),
+        indexes=("perf_baseline_op_idx",),
+    ),
 )
 
 _DECLARED_ROLES: tuple[RoleContract, ...] = (
@@ -358,7 +458,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 31  # 001 through 031
+EXPECTED_MIGRATION_COUNT = 39  # 001 through 039
 
 
 @dataclass

@@ -409,6 +409,82 @@ _TEMPLATES: dict[str, str] = {
         "FROM gptbridge_index.slo_observation "
         "ORDER BY observed_at DESC LIMIT %s"
     ),
+
+    # --- Workload pool config (migration 032) ---
+    "workload_pool.list": (
+        "SELECT pool_name, max_connections, max_open, max_idle, "
+        "wait_timeout_seconds, description "
+        "FROM gptbridge_index.workload_pool_config ORDER BY pool_name"
+    ),
+
+    # --- Query class (migration 032) ---
+    "query_class.list": (
+        "SELECT class_name, pool_name, statement_timeout_ms, lock_timeout_ms, "
+        "retry_limit, batch_size, priority, description "
+        "FROM gptbridge_index.query_class ORDER BY class_name"
+    ),
+
+    # --- Query fingerprint (migration 033) ---
+    "query_fingerprint.hot": (
+        "SELECT query_key, execution_count, mean_latency_ms, p95_latency_ms, "
+        "rows_returned_total, rows_scanned_total "
+        "FROM gptbridge_index.query_fingerprint "
+        "WHERE execution_count > 0 "
+        "ORDER BY p95_latency_ms DESC LIMIT %s"
+    ),
+
+    # --- Transport archive (migration 034) ---
+    "tool_request_history.recent": (
+        "SELECT request_id, channel_id, target_tool_id, status, archived_at "
+        "FROM gptbridge_transport.tool_request_history "
+        "ORDER BY archived_at DESC LIMIT %s"
+    ),
+
+    # --- Audit archive (migration 035) ---
+    "audit_event_history.recent": (
+        "SELECT event_id, event_type, actor, occurred_at, archived_at "
+        "FROM gptbridge_audit.event_history "
+        "ORDER BY archived_at DESC LIMIT %s"
+    ),
+
+    # --- Partition threshold (migration 035) ---
+    "partition_threshold.list": (
+        "SELECT table_schema, table_name, row_count_threshold, "
+        "size_mb_threshold, latency_ms_threshold, partition_enabled "
+        "FROM gptbridge_index.partition_threshold ORDER BY table_schema, table_name"
+    ),
+
+    # --- WAL checkpoint (migration 036) ---
+    "wal_checkpoint.recent": (
+        "SELECT wal_size_bytes, checkpoint_count, checkpoint_duration_ms, "
+        "wal_rate_mb_per_min, collected_at "
+        "FROM gptbridge_index.wal_checkpoint_snapshot "
+        "ORDER BY collected_at DESC LIMIT %s"
+    ),
+
+    # --- SQLite classification (migration 037) ---
+    "sqlite_class.list": (
+        "SELECT module_id, database_path, db_class, synchronous_setting, "
+        "backup_frequency_seconds, integrity_check_frequency_seconds, "
+        "retention_days, reconcile_required "
+        "FROM gptbridge_index.sqlite_database_class ORDER BY module_id, database_path"
+    ),
+
+    # --- Reconcile pending queue (migration 038) ---
+    "reconcile_queue.pending": (
+        "SELECT resource_id, source_revision, enqueued_at, last_reconciled_revision "
+        "FROM gptbridge_index.reconcile_pending_queue "
+        "WHERE module_id = %s AND dirty = true "
+        "ORDER BY enqueued_at LIMIT %s"
+    ),
+
+    # --- Performance baseline (migration 039) ---
+    "performance_baseline.latest": (
+        "SELECT operation_name, p50_latency_ms, p95_latency_ms, p99_latency_ms, "
+        "sample_count, baseline_at "
+        "FROM gptbridge_index.performance_baseline "
+        "ORDER BY baseline_at DESC LIMIT %s"
+    ),
 }
 
 QUERY_TEMPLATES: Mapping[str, str] = MappingProxyType(_TEMPLATES)

@@ -152,6 +152,14 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "029_watchdog_bloat_rpo_rto.sql",
         "030_readonly_domain_startup_cert.sql",
         "031_slo_metrics.sql",
+        "032_workload_pool_query_class.sql",
+        "033_query_fingerprint.sql",
+        "034_transport_hot_path_index.sql",
+        "035_audit_hot_history_separation.sql",
+        "036_wal_checkpoint_monitor.sql",
+        "037_sqlite_classification.sql",
+        "038_incremental_reconcile.sql",
+        "039_performance_baseline.sql",
     ):
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")
@@ -464,6 +472,215 @@ def check_slo_metrics(root: Path, errors: list[str]) -> None:
                      "qdrant-stale-rate", "restore-success"):
         if required not in text:
             errors.append(f"SLO metrics migration 031 is missing: {required}")
+
+
+def check_workload_pool_query_class(root: Path, errors: list[str]) -> None:
+    """Verify workload pool + query class migration (032) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "032_workload_pool_query_class.sql"
+    if not migration.is_file():
+        errors.append("Workload pool/query class migration 032 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("workload_pool_config", "query_class", "apply_query_class",
+                     "index", "transport", "audit", "reconcile", "maintenance",
+                     "interactive", "index_lookup", "audit_write",
+                     "reconcile", "migration"):
+        if required not in text:
+            errors.append(f"Workload pool/query class migration 032 is missing: {required}")
+
+
+def check_query_fingerprint(root: Path, errors: list[str]) -> None:
+    """Verify query fingerprint migration (033) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "033_query_fingerprint.sql"
+    if not migration.is_file():
+        errors.append("Query fingerprint migration 033 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("query_fingerprint", "record_query_fingerprint",
+                     "get_hot_queries", "p95_latency_ms"):
+        if required not in text:
+            errors.append(f"Query fingerprint migration 033 is missing: {required}")
+
+
+def check_transport_hot_path_index(root: Path, errors: list[str]) -> None:
+    """Verify transport hot path index migration (034) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "034_transport_hot_path_index.sql"
+    if not migration.is_file():
+        errors.append("Transport hot path index migration 034 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("tool_request_claim_path_idx", "tool_request_history",
+                     "archive_completed_requests"):
+        if required not in text:
+            errors.append(f"Transport hot path index migration 034 is missing: {required}")
+
+
+def check_audit_hot_history_separation(root: Path, errors: list[str]) -> None:
+    """Verify audit hot/history separation migration (035) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "035_audit_hot_history_separation.sql"
+    if not migration.is_file():
+        errors.append("Audit hot/history separation migration 035 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("event_history", "archive_audit_events", "partition_threshold"):
+        if required not in text:
+            errors.append(f"Audit hot/history separation migration 035 is missing: {required}")
+
+
+def check_wal_checkpoint_monitor(root: Path, errors: list[str]) -> None:
+    """Verify WAL checkpoint monitor migration (036) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "036_wal_checkpoint_monitor.sql"
+    if not migration.is_file():
+        errors.append("WAL checkpoint monitor migration 036 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("wal_checkpoint_snapshot", "record_wal_checkpoint_snapshot",
+                     "checkpoint_duration_ms", "wal_rate_mb_per_min"):
+        if required not in text:
+            errors.append(f"WAL checkpoint monitor migration 036 is missing: {required}")
+
+
+def check_sqlite_classification(root: Path, errors: list[str]) -> None:
+    """Verify SQLite classification migration (037) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "037_sqlite_classification.sql"
+    if not migration.is_file():
+        errors.append("SQLite classification migration 037 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("sqlite_database_class", "upsert_sqlite_class",
+                     "synchronous_setting", "backup_frequency_seconds",
+                     "integrity_check_frequency_seconds", "retention_days",
+                     "reconcile_required"):
+        if required not in text:
+            errors.append(f"SQLite classification migration 037 is missing: {required}")
+
+
+def check_incremental_reconcile(root: Path, errors: list[str]) -> None:
+    """Verify incremental reconcile migration (038) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "038_incremental_reconcile.sql"
+    if not migration.is_file():
+        errors.append("Incremental reconcile migration 038 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("reconcile_pending_queue", "enqueue_reconcile_pending",
+                     "mark_reconciled", "get_pending_reconcile",
+                     "purge_reconciled", "dirty"):
+        if required not in text:
+            errors.append(f"Incremental reconcile migration 038 is missing: {required}")
+
+
+def check_performance_baseline(root: Path, errors: list[str]) -> None:
+    """Verify performance baseline migration (039) defines required objects."""
+    migration = root / "shared-layer" / "migrations" / "039_performance_baseline.sql"
+    if not migration.is_file():
+        errors.append("Performance baseline migration 039 is missing")
+        return
+    text = migration.read_text(encoding="utf-8")
+    for required in ("performance_baseline", "record_baseline",
+                     "get_latest_baseline", "compare_baseline",
+                     "p50_latency_ms", "p95_latency_ms", "p99_latency_ms"):
+        if required not in text:
+            errors.append(f"Performance baseline migration 039 is missing: {required}")
+
+
+def check_query_fingerprint_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime query fingerprint module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "query_fingerprint.py"
+    if not module.is_file():
+        errors.append("Query fingerprint module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("record", "get_hot"):
+        if required not in text:
+            errors.append(f"Query fingerprint module is missing: {required}")
+
+
+def check_sqlite_pragma_policy_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime SQLite PRAGMA policy module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "sqlite_pragma_policy.py"
+    if not module.is_file():
+        errors.append("SQLite PRAGMA policy module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("apply_pragma", "get_pragma_policy", "journal_mode",
+                     "foreign_keys", "busy_timeout", "synchronous"):
+        if required not in text:
+            errors.append(f"SQLite PRAGMA policy module is missing: {required}")
+
+
+def check_sqlite_classification_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime SQLite classification module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "sqlite_classification.py"
+    if not module.is_file():
+        errors.append("SQLite classification module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("register", "get_class", "list_by_class"):
+        if required not in text:
+            errors.append(f"SQLite classification module is missing: {required}")
+
+
+def check_sqlite_wal_governor_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime SQLite WAL governor module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "sqlite_wal_governor.py"
+    if not module.is_file():
+        errors.append("SQLite WAL governor module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("check_and_checkpoint", "get_wal_stats", "PASSIVE",
+                     "RESTART", "TRUNCATE"):
+        if required not in text:
+            errors.append(f"SQLite WAL governor module is missing: {required}")
+
+
+def check_batch_writer_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime batch writer module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "batch_writer.py"
+    if not module.is_file():
+        errors.append("Batch writer module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("BatchWriter", "add", "flush", "adjust_batch_size"):
+        if required not in text:
+            errors.append(f"Batch writer module is missing: {required}")
+
+
+def check_locator_cache_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime locator cache module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "locator_cache.py"
+    if not module.is_file():
+        errors.append("Locator cache module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("LocatorCache", "get", "put", "invalidate", "stats"):
+        if required not in text:
+            errors.append(f"Locator cache module is missing: {required}")
+
+
+def check_prepared_query_catalog_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime prepared query catalog module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "prepared_query_catalog.py"
+    if not module.is_file():
+        errors.append("Prepared query catalog module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("CATALOG", "get_query", "list_queries",
+                     "lookup_resource", "claim_request", "append_audit",
+                     "update_index_state", "lookup_locator", "fetch_relationships"):
+        if required not in text:
+            errors.append(f"Prepared query catalog module is missing: {required}")
+
+
+def check_performance_baseline_module(root: Path, errors: list[str]) -> None:
+    """Verify the runtime performance baseline module exists."""
+    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "performance_baseline.py"
+    if not module.is_file():
+        errors.append("Performance baseline module is missing")
+        return
+    text = module.read_text(encoding="utf-8")
+    for required in ("record", "get_latest", "compare"):
+        if required not in text:
+            errors.append(f"Performance baseline module is missing: {required}")
 
 
 def check_rebuild_certifier_module(root: Path, errors: list[str]) -> None:

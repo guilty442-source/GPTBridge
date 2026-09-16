@@ -31,16 +31,22 @@ class PoolOwner(Enum):
     TRANSPORT = "transport"
     AUDIT = "audit"
     MODULE_PRIVATE = "module-private"
+    # E1: dedicated pools for reconcile and maintenance
+    RECONCILE = "reconcile"
+    MAINTENANCE = "maintenance"
 
 
-# C3/C4: Workload class → pool owner mapping (migration 026).
+# C3/C4 + E2: Query class → pool owner mapping (migration 026/032).
 WORKLOAD_CLASS_TO_OWNER: dict[str, PoolOwner] = {
     "interactive": PoolOwner.CENTRAL_INDEX,
     "transport": PoolOwner.TRANSPORT,
     "audit": PoolOwner.AUDIT,
-    "reconciliation": PoolOwner.CENTRAL_INDEX,
-    "maintenance": PoolOwner.CENTRAL_INDEX,
-    "migration": PoolOwner.CENTRAL_INDEX,
+    "index_lookup": PoolOwner.CENTRAL_INDEX,
+    "audit_write": PoolOwner.AUDIT,
+    "reconcile": PoolOwner.RECONCILE,
+    "reconciliation": PoolOwner.RECONCILE,
+    "maintenance": PoolOwner.MAINTENANCE,
+    "migration": PoolOwner.MAINTENANCE,
 }
 
 
@@ -384,6 +390,19 @@ DEFAULT_POOL_BUDGETS: dict[PoolOwner, dict[str, Any]] = {
         "max_idle": 1,
         "wait_timeout_seconds": 15.0,
     },
+    # E1: dedicated reconcile/maintenance pools
+    PoolOwner.RECONCILE: {
+        "max_connections": 2,
+        "max_open": 2,
+        "max_idle": 1,
+        "wait_timeout_seconds": 60.0,
+    },
+    PoolOwner.MAINTENANCE: {
+        "max_connections": 1,
+        "max_open": 1,
+        "max_idle": 0,
+        "wait_timeout_seconds": 120.0,
+    },
 }
 
 
@@ -404,4 +423,5 @@ __all__ = [
     "PoolIsolationManager",
     "DEFAULT_POOL_BUDGETS",
     "create_pool_manager_from_env",
+    "WORKLOAD_CLASS_TO_OWNER",
 ]

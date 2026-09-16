@@ -49,6 +49,21 @@ _LAZY_EXPORTS = {
     "is_database_ready": ("startup_certifier", "is_ready"),
     "set_domain_readonly": ("readonly_domain", "set_readonly"),
     "is_domain_readonly": ("readonly_domain", "is_readonly"),
+    "record_query_fingerprint": ("query_fingerprint", "record"),
+    "get_hot_queries": ("query_fingerprint", "get_hot"),
+    "apply_sqlite_pragma": ("sqlite_pragma_policy", "apply_pragma"),
+    "get_sqlite_pragma_policy": ("sqlite_pragma_policy", "get_pragma_policy"),
+    "register_sqlite_class": ("sqlite_classification", "register"),
+    "get_sqlite_class": ("sqlite_classification", "get_class"),
+    "list_sqlite_by_class": ("sqlite_classification", "list_by_class"),
+    "check_and_checkpoint": ("sqlite_wal_governor", "check_and_checkpoint"),
+    "get_wal_stats": ("sqlite_wal_governor", "get_wal_stats"),
+    "BatchWriter": ("batch_writer", "BatchWriter"),
+    "LocatorCache": ("locator_cache", "LocatorCache"),
+    "get_default_locator_cache": ("locator_cache", "get_default_cache"),
+    "record_baseline": ("performance_baseline", "record"),
+    "get_latest_baseline": ("performance_baseline", "get_latest"),
+    "compare_baseline": ("performance_baseline", "compare"),
 }
 
 __all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]
