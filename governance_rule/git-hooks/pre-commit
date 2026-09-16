@@ -13,6 +13,41 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from governance_rule.execution.git_tiers import audit_log
 
 
+def _lightweight_snapshot(cwd: Path) -> dict[str, object]:
+    """Capture only head revision and file lists — skip the expensive
+    binary patch generation that adds ~1.3s per commit.  The full snapshot
+    with patch digests is a recovery-evidence concern (A46), not a commit
+    gate concern."""
+    def _git(args: list[str]) -> str:
+        r = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return r.stdout.strip() if r.returncode == 0 else ""
+
+    head = _git(["rev-parse", "HEAD"])
+    branch = _git(["rev-parse", "--abbrev-ref", "HEAD"]) or "HEAD"
+    staged = _git(["diff", "--cached", "--name-only"])
+    dirty = _git(["diff", "--name-only"])
+    untracked = _git(["ls-files", "--others", "--exclude-standard"])
+    return {
+        "repository": str(cwd.resolve()),
+        "head_revision": head,
+        "branch": branch,
+        "staged_files": staged.splitlines() if staged else [],
+        "dirty_files": dirty.splitlines() if dirty else [],
+        "untracked_files": untracked.splitlines() if untracked else [],
+        "staged_patch_hash": "",
+        "unstaged_patch_hash": "",
+    }
+
+
 def main() -> int:
     actor = os.environ.get("GIT_AUTHOR_NAME", os.environ.get("USERNAME", "unknown"))
     result = subprocess.run(
@@ -31,23 +66,31 @@ def main() -> int:
         sys.stderr.write(result.stderr)
         return result.returncode
 
-    audit = subprocess.run(
-        [sys.executable, "-m", "governance_rule.execution.audit"],
-        cwd=WORKTREE_ROOT,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    )
-    if audit.returncode != 0:
-        audit_log(2, "commit", actor, False, "governance audit failed", operation="commit")
-        sys.stderr.write(audit.stdout)
-        sys.stderr.write(audit.stderr)
-        return audit.returncode
+    # Self-health (A57/E43) verifies test files are collectible by pytest.
+    # This is a release/startup gate concern, not a commit gate concern —
+    # it spawns ~35 subprocess test collections and adds 2-3s per commit.
+    # The commit gate only needs governance rule checks (source ownership,
+    # protected sources, codex consistency, etc.).
+    #
+    # Run the audit in-process to avoid paying Python startup + import cost
+    # a second time (the hook itself is already a Python process with
+    # governance_rule on sys.path).
+    os.environ.setdefault("GPTBRIDGE_AUDIT_SKIP_SELF_HEALTH", "1")
+    from governance_rule.execution.audit import audit_runtime_governance
 
-    audit_log(2, "commit", actor, True, "pre-commit governance audit passed", operation="commit")
+    errors = audit_runtime_governance(
+        project_root=WORKTREE_ROOT,
+        include_self_health=False,
+    )
+    # Pre-compute a lightweight snapshot (skips binary patch generation).
+    _snapshot = _lightweight_snapshot(WORKTREE_ROOT)
+    if errors:
+        audit_log(2, "commit", actor, False, "governance audit failed", operation="commit", repo_snapshot=_snapshot)
+        for error in errors:
+            sys.stderr.write(f"[FAIL] {error}\n")
+        return 1
+
+    audit_log(2, "commit", actor, True, "pre-commit governance audit passed", operation="commit", repo_snapshot=_snapshot)
     return 0
 
 

@@ -13,6 +13,39 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from governance_rule.execution.git_tiers import audit_log
 
 
+def _lightweight_snapshot(cwd: Path) -> dict[str, object]:
+    """Capture only head revision and file lists — skip the expensive
+    binary patch generation that adds ~1.3s per merge."""
+    def _git(args: list[str]) -> str:
+        r = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return r.stdout.strip() if r.returncode == 0 else ""
+
+    head = _git(["rev-parse", "HEAD"])
+    branch = _git(["rev-parse", "--abbrev-ref", "HEAD"]) or "HEAD"
+    staged = _git(["diff", "--cached", "--name-only"])
+    dirty = _git(["diff", "--name-only"])
+    untracked = _git(["ls-files", "--others", "--exclude-standard"])
+    return {
+        "repository": str(cwd.resolve()),
+        "head_revision": head,
+        "branch": branch,
+        "staged_files": staged.splitlines() if staged else [],
+        "dirty_files": dirty.splitlines() if dirty else [],
+        "untracked_files": untracked.splitlines() if untracked else [],
+        "staged_patch_hash": "",
+        "unstaged_patch_hash": "",
+    }
+
+
 def main() -> int:
     actor = os.environ.get("GIT_AUTHOR_NAME", os.environ.get("USERNAME", "unknown"))
     result = subprocess.run(
@@ -25,12 +58,13 @@ def main() -> int:
         check=False,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
+    _snapshot = _lightweight_snapshot(WORKTREE_ROOT)
     if result.returncode != 0:
-        audit_log(2, "merge", actor, False, "pre-merge-commit patch check failed", operation="merge")
+        audit_log(2, "merge", actor, False, "pre-merge-commit patch check failed", operation="merge", repo_snapshot=_snapshot)
         sys.stderr.write(result.stdout)
         sys.stderr.write(result.stderr)
         return result.returncode
-    audit_log(2, "merge", actor, True, "pre-merge-commit explicit invocation confirmed", operation="merge")
+    audit_log(2, "merge", actor, True, "pre-merge-commit explicit invocation confirmed", operation="merge", repo_snapshot=_snapshot)
     return 0
 
 

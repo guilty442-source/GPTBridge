@@ -64,7 +64,13 @@ def _check_cross_tool_imports(
     owned_import_prefixes: dict[str, str],
     errors: list[str],
 ) -> None:
-    """Check for forbidden cross-tool internal imports."""
+    """Check for forbidden cross-tool internal imports.
+
+    Optimization: a single combined regex pre-filters files that contain any
+    owned-import keyword, so only candidate files pay the full per-pattern
+    cost.  This reduces 588 × 9 regex searches to 588 × 1 pre-filter + a
+    handful of full checks.
+    """
     import_patterns = {
         prefix: re.compile(
             rf"^\s*(?:from|import)\s+{re.escape(prefix)}(?:\.|\s|$)",
@@ -72,6 +78,16 @@ def _check_cross_tool_imports(
         )
         for prefix in owned_import_prefixes
     }
+    # Pre-filter: match any ``from/import <owned_prefix>`` line in one pass.
+    # Files that don't match this can't contain a cross-tool import.
+    combined_prefixes = "|".join(
+        re.escape(prefix) for prefix in owned_import_prefixes
+    )
+    pre_filter = re.compile(
+        rf"^\s*(?:from|import)\s+(?:{combined_prefixes})(?:\.|\s|$)",
+        re.MULTILINE,
+    )
+
     sources_to_scan = list(root.glob("*/src/**/*.py"))
     sources_to_scan.extend(root.glob("Standalone tools/*/src/**/*.py"))
     for source in sources_to_scan:
@@ -80,6 +96,9 @@ def _check_cross_tool_imports(
             content = source.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as error:
             errors.append(f"owned import source is unreadable: {relative}: {error}")
+            continue
+        # Fast path: skip files with no owned-import keywords at all.
+        if not pre_filter.search(content):
             continue
         for import_prefix, owner_root in owned_import_prefixes.items():
             if relative.startswith(f"{owner_root}/"):

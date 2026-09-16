@@ -4,6 +4,8 @@ A371: DEFAULT-PATH: source content > qdrant dense retrieval > PostgreSQL officia
 A374: Binding order: 1 QDRANT_CANONICAL_RUNTIME > 2 PostgreSQL metadata/FTS/index_state > 3 Python domain model
 A373: CANONICAL-TAKEOVER: normal read/write must prove Qdrant dense retrieval and PostgreSQL metadata/FTS/index_state are the live path
 A374: INDEX-STATE: every indexed resource/chunk records embedding_model, embedding_dimension, chunk_size, chunk_overlap, indexed_at_utc
+
+A486+A487: Index Generation + Alias switching. Queries target logical alias; physical collections are versioned.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from typing import Any, AsyncIterator, Optional
 
 import psycopg
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, MatchAny
+from qdrant_client.http.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, MatchAny, PayloadSchemaType
 
 from shared_layer.metadata_contract import (
     FIELD_CONTENT_HASH,
@@ -45,11 +47,6 @@ INDEX_STATE_FIELDS = (
 )
 
 
-
-
-_logger = logging.getLogger("gptbridge.rag")
-
-
 @dataclass(frozen=True)
 class IndexState:
     """A374: Authoritative index state for each indexed resource/chunk."""
@@ -63,6 +60,7 @@ class IndexState:
     content_hash: str
     qdrant_point_id: str
     postgresql_record_id: Optional[str] = None
+    generation_id: Optional[str] = None  # A486: bind to index generation
 
 
 @dataclass(frozen=True)

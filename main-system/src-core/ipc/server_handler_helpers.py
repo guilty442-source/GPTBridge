@@ -23,8 +23,7 @@ async def _run_heartbeat_monitor(
     websocket: Any,
     app_instance: Any,
     heartbeat_dead: asyncio.Event,
-    last_pong_time: float,
-    read_loop_active: bool,
+    heartbeat_state: dict[str, Any],
 ) -> None:
     """Run the heartbeat monitor loop.
 
@@ -53,8 +52,9 @@ async def _run_heartbeat_monitor(
             heartbeat_dead.set()
             break
         if (
-            read_loop_active
-            and time.monotonic() - last_pong_time > HEARTBEAT_TIMEOUT
+            heartbeat_state.get("read_loop_active", False)
+            and time.monotonic() - heartbeat_state.get("last_pong", 0.0)
+            > HEARTBEAT_TIMEOUT
         ):
             # Client has not responded in 20s — close dead connection
             heartbeat_dead.set()

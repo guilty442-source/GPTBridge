@@ -317,8 +317,8 @@
     "owner": "main-system",
     "automatic": true,
     "runtime_only": true,
-    "learned_at": "2026-09-16T02:31:39.848947+00:00",
-    "occurrence_count": 4,
+    "learned_at": "2026-09-16T03:11:04.547841+00:00",
+    "occurrence_count": 5,
     "success_rate": 1.0,
     "source": "learned"
   }

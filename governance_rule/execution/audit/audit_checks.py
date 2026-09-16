@@ -114,43 +114,59 @@ def _audit_cache_enabled() -> bool:
 
 
 def _audit_input_fingerprint(root: Path) -> str | None:
-    """Fingerprint every audited file (path, size, mtime, attributes)."""
+    """Fingerprint every audited file (path, size, mtime, attributes).
+
+    Uses ``os.scandir()`` instead of ``os.walk()`` + ``path.stat()`` to
+    avoid a second stat syscall per file — on Windows the directory entry
+    already carries size/mtime/attributes.
+    """
     digest = hashlib.sha256()
+    excluded_dirs = {d.casefold() for d in _FINGERPRINT_EXCLUDED_DIRS}
     try:
         for relative in _FINGERPRINT_ROOTS:
             base = root / relative
             if not base.is_dir():
                 digest.update(f"missing:{relative}\n".encode("utf-8"))
                 continue
-            for dirpath, dirnames, filenames in os.walk(base):
-                dirnames[:] = sorted(
-                    name
-                    for name in dirnames
-                    if name.casefold() not in _FINGERPRINT_EXCLUDED_DIRS
-                )
-                for name in sorted(filenames):
-                    casefolded = name.casefold()
-                    if (
-                        name in _FINGERPRINT_EXCLUDED_FILES
-                        or casefolded.endswith(".tmp")
-                    ):
-                        continue
-                    path = Path(dirpath) / name
-                    try:
-                        stat = path.stat()
-                    except OSError:
-                        continue
-                    attributes = int(getattr(stat, "st_file_attributes", 0) or 0)
-                    relative_path = path.relative_to(root).as_posix()
-                    digest.update(
-                        (
-                            f"{relative_path}:{stat.st_size}:"
-                            f"{stat.st_mtime_ns}:{attributes}\n"
-                        ).encode("utf-8", "surrogateescape")
-                    )
+            _fingerprint_dir(base, root, digest, excluded_dirs)
     except OSError:
         return None
     return digest.hexdigest()
+
+
+def _fingerprint_dir(
+    dir_path: Path,
+    root: Path,
+    digest: "hashlib._Hash",
+    excluded_dirs: set[str],
+) -> None:
+    """Recursively fingerprint a directory using os.scandir."""
+    try:
+        entries = sorted(os.scandir(dir_path), key=lambda e: e.name)
+    except OSError:
+        return
+    for entry in entries:
+        name = entry.name
+        if entry.is_dir(follow_symlinks=False):
+            if name.casefold() in excluded_dirs:
+                continue
+            _fingerprint_dir(Path(entry.path), root, digest, excluded_dirs)
+        elif entry.is_file(follow_symlinks=False):
+            casefolded = name.casefold()
+            if name in _FINGERPRINT_EXCLUDED_FILES or casefolded.endswith(".tmp"):
+                continue
+            try:
+                stat = entry.stat(follow_symlinks=False)
+            except OSError:
+                continue
+            attributes = int(getattr(stat, "st_file_attributes", 0) or 0)
+            rel = Path(entry.path).relative_to(root).as_posix()
+            digest.update(
+                (
+                    f"{rel}:{stat.st_size}:"
+                    f"{stat.st_mtime_ns}:{attributes}\n"
+                ).encode("utf-8", "surrogateescape")
+            )
 
 
 def _load_audit_cache(root: Path) -> dict[str, object] | None:
@@ -161,7 +177,7 @@ def _load_audit_cache(root: Path) -> dict[str, object] | None:
     return payload if isinstance(payload, dict) else None
 
 
-def _store_audit_cache(root: Path, fingerprint: str) -> None:
+def _store_audit_cache(root: Path, fingerprint: str, include_self_health: bool = True) -> None:
     path = root.joinpath(*_AUDIT_CACHE_RELATIVE)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -172,6 +188,7 @@ def _store_audit_cache(root: Path, fingerprint: str) -> None:
                     "version": _AUDIT_CACHE_VERSION,
                     "passed": True,
                     "fingerprint": fingerprint,
+                    "include_self_health": include_self_health,
                     "checked_at": datetime.now(timezone.utc).isoformat(),
                 },
                 ensure_ascii=False,
@@ -221,7 +238,7 @@ def audit_runtime_governance(
     root = project_root.resolve()
 
     fingerprint: str | None = None
-    if use_cache and include_self_health and _audit_cache_enabled():
+    if use_cache and _audit_cache_enabled():
         fingerprint = _audit_input_fingerprint(root)
         cached = _load_audit_cache(root)
         if (
@@ -230,6 +247,13 @@ def audit_runtime_governance(
             and cached.get("version") == _AUDIT_CACHE_VERSION
             and cached.get("passed") is True
             and cached.get("fingerprint") == fingerprint
+            # Cache is valid only when the self-health mode matches: a
+            # full-audit PASS covers the commit-gate subset, but a
+            # commit-gate PASS does not cover the full audit.
+            and (
+                cached.get("include_self_health") is True
+                or cached.get("include_self_health") == include_self_health
+            )
         ):
             return []
 
@@ -278,5 +302,5 @@ def audit_runtime_governance(
         errors.extend(result)
 
     if not errors and fingerprint:
-        _store_audit_cache(root, fingerprint)
+        _store_audit_cache(root, fingerprint, include_self_health)
     return errors
