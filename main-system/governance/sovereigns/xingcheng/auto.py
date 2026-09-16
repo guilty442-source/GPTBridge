@@ -36,7 +36,7 @@ class XingchengAutoMixin:
             "observe_cycles": 0, "analyze_cycles": 0, "reason_cycles": 0,
             "manage_cycles": 0, "health_checks": 0, "anomalies_detected": 0,
             "channel_notifications": 0, "db_maintenance_runs": 0,
-            "model_loads": 0, "config_updates": 0,
+            "model_loads": 0, "config_updates": 0, "learning_commands": 0,
             "last_auto_cycle": "", "last_anomaly": "",
         }
         self._last_snapshot = {}
@@ -125,6 +125,11 @@ class XingchengAutoMixin:
                         self._auto_metrics["anomalies_detected"] += len(batch)
                         self._auto_metrics["last_anomaly"] = self._iso_now()
                         await self._notify_anomalies(batch)
+                    # A485: anomalies trigger a parent-commanded learning
+                    # pass — the child only learns on 星澄's command.
+                    commanded = await self.command_learning_pass("anomaly")
+                    if commanded.get("commanded"):
+                        self._auto_metrics["learning_commands"] += 1
 
                 # Reason (internal advisory)
                 self._auto_metrics["reason_cycles"] += 1

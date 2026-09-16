@@ -53,6 +53,7 @@ from .xingcheng.review import XingchengReviewMixin
 from .xingcheng.native_capability import XingchengNativeMixin
 from .xingcheng.domain import XingchengDomainMixin
 from .xingcheng.auto import XingchengAutoMixin
+from .xingcheng.learning_command import XingchengLearningCommandMixin
 
 _logger = logging.getLogger("gptbridge.sovereign.xingcheng")
 
@@ -70,6 +71,7 @@ class XingchengSovereign(
     XingchengNativeMixin,
     XingchengDomainMixin,
     XingchengAutoMixin,
+    XingchengLearningCommandMixin,
     SovereignBase,
 ):
     """星澄主宰：自有域完全權力，隔離於系統決策鏈。"""
@@ -255,15 +257,18 @@ class XingchengSovereign(
         }
 
     async def start_supervision(self) -> None:
-        """Start the auto-loop (A297 separation)."""
+        """Start the auto-loop and command the learning child (A297/A485)."""
         await self.start_auto_loop()
+        await self.start_learning_automation()
 
     async def stop_supervision(self) -> None:
-        """Stop the auto-loop (A297 separation)."""
+        """Disarm commanded learning, then stop the auto-loop."""
+        await self.stop_learning_automation()
         await self.stop_auto_loop()
 
     async def stop(self) -> None:
-        """Stop the sovereign and auto-loop."""
+        """Stop the sovereign, commanded learning, and auto-loop."""
+        await self.stop_learning_automation()
         await self.stop_auto_loop()
         self._started = False
 
@@ -276,6 +281,7 @@ class XingchengSovereign(
             "isolated": self._isolated,
             "owned_domain": self._owned_domain_root,
             "auto_loop": self.auto_status(),
+            "learning": self.learning_status(),
             "reviews": len(self._reviews),
             "program_tasks": len(self._program_tasks),
             "automation_tasks": len(self._automation_tasks),

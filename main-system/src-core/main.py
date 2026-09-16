@@ -200,6 +200,8 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
                 "permission-sovereign",
                 "system-runtime-sovereign",
                 "automation-sovereign",
+                # A485: 星澄's learning sub-sovereign surfaces here too.
+                "星澄",
             ):
                 parent = resolve_sovereign(self, parent_id)
                 registry = getattr(parent, "_sub_sovereigns", None)

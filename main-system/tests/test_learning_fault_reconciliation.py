@@ -25,6 +25,9 @@ sys.path.insert(0, str(ROOT.parent / "shared-layer" / "src"))
 from governance.sovereigns.xingcheng.learning_sub_sovereign import (  # noqa: E402
     LearningEvidenceSyncSubSovereign,
 )
+from governance.sovereigns.xingcheng_sovereign import (  # noqa: E402
+    XingchengSovereign,
+)
 from core_system.auto_action_policy import (  # noqa: E402
     read_pending_actions,
     remove_pending_actions,
@@ -205,11 +208,20 @@ async def test_reconcile_loop_eliminates_messages_automatically(
     tmp_path: Path,
 ) -> None:
     _write_actions(tmp_path, [_fallback_action("repair-fallback-auto")])
+    # A485: the child never self-arms — 星澄 commands auto-learning via
+    # the governed delegation path (learn.auto-start).
+    app = _App(tmp_path)
+    parent = XingchengSovereign(app)
+    app.xingcheng_sovereign = parent
     sovereign = LearningEvidenceSyncSubSovereign(
-        _App(tmp_path), reconcile_interval=0.5
+        app, parent=parent, reconcile_interval=0.5
     )
+    parent._sub_sovereigns["learning-evidence-sync-sub-sovereign"] = sovereign
 
     await sovereign.start()
+    assert sovereign._reconcile_task is None
+    armed = await parent.start_learning_automation()
+    assert armed["commanded"] is True
     try:
         deadline = datetime.now(timezone.utc) + timedelta(seconds=5)
         while datetime.now(timezone.utc) < deadline and read_pending_actions(tmp_path):

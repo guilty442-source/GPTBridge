@@ -34,6 +34,7 @@ from typing import Any, Final
 
 from governance.sub_sovereigns._base import SubSovereignBase
 from governance_rule.execution.codex_official import official_self_declaration
+from core_system.codex_decision import accepted_outcome, refusal_outcome
 from .learning_reconciliation import LearningReconciliationMixin
 
 
@@ -42,6 +43,20 @@ _logger = logging.getLogger("gptbridge.sovereign.learning-evidence-sync")
 _DECLARATION = official_self_declaration("learning-evidence-sync-sub-sovereign")
 if _DECLARATION is None:
     raise RuntimeError("learning evidence sync sub-sovereign not found in Governance Codex")
+
+# Bounded learning commands the codex parent (星澄) may delegate (A485).
+# The child never self-arms its learning loop — arming, driving and
+# disarming are all commanded through the governed delegation path.
+_LEARNING_INTENTS: Final = frozenset(
+    {
+        "learn.auto-start",
+        "learn.auto-stop",
+        "learn.reconcile",
+        "learn.outcome",
+        "learn.evidence",
+        "learn.analyze",
+    }
+)
 
 from .learning_constants import (
     RECONCILIATION_AUDIT_RELATIVE,
@@ -60,6 +75,9 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
 
     ROLE = sovereign_id
 
+    # Base coordination intents plus the parent's bounded learn.* commands.
+    _INTENT_ALLOWLIST = SubSovereignBase._INTENT_ALLOWLIST | _LEARNING_INTENTS
+
     def __init__(
         self,
         app: Any | None = None,
@@ -74,6 +92,7 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
         self._reconcile_task: asyncio.Task[Any] | None = None
         self._reconcile_interval = reconcile_interval
         self._last_reconciliation: dict[str, Any] = {}
+        self._auto_learning_armed = False
 
     async def start(self) -> dict[str, Any]:
         from tasks.repair_learning import RepairLearner, RepairLearningStore
@@ -82,9 +101,10 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
         self._store = RepairLearningStore(root / "main-system" / "data" / "automatic-repair")
         self._learner = RepairLearner(self._store)
         self._started = True
-        self._start_reconcile_loop()
         # E173: activation returns a light receipt — analyze_history()
         # runs on demand in status(), not on the startup critical path.
+        # The reconcile loop is NOT self-armed: only a parent-delegated
+        # ``learn.auto-start`` command may arm it (A485 commanded learning).
         return {
             "ok": True,
             "role": self.ROLE,
@@ -92,10 +112,11 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
             "duties": list(_DECLARATION.duties),
             "execution": "governed-executor-only",
             "persistence": "repair-learning-sqlite",
-            "reconciliation": "automatic",
+            "reconciliation": "commanded-by-parent",
         }
 
     async def stop(self) -> None:
+        self._auto_learning_armed = False
         await self._stop_reconcile_loop()
         self._started = False
 
@@ -117,6 +138,10 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
             "persistence": "repair-learning-sqlite",
             "analysis": analysis,
             "reconciliation": dict(self._last_reconciliation),
+            "auto_learning": (
+                "armed" if self._auto_learning_armed else "disarmed"
+            ),
+            "commanded_by": self.parent_sovereign_id,
             "reconcile_loop": bool(
                 self._reconcile_task is not None and not self._reconcile_task.done()
             ),
@@ -126,6 +151,202 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
         base = self.status()
         base["sync_state"] = self._sync_state
         return base
+
+    # ------------------------------------------------------------------
+    # Parent-commanded learning adjudication (A485)
+    # ------------------------------------------------------------------
+
+    async def _adjudicate(self, request: Any) -> Any:
+        """Parent-authorized dispatch: learn.* commands + base coordination.
+
+        ``_verify_parent_authorization`` runs exactly once here — the base
+        coordination intents are dispatched to their handlers directly so
+        the single-use delegation nonce is never consumed twice.
+        """
+        if not await self._verify_parent_authorization(request):
+            return refusal_outcome(
+                "PARENT_AUTHORIZATION_REQUIRED",
+                self.verified_basis("A130", "A334"),
+            )
+        intent = request.intent
+        if intent == "learn.auto-start":
+            return await self._adjudicate_learn_auto_start(request)
+        if intent == "learn.auto-stop":
+            return await self._adjudicate_learn_auto_stop(request)
+        if intent == "learn.reconcile":
+            return await self._adjudicate_learn_reconcile(request)
+        if intent == "learn.outcome":
+            return self._adjudicate_learn_outcome(request)
+        if intent == "learn.evidence":
+            return self._adjudicate_learn_evidence(request)
+        if intent == "learn.analyze":
+            return self._adjudicate_learn_analyze(request)
+        return await self._adjudicate_coordination(request)
+
+    async def _adjudicate_coordination(self, request: Any) -> Any:
+        """Base coordination intents (parent authorization already verified)."""
+        intent = request.intent
+        if intent == "coordinate":
+            return await self._adjudicate_coordinate(request)
+        if intent == "assign":
+            return await self._adjudicate_assign(request)
+        if intent == "manage":
+            return await self._adjudicate_manage(request)
+        if intent == "sync":
+            return await self._adjudicate_sync(request)
+        if intent == "status":
+            return await self._adjudicate_status(request)
+        return refusal_outcome(
+            "UNKNOWN_INTENT", self.verified_basis("A130", "A284")
+        )
+
+    def _learn_basis(self) -> Any:
+        return self.verified_basis("A130", "A334", "A485")
+
+    async def _adjudicate_learn_auto_start(self, request: Any) -> Any:
+        """Arm the reconcile loop — the only path that enables auto-learning."""
+        self._ensure_learner()
+        self._start_reconcile_loop()
+        task = self._reconcile_task
+        self._auto_learning_armed = task is not None and not task.done()
+        return accepted_outcome(
+            {
+                "command": "learn.auto-start",
+                "auto_learning": (
+                    "armed" if self._auto_learning_armed else "arm-failed"
+                ),
+                "interval_seconds": self._interval_seconds(),
+                "commanded_by": self.parent_sovereign_id,
+                "decision": "none",
+                "execution": "delegated-to-governed-executor",
+            },
+            self._learn_basis(),
+        )
+
+    async def _adjudicate_learn_auto_stop(self, request: Any) -> Any:
+        self._auto_learning_armed = False
+        await self._stop_reconcile_loop()
+        return accepted_outcome(
+            {
+                "command": "learn.auto-stop",
+                "auto_learning": "disarmed",
+                "commanded_by": self.parent_sovereign_id,
+                "decision": "none",
+                "execution": "delegated-to-governed-executor",
+            },
+            self._learn_basis(),
+        )
+
+    async def _adjudicate_learn_reconcile(self, request: Any) -> Any:
+        """Run one bounded reconciliation pass under parent command."""
+        receipt = await self.reconcile_once()
+        return accepted_outcome(
+            {
+                "command": "learn.reconcile",
+                "trigger": request.payload.get("trigger"),
+                "reconciliation": receipt,
+                "commanded_by": self.parent_sovereign_id,
+                "decision": "none",
+                "execution": "delegated-to-governed-executor",
+            },
+            self._learn_basis(),
+        )
+
+    def _adjudicate_learn_outcome(self, request: Any) -> Any:
+        """Learn from one parent-pushed verified outcome."""
+        self._ensure_learner()
+        if self._learner is None:
+            return refusal_outcome("LEARNER_UNAVAILABLE", self._learn_basis())
+        signature = request.payload.get("signature")
+        outcome = request.payload.get("outcome")
+        if not isinstance(signature, dict) or not isinstance(outcome, dict):
+            return refusal_outcome(
+                "MISSING_LEARNING_PAYLOAD", self._learn_basis()
+            )
+        result = self._record_pushed_outcome(signature, outcome)
+        if result is None:
+            return refusal_outcome(
+                "INVALID_LEARNING_PAYLOAD", self._learn_basis()
+            )
+        return accepted_outcome(
+            {
+                "command": "learn.outcome",
+                "learning": result,
+                "commanded_by": self.parent_sovereign_id,
+                "decision": "none",
+                "execution": "delegated-to-governed-executor",
+            },
+            self._learn_basis(),
+        )
+
+    def _adjudicate_learn_evidence(self, request: Any) -> Any:
+        evidence = request.payload.get("evidence")
+        if not isinstance(evidence, dict):
+            return refusal_outcome(
+                "MISSING_LEARNING_PAYLOAD", self._learn_basis()
+            )
+        self.sync_learning_evidence(evidence)
+        return accepted_outcome(
+            {
+                "command": "learn.evidence",
+                "synced": True,
+                "commanded_by": self.parent_sovereign_id,
+                "decision": "none",
+                "execution": "none",
+            },
+            self._learn_basis(),
+        )
+
+    def _adjudicate_learn_analyze(self, request: Any) -> Any:
+        self._ensure_learner()
+        if self._learner is None:
+            return refusal_outcome("LEARNER_UNAVAILABLE", self._learn_basis())
+        return accepted_outcome(
+            {
+                "command": "learn.analyze",
+                "analysis": self._learner.analyze_history(),
+                "commanded_by": self.parent_sovereign_id,
+                "decision": "none",
+                "execution": "none",
+            },
+            self._learn_basis(),
+        )
+
+    def _record_pushed_outcome(
+        self, signature: dict[str, Any], outcome: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Deserialize parent-pushed payload and record the learning outcome."""
+        try:
+            from tasks.repair_learning_types import (
+                ErrorSignature,
+                RepairOutcome,
+            )
+
+            sig = ErrorSignature(
+                signature_hash=str(signature.get("signature_hash") or ""),
+                error_class=str(signature.get("error_class") or ""),
+                message_pattern=str(signature.get("message_pattern") or ""),
+                failure_code=str(signature.get("failure_code") or ""),
+                file_context=str(signature.get("file_context") or ""),
+                target_tool_id=str(signature.get("target_tool_id") or ""),
+            )
+            out = RepairOutcome(
+                run_id=str(outcome.get("run_id") or ""),
+                signature_hash=str(
+                    outcome.get("signature_hash") or sig.signature_hash
+                ),
+                remedy=str(outcome.get("remedy") or ""),
+                ok=bool(outcome.get("ok")),
+                detail=(
+                    outcome.get("detail")
+                    if isinstance(outcome.get("detail"), dict)
+                    else {}
+                ),
+                recorded_at=str(outcome.get("recorded_at") or ""),
+            )
+        except (TypeError, ValueError):
+            return None
+        return self._learner.learn_from_outcome(sig, out)
 
     def learn_outcome(self, signature: Any, outcome: Any) -> dict[str, Any]:
         if self._learner is None:
