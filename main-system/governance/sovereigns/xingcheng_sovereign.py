@@ -54,6 +54,7 @@ from .xingcheng.native_capability import XingchengNativeMixin
 from .xingcheng.domain import XingchengDomainMixin
 from .xingcheng.auto import XingchengAutoMixin
 from .xingcheng.learning_command import XingchengLearningCommandMixin
+from .xingcheng.codex_drift import XingchengCodexDriftMixin
 
 _logger = logging.getLogger("gptbridge.sovereign.xingcheng")
 
@@ -72,6 +73,7 @@ class XingchengSovereign(
     XingchengDomainMixin,
     XingchengAutoMixin,
     XingchengLearningCommandMixin,
+    XingchengCodexDriftMixin,
     SovereignBase,
 ):
     """星澄主宰：自有域完全權力，隔離於系統決策鏈。"""
@@ -99,7 +101,7 @@ class XingchengSovereign(
         "domain.auto-health-check",
         # Auxiliary review group (A137-A146, separate+non-transitive)
         "review.global", "review.classify-anomaly", "review.notify-user",
-        "review.language", "codex.read", "inspect.layer",
+        "review.language", "codex.read", "inspect.layer", "review.codex-drift",
         # A319: permission-review authority transferred to 星澄
         "review.permission",
         # A330: free-entry confidential read-only inspection
@@ -282,6 +284,7 @@ class XingchengSovereign(
             "owned_domain": self._owned_domain_root,
             "auto_loop": self.auto_status(),
             "learning": self.learning_status(),
+            "codex_drift": self.drift_status(),
             "reviews": len(self._reviews),
             "program_tasks": len(self._program_tasks),
             "automation_tasks": len(self._automation_tasks),

@@ -66,6 +66,8 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
             return await self._adjudicate_notify_user(request)
         if intent == "review.language":
             return await self._adjudicate_language_review(request)
+        if intent == "review.codex-drift":
+            return await self._adjudicate_codex_drift(request)
         if intent == "review.permission":
             return await self._adjudicate_permission_review(request)
         if intent == "inspect.layer":

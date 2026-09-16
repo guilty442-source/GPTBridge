@@ -13,6 +13,7 @@ from typing import Any
 
 from .._base import SovereignBase, SovereignRequest, SovereignOutcome
 from core_system.codex_decision import accepted_outcome, refusal_outcome
+from .codex_drift import DRIFT_CHECK_EVERY_CYCLES
 
 _logger = logging.getLogger("gptbridge.sovereign.xingcheng.auto")
 
@@ -41,6 +42,7 @@ class XingchengAutoMixin:
         }
         self._last_snapshot = {}
         self._pending_anomalies = []
+        self._drift_cycle_counter = 0
 
     async def _adjudicate_auto_observe(self, request: SovereignRequest) -> SovereignOutcome:
         snapshot = self._observe_domain()
@@ -118,13 +120,7 @@ class XingchengAutoMixin:
                 # Analyze
                 anomalies = self._analyze_domain(snapshot)
                 if anomalies:
-                    # Batch process anomalies to reduce notification overhead
-                    for i in range(0, len(anomalies), batch_size):
-                        batch = anomalies[i:i + batch_size]
-                        self._pending_anomalies.extend(batch)
-                        self._auto_metrics["anomalies_detected"] += len(batch)
-                        self._auto_metrics["last_anomaly"] = self._iso_now()
-                        await self._notify_anomalies(batch)
+                    await self._process_anomalies(anomalies, batch_size)
                     # A485: anomalies trigger a parent-commanded learning
                     # pass — the child only learns on 星澄's command.
                     commanded = await self.command_learning_pass("anomaly")
@@ -139,6 +135,10 @@ class XingchengAutoMixin:
                 if actions:
                     self._auto_metrics["manage_cycles"] += 1
 
+                # A145: periodic codex-vs-implementation drift review,
+                # displayed on the 星澄 auxiliary surface (advisory).
+                await self._run_drift_review()
+
             except Exception as e:
                 _logger.warning("Xingcheng auto-loop error: %s", e)
 
@@ -150,6 +150,31 @@ class XingchengAutoMixin:
                 await asyncio.sleep(sleep_time)
             except asyncio.CancelledError:
                 break
+
+    async def _process_anomalies(
+        self, anomalies: list[dict[str, Any]], batch_size: int
+    ) -> None:
+        """Batch-record anomalies and notify through the auxiliary surface."""
+        for i in range(0, len(anomalies), batch_size):
+            batch = anomalies[i:i + batch_size]
+            self._pending_anomalies.extend(batch)
+            self._auto_metrics["anomalies_detected"] += len(batch)
+            self._auto_metrics["last_anomaly"] = self._iso_now()
+            await self._notify_anomalies(batch)
+
+    async def _run_drift_review(self) -> None:
+        """Periodic codex-vs-implementation drift review (A145, advisory)."""
+        self._drift_cycle_counter += 1
+        if self._drift_cycle_counter < DRIFT_CHECK_EVERY_CYCLES:
+            return
+        self._drift_cycle_counter = 0
+        report = await asyncio.to_thread(self.run_codex_drift_check)
+        self._auto_metrics["drift_checks"] = (
+            self._auto_metrics.get("drift_checks", 0) + 1
+        )
+        self._auto_metrics["drift_findings"] = report.get("drift_count", 0)
+        if self._pending_anomalies:
+            await self._notify_anomalies()
 
     def auto_status(self) -> dict[str, Any]:
         return {
