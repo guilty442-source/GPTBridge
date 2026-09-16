@@ -10,15 +10,18 @@
 // The Python scripts provide identical functionality without requiring C#.
 //
 // Original content archived for reference only. Do not compile.
+// EXCEPTION: install.py compiles this file with csc.exe as the no-MSVC
+// fallback build of the desktop bootstrap.
 
-// GPTBridgeLauncher.cs — C# port of GPTBridgeLauncher.cpp.
+// GPTBridgeLauncher.cs — C# fallback port of GPTBridgeLauncher.cpp.
 //
-// Compiled by install.ps1 with csc.exe (.NET Framework) when MSVC is
-// unavailable.  Behaviour must mirror the C++ launcher exactly:
+// Minimal desktop bootstrap (same contract as the C++ launcher):
 //   * GUI subsystem (no console window ever).
 //   * Reads %LOCALAPPDATA%\GPTBridgeLauncher\config\root.txt.
-//   * Launches <root>\launcher\scripts\start.ps1 via powershell.exe with
-//     CreateNoWindow so no console window flashes or lingers.
+//   * Launches <root>\launcher\scripts\start.py via the project venv
+//     pythonw.exe with CreateNoWindow so no console window flashes or lingers.
+// All launcher behaviour lives in start.py and updates in real time; this
+// EXE is reinstalled only when the bootstrap contract itself changes.
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -28,7 +31,7 @@ internal static class GPTBridgeLauncher
     private const string AppDisplayName = "專案程式庫";
 
     private const string MsgNotInstalled =
-        "程式庫啟動器尚未安裝，請執行 launcher\\scripts\\install.ps1。";
+        "程式庫啟動器尚未安裝，請執行 launcher\\scripts\\install.py。";
 
     private const string MsgMissing =
         "找不到程式庫或啟動模組，請重新安裝啟動器。";
@@ -79,15 +82,12 @@ internal static class GPTBridgeLauncher
         }
     }
 
-    private static int LaunchHost(string projectRoot, string launchScript)
+    private static int LaunchHost(string projectRoot, string interpreter, string launchScript)
     {
         var startInfo = new ProcessStartInfo
         {
-            FileName = "powershell.exe",
-            Arguments =
-                "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden" +
-                " -File " + Quote(launchScript) +
-                " -ProjectRoot " + Quote(projectRoot),
+            FileName = interpreter,
+            Arguments = Quote(launchScript),
             WorkingDirectory = projectRoot,
             UseShellExecute = false,
             CreateNoWindow = true,
@@ -135,13 +135,22 @@ internal static class GPTBridgeLauncher
         }
 
         var launchScript = Path.Combine(
-            projectRoot, "launcher", "scripts", "start.ps1");
-        if (!Directory.Exists(projectRoot) || !File.Exists(launchScript))
+            projectRoot, "launcher", "scripts", "start.py");
+        if (!File.Exists(launchScript))
         {
             ShowError(MsgMissing);
             return 1;
         }
 
-        return LaunchHost(projectRoot, launchScript);
+        // Prefer the project virtual environment interpreter so the launcher
+        // never depends on the machine-wide PATH; fall back to pythonw.exe.
+        var interpreter = Path.Combine(
+            projectRoot, ".venv", "Scripts", "pythonw.exe");
+        if (!File.Exists(interpreter))
+        {
+            interpreter = "pythonw.exe";
+        }
+
+        return LaunchHost(projectRoot, interpreter, launchScript);
     }
 }
