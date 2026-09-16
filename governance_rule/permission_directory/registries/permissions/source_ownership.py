@@ -113,6 +113,7 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "health_states.py",
         "startup_gate.py",
         "lifecycle_consolidation.py",
+        "failure_taxonomy.py",
     }
 )
 SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (
