@@ -387,7 +387,7 @@ def test_backend_entry_keeps_sovereign_runtime_imports_for_next_generation() -> 
         "DecisionSovereign",
         "PermissionSovereign",
         "SystemRuntimeSovereign",
-        "SynchronizationSovereign",
+        "AutomationSovereign",
         "XingchengSovereign",
     ):
         assert runtime_name in source

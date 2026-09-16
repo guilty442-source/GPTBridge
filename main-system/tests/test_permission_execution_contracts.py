@@ -223,9 +223,7 @@ async def test_module_routing_reads_registry_dict_keys(monkeypatch) -> None:
 def test_sovereign_status_mro_prefers_mixin() -> None:
     from governance.sovereigns.decision_sovereign import DecisionSovereign
     from governance.sovereigns.permission_sovereign import PermissionSovereign
-    from governance.sovereigns.synchronization_sovereign import (
-        SynchronizationSovereign,
-    )
+    from governance.sovereigns.automation_sovereign import AutomationSovereign
     from governance.sovereigns.system_runtime_sovereign import (
         SystemRuntimeSovereign,
     )
@@ -234,7 +232,7 @@ def test_sovereign_status_mro_prefers_mixin() -> None:
     for cls in (
         DecisionSovereign,
         PermissionSovereign,
-        SynchronizationSovereign,
+        AutomationSovereign,
         SystemRuntimeSovereign,
     ):
         assert cls.status is not SovereignBase.status, cls.__name__

@@ -24,8 +24,8 @@ from governance.sovereigns.decision_sovereign import DecisionSovereign  # noqa: 
 from governance.sovereigns.permission_sovereign import (  # noqa: E402
     PermissionSovereign,
 )
-from governance.sovereigns.synchronization_sovereign import (  # noqa: E402
-    SynchronizationSovereign,
+from governance.sovereigns.automation_sovereign import (  # noqa: E402
+    AutomationSovereign,
 )
 from governance.sovereigns.system_runtime_sovereign import (  # noqa: E402
     SystemRuntimeSovereign,
@@ -43,7 +43,7 @@ from governance.sub_sovereigns.health_maintenance_test_sub_sovereign import (  #
 SOVEREIGN_CLASSES = (
     DecisionSovereign,
     PermissionSovereign,
-    SynchronizationSovereign,
+    AutomationSovereign,
     SystemRuntimeSovereign,
     XingchengSovereign,
 )
@@ -87,7 +87,7 @@ def test_mixin_method_ownership() -> None:
 def test_child_status_accepts_method_selector() -> None:
     """status() calls _child_status(child, 'orchestration_status') — the
     resolved method must accept the selector, not a narrower shadow."""
-    for cls in (SynchronizationSovereign, SystemRuntimeSovereign):
+    for cls in (AutomationSovereign, SystemRuntimeSovereign):
         signature = inspect.signature(cls._child_status)
         assert "method" in signature.parameters
         assert cls()._child_status("missing", "orchestration_status") == {

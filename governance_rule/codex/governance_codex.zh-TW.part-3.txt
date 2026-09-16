@@ -1,10 +1,10 @@
 {
-  "codex_version": "2026-09-16T02:39:23Z",
-  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-16T02:39:23Z",
+  "codex_version": "2026-09-16T02:54:34Z",
+  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-16T02:54:34Z",
   "part_index": 3,
   "part_count": 3,
-  "previous_part_hash": "823a2a24156419ff3601749afceef5ff6fb64e0edfa32f1eca7f87b31d307860",
-  "assembled_payload_hash": "fe5cc60b95de600606ef9119574daea4b1bd728a17cefa8e5d87176e328638bf",
+  "previous_part_hash": "9caa38d9072c4bda51da04ebb8d85f6b9b1806bb92612847d4219a6d8f00bb85",
+  "assembled_payload_hash": "a35ee20bc62d9ab5835e46d2298f0f52bc584d241c49240e7acf5bc19f328822",
   "tables": {
     "access_token_schema": [
       {
@@ -44,14 +44,14 @@
         "scope": "audit,evidence,time and retention",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "48c926dccad64120de5e7be7c93964425a3199205dd58533a71ec2d349ad94dc",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "0d59f42bd8def97d8d3dc67bd4fe500a017f98445b37c2228330526ad5cab45b",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "audit,evidence,time and retention",
         "authority_boundary": "validation evidence only",
         "parent_module_code": "CODEX_MODULE_INFORMATION",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_AUTHORITY",
@@ -61,14 +61,14 @@
         "scope": "separation,sovereign declarations and accountability",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "4aaad3ff0eae2b508e1b0b5483667f50bf100235347437c540cea4bd2cd1987d",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "b85667dbbb7939684e2462d44dc4f29cb13b7f8b15bb0b480a88499086bfa480",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "separation,sovereign declarations and accountability",
         "authority_boundary": "decision declarations only",
         "parent_module_code": "CODEX_MODULE_FOUNDATION",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_DATA",
@@ -78,14 +78,14 @@
         "scope": "SQL,Qdrant,RAG,data authority and recovery",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "2a19b9b27f096d64d491ceef3fc4c63a2c50d00963a577b20097b24f6804a4e6",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "b0e8635907132085e753d4fc2f980c5c384abcea48eb03437297ff896671d9e5",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "SQL,Qdrant,RAG,data authority and recovery",
         "authority_boundary": "data semantics only",
         "parent_module_code": "CODEX_MODULE_INFORMATION",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_DIRECTORY",
@@ -95,14 +95,14 @@
         "scope": "directory,code,path and obligation registries",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "de940ccf8b50bbe028119fe7eafc78d86d8f28833d105105c516615c435dfaa2",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "ab24af0a3252d3e438de746c80f1f0d9570d5dcd180e9d064187ba30923b1dbe",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "directory,code,path and obligation registries",
         "authority_boundary": "registration structure only",
         "parent_module_code": "CODEX_MODULE_PERMISSION",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_EXTERNAL",
@@ -112,14 +112,14 @@
         "scope": "third-party,network and supply-chain rules",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "07b98cad951cfc09716f6ea4caa3861a0608f94f7a5c590136f4e4a732b0eeb8",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "01f7dc6bcef698d34b82ebc2f754576eba5afc79ad189a5a8f350751bdb7f649",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "third-party,network and supply-chain rules",
         "authority_boundary": "external boundary only",
         "parent_module_code": "CODEX_MODULE_PERMISSION",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_FOUNDATION",
@@ -129,14 +129,14 @@
         "scope": "Codex identity,precedence,amendment and interpretation",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "56b6b3ede1d79c381bda635e77d3f346bd49cb7c7a10204578df359e5de1f4e8",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "2e038cdbfacf4de912e34eebb75a5a9ff05355da0aa8252a576a7bd311b13777",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "Codex identity,precedence,amendment and interpretation",
         "authority_boundary": "no execution;root module",
         "parent_module_code": null,
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_GIT",
@@ -146,14 +146,14 @@
         "scope": "Git worktree,merge and delivery governance",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "2f2fc7acdfa1e4d04691c0af6ead189889db6f4ca3402faa94d362432e9d6efe",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "61c4520799d44c0e3180f57103c5c88803cca5d609a504d0430035ea9c8e7f89",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "Git worktree,merge and delivery governance",
         "authority_boundary": "Git history only",
         "parent_module_code": "CODEX_MODULE_AUDIT",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_INFORMATION",
@@ -163,14 +163,14 @@
         "scope": "information ownership,contracts,channels and UI projection",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "656d3248432eb14b0763d2b22c298582544894eacc440dc34ddaa925a346eb35",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "6661318c3d690e71046868da620c044e456da2a5f2a0ac923037b9b38b2df5b3",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "information ownership,contracts,channels and UI projection",
         "authority_boundary": "transport and contract boundary",
         "parent_module_code": "CODEX_MODULE_PERMISSION",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_LANGUAGE",
@@ -180,14 +180,14 @@
         "scope": "six-language source,native and ABI governance",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "2e1e86dd4cedcb4ea00c407d4b03717473edcf9c101d4df74eaee7fe98b8aea5",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "779791f0a71beb0c19681963d3eefdb1e75763b87933b9978fecb9a37d961697",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "six-language source,native and ABI governance",
         "authority_boundary": "language boundaries only",
         "parent_module_code": "CODEX_MODULE_DIRECTORY",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_LEARNING",
@@ -197,14 +197,14 @@
         "scope": "learning evidence and candidate boundaries",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "70d0d446451a3847a883feaa379b23e429c5fb5cf95529d39166e8ad6de2dca4",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "71d886024c750df5f93aa1c5e1d5176396508aa669678a9e9b28e63b2ef46197",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "learning evidence and candidate boundaries",
         "authority_boundary": "no autonomous promotion",
         "parent_module_code": "CODEX_MODULE_AUDIT",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_MAINTENANCE",
@@ -214,14 +214,14 @@
         "scope": "health,repair and controlled automation",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "60097b4df56d32f14ab3310330e8f0bf1127efcf93e4e6bfdc1babe9e11f100d",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "6458c73add16c3a3366e4569365cf68fc95394a50e67353cd1eddf3acf2169eb",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "health,repair and controlled automation",
         "authority_boundary": "no direct execution",
         "parent_module_code": "CODEX_MODULE_RUNTIME",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_ORDINANCE",
@@ -231,14 +231,14 @@
         "scope": "subordinate reusable operational ordinances",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "a71143645730370cff3864456b27847b44cf605098165c8eb51e2851ddf6ae1c",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "93dcb9112d776abf9ed0b70353c7e2c11fb0b51f4a5547b58139cab8fa036b35",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "subordinate reusable operational ordinances",
         "authority_boundary": "subordinate to controlling law",
         "parent_module_code": "CODEX_MODULE_FOUNDATION",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_PERMISSION",
@@ -248,14 +248,14 @@
         "scope": "permission,identity and authorization rules",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "7a6ade0a13383093c3c7835f732404d2205ee01cba3301a66862c1d1edcfdc04",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "579cdc558613d57a552cac50dbd73eed4bea66313c29b6a1cabf9c0251799d57",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "permission,identity and authorization rules",
         "authority_boundary": "permission scope only",
         "parent_module_code": "CODEX_MODULE_AUTHORITY",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_PRIVACY_SECURITY",
@@ -265,14 +265,14 @@
         "scope": "privacy,cryptography and anti-jailbreak invariants",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "64f73e73628d5a859968b43b19c4058a88dbc852ccbb44de71a37c6255a20d3f",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "3dbe7bff3f5ec3832ef76fa56f1a2bc652dd761ffe7e41f8ed93300fcdf16a17",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "privacy,cryptography and anti-jailbreak invariants",
         "authority_boundary": "security boundary only",
         "parent_module_code": "CODEX_MODULE_PERMISSION",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_RELEASE",
@@ -282,14 +282,14 @@
         "scope": "timestamp versions,build,activation,update and rollback",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "812ff56356052e0461566e451b754ea4cc2a9ec6170908388cd9e9098ff538c5",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "5562ae81c6d3308f0e982f5eca788a906bb9238627fb906291ce86d602aad59d",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "timestamp versions,build,activation,update and rollback",
         "authority_boundary": "release semantics only",
         "parent_module_code": "CODEX_MODULE_RUNTIME",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_RESOURCE",
@@ -299,14 +299,14 @@
         "scope": "model,compute and resource governance",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "046ac84a867bc321a3a049388858d505aaf9eec71e24a7475e09009a738baf27",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "d762a94dc317bced433079de8fd465679a8772f1e4eefa79991f1e0f63434ddf",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "model,compute and resource governance",
         "authority_boundary": "resource semantics only",
         "parent_module_code": "CODEX_MODULE_RUNTIME",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_RUNTIME",
@@ -316,14 +316,14 @@
         "scope": "startup,runtime,tool lifecycle and fault isolation",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "bf43c8d2c15c32dd751738336ef4c410f5da15a8ef08661fd2476a8dcbc0eac2",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "5d473099e054275f8618bb6d4d1e5fbbd457461071d46cdbdf2222e35413222d",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "startup,runtime,tool lifecycle and fault isolation",
         "authority_boundary": "runtime decision declarations",
         "parent_module_code": "CODEX_MODULE_INFORMATION",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_TEST",
@@ -333,14 +333,14 @@
         "scope": "test,evaluation and release evidence",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "103f32fae6d2574d6a598cdd6054534449425de703ef7488dbae2da66e359752",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "54c399b7c26b5c4c1bf707ce510f01aafd9639bc24559662f3eeb74ff6879c18",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "test,evaluation and release evidence",
         "authority_boundary": "test management only",
         "parent_module_code": "CODEX_MODULE_AUDIT",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "module_code": "CODEX_MODULE_XINGCHENG",
@@ -350,14 +350,14 @@
         "scope": "星澄 privileged institution boundaries",
         "authority_kind": "declaration-module",
         "status": "active",
-        "revision": "2026-09-14T09:04:12Z",
-        "content_hash": "e525667c8a8e665b675a191799d1e4732b430f073745cb88267fd8abb2ffb5c9",
+        "revision": "2026-09-16T02:54:34Z",
+        "content_hash": "306bb8121e81074ceeb873463ba12453644a90ac085e91c597f8b50e01eaa29c",
         "introduced_version": "2026-09-14T00:55:45Z",
         "retired_version": null,
         "responsibility": "星澄 privileged institution boundaries",
         "authority_boundary": "independent inspection;no Codex mutation",
         "parent_module_code": "CODEX_MODULE_PERMISSION",
-        "version_identity": "2026-09-14T09:04:12Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       }
     ],
     "codex_search_benchmark_evidence": [
@@ -456,6 +456,54 @@
         "index_used": "fts5",
         "status": "pass",
         "measured_at_utc": "2026-09-16T02:39:23Z"
+      },
+      {
+        "evidence_id": "SEARCH-BENCH-1@2026-09-16T02:54:34Z",
+        "version_identity": "2026-09-16T02:54:34Z",
+        "query_class": "exact-identity",
+        "normalized_query_hash": "17f3808da9dd29c6df924f3e64656a5c3e053a6c27ff4c159484486e6e0f44c6",
+        "plan_detail": "[(3, 0, 39, 'SEARCH articles USING COVERING INDEX idx_articles_provision_id (provision_id=?)')]",
+        "result_count": 1,
+        "duration_microseconds": 9,
+        "index_used": "unique",
+        "status": "pass",
+        "measured_at_utc": "2026-09-16T02:54:34.635111Z"
+      },
+      {
+        "evidence_id": "SEARCH-BENCH-2@2026-09-16T02:54:34Z",
+        "version_identity": "2026-09-16T02:54:34Z",
+        "query_class": "module-filter",
+        "normalized_query_hash": "cd428d305476b24f881a56afa3956996b363a85f2c9cc631de9f13edc5e1d06c",
+        "plan_detail": "[(3, 0, 55, 'SEARCH codex_search_document USING COVERING INDEX idx_search_module_law (module_code=?)')]",
+        "result_count": 41,
+        "duration_microseconds": 91,
+        "index_used": "module-index",
+        "status": "pass",
+        "measured_at_utc": "2026-09-16T02:54:34.635111Z"
+      },
+      {
+        "evidence_id": "SEARCH-BENCH-3@2026-09-16T02:54:34Z",
+        "version_identity": "2026-09-16T02:54:34Z",
+        "query_class": "short-alias",
+        "normalized_query_hash": "3cfb69222504da15626c8fe32cf5cb972e52e26066054ca4e990a258e0505bcb",
+        "plan_detail": "[(3, 0, 55, 'SEARCH codex_search_alias USING COVERING INDEX idx_search_alias_module (search_alias=?)')]",
+        "result_count": 120,
+        "duration_microseconds": 42,
+        "index_used": "alias-index",
+        "status": "pass",
+        "measured_at_utc": "2026-09-16T02:54:34.635111Z"
+      },
+      {
+        "evidence_id": "SEARCH-BENCH-4@2026-09-16T02:54:34Z",
+        "version_identity": "2026-09-16T02:54:34Z",
+        "query_class": "full-text",
+        "normalized_query_hash": "1935c1fec3a6358e4a2944da826078de809df54deb55dbb93fd3f9460485812c",
+        "plan_detail": "[(3, 0, 132, 'SCAN codex_search_fts VIRTUAL TABLE INDEX 0:M6')]",
+        "result_count": 58,
+        "duration_microseconds": 250,
+        "index_used": "fts5",
+        "status": "pass",
+        "measured_at_utc": "2026-09-16T02:54:34.635111Z"
       }
     ],
     "command_code_directory": [
@@ -9246,10 +9294,6 @@
         "value": "declared-directed-acyclic"
       },
       {
-        "key": "codex_search_schema",
-        "value": "indexed-exact+module-filter+local-fts-v1"
-      },
-      {
         "key": "codex_search_authority",
         "value": "derived-rebuildable-non-authoritative"
       },
@@ -9260,14 +9304,6 @@
       {
         "key": "codex_search_short_zh_tw_policy",
         "value": "indexed-canonical-alias-before-fts-trigram"
-      },
-      {
-        "key": "codex_search_manifest",
-        "value": "CODEX_SEARCH_V1"
-      },
-      {
-        "key": "codex_module_dependency_cycle_status",
-        "value": "acyclic"
       },
       {
         "key": "codex_internal_module_directory_format",
@@ -9458,26 +9494,6 @@
         "value": "pending-never-equals-verified"
       },
       {
-        "key": "codex_search_alias_hash",
-        "value": "7364dd661303356510416740a682dd6d71d0b5e8f9c9397c49517c02b561e9cf"
-      },
-      {
-        "key": "codex_search_fts_hash",
-        "value": "65733c4ff6c5271a989feeba9c7418a3d07b681efa3cba1091ab058fe56244b8"
-      },
-      {
-        "key": "codex_module_manifest_root",
-        "value": "837a3fe471d2fe703619dada0ad811e6e159b6747a7fbaa9d6650ad234d06d7d"
-      },
-      {
-        "key": "codex_module_dependency_graph_hash",
-        "value": "87aa63ad9067f2fd9d1e34d86c160806a1a2fda67712354e7b7be1fe0c2d85e6"
-      },
-      {
-        "key": "codex_search_freshness",
-        "value": "fresh-current-seal"
-      },
-      {
         "key": "codex_derived_rebuild_policy",
         "value": "DERIVED_REBUILD_V1:list-of-lists+sha256+declared-pk-or-row-order"
       },
@@ -9575,7 +9591,7 @@
       },
       {
         "key": "codex_version",
-        "value": "2026-09-16T02:39:23Z"
+        "value": "2026-09-16T02:54:34Z"
       },
       {
         "key": "active_provision_binding_version",
@@ -9652,6 +9668,42 @@
       {
         "key": "official_platform_start_contract",
         "value": "gptbridge-start"
+      },
+      {
+        "key": "codex_search_manifest",
+        "value": "CODEX_SEARCH_V2"
+      },
+      {
+        "key": "codex_search_schema",
+        "value": "CODEX_SEARCH_V2"
+      },
+      {
+        "key": "codex_search_alias_hash",
+        "value": "59bf0d52eab5c94d71b9d97f1aa0c64f4c22a3f38eb0ea2d3cbadaf466b957eb"
+      },
+      {
+        "key": "codex_search_fts_hash",
+        "value": "76ad5742156c6a1e2ec06d37cf3d5a7632f25030422f78d37ee3d613657980f4"
+      },
+      {
+        "key": "codex_module_manifest_root",
+        "value": "5a29515d5ebe00c49f5ab2468f5f43bcb294cd2f88c03c24745c92f002f9e665"
+      },
+      {
+        "key": "codex_module_dependency_graph_hash",
+        "value": "8f66df9a5c02226f8cc7150d16def9c17500996d023e7dd0d88e120727f2557b"
+      },
+      {
+        "key": "codex_module_dependency_cycle_status",
+        "value": "acyclic"
+      },
+      {
+        "key": "codex_search_freshness",
+        "value": "fresh-current-seal"
+      },
+      {
+        "key": "codex_current_metadata_source",
+        "value": "derived-from-codex_search_index_manifest+codex_internal_module_manifest"
       }
     ],
     "principles": [
@@ -15519,6 +15571,20 @@
         "tier": "main-codex",
         "law_code": "CODEX_MAIN",
         "authority_basis": "A407|A408|A409|A410|A411"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A494",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A300|A381"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A495",
+        "tier": "main-codex",
+        "law_code": "CODEX_MAIN",
+        "authority_basis": "A423|A424|A474"
       }
     ],
     "provision_lifecycle_status": [
@@ -20765,10 +20831,10 @@
       {
         "provision_type": "article",
         "provision_id": "A300",
-        "lifecycle_state": "active",
+        "lifecycle_state": "superseded",
         "effective_version": "1.00000",
-        "successor_identity": null,
-        "evidence": "H049-normalized-effective-state",
+        "successor_identity": "ARTICLE_A494",
+        "evidence": "A494-complete-successor",
         "legacy_effective_version": "1.00000",
         "current_binding_version": "2026-09-13T23:31:26Z"
       },
@@ -22911,6 +22977,26 @@
         "evidence": "current-amendment",
         "legacy_effective_version": null,
         "current_binding_version": "2026-09-16T02:39:23Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A494",
+        "lifecycle_state": "active",
+        "effective_version": "2026-09-16T02:54:34Z",
+        "successor_identity": null,
+        "evidence": "current-amendment",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-16T02:54:34Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A495",
+        "lifecycle_state": "active",
+        "effective_version": "2026-09-16T02:54:34Z",
+        "successor_identity": null,
+        "evidence": "current-amendment",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-16T02:54:34Z"
       }
     ],
     "provision_lineage": [
@@ -27071,7 +27157,7 @@
         "provision_id": "A300",
         "introduced_by": "H045",
         "supersedes_id": null,
-        "status": "active",
+        "status": "superseded",
         "content_hash": "6b213947b0f211325b0acfe99b4c0e6faad6d0f6a00b5ff2093e2e73d9bd1a28"
       },
       {
@@ -28825,6 +28911,22 @@
         "supersedes_id": "A410",
         "status": "active",
         "content_hash": "5694b5a6a4f535faab595751d7c0b41ec9b24b89457203d0cf08cdca9763380b"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A494",
+        "introduced_by": "CODEX_FINDINGS_39_46@2026-09-16T02:54:34Z",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "4ff04cc0a5c189d43a3a25f2cffba3f33f40345e3dde4bdba94533f278cf83fe"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A495",
+        "introduced_by": "CODEX_FINDINGS_39_46@2026-09-16T02:54:34Z",
+        "supersedes_id": null,
+        "status": "active",
+        "content_hash": "70bd9f39c60f3df2a175bbbfe25bbd98841a96f1d0cbe261b686bb01bb3f563e"
       }
     ],
     "provision_normativity_classification": [
@@ -36216,6 +36318,26 @@
         "evidence_schema": "closure-evidence-v1",
         "release_blocking": 1,
         "version_identity": "2026-09-16T02:39:23Z",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A494",
+        "primary_class": "RELEASE_BLOCKING",
+        "verifier": "星澄",
+        "evidence_schema": "closure-evidence-v1",
+        "release_blocking": 1,
+        "version_identity": "2026-09-16T02:54:34Z",
+        "status": "active"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A495",
+        "primary_class": "RELEASE_BLOCKING",
+        "verifier": "星澄",
+        "evidence_schema": "closure-evidence-v1",
+        "release_blocking": 1,
+        "version_identity": "2026-09-16T02:54:34Z",
         "status": "active"
       }
     ],
@@ -48261,6 +48383,24 @@
         "content_hash": "5694b5a6a4f535faab595751d7c0b41ec9b24b89457203d0cf08cdca9763380b",
         "certification_status": "sealed-pending-external-signatures",
         "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A494",
+        "revision_id": "CODEX_FINDINGS_39_46@2026-09-16T02:54:34Z",
+        "version": "2026-09-16T02:54:34Z",
+        "content_hash": "4ff04cc0a5c189d43a3a25f2cffba3f33f40345e3dde4bdba94533f278cf83fe",
+        "certification_status": "sealed-pending-external-signatures",
+        "version_epoch": 2
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A495",
+        "revision_id": "CODEX_FINDINGS_39_46@2026-09-16T02:54:34Z",
+        "version": "2026-09-16T02:54:34Z",
+        "content_hash": "70bd9f39c60f3df2a175bbbfe25bbd98841a96f1d0cbe261b686bb01bb3f563e",
+        "certification_status": "sealed-pending-external-signatures",
+        "version_epoch": 2
       }
     ],
     "provision_supersession_edges": [
@@ -48447,52 +48587,52 @@
       {
         "predecessor_type": "edict",
         "predecessor_id": "E177",
-        "successor_type": "article",
+        "successor_type": "edict",
         "successor_id": "E178",
         "edge_kind": "resolved-successor",
         "status": "effective",
         "version_identity": "2026-09-15T11:35:50Z",
-        "evidence_hash": "589dc954c8ee0c50e79b7f353f805a645965347e9ac440ee6dff2044507301a2"
+        "evidence_hash": "e3711d7e623b1ce9278a239f526994627396038aea5e35af835e6d0af40ae12c"
       },
       {
         "predecessor_type": "edict",
         "predecessor_id": "E21",
-        "successor_type": "article",
+        "successor_type": "edict",
         "successor_id": "E178",
         "edge_kind": "resolved-successor",
         "status": "effective",
         "version_identity": "2026-09-15T11:35:50Z",
-        "evidence_hash": "2444be4dfcf6955be90d78fcfb2c9dff3ed3d61a9cdafd4b6efb294f4a8cf126"
+        "evidence_hash": "34d0727396cf9b67003fe51f909c504c2fd748de29ce42a3c5cd0b87c3b335da"
       },
       {
         "predecessor_type": "edict",
         "predecessor_id": "E41",
-        "successor_type": "article",
+        "successor_type": "edict",
         "successor_id": "E180",
         "edge_kind": "resolved-successor",
         "status": "effective",
         "version_identity": "2026-09-15T11:35:50Z",
-        "evidence_hash": "ebfcf496942cb201501ba943af3bc29fb5db1e355d241372c0429fd017065196"
+        "evidence_hash": "51184361f73f1114cc3a31d5920c04ee7b7b6e3575af37d62cd5e11701ca1efb"
       },
       {
         "predecessor_type": "principle",
         "predecessor_id": "P114",
-        "successor_type": "article",
+        "successor_type": "principle",
         "successor_id": "P115",
         "edge_kind": "resolved-successor",
         "status": "effective",
         "version_identity": "2026-09-15T11:35:50Z",
-        "evidence_hash": "baa190b5694b38173b90d8a63300c7667995ea6c24812fa6f52c9df578677095"
+        "evidence_hash": "35b54de155c372c3097e9ab60d57c9887fa38b6662de60d32bc4a7368fea881d"
       },
       {
         "predecessor_type": "principle",
         "predecessor_id": "P16",
-        "successor_type": "article",
+        "successor_type": "principle",
         "successor_id": "P115",
         "edge_kind": "resolved-successor",
         "status": "effective",
         "version_identity": "2026-09-15T11:35:50Z",
-        "evidence_hash": "7e7f77c38fbb5da302113f9ecb4d7d73e46456e2cecca138b9af6fe4cc18d18d"
+        "evidence_hash": "69072f12664d4abbe0ddc2a4dcda5f29b7e90ca24a57726cb02146814fdcf04d"
       },
       {
         "predecessor_type": "article",
@@ -49003,6 +49143,26 @@
         "status": "effective",
         "version_identity": "2026-09-16T02:39:23Z",
         "evidence_hash": "33352d52f522c2df89f621e1d40a4e7bcccba6d70f5142f0e2f2ebb898d996d3"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A300",
+        "successor_type": "article",
+        "successor_id": "A494",
+        "edge_kind": "complete-successor",
+        "status": "effective",
+        "version_identity": "2026-09-16T02:54:34Z",
+        "evidence_hash": "f747846ec5fa03eeabc7477db6357f7db0942e43cecb1cc1dbb56630e9b34322"
+      },
+      {
+        "predecessor_type": "article",
+        "predecessor_id": "A381",
+        "successor_type": "article",
+        "successor_id": "A494",
+        "edge_kind": "runtime-identity-clause-only",
+        "status": "effective",
+        "version_identity": "2026-09-16T02:54:34Z",
+        "evidence_hash": "b0f7f00bdcda3da93f7bdab616ba7ab878c2759698ce68c180b37a246ee05469"
       }
     ],
     "revision_history": [
@@ -49311,6 +49471,20 @@
         "entry_hash": "8deb2c494d31a5ab1bcb36fd4790c3bb5c406d966337cc316d5e879880478b34",
         "version_epoch": 2,
         "recorded_at_utc": "2026-09-16T02:39:23Z",
+        "timestamp_status": "verified",
+        "timestamp_migration_evidence": "current-authoritative-registries"
+      },
+      {
+        "sequence": 24,
+        "change_id": "CODEX_FINDINGS_39_46@2026-09-16T02:54:34Z",
+        "version": "2026-09-16T02:54:34Z",
+        "recorded_date": "2026-09-16",
+        "change_scope": "codex-findings-39-46",
+        "summary": "rebuild module and search manifests;separate module and graph hashes;repair succession types;normalize runtime identity;refresh module directory;bound legacy succession;classify meta coverage",
+        "previous_hash": "8deb2c494d31a5ab1bcb36fd4790c3bb5c406d966337cc316d5e879880478b34",
+        "entry_hash": "19717dc15a8cf9910a53fc76812bcc52f2a11ef629c6e8e6f0300f5d9cce59b6",
+        "version_epoch": 2,
+        "recorded_at_utc": "2026-09-16T02:54:34Z",
         "timestamp_status": "verified",
         "timestamp_migration_evidence": "current-authoritative-registries"
       }
@@ -54799,5 +54973,5 @@
       }
     ]
   },
-  "part_hash": "8fda203205ae1901cc2924d969663b71a1a79fc51da5c02e7d59fbf309202eec"
+  "part_hash": "481ead1ed91a7c3498d48c97f8b45b637627ab9de64e6b2ea1126ebd2ef154e9"
 }

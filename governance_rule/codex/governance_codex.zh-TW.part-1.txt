@@ -1,10 +1,10 @@
 {
-  "codex_version": "2026-09-16T02:39:23Z",
-  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-16T02:39:23Z",
+  "codex_version": "2026-09-16T02:54:34Z",
+  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-16T02:54:34Z",
   "part_index": 1,
   "part_count": 3,
   "previous_part_hash": "0000000000000000000000000000000000000000000000000000000000000000",
-  "assembled_payload_hash": "fe5cc60b95de600606ef9119574daea4b1bd728a17cefa8e5d87176e328638bf",
+  "assembled_payload_hash": "a35ee20bc62d9ab5835e46d2298f0f52bc584d241c49240e7acf5bc19f328822",
   "tables": {
     "codex_external_closure_requirements": [
       {
@@ -33,7 +33,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "authority-depends-on-codex_module_foundation",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_PERMISSION",
@@ -41,7 +41,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "permission-depends-on-codex_module_authority",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_DIRECTORY",
@@ -49,7 +49,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "directory-depends-on-codex_module_permission",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_XINGCHENG",
@@ -57,7 +57,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "xingcheng-depends-on-codex_module_permission",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_INFORMATION",
@@ -65,7 +65,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "information-depends-on-codex_module_permission",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_RUNTIME",
@@ -73,7 +73,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "runtime-depends-on-codex_module_information",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_DATA",
@@ -81,7 +81,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "data-depends-on-codex_module_information",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_RESOURCE",
@@ -89,7 +89,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "resource-depends-on-codex_module_runtime",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_LANGUAGE",
@@ -97,7 +97,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "language-depends-on-codex_module_directory",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_RELEASE",
@@ -105,7 +105,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "release-depends-on-codex_module_runtime",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_EXTERNAL",
@@ -113,7 +113,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "external-depends-on-codex_module_permission",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_AUDIT",
@@ -121,7 +121,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "audit-depends-on-codex_module_information",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_GIT",
@@ -129,7 +129,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "git-depends-on-codex_module_audit",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_LEARNING",
@@ -137,7 +137,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "learning-depends-on-codex_module_audit",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_MAINTENANCE",
@@ -145,7 +145,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "maintenance-depends-on-codex_module_runtime",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_TEST",
@@ -153,7 +153,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "test-depends-on-codex_module_audit",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_ORDINANCE",
@@ -161,7 +161,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "ordinance-depends-on-codex_module_foundation",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_PRIVACY_SECURITY",
@@ -169,7 +169,7 @@
         "dependency_kind": "governance-reference",
         "allowed_reason": "privacy-security-depends-on-codex_module_permission",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_RUNTIME",
@@ -177,7 +177,7 @@
         "dependency_kind": "identity-resolution",
         "allowed_reason": "runtime-resolves-registered-identities",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_DATA",
@@ -185,7 +185,7 @@
         "dependency_kind": "locator-resolution",
         "allowed_reason": "data-resolves-directory-identities",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_LANGUAGE",
@@ -193,7 +193,7 @@
         "dependency_kind": "codex-policy",
         "allowed_reason": "language-rules-follow-codex",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_RELEASE",
@@ -201,7 +201,7 @@
         "dependency_kind": "evidence-validation",
         "allowed_reason": "release-consumes-audit-evidence",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_MAINTENANCE",
@@ -209,7 +209,7 @@
         "dependency_kind": "verification",
         "allowed_reason": "maintenance-consumes-test-evidence",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       },
       {
         "source_module_code": "CODEX_MODULE_XINGCHENG",
@@ -217,351 +217,351 @@
         "dependency_kind": "official-channel",
         "allowed_reason": "xingcheng-uses-information-entry",
         "cycle_policy": "deny-cycle",
-        "version_identity": "2026-09-14T00:55:45Z"
+        "version_identity": "2026-09-16T02:54:34Z"
       }
     ],
     "codex_internal_module_manifest": [
       {
         "module_code": "CODEX_MODULE_AUDIT",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 10,
         "active_count": 10,
         "superseded_count": 0,
-        "membership_hash": "5f2fac0724e129188ebddf6b4f381cf63f73efa512fffc0e0c94dbfafa6a8ed4",
-        "content_hash": "24c27638943e8805677fbd5ac7cacdf60c01e9db6a77bedfd4ca1e7082ce4f6b",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "24c27638943e8805677fbd5ac7cacdf60c01e9db6a77bedfd4ca1e7082ce4f6b",
+        "membership_hash": "b2af85ad6c4eed54973eb9bb5f6c79bf762d9092b705e11244ddb6d261ba6e85",
+        "content_hash": "0b8cb62eb5fee9aa27c9e9929f053423b693c67c00a5df66431a28548ba92aa3",
+        "dependency_hash": "5433f142d9476fc9e399e835ff2c9f65a47fb5b733ab2b7dd6a709dd6cfca5c2",
+        "search_document_hash": "0b8cb62eb5fee9aa27c9e9929f053423b693c67c00a5df66431a28548ba92aa3",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "9efc647d49b9c14d92594a1918184f1586d5fe17639248507bfa4a5b9d9d6dfd",
-        "classification_hash": "3971c45e2c5d3c1f1f6b3ab0affaf02bab8b211e47dca51a10e7497984e5614e",
-        "successor_resolution_hash": "5f2fac0724e129188ebddf6b4f381cf63f73efa512fffc0e0c94dbfafa6a8ed4"
+        "lifecycle_hash": "9783f827498943fd66548d6863d906f36b25a6c8908f993e9e12897cce202d22",
+        "classification_hash": "0ee9130bdf8d1e4921b6473d37d4b6eef39a612b1ac2edfc755bc477073e9c28",
+        "successor_resolution_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
       },
       {
         "module_code": "CODEX_MODULE_AUTHORITY",
-        "version_identity": "2026-09-15T15:42:01Z",
-        "provision_count": 120,
+        "version_identity": "2026-09-16T02:54:34Z",
+        "provision_count": 121,
         "active_count": 98,
-        "superseded_count": 20,
-        "membership_hash": "19477e82dede5721cd39c7a12c14fe94668e121a5c8181d091fcdad66edcc897",
-        "content_hash": "c76cd12224e728e97efe919d834a374f10a20c7af28dfc2760046da8fa4a7d3f",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "c76cd12224e728e97efe919d834a374f10a20c7af28dfc2760046da8fa4a7d3f",
+        "superseded_count": 21,
+        "membership_hash": "36ece551547b7bbc8952745798209ca186ff868d81845a8436cd8691fa665745",
+        "content_hash": "d292f835b0cfdcc526de2660b0bfd7107b2cc7f93aafd9c430df96930e08e538",
+        "dependency_hash": "5a4a2ad34539cc05810e68634b14040832a79c3baaed6cc42ede7d65d6f90268",
+        "search_document_hash": "d292f835b0cfdcc526de2660b0bfd7107b2cc7f93aafd9c430df96930e08e538",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 2,
         "other_state_count": 0,
-        "lifecycle_hash": "2b221c942e3fc7bbd3b755d4eab83d9dde94c3667cbc1ecd7e5179bcdd70b842",
-        "classification_hash": "c5e4ae5859a375198063aae5b177fdbb5ff65d1ae444918446ce5b051c013ce1",
-        "successor_resolution_hash": "19477e82dede5721cd39c7a12c14fe94668e121a5c8181d091fcdad66edcc897"
+        "lifecycle_hash": "eca0b47f12588c1b1791ef11eafe03eff5d8d6dfcee1f0e55d00d556b345ed3a",
+        "classification_hash": "d3988fdd2de596c5f9f4ed473e1480ed59979399ec1f0d1db7b688c3f9fb8923",
+        "successor_resolution_hash": "937cc9efe1c69c4723cdf4adcd276e24e5cb840179b5c1ec00701f5722302e6c"
       },
       {
         "module_code": "CODEX_MODULE_DATA",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 11,
         "active_count": 10,
         "superseded_count": 1,
-        "membership_hash": "fcc21af4bd20e9c8012bf881bb369d87db392479a65b26d699105f636e3b0ea4",
-        "content_hash": "6dd4bcbe9e066adaf989b7adeed98732c961faee506cf9e3a931f79df9e205ef",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "6dd4bcbe9e066adaf989b7adeed98732c961faee506cf9e3a931f79df9e205ef",
+        "membership_hash": "37b9cd691a8459098ece7f9a53b71869cbf6e5a7e26a335fffb175fa4c6872a6",
+        "content_hash": "ecc322897cd438d41d569db42865b2a1c3cf65c087f1e81063e4e6d8729ff206",
+        "dependency_hash": "3fdfe4d16de39e4f98266b887ff83a6210013aab9aa6c0e09303110b64069e12",
+        "search_document_hash": "ecc322897cd438d41d569db42865b2a1c3cf65c087f1e81063e4e6d8729ff206",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "e30150936299e10c09fa70142f96cb6dbc367742e8adc183c4f974345c52077a",
-        "classification_hash": "6b01f882d7157155d611c5768471f4a78fd954e694e1eb2c114bd20a1e739a2f",
-        "successor_resolution_hash": "fcc21af4bd20e9c8012bf881bb369d87db392479a65b26d699105f636e3b0ea4"
+        "lifecycle_hash": "cd613c752a86892a4b8b4225f17fd3a1ced5b941f9fafe7d8bbbb56414344e4c",
+        "classification_hash": "7ef069e8e4a9c963b1afe1fa5bc16515cc97097f45f5907107ef562f872fc859",
+        "successor_resolution_hash": "d318ede43605d68eb4e1514ac5e87ea5c64ffa3286dad53ba8b4b69838bdd042"
       },
       {
         "module_code": "CODEX_MODULE_DIRECTORY",
-        "version_identity": "2026-09-15T15:42:01Z",
-        "provision_count": 40,
-        "active_count": 37,
+        "version_identity": "2026-09-16T02:54:34Z",
+        "provision_count": 41,
+        "active_count": 38,
         "superseded_count": 3,
-        "membership_hash": "0a8a6fa6558bf88d850747828f08547eb6d1bf0e3753a5198a863d6c4920d1b0",
-        "content_hash": "3f58b629b458b8aa923c30659341dfcfd732fe88b3a39e664f90855ce6fe4c41",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "3f58b629b458b8aa923c30659341dfcfd732fe88b3a39e664f90855ce6fe4c41",
+        "membership_hash": "52792389a24daf6cee81f7f5b21d33bfca338f9eeef7da7c3a8db8c52abe79be",
+        "content_hash": "a75d607b1b93e1ab48573fab6d46bc94bcb985cf5bfbefe3386c11693cf33c75",
+        "dependency_hash": "fd5a36902bedbd830e516ee73a9a7768a00fd6a22a67ce743e8dd86323fab751",
+        "search_document_hash": "a75d607b1b93e1ab48573fab6d46bc94bcb985cf5bfbefe3386c11693cf33c75",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "370d3329aad73359c47eac2ced6468bd9e51d303d71b768f305d1d47f1e236eb",
-        "classification_hash": "a54cd9efd2b44cc71ca6fa6a1578ecee01566bece87aff911ebfe685cb37bf00",
-        "successor_resolution_hash": "0a8a6fa6558bf88d850747828f08547eb6d1bf0e3753a5198a863d6c4920d1b0"
+        "lifecycle_hash": "6cffaecccda3e925d4cb681d1b82f065ac410278867e38bb2c5c8513357a924f",
+        "classification_hash": "d10f58a0dfb9bcadd3c5ce0d3934cadce41581abaeb0c145ee4332d9ef74107c",
+        "successor_resolution_hash": "c6915419cfa78fe67745af684bc9044f7541f33f7643d2fd7e46daefeb7a8b8d"
       },
       {
         "module_code": "CODEX_MODULE_EXTERNAL",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 1,
         "active_count": 1,
         "superseded_count": 0,
-        "membership_hash": "fa61cae3ac92cd0d8df46faf900c85ff03e857bccbe89db2ebcb33cb4c94a295",
-        "content_hash": "4ea665d6b97c5b4044da93fae899edd655c2a2410f71f0550cbf603fdd727066",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "4ea665d6b97c5b4044da93fae899edd655c2a2410f71f0550cbf603fdd727066",
+        "membership_hash": "a09b788840f7ce739373dbb4232844ca68a8aa4e898e1c3854f847fed2c4ce7a",
+        "content_hash": "7dc85ba9e7e67ef87af9d3f611ffa40d3db0a05ef66d3e1300a569805fddd15c",
+        "dependency_hash": "3f32dfdf99d0857f64591e5224f74364dbbaf7552a9ab6cc15b11b4653ab026f",
+        "search_document_hash": "7dc85ba9e7e67ef87af9d3f611ffa40d3db0a05ef66d3e1300a569805fddd15c",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "322c9404adda621c7a9c452f41a1e56b975f86169c1f276d8cf8f0e333ca0463",
-        "classification_hash": "6b2892c13d239ddebe597d4f311852b7fa001f44d563b1c699a21b2f8904d0b5",
-        "successor_resolution_hash": "fa61cae3ac92cd0d8df46faf900c85ff03e857bccbe89db2ebcb33cb4c94a295"
+        "lifecycle_hash": "2c5c2926bdd2b012b13b24d95bdad01e5e8aac962efbb459858c8b501f727a31",
+        "classification_hash": "5b8fc66af8b46ca6efd9b2aad153569ba75b1515278d53fe4531b9fd27cd543b",
+        "successor_resolution_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
       },
       {
         "module_code": "CODEX_MODULE_FOUNDATION",
-        "version_identity": "2026-09-15T15:42:01Z",
-        "provision_count": 349,
-        "active_count": 325,
-        "superseded_count": 24,
-        "membership_hash": "4817cc87abfe3a4ef4ee56f749be083eeb8f185b82d0d6a3c0ce881c2e498e16",
-        "content_hash": "d7fdd2ed17e7a694ccf462c910f3108e9b07a80052e890ad65eb1aee77341e75",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "d7fdd2ed17e7a694ccf462c910f3108e9b07a80052e890ad65eb1aee77341e75",
+        "version_identity": "2026-09-16T02:54:34Z",
+        "provision_count": 350,
+        "active_count": 319,
+        "superseded_count": 31,
+        "membership_hash": "da1f224683ccc2abece9080aef7b9444620961067f150b747e7e63bafaa903b0",
+        "content_hash": "61df1e6c90dc26dd96d90048f80b35ad653632882e2204280ecb509bdf4d4aa5",
+        "dependency_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "search_document_hash": "61df1e6c90dc26dd96d90048f80b35ad653632882e2204280ecb509bdf4d4aa5",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "0c4a5a4bce8f7659c9e3563f8a976d7040d081ab4be7ca2550055a2cc4f0ea5f",
-        "classification_hash": "6b3ab5a75e6192c6318a634f591f0da54c11898a5475bf315d04c572eeab2acf",
-        "successor_resolution_hash": "4817cc87abfe3a4ef4ee56f749be083eeb8f185b82d0d6a3c0ce881c2e498e16"
+        "lifecycle_hash": "91477d3251f5dd5e5fa04e5bff8caafdd78be42667de3419ea80ef836208d15a",
+        "classification_hash": "33e4b5473f7c2fc5a2eba3bdf8ea51415725d9c24478fc47fdc768ef050d8bee",
+        "successor_resolution_hash": "94b2289be5a95f3ffb896106fff4a5657a5110ecb93ff53724a2c2f3e612c9f9"
       },
       {
         "module_code": "CODEX_MODULE_GIT",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 3,
         "active_count": 3,
         "superseded_count": 0,
-        "membership_hash": "2b389570f4d30db7ff72fb649d0ae575c68fa8cee86029b9c27f5879bd9fdcf6",
-        "content_hash": "df34c7ff2339f9c8614336c37973b895ab34c1649600888e83c915fc359c39e7",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "df34c7ff2339f9c8614336c37973b895ab34c1649600888e83c915fc359c39e7",
+        "membership_hash": "04f6b249f647ad430c7880019bab7d575771d22380070861b9ab6c439e5669e6",
+        "content_hash": "e0858ba5377fd93a89087a698124ba95baf806a49f576e0af0fbe1f53e12fe40",
+        "dependency_hash": "48dc3f69b6a0fabf13cc830e02b98c0faada0dd28da220d6501944348dbd3c33",
+        "search_document_hash": "e0858ba5377fd93a89087a698124ba95baf806a49f576e0af0fbe1f53e12fe40",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "b80e39ffce5b2455579d4f8a823ce09c826e38d553621947f9c3008b08ef59ef",
-        "classification_hash": "4457b316fdf3d153400d41f01bb50a7e323a0c5e0625f5cd75df1e3b05c77d2c",
-        "successor_resolution_hash": "2b389570f4d30db7ff72fb649d0ae575c68fa8cee86029b9c27f5879bd9fdcf6"
+        "lifecycle_hash": "06298d4f72ab31aecb9fd33bfde7b00965c64768116287e5741fe91ccb581202",
+        "classification_hash": "77cf40acca6e1d8673d2df41b4fefa8eaf1c68c6c7eec35da50905a1a88620d9",
+        "successor_resolution_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
       },
       {
         "module_code": "CODEX_MODULE_INFORMATION",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 15,
         "active_count": 11,
         "superseded_count": 4,
-        "membership_hash": "55e6fb347140b834035aaec75a2da252d928c067325b7dab656f6964832100d3",
-        "content_hash": "cc8fcb267bf6dcac05784a0647f7928895a916f3e29d463d8935b052ce277ae9",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "cc8fcb267bf6dcac05784a0647f7928895a916f3e29d463d8935b052ce277ae9",
+        "membership_hash": "7a610443321e7ded147b49a39bfae859de6dd39b00a323ad7facbc37b852d4e8",
+        "content_hash": "240e8e1b5d2ae0452231282c47661f68fd6e32322d222ee25a0545cdc8d99189",
+        "dependency_hash": "2a8505dd1c77dc9b47e7329e5a180e2f90f9e85f17cbe3446e84741653743b81",
+        "search_document_hash": "240e8e1b5d2ae0452231282c47661f68fd6e32322d222ee25a0545cdc8d99189",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "2f9b75782eeb17e61da5b851bce142e9878fb6e65f42e39a4dc0abf660dc598d",
-        "classification_hash": "95e5470687cb84132e0ee1757e61fb4ca4a3153d5b543cbf538e72381e7e77a2",
-        "successor_resolution_hash": "55e6fb347140b834035aaec75a2da252d928c067325b7dab656f6964832100d3"
+        "lifecycle_hash": "56eacf86f04fdd3b9eb5852fbdea5d6d2a4651d547cc30341eafb4997a5485be",
+        "classification_hash": "f128054ac44b71bc1757c6ed9c963fdad5ed7876508c5b3feaed13b691dbd790",
+        "successor_resolution_hash": "e2f1f2b5e487b75b40da8ded4c43acb2e21fdd44f3637a37d1974fe3ca45d30f"
       },
       {
         "module_code": "CODEX_MODULE_LANGUAGE",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 37,
         "active_count": 30,
         "superseded_count": 7,
-        "membership_hash": "934ebf53cbd3df64008f0f34b97c43d1394b262b3775d42e93672d6beab60d78",
-        "content_hash": "504377d8879e7e788a1c42982b280ab98ceb714384d80bed4407f12053fc1f02",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "504377d8879e7e788a1c42982b280ab98ceb714384d80bed4407f12053fc1f02",
+        "membership_hash": "0064e1a13370f695bf7dc222e88fecc13a9afc62b95578730cf38316cb3cbc1c",
+        "content_hash": "0c024d67512d07406be7f623c368cab5c9aec3a64899f31d68e467b5213a23a0",
+        "dependency_hash": "8404ad8917142d3e99e95934087c0476877f6892f9de82c5d5aebff27be728d6",
+        "search_document_hash": "0c024d67512d07406be7f623c368cab5c9aec3a64899f31d68e467b5213a23a0",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "7264abb62ba01d818d85d3026a975388d1de71418bdd1d57fb7fa1e218924ad5",
-        "classification_hash": "793ee5b0df77c7251b2d389f998b5e3ee21b89703fb002d08aa15f1938c43c20",
-        "successor_resolution_hash": "934ebf53cbd3df64008f0f34b97c43d1394b262b3775d42e93672d6beab60d78"
+        "lifecycle_hash": "3cfc1ec4e22271acd33a75dc54c4c523e71681c487cdb0049452cf13e72d3ed3",
+        "classification_hash": "e341464aea63633940546f5ff2c92e392c92f5ea50c97e847b0ca101c87216cf",
+        "successor_resolution_hash": "4905244dfc16a0e9ef4d0b6d0d52709003fddc92541b7379376cc405498bb819"
       },
       {
         "module_code": "CODEX_MODULE_LEARNING",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 1,
         "active_count": 1,
         "superseded_count": 0,
-        "membership_hash": "57947da2ff27ed0bbe0f110009961102cb6a2c406848024b2e0d2d930831b1b4",
-        "content_hash": "ea3f4c57d43e58d32623711f1c5598a9553a09f82900677bfa18f9a05d8dc6bc",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "ea3f4c57d43e58d32623711f1c5598a9553a09f82900677bfa18f9a05d8dc6bc",
+        "membership_hash": "47e21cc2b69afc55e4a41cc1404df4d0a550504371c4970b10c23a406f612bf1",
+        "content_hash": "2840c1e447f42564c56247f4dc23f45d325e5b66277ca01a3b5883741f9584a7",
+        "dependency_hash": "4a32180dbbab54ca2cb91a118af10f990d3ce8fca0b4ff7f857e0b615508a493",
+        "search_document_hash": "2840c1e447f42564c56247f4dc23f45d325e5b66277ca01a3b5883741f9584a7",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "322c9404adda621c7a9c452f41a1e56b975f86169c1f276d8cf8f0e333ca0463",
-        "classification_hash": "50e75e6e48753c4503a138a41635229fa1fe1d44f84afad8ff93c24e25aba57b",
-        "successor_resolution_hash": "57947da2ff27ed0bbe0f110009961102cb6a2c406848024b2e0d2d930831b1b4"
+        "lifecycle_hash": "85c18c62c35cb203440b83b180f2f6afb9d474fa33ce867dc48ebef6d1f15308",
+        "classification_hash": "755ed6ef621313f18212f49875b394b049e86b9034d31d757532b0f0297d939b",
+        "successor_resolution_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
       },
       {
         "module_code": "CODEX_MODULE_MAINTENANCE",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 11,
         "active_count": 9,
         "superseded_count": 2,
-        "membership_hash": "9bc2e67629e9242d32071f4443f83394059a38e690f4d4d28ce52d9e57bea082",
-        "content_hash": "ee947e2ca7c3341a001bfb188cedf80027b3518fba28bd34d04b2940d2a3b189",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "ee947e2ca7c3341a001bfb188cedf80027b3518fba28bd34d04b2940d2a3b189",
+        "membership_hash": "700f28f0b0a9f6e6d3f80735e9f313c71c80adc6e881bbfa6afd2f5fa416352f",
+        "content_hash": "90485da292525f5a6b0a4128628c0bb1609f4daefc69934f24fc68d76efc63ab",
+        "dependency_hash": "9d1938c5fb1a5c135c9c74170d64f3ec53597a5840f2863a58677859d22532bc",
+        "search_document_hash": "90485da292525f5a6b0a4128628c0bb1609f4daefc69934f24fc68d76efc63ab",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "ac74682e0ccf52d70d4bd7296849d0c842eaec2bdde0f037af07653f62ef452e",
-        "classification_hash": "df9b0643d56e683e66cb704773cd5a90d8299bb2ece65f5a0273473ff905d470",
-        "successor_resolution_hash": "9bc2e67629e9242d32071f4443f83394059a38e690f4d4d28ce52d9e57bea082"
+        "lifecycle_hash": "bb771edc2b50e81a4b39fd75e7bcc0825f96d5c982a106f75a1f47c97cfbed90",
+        "classification_hash": "4ec019ccea99d4e620e6e80d87c99af7f307b3990e75ab486bcbbd14a21ac4e7",
+        "successor_resolution_hash": "98330711f8f68049c8b90d8a427b31676664a5ce63d18b78700bc0c2e54334b5"
       },
       {
         "module_code": "CODEX_MODULE_ORDINANCE",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 52,
-        "active_count": 38,
-        "superseded_count": 14,
-        "membership_hash": "d44c793bd96a130f0b1f04422a93c2a9147bd7e8e462c43848c5624e7b0397f6",
-        "content_hash": "296c4182922789d80e53b4ec202556206f51f3a0f01f036e52925ec1b9f839f4",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "296c4182922789d80e53b4ec202556206f51f3a0f01f036e52925ec1b9f839f4",
+        "active_count": 37,
+        "superseded_count": 15,
+        "membership_hash": "ef47f7f2c4da5e5f18887d5f6bb29680a90598d610a8ac022e3705c36bb2391c",
+        "content_hash": "8a1934db276039f37e2755d21ba6aa5ec307592451f3c8f581fe441885e54c1b",
+        "dependency_hash": "7d682a40cb3e808e9a14ba8e54955e03abb5c6b749720bc52f004190c399a918",
+        "search_document_hash": "8a1934db276039f37e2755d21ba6aa5ec307592451f3c8f581fe441885e54c1b",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "9bc349d45bf326a85c7cd63678767e15ccbc13b00907d23e922742c0ca99d24c",
-        "classification_hash": "65d7b29b24b9e472ac4463be104f772395615f5dab2533bc579fc27cbe84a1f0",
-        "successor_resolution_hash": "d44c793bd96a130f0b1f04422a93c2a9147bd7e8e462c43848c5624e7b0397f6"
+        "lifecycle_hash": "aa584f0f35fa5021315c751dee395cee2a3cbdb6f9b888cad2bde98dcfb3d36a",
+        "classification_hash": "96641ab8a0dd97d1ad20b09665e1057b105f68be3d50292d35bcfc7ad5d6b45d",
+        "successor_resolution_hash": "424f03e71b96a86a16c4eac0f8877b108ea99d56feaa85b581985f286f889cfb"
       },
       {
         "module_code": "CODEX_MODULE_PERMISSION",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 26,
         "active_count": 22,
         "superseded_count": 4,
-        "membership_hash": "6ed229b007ca4b4541751492837861cc5fdf72ee45985a0deee07181c2a746b7",
-        "content_hash": "33ecae69683c83c2da79d7c93657ff974f9f6b1d25453ecdbf55c8c1e3553f33",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "33ecae69683c83c2da79d7c93657ff974f9f6b1d25453ecdbf55c8c1e3553f33",
+        "membership_hash": "32ac6a2ab90d4c0f56f937419db5fc60fc973a797621097df31c9fe012383e28",
+        "content_hash": "81f79c22dc0ced70525f0b765143521ec72108d5a538e4c6469e76f7058a08b9",
+        "dependency_hash": "90a1a1b36477daf45adb59eaa85ae7e696f3543dfbb4c68bf947bdf49a4238b3",
+        "search_document_hash": "81f79c22dc0ced70525f0b765143521ec72108d5a538e4c6469e76f7058a08b9",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "6f70341105361f94ff820f36f8a96718404af7f41b310cbbc7aca7d19337c337",
-        "classification_hash": "88a11a11e266543dadbf01be01c714c3a373b83c82479d52082e738286bf8365",
-        "successor_resolution_hash": "6ed229b007ca4b4541751492837861cc5fdf72ee45985a0deee07181c2a746b7"
+        "lifecycle_hash": "f0d3d1ba6ed2dbf2a2ad553d009e1e6bffe05ab61b46e6169f1813f2f87dba0f",
+        "classification_hash": "11fc8f391119d5d316824f25b2b591720e0d3593e8909f6a1207a83342e80c49",
+        "successor_resolution_hash": "c394d769363a53f4ff69d8d58aafdc27e0f60dee453efa5c4cfb7e75ce4f3e93"
       },
       {
         "module_code": "CODEX_MODULE_PRIVACY_SECURITY",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 6,
         "active_count": 6,
         "superseded_count": 0,
-        "membership_hash": "10165104f5f0bd79ef46597fb3d8a9833de2ab069c63da0b1b0f3a8317760152",
-        "content_hash": "71518213f2bab932f1728ac97e21fb8bd5aea35662920b9398fbe4582b846f5a",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "71518213f2bab932f1728ac97e21fb8bd5aea35662920b9398fbe4582b846f5a",
+        "membership_hash": "7f2313c19732cf3fe9e2373b8226b9b495914ccf352ae1cbcc50b4313d3a1f79",
+        "content_hash": "d12c2c996d3e63fdb7c8c79aea62ef022bb38de091a0aa55d828bf279b70fc83",
+        "dependency_hash": "ecc10c19e068af7d0bdedc30043df5df5d5155f1f238e50f639ad8033b3e344f",
+        "search_document_hash": "d12c2c996d3e63fdb7c8c79aea62ef022bb38de091a0aa55d828bf279b70fc83",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "1ba5e82b98d55ddd80ce28dfb303af7f325ea564890518bc4ff3779858583f07",
-        "classification_hash": "940fa4ed61edfe42136f068ad0d27fa446130bb1d5d8673532e5bd48a8160b94",
-        "successor_resolution_hash": "10165104f5f0bd79ef46597fb3d8a9833de2ab069c63da0b1b0f3a8317760152"
+        "lifecycle_hash": "452fa303197663b242d27dfc38bc6e98990c1c8806753cdf9207c9c253ee2bdf",
+        "classification_hash": "0dfffecac1d14eba595a7a84b460c0e1707a624c9a7b07b36709753dceb6dabe",
+        "successor_resolution_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
       },
       {
         "module_code": "CODEX_MODULE_RELEASE",
-        "version_identity": "2026-09-15T15:42:01Z",
-        "provision_count": 11,
-        "active_count": 9,
-        "superseded_count": 2,
-        "membership_hash": "c36ff71bbe5816e37a77129d22c59ab785940c26160bdcf2806c750d9da92593",
-        "content_hash": "6b1ab20a787ef8b4847bd72742dbcdef81c1cc969f62e9da2a0fd9cd9d1e9fd0",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "6b1ab20a787ef8b4847bd72742dbcdef81c1cc969f62e9da2a0fd9cd9d1e9fd0",
+        "version_identity": "2026-09-16T02:54:34Z",
+        "provision_count": 17,
+        "active_count": 13,
+        "superseded_count": 4,
+        "membership_hash": "b15d33ac02803c36299692c7ced0c0a3b9f6890f156c02e1630f005110059949",
+        "content_hash": "e6a5c6f736f0f2e4981c5af0651346973c982ac816312cd0da4be9a1a37ccfbc",
+        "dependency_hash": "0f48d786b19c5f1ef3354f5409344b65c57dba9988b50bb096a1d7dc409c0665",
+        "search_document_hash": "e6a5c6f736f0f2e4981c5af0651346973c982ac816312cd0da4be9a1a37ccfbc",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "9fdfeb403a1999a4fa9640f6b59df1d7f362cc28db1dd2e3af63d7761d959954",
-        "classification_hash": "5fb0e65cae0be9661ec1f45dff5e1099c18d9a7bd184243433b581c5c41e9062",
-        "successor_resolution_hash": "c36ff71bbe5816e37a77129d22c59ab785940c26160bdcf2806c750d9da92593"
+        "lifecycle_hash": "c52e84584e9306e3771807dd0aa1367e0c8a4bbdb5ad68b747b8c5446aed2cca",
+        "classification_hash": "5e837986c2759865c9c26b1dff7d1a69fd1fed8f8f478e7a36c85cbeba93195c",
+        "successor_resolution_hash": "b0537e6dcab2476ab7be0d1e1b83cec347c3a7086e193b219a2750c962ff7336"
       },
       {
         "module_code": "CODEX_MODULE_RESOURCE",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 1,
         "active_count": 1,
         "superseded_count": 0,
-        "membership_hash": "e503a8c1530d1e07667845ae70a7a937b09702bb0850c4f446dad57e87a38130",
-        "content_hash": "8c333419a3cfceb64e6c7e29d2d90a388d33a4624f35a1b5fc5fdaea1fd02aca",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "8c333419a3cfceb64e6c7e29d2d90a388d33a4624f35a1b5fc5fdaea1fd02aca",
+        "membership_hash": "bbf19670794db176da71f74f16ef49c77c19f294480d554cfe157d463cfaaf31",
+        "content_hash": "fee3283fa609194ad454808da1e808d5aa53772ca34f705ad02371a90da91554",
+        "dependency_hash": "6bdc3ececa05adae2feee0f492caa3a44ace918af3baab822a3e1253f49fff24",
+        "search_document_hash": "fee3283fa609194ad454808da1e808d5aa53772ca34f705ad02371a90da91554",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "322c9404adda621c7a9c452f41a1e56b975f86169c1f276d8cf8f0e333ca0463",
-        "classification_hash": "dd982064c0ad4dce17183ce7d17b1effdc3a97b8c59add2d0df50cd83a0710a3",
-        "successor_resolution_hash": "e503a8c1530d1e07667845ae70a7a937b09702bb0850c4f446dad57e87a38130"
+        "lifecycle_hash": "b28a8d2e78e84d816aad9f3fdae6859b30bdc8f6d8cb17fc8d5c3daa424440ca",
+        "classification_hash": "96908ecfe27c20d51e0dfccd2a8d067fec5679bcd42cbf253bb590d6d73c30bc",
+        "successor_resolution_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
       },
       {
         "module_code": "CODEX_MODULE_RUNTIME",
-        "version_identity": "2026-09-15T15:42:01Z",
-        "provision_count": 13,
-        "active_count": 11,
+        "version_identity": "2026-09-16T02:54:34Z",
+        "provision_count": 14,
+        "active_count": 12,
         "superseded_count": 2,
-        "membership_hash": "de0301f14c6d0b36fb0075b33e30e9cf03345762be9961884bd028200b883c78",
-        "content_hash": "18d0f5cbfa604d5eddaf77f4c7fe5315b23c488738b8032efe4c03aad1f9e988",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "18d0f5cbfa604d5eddaf77f4c7fe5315b23c488738b8032efe4c03aad1f9e988",
+        "membership_hash": "f92321896d3a5f8f855981f300027fcc200f5440f52b458b4e54fcfccdb6ff9d",
+        "content_hash": "31083cc1c04785608d3699a43ec46c06f0c4f58f19486c560aeb81a8882b7751",
+        "dependency_hash": "9a0afaea9d228b7b530f37ce7ccd4a0cd7442fca14196bffdead9e87bb65262d",
+        "search_document_hash": "31083cc1c04785608d3699a43ec46c06f0c4f58f19486c560aeb81a8882b7751",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "2f4dbf10e06d6f561ef0abacd20a7a5c53dfb1134744ea99ab470b66803bbc38",
-        "classification_hash": "4cbbbdda7fdf2cdcf4c277aba9d1b2bc8de22d38ab69aefb689f7bd83432f0e6",
-        "successor_resolution_hash": "de0301f14c6d0b36fb0075b33e30e9cf03345762be9961884bd028200b883c78"
+        "lifecycle_hash": "9ee1df08ed2b6d0efc8f232f2eec2de7aeb778c6d56a5521fc8e0a60cae65532",
+        "classification_hash": "3339e214df5f9672adebccef1c3b617292bf86dd5cb78bfc7aeb93db19e93eb5",
+        "successor_resolution_hash": "03754a0cc72802be6e414f5bbf2151fb1e981b6c045e6dea11cc74ce3dd679a2"
       },
       {
         "module_code": "CODEX_MODULE_TEST",
-        "version_identity": "2026-09-15T15:42:01Z",
+        "version_identity": "2026-09-16T02:54:34Z",
         "provision_count": 10,
         "active_count": 9,
         "superseded_count": 1,
-        "membership_hash": "4bc760b9115a455b6537ba8c388a06e9257881dbf627e18dd935ab864b16c064",
-        "content_hash": "47a48573994c172589418f3c86bb25c36df04b56189dcd0c2dbc339239c6cb7d",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "47a48573994c172589418f3c86bb25c36df04b56189dcd0c2dbc339239c6cb7d",
+        "membership_hash": "3491d1e1621783af978f94bd481d1aeba2b359cd3eaf307fa25faab9eb3e5e0a",
+        "content_hash": "104c61aaf9f10e8839743dc70bc004c7fbd643dd99c28df51a804ae8b45974ae",
+        "dependency_hash": "4009b885d1d6fcaf03ee127c9a9f0c3e083f836dd08d6c21549d7cfcbe7060e0",
+        "search_document_hash": "104c61aaf9f10e8839743dc70bc004c7fbd643dd99c28df51a804ae8b45974ae",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "9923cfe16a3bf71110ba1d4681909bd7cc1e1b777955dc9b0c8fc1eae5620b0f",
-        "classification_hash": "38f8b658ef9cd0cc6e2b78e836544d4909e9098e84cedf726b861369c8487dc1",
-        "successor_resolution_hash": "4bc760b9115a455b6537ba8c388a06e9257881dbf627e18dd935ab864b16c064"
+        "lifecycle_hash": "78a81e8f9f788094caa7d2d7cb9622ea879236ec440131277cfcc338e782efe6",
+        "classification_hash": "2a7ffaf1d575adfee38b5c1fbc72a6e78c31c5f982a2c6c508c00e7182730155",
+        "successor_resolution_hash": "d4415687bbe683ccfca0c53a195366e10e8b4610f2c4255ead09d624c3fb1f6b"
       },
       {
         "module_code": "CODEX_MODULE_XINGCHENG",
-        "version_identity": "2026-09-15T15:42:01Z",
-        "provision_count": 13,
-        "active_count": 9,
+        "version_identity": "2026-09-16T02:54:34Z",
+        "provision_count": 14,
+        "active_count": 10,
         "superseded_count": 4,
-        "membership_hash": "fed6ff11d7764dcab9eeabb385d7ffd6399fcba37f7904d204b39825fc4835d4",
-        "content_hash": "be69790871f454223febb6f3d9b28102b0c956c3c89f278319a94cd70f880db2",
-        "dependency_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
-        "search_document_hash": "be69790871f454223febb6f3d9b28102b0c956c3c89f278319a94cd70f880db2",
+        "membership_hash": "fa0518698df06a01ef0c3a7ee07241ea7710115b0646dc3961781928b1e25905",
+        "content_hash": "748c7ab96634ace732d7060d48ee4516f52c7ce745fa304b9e1f8d9b5bb948f7",
+        "dependency_hash": "22448c28edf7c2adc91f7dbfb4e469ca7824312e0027b464a9b73f2dfc590cc4",
+        "search_document_hash": "748c7ab96634ace732d7060d48ee4516f52c7ce745fa304b9e1f8d9b5bb948f7",
         "status": "sealed",
-        "sealed_at_utc": "2026-09-15T15:42:01Z",
+        "sealed_at_utc": "2026-09-16T02:54:34Z",
         "retired_count": 0,
         "other_state_count": 0,
-        "lifecycle_hash": "c49afd20a0d5c67b27ed0cd1d6cd0ea66419ba5a0eebb92efb474a8808693636",
-        "classification_hash": "444d705b8b613b330a324caeecbb6f110fa041fdc0a0177cedc33c8846999706",
-        "successor_resolution_hash": "fed6ff11d7764dcab9eeabb385d7ffd6399fcba37f7904d204b39825fc4835d4"
+        "lifecycle_hash": "c0d4d3d139c7ee5c3b0d85d479a13a5d813cf2849ed73371378ba7c64887352a",
+        "classification_hash": "43fbb9b9c66b8fd9c35a7da1f129dd657ae65e9ccb20d2e219be6972ed197b95",
+        "successor_resolution_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
       }
     ],
     "codex_search_document": [
@@ -8693,6 +8693,28 @@
         "content_hash": "bb258100a382542f1b198d090dde1f3d1667c35146bb6aa91d2de2595dcfd531",
         "lifecycle_state": "active",
         "version_identity": "2026-09-16T02:39:23Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A494",
+        "module_code": "CODEX_MODULE_RUNTIME",
+        "law_code": "CODEX_MAIN",
+        "subject": "system-runtime-canonical-id-and-display-name-successor",
+        "content": "system-runtime-canonical-id-and-display-name-successor SUCCESSOR:A494 completely supersedes A300 and supersedes only the runtime-identity naming clause of A381. CANONICAL-ID:system-runtime-sovereign is the immutable machine identity,lineage key,authority reference and value used by current law,architecture,directory,command,fault,manual,test and audit records. DISPLAY-NAME:runtime-sovereign is the canonical human-facing display name and never an identity,alias selector or separate authority. Historical aliases remain non-active evidence only. Runtime decisions remain decision-only and execution remains delegated through the system sub-sovereign to the module execution layer. FORBID:runtime-sovereign stored as canonical ID+system-runtime-sovereign treated as obsolete ID+parallel authority created from display name+display alias expanding authority. Interfaces may display runtime-sovereign while every machine payload preserves system-runtime-sovereign.",
+        "content_hash": "dac171d923a977b57701a9209f051e51672c86033dedcecefda3cde4a6e781e3",
+        "lifecycle_state": "active",
+        "version_identity": "2026-09-16T02:54:34Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A495",
+        "module_code": "CODEX_MODULE_DIRECTORY",
+        "law_code": "CODEX_MAIN",
+        "subject": "current-manifest-hash-succession-and-directory-derivation-contract",
+        "content": "current-manifest-hash-succession-and-directory-derivation-contract CURRENT-DERIVATION:codex_internal_module_manifest is rebuilt from current membership,lifecycle,classification,successor resolution,search documents and per-module dependency edges;current metadata is a derived projection of the sealed module and search manifests and cannot be independently maintained. HASH-SEPARATION:module_dependency_hash binds only one source module edges;dependency_graph_hash binds the complete ordered DAG and cycle evidence. DIRECTORY-FRESHNESS:all active codex_internal_module_directory rows use the current generation in revision and version_identity while introduced_version is immutable. SUCCESSION:provision_supersession_edges is the sole current provision-succession authority;supersession_registry is legacy sovereign/alias/history resolution only and cannot produce a current provision successor. COVERAGE:directory coverage rows with scope_kind=meta-registry are excluded from master-directory cardinality and bind registry infrastructure rather than directory identities. FORBID:hand-maintained current metadata+aggregate DAG hash copied into module hash+stale module directory generation+legacy registry selecting current provision successor+meta-registry counted as orphan directory. Historical manifests,metadata and legacy succession rows remain immutable non-current evidence.",
+        "content_hash": "ff8f96f5a203559a5367a5311c390db1b667b43547b30aec8e607f67d523353b",
+        "lifecycle_state": "active",
+        "version_identity": "2026-09-16T02:54:34Z"
       }
     ],
     "codex_version_epochs": [
@@ -8716,7 +8738,8 @@
         "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "1.61600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "command_code_directory",
@@ -8725,7 +8748,8 @@
         "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "1.61600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "maintenance_manual_directory",
@@ -8734,7 +8758,8 @@
         "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "1.61600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "test_flow_directory",
@@ -8743,7 +8768,8 @@
         "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "1.61600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "project_architecture_directory",
@@ -8752,7 +8778,8 @@
         "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "1.61600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "special_law_directory",
@@ -8761,7 +8788,8 @@
         "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "1.61600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "law_structure_directory",
@@ -8770,7 +8798,8 @@
         "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "1.61600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "provision_law_classification",
@@ -8779,7 +8808,8 @@
         "acceptance_evidence": "machine-readable coverage diff plus zero-gap audit",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.61600"
+        "introduced_version": "1.61600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "directory_master_catalog",
@@ -8788,7 +8818,8 @@
         "acceptance_evidence": "machine-readable domain coverage diff plus zero-gap review",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.71600"
+        "introduced_version": "1.71600",
+        "scope_kind": "meta-registry"
       },
       {
         "directory_name": "directory_format_contract",
@@ -8797,7 +8828,8 @@
         "acceptance_evidence": "schema parity report plus zero missing or duplicate contracts",
         "release_gate": "deny-directory-activation-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.71600"
+        "introduced_version": "1.71600",
+        "scope_kind": "meta-registry"
       },
       {
         "directory_name": "identity_module_directory",
@@ -8806,7 +8838,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "permission_capability_directory",
@@ -8815,7 +8848,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "tool_route_directory",
@@ -8824,7 +8858,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "data_schema_authority_directory",
@@ -8833,7 +8868,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "api_event_contract_directory",
@@ -8842,7 +8878,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "service_process_port_environment_directory",
@@ -8851,7 +8888,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "model_resource_dependency_directory",
@@ -8860,7 +8898,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "configuration_credential_secret_directory",
@@ -8869,7 +8908,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "version_release_artifact_directory",
@@ -8878,7 +8918,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "audit_evidence_retention_directory",
@@ -8887,7 +8928,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "backup_recovery_migration_directory",
@@ -8896,7 +8938,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "ui_window_feature_entry_directory",
@@ -8905,7 +8948,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "identity_group_directory",
@@ -8914,7 +8958,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "tool_failure_isolation_matrix",
@@ -8923,7 +8968,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "3.31600"
+        "introduced_version": "3.31600",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "sovereign_hierarchy_directory",
@@ -8932,7 +8978,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "module_assignment_directory",
@@ -8941,7 +8988,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "update_synchronization_transaction_directory",
@@ -8950,7 +8998,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "channel_session_route_state_directory",
@@ -8959,7 +9008,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "runtime_instance_generation_directory",
@@ -8968,7 +9018,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "repair_action_provenance_directory",
@@ -8977,7 +9028,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "legacy_root_retirement_directory",
@@ -8986,7 +9038,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "user_command_signature_directory",
@@ -8995,7 +9048,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "dependency_compatibility_graph_directory",
@@ -9004,7 +9058,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "xingcheng_confidential_audit_directory",
@@ -9013,7 +9068,8 @@
         "acceptance_evidence": "machine-readable inventory diff+consumer proof+failure injection+rollback+zero-gap audit",
         "release_gate": "deny-activation-and-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "native_promotion_record_directory",
@@ -9022,7 +9078,8 @@
         "acceptance_evidence": "content-addressed inventory diff+profiles+API parity+fallback test+release verdict",
         "release_gate": "deny-native-admission-and-affected-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "capability_registry_directory",
@@ -9031,7 +9088,8 @@
         "acceptance_evidence": "inventory diff+static evidence+contract parity+duplicate-owner failure injection",
         "release_gate": "deny affected integration/release on gap",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "language_governance_final_decision_directory",
@@ -9040,7 +9098,8 @@
         "acceptance_evidence": "matrix coverage+stale evidence+criticality+waiver failure injection",
         "release_gate": "deny acceptance on missing decision/evidence",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "language_governance_derived_state_directory",
@@ -9049,7 +9108,8 @@
         "acceptance_evidence": "full-vs-incremental equivalence+cache invalidation+graph generation fault injection",
         "release_gate": "deny final decision on incomplete/stale derived state",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "governance_performance_evidence_directory",
@@ -9058,7 +9118,8 @@
         "acceptance_evidence": "benchmark manifests+cache counters+reverse closure+fault injection+golden comparison",
         "release_gate": "deny final approval on missing baseline,stale evidence or parity=false",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "language_governance_regression_corpus_directory",
@@ -9067,7 +9128,8 @@
         "acceptance_evidence": "old corpus executed by new engine with exact golden decision parity",
         "release_gate": "deny stable promotion or release on missing/drifting golden result",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "cross_store_reconciliation_directory",
@@ -9076,7 +9138,8 @@
         "acceptance_evidence": "reconciliation fault injection+queue crash recovery+audit tamper proof+Qdrant total rebuild+three-store restore test",
         "release_gate": "deny release on unresolved authority conflict,stale central state or unverified recovery",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "xingcheng_fault_decision_directory",
@@ -9085,7 +9148,8 @@
         "acceptance_evidence": "single/multi fault UI contract+switch matrix+confirmation expiry+sequential re-detection+failure isolation",
         "release_gate": "deny repair/update execution on any missing switch,confirmation or individual fault evidence",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "unified_data_health_directory",
@@ -9094,7 +9158,8 @@
         "acceptance_evidence": "health aggregation+three-store mismatch+state-machine transition+migration failure+drift+rebuild+fleet+restore tests",
         "release_gate": "deny unsafe write,promotion or recovery claim on stale/failed/incomplete evidence",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "data_platform_observability_directory",
@@ -9103,7 +9168,8 @@
         "acceptance_evidence": "index dry-run+capacity forecast+backpressure+eight fault injections+full recovery drill+generation-staleness tests",
         "release_gate": "deny mutation,reopen or release on incomplete/failed verification",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "xingcheng_governance_directory",
@@ -9112,7 +9178,8 @@
         "acceptance_evidence": "identity/authority matrix+MODEL_DIALOGUE separation+directory inspection+tool/parallel automation+A366 confirmation+anti-jailbreak+failure isolation",
         "release_gate": "deny privileged activation or release on any missing boundary/confidentiality evidence",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "codex_reference_code_registry_directory",
@@ -9121,7 +9188,8 @@
         "acceptance_evidence": "Codex literal inventory+code mapping+resolver tests+consumer scan+generation invalidation+secret non-disclosure",
         "release_gate": "deny affected release/configuration change until code-based successor or controlled mapping exists",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "xingcheng_compliance_findings_directory",
@@ -9130,7 +9198,8 @@
         "acceptance_evidence": "clear implementation fault+clear Codex fault+both linked+incomplete evidence+stale rule+affected/full scan tests",
         "release_gate": "deny compliance/release claim on unresolved critical or incomplete required evidence",
         "owner": "permission-sovereign",
-        "introduced_version": "1.00000"
+        "introduced_version": "1.00000",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "source_line_limit_evidence_directory",
@@ -9139,7 +9208,8 @@
         "acceptance_evidence": "six-language fixtures+exact counts+hash/version invalidation+generated classification",
         "release_gate": "deny changed module activation,merge and release on fail or incomplete evidence",
         "owner": "permission-sovereign",
-        "introduced_version": "2026-09-14T13:26:05Z"
+        "introduced_version": "2026-09-14T13:26:05Z",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "module_self_decomposition_directory",
@@ -9148,7 +9218,8 @@
         "acceptance_evidence": "state transition+lock conflict+rollback+parity+old-root removal tests",
         "release_gate": "deny promotion and affected release on missing/stale/contradictory evidence",
         "owner": "permission-sovereign",
-        "introduced_version": "2026-09-14T13:26:05Z"
+        "introduced_version": "2026-09-14T13:26:05Z",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "module_line_count_registry",
@@ -9157,7 +9228,8 @@
         "acceptance_evidence": "encoding/newline normalization+language fixtures+path alias rejection+source-summary rollup+hash/version invalidation",
         "release_gate": "deny affected activation,merge or release on inventory mismatch,missing/stale/duplicate/over-limit source row or inconsistent summary",
         "owner": "permission-sovereign",
-        "introduced_version": "2026-09-14T13:45:52Z"
+        "introduced_version": "2026-09-14T13:45:52Z",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "authored_source_inventory",
@@ -9166,7 +9238,8 @@
         "acceptance_evidence": "full filesystem inventory hash+path alias tests+generated/third-party provenance+allowed/forbidden parity+incremental/full golden parity",
         "release_gate": "deny integration/release completeness on any mismatch;forbidden authored source independently fails Language Boundary Gate",
         "owner": "permission-sovereign",
-        "introduced_version": "2026-09-14T13:49:18Z"
+        "introduced_version": "2026-09-14T13:49:18Z",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "test_suite_architecture_directory",
@@ -9175,7 +9248,8 @@
         "acceptance_evidence": "bidirectional identity diff+row/hash recomputation+current seal",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "2026-09-15T11:30:58Z"
+        "introduced_version": "2026-09-15T11:30:58Z",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "codex_internal_module_directory",
@@ -9184,7 +9258,8 @@
         "acceptance_evidence": "bidirectional identity diff+row/hash recomputation+current seal",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "2026-09-15T11:30:58Z"
+        "introduced_version": "2026-09-15T11:30:58Z",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "formal_rule_registry",
@@ -9193,7 +9268,8 @@
         "acceptance_evidence": "bidirectional identity diff+row/hash recomputation+current seal",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "2026-09-15T11:30:58Z"
+        "introduced_version": "2026-09-15T11:30:58Z",
+        "scope_kind": "directory"
       },
       {
         "directory_name": "machine_schema_registry",
@@ -9202,7 +9278,8 @@
         "acceptance_evidence": "bidirectional identity diff+row/hash recomputation+current seal",
         "release_gate": "deny-verified-release-on-gap",
         "owner": "permission-sovereign",
-        "introduced_version": "2026-09-15T11:30:58Z"
+        "introduced_version": "2026-09-15T11:30:58Z",
+        "scope_kind": "directory"
       }
     ],
     "directory_format_contract": [
@@ -18122,6 +18199,20 @@
         "provision_id": "A493",
         "official_entry": "governance-codex://official",
         "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A494",
+        "provision_type": "article",
+        "provision_id": "A494",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
+      },
+      {
+        "identity_code": "ARTICLE_A495",
+        "provision_type": "article",
+        "provision_id": "A495",
+        "official_entry": "governance-codex://official",
+        "identity_status": "permanent"
       }
     ],
     "schema_contract": [
@@ -22733,5 +22824,5 @@
       }
     ]
   },
-  "part_hash": "d95a58fc00b789b9aa7216e1424791822ee1a6c14d2901261acea87f885edd77"
+  "part_hash": "728f7f00740fec06d87502521892d2ed6627a0843568ccc1e632fe91dc6ff3b5"
 }

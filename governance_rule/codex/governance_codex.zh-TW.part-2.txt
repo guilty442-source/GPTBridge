@@ -1,10 +1,10 @@
 {
-  "codex_version": "2026-09-16T02:39:23Z",
-  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-16T02:39:23Z",
+  "codex_version": "2026-09-16T02:54:34Z",
+  "mirror_id": "ZH_TW_CODEX_MIRROR@2026-09-16T02:54:34Z",
   "part_index": 2,
   "part_count": 3,
-  "previous_part_hash": "d95a58fc00b789b9aa7216e1424791822ee1a6c14d2901261acea87f885edd77",
-  "assembled_payload_hash": "fe5cc60b95de600606ef9119574daea4b1bd728a17cefa8e5d87176e328638bf",
+  "previous_part_hash": "728f7f00740fec06d87502521892d2ed6627a0843568ccc1e632fe91dc6ff3b5",
+  "assembled_payload_hash": "a35ee20bc62d9ab5835e46d2298f0f52bc584d241c49240e7acf5bc19f328822",
   "tables": {
     "access_actor_classes": [
       {
@@ -4185,7 +4185,7 @@
         "provision_id": "A474",
         "section_index": "4",
         "subject": "lifecycle-lineage-reference-and-multi-predecessor-contract",
-        "rule": "STATE-PARITY:provision_lifecycle_status.lifecycle_state and provision_lineage.status must agree for every identity at the current generation;transition updates both atomically. REFERENCE_V2 columns are fixed as predecessor_type,predecessor_id,declared_successor_identity,resolved_successor_type,resolved_active_successor_id,resolution_path,status,validated_at_utc and each value validates its namespace. MULTI-EDGE:provision_supersession_edges is authoritative for zero-to-many and many-to-one succession;provision_lineage.supersedes_id is only a compatibility shortcut for at most one primary predecessor and cannot represent complete ancestry. Resolution proves every predecessor edge reaches exactly one active successor without cycles.",
+        "rule": "STATE-PARITY:provision_lifecycle_status.lifecycle_state and provision_lineage.status must agree for every identity at the current generation;transition updates both atomically. REFERENCE_V2 columns are fixed as predecessor_type,predecessor_id,declared_successor_identity,resolved_successor_type,resolved_active_successor_id,resolution_path,status,validated_at_utc and each value validates its namespace. MULTI-EDGE:provision_supersession_edges is authoritative for zero-to-many and many-to-one succession;provision_lineage.supersedes_id is only a compatibility shortcut for at most one primary predecessor and cannot represent complete ancestry. Resolution proves every predecessor edge reaches exactly one active successor without cycles. AUTHORITY-BOUNDARY:provision_supersession_edges is the only current provision-succession source;supersession_registry is non-authoritative for provisions and is limited to legacy sovereign,alias and historical lookup.",
         "prohibition": "FORBID:lifecycle/lineage drift+shifted reference fields+identity stored in type field+single supersedes_id claimed complete for multi-predecessor succession+orphan/cyclic edge.",
         "exception": "A successor with one predecessor may repeat that predecessor in supersedes_id,provided the edge table agrees."
       },
@@ -4359,6 +4359,24 @@
         "rule": "SUCCESSOR:A493 supersedes A407,A408,A409 and A410 only to normalize their current version-authority references while preserving their interpretation,command-contract,reference-placement and evidence-timestamp duties. A411 exclusively defines current timestamp-derived version identities and issuance;A493 governs interpretation and reference normalization;event,evidence,audit and revision timestamps retain the A410 envelope incorporated here. Current contract_version_identity and sealed version_identity are issued under A411. Operational references consume typed canonical codes or governed environment bindings;version identity and evidence timestamp remain distinct typed fields. Historical A406 references are immutable lineage evidence only and never current authority.",
         "prohibition": "FORBID:A406 described as current or exclusive authority+untyped timestamp serving version and evidence+legacy alias selecting current state+event-time correction changing version identity+new numeric contract version+duplicated operational literal.",
         "exception": "Historical provisions and values remain readable as immutable evidence;normalization changes current references without rewriting history."
+      },
+      {
+        "position": 494,
+        "provision_id": "A494",
+        "section_index": "4",
+        "subject": "system-runtime-canonical-id-and-display-name-successor",
+        "rule": "SUCCESSOR:A494 completely supersedes A300 and supersedes only the runtime-identity naming clause of A381. CANONICAL-ID:system-runtime-sovereign is the immutable machine identity,lineage key,authority reference and value used by current law,architecture,directory,command,fault,manual,test and audit records. DISPLAY-NAME:runtime-sovereign is the canonical human-facing display name and never an identity,alias selector or separate authority. Historical aliases remain non-active evidence only. Runtime decisions remain decision-only and execution remains delegated through the system sub-sovereign to the module execution layer.",
+        "prohibition": "FORBID:runtime-sovereign stored as canonical ID+system-runtime-sovereign treated as obsolete ID+parallel authority created from display name+display alias expanding authority.",
+        "exception": "Interfaces may display runtime-sovereign while every machine payload preserves system-runtime-sovereign."
+      },
+      {
+        "position": 495,
+        "provision_id": "A495",
+        "section_index": "4",
+        "subject": "current-manifest-hash-succession-and-directory-derivation-contract",
+        "rule": "CURRENT-DERIVATION:codex_internal_module_manifest is rebuilt from current membership,lifecycle,classification,successor resolution,search documents and per-module dependency edges;current metadata is a derived projection of the sealed module and search manifests and cannot be independently maintained. HASH-SEPARATION:module_dependency_hash binds only one source module edges;dependency_graph_hash binds the complete ordered DAG and cycle evidence. DIRECTORY-FRESHNESS:all active codex_internal_module_directory rows use the current generation in revision and version_identity while introduced_version is immutable. SUCCESSION:provision_supersession_edges is the sole current provision-succession authority;supersession_registry is legacy sovereign/alias/history resolution only and cannot produce a current provision successor. COVERAGE:directory coverage rows with scope_kind=meta-registry are excluded from master-directory cardinality and bind registry infrastructure rather than directory identities.",
+        "prohibition": "FORBID:hand-maintained current metadata+aggregate DAG hash copied into module hash+stale module directory generation+legacy registry selecting current provision successor+meta-registry counted as orphan directory.",
+        "exception": "Historical manifests,metadata and legacy succession rows remain immutable non-current evidence."
       }
     ],
     "certification_evidence": [
@@ -10747,6 +10765,22 @@
         "membership_kind": "controlling",
         "resolution_state": "resolved",
         "version_identity": "2026-09-16T02:39:23Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A494",
+        "module_code": "CODEX_MODULE_RUNTIME",
+        "membership_kind": "controlling",
+        "resolution_state": "resolved",
+        "version_identity": "2026-09-16T02:54:34Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A495",
+        "module_code": "CODEX_MODULE_DIRECTORY",
+        "membership_kind": "controlling",
+        "resolution_state": "resolved",
+        "version_identity": "2026-09-16T02:54:34Z"
       }
     ],
     "codex_search_alias": [
@@ -11601,20 +11635,20 @@
     "codex_search_index_manifest": [
       {
         "search_schema_id": "CODEX_SEARCH_V2",
-        "codex_version_identity": "2026-09-16T02:39:23Z",
-        "authoritative_content_root": "0b5353cd536574590f9c2d69b7afef9fd11f089fdd4ddce1974f6a28997a887d",
-        "source_count": 739,
-        "indexed_count": 739,
+        "codex_version_identity": "2026-09-16T02:54:34Z",
+        "authoritative_content_root": "a9f2a5668c6109a49032abfc3e62eb34c0ca14cd065a7ca5112e32ab72180fc7",
+        "source_count": 741,
+        "indexed_count": 741,
         "fts_tokenizer": "unicode61",
-        "module_manifest_root": "9bacc3c6fa4d1871e4f917cd891c6a3a88381dc50e9a55f646c603963d700dfa",
-        "index_content_hash": "0b5353cd536574590f9c2d69b7afef9fd11f089fdd4ddce1974f6a28997a887d",
-        "built_at_utc": "2026-09-16T02:39:23Z",
+        "module_manifest_root": "5a29515d5ebe00c49f5ab2468f5f43bcb294cd2f88c03c24745c92f002f9e665",
+        "index_content_hash": "a9f2a5668c6109a49032abfc3e62eb34c0ca14cd065a7ca5112e32ab72180fc7",
+        "built_at_utc": "2026-09-16T02:54:34Z",
         "status": "sealed",
         "alias_count": 121,
         "alias_hash": "59bf0d52eab5c94d71b9d97f1aa0c64f4c22a3f38eb0ea2d3cbadaf466b957eb",
         "fts_row_count": 729,
         "fts_content_hash": "76ad5742156c6a1e2ec06d37cf3d5a7632f25030422f78d37ee3d613657980f4",
-        "dependency_graph_hash": "add5f66fe1131c8f0b428d35b75a072113e5f8a3996afe3a2a70c71dc12aaa3e",
+        "dependency_graph_hash": "8f66df9a5c02226f8cc7150d16def9c17500996d023e7dd0d88e120727f2557b",
         "dependency_cycle_status": "acyclic"
       }
     ],
@@ -12639,6 +12673,17 @@
         "event": "codex-findings-32-38",
         "version_epoch": "E2",
         "canonical_recorded_at_utc": "2026-09-16T02:39:23Z",
+        "timestamp_status": "canonical",
+        "timestamp_migration_evidence": "direct-current-event"
+      },
+      {
+        "version": "2026-09-16T02:54:34Z",
+        "recorded_at_utc": "2026-09-16T02:54:34Z",
+        "recorded_at_local": "2026-09-16T10:54:34.000000+08:00",
+        "timezone": "Asia/Taipei",
+        "event": "codex-findings-39-46",
+        "version_epoch": "E2",
+        "canonical_recorded_at_utc": "2026-09-16T02:54:34Z",
         "timestamp_status": "canonical",
         "timestamp_migration_evidence": "direct-current-event"
       }
@@ -17856,6 +17901,22 @@
         "status": "active",
         "legacy_effective_version": null,
         "current_binding_version": "2026-09-16T02:39:23Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A494",
+        "effective_version": "2026-09-16T02:54:34Z",
+        "status": "active",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-16T02:54:34Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A495",
+        "effective_version": "2026-09-16T02:54:34Z",
+        "status": "active",
+        "legacy_effective_version": null,
+        "current_binding_version": "2026-09-16T02:54:34Z"
       }
     ],
     "formal_rule_registry": [
@@ -26749,6 +26810,26 @@
         "normalization_status": "normalized",
         "owner": "法典",
         "introduced_version": "2026-09-16T02:39:23Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A494",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "法典",
+        "introduced_version": "2026-09-16T02:54:34Z"
+      },
+      {
+        "provision_type": "article",
+        "provision_id": "A495",
+        "controlling_law_code": "CODEX_MAIN",
+        "migration_status": "retain",
+        "successor_provision_id": null,
+        "normalization_status": "normalized",
+        "owner": "法典",
+        "introduced_version": "2026-09-16T02:54:34Z"
       }
     ],
     "seal_manifest": [
@@ -27855,6 +27936,18 @@
         "identity_root": "4e93866445f94d2278dd367583e290de4b0063a06eb4e8079ff112a85b3ba763",
         "full_root": "9407c3d6fe4a042de0a6b41c7b756586e405d5c0db1969c42053cfdca141a151",
         "version_epoch": 2
+      },
+      {
+        "version": "2026-09-16T02:54:34Z",
+        "history_head": "19717dc15a8cf9910a53fc76812bcc52f2a11ef629c6e8e6f0300f5d9cce59b6",
+        "provision_count": 741,
+        "identity_count": 741,
+        "lineage_count": 741,
+        "certification_state": "sealed-pending-external-signatures",
+        "content_root": "36f01f142031c138fb1f9d1572c6c37f2e7bd8068b724cf4653424447bd09203",
+        "identity_root": "d19dc64b0862890c739a007bbe90437b5b31f96347d90420dce65a06d1394e9f",
+        "full_root": "59abd8f1b023e3fef4903c3c6c8d2138e65eaa1ac823ee058c80624cec33b196",
+        "version_epoch": 2
       }
     ],
     "sovereign_hierarchy_registry": [
@@ -28027,319 +28120,425 @@
         "predecessor_identity": "codex/provision/principle/P16",
         "successor_identity": "codex/provision/principle/P114",
         "effective_version": "1.11000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A35",
         "successor_identity": "codex/provision/article/A203",
         "effective_version": "1.11000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A55",
         "successor_identity": "codex/provision/article/A209",
         "effective_version": "1.11000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A56",
         "successor_identity": "codex/provision/article/A210",
         "effective_version": "1.11000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/edict/E21",
         "successor_identity": "codex/provision/edict/E177",
         "effective_version": "1.11000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/principle/P114",
         "successor_identity": "codex/provision/principle/P115",
         "effective_version": "1.21000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A203",
         "successor_identity": "codex/provision/article/A212",
         "effective_version": "1.21000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A204",
         "successor_identity": "codex/provision/article/A213",
         "effective_version": "1.21000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/edict/E177",
         "successor_identity": "codex/provision/edict/E178",
         "effective_version": "1.21000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A209",
         "successor_identity": "codex/provision/article/A215",
         "effective_version": "1.31100",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/edict/E41",
         "successor_identity": "codex/provision/edict/E180",
         "effective_version": "1.31100",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A206",
         "successor_identity": "codex/provision/article/A217",
         "effective_version": "1.31300",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A212",
         "successor_identity": "codex/provision/article/A218",
         "effective_version": "1.31400",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A218",
         "successor_identity": "codex/provision/article/A219",
         "effective_version": "1.31500",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A213",
         "successor_identity": "codex/provision/article/A220",
         "effective_version": "1.31600",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A214",
         "successor_identity": "codex/provision/article/A221",
         "effective_version": "1.41600",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A257",
         "successor_identity": "codex/provision/article/A258",
         "effective_version": "2.61600",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A254",
         "successor_identity": "codex/provision/article/A263",
         "effective_version": "3.21600",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A256",
         "successor_identity": "codex/provision/article/A262",
         "effective_version": "3.21600",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A258",
         "successor_identity": "codex/provision/article/A261",
         "effective_version": "3.21600",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A255",
         "successor_identity": "codex/provision/article/A265",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/sovereign/startup-sovereign",
         "successor_identity": "SOVEREIGN_STARTUP_SUB_SOVEREIGN",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "SOVEREIGN_MAINTENANCE_SUB_SOVEREIGN",
         "successor_identity": "SOVEREIGN_HEALTH_MAINTENANCE_TEST_SUB_SOVEREIGN",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "SOVEREIGN_THIRD_PARTY_SUB_SOVEREIGN",
         "successor_identity": "SOVEREIGN_DEPENDENCY_SYNC_SUB_SOVEREIGN",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "SOVEREIGN_SYSTEM_PROGRAMMING_SUB_SOVEREIGN",
         "successor_identity": "SOVEREIGN_RELEASE_UPDATE_SYNC_SUB_SOVEREIGN",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "SOVEREIGN_LEARNING_SYSTEM_SUB_SOVEREIGN",
         "successor_identity": "SOVEREIGN_LEARNING_EVIDENCE_SYNC_SUB_SOVEREIGN",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "SOVEREIGN_PERMISSION_SUB_SOVEREIGN",
         "successor_identity": "SOVEREIGN_PRIORITY_CAPABILITY_SUB_SOVEREIGN",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/sovereign/language-review-sovereign",
         "successor_identity": "SOVEREIGN_LANGUAGE_REVIEW_SUB_SOVEREIGN",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "SOVEREIGN_RESOURCE_SUB_SOVEREIGN",
         "successor_identity": "SOVEREIGN_RESOURCE_DEPENDENCY_SYNC_SUB_SOVEREIGN",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "SOVEREIGN_DATA_SUB_SOVEREIGN",
         "successor_identity": "SOVEREIGN_DATA_GOVERNANCE_SUB_SOVEREIGN",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "SOVEREIGN_INTEGRATION_SUB_SOVEREIGN",
         "successor_identity": "SOVEREIGN_CHANNEL_CONTRACT_SYNC_SUB_SOVEREIGN",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A328",
         "successor_identity": "ARTICLE_A336",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A336",
         "successor_identity": "ARTICLE_A337",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A339",
         "successor_identity": "ARTICLE_A344",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A338",
         "successor_identity": "ARTICLE_A349",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A372",
         "successor_identity": "ARTICLE_A374",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A335",
         "successor_identity": "ARTICLE_A379",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A131",
         "successor_identity": "ARTICLE_A324",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A236",
         "successor_identity": "ARTICLE_A326",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A260",
         "successor_identity": "ARTICLE_A328",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A298",
         "successor_identity": "ARTICLE_A320",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A311",
         "successor_identity": "ARTICLE_A321",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A312",
         "successor_identity": "ARTICLE_A313",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A313",
         "successor_identity": "ARTICLE_A319",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A314",
         "successor_identity": "ARTICLE_A322",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A315",
         "successor_identity": "ARTICLE_A323",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A321",
         "successor_identity": "ARTICLE_A327",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A329",
         "successor_identity": "ARTICLE_A330",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/declaration-layer/codex",
         "successor_identity": "ARTICLE_A377",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "ARTICLE_A384",
         "successor_identity": "ARTICLE_A385",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A379",
         "successor_identity": "codex/provision/article/A469",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A286",
         "successor_identity": "codex/provision/article/A487",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       },
       {
         "predecessor_identity": "codex/provision/article/A382",
         "successor_identity": "codex/provision/article/A488",
         "effective_version": "1.00000",
-        "status": "effective"
+        "status": "effective",
+        "registry_scope": "legacy-provision-history",
+        "authority_status": "non-authoritative"
       }
     ],
     "system_modularization_acceptance": [
@@ -30111,5 +30310,5 @@
       }
     ]
   },
-  "part_hash": "823a2a24156419ff3601749afceef5ff6fb64e0edfa32f1eca7f87b31d307860"
+  "part_hash": "9caa38d9072c4bda51da04ebb8d85f6b9b1806bb92612847d4219a6d8f00bb85"
 }

@@ -31,9 +31,7 @@ from governance.sovereigns._base import SovereignBase, SovereignRequest
 from governance.sub_sovereigns._base import SubSovereignBase
 from governance.sovereigns.decision_sovereign import DecisionSovereign
 from governance.sovereigns.permission_sovereign import PermissionSovereign
-from governance.sovereigns.synchronization_sovereign import (
-    SynchronizationSovereign,
-)
+from governance.sovereigns.automation_sovereign import AutomationSovereign
 from governance.sovereigns.system_runtime_sovereign import (
     SystemRuntimeSovereign,
 )
@@ -85,7 +83,7 @@ async def test_base_delegate_execution_returns_refusal() -> None:
     [
         DecisionSovereign,
         PermissionSovereign,
-        SynchronizationSovereign,
+        AutomationSovereign,
         SystemRuntimeSovereign,
         XingchengSovereign,
         SubSovereignBase,
@@ -147,10 +145,10 @@ async def test_permission_sovereign_delegate_execution_returns_decision() -> Non
 
 
 @pytest.mark.asyncio
-async def test_synchronization_sovereign_delegate_execution_returns_decision() -> None:
+async def test_automation_sovereign_delegate_execution_returns_decision() -> None:
     decision = accepted_outcome({"synced": "target"}, ("A301",))
-    result = await SynchronizationSovereign._delegate_execution(
-        SynchronizationSovereign.__new__(SynchronizationSovereign),
+    result = await AutomationSovereign._delegate_execution(
+        AutomationSovereign.__new__(AutomationSovereign),
         decision,
         _make_request(),
     )
@@ -208,7 +206,7 @@ def _a330_payload(**overrides) -> dict:
 async def test_a330_certified_update_requires_decision_sovereign_delegation() -> None:
     """A330 execution exception: a governed actor cannot self-declare
     certification — the payload flag alone is not proof (A330/A152/A154)."""
-    sovereign = SynchronizationSovereign(app=SimpleNamespace())
+    sovereign = AutomationSovereign(app=SimpleNamespace())
     outcome = await sovereign.handle(
         SovereignRequest(
             intent="A330.certified-update",
@@ -226,7 +224,7 @@ async def test_a330_certified_update_requires_decision_sovereign_delegation() ->
 async def test_forged_verified_delegation_stamp_is_stripped() -> None:
     """A caller must not smuggle a pre-stamped ``_verified_delegation``
     proof past the entry gate (A121/A435 fail-closed)."""
-    sovereign = SynchronizationSovereign(app=SimpleNamespace())
+    sovereign = AutomationSovereign(app=SimpleNamespace())
     outcome = await sovereign.handle(
         SovereignRequest(
             intent="A330.certified-update",
@@ -258,7 +256,7 @@ async def test_decision_sovereign_delegation_passes_a330_authority_gate() -> Non
         "automation-sovereign",
         "A330.certified-update",
     )
-    sovereign = SynchronizationSovereign(app=SimpleNamespace())
+    sovereign = AutomationSovereign(app=SimpleNamespace())
     outcome = await sovereign.handle(
         SovereignRequest(
             intent="A330.certified-update",
@@ -287,7 +285,7 @@ async def test_replayed_delegation_nonce_denied_at_entry() -> None:
         "automation-sovereign",
         "A330.certified-update",
     )
-    sovereign = SynchronizationSovereign(app=SimpleNamespace())
+    sovereign = AutomationSovereign(app=SimpleNamespace())
     first = await sovereign.handle(
         SovereignRequest(
             intent="A330.certified-update",
