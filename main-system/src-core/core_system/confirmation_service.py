@@ -17,9 +17,9 @@ cardinality`` with the registered command-code split:
         ``sync-execute-approved-automatic-update`` execute an approved
         action exactly once for its confirmation id.
 
-A mutation executes only when its switch is enabled AND the concrete
-pending action carries a valid, unexpired, evidence-matching, single-use
-confirmation.  Detection and classification are unaffected.
+A mutation executes either under an enabled standing switch or under a
+valid, unexpired, evidence-matching, single-use item permission. Detection
+and classification are unaffected.
 """
 
 from __future__ import annotations
@@ -60,12 +60,15 @@ async def record_confirmation(
     action_id: str,
     *,
     confirmation_id: str = "",
+    permission_mode: str = "standing-switch",
 ) -> dict[str, Any]:
     """Record a single-use user confirmation for one pending action.
 
     Does NOT execute anything: the synchronization domain executes the
     approved action.  Both the capability switch and the concrete
-    confirmation remain required at execution time.
+    confirmation remains required at execution time. ``single-item`` is an
+    explicit one-shot permission and therefore does not require or modify the
+    standing automation switch.
     """
     action_id = str(action_id or "").strip()
     if not action_id:
@@ -86,11 +89,17 @@ async def record_confirmation(
     early, kind = _confirmation_prechecks(action, action_id)
     if early is not None:
         return early
-    guard, current_digest = _confirmation_guard(project_root, action, action_id, kind)
+    normalized_mode = str(permission_mode or "standing-switch").strip()
+    if normalized_mode not in {"standing-switch", "single-item"}:
+        return _result(False, error_code="PERMISSION_MODE_UNKNOWN", message="unknown permission mode")
+    guard, current_digest = _confirmation_guard(
+        project_root, action, action_id, kind, normalized_mode
+    )
     if guard is not None:
         return guard
     return _record_confirmed(
-        project_root, action, action_id, kind, confirmation_id, current_digest
+        project_root, action, action_id, kind, confirmation_id, current_digest,
+        normalized_mode,
     )
 
 
@@ -136,8 +145,9 @@ def _confirmation_guard(
     action: dict[str, Any],
     action_id: str,
     kind: str,
+    permission_mode: str,
 ) -> tuple[dict[str, Any] | None, str | None]:
-    if not switch_enabled_for_kind(kind):
+    if permission_mode != "single-item" and not switch_enabled_for_kind(kind):
         _audit(
             project_root,
             {
@@ -150,7 +160,7 @@ def _confirmation_guard(
         return _result(
             False,
             error_code="SWITCH_DISABLED",
-            message="對應的自動執行開關未啟用；開關與逐筆確認必須同時成立。",
+            message="請啟用對應全域開關，或使用單項許可。",
             action_id=action_id,
             status="awaiting-confirmation",
         ), None
@@ -184,6 +194,7 @@ def _record_confirmed(
     kind: str,
     confirmation_id: str,
     current_digest: str,
+    permission_mode: str,
 ) -> dict[str, Any]:
     confirmation_id = str(confirmation_id or "").strip() or uuid.uuid4().hex
     confirmation = {
@@ -193,6 +204,7 @@ def _record_confirmed(
         "evidence_digest": current_digest,
         "expires_at": str(action.get("expires_at") or ""),
         "single_use": True,
+        "permission_mode": permission_mode,
         "consumed": False,
     }
     update_pending_action_status(
@@ -206,6 +218,7 @@ def _record_confirmed(
             "kind": kind,
             "confirmation_id": confirmation_id,
             "evidence_digest": current_digest,
+            "permission_mode": permission_mode,
         },
     )
     return _result(
@@ -215,6 +228,7 @@ def _record_confirmed(
         confirmation_id=confirmation_id,
         status="confirmed",
         expires_at=confirmation["expires_at"],
+        permission_mode=permission_mode,
     )
 
 
@@ -253,6 +267,28 @@ async def revoke_confirmation(
         },
     )
     return _result(True, action_id=action_id, status="awaiting-confirmation")
+
+
+async def deny_pending_action(app: Any, action_id: str) -> dict[str, Any]:
+    """Record an explicit user denial for exactly one pending action."""
+    action_id = str(action_id or "").strip()
+    if not action_id:
+        return _result(False, error_code="MISSING_ACTION_ID", message="action_id is required")
+    project_root = _project_root(app)
+    action = _find_action(project_root, action_id)
+    if action is None:
+        return _result(False, error_code="ACTION_NOT_FOUND", message=f"no pending action with id {action_id}")
+    if action.get("status") != "awaiting-confirmation":
+        return _result(False, error_code="ACTION_NOT_PENDING", message=f"action status is {action.get('status')}")
+    update_pending_action_status(
+        project_root,
+        action_id,
+        "denied",
+        denied_at=_iso_now(),
+        denied_by="authenticated-ui",
+    )
+    _audit(project_root, {"event": "single-item-denied", "action_id": action_id})
+    return _result(True, action_id=action_id, status="denied")
 
 
 # ----------------------------------------------------------------------
@@ -362,11 +398,14 @@ def _execution_guard_checks(
     kind: str,
     confirmation: dict[str, Any],
 ) -> dict[str, Any] | None:
-    if not switch_enabled_for_kind(kind):
+    if (
+        str(confirmation.get("permission_mode") or "standing-switch") != "single-item"
+        and not switch_enabled_for_kind(kind)
+    ):
         return _result(
             False,
             error_code="SWITCH_DISABLED",
-            message="對應的自動執行開關未啟用；開關與逐筆確認必須同時成立。",
+            message="請啟用對應全域開關，或使用單項許可。",
             action_id=action_id,
         )
     if _confirmation_expired(confirmation):
@@ -435,6 +474,7 @@ def _finalize_execution(
 
 __all__ = [
     "CONFIRMATION_AUDIT_RELATIVE",
+    "deny_pending_action",
     "execute_approved",
     "record_confirmation",
     "revoke_confirmation",

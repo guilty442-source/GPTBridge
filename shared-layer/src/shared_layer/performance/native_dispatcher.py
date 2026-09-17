@@ -49,7 +49,7 @@ def _load_native() -> Any:
         # Try the main-system native package first
         _here = pathlib.Path(__file__).resolve()
         _candidates = [
-            _here.parents[3] / "main-system" / "src-core" / "core_system" / "native",
+            _here.parents[4] / "main-system" / "src-core" / "core_system" / "native",
         ]
         for cand in _candidates:
             if str(cand) not in sys.path:

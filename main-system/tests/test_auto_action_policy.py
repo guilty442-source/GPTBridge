@@ -104,6 +104,56 @@ def test_recording_refused_while_switch_disabled(
     assert actions[0]["status"] == "awaiting-confirmation"
 
 
+def test_single_item_permission_does_not_require_or_change_switch(
+    monkeypatch, tmp_path: Path
+) -> None:
+    auto_action_policy.record_pending_action(
+        tmp_path,
+        kind="update",
+        summary="one update",
+        action_id="update-one",
+    )
+    monkeypatch.setattr(
+        confirmation_service, "switch_enabled_for_kind", lambda _kind: False
+    )
+
+    result = asyncio.run(
+        confirmation_service.record_confirmation(
+            _App(tmp_path), "update-one", permission_mode="single-item"
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["permission_mode"] == "single-item"
+    action = auto_action_policy.read_pending_actions(tmp_path)[0]
+    assert action["confirmation"]["single_use"] is True
+    assert action["confirmation"]["permission_mode"] == "single-item"
+    assert auto_action_policy.read_automation_switches(tmp_path)[
+        "automatic_update_enabled"
+    ] is False
+
+
+def test_user_can_deny_one_repair_without_affecting_other_items(tmp_path: Path) -> None:
+    for action_id in ("repair-one", "repair-two"):
+        auto_action_policy.record_pending_action(
+            tmp_path,
+            kind="repair",
+            summary=action_id,
+            action_id=action_id,
+        )
+
+    result = asyncio.run(
+        confirmation_service.deny_pending_action(_App(tmp_path), "repair-one")
+    )
+
+    assert result["ok"] is True
+    actions = {
+        item["action_id"]: item for item in auto_action_policy.read_pending_actions(tmp_path)
+    }
+    assert actions["repair-one"]["status"] == "denied"
+    assert actions["repair-two"]["status"] == "awaiting-confirmation"
+
+
 def test_record_confirm_revoke_flow(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         confirmation_service, "switch_enabled_for_kind", lambda _kind: True

@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from .restore_drill import RestoreDrillResult
 from .schema_contract_registry import verify_contract, ContractVerificationResult
 
 
@@ -61,6 +62,20 @@ def certify_restore(
     This function is read-only except for the optional generation bump.
     """
     checks: list[CertificationCheck] = []
+
+    # 0. Connection must be live — certification never proceeds blind.
+    live_detail = ""
+    try:
+        live_row = connection.execute("SELECT 1").fetchone()
+        connection_live = bool(live_row and int(live_row[0]) == 1)
+    except Exception as exc:
+        connection_live = False
+        live_detail = f"unavailable:{str(exc)[:180]}"
+    checks.append(CertificationCheck(
+        name="connection_live",
+        passed=connection_live,
+        detail="SELECT 1" if connection_live else live_detail,
+    ))
 
     # 1. Schema contract verification
     contract_result = verify_contract(connection)
@@ -204,8 +219,61 @@ def certify_restore(
     )
 
 
+def certify_restored_engine(
+    connection: Any,
+    *,
+    drill_result: RestoreDrillResult | None,
+    require_engine_live: bool = True,
+    pre_restore_audit_head: str | None = None,
+    pre_restore_generation: int = 1,
+    max_resource_count: int = 10_000_000,
+    bump_generation: bool = True,
+) -> RestoreCertificationResult:
+    """Production entry: gate restore certification on drill evidence.
+
+    The certification gate opens only when the restore drill actually
+    reported READY and (unless explicitly waived for test scope) the drill
+    ran against a live engine.  A missing/failed drill returns a failed
+    result without touching the database — no generation bump, no record —
+    so certification cannot be forged from unrelated evidence.
+    """
+    drill_ready = bool(drill_result is not None and drill_result.ready)
+    engine_live = bool(drill_result is not None and drill_result.engine_live)
+    gate = [
+        CertificationCheck(
+            "restore_drill",
+            drill_ready,
+            "restore drill ready" if drill_ready else "restore drill not ready",
+        ),
+        CertificationCheck(
+            "drill_engine_live",
+            engine_live or not require_engine_live,
+            "engine_live=True" if engine_live
+            else "engine_live=False (test-scope evidence)",
+        ),
+    ]
+    if not (drill_ready and (engine_live or not require_engine_live)):
+        return RestoreCertificationResult(
+            passed=False,
+            checks=gate,
+            generation_before=pre_restore_generation,
+            generation_after=pre_restore_generation,
+        )
+    result = certify_restore(
+        connection,
+        pre_restore_audit_head=pre_restore_audit_head,
+        pre_restore_generation=pre_restore_generation,
+        max_resource_count=max_resource_count,
+        bump_generation=bump_generation,
+    )
+    result.checks = gate + result.checks
+    result.passed = result.passed and all(c.passed for c in gate)
+    return result
+
+
 __all__ = [
     "CertificationCheck",
     "RestoreCertificationResult",
     "certify_restore",
+    "certify_restored_engine",
 ]

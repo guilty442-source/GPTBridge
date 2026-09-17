@@ -32,6 +32,7 @@ from . import audit_log
 from .audit_chain import chained_audit_log
 from .branch_policy import policy_digest
 from .git_repository import GitRepository
+from .governance_manifest import GovernanceWriteBlocked, assert_write_allowed
 from .process_lock import ProcessFileLock, LockBusyError
 
 PRIORITY_NORMAL: int = 0
@@ -126,6 +127,10 @@ class MergeQueue:
         A priority above NORMAL requires ``escalated_by`` to be a governed
         actor; otherwise the entry is created at NORMAL (no self-elevation).
         """
+        try:
+            assert_write_allowed("merge-queue.enqueue")
+        except GovernanceWriteBlocked as exc:
+            return {"status": "error", "detail": str(exc)}
         priority = int(priority)
         if priority > PRIORITY_NORMAL and escalated_by not in ESCALATION_ACTORS:
             priority = PRIORITY_NORMAL
@@ -196,6 +201,10 @@ class MergeQueue:
         increment_attempt: bool = False,
     ) -> dict[str, Any] | None:
         if status not in QUEUE_STATUSES:
+            return None
+        try:
+            assert_write_allowed("merge-queue.transition")
+        except GovernanceWriteBlocked:
             return None
         with ProcessFileLock(self._lock_path):
             payload = self._load()

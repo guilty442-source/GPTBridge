@@ -22,6 +22,23 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
+from .branch_policy import MAIN_BRANCH, PROTECTED_BRANCHES
+from .governance_manifest import timing as _manifest_timing
+
+# Governed pool defaults (manifest version source; A318-A320).
+_WORKER_LEASE_SECONDS: float = _manifest_timing(
+    "worker_pool_lease_seconds", 1800.0
+)
+_WORKER_LEASE_RENEW_SECONDS: float = _manifest_timing(
+    "worker_pool_lease_renew_seconds", 300.0
+)
+_MERGED_BRANCH_RETENTION_SECONDS: float = _manifest_timing(
+    "worker_pool_merged_branch_retention_seconds", 72 * 3600.0
+)
+_BACKPRESSURE_QUEUE_DEPTH: int = int(
+    _manifest_timing("worker_pool_backpressure_queue_depth", 50)
+)
+
 
 class PoolType(Enum):
     PERSISTENT = "persistent"
@@ -146,6 +163,8 @@ class PoolConfig:
     file — these defaults exist so a fresh repository can boot."""
 
     schema_version: int = 1
+    # TODO(inventory): capacity/parallelism limits stay pool policy values
+    # (see git_governance_manifest.json hardcoded_inventory).
     max_ephemeral_workers: int = 24
     max_total_workers: int = 32
     max_parallel_self_commit: int = 4
@@ -153,14 +172,14 @@ class PoolConfig:
     max_parallel_merge: int = 1
     warm_workers: int = 4
     workers_root: str = ""          # resolved per deployment
-    persistent_workers: tuple[str, ...] = (
-        "git", "local-model", "rag", "ui",
+    persistent_workers: tuple[str, ...] = tuple(
+        sorted(PROTECTED_BRANCHES - {MAIN_BRANCH})
     )
-    worker_lease_seconds: float = 1800.0
-    worker_lease_renew_seconds: float = 300.0
-    merged_branch_retention_seconds: float = 72 * 3600.0
+    worker_lease_seconds: float = _WORKER_LEASE_SECONDS
+    worker_lease_renew_seconds: float = _WORKER_LEASE_RENEW_SECONDS
+    merged_branch_retention_seconds: float = _MERGED_BRANCH_RETENTION_SECONDS
     worktree_storage_limit_bytes: int = 64 * 1024 ** 3
-    backpressure_queue_depth: int = 50
+    backpressure_queue_depth: int = _BACKPRESSURE_QUEUE_DEPTH
     backpressure_free_fraction: float = 0.10
 
 

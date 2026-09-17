@@ -9,11 +9,67 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+import time
 from typing import Any
 
 from .fault_analysis_service_types import FaultSummary
 
 _logger = logging.getLogger("gptbridge.fault_analysis")
+
+
+def _is_recent_utc(timestamp: str, cutoff_epoch: float) -> bool:
+    """True when an ISO-8601 UTC timestamp is newer than the cutoff epoch.
+
+    Unparseable or empty timestamps are treated as recent (fail-closed: the
+    evidence keeps presenting until a valid recovery signal exists).
+    """
+    text = str(timestamp or "").strip()
+    if not text or cutoff_epoch <= 0:
+        return True
+    try:
+        from datetime import datetime, timezone
+
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.timestamp() >= cutoff_epoch
+    except ValueError:
+        return True
+
+# Repair-request statuses that are terminal: the request is retired and
+# must not be presented as a live pending fault.  The durable record stays
+# in the information layer as evidence.
+_TERMINAL_REPAIR_REQUEST_STATUSES = frozenset(
+    {
+        "expired",
+        "resolved",
+        "cancelled",
+        "canceled",
+        "dismissed",
+        "superseded",
+        "reconciled-non-actionable",
+    }
+)
+
+# Learning-store remedy written by fault-message reconciliation for
+# non-actionable evidence (expired/unclassifiable faults).  It is failure
+# evidence for learning, not a live fault, and must never be re-presented
+# as an unresolved fault.
+_NON_ACTIONABLE_OUTCOME_REMEDY = "no-action-required"
+
+# The newest failure outcomes are scanned and filtered (non-actionable
+# remedy + explicitly absorbed evidence) until this many presentable
+# faults are collected, so a large historical backlog can never crowd a
+# live fault out of the projection.
+_MAX_REPAIR_LEARNING_FAULTS = 200
+_REPAIR_OUTCOME_SCAN_LIMIT = 5000
+
+# A crash-quarantine record is presented as a live fault only while it is
+# fresh.  Older records are historical evidence: the tool either recovered,
+# was stopped on demand, or was handled by the repair chain — showing a
+# days-old crash as an unresolved high fault would keep the fault surface
+# permanently red.  Activly crash-looping tools keep producing fresh records.
+_QUARANTINE_PRESENTATION_WINDOW_HOURS = 0.5
 
 
 class FaultAnalysisCollectorsMixin:
@@ -51,13 +107,23 @@ class FaultAnalysisCollectorsMixin:
                 rows = connection.execute(
                     "SELECT outcome_id, signature_hash, remedy, ok, "
                     "detail_json, recorded_at FROM repair_outcomes "
-                    "WHERE ok = 0 ORDER BY recorded_at DESC LIMIT 200"
+                    "WHERE ok = 0 ORDER BY recorded_at DESC LIMIT ?",
+                    (_REPAIR_OUTCOME_SCAN_LIMIT,),
                 ).fetchall()
+                absorbed_ids = self._absorbed_learning_outcome_ids(connection)
             except sqlite3.OperationalError:
                 rows = []
+                absorbed_ids = set()
             finally:
                 connection.close()
             for outcome_id, sig, remedy, ok, detail_json, recorded_at in rows:
+                if str(remedy or "") == _NON_ACTIONABLE_OUTCOME_REMEDY:
+                    continue
+                # Historical failure evidence explicitly absorbed by a
+                # reconciliation marker: kept as evidence, never presented
+                # as a live fault.
+                if str(outcome_id or "") in absorbed_ids:
+                    continue
                 detail: dict[str, Any] = {}
                 try:
                     parsed = json.loads(detail_json or "{}")
@@ -79,9 +145,23 @@ class FaultAnalysisCollectorsMixin:
                     repair_outcome="failure",
                     raw_evidence=detail,
                 ))
+                if len(faults) >= _MAX_REPAIR_LEARNING_FAULTS:
+                    break
         except Exception as exc:
             _logger.debug("fault_analysis_learning_skip err=%s", exc)
         return faults
+
+    def _absorbed_learning_outcome_ids(
+        self, connection: sqlite3.Connection
+    ) -> set[str]:
+        """Failure-evidence ids absorbed by reconciliation markers."""
+        try:
+            from tasks.repair_learning import absorbed_outcome_ids
+        except Exception:
+            return set()
+        return absorbed_outcome_ids(
+            connection, remedy=_NON_ACTIONABLE_OUTCOME_REMEDY
+        )
 
     def _collect_crash_diagnosis(self) -> list[FaultSummary]:
         """Collect crash diagnosis records from boot-core state."""
@@ -116,8 +196,16 @@ class FaultAnalysisCollectorsMixin:
             for req in requests:
                 if not isinstance(req, dict):
                     continue
+                if (
+                    str(req.get("status") or "")
+                    in _TERMINAL_REPAIR_REQUEST_STATUSES
+                ):
+                    continue
                 faults.append(FaultSummary(
-                    fault_id=f"repair-req-{req.get('id', hash(str(req)))}",
+                    fault_id=(
+                        f"repair-req-"
+                        f"{req.get('id') or req.get('request_id') or hash(str(req))}"
+                    ),
                     fault_type="repair-request",
                     source=str(req.get("owner", "unknown")),
                     timestamp=str(req.get("requested_at", "")),
@@ -133,19 +221,62 @@ class FaultAnalysisCollectorsMixin:
             pass
         return faults
 
+    def _latest_tool_registrations(self) -> dict[str, str]:
+        """Latest successful tool registration per tool (isolation audit).
+
+        A quarantine record older than the tool's latest healthy ``register``
+        event describes a crash that has already been recovered; it stays on
+        disk as evidence but must not be re-presented as a live fault.
+        """
+        registrations: dict[str, str] = {}
+        audit_path = self._state_root / "tool-isolation-audit.jsonl"
+        if not audit_path.is_file():
+            return registrations
+        try:
+            for line in audit_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if str(entry.get("event", "")) != "register":
+                    continue
+                tool_id = str(entry.get("tool_id", "") or "")
+                timestamp = str(entry.get("timestamp", "") or "")
+                if tool_id and timestamp > registrations.get(tool_id, ""):
+                    registrations[tool_id] = timestamp
+        except OSError:
+            return registrations
+        return registrations
+
     def _collect_quarantine_records(self) -> list[FaultSummary]:
-        """Collect tool crash quarantine records."""
+        """Collect tool crash quarantine records.
+
+        Resolution-aware: a quarantine record for a tool that has since
+        re-registered healthy is historical evidence, not a live fault.
+        """
         faults: list[FaultSummary] = []
         if not self._quarantine_dir.is_dir():
             return faults
+        registrations = self._latest_tool_registrations()
+        cutoff = time.time() - _QUARANTINE_PRESENTATION_WINDOW_HOURS * 3600.0
         for record_path in self._quarantine_dir.glob("*.json"):
             try:
                 record = json.loads(record_path.read_text(encoding="utf-8"))
+                tool_id = str(record.get("tool_id", "unknown"))
+                quarantined_at = str(record.get("timestamp", "") or "")
+                latest_register = registrations.get(tool_id, "")
+                if latest_register and quarantined_at and latest_register > quarantined_at:
+                    continue
+                if not _is_recent_utc(quarantined_at, cutoff):
+                    continue
                 faults.append(FaultSummary(
-                    fault_id=f"quarantine-{record.get('tool_id', 'unknown')}-{record_path.stem}",
+                    fault_id=f"quarantine-{tool_id}-{record_path.stem}",
                     fault_type="quarantine",
-                    source=f"tool:{record.get('tool_id', 'unknown')}",
-                    timestamp=str(record.get("timestamp", "")),
+                    source=f"tool:{tool_id}",
+                    timestamp=quarantined_at,
                     severity="high",
                     error_class="ToolCrash",
                     error_message=f"Tool crashed with exit code {record.get('exit_code', 'unknown')}",

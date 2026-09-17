@@ -109,6 +109,7 @@ class StateChangeNotifier:
                 "runtime_state": snapshot.runtime_state,
                 "systemReady": snapshot.overall_ready,
                 "evaluated_at": snapshot.evaluated_at,
+                "capabilities": snapshot.capabilities.as_dict(),
             }
         )
         return payload
@@ -125,6 +126,7 @@ class StateChangeNotifier:
             or last.authenticated_ipc_connected != new.authenticated_ipc_connected
             or last.overall_ready != new.overall_ready
             or last.runtime_state != new.runtime_state
+            or last.capabilities.as_dict() != new.capabilities.as_dict()
         )
 
     def _write_readiness_state(self, snapshot: ReadinessSnapshot) -> None:
@@ -177,6 +179,7 @@ class StateChangeNotifier:
                     "authenticated_ipc_connected",
                     "overall_ready",
                     "runtime_state",
+                    "capabilities",
                 ),
                 invalidation_keys=("runtime-status", "readiness"),
                 state_hash=hashlib.sha256(state_json.encode("utf-8")).hexdigest(),

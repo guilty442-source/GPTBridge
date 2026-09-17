@@ -835,6 +835,49 @@ def _mature_capability_preservation(facts: Mapping[str, Any]) -> tuple[bool, str
     return True, "PASS", f"capability {capability_id} preservation validated"
 
 
+def _registered_domain_evidence(
+    facts: Mapping[str, Any], domain: str
+) -> tuple[bool, str, str]:
+    """Shared evaluator shape for registry-owned final-convergence domains."""
+    violations = facts.get("violations") or []
+    evidence = facts.get("evidence")
+    if violations:
+        return False, "FAIL_CLOSED", f"{domain} violations: {violations}"
+    if evidence is None:
+        return False, "INCOMPLETE_EVIDENCE", f"{domain} evidence required"
+    return True, "PASS", f"{domain} evidence validated"
+
+
+@register_rule("RULE_GIT_WORKTREE_V1")
+def _git_worktree(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    return _registered_domain_evidence(facts, "git-worktree")
+
+
+@register_rule("RULE_RAG_PROVENANCE_V1")
+def _rag_provenance(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    return _registered_domain_evidence(facts, "rag-provenance")
+
+
+@register_rule("RULE_NATIVE_PROMOTION_V1")
+def _native_promotion(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    return _registered_domain_evidence(facts, "native-promotion")
+
+
+@register_rule("RULE_BACKEND_HANDOFF_V1")
+def _backend_handoff(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    return _registered_domain_evidence(facts, "backend-handoff")
+
+
+@register_rule("RULE_MODEL_DIALOGUE_MODE_V1")
+def _model_dialogue_mode(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    return _registered_domain_evidence(facts, "model-dialogue-mode")
+
+
+@register_rule("RULE_TOOL_RUNTIME_V1")
+def _tool_runtime(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    return _registered_domain_evidence(facts, "tool-runtime")
+
+
 # ---------------------------------------------------------------------------
 # RULE_RUNTIME_AUTHORITY_RESOLUTION_V1 (A334)
 # ---------------------------------------------------------------------------

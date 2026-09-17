@@ -14,7 +14,13 @@ import sys
 import time
 from pathlib import Path
 
+from .branch_policy import MAIN_BRANCH, is_main, normalize_branch
 from .git_repository import GitRepository
+from .governance_manifest import (
+    GovernanceWriteBlocked,
+    assert_write_allowed,
+    timing as _manifest_timing,
+)
 from .merge_precheck import pre_merge_check
 from .merge_queue import MergeQueue
 from .process_lock import LockBusyError, ProcessFileLock
@@ -24,11 +30,14 @@ from .self_commit import run_once
 from .worktree_manager import WorktreeManager
 
 SYNC_ACTOR = "governance/workspace-sync"
+DEFAULT_SYNC_INTERVAL_SECONDS: float = _manifest_timing(
+    "workspace_sync_interval_seconds", 60.0
+)
 
 
-def _branch_name(value: str) -> str:
-    prefix = "refs/heads/"
-    return value[len(prefix):] if value.startswith(prefix) else value
+def _is_worker_branch(branch: str) -> bool:
+    """A branch the synchronizer may integrate / fast-forward (not main/HEAD)."""
+    return bool(branch) and branch != "HEAD" and not is_main(branch)
 
 
 def _common_git_dir(repo: GitRepository) -> Path:
@@ -36,6 +45,29 @@ def _common_git_dir(repo: GitRepository) -> Path:
     raw = (result.stdout or "").strip()
     path = Path(raw)
     return (path if path.is_absolute() else repo.path / path).resolve()
+
+
+def _governed(repo: GitRepository, args: list[str], *, timeout: float | None = None):
+    """Execute one integration write through the capability gate."""
+    from .capability_gate import execute_system_safe
+
+    return execute_system_safe(
+        list(args), actor=SYNC_ACTOR, repo_path=repo.path, timeout=timeout,
+    )
+
+
+def _gate_failed(gate) -> bool:
+    result = gate.execution_result
+    return gate.allowed is False or result is None or result.returncode != 0
+
+
+def _gate_error(gate) -> str:
+    if gate.allowed is False:
+        return str(gate.detail)[:160]
+    result = gate.execution_result
+    if result is None:
+        return "no-execution-result"
+    return str(result.stderr or result.stdout or "").strip()[:160]
 
 
 def _audit_passes(path: str | Path) -> bool:
@@ -55,11 +87,15 @@ def synchronize(
     root: str | Path, *, commit_dirty: bool = True, push: bool = False
 ) -> str:
     """Commit, integrate, and fast-forward all registered worktrees."""
+    try:
+        assert_write_allowed("workspace-sync.synchronize")
+    except GovernanceWriteBlocked as exc:
+        return f"error:{exc}"
     coordinator = GitRepository(root)
     manager = WorktreeManager(coordinator)
     worktrees = manager.list_worktrees()
     main = next(
-        (item for item in worktrees if _branch_name(item.get("branch", "")) == "main"),
+        (item for item in worktrees if is_main(item.get("branch", ""))),
         None,
     )
     if main is None:
@@ -80,10 +116,10 @@ def synchronize(
 
         invalid_diffs: list[str] = []
         for item in worktrees:
-            branch = _branch_name(item.get("branch", ""))
-            if not branch or branch in {"HEAD", "main"}:
+            branch = normalize_branch(item.get("branch", ""))
+            if not _is_worker_branch(branch):
                 continue
-            checked = coordinator.run(["diff", "--check", f"main...{branch}"])
+            checked = coordinator.run(["diff", "--check", f"{MAIN_BRANCH}...{branch}"])
             if checked.returncode != 0:
                 invalid_diffs.append(branch)
         if invalid_diffs:
@@ -93,15 +129,15 @@ def synchronize(
         queue = MergeQueue(root)
         merged_any = False
         for item in worktrees:
-            branch = _branch_name(item.get("branch", ""))
-            if not branch or branch in {"HEAD", "main"}:
+            branch = normalize_branch(item.get("branch", ""))
+            if not _is_worker_branch(branch):
                 continue
-            ancestor = main_repo.run(["merge-base", "--is-ancestor", branch, "main"])
+            ancestor = main_repo.run(["merge-base", "--is-ancestor", branch, MAIN_BRANCH])
             if ancestor.returncode == 0:
                 continue
             worker_id = Path(item["path"]).name
             source_sha = main_repo.run(["rev-parse", branch]).stdout.strip()
-            base_sha = main_repo.run(["rev-parse", "main"]).stdout.strip()
+            base_sha = main_repo.run(["rev-parse", MAIN_BRANCH]).stdout.strip()
             existing = queue.find_entry(branch, source_sha)
             if existing and existing.get("status") in {"conflicted", "blocked", "failed"}:
                 return f"conflict:{branch}:retry-blocked"
@@ -116,7 +152,7 @@ def synchronize(
                 return f"error:merge-queue:{entry.get('detail', 'enqueue-failed')}"
             queue.mark_running(entry["queue_id"])
 
-            precheck = pre_merge_check(main_repo, source_sha, target="main")
+            precheck = pre_merge_check(main_repo, source_sha, target=MAIN_BRANCH)
             if not precheck["has_ancestor"]:
                 queue.mark_blocked(entry["queue_id"], "no-common-ancestor")
                 return f"conflict:{branch}:no-merge-base"
@@ -125,15 +161,11 @@ def synchronize(
                 return f"conflict:{branch}:diff-check"
 
             recovery_ref = create_recovery_ref(
-                main_repo, entry["queue_id"], target="main", actor=SYNC_ACTOR
+                main_repo, entry["queue_id"], target=MAIN_BRANCH, actor=SYNC_ACTOR
             )
-            merged = main_repo.run(
-                ["merge", "--no-edit", source_sha],
-                confirmed=True,
-                actor=SYNC_ACTOR,
-            )
-            if merged.returncode != 0:
-                main_repo.run(["merge", "--abort"], confirmed=True, actor=SYNC_ACTOR)
+            merged = _governed(main_repo, ["merge", "--no-edit", source_sha])
+            if _gate_failed(merged):
+                _governed(main_repo, ["merge", "--abort"])
                 queue.mark_conflicted(
                     entry["queue_id"], f"merge-failed; recovery={recovery_ref}"
                 )
@@ -152,33 +184,29 @@ def synchronize(
             )
 
         for item in worktrees:
-            branch = _branch_name(item.get("branch", ""))
-            if not branch or branch in {"HEAD", "main"}:
+            branch = normalize_branch(item.get("branch", ""))
+            if not _is_worker_branch(branch):
                 continue
             repo = GitRepository(item["path"])
-            advanced = repo.run(
-                ["merge", "--ff-only", "main"],
-                confirmed=True,
-                actor=SYNC_ACTOR,
-            )
-            if advanced.returncode != 0:
-                return f"error:fast-forward:{branch}:{advanced.stderr.strip()[:160]}"
+            advanced = _governed(repo, ["merge", "--ff-only", MAIN_BRANCH])
+            if _gate_failed(advanced):
+                return (
+                    f"error:fast-forward:{branch}:{_gate_error(advanced)}"
+                )
         if push:
-            fetched = main_repo.run(
-                ["fetch", "origin", "main"], confirmed=True, actor=SYNC_ACTOR
+            fetched = _governed(
+                main_repo, ["fetch", "origin", MAIN_BRANCH]
             )
-            if fetched.returncode != 0:
+            if _gate_failed(fetched):
                 return "error:fetch-origin-main"
             remote_is_ancestor = main_repo.run(
-                ["merge-base", "--is-ancestor", "origin/main", "main"]
+                ["merge-base", "--is-ancestor", f"origin/{MAIN_BRANCH}", MAIN_BRANCH]
             )
             if remote_is_ancestor.returncode != 0:
                 return "error:remote-main-diverged"
-            pushed = main_repo.run(
-                ["push", "origin", "main"], confirmed=True, actor=SYNC_ACTOR
-            )
-            if pushed.returncode != 0:
-                return f"error:push:{pushed.stderr.strip()[:160]}"
+            pushed = _governed(main_repo, ["push", "origin", MAIN_BRANCH])
+            if _gate_failed(pushed):
+                return f"error:push:{_gate_error(pushed)}"
     return "synchronized-and-pushed" if push else "synchronized"
 
 
@@ -186,7 +214,9 @@ def cli_main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Synchronize all GPTBridge worktrees safely.")
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--watch", action="store_true")
-    parser.add_argument("--interval", type=float, default=60.0)
+    parser.add_argument(
+        "--interval", type=float, default=DEFAULT_SYNC_INTERVAL_SECONDS
+    )
     parser.add_argument("--no-commit", action="store_true")
     parser.add_argument("--push", action="store_true")
     args = parser.parse_args(argv)

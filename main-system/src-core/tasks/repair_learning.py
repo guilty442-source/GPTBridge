@@ -24,7 +24,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 from uuid import uuid4
 
 from .repair_learning_types import (
@@ -273,6 +273,50 @@ def learning_database_root(project_root: str | Path) -> Path:
     return Path(project_root) / "main-system" / "data" / "automatic-repair"
 
 
+# Remedy written by the learning reconciliation for non-actionable evidence
+# (expired/unclassifiable faults, absorbed historical failures).  The read
+# side never presents such outcomes as live faults.
+NON_ACTIONABLE_REMEDY: Final[str] = "no-action-required"
+
+# Detail field of a ``no-action-required`` marker that references the
+# failure-evidence outcome it absorbs.  The referenced row is never deleted:
+# it stays in the store as evidence but leaves the fault surface.
+RECONCILIATION_SOURCE_FIELD: Final[str] = "source_outcome_id"
+
+
+def absorbed_outcome_ids(
+    connection: sqlite3.Connection,
+    *,
+    remedy: str = NON_ACTIONABLE_REMEDY,
+) -> set[str]:
+    """Return failure-evidence ids explicitly absorbed by reconciliation.
+
+    A reconciliation marker is a ``no-action-required`` outcome whose
+    detail carries ``source_outcome_id``.  The marker is idempotent
+    evidence itself, so a reader can exclude the referenced historical
+    failure from any live-fault projection without deleting it.
+    """
+    absorbed: set[str] = set()
+    try:
+        rows = connection.execute(
+            "SELECT detail_json FROM repair_outcomes WHERE remedy = ?",
+            (remedy,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return absorbed
+    for (detail_json,) in rows:
+        try:
+            parsed = json.loads(detail_json or "{}")
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(parsed, dict):
+            continue
+        source = str(parsed.get(RECONCILIATION_SOURCE_FIELD) or "")
+        if source:
+            absorbed.add(source)
+    return absorbed
+
+
 def record_code_repair(
     project_root: str | Path,
     *,
@@ -392,7 +436,7 @@ class RepairLearner:
             name=f"Learned repair for {sig['error_class']} in {sig.get('file_context', 'unknown')}",
             failure_signatures=(sig["error_class"], sig["failure_code"]),
             remedy=best_remedy,
-            owner="main-system",
+            owner="星澄",
             automatic=True,
             runtime_only=True,
             learned_at=_iso_now(),
@@ -445,6 +489,10 @@ class RepairLearner:
         recurring = [s for s in signatures if s["occurrence_count"] >= LEARN_PROMOTION_THRESHOLD]
         return {
             "version": REPAIR_LEARNING_VERSION,
+            "learning_owner": "星澄",
+            "module_id": "xingcheng-auto-learning-module",
+            "learning_scope": "verified-system-repair-outcomes",
+            "execution_authority": "none",
             "total_error_types": len(signatures),
             "total_error_occurrences": total_errors,
             "recurring_errors": len(recurring),
@@ -459,11 +507,14 @@ __all__ = [
     "LearnedRecipe",
     "LEARN_PROMOTION_THRESHOLD",
     "MAX_LEARNED_RECIPES",
+    "NON_ACTIONABLE_REMEDY",
     "REPAIR_LEARNING_VERSION",
+    "RECONCILIATION_SOURCE_FIELD",
     "RepairLearner",
     "RepairLearningStore",
     "RepairOutcome",
     "_normalize_error_signature",
+    "absorbed_outcome_ids",
     "learning_database_root",
     "record_code_repair",
 ]

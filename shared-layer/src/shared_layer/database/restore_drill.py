@@ -63,6 +63,10 @@ class RestoreDrillResult:
         }
 
 
+class DrillEngineUnavailable(RuntimeError):
+    """Raised when a drill step needs a live engine that is unavailable."""
+
+
 class DrillAdapter(Protocol):
     """Engine-specific operations the drill orchestrates."""
 
@@ -130,8 +134,28 @@ def run_restore_drill(
         ready=ready,
         checks=checks,
         duration_seconds=time.monotonic() - started,
-        engine_live=adapter.engine_live,
+        engine_live=bool(getattr(adapter, "engine_live", False)),
     )
+
+
+def run_live_restore_drill(
+    adapter: DrillAdapter,
+    work_dir: Path,
+) -> RestoreDrillResult:
+    """Production entry: run the drill and refuse test-scope evidence.
+
+    A fake adapter may exercise the harness with ``engine_live=False``;
+    production certification must never consume that as READY.  This entry
+    raises :class:`DrillEngineUnavailable` instead of returning such a
+    result, so callers cannot accidentally certify a non-live drill.
+    """
+    result = run_restore_drill(adapter, work_dir)
+    if not bool(getattr(adapter, "engine_live", False)):
+        raise DrillEngineUnavailable(
+            "restore drill evidence is not from a live engine "
+            "(engine_live=False)"
+        )
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -253,7 +277,9 @@ class SQLiteFileDrillAdapter:
 __all__ = [
     "DrillAdapter",
     "DrillCheck",
+    "DrillEngineUnavailable",
     "RestoreDrillResult",
     "SQLiteFileDrillAdapter",
+    "run_live_restore_drill",
     "run_restore_drill",
 ]

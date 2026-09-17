@@ -6,6 +6,10 @@ import type {
 } from '@/ui/sovereign/runtimeStatusTypes'
 import { Drawer } from '@/ui/drawer/Drawer'
 import { useRuntimeStatusField } from '@/shared/hooks/useRuntimeStatusField'
+import {
+  filterActiveFaults,
+  filterActivePendingActions,
+} from '@/shared/utils/faultPresentation'
 import { mainSystemLocale } from '@/locales/main-system'
 
 const xr = mainSystemLocale.xingchengReport
@@ -52,22 +56,32 @@ export type XingchengDrawerProps = {
   confirmMessages: Record<string, string>
   switchBusy: string | null
   onConfirm: (actionId: string) => void
+  onDeny: (actionId: string) => void
   onSwitch: (switchName: string, enabled: boolean) => void
+  onNativeModelSwitch: (enabled: boolean) => void
   sendCommand: SendCommand
   waitForIpcEvent: WaitForIpcEvent
 }
 
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'] as const
 
-function severitySummary(faults: GlobalFaults): Array<[string, number]> {
-  const distribution = faults.severity_distribution || {}
+function severitySummary(faults: GlobalFault[]): Array<[string, number]> {
+  const distribution: Record<string, number> = {}
+  for (const fault of faults) {
+    const severity = String(fault.severity || 'info')
+    distribution[severity] = (distribution[severity] || 0) + 1
+  }
   return SEVERITY_ORDER.map(
     (severity) => [severity, Number(distribution[severity] || 0)] as [string, number]
   ).filter(([, count]) => count > 0)
 }
 
-function sourceCount(faults: GlobalFaults): number {
-  return Object.keys(faults.source_distribution || {}).length
+function sourceCount(faults: GlobalFault[]): number {
+  return new Set(
+    faults
+      .map((fault) => String(fault.source || '').trim())
+      .filter((source) => source.length > 0)
+  ).size
 }
 
 function faultTime(value: unknown): string {
@@ -119,7 +133,9 @@ export function XingchengDrawer({
   confirmMessages,
   switchBusy,
   onConfirm,
+  onDeny,
   onSwitch,
+  onNativeModelSwitch,
   sendCommand,
   waitForIpcEvent,
 }: XingchengDrawerProps) {
@@ -128,25 +144,28 @@ export function XingchengDrawer({
   const pendingActions = useRuntimeStatusField('pending_actions') ?? []
   const switches = useRuntimeStatusField('automation_switches') ?? {}
   const cardinality = useRuntimeStatusField('pending_action_cardinality') ?? {}
-  const liveGlobalFaults = useRuntimeStatusField('global_faults') as
+  const nativeModel = useRuntimeStatusField('xingcheng_native_model_runtime')
+  const faults = useRuntimeStatusField('global_faults') as
     | GlobalFaults
     | undefined
-  const [globalFaults, setGlobalFaults] = useState<GlobalFaults | null>(null)
   const [faultBusy, setFaultBusy] = useState(false)
   const [faultMessage, setFaultMessage] = useState('')
   const [faultDetail, setFaultDetail] = useState<GlobalFault | null>(null)
-  const faults = globalFaults ?? liveGlobalFaults
   const repairSwitchOn = switches.automatic_repair_enabled === true
   const updateSwitchOn = switches.automatic_update_enabled === true
-  const ordered = orderPendingActions(pendingActions)
+  const activeActions = filterActivePendingActions(pendingActions)
+  const recentFaults = filterActiveFaults(faults?.recent_faults)
+  const unresolvedFaults =
+    typeof faults?.unresolved === 'number'
+      ? faults.unresolved
+      : recentFaults.length
+  const ordered = orderPendingActions(activeActions)
   const cardinalityLabel =
     cardinality.mode === 'MULTI_FAULT'
       ? xr.cardinalityMulti
       : cardinality.mode === 'SINGLE_FAULT'
         ? xr.cardinalitySingle
         : xr.cardinalityNoFault
-  const switchOnForKind = (kind: string): boolean =>
-    kind === 'repair' ? repairSwitchOn : kind === 'update' ? updateSwitchOn : false
 
   const refreshGlobalFaults = async () => {
     setFaultBusy(true)
@@ -168,20 +187,8 @@ export function XingchengDrawer({
         setFaultMessage(String(result.message || '') || xr.globalFaultsFailed)
         return
       }
-      setGlobalFaults({
-        tracked: Number(result.total_faults_collected || 0),
-        unresolved: Array.isArray(result.recent_faults)
-          ? (result.recent_faults as GlobalFault[]).filter((fault) =>
-              ['pending', 'failure'].includes(String(fault.repair_outcome || ''))
-            ).length
-          : 0,
-        severity_distribution:
-          (result.severity_distribution as Record<string, number>) || {},
-        source_distribution:
-          (result.source_distribution as Record<string, number>) || {},
-        top_patterns: (result.top_patterns as GlobalFaults['top_patterns']) || [],
-        recent_faults: (result.recent_faults as GlobalFault[]) || [],
-        generated_at: String(result.timestamp || ''),
+      sendCommand('app:get-runtime-status', {
+        source: 'xingcheng_fault_refresh',
       })
     } catch {
       setFaultMessage(xr.globalFaultsFailed)
@@ -190,35 +197,9 @@ export function XingchengDrawer({
     }
   }
 
-  const openFaultDetail = async (fault: GlobalFault) => {
-    const faultId = String(fault.fault_id || '')
-    if (!faultId) {
-      setFaultDetail(fault)
-      return
-    }
+  const openFaultDetail = (fault: GlobalFault) => {
     setFaultMessage('')
-    try {
-      const sent = sendCommand('app:get-fault-analysis', {
-        query: 'detail',
-        fault_id: faultId,
-        requester: 'ui-xingcheng-drawer',
-      })
-      if (!sent.ok) {
-        setFaultMessage(sent.message || xr.globalFaultsDetailFailed)
-        return
-      }
-      const result = await waitForIpcEvent(
-        'app:get-fault-analysis_result',
-        15000
-      )
-      if (result.ok !== true || !result.fault) {
-        setFaultMessage(String(result.message || '') || xr.globalFaultsDetailFailed)
-        return
-      }
-      setFaultDetail(result.fault as GlobalFault)
-    } catch {
-      setFaultMessage(xr.globalFaultsDetailFailed)
-    }
+    setFaultDetail(fault)
   }
   return (
     <Drawer
@@ -283,29 +264,29 @@ export function XingchengDrawer({
                 <span className="xingcheng-switch__label">
                   {xr.globalFaultsUnresolved}
                 </span>
-                <strong>{faults.unresolved || 0}</strong>
+                <strong>{unresolvedFaults}</strong>
               </div>
               <div className="xingcheng-switch">
                 <span className="xingcheng-switch__label">
                   {xr.globalFaultsSources}
                 </span>
-                <strong>{sourceCount(faults)}</strong>
+                <strong>{sourceCount(recentFaults)}</strong>
               </div>
             </div>
-            {severitySummary(faults).length > 0 && (
+            {severitySummary(recentFaults).length > 0 && (
               <p className="xingcheng-approval__message">
                 {xr.globalFaultsSeverity}：
-                {severitySummary(faults)
+                {severitySummary(recentFaults)
                   .map(([severity, count]) => `${severity} ${count}`)
                   .join('、')}
               </p>
             )}
-            {(faults.recent_faults || []).length > 0 && (
+            {recentFaults.length > 0 && (
               <div className="xingcheng-approvals__list">
                 <div className="xingcheng-approvals__head">
                   <strong>{xr.globalFaultsRecent}</strong>
                 </div>
-                {(faults.recent_faults || []).map((fault, index) => (
+                {recentFaults.map((fault, index) => (
                   <article
                     className="xingcheng-approval"
                     key={String(fault.fault_id || `fault-${index}`)}
@@ -337,7 +318,7 @@ export function XingchengDrawer({
                     <button
                       type="button"
                       className="button button--ghost"
-                      onClick={() => void openFaultDetail(fault)}
+                      onClick={() => openFaultDetail(fault)}
                     >
                       {xr.viewDetails}
                     </button>
@@ -424,6 +405,23 @@ export function XingchengDrawer({
           <span>{xr.switchAttribution}</span>
         </div>
         <div className="xingcheng-switches">
+          <div className="xingcheng-switch">
+            <span className="xingcheng-switch__label">
+              {xr.nativeModelSwitch}
+            </span>
+            <button
+              type="button"
+              className="xingcheng-switch__toggle"
+              data-tone={nativeModel?.running ? 'on' : 'off'}
+              data-testid="switch-xingcheng-native-model"
+              disabled={switchBusy === 'xingcheng_native_model' || nativeModel?.available === false}
+              onClick={() => void onNativeModelSwitch(nativeModel?.running !== true)}
+            >
+              {switchBusy === 'xingcheng_native_model'
+                ? xr.nativeModelChanging
+                : nativeModel?.running ? xr.switchOn : xr.switchOff}
+            </button>
+          </div>
           {(
             [
               ['automatic_repair_enabled', xr.switchRepair, repairSwitchOn],
@@ -445,6 +443,9 @@ export function XingchengDrawer({
             </div>
           ))}
         </div>
+        {confirmMessages.xingcheng_native_model ? (
+          <p className="xingcheng-approval__message">{confirmMessages.xingcheng_native_model}</p>
+        ) : null}
 
         <div className="xingcheng-approvals__head">
           <strong>{xr.pendingTitle}</strong>
@@ -468,8 +469,14 @@ export function XingchengDrawer({
               const message = confirmMessages[actionId]
               const pending = action.status === 'awaiting-confirmation'
               const expired = pending && actionExpired(action)
-              const switchReady = switchOnForKind(String(action.kind || ''))
-              const canConfirm = pending && switchReady && !expired && !busy
+              const canConfirm = pending && !expired && !busy
+              const repairPlan = action.repair_plan || {}
+              const repairSteps = Array.isArray(repairPlan.steps)
+                ? repairPlan.steps as Array<Record<string, unknown>>
+                : []
+              const verification = Array.isArray(repairPlan.verification_criteria)
+                ? repairPlan.verification_criteria.map(String).join('、')
+                : ''
               return (
                 <article
                   className="xingcheng-approval"
@@ -496,6 +503,15 @@ export function XingchengDrawer({
                     ) : null}
                     {action.proposed_method ? (
                       <div><dt>{xr.methodLabel}</dt><dd>{action.proposed_method}</dd></div>
+                    ) : null}
+                    {repairSteps.length > 0 ? (
+                      <div>
+                        <dt>{xr.repairPlanLabel}</dt>
+                        <dd>{repairSteps.map((step) => `${String(step.action || '')} → ${String(step.target || '')}`).join('；')}</dd>
+                      </div>
+                    ) : null}
+                    {verification ? (
+                      <div><dt>{xr.verificationLabel}</dt><dd>{verification}</dd></div>
                     ) : null}
                     {action.risk ? (
                       <div><dt>{xr.riskLabel}</dt><dd>{action.risk}</dd></div>
@@ -526,14 +542,23 @@ export function XingchengDrawer({
                     className="xingcheng-approval__confirm"
                     data-testid={`confirm-pending-${actionId}`}
                     disabled={!canConfirm}
-                    title={!switchReady ? xr.switchDisabledHint : undefined}
+                    title={xr.singleItemPermitHint}
                     onClick={() => void onConfirm(actionId)}
                   >
                     {busy
                       ? xr.confirming
                       : pending
-                        ? xr.confirm
+                        ? xr.singleItemPermit
                         : xr.confirmedDone}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    data-testid={`deny-pending-${actionId}`}
+                    disabled={!pending || expired || busy}
+                    onClick={() => void onDeny(actionId)}
+                  >
+                    {xr.doNotPermit}
                   </button>
                   {message ? (
                     <p className="xingcheng-approval__message">{message}</p>

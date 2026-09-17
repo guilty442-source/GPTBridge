@@ -1,7 +1,12 @@
-"""Transactional Outbox Pattern — 雙寫一致性保證。
+"""Transactional Outbox repository — canonical ``gptbridge_rag.outbox_event``.
 
-A486+A487: PostgreSQL transaction commits both metadata + outbox event.
-RAG worker consumes outbox and applies to Qdrant asynchronously.
+The legacy ``rag_outbox`` table is REMOVED: there is exactly one RAG
+outbox authority (RAG-08 schema in ``rag_metadata._SAGA_DDL``).  This
+repository keeps the pre-Phase-2 class/API surface as a compat adapter
+writing the canonical table; ``mark_done`` maps to SUCCEEDED and
+``mark_failed`` maps to RETRY / DEAD_LETTER.  New code should use
+``PostgreSQLMetadataAuthority`` outbox methods or
+``CanonicalRagPipeline.process_outbox``.
 """
 
 from __future__ import annotations
@@ -61,27 +66,11 @@ class OutboxEvent:
     updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
+# Canonical DDL lives in rag_metadata._SAGA_DDL (single authority);
+# kept as a marker for legacy importers — never creates rag_outbox.
 OUTBOX_TABLE_SQL = """
-CREATE TABLE IF NOT EXISTS rag_outbox (
-    event_id UUID PRIMARY KEY,
-    operation TEXT NOT NULL CHECK (operation IN ('UPSERT','DELETE','REINDEX','UPDATE_METADATA')),
-    resource_id TEXT NOT NULL,
-    module_id TEXT NOT NULL,
-    generation_id TEXT NOT NULL,
-    content_hash TEXT,
-    payload JSONB,
-    attempts INTEGER DEFAULT 0,
-    state TEXT NOT NULL CHECK (state IN ('PENDING','PROCESSING','DONE','FAILED','DEAD_LETTER')),
-    last_error TEXT,
-    created_at_utc TEXT NOT NULL,
-    updated_at_utc TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_rag_outbox_state_created
-ON rag_outbox (state, created_at_utc);
-
-CREATE INDEX IF NOT EXISTS idx_rag_outbox_generation
-ON rag_outbox (generation_id, state);
+-- rag_outbox removed; canonical outbox is gptbridge_rag.outbox_event
+-- (see core_system.rag.rag_metadata._SAGA_DDL).
 """
 
 
@@ -135,44 +124,52 @@ class OutboxRepository:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO rag_outbox
-                (event_id, operation, resource_id, module_id, generation_id,
-                 content_hash, payload, attempts, state, last_error,
-                 created_at_utc, updated_at_utc)
+                INSERT INTO gptbridge_rag.outbox_event
+                (event_id, request_id, operation, module_id, resource_id,
+                 source_version, content_hash, generation_id, payload,
+                 state, attempt_count, last_error)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     event.event_id,
+                    f"legacy-{event.event_id}",
                     event.operation.value,
-                    event.resource_id,
                     event.module_id,
+                    event.resource_id,
+                    0,
+                    event.content_hash or "",
                     event.generation_id,
-                    event.content_hash,
                     json.dumps(event.payload) if event.payload else None,
+                    "PENDING",
                     event.attempts,
-                    event.state.value,
                     event.last_error,
-                    event.created_at,
-                    event.updated_at,
                 ),
             )
         return event
 
     def fetch_pending(self, limit: int = 100) -> list[OutboxEvent]:
-        """Fetch PENDING events for processing (FOR UPDATE SKIP LOCKED)."""
+        """Atomically claim PENDING / due-RETRY events as PROCESSING."""
         conn = self._get_conn()
         events = []
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT event_id, operation, resource_id, module_id, generation_id,
-                       content_hash, payload, attempts, state, last_error,
-                       created_at_utc, updated_at_utc
-                FROM rag_outbox
-                WHERE state = 'PENDING'
-                ORDER BY created_at_utc
-                LIMIT %s
-                FOR UPDATE SKIP LOCKED
+                UPDATE gptbridge_rag.outbox_event
+                SET state = 'PROCESSING', updated_at = now()
+                WHERE event_id IN (
+                    SELECT event_id FROM gptbridge_rag.outbox_event
+                    WHERE state = 'PENDING'
+                       OR (state = 'RETRY'
+                           AND (next_retry_at IS NULL
+                                OR next_retry_at <= now()))
+                    ORDER BY created_at
+                    LIMIT %s
+                    FOR UPDATE SKIP LOCKED
+                )
+                RETURNING event_id, operation, resource_id, module_id,
+                          generation_id, content_hash, payload,
+                          attempt_count, state, last_error,
+                          created_at, updated_at
                 """,
                 (limit,),
             )
@@ -185,79 +182,114 @@ class OutboxRepository:
                     generation_id=row["generation_id"],
                     content_hash=row["content_hash"],
                     payload=row["payload"],
-                    attempts=row["attempts"],
-                    state=RagOutboxState(row["state"]),
+                    attempts=row["attempt_count"],
+                    state=RagOutboxState.PROCESSING,
                     last_error=row["last_error"],
-                    created_at=row["created_at_utc"],
-                    updated_at=row["updated_at_utc"],
+                    created_at=str(row["created_at"]),
+                    updated_at=str(row["updated_at"]),
                 ))
+        conn.commit()
         return events
 
     def mark_processing(self, event_id: str) -> bool:
-        """Mark event as PROCESSING."""
+        """Mark event PROCESSING (canonical state)."""
         conn = self._get_conn()
         with conn.cursor() as cur:
             cur.execute(
                 """
-                UPDATE rag_outbox
-                SET state = 'PROCESSING', updated_at_utc = %s
+                UPDATE gptbridge_rag.outbox_event
+                SET state = 'PROCESSING', updated_at = now()
                 WHERE event_id = %s AND state = 'PENDING'
                 """,
-                (datetime.now(timezone.utc).isoformat(), event_id),
+                (event_id,),
             )
+            conn.commit()
             return cur.rowcount > 0
 
-    def mark_done(self, event_id: str) -> bool:
-        """Mark event as DONE."""
+    def mark_succeeded(self, event_id: str) -> bool:
+        """Canonical terminal: SUCCEEDED + completed_at."""
         conn = self._get_conn()
         with conn.cursor() as cur:
             cur.execute(
                 """
-                UPDATE rag_outbox
-                SET state = 'DONE', updated_at_utc = %s
+                UPDATE gptbridge_rag.outbox_event
+                SET state = 'SUCCEEDED', completed_at = now(),
+                    updated_at = now()
                 WHERE event_id = %s
                 """,
-                (datetime.now(timezone.utc).isoformat(), event_id),
+                (event_id,),
             )
+            conn.commit()
             return cur.rowcount > 0
 
-    def mark_failed(self, event_id: str, error: str, max_attempts: int = 5) -> bool:
-        """Mark event as FAILED or DEAD_LETTER based on attempts."""
+    # Compat name for pre-Phase-2 callers (DONE == SUCCEEDED).
+    mark_done = mark_succeeded
+
+    def mark_retry(self, event_id: str, error: str,
+                   delay_seconds: float = 2.0) -> bool:
+        """Canonical retriable failure: RETRY + next_retry_at."""
         conn = self._get_conn()
         with conn.cursor() as cur:
-            # First get current attempts
             cur.execute(
-                "SELECT attempts FROM rag_outbox WHERE event_id = %s",
+                """
+                UPDATE gptbridge_rag.outbox_event
+                SET state = 'RETRY', last_error = %s,
+                    attempt_count = attempt_count + 1,
+                    next_retry_at = now() + (%s || ' seconds')::interval,
+                    updated_at = now()
+                WHERE event_id = %s
+                """,
+                (error, str(delay_seconds), event_id),
+            )
+            conn.commit()
+            return cur.rowcount > 0
+
+    def mark_dead_letter(self, event_id: str, error: str) -> bool:
+        """Canonical terminal failure — observable, never silent."""
+        conn = self._get_conn()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE gptbridge_rag.outbox_event
+                SET state = 'DEAD_LETTER', last_error = %s,
+                    completed_at = now(), updated_at = now()
+                WHERE event_id = %s
+                """,
+                (error, event_id),
+            )
+            conn.commit()
+            return cur.rowcount > 0
+
+    def mark_failed(self, event_id: str, error: str,
+                    max_attempts: int = 5) -> bool:
+        """RETRY until max_attempts, then DEAD_LETTER (canonical)."""
+        conn = self._get_conn()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT attempt_count FROM gptbridge_rag.outbox_event "
+                "WHERE event_id = %s",
                 (event_id,),
             )
             row = cur.fetchone()
             if not row:
                 return False
-            attempts = row["attempts"] + 1
-            new_state = RagOutboxState.DEAD_LETTER.value if attempts >= max_attempts else RagOutboxState.FAILED.value
-
-            cur.execute(
-                """
-                UPDATE rag_outbox
-                SET state = %s, attempts = %s, last_error = %s, updated_at_utc = %s
-                WHERE event_id = %s
-                """,
-                (new_state, attempts, error, datetime.now(timezone.utc).isoformat(), event_id),
-            )
-            return cur.rowcount > 0
+            attempts = row["attempt_count"] + 1
+        if attempts >= max_attempts:
+            return self.mark_dead_letter(event_id, error)
+        return self.mark_retry(event_id, error)
 
     def get_stats(self) -> dict[str, int]:
-        """Get outbox statistics by state."""
+        """Canonical outbox statistics by state."""
         conn = self._get_conn()
         stats = {}
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT state, COUNT(*) as cnt FROM rag_outbox GROUP BY state"
+                "SELECT state, COUNT(*) as cnt "
+                "FROM gptbridge_rag.outbox_event GROUP BY state"
             )
             for row in cur.fetchall():
                 stats[row["state"]] = row["cnt"]
         return stats
-
 
 class OutboxWorker:
     """Background worker that consumes outbox and applies to Qdrant."""

@@ -27,6 +27,7 @@ class XingchengAutoMixin:
     _auto_metrics: dict[str, Any]
     _last_snapshot: dict[str, Any]
     _pending_anomalies: list[dict[str, Any]]
+    _learning_armed: bool
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -112,6 +113,12 @@ class XingchengAutoMixin:
         while self._auto_enabled:
             cycle_start = time.monotonic()
             try:
+                # A485 commanded learning: retry the parent command until
+                # the learning child is materialized/started (startup order
+                # can make the first command fail closed).
+                if not self._learning_armed:
+                    await self.ensure_learning_automation()
+
                 # Observe
                 snapshot = self._observe_domain()
                 self._last_snapshot = snapshot

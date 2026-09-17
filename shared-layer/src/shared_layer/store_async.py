@@ -7,8 +7,10 @@ run in the thread pool.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from contextlib import contextmanager
+from typing import Any, Iterator
 
+from .database.generation_fence import set_provenance
 from .store_helpers import (
     _PRIORITY_VALUES,
     _normalize_priority_class,
@@ -16,6 +18,19 @@ from .store_helpers import (
     normalize_id as _id,
     encode_json as _json,
 )
+
+
+@contextmanager
+def _governed_connection(pool) -> Iterator[Any]:
+    """Pooled connection with the backend generation declared (A8/E21).
+
+    The migration-016 fence only rejects stale writers when the connection
+    declares its generation; every transport write path acquires connections
+    through this helper so an unset declaration can never mean "allow".
+    """
+    with pool.acquire() as connection:
+        set_provenance(connection)
+        yield connection
 
 
 class PostgresStoreAsyncMixin:
@@ -38,13 +53,13 @@ class PostgresStoreAsyncMixin:
         target_tool_id: str,
     ) -> dict[str, Any] | None:
         """Async version of claim_request for native async callers."""
-        self._authorize(token, "process", target_tool_id)
+        self._authorize(token, "claim", target_tool_id)
         pool = self._get_pool()
         return await asyncio.to_thread(self._claim_request_sync, pool, target_tool_id)
 
     def _claim_request_sync(self, pool, target_tool_id: str) -> dict[str, Any] | None:
         """Synchronous claim implementation for thread pool."""
-        with pool.acquire() as connection:
+        with _governed_connection(pool) as connection:
             connection.execute("BEGIN")
             row = connection.execute(
                 "SELECT request_id, requester_actor, payload FROM gptbridge_transport.tool_request "
@@ -107,7 +122,7 @@ class PostgresStoreAsyncMixin:
         priority: str = "interactive",
         deadline_at: Any = None,
     ):
-        with pool.acquire() as connection:
+        with _governed_connection(pool) as connection:
             connection.execute(
                 "INSERT INTO gptbridge_transport.tool_request "
                 "(channel_id, request_id, requester_actor, target_tool_id, payload, status, "
@@ -141,7 +156,7 @@ class PostgresStoreAsyncMixin:
             self._respond_sync, pool, request_id, target_tool_id, response)
 
     def _respond_sync(self, pool, request_id, target_tool_id, response):
-        with pool.acquire() as connection:
+        with _governed_connection(pool) as connection:
             cursor = connection.execute(
                 "UPDATE gptbridge_transport.tool_request "
                 "SET status='completed', response=%s, updated_at=now() "
@@ -174,7 +189,7 @@ class PostgresStoreAsyncMixin:
             self._submit_push_sync, pool, actor, push_id, target_tool_id, payload)
 
     def _submit_push_sync(self, pool, actor, push_id, target_tool_id, payload):
-        with pool.acquire() as connection:
+        with _governed_connection(pool) as connection:
             connection.execute(
                 "INSERT INTO gptbridge_transport.tool_request "
                 "(channel_id, request_id, requester_actor, target_tool_id, payload, status, created_at, updated_at) "
@@ -201,7 +216,7 @@ class PostgresStoreAsyncMixin:
         return await asyncio.to_thread(self._claim_pushed_sync, pool, target_tool_id)
 
     def _claim_pushed_sync(self, pool, target_tool_id: str) -> dict[str, Any] | None:
-        with pool.acquire() as connection:
+        with _governed_connection(pool) as connection:
             connection.execute("BEGIN")
             row = connection.execute(
                 "SELECT request_id, requester_actor, payload FROM gptbridge_transport.tool_request "
@@ -242,7 +257,7 @@ class PostgresStoreAsyncMixin:
             self._acknowledge_push_sync, pool, push_id, target_tool_id, response)
 
     def _acknowledge_push_sync(self, pool, push_id, target_tool_id, response=None):
-        with pool.acquire() as connection:
+        with _governed_connection(pool) as connection:
             if response is None:
                 cursor = connection.execute(
                     "UPDATE gptbridge_transport.tool_request "
@@ -296,7 +311,7 @@ class PostgresStoreAsyncMixin:
             self._consume_response_sync, pool, actor, request_id, target_tool_id)
 
     def _consume_response_sync(self, pool, actor, request_id, target_tool_id):
-        with pool.acquire() as connection:
+        with _governed_connection(pool) as connection:
             connection.execute("BEGIN")
             row = connection.execute(
                 "SELECT status, response, progress FROM gptbridge_transport.tool_request "
@@ -313,6 +328,15 @@ class PostgresStoreAsyncMixin:
                 connection.execute("ROLLBACK")
                 return None
             if row["status"] in ("completed", "cancelled"):
+                # A46/A448: completed rows move to the transport history —
+                # never a silent DELETE.  The hot table stays bounded while
+                # the ledger keeps the archived row.
+                connection.execute(
+                    "INSERT INTO gptbridge_transport.tool_request_history "
+                    "SELECT *, now() FROM gptbridge_transport.tool_request "
+                    "WHERE channel_id=%s AND request_id=%s",
+                    (self._channel_id, _id(request_id)),
+                )
                 connection.execute(
                     "DELETE FROM gptbridge_transport.tool_request "
                     "WHERE channel_id=%s AND request_id=%s",

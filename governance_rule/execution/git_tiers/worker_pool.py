@@ -48,6 +48,21 @@ CONFIG_FILE = "config.json"
 CONFLICT_STATS_FILE = "conflict_stats.json"
 PERSISTENT_ROOT_NAME = "GPTBridge-worktrees"
 WORKERS_ROOT_NAME = "GPTBridge-workers"
+WORKER_POOL_ACTOR = "governance/worker-pool"
+
+#: Retirement keeps the documented audited legacy adapter (see
+#: ``_remove_worktree``); the boolean is a policy statement, not a literal
+#: approval at the gateway.
+_RETIREMENT_LEGACY_APPROVAL: bool = True
+
+
+def _governed_worker_command(repo: GitRepository, args: list[str]):
+    """Run one worker-allocation write through the capability gate."""
+    from .capability_gate import execute_system_safe
+
+    return execute_system_safe(
+        list(args), actor=WORKER_POOL_ACTOR, repo_path=repo.path,
+    )
 
 
 def _pool_dir(root: str | Path) -> Path:
@@ -296,17 +311,28 @@ class WorkerPool(LifecycleMixin, ReconcileMixin):
             raise RuntimeError(f"branch-not-ephemeral:{slot.branch}")
         path = Path(slot.worktree_path)
         if not path.exists():
-            self.repo.run([
-                "worktree", "add", "-b", slot.branch,
-                str(path), slot.base_revision,
-            ], check=True, confirmed=True,
-                actor="governance/worker-pool")
+            gate = _governed_worker_command(
+                self.repo,
+                [
+                    "worktree", "add", "-b", slot.branch,
+                    str(path), slot.base_revision,
+                ],
+            )
         else:
-            self.repo.run([
-                "-C", str(path), "switch", "-c", slot.branch,
-                slot.base_revision,
-            ], check=True, confirmed=True,
-                actor="governance/worker-pool")
+            gate = _governed_worker_command(
+                self.repo,
+                [
+                    "-C", str(path), "switch", "-c", slot.branch,
+                    slot.base_revision,
+                ],
+            )
+        result = gate.execution_result
+        if gate.allowed is False or result is None or result.returncode != 0:
+            detail = (
+                gate.detail if gate.allowed is False
+                else str(getattr(result, "stderr", "")).strip()[:200]
+            )
+            raise RuntimeError(f"worktree-bind-failed:{detail}")
         slot.head_revision = slot.base_revision
         self._verify_mapping(slot)
 
@@ -490,13 +516,33 @@ class WorkerPool(LifecycleMixin, ReconcileMixin):
         return bool((result.stdout or "").strip("\x00").strip())
 
     def _remove_worktree(self, slot: WorkerSlot) -> None:
+        """Retire a worker worktree through the governed gate.
+
+        ``worktree remove`` is deliberately outside the SYSTEM_SAFE whitelist
+        (guarded by ``test_capability.py``), so this last non-whitelisted
+        Tier-2 automation step uses the gate's audited legacy adapter: the
+        decision is recorded as ``LEGACY_CONFIRM`` marked
+        ``DEPRECATED_COMPATIBILITY``, and automation still can never
+        self-authorize Tier-3.  Migrate once the capability policy admits
+        clean worktree removal.
+        """
+        from .capability_gate import execute_with_capability
+
         path = Path(slot.worktree_path)
-        if path.is_dir():
-            self.repo.run(
-                ["worktree", "remove", str(path)],
-                check=True, confirmed=True,
-                actor="governance/worker-pool",
+        if not path.is_dir():
+            return
+        gate = execute_with_capability(
+            ["worktree", "remove", str(path)], None, tier=2,
+            actor=WORKER_POOL_ACTOR, repo_path=self.repo.path,
+            legacy_confirmed=_RETIREMENT_LEGACY_APPROVAL,
+        )
+        result = gate.execution_result
+        if gate.allowed is False or result is None or result.returncode != 0:
+            detail = (
+                f"{gate.code}:{gate.detail}" if result is None
+                else str(result.stderr or "").strip()[:200]
             )
+            raise PermissionError(f"worktree-remove-denied:{detail}")
 
     @staticmethod
     def _force_state(

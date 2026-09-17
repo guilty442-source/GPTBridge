@@ -20,7 +20,10 @@ are not role authority).
 """
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
+import threading
 from typing import Any, Callable, Optional
 
 _logger = logging.getLogger("gptbridge.rag")
@@ -58,6 +61,38 @@ def reciprocal_rank_fusion(
     result = list(fused.values())
     result.sort(key=lambda r: -float(r.get("rrf_score") or 0.0))
     return result
+
+
+def _resolve(value: Any) -> Any:
+    """Resolve an awaitable returned by an async retrieval channel.
+
+    ``hybrid_search`` is a synchronous surface while the dense/FTS channels are
+    async coroutines.  With no running event loop the coroutine runs via
+    ``asyncio.run``; inside a running loop it runs on a dedicated worker thread
+    so a synchronous caller never receives a bare coroutine (which previously
+    leaked into RRF as ``'coroutine' object is not iterable``).
+    """
+    if not inspect.isawaitable(value):
+        return value
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(value)
+    outcome: list[Any] = []
+    failure: list[BaseException] = []
+
+    def _worker() -> None:
+        try:
+            outcome.append(asyncio.run(value))
+        except BaseException as exc:  # noqa: BLE001 - propagate to caller
+            failure.append(exc)
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+    thread.join()
+    if failure:
+        raise failure[0]
+    return outcome[0]
 
 
 def _channel_name(index: int) -> str:
@@ -98,17 +133,21 @@ class PipelineRetrievalMixin:
         ``rrf_score`` for observability.
         """
         # Dense channel (Qdrant + index_state proof)
-        vector_hits = self.vector_search(
-            query_embedding,
-            module_ids=module_ids,
-            top_k=candidate_limit,
-            score_threshold=score_threshold,
+        vector_hits = _resolve(
+            self.vector_search(
+                query_embedding,
+                module_ids=module_ids,
+                top_k=candidate_limit,
+                score_threshold=score_threshold,
+            )
         )
         # Sparse channel (PostgreSQL FTS)
-        keyword_hits = self.keyword_search(
-            query_text,
-            module_ids=module_ids,
-            limit=candidate_limit,
+        keyword_hits = _resolve(
+            self.keyword_search(
+                query_text,
+                module_ids=module_ids,
+                limit=candidate_limit,
+            )
         )
         fused = reciprocal_rank_fusion(vector_hits, keyword_hits)
         _logger.debug(
@@ -142,7 +181,11 @@ class PipelineRetrievalMixin:
             score_threshold=score_threshold,
         )
         if not fused:
-            return [], {"reranker_applied": False, "reason": "no-candidates"}
+            return [], {
+                "reranker_applied": False,
+                "reason": "no-candidates",
+                "fallback": "rrf-hybrid-ranking",
+            }
         if reranker is None:
             return fused[:top_k], {
                 "reranker_applied": False,

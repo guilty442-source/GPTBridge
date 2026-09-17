@@ -16,6 +16,55 @@ from urllib.parse import urlsplit
 
 import websockets  # type: ignore
 
+
+class _WebsocketsHandshakeNoiseFilter(logging.Filter):
+    """Drop the websockets library's own opening-handshake race noise.
+
+    When a UI client disconnects exactly during the opening handshake the
+    library logs ``unexpected internal error`` with an ``AssertionError`` from
+    ``send_eof`` (``eof_sent``).  That is a client reconnect race, not a
+    backend fault; every other websockets error stays visible.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.msg != "unexpected internal error":
+            return True
+        exception = record.exc_info[1] if record.exc_info else None
+        return not isinstance(exception, AssertionError)
+
+
+_WS_HANDSHAKE_NOISE_FILTER = _WebsocketsHandshakeNoiseFilter()
+
+
+def _install_websockets_handshake_noise_filter() -> None:
+    """Attach the shared noise filter to emitting loggers and handlers.
+
+    ``websockets.asyncio.connection`` logs through a ``LoggerAdapter`` bound
+    to the logger passed to ``websockets.serve`` — here
+    ``gptbridge.websockets.server``, not the library-default
+    ``websockets.server``.  Logger filters only run for records created on
+    the exact logger, so records propagated from any websockets child logger
+    are covered only by filters on the output handlers; this backend writes
+    through ``logging.lastResort`` because no root handler is configured.
+    """
+    targets: list[logging.Filterer] = [
+        logging.getLogger("websockets.server"),
+        logging.getLogger("websockets.asyncio.server"),
+        logging.getLogger("gptbridge.websockets.server"),
+    ]
+    targets.extend(logging.root.handlers)
+    if logging.lastResort is not None:
+        targets.append(logging.lastResort)
+    for target in targets:
+        if not any(
+            isinstance(item, _WebsocketsHandshakeNoiseFilter)
+            for item in target.filters
+        ):
+            target.addFilter(_WS_HANDSHAKE_NOISE_FILTER)
+
+
+_install_websockets_handshake_noise_filter()
+
 if TYPE_CHECKING:
     from main import GPTBridgeApp
 

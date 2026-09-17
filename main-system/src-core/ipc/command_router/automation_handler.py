@@ -28,13 +28,17 @@ class AutomationSwitchesHandler:
 
     async def _handle_get_pending_actions(self, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
         from core_system.auto_action_policy import (
+            read_actionable_pending_actions,
             read_automation_switches,
-            read_pending_actions,
         )
         from .constants import _pending_action_cardinality
 
         project_root = getattr(self.app, "project_root", None)
-        actions = read_pending_actions(project_root) if project_root else []
+        actions = (
+            read_actionable_pending_actions(project_root)
+            if project_root
+            else []
+        )
         return "app:get-pending-actions_result", {
             "ok": True,
             "actions": actions,

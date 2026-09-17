@@ -15,6 +15,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from backend_log_sink import get_backend_log_sink
+
 
 class BootCoreLifecycleMixin:
     """Child lifecycle methods for BootCore."""
@@ -82,8 +84,21 @@ class BootCoreLifecycleMixin:
 
         Also captures the last N lines into ``_child_output`` so that
         ``_run_auto_repair`` can diagnose the actual crash cause instead
-        of running a blind full-source scan.
+        of running a blind full-source scan, and persists every line to the
+        rotating backend log under ``main-system/runtime/logs``.
+
+        The disk sink is fail-open: a logging failure records one warning
+        (stderr plus the in-memory diagnostic buffer) and disables
+        persistence without ever interrupting the relay.
         """
+
+        sink = None
+        try:
+            sink = get_backend_log_sink(
+                self.workspace_root / "main-system" / "runtime" / "logs"
+            )
+        except Exception as error:
+            self._warn_log_sink_failure(error)
 
         try:
             for raw in iter(stream.readline, b""):
@@ -92,6 +107,7 @@ class BootCoreLifecycleMixin:
                     sys.stdout.buffer.flush()
                 except (BrokenPipeError, OSError):
                     return
+                line = ""
                 try:
                     line = raw.decode("utf-8", errors="replace").rstrip("\n\r")
                     with self._child_output_lock:
@@ -102,8 +118,43 @@ class BootCoreLifecycleMixin:
                             del self._child_output[:100]
                 except Exception:
                     pass
+                if sink is not None and not sink.disabled:
+                    try:
+                        if not sink.write_line(line):
+                            # The sink already warned on stderr; surface the
+                            # same warning in the diagnostic buffer only.
+                            self._warn_log_sink_failure(
+                                sink.disabled_reason, emit_stderr=False
+                            )
+                            sink = None
+                    except Exception as error:
+                        self._warn_log_sink_failure(error)
+                        sink = None
         except (ValueError, OSError):
             return
+
+    def _warn_log_sink_failure(
+        self, error: object, *, emit_stderr: bool = True
+    ) -> None:
+        """Record a fail-open backend-log-sink warning without raising."""
+        if isinstance(error, str) and error:
+            message = error
+        else:
+            message = f"{type(error).__name__}: {error}"
+        warning = f"[boot-core] backend log sink disabled (fail-open): {message}"
+        if emit_stderr:
+            try:
+                sys.stderr.write(warning + "\n")
+                sys.stderr.flush()
+            except Exception:
+                pass
+        try:
+            with self._child_output_lock:
+                self._child_output.append(warning)
+                if len(self._child_output) > 200:
+                    del self._child_output[:100]
+        except Exception:
+            pass
 
     def _terminate_child(self) -> None:
         child = self._child

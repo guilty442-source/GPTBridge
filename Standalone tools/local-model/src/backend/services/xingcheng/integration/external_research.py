@@ -184,6 +184,71 @@ class ExternalAiResearch:
             ],
         }
 
+    def search_repair_solutions(
+        self,
+        *,
+        error_class: str,
+        error_message: str,
+        failure_code: str = "",
+        component: str = "",
+        runtime_versions: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """Find repair candidates through the governed collaboration channel."""
+        if self._client is None:
+            return {
+                "ok": False,
+                "error_code": "AI_CHANNEL_NOT_CONNECTED",
+                "message": "受治理的網路搜尋通道尚未連線",
+            }
+        context = {
+            "error_class": str(error_class)[:200],
+            "error_message": str(error_message)[:2_000],
+            "failure_code": str(failure_code)[:200],
+            "component": str(component)[:300],
+            "runtime_versions": dict(runtime_versions or {}),
+        }
+        prompt = (
+            "搜尋官方文件、正式問題追蹤與可信技術來源，尋找下列系統故障的修復方案。"
+            "結果只作候選研究，不得執行命令、修改檔案、安裝套件或寫入資料庫。"
+            "每個方案須附來源網址、適用版本、前置條件、風險、最小修改、回復方法與驗證步驟；"
+            "無法確認時明確標示不確定。\n"
+            + json.dumps(context, ensure_ascii=False, sort_keys=True)
+        )
+        result = self._request_sync(
+            "ai-collaboration",
+            "ai_nexus_send_message",
+            {
+                "content": prompt,
+                "agent_ids": ["google-search", "gemini"],
+                "business_scope": "system-repair",
+                "business_task": "repair-solution-research",
+                "research_pipeline": "google-gemini",
+                "memory_context": [],
+                "memory_writeback": False,
+                "direct_database_write": False,
+                "execution_allowed": False,
+                "response_recipient": "xingcheng",
+            },
+            timeout_seconds=200,
+        )
+        if result.get("ok") is not True:
+            return {
+                "ok": False,
+                "error_code": str(result.get("error_code") or "REPAIR_RESEARCH_FAILED"),
+                "message": str(result.get("message") or "修復方案搜尋失敗"),
+            }
+        group = result.get("group_message")
+        responses = group.get("responses", []) if isinstance(group, dict) else []
+        return {
+            "ok": True,
+            "recipient": "xingcheng",
+            "result_role": "unverified-repair-candidates",
+            "transport": "governance-authenticated-ai-channel",
+            "direct_database_write": False,
+            "execution_allowed": False,
+            "responses": [dict(item) for item in responses if isinstance(item, dict)],
+        }
+
     def recommend_parameter_changes(
         self,
         current_parameters: dict[str, float],

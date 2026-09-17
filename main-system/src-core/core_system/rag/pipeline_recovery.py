@@ -237,7 +237,29 @@ class PipelineRecoveryMixin:
             )
 
     async def _reconcile_delete(self, item: Any, module_id: str) -> None:
-        """Tombstone/archive replay: remove vectors, raise authoritative tombstone."""
+        """Tombstone/archive replay: remove vectors, raise authoritative tombstone.
+
+        When a ``DeletionCoordinatorRuntime`` is injected
+        (``self._deletion_coordinator``) the replay goes through its typed
+        runtime entry, which keeps the fixed order (Qdrant delete before the
+        PostgreSQL tombstone) and is idempotent.  Without it the canonical
+        pipeline performs the same two steps directly.
+        """
+        coordinator = getattr(self, "_deletion_coordinator", None)
+        if coordinator is not None:
+            outcome = await coordinator.reconcile_tombstone_async(
+                module_id=module_id,
+                resource_id=item.resource_id,
+                source_revision=item.source_revision,
+                content_hash=item.content_hash,
+                reason=f"reconciled-{item.operation}",
+            )
+            if not outcome.ok:
+                raise CanonicalCheckError(
+                    "deletion coordinator refused "
+                    f"{module_id}:{item.resource_id}: {outcome.reason}"
+                )
+            return
         await self.qdrant.delete_resource(module_id, item.resource_id)
         await self.postgresql.raise_tombstone(
             module_id=module_id,
@@ -418,3 +440,188 @@ class PipelineRecoveryMixin:
             "canonical": False,
         }
         return result
+
+    # ------------------------------------------------------------------
+    # RAG-16D: disaster-recovery rebuild — Qdrant is rebuildable from
+    # PostgreSQL authority + qwen3-embedding:4b; SQLite is never the
+    # restore source.
+    # ------------------------------------------------------------------
+
+    async def rebuild_canonical(
+        self,
+        generation_manager: Any,
+        *,
+        module_id: Optional[str] = None,
+        batch: int = 50,
+        benchmark_fn: Any = None,
+    ) -> Any:
+        """Rebuild the canonical semantic index from zero.
+
+        Sequence (lifecycle.dr.REBUILD_SEQUENCE):
+        START_QDRANT -> CREATE_GENERATION -> READ_PG_METADATA ->
+        RESOLVE_SOURCES -> RECHUNK_REEMBED -> VALIDATE -> ACTIVATE.
+
+        Sources come from PostgreSQL (chunk rows carry canonical content);
+        resources missing PG chunks are resolved through the owning
+        module's ``_document_fetcher`` and re-chunked — never from the
+        degraded SQLite store (its 256-dim hashing vectors cannot enter
+        the 2560-dim canonical collection).
+        """
+        from .lifecycle.dr import RebuildStep, evaluate_rebuild
+
+        steps: list[RebuildStep] = []
+        rebuilt = 0
+        self._migrating = True
+        try:
+            # START_QDRANT
+            if not await self.qdrant.initialize() and not self.qdrant.is_healthy():
+                return evaluate_rebuild(tuple(steps), 0, 0)
+            steps.append(RebuildStep.START_QDRANT)
+
+            # CREATE_GENERATION (BUILDING — never serves queries)
+            generation = await generation_manager.create_generation()
+            await generation_manager.ensure_collection(generation)
+            steps.append(RebuildStep.CREATE_GENERATION)
+
+            # READ_PG_METADATA — PostgreSQL is the rebuild authority
+            list_fn = getattr(self.postgresql, "list_indexed_resources", None)
+            resources = (
+                await list_fn(module_id) if list_fn is not None else []
+            )
+            steps.append(RebuildStep.READ_PG_METADATA)
+
+            # RESOLVE_SOURCES + RECHUNK_REEMBED
+            for mid, rid in resources:
+                chunks = await self.postgresql.fetch_resource_chunks(mid, rid)
+                texts = [str(c.get("content") or "") for c in chunks]
+                if not any(texts) and self._document_fetcher is not None:
+                    doc = await self._call_maybe_async(
+                        self._document_fetcher, mid, rid
+                    )
+                    if doc is None:
+                        continue
+                    texts = [str(doc.get("content") or "")]
+                    chunks = [{
+                        "chunk_id": f"{rid}-rebuilt-0",
+                        "qdrant_point_id": None,
+                        "sequence": 0,
+                        "content": texts[0],
+                        "payload": {},
+                    }]
+                if not chunks or not any(texts) or self._embed_texts is None:
+                    continue
+                vectors = await self._call_maybe_async(self._embed_texts, texts)
+                if len(vectors) != len(chunks):
+                    continue
+                for v in vectors:
+                    if len(v) != self.config.embedding_dimension:
+                        raise CanonicalCheckError(
+                            f"EMBEDDING_DIMENSION_MISMATCH:{len(v)}"
+                        )
+                from qdrant_client.http.models import PointStruct
+                from .rag_qdrant import sanitize_payload
+                points = [
+                    PointStruct(
+                        id=str(
+                            c.get("qdrant_point_id")
+                            or uuid.uuid5(_POINT_NAMESPACE, c["chunk_id"])
+                        ),
+                        vector=[float(x) for x in v],
+                        payload=sanitize_payload({
+                            "module_id": mid,
+                            "document_resource_id": rid,
+                            "chunk_id": c["chunk_id"],
+                            "generation_id": generation.generation_id,
+                        }),
+                    )
+                    for c, v in zip(chunks, vectors)
+                ]
+                if not await self.qdrant.upsert_points(
+                    points, generation_id=generation.generation_id
+                ):
+                    continue
+                rebuilt += 1
+            steps.append(RebuildStep.RESOLVE_SOURCES)
+            steps.append(RebuildStep.RECHUNK_REEMBED)
+
+            # VALIDATE — dimension/verify + optional benchmark gate
+            verification = await generation_manager.verify_generation(generation)
+            if not verification.get("ok"):
+                return evaluate_rebuild(tuple(steps), rebuilt, len(resources))
+            if benchmark_fn is not None:
+                bench = await self._call_maybe_async(benchmark_fn, generation)
+                if not bench:
+                    return evaluate_rebuild(tuple(steps), rebuilt, len(resources))
+            steps.append(RebuildStep.VALIDATE)
+
+            # ACTIVATE — atomic alias swap, then bind this pipeline
+            if not await generation_manager.promote_to_active(generation):
+                return evaluate_rebuild(tuple(steps), rebuilt, len(resources))
+            self._active_generation = generation.generation_id
+            steps.append(RebuildStep.ACTIVATE)
+            return evaluate_rebuild(tuple(steps), rebuilt, len(resources))
+        finally:
+            self._migrating = False
+    # ------------------------------------------------------------------
+    # RAG-16: unified status / manifest surface
+    # ------------------------------------------------------------------
+
+    def manifest(self) -> Any:
+        """RagSystemManifest for this runtime — the machine-readable
+        answer to "which architecture produced this answer?"."""
+        from .lifecycle.manifest import RagSystemManifest
+        from .lifecycle.schema_versions import RagSchemaVersions
+
+        return RagSystemManifest(
+            architecture_version="v1",
+            policy_version="v1",
+            schema=RagSchemaVersions(
+                rag_schema_version=1,
+                metadata_schema_version=1,
+                vector_schema_version=1,
+            ),
+            active_generation=self._active_generation or "",
+            embedding_model=self.config.embedding_model,
+            embedding_dimension=self.config.embedding_dimension,
+            collection_alias=self.config.collection_name,
+            canonical_state=self.gateway_state(),
+            degraded_backend="sqlite-bounded-fallback",
+        )
+
+    async def status(self) -> dict[str, Any]:
+        """Unified status surface: manifest core + health + metrics."""
+        health = await self.health_check()
+        metrics = getattr(self, "_metrics", None)
+        from .observability import RAG_METRICS
+        metrics = metrics or RAG_METRICS
+        # Feed gauges from the live stores.
+        outbox = health.get("outbox") or {}
+        metrics.set_gauge("outbox_pending", int(outbox.get("pending") or 0))
+        metrics.set_gauge("outbox_retry", int(outbox.get("retry") or 0))
+        metrics.set_gauge(
+            "outbox_dead_letter", int(outbox.get("dead_letter") or 0)
+        )
+        recon = health.get("reconciliation") or {}
+        metrics.set_gauge(
+            "reconciliation_pending",
+            int(recon.get("pending_count") or recon.get("pending") or 0),
+        )
+        metrics.set_gauge(
+            "reconciliation_failed", int(recon.get("failed_count") or 0)
+        )
+        metrics.set_gauge("active_generation", self._active_generation or "")
+        return {
+            "state": self.gateway_state(),
+            "canonical": self.gateway_state() == "CANONICAL_READY",
+            "blocked_reason": self._blocked_reason,
+            "manifest": {
+                "architecture_version": self.manifest().architecture_version,
+                "active_generation": self._active_generation or "",
+                "embedding_model": self.config.embedding_model,
+                "embedding_dimension": self.config.embedding_dimension,
+                "collection_alias": self.config.collection_name,
+                "sub_architectures": list(self.manifest().sub_architectures),
+            },
+            "health": health,
+            "metrics": metrics.snapshot(),
+        }

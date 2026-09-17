@@ -22,6 +22,8 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Optional
 
 FLOAT32_BYTES = 4
 
@@ -108,11 +110,133 @@ def plan_capacity(
     )
 
 
+class CapacityVerdict(str, Enum):
+    """Typed outcome of a capacity gate for one Qdrant operation."""
+    ALLOW = "ALLOW"
+    REJECT = "REJECT"
+    UNKNOWN = "UNKNOWN"
+
+
+@dataclass(frozen=True)
+class CapacityDecision:
+    """Typed, fail-closed capacity verdict for a lifecycle operation.
+
+    ``UNKNOWN`` means the budget could not be established; it is never a
+    silent ALLOW — the operation must be refused until capacity is known.
+    """
+    operation: str
+    verdict: CapacityVerdict
+    allowed: bool
+    reason: str
+    required_bytes: Optional[int] = None
+    available_bytes: Optional[int] = None
+    headroom_bytes: Optional[int] = None
+    report: Optional[QdrantCapacityReport] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "operation": self.operation,
+            "verdict": self.verdict.value,
+            "allowed": self.allowed,
+            "reason": self.reason,
+            "required_bytes": self.required_bytes,
+            "available_bytes": self.available_bytes,
+            "headroom_bytes": self.headroom_bytes,
+        }
+
+
+def authorize_operation(
+    operation: str,
+    *,
+    current: QdrantCollectionSpec | None = None,
+    successor: QdrantCollectionSpec | None = None,
+    available_bytes: int | None,
+    safety_margin: float = 0.0,
+) -> CapacityDecision:
+    """Capacity gate for a Qdrant lifecycle operation (build / cleanup).
+
+    Fail-closed rules:
+      * ``available_bytes is None`` -> UNKNOWN, refused.  An unknown budget
+        must never be treated as unlimited.
+      * ``required_bytes > budget`` -> REJECT ("capacity-limit-reached").
+      * Otherwise ALLOW with the full report attached.
+
+    ``headroom_bytes`` is ``dual_collection_headroom`` when both a current
+    and a successor collection coexist (A369 dual-collection migration).
+    """
+    if not operation:
+        raise ValueError("operation must be a non-empty string")
+    if available_bytes is None:
+        return CapacityDecision(
+            operation=operation,
+            verdict=CapacityVerdict.UNKNOWN,
+            allowed=False,
+            reason="capacity-budget-unavailable",
+        )
+    if available_bytes < 0:
+        raise ValueError("available_bytes must be >= 0")
+    if not 0.0 <= safety_margin < 1.0:
+        raise ValueError("safety_margin must be in [0, 1)")
+    if current is None and successor is None:
+        return CapacityDecision(
+            operation=operation,
+            verdict=CapacityVerdict.REJECT,
+            allowed=False,
+            reason="no-collection-spec",
+            available_bytes=available_bytes,
+        )
+
+    current_est = estimate_collection_bytes(current) if current is not None else None
+    successor_est = (
+        estimate_collection_bytes(successor) if successor is not None else None
+    )
+    required = (current_est.total_bytes if current_est else 0) + (
+        successor_est.total_bytes if successor_est else 0
+    )
+    budget = int(available_bytes * (1.0 - safety_margin))
+    headroom = (
+        dual_collection_headroom(current, successor)
+        if current is not None and successor is not None
+        else None
+    )
+    report = QdrantCapacityReport(
+        current=current_est or QdrantEstimate(0, 0, 0, 0),
+        successor=successor_est,
+        headroom_required_bytes=required,
+        fits_in=required <= budget,
+        available_bytes=budget,
+    )
+    if report.fits_in:
+        return CapacityDecision(
+            operation=operation,
+            verdict=CapacityVerdict.ALLOW,
+            allowed=True,
+            reason="within-budget",
+            required_bytes=required,
+            available_bytes=available_bytes,
+            headroom_bytes=headroom,
+            report=report,
+        )
+    return CapacityDecision(
+        operation=operation,
+        verdict=CapacityVerdict.REJECT,
+        allowed=False,
+        reason="capacity-limit-reached",
+        required_bytes=required,
+        available_bytes=available_bytes,
+        headroom_bytes=headroom,
+        report=report,
+    )
+
+
 __all__ = [
     "FLOAT32_BYTES",
+    "CapacityDecision",
+    "CapacityVerdict",
     "QdrantCapacityReport",
     "QdrantCollectionSpec",
     "QdrantEstimate",
+    "authorize_operation",
     "dual_collection_headroom",
     "estimate_collection_bytes",
     "plan_capacity",

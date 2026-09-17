@@ -180,6 +180,10 @@ _LAZY_EXPORTS = {
     "get_dependents": ("data_layer_contract", "get_dependents"),
     "get_integration_rules": ("data_layer_contract", "get_integration_rules"),
     "check_integration_rule": ("data_layer_contract", "check_integration_rule"),
+    "get_capability_degradation_matrix": (
+        "data_layer_contract",
+        "get_capability_degradation_matrix",
+    ),
     # Read models / CQRS boundary (migration 087)
     "ConsistencyLevel": ("readmodel", "ConsistencyLevel"),
     "ReadModelClient": ("readmodel", "ReadModelClient"),

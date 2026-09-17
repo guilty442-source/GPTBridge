@@ -11,8 +11,9 @@ modes:
 
 Design constraints (A53/E39 + A58/E44 governance):
 
-  * writes go through ``GitRepository.run`` with ``confirmed=True`` and are
-    recorded in the audit ledger with operation ``auto-commit``;
+  * writes go through the capability gate (``execute_system_safe`` issues a
+    SYSTEM_SAFE_AUTOMATION Tier-2 token; the gateway executes and audits it)
+    and are recorded in the audit ledger with operation ``auto-commit``;
   * only commits — never pushes. Remote sync stays with the coordinator or a
     human;
   * skips while a merge/rebase/cherry-pick/revert is in progress;
@@ -38,6 +39,11 @@ from pathlib import Path
 from . import audit_log
 from .audit_chain import chained_audit_log
 from .git_repository import GitRepository
+from .governance_manifest import (
+    GovernanceWriteBlocked,
+    assert_write_allowed,
+    timing as _manifest_timing,
+)
 from .process_lock import LockBusyError, ProcessFileLock, lock_is_active
 from .worktree_manager import WorktreeManager
 
@@ -47,6 +53,26 @@ IN_PROGRESS_MARKERS: tuple[str, ...] = (
     "REBASE_HEAD",
     "CHERRY_PICK_HEAD",
     "REVERT_HEAD",
+)
+
+# Governed cadence defaults (manifest version source; A318-A320).
+DEFAULT_WATCH_INTERVAL_SECONDS: float = _manifest_timing(
+    "self_commit_interval_seconds", 30.0
+)
+DEFAULT_WATCH_DEBOUNCE_SECONDS: float = _manifest_timing(
+    "self_commit_debounce_seconds", 60.0
+)
+DEBOUNCE_FLOOR_SECONDS: float = _manifest_timing(
+    "self_commit_base_debounce_seconds", 60.0
+)
+DEBOUNCE_CEILING_SECONDS: float = _manifest_timing(
+    "self_commit_max_debounce_seconds", 300.0
+)
+ADAPTIVE_WINDOW_SECONDS: float = _manifest_timing(
+    "self_commit_adaptive_window_seconds", 60.0
+)
+ADAPTIVE_BUSY_COMMITS: int = max(
+    1, int(_manifest_timing("self_commit_busy_commits_per_window", 4))
 )
 
 
@@ -111,6 +137,15 @@ def build_commit_message(branch: str, entries: dict[str, str]) -> str:
     return subject + "\n" + "\n".join(body) + "\n"
 
 
+def _governed(
+    repo: GitRepository, args: list[str], *, actor: str
+):
+    """Execute one Tier-2 automation command through the capability gate."""
+    from .capability_gate import execute_system_safe
+
+    return execute_system_safe(args, actor=actor, repo_path=repo.path)
+
+
 def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
     """Perform one self-commit pass; returns a short status string.
 
@@ -145,44 +180,59 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
     locked = False
     try:
         if not _is_main_worktree(repo):
-            lock_result = repo.run(
-                ["worktree", "lock", str(repo.path)],
-                confirmed=True,
-                actor=actor,
+            gate = _governed(
+                repo, ["worktree", "lock", str(repo.path)], actor=actor
             )
-            if lock_result.returncode != 0:
-                return f"error:lock:{lock_result.stderr.strip()[:200]}"
+            lock_result = gate.execution_result
+            if (
+                gate.allowed is False
+                or lock_result is None
+                or lock_result.returncode != 0
+            ):
+                detail = (
+                    gate.detail if gate.allowed is False
+                    else str(lock_result.stderr).strip()[:200]
+                )
+                return f"error:lock:{detail}"
             locked = True
-        add_result = repo.run(["add", "-A"], confirmed=True, actor=actor)
-        if add_result.returncode != 0:
-            return f"error:add:{add_result.stderr.strip()[:200]}"
+        gate = _governed(repo, ["add", "-A"], actor=actor)
+        add_result = gate.execution_result
+        if gate.allowed is False or add_result is None or add_result.returncode != 0:
+            detail = (
+                gate.detail if gate.allowed is False
+                else str(add_result.stderr).strip()[:200]
+            )
+            return f"error:add:{detail}"
         if not _porcelain(repo):
             return "nothing-staged"
-        commit_result = repo.run(
-            ["commit", "-F", str(msg_file)],
-            confirmed=True,
-            actor=actor,
-        )
-        if commit_result.returncode != 0:
+        gate = _governed(repo, ["commit", "-F", str(msg_file)], actor=actor)
+        commit_result = gate.execution_result
+        if (
+            gate.allowed is False
+            or commit_result is None
+            or commit_result.returncode != 0
+        ):
+            detail = (
+                gate.detail if gate.allowed is False
+                else str(commit_result.stderr).strip()[:500]
+            )
             chained_audit_log(
                 2,
                 "auto-commit fail",
                 actor,
                 True,
-                commit_result.stderr.strip()[:500],
+                detail,
                 operation="auto-commit",
                 phase="result",
                 result="failed",
-                returncode=commit_result.returncode,
+                returncode=(
+                    commit_result.returncode if commit_result is not None else -1
+                ),
             )
-            return f"error:commit:{commit_result.stderr.strip()[:200]}"
+            return f"error:commit:{detail[:200]}"
     finally:
         if locked:
-            repo.run(
-                ["worktree", "unlock", str(repo.path)],
-                confirmed=True,
-                actor=actor,
-            )
+            _governed(repo, ["worktree", "unlock", str(repo.path)], actor=actor)
         try:
             msg_file.unlink(missing_ok=True)
         except OSError:
@@ -206,6 +256,10 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
 
 def run_once(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
     """Serialize commits and yield while the workspace coordinator is active."""
+    try:
+        assert_write_allowed("self-commit.run_once")
+    except GovernanceWriteBlocked as exc:
+        return f"error:{exc}"
     repo = GitRepository(worktree)
     common_result = repo.run(["rev-parse", "--git-common-dir"])
     raw = (common_result.stdout or "").strip()
@@ -227,8 +281,8 @@ def run_once(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
 def watch(
     worktree: str | Path,
     *,
-    interval: float = 30.0,
-    debounce: float = 60.0,
+    interval: float = DEFAULT_WATCH_INTERVAL_SECONDS,
+    debounce: float = DEFAULT_WATCH_DEBOUNCE_SECONDS,
     actor: str = SELF_COMMIT_ACTOR,
 ) -> None:
     """Watch a worktree and self-commit stable dirty states."""
@@ -256,11 +310,15 @@ def watch(
             # load it shrinks back.  Bounded, never unlimited delay.
             if status == "committed":
                 commits_in_window += 1
-                if window >= 60.0:
-                    if commits_in_window >= 4:  # busy
-                        debounce = min(debounce * 1.5, 300.0)
-                    elif debounce > 60.0:  # calm
-                        debounce = max(60.0, debounce * 0.8)
+                if window >= ADAPTIVE_WINDOW_SECONDS:
+                    if commits_in_window >= ADAPTIVE_BUSY_COMMITS:  # busy
+                        debounce = min(
+                            debounce * 1.5, DEBOUNCE_CEILING_SECONDS
+                        )
+                    elif debounce > DEBOUNCE_FLOOR_SECONDS:  # calm
+                        debounce = max(
+                            DEBOUNCE_FLOOR_SECONDS, debounce * 0.8
+                        )
                     commits_in_window = 0
                     window_started = time.monotonic()
         elif not state:
@@ -297,8 +355,14 @@ def cli_main(argv: list[str] | None = None) -> int:
         "--all", action="store_true",
         help="act on every registered worktree (from this repository)",
     )
-    parser.add_argument("--interval", type=float, default=30.0, help="poll seconds")
-    parser.add_argument("--debounce", type=float, default=60.0, help="stability seconds")
+    parser.add_argument(
+        "--interval", type=float, default=DEFAULT_WATCH_INTERVAL_SECONDS,
+        help="poll seconds",
+    )
+    parser.add_argument(
+        "--debounce", type=float, default=DEFAULT_WATCH_DEBOUNCE_SECONDS,
+        help="stability seconds",
+    )
     parser.add_argument(
         "--actor", default=SELF_COMMIT_ACTOR,
         help="audit actor for self-commit operations",

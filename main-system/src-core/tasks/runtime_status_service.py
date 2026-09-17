@@ -116,19 +116,19 @@ class RuntimeStatusService:
         }
         try:
             from core_system.auto_action_policy import (
+                read_actionable_pending_actions,
                 read_automation_switches,
-                read_pending_actions,
             )
 
             project_root = getattr(self.app, "project_root", None)
-            actions = read_pending_actions(project_root) if project_root else []
+            actions = (
+                read_actionable_pending_actions(project_root)
+                if project_root
+                else []
+            )
             result["automation_switches"] = read_automation_switches(project_root)
             result["pending_action_count"] = len(actions)
-            actionable = [
-                action
-                for action in actions
-                if action.get("status") == "awaiting-confirmation"
-            ]
+            actionable = actions
             repairs = [
                 action for action in actionable if action.get("kind") == "repair"
             ]
@@ -171,6 +171,14 @@ class RuntimeStatusService:
         global_faults = _global_fault_summary()
         if global_faults is not None:
             result["global_faults"] = global_faults
+        try:
+            from core_system.xingcheng_native_model_runtime import native_model_status
+
+            result["xingcheng_native_model_runtime"] = native_model_status()
+        except Exception:
+            result["xingcheng_native_model_runtime"] = {
+                "state": "unavailable", "running": False, "available": False
+            }
         return result
 
     def startup_status(self) -> dict[str, Any]:
@@ -204,16 +212,30 @@ class RuntimeStatusService:
         get_startup_status = getattr(self.app, "get_startup_status", None)
         if callable(get_startup_status):
             result.update(get_startup_status())
+        try:
+            from core_system.xingcheng_native_model_runtime import native_model_status
+
+            result["xingcheng_native_model_runtime"] = native_model_status()
+        except Exception:
+            result["xingcheng_native_model_runtime"] = {
+                "state": "unavailable", "running": False, "available": False
+            }
         # User-confirmation queue (Xingcheng assistant panel).  Per-item
-        # fault/update approvals plus the persisted A366 switches.
+        # fault/update approvals plus the persisted A366 switches.  Only
+        # live actionable items are presented; terminal/reconciled records
+        # remain in the durable queue as evidence.
         try:
             from core_system.auto_action_policy import (
+                read_actionable_pending_actions,
                 read_automation_switches,
-                read_pending_actions,
             )
 
             project_root = getattr(self.app, "project_root", None)
-            actions = read_pending_actions(project_root) if project_root else []
+            actions = (
+                read_actionable_pending_actions(project_root)
+                if project_root
+                else []
+            )
             result["pending_actions"] = actions
             result["automation_switches"] = read_automation_switches(project_root)
             result["pending_action_cardinality"] = {
@@ -224,25 +246,16 @@ class RuntimeStatusService:
                             action
                             for action in actions
                             if action.get("kind") == "repair"
-                            and action.get("status") == "awaiting-confirmation"
                         ]
                     )
                     >= 2
                     else "SINGLE_FAULT"
                     if any(
-                        action.get("kind") == "repair"
-                        and action.get("status") == "awaiting-confirmation"
-                        for action in actions
+                        action.get("kind") == "repair" for action in actions
                     )
                     else "NO_FAULT"
                 ),
-                "unresolved": len(
-                    [
-                        action
-                        for action in actions
-                        if action.get("status") == "awaiting-confirmation"
-                    ]
-                ),
+                "unresolved": len(actions),
             }
         except Exception:
             result.setdefault("pending_actions", [])

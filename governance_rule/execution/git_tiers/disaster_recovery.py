@@ -18,7 +18,6 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -192,7 +191,23 @@ class GitDisasterRecovery:
     # git plumbing (Tier-1 reads; Tier-2 sanctioned captures only)
     # ------------------------------------------------------------------
 
-    def _git(self, args: list[str], *, confirmed: bool = False, timeout: float = 60.0):
+    # TODO(inventory): wire recovery timeouts (60/300/600 s) to manifest
+    # timings.disaster_recovery_* (git_governance_manifest.json).
+    def _git(
+        self,
+        args: list[str],
+        *,
+        confirmed: bool = False,
+        authorized: bool = False,
+        timeout: float = 60.0,
+    ):
+        """Run one bounded command.
+
+        ``confirmed`` (deprecated) and ``authorized`` both request the governed
+        Tier-2 path, which issues a ``SYSTEM_SAFE_AUTOMATION`` capability and
+        executes through the capability gate.  Tier-1 commands run through the
+        gateway directly; Tier-3 remains forbidden.
+        """
         command = " ".join(args)
         from .git_repository import GitRepository, _extended_tier
 
@@ -200,24 +215,31 @@ class GitDisasterRecovery:
         tier = extended if extended is not None else classify(command)
         if tier >= 3:
             raise DisasterRecoveryError(f"TIER3_OPERATION_FORBIDDEN:{command}")
+        actor = "governance/git-disaster-recovery"
+        if tier == 2 and (authorized or confirmed):
+            from .capability_gate import execute_system_safe
+
+            gate = execute_system_safe(
+                args, actor=actor, repo_path=self.root, timeout=timeout,
+            )
+            if gate.allowed is False or gate.execution_result is None:
+                raise PermissionError(f"{gate.code}: {gate.detail}")
+            return gate.execution_result
         return GitRepository(self.root).run(
-            args,
-            confirmed=True if confirmed else None,
-            actor="governance/git-disaster-recovery",
-            timeout=timeout,
+            args, actor=actor, timeout=timeout,
         )
 
-    def _out(self, args: list[str], *, confirmed: bool = False, timeout: float = 60.0) -> str:
-        result = self._git(args, confirmed=confirmed, timeout=timeout)
+    def _out(self, args: list[str], *, authorized: bool = False, timeout: float = 60.0) -> str:
+        result = self._git(args, authorized=authorized, timeout=timeout)
         if result.returncode != 0:
             raise DisasterRecoveryError(
                 f"GIT_COMMAND_FAILED:{' '.join(args)}:{result.returncode}:{result.stderr[:200]}"
             )
         return result.stdout
 
-    def _try(self, args: list[str], *, confirmed: bool = False) -> str:
+    def _try(self, args: list[str], *, authorized: bool = False) -> str:
         try:
-            return self._out(args, confirmed=confirmed)
+            return self._out(args, authorized=authorized)
         except (DisasterRecoveryError, PermissionError):
             return ""
 
@@ -352,7 +374,7 @@ class GitDisasterRecovery:
             if existing != sha:
                 raise DisasterRecoveryError(f"RECOVERY_REF_EXISTS_WITH_OTHER_SHA:{ref}")
             return ref
-        self._out(["update-ref", ref, sha], confirmed=True)
+        self._out(["update-ref", ref, sha], authorized=True)
         return ref
 
     def list_recovery_points(self) -> list[RecoveryPoint]:
@@ -427,7 +449,7 @@ class GitDisasterRecovery:
             path=str(path),
         )
         try:
-            self._out(["bundle", "create", str(path), "--all"], confirmed=True, timeout=300.0)
+            self._out(["bundle", "create", str(path), "--all"], authorized=True, timeout=300.0)
             manifest.state = "VERIFYING"
             manifest.bundle_sha256 = _sha256_file(path) if path.is_file() else ""
             if verify:
@@ -743,36 +765,23 @@ class GitDisasterRecovery:
             if not git_dir.exists():
                 return WorktreeIntegrity(path=path, state="BROKEN_GITFILE", detail="gitdir target missing")
         dirty = False
+        from .git_repository import GitRepository
+
+        inspector = GitRepository(target)
         try:
-            status = subprocess.run(
-                ["git", "-C", str(target), "status", "--porcelain"],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=30,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
+            status = inspector.run(["status", "--porcelain"], timeout=30.0)
             if status.returncode == 0:
                 dirty = bool(status.stdout.strip())
-        except (OSError, subprocess.SubprocessError):
+        except (OSError, PermissionError):
             return WorktreeIntegrity(path=path, state="BROKEN_INDEX", detail="git status failed")
         head = ""
         branch = entry.get("branch", "").replace("refs/heads/", "")
         try:
-            resolve = subprocess.run(
-                ["git", "-C", str(target), "rev-parse", "HEAD"],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=30,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
+            resolve = inspector.run(["rev-parse", "HEAD"], timeout=30.0)
             if resolve.returncode != 0:
                 return WorktreeIntegrity(path=path, state="BROKEN_HEAD", detail="HEAD unresolved")
             head = resolve.stdout.strip()
-        except (OSError, subprocess.SubprocessError):
+        except (OSError, PermissionError):
             return WorktreeIntegrity(path=path, state="BROKEN_HEAD", detail="HEAD check failed")
         return WorktreeIntegrity(path=path, state="HEALTHY", branch=branch, head=head, dirty=dirty)
 

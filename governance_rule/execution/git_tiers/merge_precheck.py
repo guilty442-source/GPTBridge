@@ -31,11 +31,16 @@ def _touched_paths(repo: GitRepository, target: str, source: str) -> list[str]:
 
 def merge_tree_check(repo: GitRepository, target: str, source: str) -> dict[str, Any]:
     """Tree-level merge dry run; unsupported on old git -> skipped."""
-    result = repo.run(
+    from .capability_gate import execute_system_safe
+
+    gate = execute_system_safe(
         ["merge-tree", "--write-tree", target, source],
-        confirmed=True,
-        actor="governance/merge-precheck",
+        actor="governance/merge-precheck", repo_path=repo.path,
     )
+    result = gate.execution_result
+    if gate.allowed is False or result is None:
+        return {"supported": True, "clean": False,
+                "detail": f"{gate.code}:{gate.detail}"[:300]}
     if result.returncode != 0:
         stderr = (result.stderr or "").lower()
         if "unknown" in stderr or "usage" in stderr or "not a git command" in stderr:

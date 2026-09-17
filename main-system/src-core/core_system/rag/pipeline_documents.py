@@ -16,6 +16,7 @@ from typing import Any, Optional
 
 from qdrant_client.http.models import PointStruct
 
+from .rag_contracts import OutboxOperation, OutboxState
 from .rag_qdrant import IndexState, sanitize_payload
 from .runtime_state import RagRuntimeState
 
@@ -79,18 +80,63 @@ class PipelineDocumentsMixin:
         embedding_model: str,
         collection_dimension: Optional[int],
     ) -> bool:
-        """PG authority writes → Qdrant upsert → index_state writeback."""
-        if not await self._pg_document_writes(
-            document, chunks, resource_id, module_id, embedding_model
-        ):
-            return False
+        """PG authority writes + outbox event (ONE transaction) ->
+        Qdrant upsert -> outbox SUCCEEDED + index_state writeback.
+
+        RAG-08: the outbox event commits with the metadata, so a crash
+        after commit leaves a durable PENDING event that ``process_outbox``
+        replays idempotently.  Qdrant is never part of the PG transaction.
+        """
+        event = self._new_outbox_event(
+            operation=OutboxOperation.UPSERT_RESOURCE,
+            module_id=module_id,
+            resource_id=resource_id,
+            source_version=int(document.get("version") or 0),
+            content_hash=str(
+                document.get("sha256") or document.get("content_hash") or ""
+            ),
+            generation_id=str(document.get("generation_id") or ""),
+            request_id=str(document.get("request_id") or "") or None,
+            payload={
+                "chunk_ids": [str(c.get("chunk_id")) for c in chunks],
+            },
+        )
+        write_tx = getattr(self.postgresql, "document_write_tx", None)
+        if write_tx is not None:
+            if not await write_tx(
+                document=document,
+                chunks=chunks,
+                embedding_model=embedding_model,
+                outbox_event=event,
+            ):
+                return False
+        else:
+            if not await self._pg_document_writes(
+                document, chunks, resource_id, module_id, embedding_model
+            ):
+                return False
+            insert = getattr(self.postgresql, "insert_outbox_event", None)
+            if insert is not None:
+                await insert(event)
         # Step 3: Qdrant dense vector write (canonical semantic index).
         if not await self.qdrant.ensure_collection(collection_dimension):
             return False
         points = self._document_points(document, chunks, vectors, module_id, resource_id)
-        if points and not await self.qdrant.upsert_points(points):
+        if not (points and await self.qdrant.upsert_points(points)):
+            # Outbox event stays PENDING — replay applies the vector write.
+            mark = getattr(self.postgresql, "mark_outbox", None)
+            if mark is not None:
+                await mark(
+                    event["event_id"], OutboxState.RETRY.value,
+                    error="qdrant upsert pending",
+                    next_retry_at=datetime.now(timezone.utc).isoformat(),
+                )
             return False
-        # Step 4: qdrant_point_id 回寫 PostgreSQL (index_state writeback).
+        # Step 4: outbox SUCCEEDED + qdrant_point_id writeback.
+        mark = getattr(self.postgresql, "mark_outbox", None)
+        if mark is not None:
+            await mark(event["event_id"], OutboxState.SUCCEEDED.value,
+                       terminal=True)
         return await self._writeback_index_state(
             document, chunks, resource_id, module_id, embedding_model,
             collection_dimension,

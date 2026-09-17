@@ -101,8 +101,10 @@ class CommandRouter:
         if command in (
             "xingcheng-set-repair-release",
             "xingcheng-set-update-release",
+            "xingcheng-set-native-model-enabled",
             "xingcheng-confirm-automatic-repair",
             "xingcheng-confirm-automatic-update",
+            "xingcheng-deny-pending-action",
             "xingcheng-revoke-automatic-repair-confirmation",
             "xingcheng-revoke-automatic-update-confirmation",
             "sync-execute-approved-automatic-repair",

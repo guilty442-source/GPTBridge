@@ -95,11 +95,12 @@ class RepairGovernedMixin:
                     request_record, decision_proof, request_id,
                     failure_code, owner, self.project_root,
                     self._read_requests, self._write_requests,
+                    chain_result,
                 )
                 report["request_id"] = request_id
                 report["ok"] = True
                 report["reason"] = (
-                    "automatic repair frozen; awaiting user confirmation"
+                    "repair plan ready; awaiting user confirmation"
                 )
             else:
                 report["ok"] = chain_result.get("stage") == "complete"

@@ -1,7 +1,7 @@
 """xingcheng_personality — 星澄人格設定.
 
-星澄（Xingcheng）是 GPTBridge 的原生輔助系統人格。此模組定義星澄的
-身份、名稱、展示名等人格屬性，與原生模型能力和智慧管理權分離。
+星澄（Xingcheng）人格隸屬原生模型；人格資料存放於獨立資料庫。
+星澄助理是另一個介面身分組，不繼承原生模型、人格或學習子主宰身分。
 
 人格設定來源：
   * Governance Codex — 星澄的主宰身份與權力邊界
@@ -33,8 +33,9 @@ XINGCHENG_MODULE_ID = _XINGCHENG_SOVEREIGN.id
 XINGCHENG_RANK = _XINGCHENG_SOVEREIGN.rank
 
 # 預設展示名稱（可被 manifest 覆蓋）
-_DEFAULT_NATIVE_MODEL_DISPLAY_NAME = "星澄原生模型"
-_DEFAULT_TOOL_DISPLAY_NAME = "本地模型"
+_DEFAULT_NATIVE_MODEL_DISPLAY_NAME = "星澄"
+_DEFAULT_TOOL_DISPLAY_NAME = "星澄助理"
+XINGCHENG_ASSISTANT_IDENTITY_GROUP = "xingcheng-assistant-identity-group"
 
 
 class XingchengPersonality:
@@ -47,6 +48,12 @@ class XingchengPersonality:
     def __init__(self, app: Any) -> None:
         self.app = app
         self._manifest_cache: dict[str, Any] | None = None
+        from .xingcheng_identity_store import XingchengIdentityStores
+
+        self._identity_stores = XingchengIdentityStores(
+            Path(getattr(app, "project_root", Path.cwd()))
+        )
+        self._identity_stores.initialize()
 
     # ------------------------------------------------------------------
     # 身份屬性
@@ -78,27 +85,18 @@ class XingchengPersonality:
 
     @property
     def native_model_display_name(self) -> str:
-        """原生模型的展示名稱。"""
-        manifest = self._manifest()
-        return str(
-            manifest.get("native_model_display_name")
-            or _DEFAULT_NATIVE_MODEL_DISPLAY_NAME
-        )
+        """固定的原生模型展示名稱。"""
+        return _DEFAULT_NATIVE_MODEL_DISPLAY_NAME
 
     @property
     def tool_display_name(self) -> str:
-        """工具的展示名稱。"""
-        manifest = self._manifest()
-        return str(
-            manifest.get("tool_display_name")
-            or _DEFAULT_TOOL_DISPLAY_NAME
-        )
+        """固定的助理展示名稱；星澄助理不是工具。"""
+        return _DEFAULT_TOOL_DISPLAY_NAME
 
     @property
     def assistant_identity(self) -> str:
-        """助理身份標籤。"""
-        manifest = self._manifest()
-        return str(manifest.get("assistant_identity") or XINGCHENG_IDENTITY)
+        """星澄助理的獨立介面身分組。"""
+        return XINGCHENG_ASSISTANT_IDENTITY_GROUP
 
     @property
     def operation_mode(self) -> str:
@@ -120,6 +118,10 @@ class XingchengPersonality:
             "native_model_display_name": self.native_model_display_name,
             "tool_display_name": self.tool_display_name,
             "assistant_identity": self.assistant_identity,
+            "assistant_identity_database": "xingcheng_assistant_identity",
+            "personality_database": "xingcheng_identity",
+            "database_separation": "strict",
+            "identity_stores": self._identity_stores.status(),
             "operation_mode": self.operation_mode,
         }
 
@@ -144,6 +146,7 @@ class XingchengPersonality:
 
 __all__ = [
     "XINGCHENG_IDENTITY",
+    "XINGCHENG_ASSISTANT_IDENTITY_GROUP",
     "XINGCHENG_MODULE_ID",
     "XINGCHENG_RANK",
     "XINGCHENG_ROLE",

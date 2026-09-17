@@ -29,6 +29,27 @@ class ChildRegistryBase:
     def get_sub_sovereign(self, name: str) -> Any | None:
         return self._sub_sovereigns.get(name)
 
+    def _all_children(self) -> dict[str, Any]:
+        """All materialized children across every registered parent (A334).
+
+        Child supervision (A322) must observe children owned by other
+        sovereigns too: each parent in the codex hierarchy registry is
+        resolved to its live instance and its child registry is merged
+        into one read-only projection.
+        """
+        from ...registries import hierarchy_status, resolve_sovereign
+
+        merged: dict[str, Any] = {}
+        for parent_id in hierarchy_status()["parents"]:
+            parent = (
+                self
+                if parent_id == self.sovereign_id
+                else resolve_sovereign(self.app, parent_id)
+            )
+            if parent is not None:
+                merged.update(getattr(parent, "_sub_sovereigns", {}))
+        return merged
+
     def authorize_child_activation(self, child_identity: str) -> SovereignOutcome:
         """A334: adjudicate whether this sovereign may dispatch a child start.
 

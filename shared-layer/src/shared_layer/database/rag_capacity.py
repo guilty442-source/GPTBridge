@@ -41,6 +41,7 @@ from typing import Any, Optional, Sequence
 
 from psycopg import Connection
 
+from shared_layer.database.qdrant_capacity import CapacityDecision
 from shared_layer.database.query_allowlist import get_query
 
 _logger = logging.getLogger("gptbridge.ragcapacity")
@@ -498,6 +499,94 @@ def admit(
 
 
 # ============================================================================
+# Lifecycle gate — typed admission for Qdrant build / cleanup operations
+# ============================================================================
+
+LIFECYCLE_OPERATIONS: frozenset[str] = frozenset({"build", "cleanup"})
+LIFECYCLE_QUEUE = "rebuild"
+
+
+@dataclass(frozen=True)
+class LifecycleGateDecision:
+    """Typed admission verdict for a generation build / cleanup operation.
+
+    Combines the bounded rebuild-queue admission with the Qdrant capacity
+    verdict.  A missing capacity decision is not silently compliant: it is
+    surfaced as ``capacity_verdict=None`` so callers can distinguish
+    "checked and allowed" from "not configured".
+    """
+    operation: str
+    allowed: bool
+    reason: str
+    queue: Optional[dict[str, Any]] = None
+    capacity_verdict: Optional[str] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "operation": self.operation,
+            "allowed": self.allowed,
+            "reason": self.reason,
+            "queue": self.queue,
+            "capacity_verdict": self.capacity_verdict,
+        }
+
+
+def gate_lifecycle_operation(
+    operation: str,
+    *,
+    queue_state: Optional[QueueState] = None,
+    queue_depth: int = 0,
+    queue_threshold: int = 1000,
+    capacity: Optional[CapacityDecision] = None,
+) -> LifecycleGateDecision:
+    """Admit or refuse a Qdrant lifecycle operation (build / cleanup).
+
+    Refuses when the rebuild queue is not ACCEPTING or when the injected
+    capacity decision is not ALLOW.  With no capacity decision the gate
+    reports ``capacity_verdict=None`` — the caller stays responsible for
+    not treating that as a verified success.
+    """
+    if operation not in LIFECYCLE_OPERATIONS:
+        raise ValueError(f"unknown lifecycle operation: {operation}")
+
+    queue_decision: Optional[dict[str, Any]] = None
+    if queue_state is not None:
+        queue_decision = admit(
+            queue_state,
+            int(queue_depth),
+            threshold=int(queue_threshold),
+            workload=LIFECYCLE_QUEUE,
+        )
+        if queue_decision.get("decision") != QueueDecision.ACCEPT.value:
+            return LifecycleGateDecision(
+                operation=operation,
+                allowed=False,
+                reason=f"queue-not-accepting: {queue_decision.get('decision')}",
+                queue=queue_decision,
+                capacity_verdict=(
+                    capacity.verdict.value if capacity is not None else None
+                ),
+            )
+
+    if capacity is not None:
+        return LifecycleGateDecision(
+            operation=operation,
+            allowed=capacity.allowed,
+            reason=capacity.reason,
+            queue=queue_decision,
+            capacity_verdict=capacity.verdict.value,
+        )
+
+    return LifecycleGateDecision(
+        operation=operation,
+        allowed=True,
+        reason="allowed (capacity not configured)",
+        queue=queue_decision,
+        capacity_verdict=None,
+    )
+
+
+# ============================================================================
 # Query-engine helpers (pure Python — adopt directly in the pipeline)
 # ============================================================================
 
@@ -823,6 +912,10 @@ __all__ = [
     "advance_generation",
     "list_rag_slo",
     "admit",
+    "LIFECYCLE_OPERATIONS",
+    "LIFECYCLE_QUEUE",
+    "LifecycleGateDecision",
+    "gate_lifecycle_operation",
     "build_qdrant_filter",
     "select_index_profile",
     "reranker_batches",

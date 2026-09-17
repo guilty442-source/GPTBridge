@@ -175,9 +175,17 @@ class ComplianceMonitor:
             authority = directory_authority_snapshot()
             identities = identity_group_snapshot()
 
-            # 檢查版本一致性
-            if code_rules.initial_code_version != "1.0.0":
-                _logger.warning("Code rule directory version mismatch")
+            # 檢查版本一致性：程式碼規則目錄的初始版本必須與權威政策的
+            # 程式碼版本政策一致（不得以寫死的字面值放寬治理檢查）。
+            if (
+                code_rules.initial_code_version
+                != authority.code_version_policy.initial_version
+            ):
+                _logger.warning(
+                    "Code rule directory version mismatch: %s != %s",
+                    code_rules.initial_code_version,
+                    authority.code_version_policy.initial_version,
+                )
 
             # 檢查權威版本
             if authority.authority_version_policy.current_version != authority.authority_version_policy.initial_version:

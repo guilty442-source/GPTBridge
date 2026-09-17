@@ -92,11 +92,23 @@ def execute_prune(
             "unsafe": evaluation["unsafe"],
         }
     repo = GitRepository(root)
-    result = repo.run(["worktree", "prune", "--verbose"], confirmed=True, actor=actor)
+    from .capability_gate import execute_system_safe
+
+    gate = execute_system_safe(
+        ["worktree", "prune", "--verbose"], actor=actor, repo_path=repo.path,
+    )
+    result = gate.execution_result
     return {
-        "pruned": result.returncode == 0,
+        "pruned": bool(
+            gate.allowed is not False
+            and result is not None
+            and result.returncode == 0
+        ),
         "removed": evaluation["safe"],
-        "detail": (result.stdout or result.stderr or "")[:300],
+        "detail": (
+            f"{gate.code}:{gate.detail}"[:300] if result is None
+            else (result.stdout or result.stderr or "")[:300]
+        ),
     }
 
 

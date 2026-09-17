@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
-"""git-gate.py ??Git operation tier governance wrapper.
+"""git-gate.py — Git operation tier governance wrapper.
 
 Usage:
   python scripts/git-gate.py <git-command> [args...]
 
-Wraps git commands with A53/E39 three-tier enforcement:
-  Tier 1: read-only, direct execution (no prompt)
-  Tier 2: general write, requires confirmation (y/N prompt or GOVERNANCE_CONFIRM=1)
-  Tier 3: high-risk, requires governance authority approval (GOVERNANCE_AUTHORITY_APPROVAL=1)
+Thin CLI adapter (A375): classification, authorization and execution all
+come from ``governance_rule.execution.git_tiers`` — this file only owns the
+interactive confirmation prompt and the usage banner.
 
-Audit ledger: governance_rule/execution/audit/git_tier_audit.jsonl (A46)
-
-Flow:
-  Git Command → git-gate.py → git_tiers.classify()
-    ├─ Tier 1 → 直接執行
-    ├─ Tier 2 → GOVERNANCE_CONFIRM (env or interactive prompt)
-    └─ Tier 3 → GOVERNANCE_AUTHORITY_APPROVAL
-  → Git → Audit Ledger (single entry per operation)
+Tier 1: read-only, direct execution (no prompt).
+Tier 2: general write; an interactive yes issues a one-time
+        USER_CONFIRMATION capability bound to this exact command and executes
+        it through the capability gate.
+Tier 3: high-risk; no implicit, environment or automation approval exists.
+        A governance authority capability must be issued externally and
+        presented through the Python API; without it the command fails
+        closed.
 """
 from __future__ import annotations
 
@@ -28,13 +27,28 @@ project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
 
 from governance_rule.execution.git_tiers import (
-    classify,
-    audit_log,
     TIER1_OPS,
     TIER2_OPS,
     TIER3_OPS,
+    classify,
 )
+from governance_rule.execution.git_tiers.capability import (
+    IssuerClass,
+    repository_id_for,
+)
+from governance_rule.execution.git_tiers.capability_gate import (
+    execute_with_capability,
+)
+from governance_rule.execution.git_tiers.capability_issue import issue_capability
 from governance_rule.execution.git_tiers.git_repository import GitRepository
+
+
+def _prompt_confirmed() -> bool:
+    try:
+        response = input("[git-gate] Tier-2 operation. Proceed? (y/N): ")
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return response.strip().casefold() in ("y", "yes")
 
 
 def main() -> int:
@@ -43,9 +57,9 @@ def main() -> int:
         print("usage: git-gate.py <git-command> [args...]", file=sys.stderr)
         print("\nTier 1 (read-only, direct):", file=sys.stderr)
         print(f"  {', '.join(sorted(TIER1_OPS))}", file=sys.stderr)
-        print("\nTier 2 (write, requires confirmation):", file=sys.stderr)
+        print("\nTier 2 (write, one-time confirmation capability):", file=sys.stderr)
         print(f"  {', '.join(sorted(TIER2_OPS))}", file=sys.stderr)
-        print("\nTier 3 (high-risk, requires governance approval):", file=sys.stderr)
+        print("\nTier 3 (high-risk, external authority capability):", file=sys.stderr)
         print(f"  {', '.join(sorted(TIER3_OPS))}", file=sys.stderr)
         return 1
 
@@ -56,67 +70,52 @@ def main() -> int:
     )
     tier = classify(command)
     repository = GitRepository(project_root)
+    repository_id = repository_id_for(project_root)
 
-    # Show tier classification
     print(f"[git-gate] classified as Tier-{tier}: git {command}", file=sys.stderr)
 
-    # ── Tier 1: read-only → direct execution ──────────────────────
-    if tier == 1:
-        return repository.run(args, actor=actor).returncode
-
-    # ── Tier 2: general write → GOVERNANCE_CONFIRM or interactive ─
+    capability = None
     if tier == 2:
-        confirmed = os.environ.get("GOVERNANCE_CONFIRM", "").lower() in (
-            "1", "true", "yes",
-        )
-        if not confirmed:
-            # Interactive confirmation prompt
-            try:
-                response = input(
-                    f"[git-gate] Tier-2 operation. Proceed? (y/N): "
-                )
-            except (EOFError, KeyboardInterrupt):
-                audit_log(
-                    tier, command, actor, approved=False,
-                    detail="tier-2 user-declined (no input)",
-                )
-                print("[git-gate] Cancelled.", file=sys.stderr)
-                return 1
-            if response.lower() not in ("y", "yes"):
-                audit_log(
-                    tier, command, actor, approved=False,
-                    detail="tier-2 user-declined",
-                )
-                print("[git-gate] Cancelled by user.", file=sys.stderr)
-                return 1
-        return repository.run(
-            args,
-            confirmed=True,
-            authority_approved=False,
+        if not _prompt_confirmed():
+            denied = execute_with_capability(
+                args, None, tier=2, actor=actor,
+                repository_id=repository_id, repo_path=project_root,
+            )
+            print(f"[git-gate] Cancelled: {denied.code}", file=sys.stderr)
+            return 1
+        capability = issue_capability(
+            issuer_class=IssuerClass.USER_CONFIRMATION,
+            issuer_id=f"console/{actor}",
             actor=actor,
-        ).returncode
+            repository_id=repository_id,
+            command=args,
+            tier=2,
+        )
 
-    # ── Tier 3: high-risk → GOVERNANCE_AUTHORITY_APPROVAL ─────────
-    approved = os.environ.get("GOVERNANCE_AUTHORITY_APPROVAL", "").lower() in (
-        "1", "true", "yes",
-    )
-    if not approved:
-        audit_log(
-            tier, command, actor, approved=False,
-            detail="tier-3 requires governance authority approval",
+    if tier == 3:
+        denied = execute_with_capability(
+            args, None, tier=3, actor=actor,
+            repository_id=repository_id, repo_path=project_root,
         )
         print(
-            "[git-gate] BLOCKED: tier-3 requires governance authority approval "
-            "(set GOVERNANCE_AUTHORITY_APPROVAL=1)",
+            f"[git-gate] BLOCKED: {denied.code} — tier-3 requires an external "
+            "governance authority capability; environment approval is closed",
             file=sys.stderr,
         )
         return 1
-    return repository.run(
-        args,
-        confirmed=True,
-        authority_approved=True,
-        actor=actor,
-    ).returncode
+
+    result = execute_with_capability(
+        args, capability, tier=tier, actor=actor,
+        repository_id=repository_id, repo_path=project_root,
+    )
+    if result.allowed is False:
+        print(
+            f"[git-gate] BLOCKED: {result.code}: {result.detail}",
+            file=sys.stderr,
+        )
+        return 1
+    completed = result.execution_result
+    return int(getattr(completed, "returncode", 1))
 
 
 if __name__ == "__main__":

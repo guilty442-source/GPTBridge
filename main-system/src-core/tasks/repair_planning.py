@@ -56,6 +56,9 @@ class RepairPlan:
     recipe_id: str = ""
     remedy: str = ""
     source: str = "static"
+    confidence_status: str = "unverified"
+    mutation_allowed: bool = False
+    blocked_reason: str = "repair-applicability-not-verified"
 
     @property
     def actions(self) -> tuple[str, ...]:
@@ -96,9 +99,12 @@ def _plan_from_recipe(failure_code: str, recipe: dict[str, Any]) -> RepairPlan:
         raw_actions = ()
     action_set = {str(a).strip() for a in raw_actions if str(a).strip()}
 
+    verified = recipe.get("verified_applicability") is True and bool(
+        str(recipe.get("verification") or "").strip()
+    )
     inspect_databases = _ACTION_INSPECT_DATABASES in action_set or not action_set
-    rebuild_executable = _ACTION_REBUILD_EXECUTABLE in action_set
-    repair_source = _ACTION_REPAIR_SOURCE in action_set
+    rebuild_executable = verified and _ACTION_REBUILD_EXECUTABLE in action_set
+    repair_source = verified and _ACTION_REPAIR_SOURCE in action_set
 
     return RepairPlan(
         failure_code=failure_code,
@@ -108,6 +114,9 @@ def _plan_from_recipe(failure_code: str, recipe: dict[str, Any]) -> RepairPlan:
         recipe_id=str(recipe.get("recipe_id") or ""),
         remedy=str(recipe.get("remedy") or ""),
         source=str(recipe.get("source") or "static"),
+        confidence_status="verified" if verified else "uncertain",
+        mutation_allowed=verified,
+        blocked_reason="" if verified else "repair-applicability-not-verified",
     )
 
 
@@ -123,11 +132,14 @@ def _fallback_plan(failure_code: str) -> RepairPlan:
     return RepairPlan(
         failure_code=code,
         inspect_databases=True,
-        rebuild_executable=code in PACKAGE_REBUILD_FAILURES,
-        repair_main_system_source=code in SOURCE_SELF_REPAIR_FAILURES,
+        rebuild_executable=False,
+        repair_main_system_source=False,
         recipe_id="",
         remedy="",
-        source="fallback",
+        source="fallback-uncertain",
+        confidence_status="uncertain",
+        mutation_allowed=False,
+        blocked_reason="no-verified-repair-recipe",
     )
 
 
@@ -195,6 +207,7 @@ REPAIR_RECIPES: Final[tuple[dict[str, Any], ...]] = (
             "uncommitted git changes are skipped"
         ),
         "automatic": True,
+        "verified_applicability": True,
         "runtime_only": False,
     },
     {
@@ -209,6 +222,7 @@ REPAIR_RECIPES: Final[tuple[dict[str, Any], ...]] = (
         "remedy": "plan_repair rebuild-tool-executable via governed package rebuilder",
         "verification": "owned databases inspected; rebuilt executable starts",
         "automatic": True,
+        "verified_applicability": True,
         "runtime_only": True,
     },
     {
@@ -223,6 +237,7 @@ REPAIR_RECIPES: Final[tuple[dict[str, Any], ...]] = (
         "remedy": "governance-authorized re-spawn with bounded startup/autonomous recovery in launcher",
         "verification": "health probe returns ready with matching workspace instance id",
         "automatic": True,
+        "verified_applicability": True,
         "runtime_only": True,
     },
     {
@@ -246,6 +261,7 @@ REPAIR_RECIPES: Final[tuple[dict[str, Any], ...]] = (
             "reconnects within probe interval"
         ),
         "automatic": True,
+        "verified_applicability": True,
         "runtime_only": True,
     },
     {

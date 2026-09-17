@@ -445,7 +445,9 @@ class SystemRuntimeSovereign(
         """Poll runtime readiness state (A67 information layer)."""
         self._auto_metrics["runtime_state_polls"] += 1
         state = self._load_readiness_state()
-        current = str(state.get("state", "unknown")).lower()
+        current = str(
+            state.get("state") or state.get("runtime_state") or "unknown"
+        ).lower()
         if current in _DEGRADED_STATES:
             self._auto_metrics["degradation_detected"] += 1
             self._runtime_state = current
@@ -454,11 +456,22 @@ class SystemRuntimeSovereign(
 
     def _load_readiness_state(self) -> dict[str, Any]:
         try:
-            path = Path.cwd().joinpath(*_READINESS_STATE_RELATIVE)
+            root = getattr(self.app, "project_root", None) or Path.cwd()
+            path = Path(root).joinpath(*_READINESS_STATE_RELATIVE)
             payload = json.loads(path.read_text(encoding="utf-8"))
-            return payload if isinstance(payload, dict) else {}
         except (OSError, UnicodeError, json.JSONDecodeError):
             return {}
+        if not isinstance(payload, dict):
+            return {}
+        # The information-layer writer nests the projection under
+        # ``snapshot``; older files were flat.  Accept both so the
+        # runtime state is never misread as ``unknown``.
+        snapshot = payload.get("snapshot")
+        if isinstance(snapshot, dict):
+            merged = dict(payload)
+            merged.update(snapshot)
+            return merged
+        return payload
 
     async def _supervise_children(self) -> None:
         """Detect stopped children and adjudicate bounded restarts (A322)."""

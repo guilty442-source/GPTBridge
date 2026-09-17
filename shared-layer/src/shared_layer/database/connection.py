@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from queue import Empty, LifoQueue
 from threading import Lock
@@ -14,6 +15,8 @@ from ..security.dsn_policy import (
     runtime_context_active,
 )
 from .config import DatabaseSettings
+
+_logger = logging.getLogger("gptbridge.shared_layer.connection")
 
 
 def database_dsn(admin_dsn: str, database: str) -> str:
@@ -38,11 +41,21 @@ class ConnectionManager:
         # binding; a declared runtime context fails closed without it and the
         # admin binding is never silently reused as the runtime credential.
         runtime_dsn = settings.runtime_dsn.strip()
-        self._runtime_isolated = bool(runtime_dsn)
+        shared_binding = settings.shares_credential
+        # A501: the role probe only applies to a *dedicated* runtime binding.
+        # An identical admin/runtime binding is the legacy single-credential
+        # posture — tolerated visibly (warning), never presented as separation.
+        self._runtime_isolated = bool(runtime_dsn) and not shared_binding
         if not runtime_dsn:
             if runtime_context_active():
                 raise DsnPolicyError("RUNTIME_DSN_REQUIRED_IN_RUNTIME_CONTEXT")
             runtime_dsn = settings.admin_dsn.strip()
+        elif shared_binding:
+            _logger.warning(
+                "DSN_SHARED_CREDENTIAL_LEGACY_POSTURE: the runtime pool uses the "
+                "admin binding; deploy a least-privilege GPTBRIDGE_POSTGRES_DSN "
+                "runtime role (A501)"
+            )
         self._dsn = database_dsn(runtime_dsn, settings.database)
         self._min_size = min_size
         self._max_size = max_size

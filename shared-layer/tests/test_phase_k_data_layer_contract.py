@@ -361,10 +361,77 @@ class TestDataLayerContractModule:
         from shared_layer.database.data_layer_contract import check_integration_rule
         assert callable(check_integration_rule)
 
+    def test_import_get_capability_degradation_matrix(self):
+        from shared_layer.database.data_layer_contract import get_capability_degradation_matrix
+        assert callable(get_capability_degradation_matrix)
+
     def test_lazy_export_via_init(self):
-        from shared_layer.database import get_startup_order, is_pg_certified
+        from shared_layer.database import (
+            get_capability_degradation_matrix,
+            get_startup_order,
+            is_pg_certified,
+        )
         assert callable(get_startup_order)
         assert callable(is_pg_certified)
+        assert callable(get_capability_degradation_matrix)
+
+class TestCapabilityDegradationMatrixReader:
+    def test_reads_codex_matrix_table(self, tmp_path):
+        import sqlite3
+
+        from shared_layer.database.data_layer_contract import (
+            get_capability_degradation_matrix,
+        )
+
+        database = tmp_path / "codex.sqlite3"
+        with sqlite3.connect(database) as connection:
+            connection.execute(
+                "CREATE TABLE sql_capability_degradation_matrix ("
+                "capability_code TEXT PRIMARY KEY,"
+                "postgresql_unavailable_action TEXT,"
+                "sqlite_allowed INTEGER)"
+            )
+            connection.execute(
+                "INSERT INTO sql_capability_degradation_matrix VALUES (?, ?, ?)",
+                ("CENTRAL_OFFICIAL_WRITE", "closed", 0),
+            )
+        matrix = get_capability_degradation_matrix(database)
+        assert set(matrix) == {"CENTRAL_OFFICIAL_WRITE"}
+        row = matrix["CENTRAL_OFFICIAL_WRITE"]
+        assert row["capability_code"] == "CENTRAL_OFFICIAL_WRITE"
+        assert row["postgresql_unavailable_action"] == "closed"
+
+    def test_missing_codex_returns_empty(self, tmp_path):
+        from shared_layer.database.data_layer_contract import (
+            get_capability_degradation_matrix,
+        )
+
+        assert get_capability_degradation_matrix(tmp_path / "absent.sqlite3") == {}
+
+    def test_table_absent_returns_empty(self, tmp_path):
+        import sqlite3
+
+        from shared_layer.database.data_layer_contract import (
+            get_capability_degradation_matrix,
+        )
+
+        database = tmp_path / "codex.sqlite3"
+        with sqlite3.connect(database) as connection:
+            connection.execute("CREATE TABLE unrelated (id INTEGER)")
+        assert get_capability_degradation_matrix(database) == {}
+
+    def test_real_codex_declares_active_matrix(self):
+        from shared_layer.database.data_layer_contract import (
+            get_capability_degradation_matrix,
+        )
+
+        matrix = get_capability_degradation_matrix()
+        if not matrix:
+            return  # checkout without the governance codex
+        for capability, row in matrix.items():
+            assert capability == row["capability_code"]
+            assert row["status"] == "active"
+
 
 class TestQueryAllowlistPhaseK:
     def test_data_layer_contract_query(self):

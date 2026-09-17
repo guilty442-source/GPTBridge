@@ -93,6 +93,7 @@ class XingchengCommandHandler:
             self.control_surface.app,
             str(payload.get("action_id") or ""),
             confirmation_id=str(payload.get("confirmation_id") or ""),
+            permission_mode=str(payload.get("permission_mode") or "standing-switch"),
         )
         result.setdefault("error_code", "")
         return "xingcheng-confirm-automatic-repair_result", result
@@ -105,6 +106,7 @@ class XingchengCommandHandler:
             self.control_surface.app,
             str(payload.get("action_id") or ""),
             confirmation_id=str(payload.get("confirmation_id") or ""),
+            permission_mode=str(payload.get("permission_mode") or "standing-switch"),
         )
         result.setdefault("error_code", "")
         return "xingcheng-confirm-automatic-update_result", result

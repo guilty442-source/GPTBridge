@@ -322,6 +322,51 @@ class RagMetadataReconciliationMixin:
             )
             return None
 
+    async def list_indexed_resources(
+        self, module_id: Optional[str] = None
+    ) -> list[tuple[str, str]]:
+        """RAG-16D rebuild source list: (module_id, resource_id) pairs for
+        every indexed resource that is NOT tombstoned — PostgreSQL is the
+        rebuild authority, never SQLite and never Qdrant."""
+        if not self._healthy or not self._conn:
+            return []
+        try:
+            async with self._conn.cursor() as cur:
+                if module_id:
+                    await cur.execute(
+                        """SELECT s.module_id, s.resource_id
+                           FROM gptbridge_rag.index_state s
+                           WHERE s.status = 'indexed'
+                             AND s.module_id = %s
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM gptbridge_rag.tombstone t
+                                 WHERE t.module_id = s.module_id
+                                   AND t.resource_id = s.resource_id
+                                   AND t.purged IS NOT TRUE)
+                           ORDER BY s.module_id, s.resource_id""",
+                        (module_id,),
+                    )
+                else:
+                    await cur.execute(
+                        """SELECT s.module_id, s.resource_id
+                           FROM gptbridge_rag.index_state s
+                           WHERE s.status = 'indexed'
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM gptbridge_rag.tombstone t
+                                 WHERE t.module_id = s.module_id
+                                   AND t.resource_id = s.resource_id
+                                   AND t.purged IS NOT TRUE)
+                           ORDER BY s.module_id, s.resource_id"""
+                    )
+                rows = await cur.fetchall()
+            return [(str(r[0]), str(r[1])) for r in rows]
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: list_indexed_resources failed: %s",
+                exc,
+            )
+            return []
+
     # -- RAG-11: generation registry -------------------------------------------
 
     async def upsert_generation(self, generation: Any) -> bool:
@@ -623,16 +668,22 @@ class RagMetadataReconciliationMixin:
             return []
         try:
             async with self._conn.cursor() as cur:
+                # Atomic lease: one statement claims rows as PROCESSING so
+                # concurrent workers can never take the same event.
                 await cur.execute(
-                    """SELECT event_id, request_id, operation, module_id,
-                              resource_id, source_version, content_hash,
-                              generation_id, payload, attempt_count
-                       FROM gptbridge_rag.outbox_event
-                       WHERE state = 'PENDING'
-                          OR (state = 'RETRY' AND next_retry_at <= now())
-                       ORDER BY created_at
-                       LIMIT %s
-                       FOR UPDATE SKIP LOCKED""",
+                    """UPDATE gptbridge_rag.outbox_event
+                       SET state = 'PROCESSING', updated_at = now()
+                       WHERE event_id IN (
+                           SELECT event_id FROM gptbridge_rag.outbox_event
+                           WHERE state = 'PENDING'
+                              OR (state = 'RETRY' AND next_retry_at <= now())
+                           ORDER BY created_at
+                           LIMIT %s
+                           FOR UPDATE SKIP LOCKED
+                       )
+                       RETURNING event_id, request_id, operation, module_id,
+                                 resource_id, source_version, content_hash,
+                                 generation_id, payload, attempt_count""",
                     (limit,),
                 )
                 rows = await cur.fetchall()

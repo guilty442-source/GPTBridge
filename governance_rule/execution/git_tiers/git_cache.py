@@ -20,7 +20,9 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-DEFAULT_TTL: float = 2.0
+from .governance_manifest import timing as _manifest_timing
+
+DEFAULT_TTL: float = _manifest_timing("git_cache_default_ttl_seconds", 2.0)
 
 _store: dict[tuple[str, str, str], tuple[float, str, Any]] = {}
 _lock = threading.Lock()

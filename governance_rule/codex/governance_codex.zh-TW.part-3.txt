@@ -1,10 +1,10 @@
 {
   "mirror_id": "GOVERNANCE_CODEX_ZH_TW",
-  "codex_version": "2026-09-16T09:39:25Z",
+  "codex_version": "2026-09-16T14:48:49Z",
   "part_index": 3,
   "part_count": 5,
-  "previous_part_hash": "fa305a023caa73054315b2aa7bd73ceb9c87b66208d8f3a5bc61a7214b1e4a5f",
-  "assembled_payload_hash": "56ab8341da7d1265ecac1624dddee831985538ef26d361b7f25bf637be80fc76",
+  "previous_part_hash": "40d2d0a57a565eb6bfe55eea9edee98586236ed70c5aa42e0231f81e0107656f",
+  "assembled_payload_hash": "4a3f8e6d35b80c16955446ac05dcceaca7b03598c70097ba9d61e456f4f02af7",
   "tables": {
     "architecture_stale_reference_evidence": [
       {
@@ -4435,14 +4435,14 @@
     ],
     "chinese_mirror_quality_evidence": [
       {
-        "evidence_id": "MIRROR@2026-09-16T09:39:25Z",
+        "evidence_id": "MIRROR@2026-09-16T14:48:49Z",
         "part_count": 5,
         "replacement_character_count": 0,
         "question_loss_field_count": 0,
         "chain_valid": 1,
         "assembled_hash_valid": 1,
         "result": "PASS",
-        "version_identity": "2026-09-16T09:39:25Z",
+        "version_identity": "2026-09-16T14:48:49Z",
         "status": "current"
       }
     ],
@@ -18593,7 +18593,7 @@
       },
       {
         "key": "codex_version",
-        "value": "2026-09-16T09:39:25Z"
+        "value": "2026-09-16T14:48:49Z"
       },
       {
         "key": "active_provision_binding_version",
@@ -21100,6 +21100,18 @@
         "content_root": "0056ce772cc320def8ed78c28037fc15fcffbd22488b4f59279f06c3294008c0",
         "identity_root": "a418a5601f4b031d7bf1a0e8ca234184800efb8af7df9c657b74fb55afca4cbd",
         "full_root": "aec3d26406797f8bcfabe3473eeeeff2bcf45ded359cc9cddbcf14d5a58180e5",
+        "version_epoch": 2
+      },
+      {
+        "version": "2026-09-16T14:48:49Z",
+        "history_head": "44a6810a7e0b711a4677597ab6c9c04ae364d5d0c191d06132f2769721335e08",
+        "provision_count": 873,
+        "identity_count": 782,
+        "lineage_count": 817,
+        "certification_state": "sealed-pending-external-signatures",
+        "content_root": "3cf25f898a43c7d60d93dba5f5af7b12d9e623c77b81175759446264bfa11546",
+        "identity_root": "a418a5601f4b031d7bf1a0e8ca234184800efb8af7df9c657b74fb55afca4cbd",
+        "full_root": "1e44bad7496e02ccf09e6575df08873333b93014ddbafcc0ffb17506dd539950",
         "version_epoch": 2
       }
     ],
@@ -25998,5 +26010,5 @@
       }
     ]
   },
-  "part_hash": "ff49a98e1d63bc721da5b20e51ccba48548ed97316b7ef4bec225ba7047a44eb"
+  "part_hash": "362beb3383df099b508ad68d5af07f409aba0cd0302c7e86d2044974ab2143cb"
 }

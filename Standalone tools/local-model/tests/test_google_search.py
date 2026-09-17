@@ -118,5 +118,30 @@ def test_chatgpt_final_coordination_returns_only_to_star() -> None:
     assert timeout == 200
 
 
+def test_repair_research_uses_governed_network_channel() -> None:
+    research = ExternalBrowserResearch()
+    client = _FakeChannelClient()
+    research._client = client
+
+    result = research.search_repair_solutions(
+        error_class="ModuleNotFoundError",
+        error_message="No module named example",
+        failure_code="STARTUP_DEPENDENCY_EXCEPTION",
+        component="main-system",
+        runtime_versions={"python": "3.11"},
+    )
+
+    assert client.call is not None
+    target, command, payload, timeout = client.call
+    assert target == "ai-collaboration"
+    assert command == "ai_nexus_send_message"
+    assert payload["business_scope"] == "system-repair"
+    assert payload["business_task"] == "repair-solution-research"
+    assert payload["execution_allowed"] is False
+    assert payload["direct_database_write"] is False
+    assert result["result_role"] == "unverified-repair-candidates"
+    assert timeout == 200
+
+
 
 ########################################################################

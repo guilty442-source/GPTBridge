@@ -118,9 +118,9 @@ def assert_separated_credentials(bindings: dict[DsnPurpose, DsnBinding]) -> None
 
 
 _ADMIN_ROLE_PROBE_SQL: Final[str] = (
-    "SELECT current_user, "
+    "SELECT current_user AS role_name, "
     "COALESCE((SELECT rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls "
-    "FROM pg_roles WHERE rolname = current_user), true)"
+    "FROM pg_roles WHERE rolname = current_user), true) AS elevated"
 )
 
 
@@ -129,8 +129,12 @@ def assert_no_admin_privileges(connection) -> str:  # pragma: no cover - needs P
     row = connection.execute(_ADMIN_ROLE_PROBE_SQL).fetchone()
     if row is None:
         raise DsnPolicyError("ROLE_PROBE_EMPTY")
-    role = str(row[0])
-    elevated = bool(row[1])
+    if isinstance(row, dict):
+        role = str(row.get("role_name"))
+        elevated = bool(row.get("elevated"))
+    else:
+        role = str(row[0])
+        elevated = bool(row[1])
     if elevated:
         raise DsnPolicyError(f"RUNTIME_ROLE_HAS_ADMIN_PRIVILEGES:{role}")
     return role

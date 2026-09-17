@@ -100,6 +100,9 @@ class CanonicalRagPipeline(
         # RAG-11: set while a BUILDING generation / alias migration runs;
         # surfaces as MIGRATING on the gateway state.
         self._migrating = False
+        # RAG-16: ACTIVE generation id bound to this pipeline; retrieval
+        # drops hits carrying a different generation_id.
+        self._active_generation: Optional[str] = None
 
     @property
     def state(self) -> RagRuntimeState:
@@ -376,21 +379,46 @@ class CanonicalRagPipeline(
         await self.attempt_recovery()
         if not self.is_ready():
             raise RuntimeError("RAG pipeline not ready")
-        hits = await self.qdrant.search(
-            query_vector=query_embedding,
-            module_ids=module_ids,
-            top_k=top_k,
-            score_threshold=score_threshold,
-        )
+        from .observability import RAG_METRICS, current_trace
+        RAG_METRICS.inc("rag_query_total")
+        RAG_METRICS.inc("canonical_query_total")
+        trace = current_trace()
+        try:
+            if trace is not None:
+                with trace.stage("qdrant"):
+                    hits = await self.qdrant.search(
+                        query_vector=query_embedding,
+                        module_ids=module_ids,
+                        top_k=top_k,
+                        score_threshold=score_threshold,
+                    )
+            else:
+                hits = await self.qdrant.search(
+                    query_vector=query_embedding,
+                    module_ids=module_ids,
+                    top_k=top_k,
+                    score_threshold=score_threshold,
+                )
+        except Exception:
+            RAG_METRICS.inc("rag_query_failed_total")
+            RAG_METRICS.inc("qdrant_error_total")
+            raise
         if not hits:
+            RAG_METRICS.inc("retrieval_zero_result_total")
             return []
         # Canonical read barrier: one batch PG lookup proves every hit —
         # chunk metadata exists, resource is not tombstoned, module scope is
         # in the governed request scope — and hydrates content from the PG
         # authority (Qdrant payloads never carry content).
-        chunk_rows = await self.postgresql.fetch_chunks_for_points(
-            tuple(module_ids), [str(hit.get("id")) for hit in hits]
-        )
+        if trace is not None:
+            with trace.stage("postgres_fts"):
+                chunk_rows = await self.postgresql.fetch_chunks_for_points(
+                    tuple(module_ids), [str(hit.get("id")) for hit in hits]
+                )
+        else:
+            chunk_rows = await self.postgresql.fetch_chunks_for_points(
+                tuple(module_ids), [str(hit.get("id")) for hit in hits]
+            )
         scope = {str(mid) for mid in module_ids}
         proved: list[dict[str, Any]] = []
         for hit in hits:
@@ -400,14 +428,36 @@ class CanonicalRagPipeline(
                 payload.get("document_resource_id") or payload.get("resource_id") or ""
             )
             if not module_id or module_id not in scope or not document_resource_id:
+                if trace is not None:
+                    trace.drop("unauthorized")
+                RAG_METRICS.inc("unauthorized_hit_dropped_total")
+                continue
+            if (
+                self._active_generation
+                and str(payload.get("generation_id") or "")
+                not in ("", self._active_generation)
+            ):
+                if trace is not None:
+                    trace.drop("generation_mismatch")
+                RAG_METRICS.inc("generation_mismatch_hit_dropped_total")
                 continue
             row = chunk_rows.get(str(hit.get("id")))
             if row is None:
-                continue  # no canonical chunk metadata / tombstoned
+                # no canonical chunk metadata / tombstoned
+                if trace is not None:
+                    trace.drop("missing_metadata")
+                RAG_METRICS.inc("missing_metadata_hit_dropped_total")
+                continue
             if str(row.get("resource_id")) != document_resource_id:
+                if trace is not None:
+                    trace.drop("missing_metadata")
+                RAG_METRICS.inc("missing_metadata_hit_dropped_total")
                 continue  # canonical metadata conflicts with the vector hit
             state = await self.postgresql.get_index_state(module_id, document_resource_id)
             if state is None or str(state.status).lower() not in ("indexed", "active"):
+                if trace is not None:
+                    trace.drop("tombstoned")
+                RAG_METRICS.inc("tombstoned_hit_dropped_total")
                 continue
             record = {
                 **payload,
@@ -420,6 +470,9 @@ class CanonicalRagPipeline(
                 "index_state": state,
             }
             proved.append(record)
+        RAG_METRICS.inc("rag_query_success_total")
+        if trace is not None:
+            trace.hit_count = len(proved)
         return proved
 
     async def keyword_search(

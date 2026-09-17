@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 
 from .audit_chain import chained_audit_log
-from .branch_policy import normalize_branch
+from .branch_policy import is_main, normalize_branch
 from .automation_supervisor_state import (
     SUPERVISOR_ACTOR,
     SUPERVISOR_LOCK,
@@ -28,9 +28,28 @@ from .automation_supervisor_state import (
     _write_registry,
 )
 from .git_repository import GitRepository
+from .governance_manifest import (
+    GovernanceWriteBlocked,
+    assert_write_allowed,
+    timing as _manifest_timing,
+)
 from .process_lock import LockBusyError, ProcessFileLock, pid_alive
 from .worktree_manager import WorktreeManager
 from .workspace_sync import synchronize
+
+# Governed cadence defaults (manifest version source; A318-A320).
+DEFAULT_SYNC_INTERVAL_SECONDS: float = _manifest_timing(
+    "supervisor_sync_interval_seconds", 60.0
+)
+DEFAULT_HEALTH_INTERVAL_SECONDS: float = _manifest_timing(
+    "supervisor_health_interval_seconds", 20.0
+)
+DEFAULT_WATCH_INTERVAL_SECONDS: float = _manifest_timing(
+    "supervisor_watch_interval_seconds", 30.0
+)
+DEFAULT_DEBOUNCE_SECONDS: float = _manifest_timing(
+    "supervisor_debounce_seconds", 60.0
+)
 
 
 class _Watcher:
@@ -55,6 +74,7 @@ class _Watcher:
         return self.process.poll() is None
 
     def restart_delay(self) -> float:
+        # TODO(inventory): wire to manifest timings.supervisor_restart_*.
         return min(300.0, 5.0 * (2 ** self.restarts))
 
     def to_dict(self) -> dict[str, object]:
@@ -115,6 +135,7 @@ def _jittered_debounce(base: float, salt: str) -> float:
     import hashlib
 
     digest = hashlib.sha256(salt.encode("utf-8")).hexdigest()
+    # TODO(inventory): wire jitter spread (26s) to manifest timings.
     spread = int(digest[:8], 16) % 26  # 0..25 seconds
     return max(1.0, base + float(spread))
 
@@ -122,10 +143,10 @@ def _jittered_debounce(base: float, salt: str) -> float:
 def supervise(
     root: str | Path,
     *,
-    sync_interval: float = 60.0,
-    health_interval: float = 20.0,
-    watch_interval: float = 30.0,
-    debounce: float = 60.0,
+    sync_interval: float = DEFAULT_SYNC_INTERVAL_SECONDS,
+    health_interval: float = DEFAULT_HEALTH_INTERVAL_SECONDS,
+    watch_interval: float = DEFAULT_WATCH_INTERVAL_SECONDS,
+    debounce: float = DEFAULT_DEBOUNCE_SECONDS,
     commit_dirty: bool = False,
     push: bool = False,
 ) -> None:
@@ -139,6 +160,12 @@ def supervise(
     logger = _setup_logging(root, directory, "supervisor")
     lock_path = directory / SUPERVISOR_LOCK
     lock = ProcessFileLock(lock_path)
+
+    try:
+        assert_write_allowed("automation-supervisor.supervise")
+    except GovernanceWriteBlocked as exc:
+        logger.error("governance write guard, supervisor not started: %s", exc)
+        return
 
     try:
         with lock:
@@ -173,7 +200,7 @@ def _refresh_watchers(
         item
         for item in manager.list_worktrees()
         if Path(item["path"]).resolve() != root_resolved
-        and normalize_branch(item.get("branch", "")) != "main"
+        and not is_main(item.get("branch", ""))
     ]
     known = {Path(item["path"]).resolve() for item in worktrees}
 
@@ -464,16 +491,25 @@ def supervise_loop(
             draining = registry.get("state") == "DRAINING"
 
             if not draining:
-                _refresh_watchers(
-                    root, manager, watchers, directory, logger,
-                    watch_interval, debounce,
-                )
-                if time.time() - last_sync_at >= sync_interval:
-                    last_sync_at = _run_sync_cycle(
-                        root, registry, logger,
-                        commit_dirty=commit_dirty, push=push,
+                try:
+                    assert_write_allowed("automation-supervisor.loop")
+                except GovernanceWriteBlocked as exc:
+                    if registry.get("governance_write_blocked") != str(exc):
+                        logger.warning("governance write blocked: %s", exc)
+                    registry["governance_write_blocked"] = str(exc)
+                else:
+                    registry.pop("governance_write_blocked", None)
+                    _refresh_watchers(
+                        root, manager, watchers, directory, logger,
+                        watch_interval, debounce,
                     )
+                    if time.time() - last_sync_at >= sync_interval:
+                        last_sync_at = _run_sync_cycle(
+                            root, registry, logger,
+                            commit_dirty=commit_dirty, push=push,
+                        )
 
+            # TODO(inventory): wire health floor (60s) to manifest timings.
             if time.time() - last_health_at >= max(60.0, health_interval * 3):
                 registry["health"] = _health_surfaces(root)
                 last_health_at = time.time()
@@ -481,6 +517,7 @@ def supervise_loop(
             # DEEP_HEALTH (spec 88): heavy integrity checks at low frequency
             # (fsck / commit-graph / midx / ref pressure).  p95 of the 20s
             # health cycle must never run fsck.
+            # TODO(inventory): wire deep-health floor (3600s) to manifest.
             if time.time() - last_deep_health_at >= max(3600.0, sync_interval * 60):
                 registry["deep_health"] = _deep_health_surfaces(root)
                 last_deep_health_at = time.time()

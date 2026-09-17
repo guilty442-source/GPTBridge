@@ -15,6 +15,12 @@ if TYPE_CHECKING:
     from main import GPTBridgeApp
 
 from core.ui_shell import UIShell
+from core_system.audit_integration import (
+    AUDIT_FAILED,
+    AUDIT_RECORDED,
+    AuditIntegrationError,
+    build_audit_adapter,
+)
 from shared_layer.runtime_gateway import InformationChannelGateway
 
 
@@ -86,6 +92,31 @@ def _toolbox_result_log_payload(payload: Any) -> dict[str, Any]:
     }
 
 
+def _build_gateway_audit_sink(app: "GPTBridgeApp"):
+    """Gateway audit sink: central audit first, bounded core log fallback.
+
+    Fail-open (existing semantics): routing a command must never be replaced
+    by a synthetic failure only because the audit sink is unavailable, so an
+    unavailable or failed central append falls back to the bounded core log.
+    A secret-policy violation still propagates and the gateway converts it to
+    an ``AUDIT_PUBLICATION_FAILED`` denial — a record that would leak content
+    is never written to any sink (A435/A448).
+    """
+    adapter = build_audit_adapter(app, fail_open=True)
+
+    def _sink(record: dict[str, Any]) -> None:
+        try:
+            status = adapter.record_gateway_record(record)
+        except AuditIntegrationError:
+            status = AUDIT_FAILED
+        if status != AUDIT_RECORDED:
+            _write_core_log_safely(
+                app, "information-channel", "command routed", record
+            )
+
+    return _sink
+
+
 async def process_command_task(
     app: "GPTBridgeApp",
     ui: UIShell,
@@ -107,9 +138,7 @@ async def process_command_task(
         if not isinstance(gateway, InformationChannelGateway):
             gateway = InformationChannelGateway(
                 app.command_router.handle,
-                audit=lambda record: _write_core_log_safely(
-                    app, "information-channel", "command routed", record
-                ),
+                audit=_build_gateway_audit_sink(app),
                 project_root=getattr(app, "project_root", None),
             )
             app._information_channel_gateway = gateway

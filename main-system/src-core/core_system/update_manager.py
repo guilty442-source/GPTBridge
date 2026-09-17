@@ -162,18 +162,14 @@ class UpdateManager(UpdateExecutionMixin):
             _logger.error(f"Rollback failed: {e}")
 
     async def start_auto_update(self) -> None:
-        """Start automatic update checking.
-
-        User directive: automatic updates must not execute without explicit
-        user confirmation.
-        """
+        """Start the governed end-to-end automatic update workflow."""
         from core_system.auto_action_policy import (
             automatic_update_execution_allowed,
         )
 
         if not automatic_update_execution_allowed():
             _logger.info(
-                "Auto-update loop disabled: updates await user confirmation"
+                "Auto-update workflow disabled by the Xingcheng Assistant switch"
             )
             return
         if self._auto_update_task is not None and not self._auto_update_task.done():

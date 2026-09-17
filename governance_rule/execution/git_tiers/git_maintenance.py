@@ -30,6 +30,9 @@ from .git_repository import GitRepository
 from .process_lock import lock_is_active
 from .self_commit import _git_dir_path, operation_in_progress
 
+# TODO(inventory): thresholds and commit-graph batch limits stay hardcoded
+# until wired to manifest timings.maintenance_*
+# (git_governance_manifest.json hardcoded_inventory).
 DEFAULT_THRESHOLDS: dict[str, int] = {
     "loose_objects": 2000,
     "size_pack_mib": 2048,
@@ -286,20 +289,26 @@ class GitMaintenanceManager:
 
     def _run_action(self, action: str) -> dict[str, Any]:
         """Execute one governed maintenance action."""
+        from .capability_gate import execute_system_safe
+
         if action == "commit-graph:write":
             args = [
                 "commit-graph", "write", "--reachable", "--changed-paths",
                 "--max-new-filters", str(COMMIT_GRAPH_MAX_NEW_FILTERS),
             ]
-            res = self.repo.run(args, confirmed=True, actor=self.actor)
-            return {"ok": res.returncode == 0, "detail": (res.stderr or "")[:200]}
-        if action == "multi-pack-index:write":
-            res = self.repo.run(["multi-pack-index", "write"], confirmed=True, actor=self.actor)
-            return {"ok": res.returncode == 0, "detail": (res.stderr or "")[:200]}
-        if action == "gc:auto":
-            res = self.repo.run(["gc", "--auto"], confirmed=True, actor=self.actor)
-            return {"ok": res.returncode == 0, "detail": (res.stderr or "")[:200]}
-        return {"ok": False, "detail": f"unknown action {action}"}
+        elif action == "multi-pack-index:write":
+            args = ["multi-pack-index", "write"]
+        elif action == "gc:auto":
+            args = ["gc", "--auto"]
+        else:
+            return {"ok": False, "detail": f"unknown action {action}"}
+        gate = execute_system_safe(
+            args, actor=self.actor, repo_path=self.repo.path,
+        )
+        result = gate.execution_result
+        if gate.allowed is False or result is None:
+            return {"ok": False, "detail": f"{gate.code}:{gate.detail}"[:200]}
+        return {"ok": result.returncode == 0, "detail": (result.stderr or "")[:200]}
 
 
 def run_maintenance(

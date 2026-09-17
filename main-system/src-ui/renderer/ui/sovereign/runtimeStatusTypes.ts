@@ -56,6 +56,8 @@ export interface PendingActionApproval {
   scope?: string
   target?: string
   proposed_method?: string
+  repair_plan?: Record<string, unknown>
+  repair_requirements?: Record<string, unknown>
   risk?: string
   rollback?: string
   expires_at?: string
@@ -80,6 +82,7 @@ export interface GlobalFault {
   target_entity?: string
   repair_action?: string
   repair_outcome?: string
+  raw_evidence?: Record<string, unknown>
 }
 
 export interface GlobalFaultPattern {
@@ -96,6 +99,7 @@ export interface GlobalFaultPattern {
 export interface GlobalFaults {
   tracked?: number
   unresolved?: number
+  quarantined?: number
   severity_distribution?: Record<string, number>
   source_distribution?: Record<string, number>
   top_patterns?: GlobalFaultPattern[]
@@ -121,4 +125,12 @@ export interface RuntimeStatusPayload {
   authority_reanchor?: Record<string, unknown>
   automation_modules?: Array<Record<string, unknown>>
   global_faults?: GlobalFaults
+  xingcheng_native_model_runtime?: {
+    model_id?: string
+    state?: 'running' | 'stopped' | 'unavailable'
+    running?: boolean
+    available?: boolean
+    checked_at?: string
+    message?: string
+  }
 }

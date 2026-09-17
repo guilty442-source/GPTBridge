@@ -1,9 +1,13 @@
-"""LocalRagService — 統一 RAG 服務入口。
+"""LocalRagService — canonical gateway scaffold (reference surface).
 
-A486+A487: Canonical Gateway + Degraded Adapter + Architecture Router.
-Complete lifecycle: versioned index, atomic promotion, outbox consistency,
-generation-bound queries, health gate, citation validation, benchmarking.
+DEPRECATED ENTRYPOINT: the sole production runtime chain is
+``CanonicalRagPipeline`` (reached via ``CanonicalRagAdapter`` /
+xingcheng ``LocalRagService``).  This module remains as the A486/487
+gateway reference — its outbox now writes the canonical
+``gptbridge_rag.outbox_event`` table via the retargeted
+``outbox.OutboxRepository``.  Do not add a second production path here.
 """
+
 
 from __future__ import annotations
 

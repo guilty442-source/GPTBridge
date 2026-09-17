@@ -37,6 +37,7 @@ from psycopg import Connection
 
 _GET_CURRENT = "SELECT gptbridge_index.current_backend_generation()"
 _BUMP = "SELECT gptbridge_index.bump_backend_generation(%s, %s)"
+_SET_GENERATION = "SELECT set_config('gptbridge.connection_generation', %s, false)"
 _GET_SQLITE_STALE = (
     "SELECT module_id, database_path, backend_generation "
     "FROM gptbridge_index.sqlite_generation WHERE stale = true "
@@ -64,6 +65,28 @@ def bump_generation(
     """
     row = connection.execute(_BUMP, (reason, set_by)).fetchone()
     return int(row[0]) if row and row[0] else 1
+
+
+def set_provenance(connection: Connection[Any], *, generation: int | None = None) -> int:
+    """Declare the connection's backend generation (A8/E21, migration 016).
+
+    The declaration is session-scoped (``set_config(..., false)``) so pooled
+    connections keep a declared generation across transactions; once the
+    backend generation is bumped (restore/migration/rotation) a stale declared
+    generation makes the fence reject every subsequent write on that
+    connection until it refreshes.
+
+    Called before transport/resource writes; when ``generation`` is omitted the
+    current backend generation is read first.
+    """
+    value = get_current_generation(connection) if generation is None else int(generation)
+    connection.execute(_SET_GENERATION, (str(value),))
+    return value
+
+
+def declare_connection_generation(connection: Connection[Any]) -> int:
+    """Read the current backend generation and declare it on the connection."""
+    return set_provenance(connection)
 
 
 def is_connection_stale(
@@ -100,9 +123,11 @@ def upsert_sqlite_generation(
 
 
 __all__ = [
-    "get_current_generation",
     "bump_generation",
-    "is_connection_stale",
+    "declare_connection_generation",
+    "get_current_generation",
     "get_stale_sqlite_databases",
+    "is_connection_stale",
+    "set_provenance",
     "upsert_sqlite_generation",
 ]

@@ -34,6 +34,20 @@ REQUIRED_COMPONENT_FIELDS: Final[tuple[str, ...]] = (
     "information_channels",
 )
 
+# Compatibility shims are retired/renamed sovereign identities kept only for
+# one-way resolution; every shim record must declare its replacement and a
+# bounded removal condition so a shim can never become a second authority.
+REQUIRED_SHIM_FIELDS: Final[tuple[str, ...]] = (
+    "sovereign_id",
+    "status",
+    "replacement",
+    "deprecated_since",
+    "removal_after",
+    "new_reference_forbidden",
+)
+
+SHIM_STATUSES: Final[frozenset[str]] = frozenset({"retired", "deprecated"})
+
 # Authority kinds that must have exactly one canonical component each.
 CANONICAL_AUTHORITY_KINDS: Final[dict[str, str]] = {
     "structured-authority": "postgresql",
@@ -107,6 +121,62 @@ def components(payload: dict[str, Any]) -> list[Component]:
     return parsed
 
 
+def compatibility_shim_ids(payload: dict[str, Any]) -> set[str]:
+    """Sovereign ids that are compatibility shims only (never owners)."""
+    shims: set[str] = set()
+    for entry in (payload.get("sovereigns") or {}).get("compatibility_shims") or ():
+        if isinstance(entry, dict):
+            shim_id = str(entry.get("sovereign_id") or "").strip()
+            if shim_id:
+                shims.add(shim_id)
+        elif isinstance(entry, str) and entry.strip():
+            shims.add(entry.strip())
+    return shims
+
+
+def _validate_shims(
+    sovereigns: dict[str, Any], active: set[str], errors: list[str]
+) -> None:
+    """Every shim record declares replacement, deprecation and removal bound."""
+    seen: set[str] = set()
+    for entry in sovereigns.get("compatibility_shims") or ():
+        if not isinstance(entry, dict):
+            errors.append("compatibility shim must be a record object")
+            continue
+        shim_id = str(entry.get("sovereign_id") or "").strip()
+        missing = [field for field in REQUIRED_SHIM_FIELDS if field not in entry]
+        if missing:
+            errors.append(
+                f"compatibility shim lacks required fields: {shim_id or '?'}:"
+                + ",".join(missing)
+            )
+            continue
+        if not shim_id:
+            errors.append("compatibility shim lacks sovereign_id")
+            continue
+        if shim_id in seen:
+            errors.append(f"duplicate compatibility shim: {shim_id}")
+        seen.add(shim_id)
+        if shim_id in active:
+            errors.append(f"compatibility shim is also declared active: {shim_id}")
+        status = str(entry.get("status") or "")
+        if status not in SHIM_STATUSES:
+            errors.append(f"compatibility shim has an invalid status: {shim_id}:{status}")
+        replacement = str(entry.get("replacement") or "").strip()
+        if not replacement:
+            errors.append(f"compatibility shim lacks a replacement: {shim_id}")
+        elif replacement == shim_id:
+            errors.append(f"compatibility shim replacement must differ: {shim_id}")
+        if not str(entry.get("deprecated_since") or "").strip():
+            errors.append(f"compatibility shim lacks deprecated_since: {shim_id}")
+        if not str(entry.get("removal_after") or "").strip():
+            errors.append(f"compatibility shim lacks removal_after: {shim_id}")
+        if entry.get("new_reference_forbidden") is not True:
+            errors.append(
+                f"compatibility shim must forbid new references: {shim_id}"
+            )
+
+
 def validate(payload: dict[str, Any], project_root: Path) -> list[str]:
     """Validate schema, taxonomy separation, physical paths and authority rules."""
     errors: list[str] = []
@@ -114,15 +184,19 @@ def validate(payload: dict[str, Any], project_root: Path) -> list[str]:
 
     roles = set(payload.get("architectural_roles") or ())
     forms = set(payload.get("runtime_forms") or ())
+    lifecycles = set(payload.get("lifecycles") or ())
     sovereigns = payload.get("sovereigns") or {}
     active = set(sovereigns.get("active") or ())
-    shims = set(sovereigns.get("compatibility_shims") or ())
+    shims = compatibility_shim_ids(payload)
     if not roles or not forms:
         errors.append("architecture registry must declare role and runtime_form taxonomies")
+    if not lifecycles:
+        errors.append("architecture registry must declare the lifecycle taxonomy")
     if roles & forms:
         errors.append("architectural_role and runtime_form taxonomies must not overlap")
     if not active:
         errors.append("architecture registry must declare the active sovereign set")
+    _validate_shims(sovereigns, active, errors)
 
     try:
         parsed = components(payload)
@@ -139,6 +213,8 @@ def validate(payload: dict[str, Any], project_root: Path) -> list[str]:
             errors.append(f"unknown architectural_role: {component.component_id}:{component.architectural_role}")
         if component.runtime_form not in forms:
             errors.append(f"unknown runtime_form: {component.component_id}:{component.runtime_form}")
+        if component.lifecycle not in lifecycles:
+            errors.append(f"unknown lifecycle: {component.component_id}:{component.lifecycle}")
         if component.owner_sovereign not in active:
             errors.append(
                 f"component owner is not an active sovereign: {component.component_id}:{component.owner_sovereign}"
@@ -174,6 +250,53 @@ def validate(payload: dict[str, Any], project_root: Path) -> list[str]:
         if expected not in canonical_ids:
             errors.append(f"canonical authority is not marked canonical: {expected}")
 
+    errors.extend(validate_dependency_graph(payload))
+
+    return errors
+
+
+def validate_dependency_graph(payload: dict[str, Any]) -> list[str]:
+    """The component dependency graph must be a single acyclic DAG.
+
+    Unknown dependencies are reported by :func:`validate`; here only real
+    cycles are failures — a cycle means the registry has no unique
+    topological authority order.
+    """
+    errors: list[str] = []
+    try:
+        parsed = components(payload)
+    except ArchitectureRegistryError:
+        return errors
+    graph = {
+        component.component_id: tuple(
+            dependency for dependency in component.dependencies if dependency
+        )
+        for component in parsed
+    }
+    visiting: list[str] = []
+    state: dict[str, int] = {node: 0 for node in graph}  # 0=new 1=visiting 2=done
+
+    def visit(node: str) -> bool:
+        state[node] = 1
+        visiting.append(node)
+        for dependency in graph.get(node, ()):
+            if dependency not in graph:
+                continue
+            if state[dependency] == 1:
+                cycle = visiting[visiting.index(dependency):] + [dependency]
+                errors.append(
+                    "dependency graph contains a cycle: " + "->".join(cycle)
+                )
+                return True
+            if state[dependency] == 0 and visit(dependency):
+                return True
+        visiting.pop()
+        state[node] = 2
+        return False
+
+    for node in graph:
+        if state[node] == 0 and visit(node):
+            break
     return errors
 
 
@@ -244,13 +367,17 @@ __all__ = [
     "Component",
     "REGISTRY_RELATIVE",
     "REQUIRED_COMPONENT_FIELDS",
+    "REQUIRED_SHIM_FIELDS",
     "SCHEMA_VERSION",
+    "SHIM_STATUSES",
     "ArchitectureRegistryError",
+    "compatibility_shim_ids",
     "components",
     "discover_manifest_ids",
     "load_registry",
     "registry_path",
     "validate",
+    "validate_dependency_graph",
     "validate_flows",
     "validate_manifest_coverage",
 ]

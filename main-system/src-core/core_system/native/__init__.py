@@ -9,21 +9,62 @@ keeps running (Python equivalents are used where trivial).
 from __future__ import annotations
 
 import contextlib
+import importlib.machinery
+import importlib.util
+import pathlib
+import sys
 import time
 from typing import Any
 
-try:
-    from ._sovereign_native import (  # type: ignore
-        is_windows,
-        monotonic_seconds,
-        private_bytes,
-        release_working_set,
-        working_set_bytes,
-    )
+_NATIVE_FILENAME = "_sovereign_native"
 
-    _NATIVE_AVAILABLE = True
-except ImportError:  # pragma: no cover - depends on local build
-    _NATIVE_AVAILABLE = False
+
+def _load_native_extension() -> Any:
+    """Load the governed native extension, or return None when not built.
+
+    The artifact is built into ``main-system/dist-native`` and installed next
+    to this package; a packaged layout may keep only the latter.
+    """
+
+    try:
+        from . import _sovereign_native as native  # type: ignore
+
+        return native
+    except ImportError:  # pragma: no cover - depends on local build
+        pass
+
+    directory = pathlib.Path(__file__).resolve().parent
+    candidates = [directory, directory.parents[2] / "dist-native"]
+    for candidate in candidates:
+        for suffix in importlib.machinery.EXTENSION_SUFFIXES:
+            artifact = candidate / f"{_NATIVE_FILENAME}{suffix}"
+            if not artifact.is_file():
+                continue
+            qualified = f"{__name__}.{_NATIVE_FILENAME}"
+            try:
+                spec = importlib.util.spec_from_file_location(qualified, artifact)
+                if spec is None or spec.loader is None:
+                    continue
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[qualified] = module
+                spec.loader.exec_module(module)
+            except Exception:
+                sys.modules.pop(qualified, None)
+                continue
+            return module
+    return None
+
+
+_NATIVE = _load_native_extension()
+_NATIVE_AVAILABLE = _NATIVE is not None
+
+if _NATIVE_AVAILABLE:
+    is_windows = _NATIVE.is_windows
+    monotonic_seconds = _NATIVE.monotonic_seconds
+    working_set_bytes = _NATIVE.working_set_bytes
+    private_bytes = _NATIVE.private_bytes
+    release_working_set = _NATIVE.release_working_set
+else:
 
     def is_windows() -> bool:
         import os

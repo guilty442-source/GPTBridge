@@ -23,7 +23,18 @@ Codex basis:
 """
 from __future__ import annotations
 
-from typing import Any
+import sqlite3
+from pathlib import Path
+from typing import Any, Final
+
+# Governance codex location (read-only authority for declared contracts).
+_DEFAULT_PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parents[4]
+_CODEX_DB_RELATIVE: Final[tuple[str, ...]] = (
+    "governance_rule",
+    "codex",
+    "data",
+    "governance_codex.sqlite3",
+)
 
 
 def register_data_layer_contract(
@@ -393,6 +404,52 @@ def check_integration_rule(
     return tuple(row) if row else None
 
 
+def get_capability_degradation_matrix(
+    codex_db_path: Path | str | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Read the codex-declared SQL capability degradation matrix.
+
+    The matrix is declared exactly once in the governance codex
+    (``sql_capability_degradation_matrix``); this is a read-only runtime
+    projection so degradation handling consults the single authority
+    instead of declaring a second copy.  An absent or unreadable codex
+    returns an empty mapping — callers fail closed on missing rows.
+    """
+    database = (
+        Path(codex_db_path)
+        if codex_db_path is not None
+        else _DEFAULT_PROJECT_ROOT.joinpath(*_CODEX_DB_RELATIVE)
+    )
+    if not database.is_file():
+        return {}
+    try:
+        with sqlite3.connect(
+            f"file:{database.as_posix()}?mode=ro", uri=True
+        ) as connection:
+            columns = [
+                row[1]
+                for row in connection.execute(
+                    "PRAGMA table_info(sql_capability_degradation_matrix)"
+                )
+            ]
+            if not columns:
+                return {}
+            rows = connection.execute(
+                "SELECT "
+                + ", ".join(columns)
+                + " FROM sql_capability_degradation_matrix"
+            ).fetchall()
+    except sqlite3.Error:
+        return {}
+    matrix: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        record = dict(zip(columns, row))
+        capability = str(record.get("capability_code") or "").strip()
+        if capability:
+            matrix[capability] = record
+    return matrix
+
+
 __all__ = [
     "register_data_layer_contract",
     "activate_data_layer_contract",
@@ -423,4 +480,5 @@ __all__ = [
     "get_dependents",
     "get_integration_rules",
     "check_integration_rule",
+    "get_capability_degradation_matrix",
 ]

@@ -20,8 +20,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .git_repository import GitRepository
+from .governance_manifest import timing as _manifest_timing
 
-DEFAULT_LEASE_SECONDS: float = 3600.0
+DEFAULT_LEASE_SECONDS: float = _manifest_timing("claim_lease_seconds", 3600.0)
 
 
 def _norm(path: str) -> str:

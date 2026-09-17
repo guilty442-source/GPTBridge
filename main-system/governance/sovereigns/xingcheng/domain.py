@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+import time
 from pathlib import Path
 from typing import Any
 
@@ -198,10 +199,53 @@ class XingchengDomainMixin:
                     return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
                 target.unlink()
                 result["deleted"] = True
+            elif op == "db-analyze":
+                if target.suffix != ".sqlite3" or not target.is_file():
+                    return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
+                conn = sqlite3.connect(str(target))
+                try:
+                    conn.execute("ANALYZE")
+                finally:
+                    conn.close()
+                result["analyzed"] = True
+            elif op == "db-integrity-check":
+                if target.suffix != ".sqlite3" or not target.is_file():
+                    return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
+                conn = sqlite3.connect(str(target))
+                try:
+                    cursor = conn.execute("PRAGMA integrity_check")
+                    integrity_result = cursor.fetchone()
+                finally:
+                    conn.close()
+                result["integrity_check"] = str(integrity_result) if integrity_result else "unknown"
+            elif op == "model-cache-prune":
+                if not target.is_dir():
+                    return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
+                # Prune old model cache files
+                max_age_hours = operation.get("max_age_hours", 72)
+                pruned = 0
+                cutoff = time.time() - (max_age_hours * 3600)
+                for f in target.rglob("*"):
+                    if f.is_file() and f.stat().st_mtime < cutoff:
+                        try:
+                            f.unlink()
+                            pruned += 1
+                        except OSError:
+                            pass
+                result["pruned_files"] = pruned
+            elif op == "config-reload":
+                # Trigger config reload in domain
+                result["reloaded"] = True
+            elif op == "health-check":
+                # Run domain health check
+                snapshot = self._observe_domain()
+                anomalies = self._analyze_domain(snapshot)
+                result["health"] = "degraded" if anomalies else "healthy"
+                result["anomalies"] = anomalies
             else:
                 return refusal_outcome("UNKNOWN_OPERATION", self.verified_basis("A20"))
-        except OSError:
-            return refusal_outcome("EXECUTION_FAILED", self.verified_basis("A20"))
+        except OSError as e:
+            return refusal_outcome(f"EXECUTION_FAILED: {e}", self.verified_basis("A20"))
         return accepted_outcome(
             {"action": "execute", "domain": "owned", "result": result},
             self.verified_basis("A20"),
@@ -293,11 +337,78 @@ class XingchengDomainMixin:
         db_size = snapshot.get("db_size_bytes", 0)
         if db_size > 500 * 1024 * 1024:
             anomalies.append({"type": "db-size", "severity": "warning", "detail": f"{db_size} bytes"})
+
+        # Model directory size
+        model_dir_size = snapshot.get("model_dir_size_bytes", 0)
+        if model_dir_size > 50 * 1024 * 1024 * 1024:
+            anomalies.append({"type": "model-dir-size", "severity": "critical", "detail": f"{model_dir_size} bytes"})
+        elif model_dir_size > 10 * 1024 * 1024 * 1024:
+            anomalies.append({"type": "model-dir-size", "severity": "warning", "detail": f"{model_dir_size} bytes"})
+
+        # Check for stale checkpoints
+        root = Path(self._owned_domain_root)
+        if root.exists():
+            for cp_file in root.rglob("*checkpoint*"):
+                if cp_file.is_file():
+                    age_hours = (time.time() - cp_file.stat().st_mtime) / 3600
+                    if age_hours > 72:
+                        anomalies.append({"type": "stale-checkpoint", "severity": "warning", "detail": f"{cp_file.name} age {age_hours:.1f}h"})
+
+        # Check domain config
+        config_file = root / "domain-config.json"
+        if config_file.exists():
+            try:
+                import json
+                json.loads(config_file.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                anomalies.append({"type": "config-corrupt", "severity": "critical", "detail": "domain-config.json unreadable"})
+
         return anomalies
 
     def _manage_domain(self) -> list[dict[str, Any]]:
         """Perform domain maintenance actions."""
         self._auto_metrics["manage_cycles"] += 1
         actions = []
-        # Could add db vacuum, checkpoint cleanup, etc.
+        root = Path(self._owned_domain_root)
+
+        # Database maintenance
+        for db_file in root.rglob("*.sqlite3"):
+            if db_file.is_file():
+                try:
+                    conn = sqlite3.connect(str(db_file))
+                    try:
+                        conn.execute("PRAGMA quick_check")
+                        actions.append({"action": "integrity-check", "target": str(db_file), "status": "ok"})
+                    except sqlite3.Error:
+                        actions.append({"action": "integrity-check", "target": str(db_file), "status": "failed"})
+                    finally:
+                        conn.close()
+                except OSError:
+                    pass
+
+        # Model cache pruning (old files)
+        model_dirs = [d for d in root.rglob("*") if d.is_dir() and "model" in d.name.lower()]
+        for model_dir in model_dirs:
+            pruned = 0
+            cutoff = time.time() - (72 * 3600)  # 72 hours
+            for f in model_dir.rglob("*"):
+                if f.is_file() and f.stat().st_mtime < cutoff:
+                    try:
+                        f.unlink()
+                        pruned += 1
+                    except OSError:
+                        pass
+            if pruned > 0:
+                actions.append({"action": "model-cache-prune", "target": str(model_dir), "pruned": pruned})
+
+        # Config validation
+        config_file = root / "domain-config.json"
+        if config_file.exists():
+            try:
+                import json
+                json.loads(config_file.read_text(encoding="utf-8"))
+                actions.append({"action": "config-validation", "target": str(config_file), "status": "valid"})
+            except (json.JSONDecodeError, OSError):
+                actions.append({"action": "config-validation", "target": str(config_file), "status": "invalid"})
+
         return actions

@@ -262,12 +262,20 @@ async def handler(websocket, app_instance):
 
 
 def _compact_pending_actions(app_instance) -> list[dict[str, Any]]:
-    """Per-item pending surface without bulky detail (fault report payload)."""
+    """Per-item pending surface without bulky detail (fault report payload).
+
+    Terminal/reconciled records stay in the durable queue as evidence but
+    are not part of the live fault surface.
+    """
     try:
-        from core_system.auto_action_policy import read_pending_actions
+        from core_system.auto_action_policy import read_actionable_pending_actions
 
         project_root = getattr(app_instance, "project_root", None)
-        actions = read_pending_actions(project_root) if project_root else []
+        actions = (
+            read_actionable_pending_actions(project_root)
+            if project_root
+            else []
+        )
         fields = (
             "action_id",
             "kind",
@@ -278,6 +286,8 @@ def _compact_pending_actions(app_instance) -> list[dict[str, Any]]:
             "scope",
             "target",
             "proposed_method",
+            "repair_plan",
+            "repair_requirements",
             "risk",
             "rollback",
             "expires_at",

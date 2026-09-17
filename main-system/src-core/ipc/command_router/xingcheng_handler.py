@@ -15,12 +15,14 @@ class XingchengConfirmationHandler:
         handlers = {
             "xingcheng-set-repair-release": lambda p: self._handle_set_release("repair", p),
             "xingcheng-set-update-release": lambda p: self._handle_set_release("update", p),
-            "xingcheng-confirm-automatic-repair": lambda p: self._handle_confirmation(p),
-            "xingcheng-confirm-automatic-update": lambda p: self._handle_confirmation(p),
-            "xingcheng-revoke-automatic-repair-confirmation": lambda p: self._handle_revoke(p),
-            "xingcheng-revoke-automatic-update-confirmation": lambda p: self._handle_revoke(p),
-            "sync-execute-approved-automatic-repair": lambda p: self._handle_sync_execute(p),
-            "sync-execute-approved-automatic-update": lambda p: self._handle_sync_execute(p),
+            "xingcheng-set-native-model-enabled": self._handle_native_model_enabled,
+            "xingcheng-confirm-automatic-repair": lambda p: self._handle_confirmation(command, p),
+            "xingcheng-confirm-automatic-update": lambda p: self._handle_confirmation(command, p),
+            "xingcheng-deny-pending-action": self._handle_deny,
+            "xingcheng-revoke-automatic-repair-confirmation": lambda p: self._handle_revoke(command, p),
+            "xingcheng-revoke-automatic-update-confirmation": lambda p: self._handle_revoke(command, p),
+            "sync-execute-approved-automatic-repair": lambda p: self._handle_sync_execute(command, p),
+            "sync-execute-approved-automatic-update": lambda p: self._handle_sync_execute(command, p),
         }
         handler = handlers.get(command)
         if handler is None:
@@ -31,6 +33,23 @@ class XingchengConfirmationHandler:
             }
         return await handler(payload)
 
+    async def _handle_native_model_enabled(
+        self, payload: Dict[str, Any]
+    ) -> tuple[str, Dict[str, Any]]:
+        from core_system.xingcheng_native_model_runtime import (
+            set_native_model_enabled,
+        )
+
+        enabled = payload.get("enabled")
+        if not isinstance(enabled, bool):
+            return "xingcheng-set-native-model-enabled_result", {
+                "ok": False,
+                "error_code": "MISSING_ENABLED_STATE",
+                "message": "enabled (boolean) is required",
+            }
+        result = await set_native_model_enabled(enabled)
+        return "xingcheng-set-native-model-enabled_result", result
+
     async def _handle_set_release(self, kind: str, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
         from core_system.auto_action_policy import (
             AUTOMATIC_REPAIR_SWITCH,
@@ -40,8 +59,9 @@ class XingchengConfirmationHandler:
 
         switch = AUTOMATIC_REPAIR_SWITCH if kind == "repair" else AUTOMATIC_UPDATE_SWITCH
         enabled = payload.get("enabled")
+        event_name = f"xingcheng-set-{kind}-release_result"
         if not isinstance(enabled, bool):
-            return f"{command}_result", {
+            return event_name, {
                 "ok": False,
                 "error_code": "MISSING_ENABLED_STATE",
                 "message": "enabled (boolean) is required",
@@ -52,20 +72,21 @@ class XingchengConfirmationHandler:
             enabled,
             actor="authenticated-ui",
         )
-        return f"{command}_result", {"ok": True, "switches": switches}
+        return event_name, {"ok": True, "switches": switches}
 
-    async def _handle_confirmation(self, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
+    async def _handle_confirmation(self, command: str, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
         from core_system.confirmation_service import record_confirmation
 
         result = await record_confirmation(
             self.app,
             str(payload.get("action_id") or ""),
             confirmation_id=str(payload.get("confirmation_id") or ""),
+            permission_mode=str(payload.get("permission_mode") or "standing-switch"),
         )
         result.setdefault("error_code", "")
         return f"{command}_result", result
 
-    async def _handle_revoke(self, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
+    async def _handle_revoke(self, command: str, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
         from core_system.confirmation_service import revoke_confirmation
 
         result = await revoke_confirmation(
@@ -76,7 +97,7 @@ class XingchengConfirmationHandler:
         result.setdefault("error_code", "")
         return f"{command}_result", result
 
-    async def _handle_sync_execute(self, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
+    async def _handle_sync_execute(self, command: str, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
         from core_system.confirmation_service import execute_approved
 
         result = await execute_approved(
@@ -86,3 +107,12 @@ class XingchengConfirmationHandler:
         )
         result.setdefault("error_code", "")
         return f"{command}_result", result
+
+    async def _handle_deny(self, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
+        from core_system.confirmation_service import deny_pending_action
+
+        result = await deny_pending_action(
+            self.app, str(payload.get("action_id") or "")
+        )
+        result.setdefault("error_code", "")
+        return "xingcheng-deny-pending-action_result", result

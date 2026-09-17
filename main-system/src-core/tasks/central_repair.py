@@ -42,6 +42,7 @@ class CentralRepairService(CentralRepairLearningMixin, CentralRepairOperationsMi
     """
 
     VERSION = CENTRAL_REPAIR_VERSION
+    MANAGEMENT_OWNER = "星澄"
 
     def __init__(self, project_root: Path, repair_data_root: Path) -> None:
         self.project_root = project_root.resolve()
@@ -133,6 +134,10 @@ class CentralRepairService(CentralRepairLearningMixin, CentralRepairOperationsMi
     def status(self) -> dict[str, Any]:
         return {
             "version": self.VERSION,
+            "management_owner": self.MANAGEMENT_OWNER,
+            "execution_owner": "governed-executor",
+            "capability_id": "xingcheng-system-repair",
+            "module_id": "xingcheng-auto-repair-module",
             "enabled": True,
             "delegation": "governed-executor-only",
             "source_self_repair": True,

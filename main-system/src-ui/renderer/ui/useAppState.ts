@@ -87,7 +87,10 @@ export function useAppState() {
       const executeCommand = `sync-execute-approved-automatic-${kind}`
       setConfirmBusyId(actionId)
       try {
-        const confirmSent = sendCommand(confirmCommand, { action_id: actionId })
+        const confirmSent = sendCommand(confirmCommand, {
+          action_id: actionId,
+          permission_mode: 'single-item',
+        })
         if (!confirmSent.ok) {
           setConfirmMessages((prev) => ({
             ...prev,
@@ -149,6 +152,31 @@ export function useAppState() {
     [confirmBusyId, sendCommand, waitForIpcEvent]
   )
 
+  const denyPendingAction = useCallback(
+    async (actionId: string) => {
+      if (!actionId || confirmBusyId) return
+      const command = 'xingcheng-deny-pending-action'
+      setConfirmBusyId(actionId)
+      try {
+        const sent = sendCommand(command, { action_id: actionId })
+        if (!sent.ok) throw new Error(sent.message || xr.denyFailed)
+        const result = await waitForIpcEvent(
+          `${command}_result`,
+          12000,
+          (payload) => !payload.action_id || String(payload.action_id) === actionId
+        )
+        if (result.ok !== true) throw new Error(String(result.message || '') || xr.denyFailed)
+        setConfirmMessages((prev) => ({ ...prev, [actionId]: xr.deniedDone }))
+      } catch {
+        setConfirmMessages((prev) => ({ ...prev, [actionId]: xr.denyFailed }))
+      } finally {
+        setConfirmBusyId(null)
+        sendCommand('app:get-runtime-status', { source: 'pending_action_denial' })
+      }
+    },
+    [confirmBusyId, sendCommand, waitForIpcEvent]
+  )
+
   const setAutomationSwitch = useCallback(
     async (switchName: string, enabled: boolean) => {
       if (switchBusy) return
@@ -159,36 +187,48 @@ export function useAppState() {
       setSwitchBusy(switchName)
       try {
         const sent = sendCommand(command, { enabled })
-        if (!sent.ok) {
-          setConfirmMessages((prev) => ({
-            ...prev,
-            [switchName]: sent.message || xr.switchSetFailed,
-          }))
-          return
-        }
+        if (!sent.ok) throw new Error(sent.message || xr.switchSetFailed)
         const result = await waitForIpcEvent(`${command}_result`, 10000)
-        if (result.ok !== true) {
-          setConfirmMessages((prev) => ({
-            ...prev,
-            [switchName]: String(result.message || '') || xr.switchSetFailed,
-          }))
-        } else {
-          setConfirmMessages((prev) => {
-            const next = { ...prev }
-            delete next[switchName]
-            return next
-          })
-        }
+        if (result.ok !== true) throw new Error(String(result.message || '') || xr.switchSetFailed)
+        setConfirmMessages((prev) => {
+          const next = { ...prev }
+          delete next[switchName]
+          return next
+        })
       } catch {
+        setConfirmMessages((prev) => ({ ...prev, [switchName]: xr.switchSetFailed }))
+      } finally {
+        setSwitchBusy(null)
+        sendCommand('app:get-runtime-status', { source: 'automation_switch_update' })
+      }
+    },
+    [switchBusy, sendCommand, waitForIpcEvent]
+  )
+
+  const setXingchengNativeModelEnabled = useCallback(
+    async (enabled: boolean) => {
+      const switchName = 'xingcheng_native_model'
+      if (switchBusy) return
+      setSwitchBusy(switchName)
+      try {
+        const command = 'xingcheng-set-native-model-enabled'
+        const sent = sendCommand(command, { enabled })
+        if (!sent.ok) throw new Error(sent.message || xr.nativeModelSetFailed)
+        const result = await waitForIpcEvent(`${command}_result`, 130000)
+        if (result.ok !== true) throw new Error(String(result.message || '') || xr.nativeModelSetFailed)
+        setConfirmMessages((prev) => {
+          const next = { ...prev }
+          delete next[switchName]
+          return next
+        })
+      } catch (error) {
         setConfirmMessages((prev) => ({
           ...prev,
-          [switchName]: xr.switchSetFailed,
+          [switchName]: error instanceof Error ? error.message : xr.nativeModelSetFailed,
         }))
       } finally {
         setSwitchBusy(null)
-        sendCommand('app:get-runtime-status', {
-          source: 'automation_switch_update',
-        })
+        sendCommand('app:get-runtime-status', { source: 'xingcheng_native_model_update' })
       }
     },
     [switchBusy, sendCommand, waitForIpcEvent]
@@ -306,6 +346,8 @@ export function useAppState() {
     operational,
     waitForIpcEvent,
     confirmPendingAction,
+    denyPendingAction,
     setAutomationSwitch,
+    setXingchengNativeModelEnabled,
   }
 }

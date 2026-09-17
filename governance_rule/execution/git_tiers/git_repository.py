@@ -21,10 +21,19 @@ import time
 from pathlib import Path
 from typing import Final
 
-from . import TIER3_OPS, audit_log, classify, enforce
+from . import (
+    TIER3_OPS,
+    audit_log,
+    classify,
+    enforce,
+    record_deprecated_confirmation,
+)
+from .governance_manifest import timing as _manifest_timing
 from .snapshot import capture_light_snapshot
 
-DEFAULT_TIMEOUT: Final[float] = 60.0
+DEFAULT_TIMEOUT: Final[float] = _manifest_timing(
+    "git_command_timeout_seconds", 60.0
+)
 
 # Entrypoint-level extensions (see module docstring).  Tier-3 is always
 # consulted first so an extension can never shadow a high-risk operation.
@@ -76,16 +85,16 @@ def _enforce_extended(
         )
         return allowed, message, classify(command)
     tier = _extended_tier(command) or 3
-    if confirmed is None:
-        confirmed = os.environ.get("GOVERNANCE_CONFIRM", "").casefold() in {
-            "1", "true", "yes",
-        }
     if tier == 1:
         allowed, message = True, "tier-1(ext): read-only, direct execution"
-    elif confirmed:
+    elif tier == 2 and confirmed:
         allowed, message = True, "tier-2(ext): confirmed"
-    else:
+    elif tier == 2:
         allowed, message = False, "tier-2(ext): requires explicit confirmation"
+    elif authority_approved:
+        allowed, message = True, "tier-3(ext): governance authority approved"
+    else:
+        allowed, message = False, "tier-3(ext): requires governance authority approval"
     audit_log(
         tier, command, actor, allowed, message,
         repo_snapshot=snapshot, phase="decision",
@@ -110,7 +119,9 @@ def _chain(entry: dict[str, object]) -> None:
 # call ``git_cache.invalidate`` after success.  This is audit evidence only —
 # it never participates in authorization, merge correctness, conflict
 # resolution or tier classification.
-_SNAPSHOT_TTL: Final[float] = 2.0
+_SNAPSHOT_TTL: Final[float] = _manifest_timing(
+    "snapshot_cache_ttl_seconds", 2.0
+)
 
 
 def _cached_light_snapshot(repo_path: Path) -> dict[str, object]:
@@ -236,6 +247,34 @@ def _classifiable_command(args: list[str]) -> str:
     return " ".join(str(item) for item in items[i:])
 
 
+def _spawn_git(
+    args: list[str], *, cwd: Path, timeout: float | None
+) -> subprocess.CompletedProcess[str]:
+    """The single raw ``git`` process spawn (A375 driver).
+
+    Only this driver module contains the executable spawn; the gateway and
+    the read-only snapshot builder both call through here.
+    """
+    is_bare = (
+        (cwd / "HEAD").is_file()
+        and (cwd / "objects").is_dir()
+        and not (cwd / ".git").exists()
+    )
+    command = ["git", f"--git-dir={cwd}", *args] if is_bare else ["git", *args]
+    process_cwd = cwd.parent if is_bare else cwd
+    return subprocess.run(
+        command,
+        cwd=process_cwd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        timeout=timeout,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+
+
 class GitRepository:
     """Wrapper around a git worktree or bare repository."""
 
@@ -252,8 +291,24 @@ class GitRepository:
         actor: str = "governance/git-repository",
         timeout: float | None = DEFAULT_TIMEOUT,
     ) -> subprocess.CompletedProcess[str]:
+        """Legacy public entrypoint (article 493/530 frozen signature).
+
+        ``confirmed`` / ``authority_approved`` remain as deprecated adapters:
+        a truthy value is recorded as a ``LEGACY_*`` capability-ledger entry
+        and the execution is annotated with ``DEPRECATED_COMPATIBILITY``.
+        New callers must use ``capability_gate.execute_with_capability`` /
+        ``execute_system_safe`` instead of a boolean.
+        """
         command = _classifiable_command(args)
         snapshot = _cached_light_snapshot(self.path)
+        legacy = bool(confirmed) or bool(authority_approved)
+        if legacy:
+            record_deprecated_confirmation(
+                self.path, command, actor,
+                approval_path=(
+                    "LEGACY_AUTHORITY" if authority_approved else "LEGACY_CONFIRM"
+                ),
+            )
         allowed, message, tier = _enforce_extended(
             command,
             actor,
@@ -263,20 +318,65 @@ class GitRepository:
         )
         if not allowed:
             raise PermissionError(message)
+        return self._execute(
+            command, args, tier=tier, actor=actor, snapshot=snapshot,
+            timeout=timeout, check=check,
+            approval_path="DEPRECATED_COMPATIBILITY" if legacy else "",
+        )
+
+    def _run_verified(
+        self,
+        args: list[str],
+        *,
+        tier: int,
+        actor: str,
+        approval_path: str,
+        capability_id: str = "",
+        timeout: float | None = DEFAULT_TIMEOUT,
+    ) -> subprocess.CompletedProcess[str]:
+        """Execute a command whose authorization was decided by the gate.
+
+        The gateway re-classifies the command and refuses any tier mismatch,
+        then records the approval path and capability id; it never takes a
+        boolean confirmation on this path.
+        """
+        command = _classifiable_command(args)
+        effective = _extended_tier(command)
+        effective = effective if effective is not None else classify(command)
+        if int(tier) != effective:
+            raise PermissionError(
+                f"capability-tier-mismatch:verified={tier}:command={effective}"
+            )
+        if effective >= 2 and not approval_path:
+            raise PermissionError("tier-2/3 requires a verified authorization")
+        snapshot = _cached_light_snapshot(self.path)
+        audit_log(
+            effective, command, actor, True, f"{approval_path}: verified",
+            repo_snapshot=snapshot, phase="decision", result="authorized",
+        )
+        return self._execute(
+            command, args, tier=effective, actor=actor, snapshot=snapshot,
+            timeout=timeout, check=False, approval_path=approval_path,
+            capability_id=capability_id,
+        )
+
+    def _execute(
+        self,
+        command: str,
+        args: list[str],
+        *,
+        tier: int,
+        actor: str,
+        snapshot: dict[str, object],
+        timeout: float | None,
+        check: bool,
+        approval_path: str = "",
+        capability_id: str = "",
+    ) -> subprocess.CompletedProcess[str]:
         started = time.monotonic()
         timed_out = False
         try:
-            result = subprocess.run(
-                ["git", *args],
-                cwd=self.path,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                check=False,
-                timeout=timeout,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
+            result = _spawn_git(list(args), cwd=self.path, timeout=timeout)
         except subprocess.TimeoutExpired as exc:
             timed_out = True
             duration_ms = int((time.monotonic() - started) * 1000)
@@ -322,6 +422,10 @@ class GitRepository:
             returncode=returncode,
         )
         entry["duration_ms"] = duration_ms
+        if approval_path:
+            entry["approval_path"] = approval_path
+        if capability_id:
+            entry["capability_id"] = capability_id
         _chain(entry)
         # Writes invalidate cached Tier-1 reads for this worktree.
         if tier >= 2 and returncode == 0 and not timed_out:

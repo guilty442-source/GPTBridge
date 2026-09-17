@@ -44,6 +44,15 @@ PENDING_ACTIONS_RELATIVE: Final[tuple[str, ...]] = (
     "state",
     "pending-actions.json",
 )
+
+# Pending-queue statuses that are terminal: the confirmation window was
+# closed (or the item was otherwise retired) and the record is evidence
+# only.  Terminal records stay in the durable queue — never deleted — but
+# are excluded from every fault/pending presentation surface.
+TERMINAL_PENDING_STATUSES: Final[frozenset[str]] = frozenset({"expired"})
+
+# The only status that represents a live, user-confirmable action.
+ACTIONABLE_PENDING_STATUS: Final[str] = "awaiting-confirmation"
 SWITCHES_RELATIVE: Final[tuple[str, ...]] = (
     "main-system",
     "runtime",
@@ -215,14 +224,12 @@ def set_automation_switch(
 
 
 def automatic_repair_execution_allowed() -> bool:
-    """True when the repair switch is enabled (execution still needs
-    per-action user confirmation)."""
+    """True when the standing automatic-repair switch is enabled."""
     return bool(read_automation_switches().get(AUTOMATIC_REPAIR_SWITCH))
 
 
 def automatic_update_execution_allowed() -> bool:
-    """True when the update switch is enabled (execution still needs
-    per-action user confirmation)."""
+    """True when the governed end-to-end update workflow is enabled."""
     return bool(read_automation_switches().get(AUTOMATIC_UPDATE_SWITCH))
 
 
@@ -258,6 +265,56 @@ def read_pending_actions(project_root: str | Path | None = None) -> list[dict[st
     if not isinstance(data, list):
         return []
     return [dict(item) for item in data if isinstance(item, dict)]
+
+
+def pending_action_expired(
+    action: dict[str, Any], *, now: datetime | None = None
+) -> bool:
+    """True when the action's confirmation window has already closed."""
+    raw = str(action.get("expires_at") or "").strip()
+    if not raw:
+        return False
+    try:
+        expiry = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    moment = now or datetime.now(timezone.utc)
+    return moment > expiry
+
+
+def pending_action_is_actionable(
+    action: dict[str, Any], *, now: datetime | None = None
+) -> bool:
+    """True only for a live awaiting-confirmation item.
+
+    Terminal items (``expired`` etc.) and items already reconciled as
+    non-actionable evidence are excluded from the fault surface even
+    though their durable record remains in the queue.
+    """
+    if not isinstance(action, dict):
+        return False
+    if str(action.get("status") or "") != ACTIONABLE_PENDING_STATUS:
+        return False
+    if action.get("reconciliation"):
+        return False
+    return not pending_action_expired(action, now=now)
+
+
+def read_actionable_pending_actions(
+    project_root: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    """Pending-queue projection for fault/pending surfaces.
+
+    Terminal and reconciled records stay in the durable store as evidence
+    but must never be presented as live faults awaiting confirmation.
+    """
+    return [
+        action
+        for action in read_pending_actions(project_root)
+        if pending_action_is_actionable(action)
+    ]
 
 
 def _write_pending_actions(
@@ -446,7 +503,55 @@ def remove_pending_actions(
     return removed
 
 
+def mark_pending_actions_reconciled(
+    project_root: str | Path,
+    action_ids: Iterable[str],
+    *,
+    actor: str = "",
+    reason: str = "",
+) -> list[str]:
+    """Annotate terminal queue records as reconciled — evidence is kept.
+
+    Used only for items whose confirmation window is already closed
+    (``expired`` and friends): they must stop being presented as live
+    faults, but the durable record is evidence and is never deleted.
+    The annotation is attributable via ``actor``/``reason``, is
+    idempotent, and wakes the report loop so the UI surface refreshes.
+    """
+    wanted = {str(value).strip() for value in action_ids if str(value).strip()}
+    if not wanted:
+        return []
+    actions = read_pending_actions(project_root)
+    marked: list[str] = []
+    changed = False
+    for index, action in enumerate(actions):
+        action_id = str(action.get("action_id") or "")
+        if action_id not in wanted or action.get("reconciliation"):
+            continue
+        # Only items that are already non-actionable may be marked: a live
+        # awaiting-confirmation fault must never be hidden from the user.
+        if pending_action_is_actionable(action):
+            continue
+        timestamp = _iso_now()
+        actions[index] = {
+            **action,
+            "reconciliation": {
+                "actor": actor,
+                "reason": reason,
+                "at": timestamp,
+            },
+            "updated_at": timestamp,
+        }
+        marked.append(action_id)
+        changed = True
+    if changed:
+        _write_pending_actions(project_root, actions)
+        notify_fault_change()
+    return marked
+
+
 __all__ = [
+    "ACTIONABLE_PENDING_STATUS",
     "AUTOMATIC_REPAIR_SWITCH",
     "AUTOMATIC_UPDATE_SWITCH",
     "CONFIRMATION_TTL_SECONDS",
@@ -455,12 +560,17 @@ __all__ = [
     "SWITCHES_RELATIVE",
     "SWITCH_AUDIT_RELATIVE",
     "SWITCH_NAMES",
+    "TERMINAL_PENDING_STATUSES",
     "automatic_repair_execution_allowed",
     "automatic_update_execution_allowed",
     "compute_action_digest",
     "fault_change_event",
+    "mark_pending_actions_reconciled",
     "notify_fault_change",
+    "pending_action_expired",
+    "pending_action_is_actionable",
     "pending_actions_path",
+    "read_actionable_pending_actions",
     "read_automation_switches",
     "read_pending_actions",
     "record_pending_action",

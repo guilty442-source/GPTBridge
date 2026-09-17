@@ -20,10 +20,15 @@ def _record_awaiting_confirmation(
     project_root: Any,
     read_requests_fn: Any,
     write_requests_fn: Any,
+    chain_result: dict[str, Any] | None = None,
 ) -> None:
     """Record an awaiting-confirmation request and pending action."""
     request_record["status"] = "awaiting-confirmation"
     request_record["awaiting_confirmation_at"] = _iso_now()
+    chain_result = chain_result or {}
+    request_record["repair_plan"] = chain_result.get("plan") or {}
+    request_record["repair_requirements"] = chain_result.get("requirements") or {}
+    request_record["repair_objective"] = chain_result.get("objective") or {}
     request_record["classified"] = {
         "error_type": str(
             decision_proof.get("error_type")
@@ -47,6 +52,8 @@ def _record_awaiting_confirmation(
         )
 
         classified = request_record.get("classified") or {}
+        repair_plan = request_record.get("repair_plan") or {}
+        repair_requirements = request_record.get("repair_requirements") or {}
         expires_at = (
             datetime.now(timezone.utc)
             + timedelta(seconds=CONFIRMATION_TTL_SECONDS)
@@ -65,6 +72,8 @@ def _record_awaiting_confirmation(
                 "failure_code": failure_code_str,
                 "owner": owner,
                 "classified": classified,
+                "repair_plan": repair_plan,
+                "repair_requirements": repair_requirements,
                 "requested_at": request_record["requested_at"],
             },
             action_id=f"repair-{request_id}",
@@ -73,7 +82,7 @@ def _record_awaiting_confirmation(
                 "scope": target_file or failure_code_str,
                 "target": target_file or failure_code_str,
                 "proposed_method": (
-                    str(classified.get("action") or "")
+                    str(repair_plan.get("method") or classified.get("action") or "")
                     or "targeted-source-repair"
                 ),
                 "risk": str(decision_proof.get("severity") or "unclassified"),

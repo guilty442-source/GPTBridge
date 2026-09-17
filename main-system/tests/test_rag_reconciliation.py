@@ -9,6 +9,7 @@ vectors are never replayed into the canonical collection.
 from __future__ import annotations
 
 import sqlite3
+from types import SimpleNamespace
 from typing import Any, Optional
 
 import pytest
@@ -112,6 +113,18 @@ class _FakePostgres:
         }
 
 
+class _FakeDeletionCoordinator:
+    def __init__(self, ok: bool = True) -> None:
+        self.ok = ok
+        self.calls: list[dict[str, Any]] = []
+
+    async def reconcile_tombstone_async(self, **kwargs: Any) -> Any:
+        self.calls.append(kwargs)
+        return SimpleNamespace(
+            ok=self.ok, reason=None if self.ok else "refused"
+        )
+
+
 def _pipeline(
     *,
     content: str,
@@ -207,6 +220,61 @@ async def test_missing_source_retries_then_dead_letters() -> None:
     assert pipe.state_machine.effective_state == "RECONCILIATION_FAILED"
     # First lease attempt consumed → retry scheduled, item still pending.
     assert pipe._queue.pending_count() == 1
+
+
+@pytest.mark.asyncio
+async def test_tombstone_replay_routes_through_deletion_coordinator() -> None:
+    pipe, qdrant, pg = _pipeline(content="x")
+    coordinator = _FakeDeletionCoordinator()
+    pipe._deletion_coordinator = coordinator
+    await _enqueue(pipe, operation="tombstone")
+
+    state = await pipe.attempt_recovery()
+
+    assert state == RagRuntimeState.CANONICAL
+    assert coordinator.calls == [{
+        "module_id": "xingcheng",
+        "resource_id": "doc-abc",
+        "source_revision": 1,
+        "content_hash": "h" * 64,
+        "reason": "reconciled-tombstone",
+    }]
+    assert qdrant.deleted == [], "coordinator owns the vector delete"
+    assert pg.tombstones == [], "coordinator owns the tombstone raise"
+
+
+@pytest.mark.asyncio
+async def test_tombstone_replay_coordinator_refusal_stays_degraded() -> None:
+    pipe, qdrant, pg = _pipeline(content="x")
+    pipe._deletion_coordinator = _FakeDeletionCoordinator(ok=False)
+    await _enqueue(pipe, operation="tombstone")
+
+    state = await pipe.attempt_recovery()
+
+    assert state == RagRuntimeState.DEGRADED
+    assert pipe.state_machine.effective_state == "RECONCILIATION_FAILED"
+    assert qdrant.deleted == []
+    assert pg.tombstones == []
+
+
+@pytest.mark.asyncio
+async def test_deletion_coordinator_runtime_completes_tombstone_replay() -> None:
+    """The real runtime entry, fed the pipeline's fake interfaces."""
+    from shared_layer.database.deletion_coordinator import (
+        DeletionCoordinatorRuntime,
+    )
+
+    pipe, qdrant, pg = _pipeline(content="x")
+    pipe._deletion_coordinator = DeletionCoordinatorRuntime(
+        qdrant=qdrant, tombstone_raiser=pg
+    )
+    await _enqueue(pipe, operation="tombstone")
+
+    state = await pipe.attempt_recovery()
+
+    assert state == RagRuntimeState.CANONICAL
+    assert qdrant.deleted == [("xingcheng", "doc-abc")]
+    assert pg.tombstones and pg.tombstones[0]["content_hash"] == "h" * 64
 
 
 def test_queue_item_carries_pending_mutation_fields() -> None:

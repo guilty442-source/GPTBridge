@@ -16,6 +16,7 @@
     "remedy": "compile self-check over all backend src roots then deterministic column-0 indentation recovery via tasks.source_repair (skips files with uncommitted git changes)",
     "verification": "full source compile passes across all backend src roots; repair recorded in automatic-repair store; files with uncommitted git changes are skipped",
     "automatic": true,
+    "verified_applicability": true,
     "runtime_only": false
   },
   {
@@ -44,6 +45,7 @@
     "remedy": "plan_repair rebuild-tool-executable via governed package rebuilder",
     "verification": "owned databases inspected; rebuilt executable starts",
     "automatic": true,
+    "verified_applicability": true,
     "runtime_only": true
   },
   {
@@ -60,6 +62,7 @@
     "remedy": "governance-authorized re-spawn with bounded startup/autonomous recovery in launcher",
     "verification": "health probe returns ready with matching workspace instance id",
     "automatic": true,
+    "verified_applicability": true,
     "runtime_only": true
   },
   {
@@ -77,6 +80,7 @@
     "remedy": "connection watchdog detects persistent disconnection; frontend auto-reconnects (3 attempts) then triggers app:restart-backend via Electron IPC; boot_core restarts backend; learning store records the outage pattern",
     "verification": "backend /health returns 200 and frontend WebSocket reconnects within probe interval",
     "automatic": true,
+    "verified_applicability": true,
     "runtime_only": true
   },
   {

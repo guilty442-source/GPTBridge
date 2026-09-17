@@ -1,6 +1,8 @@
 """Worktree-aware repo snapshot capture for git tier audit records.
 
-Keeps `subprocess` and I/O out of the protected `git_tiers` authority file.
+Keeps direct process spawning out of this module: read-only snapshot commands
+execute through the gateway's single ``git`` driver (``git_repository``),
+which is also what consumes the resulting snapshot.
 
 Performance: ``capture_light_snapshot`` replaces the 7-subprocess production
 with a single ``git status --porcelain=v2 -z --branch`` call, reducing
@@ -16,20 +18,28 @@ from pathlib import Path
 from typing import Final
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_READ_TIMEOUT_SECONDS: Final[float] = 60.0
 
 
 def _git(args: list[str], *, cwd: Path = _PROJECT_ROOT) -> str:
-    """Run a git command and return stdout (stripped). Empty on failure."""
+    """Run a Tier-1 read-only git command through the gateway driver.
+
+    Returns stdout (stripped) and empty on failure.  The tier guard makes
+    this a read-only observation path only — a write command is never
+    executed here, so the snapshot builder can never re-enter the gateway's
+    authorization/audit pipeline (which would recurse).
+    """
+    from . import classify
+    from .git_repository import _extended_tier, _spawn_git
+
+    command = " ".join(str(item) for item in args)
+    tier = _extended_tier(command)
+    if (tier if tier is not None else classify(command)) != 1:
+        return ""
     try:
-        result = subprocess.run(
-            ["git", *args],
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        result = _spawn_git(
+            [str(item) for item in args], cwd=Path(cwd).resolve(),
+            timeout=_READ_TIMEOUT_SECONDS,
         )
         return result.stdout.strip()
     except (OSError, subprocess.SubprocessError):

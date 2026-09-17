@@ -104,6 +104,36 @@ class DependencyStatus:
 
 
 @dataclass
+class CapabilityReadiness:
+    """Aggregated capability readiness (E166 capability matrix).
+
+    A pure projection of the *existing* readiness signals: the dependency
+    probes already performed for the four A67 conditions, the backend
+    runtime flag and the governed maintenance gate.  No new probe,
+    registry or service is introduced — each capability maps to one
+    canonical single source (postgresql=structured data, qdrant=semantic
+    index, ollama=model runtime, toolbox/back-end=tool runtime,
+    maintenance gate=git maintenance).
+    """
+    information_ready: bool = False
+    data_ready: bool = False
+    semantic_ready: bool = False
+    model_ready: bool = False
+    tool_runtime_ready: bool = False
+    git_maintenance_ready: bool = False
+
+    def as_dict(self) -> dict[str, bool]:
+        return {
+            "information_ready": self.information_ready,
+            "data_ready": self.data_ready,
+            "semantic_ready": self.semantic_ready,
+            "model_ready": self.model_ready,
+            "tool_runtime_ready": self.tool_runtime_ready,
+            "git_maintenance_ready": self.git_maintenance_ready,
+        }
+
+
+@dataclass
 class ReadinessSnapshot:
     """Point-in-time snapshot of all four readiness conditions (A67)."""
     backend_runtime_ready: bool = False
@@ -114,6 +144,7 @@ class ReadinessSnapshot:
     overall_ready: bool = False
     runtime_state: str = "starting"
     evaluated_at: str = ""
+    capabilities: CapabilityReadiness = field(default_factory=CapabilityReadiness)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -125,6 +156,7 @@ class ReadinessSnapshot:
             "overall_ready": self.overall_ready,
             "runtime_state": self.runtime_state,
             "evaluated_at": self.evaluated_at,
+            "capabilities": self.capabilities.as_dict(),
         }
 
 
@@ -207,6 +239,28 @@ class ReadinessGate:
             return False
         return True
 
+    def _capability_readiness(
+        self, deps: list[DependencyStatus], backend_ok: bool
+    ) -> CapabilityReadiness:
+        """Project the capability matrix from the existing readiness signals."""
+        reachable = {status.name: status.reachable for status in deps}
+        data_ready = bool(reachable.get("postgresql"))
+        semantic_ready = bool(reachable.get("qdrant"))
+        model_ready = bool(reachable.get("ollama"))
+        return CapabilityReadiness(
+            # The information layer is usable when its canonical stores are:
+            # structured authority (PostgreSQL) plus semantic index (Qdrant).
+            information_ready=data_ready and semantic_ready,
+            data_ready=data_ready,
+            semantic_ready=semantic_ready,
+            model_ready=model_ready,
+            tool_runtime_ready=backend_ok
+            and getattr(self.app, "toolbox_service", None) is not None,
+            git_maintenance_ready=bool(
+                getattr(self.app, "maintenance_ready", False)
+            ),
+        )
+
     def evaluate(self) -> ReadinessSnapshot:
         """Evaluate all four readiness conditions and return a snapshot."""
         backend_ok = self._check_backend_runtime()
@@ -236,12 +290,14 @@ class ReadinessGate:
             overall_ready=overall,
             runtime_state=runtime_state,
             evaluated_at=_iso_now(),
+            capabilities=self._capability_readiness(deps, backend_ok),
         )
 
 
 __all__ = [
     "CAPABILITY_DEPENDENCIES",
     "DEPENDENCY_PROBE_TIMEOUT",
+    "CapabilityReadiness",
     "DependencyStatus",
     "REQUIRED_DEPENDENCIES",
     "READINESS_GATE_VERSION",

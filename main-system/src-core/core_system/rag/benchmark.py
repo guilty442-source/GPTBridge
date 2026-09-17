@@ -399,7 +399,7 @@ class SecurityGate:
         pg_ok = bool(getattr(self._pipeline.postgresql, "_healthy", False))
         if qdrant_ok and pg_ok and sm is not None:
             from .runtime_state import RagRuntimeState
-            if sm.current != RagRuntimeState.CANONICAL:
+            if sm.state != RagRuntimeState.CANONICAL:
                 return "fail:canonical backends healthy but state != CANONICAL"
         return "pass"
 

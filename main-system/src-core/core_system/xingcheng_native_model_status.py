@@ -96,6 +96,7 @@ class XingchengNativeModelStatusMixin:
             "model_registry": self.model_registry,
             "autonomous_agent": self.autonomous_agent,
             "automatic_workflow": self.automatic_workflow,
+            "system_repair": self.system_repair_capability,
             "dynamic_model_dispatch": self.dynamic_model_dispatch,
             # 4. 業務能力面
             "business_domains": {

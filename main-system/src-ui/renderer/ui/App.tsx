@@ -10,7 +10,8 @@ import { XingchengDrawer } from '@/ui/AppXingchengDrawer'
 import { CapacityDrawer } from '@/ui/AppCapacityDrawer'
 import { ModuleBoundary } from '@/shared/components/ModuleBoundary'
 import { useRuntimeStatusField } from '@/shared/hooks/useRuntimeStatusField'
-import type { GlobalFaults } from '@/ui/sovereign/runtimeStatusTypes'
+import { filterActiveFaults } from '@/shared/utils/faultPresentation'
+import type { GlobalFaults, RuntimeStatusPayload } from '@/ui/sovereign/runtimeStatusTypes'
 import '../App.css'
 
 const t = mainSystemLocale.product
@@ -38,7 +39,9 @@ export default function App() {
     operational,
     waitForIpcEvent,
     confirmPendingAction,
+    denyPendingAction,
     setAutomationSwitch,
+    setXingchengNativeModelEnabled,
   } = useAppState()
 
   const {
@@ -74,10 +77,21 @@ export default function App() {
   const globalFaults = useRuntimeStatusField('global_faults') as
     | GlobalFaults
     | undefined
+  const nativeModel = useRuntimeStatusField('xingcheng_native_model_runtime') as
+    | RuntimeStatusPayload['xingcheng_native_model_runtime']
+    | undefined
+
+  const activeGlobalFaults = useMemo(
+    () => filterActiveFaults(globalFaults?.recent_faults),
+    [globalFaults]
+  )
 
   const xingchengReview = useMemo(() => {
-    if (backendSocket.status === 'Connecting' || backendSocket.status === 'Repairing') {
-      return { tone: 'warning' as const, state: xr.reviewing, detail: xr.reviewingDetail, issues: [{ id: 'backend-reconnecting', source: xr.informationLayer, title: xr.backendInterrupted, detail: `${xr.reviewingDetail}：${backendSocket.status}`, status: xr.autoRepairing }] }
+    if (
+      backendSocket.status === 'Connecting' ||
+      backendSocket.status === 'Synchronizing'
+    ) {
+      return { tone: 'warning' as const, state: xr.reviewing, detail: xr.reviewingDetail, issues: [{ id: 'backend-connecting', source: xr.informationLayer, title: xr.backendInterrupted, detail: xr.reviewingDetail, status: xr.autoRepairing }] }
     }
     if (!connected) {
       return { tone: 'warning' as const, state: xr.connectionAnomaly, detail: xr.connectionDetail, issues: [{ id: 'backend-offline', source: xr.informationLayer, title: xr.backendDisconnected, detail: xr.backendDisconnectedDetail, status: xr.waitingRecovery }] }
@@ -89,14 +103,19 @@ export default function App() {
     // not only the tool cards below.
     const unresolvedFaults = Number(globalFaults?.unresolved || 0)
     if (globalFaults && unresolvedFaults > 0) {
-      const issues = (globalFaults.recent_faults || []).slice(0, 5).map((fault, index) => ({
+      const issues = activeGlobalFaults.slice(0, 5).map((fault, index) => ({
         id: `global-fault-${String(fault.fault_id || index)}`,
         source: String(fault.source || xr.globalFaultsTitle),
         title: String(fault.error_class || fault.fault_type || xr.toolError),
         detail: String(fault.error_message || xr.noFurtherDetail),
         status: String(fault.repair_outcome || 'pending'),
       }))
-      const severity = Object.entries(globalFaults.severity_distribution || {})
+      const severityCounts: Record<string, number> = {}
+      for (const fault of activeGlobalFaults) {
+        const severity = String(fault.severity || 'info')
+        severityCounts[severity] = (severityCounts[severity] || 0) + 1
+      }
+      const severity = Object.entries(severityCounts)
         .map(([key, count]) => `${key} ${count}`)
         .join('、')
       return {
@@ -124,11 +143,11 @@ export default function App() {
       }
     }
     return { tone: 'ok' as const, state: xr.normal, detail: xr.normalDetail, issues: [] }
-  }, [backendSocket.status, connected, globalFaults, maintenanceReady, toolboxTools])
+  }, [activeGlobalFaults, backendSocket.status, connected, globalFaults, maintenanceReady, toolboxTools])
 
   const connection = connected
     ? { label: xr.systemNormal, detail: xr.normalDetail, tone: 'online' as const }
-    : backendSocket.status === 'Connecting' || backendSocket.status === 'Repairing' || backendSocket.status === 'Synchronizing'
+    : backendSocket.status === 'Connecting' || backendSocket.status === 'Synchronizing'
       ? { label: xr.systemReviewing, detail: xr.reviewingDetail, tone: 'pending' as const }
       : { label: xr.systemAnomaly, detail: xr.connectionDetail, tone: 'offline' as const }
 
@@ -149,6 +168,18 @@ export default function App() {
         </div>
 
         <div className="header-controls">
+          <div
+            className="connection-indicator"
+            data-tone={nativeModel?.running ? 'online' : nativeModel?.available ? 'offline' : 'pending'}
+            data-testid="xingcheng-native-model-indicator"
+            title={xr.nativeModelTitle}
+          >
+            <span className="connection-indicator__dot" />
+            <span>
+              <strong>{xr.nativeModelTitle}</strong>
+              <small>{nativeModel?.running ? xr.nativeModelRunning : nativeModel?.available ? xr.nativeModelStopped : xr.nativeModelUnavailable}</small>
+            </span>
+          </div>
           <div
             className="connection-indicator"
             data-tone={connection.tone}
@@ -291,7 +322,7 @@ export default function App() {
         <span>{t.footerPlatform}</span>
       </footer>
 
-      <ModuleBoundary name="星澄輔助系統">
+      <ModuleBoundary name={xr.title}>
         <XingchengDrawer
           open={drawerXingcheng}
           onClose={() => setDrawerXingcheng(false)}
@@ -300,7 +331,9 @@ export default function App() {
           confirmMessages={confirmMessages}
           switchBusy={switchBusy}
           onConfirm={confirmPendingAction}
+          onDeny={denyPendingAction}
           onSwitch={setAutomationSwitch}
+          onNativeModelSwitch={setXingchengNativeModelEnabled}
           sendCommand={sendCommand}
           waitForIpcEvent={waitForIpcEvent}
         />

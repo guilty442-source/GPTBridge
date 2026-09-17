@@ -25,6 +25,22 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
+from .governance_manifest import timing as _manifest_timing
+
+# Governed batch-policy defaults (manifest version source; A318-A320).
+_MIN_COMMIT_INTERVAL_SECONDS: float = _manifest_timing(
+    "commit_policy_min_interval_seconds", 120.0
+)
+_MAX_DIRTY_AGE_SECONDS: float = _manifest_timing(
+    "commit_policy_max_dirty_age_seconds", 900.0
+)
+_MAX_CHANGED_FILES: int = int(
+    _manifest_timing("commit_policy_max_changed_files", 200)
+)
+_COMMIT_POLICY_DEBOUNCE_SECONDS: float = _manifest_timing(
+    "commit_policy_debounce_seconds", 60.0
+)
+
 #: Subjects banned as uninformative (§48).
 BANNED_SUBJECTS: frozenset[str] = frozenset(
     {"update", "updates", "changes", "change", "auto", "misc",
@@ -46,10 +62,10 @@ class CommitTrigger(Enum):
 class CommitBatchPolicy:
     """When a self-commit may fire (§49)."""
 
-    min_commit_interval_seconds: float = 120.0
-    max_dirty_age_seconds: float = 900.0
-    max_changed_files: int = 200
-    debounce_seconds: float = 60.0
+    min_commit_interval_seconds: float = _MIN_COMMIT_INTERVAL_SECONDS
+    max_dirty_age_seconds: float = _MAX_DIRTY_AGE_SECONDS
+    max_changed_files: int = _MAX_CHANGED_FILES
+    debounce_seconds: float = _COMMIT_POLICY_DEBOUNCE_SECONDS
 
 
 @dataclass(frozen=True)

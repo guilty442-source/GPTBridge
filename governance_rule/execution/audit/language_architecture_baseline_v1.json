@@ -1,19 +1,22 @@
 {
   "baseline_id": "LanguageArchitectureBaselineV1",
   "baseline_version": 1,
+  "revision": 2,
   "status": "LANGUAGE_ARCHITECTURE_CONVERGED",
   "verdict": "CONVERGED_WITH_ACCEPTED_DEBT",
-  "generated_at_utc": "2026-09-16T10:41:00.867458+00:00",
-  "source_revision": "d1e60fa80c23da399336aa19ee0d3d1ff842fc2c",
+  "generated_at_utc": "2026-09-16T15:31:56.189261+00:00",
+  "source_revision": "02848dd55ca705a83ed099578e09fca534d909e3",
   "worktree_dirty_at_capture": true,
+  "worktree_dirty_entries": 116,
+  "capture_note": "revision 2 re-verified from a dirty worktree (background auto-commit watchers active); recorded counts and hashes are those observed at capture time",
   "authored_languages": {
     "python": {
       "role": "control/semantics/business owner",
-      "files": 1468
+      "files": 1579
     },
     "typescript": {
       "role": "presentation/client only",
-      "files": 112
+      "files": 119
     },
     "c": {
       "role": "versioned ABI thunk only",
@@ -29,17 +32,21 @@
     },
     "sql": {
       "role": "bounded set-based data operations",
-      "files": 138
+      "files": 141
     }
   },
+  "count_scope": "repository-wide authored sources; excludes .git, .venv, node_modules, __pycache__, dist*, build, release, .pytest_cache",
   "source_extension_allowlist": [
     ".py",
+    ".pyi",
     ".ts",
     ".tsx",
+    ".d.ts",
     ".c",
     ".h",
     ".cpp",
     ".hpp",
+    ".inl",
     ".cs",
     ".sql"
   ],
@@ -57,10 +64,13 @@
     ".bat",
     ".cmd",
     ".vbs",
+    ".ps1",
+    ".mjs",
     ".cjs",
     ".js",
     ".Modelfile",
     ".db",
+    ".sqlite",
     ".sqlite3",
     ".pyd"
   ],
@@ -87,6 +97,38 @@
       "native/core/vector.hpp"
     ]
   },
+  "pybind11_binding": {
+    "source": "main-system/src-core/core_system/native/_binding.cpp",
+    "sha256": "e99e25a5a5d1100cdaade050993182aa9c2d406da0c5383f44df439574f54cec",
+    "built_artifact": "main-system/src-core/core_system/native/_sovereign_native.cp311-win_amd64.pyd",
+    "exports": [
+      "is_windows",
+      "monotonic_seconds",
+      "working_set_bytes",
+      "private_bytes",
+      "release_working_set",
+      "parser_token_estimate",
+      "parser_batch_token_estimate",
+      "vector_dot",
+      "vector_l2_norm",
+      "vector_cosine_similarity",
+      "transformer_matmul",
+      "transformer_softmax",
+      "transformer_scaled_dot_product_attention"
+    ],
+    "export_count": 13
+  },
+  "windows_launcher_adapters": {
+    "cpp_primary": {
+      "path": "main-system/launcher/src/GPTBridgeLauncher.cpp",
+      "sha256": "ba495fbedbbeaf378672f6f7f1a0464b6e535b16bd7e6eb4dace68b20a3f419b"
+    },
+    "csharp_fallback": {
+      "path": "main-system/launcher/src/GPTBridgeLauncher.cs",
+      "sha256": "6d1811bb480b35c53988f8b57244effceab246c4f663d392b08930339075f52f",
+      "note": "declared GOVERNANCE_CONFLICT (A217); compiled only by install.py as the no-MSVC fallback build"
+    }
+  },
   "abi_baseline": {
     "header": "native/include/gptbridge_native.h",
     "header_sha256": "a2eb29a12f052ed19b24d6ef3f2cb826a137e3411e148916e0796ccb7891e710",
@@ -103,11 +145,16 @@
       "int",
       "double",
       "int64_t"
-    ]
+    ],
+    "bridge_lines": 87,
+    "bridge_role": "argument validation + status/handle translation + immediate delegation only (A220/A221)"
   },
   "canonical_type_registry": {
     "path": "shared-layer/src/shared_layer/contracts/",
     "registry_version": 1,
+    "registry_sha256": "f14e648157f3219db506bd8fb8fe11278ae37a836f1d49850b05e6b1c75daaec",
+    "types_sha256": "1eeaff65b57a6949b251d7f7e3a3f2654f72bd272d626e86b9636ffb3774fc46",
+    "projection_sha256": "2153624fbbcf3e6b77c67b16b96270c8bc1dd1f62fdc75bba4001f0ae6d12a9a",
     "registered_types": [
       "i32",
       "u32",
@@ -128,35 +175,122 @@
       "status"
     ]
   },
+  "information_layer_contracts": {
+    "channel_runtime": {
+      "path": "shared-layer/src/shared_layer/channel_runtime.py",
+      "sha256": "be2dce78332875d4f42a75da98540b3d4a62ed65b7098da45bc05d754fdfe6d8"
+    },
+    "channel_types": {
+      "path": "shared-layer/src/shared_layer/channel_types.py",
+      "sha256": "ccac0f08b58de275c346791af1e2ab6622d49f1c4a4a34041a9aaf42a13d96c9"
+    },
+    "metadata_contract": {
+      "path": "shared-layer/src/shared_layer/metadata_contract.py",
+      "sha256": "775e8496b7a0560a0e2e6c516de390e5051d4d6d27ec85c16be736327da617b0"
+    },
+    "typescript_transport": "Electron preload/ipcSession/embedded-browser-bridge (typed in src-ui/renderer/global.d.ts); no TS direct Python import, DB driver or native load in main-system src-ui"
+  },
   "toolchain": {
     "python": "3.11.9",
     "typescript": "5.9.3",
     "node": "26.8.1"
   },
   "test_matrix": {
-    "python_test_files": 158,
-    "migrations": 129
+    "python_test_files_pytest_scope": 104,
+    "python_test_files_repo_scope": 175,
+    "migrations": 131,
+    "migrations_unique_ids": 129,
+    "migration_duplicates_declared": [
+      "087_read_models.sql",
+      "087_security_identity_control.sql",
+      "088_rag_capacity_governance.sql",
+      "088_recovery_plan.sql"
+    ],
+    "migration_contract": "EXPECTED_MIGRATION_COUNT=131 (001-129 plus two historical duplicates), checksum-locked by file name",
+    "full_pytest_suite": {
+      "passed": 4100,
+      "failed": 4,
+      "skipped": 1,
+      "failed_tests": [
+        "shared-layer/tests/test_native_core_v1.py::TestNativeCoreBenchmark::test_run_native_core_benchmark_produces_report",
+        "shared-layer/tests/test_native_core_v1.py::TestNativeCoreBenchmark::test_benchmark_report_has_verdicts",
+        "shared-layer/tests/test_native_core_v1.py::TestNativeCoreBenchmark::test_benchmark_report_has_speedups_when_native_available",
+        "shared-layer/tests/test_native_core_v1.py::TestNativeCoreBenchmark::test_benchmark_report_has_parity_when_native_available"
+      ],
+      "failure_cause": "pytest-timeout(60s) exhausted by the pure-Python reference matmul (dims 768/3072) inside the benchmark report tests; unrelated to language boundaries"
+    }
+  },
+  "performance_static_baselines": {
+    "performance": {
+      "path": "shared-layer/performance/baseline_v1.json",
+      "sha256": "b2b5af87a4eb3016b2cdb1bb0a37eca9a970e32e62e842cae2d66e975d37d189"
+    },
+    "native_core": {
+      "path": "shared-layer/performance/native_core_v1.json",
+      "sha256": "188eaa3247889d73f16d8d7a4315c7b58025322f792aae7fbb645688980ec29b"
+    },
+    "regression": {
+      "path": "shared-layer/performance/regression_v1.json",
+      "sha256": "cab8e3d73adaf90c5b175b84548c7ebbe743ffbe9e7444fcfb5f3dd8f40f3161"
+    },
+    "static": {
+      "typescript": "strict mode via tsc --noEmit (tsconfig.json sha256 9854c8b186a6dad30df5563267a877401d66639be86db68c1284a1ff66a2fde7)",
+      "legacy_debt_model": "shared_layer/static_analysis_consolidation.py (StaticAnalysisBaseline; no persisted legacy baseline file in repository)"
+    }
+  },
+  "database_release": {
+    "path": "shared-layer/database-release.json",
+    "sha256": "526cfa61b16370fdef0bf6fce1e205a8f3a7149809b6017553b214ca8db0f7c2",
+    "release_id": "DB-2026.09.16-01",
+    "state": "DRAFT"
   },
   "verification_evidence": {
-    "governance_audit": "PASS",
+    "governance_audit": "PASS (full barrier incl. self-health)",
+    "npm_run_build": "PASS (version:check + governance:audit + governance:check + check:imports + check:circular + check:runtime + type-check + build:app)",
+    "ts_governance_checkers": "6/6 PASS (G-ALIAS-001, G-MODULE-001, G-I18N-001, G-115, G-UI-APP-001, G-RUNTIME-001)",
     "tsc_noEmit": "PASS",
-    "contract_parity_tests": "54/54 PASS",
-    "rag_boundary_tests": "99/99 PASS",
-    "native_perf_e2e": "59/59 PASS",
-    "shared_layer_suite": "1622 passed / 5 failed (pre-existing)"
+    "madge_circular": "PASS (0 circular, 40 files)",
+    "version_check": "PASS (1.0.0)",
+    "contract_parity_tests": "54/54 PASS (shared-layer/tests/test_type_contract_v1.py)",
+    "native_perf_e2e": "59/59 PASS (test_perf_e2e 17 + test_native_memory 23 + test_native_parallel 19)",
+    "native_core_v1": "26/30 PASS (4 benchmark report tests time out, see test_matrix.full_pytest_suite)",
+    "rag_suites": "183/183 PASS (boundary 19 + takeover 16 + phase2 16 + runtime_state 10 + final_acceptance 25 + orchestration 28 + retrievers 22 + lifecycle 27 + generation 12 + reconciliation 8)",
+    "six_language_consolidation": "455/455 PASS (test_matrix / static_analysis / dep_consolidation / lifecycle / failure_taxonomy / phase_i dependency governance)",
+    "project_contract_matrix": "1319/1319 PASS (10000-matrix 1200 + contract parts 112+7)",
+    "startup_runtime": "orchestrator-report.json READY: certified dependency DAG acyclic, governance-audit PASS phase",
+    "pybind11_module": "13 exports load from _sovereign_native.cp311-win_amd64.pyd",
+    "a430_size_measurement": {
+      "files_checked": 823,
+      "violations": {
+        "module": 27,
+        "function": 198,
+        "class": 17,
+        "public-entrypoints": 104,
+        "callables": 182
+      }
+    }
   },
+  "evidence_incomplete": [
+    "transformer medium/large benchmark parity evidence: benchmark report tests time out on the pure-Python reference matmul (pytest-timeout 60s); the emitted native_core_v1.json baseline was produced outside the pytest timeout",
+    "per-language unit suites required by A210 (TypeScript=vitest, C=ctest, C++=googletest, C#=xunit) do not exist in the repository; those boundaries are exercised by Python-hosted tests plus static checkers (recorded as debt, not as a failed run)",
+    "release compatibility / build-ABI reproducibility TS gates (ReleaseCompatibilityChecker.ts, BuildAbiReproChecker.ts) are unwired scaffolds; release evidence is the project contract matrix, npm build and database-release.json"
+  ],
   "accepted_debt": [
-    "auxiliary host scripts (.cjs/.js/.bat/.vbs/.cmd) exist as launcher/tooling only; no contract surface",
+    "auxiliary host scripts (.cjs/.js/.mjs/.bat/.cmd/.vbs/.ps1) exist as launcher/tooling only; no contract surface",
     "shared_layer/performance and core_system/perf coexist as two perf planes (shared-plane vs core-domain); boundary declared, merge deferred",
-    "pre-existing test failures unrelated to language architecture: native benchmark worker crashes, migration-count expectation 125 vs 129, transformer model-routing drift"
+    "pre-existing 4 native benchmark report tests time out on the Python reference matmul (dims 768/3072) under the 60s pytest timeout; native behavior suites (59/59) and native_core_v1 non-benchmark (22/22) pass",
+    "A430/E160 size exceedances remain in legacy files (measured 823 files: 27 modules > 500 effective lines, 198 functions > 50, 17 classes > 300, 104 files > 3 public entrypoints, 182 files > 12 callables; e.g. audit_artifacts.py 1821, failover_store.py 1494/1163, git_control_plane.py 1071/757); no source-size-exception registry entries; enforcement is split-driven",
+    "language gate TS scaffolds (main-system/code/checkers/LanguageBoundaryChecker.ts, DependencyDagChecker.ts, LanguageGovernanceRunner.ts + policy/registry files) are not wired to any npm script/test/tsconfig include and are not registered in GovernanceCheckerRegistry; DependencyDagChecker import resolver is a stub returning null; LanguageBoundaryChecker line-regex scanner yields false positives (6/6 Python cross-boundary hits: reconcile_window.allow, dict key document.get, comment text) and stale SOURCE_ROOTS misses (131 SQL migrations, 2 shared-layer TS UI files, 2 C++ files outside native/); authoritative language gates remain Python governance audit + G-* checkers + tsc + madge",
+    "C# desktop bootstrap (GPTBridgeLauncher.cs) duplicates the C++ launcher capability but is explicitly marked GOVERNANCE_CONFLICT (A217) and is compiled only as the no-MSVC fallback by install.py; primary path stays C++ bootstrap + Python start.py",
+    "historical migration-number duplicates (087/088) are preserved for checksum history and declared in EXPECTED_MIGRATION_COUNT=131"
   ],
   "debt_exclusions_verified": {
-    "abi_mismatch": "none \u2014 ABI header hash pinned, 5 exports fixed-width only",
-    "duplicate_authority": "resolved \u2014 inbox_dedup DDL single source (outbox_inbox.py); learned_recipes/repair_outcomes collision resolved via file separation (auto-repair-learning.sqlite3); sql_concurrency.SessionBinding duplicate field fixed; OutboxState split RagOutboxState(rag_outbox) vs contracts(outbox_event)",
-    "untyped_public_boundary": "none \u2014 CanonicalTypeRegistry projects all six languages",
-    "fallback_semantic_mismatch": "none \u2014 RAG degraded path markers verified by 42 takeover tests",
-    "broken_cancellation": "none \u2014 cooperative cancellation tested in native runtime (19/19)",
-    "critical_flaky_contract_tests": "none observed in contract/boundary suites"
+    "abi_mismatch": "none \u2014 ABI header hash pinned (a2eb29a1...), bridge hash pinned (20f94cad...), 5 C exports are fixed-width only (int/double/int64_t), bridge is an 87-line thin thunk, pybind11 module exports 13 callables and native behavior suites pass",
+    "duplicate_authority": "resolved \u2014 inbox_dedup DDL single source (outbox_inbox.py); learned_recipes/repair_outcomes collision resolved via file separation (auto-repair-learning.sqlite3); sql_concurrency.SessionBinding duplicate field fixed; OutboxState split RagOutboxState(rag_outbox) vs contracts(outbox_event); migration duplicates declared and checksum-locked; C# launcher is a declared build fallback, not a second runtime authority",
+    "untyped_public_boundary": "none \u2014 CanonicalTypeRegistry (17 types, registry v1) projects all six languages; contract parity 54/54 PASS; tsc strict PASS; canonical TypeScript/Python models generated-or-verified from the same contract hash",
+    "fallback_semantic_mismatch": "none \u2014 RAG degraded path markers verified by 42 takeover tests (16+16+10) and full RAG suite 183/183; native fallback parity covered by test_native_parallel (python fallback still callable, no-benefit falls back single) and native_core_v1 non-benchmark 22/22",
+    "broken_cancellation": "none \u2014 cooperative cancellation and deadline propagation tests pass (test_cooperative_cancellation, test_deadline_propagates, benchmark cancellation 19/19 in native_parallel)",
+    "critical_flaky_contract_tests": "none observed \u2014 contract parity 54/54 and RAG boundary suites re-run clean this capture; the only non-determinism is the benchmark timeout debt above (not a contract test)"
   },
   "reentry_triggers": [
     "new programming language",

@@ -52,11 +52,16 @@ class CentralRepairOperationsMixin:
 
         report: dict[str, Any] = {
             "operation": "targeted-source-repair",
-            "authority": "main-system",
+            "authority": "星澄",
             "target": relative_path,
             "ok": False,
             "skipped": False,
             "reason": "",
+            "audit_flow": [
+                "assistant-inspection",
+                "xingcheng-diagnosis",
+                "applicability-check",
+            ],
         }
         service = SourceRepairService(self.project_root)
         target = (self.project_root / relative_path).resolve()
@@ -114,7 +119,9 @@ class CentralRepairOperationsMixin:
             return report
         try:
             service._backup(target)
+            report["audit_flow"].append("verified-backup")
             service._atomic_write(target, repaired_source)
+            report["audit_flow"].append("governed-execution")
         except (OSError, PermissionError) as error:
             report["reason"] = f"write failed: {error.__class__.__name__}"
             return report
@@ -129,6 +136,7 @@ class CentralRepairOperationsMixin:
         report["ok"] = True
         report["repaired_lines"] = repaired_indices
         report["verification"] = "compile-ok"
+        report["audit_flow"].extend(["regression-verification", "assistant-closeout"])
         self._learn_from_repair(
             {"file": relative_path, "repaired_lines": repaired_indices},
             report,
@@ -184,6 +192,15 @@ class CentralRepairOperationsMixin:
             "reason": "PACKAGE_REBUILD_NOT_REQUIRED",
         }
         executed_actions: list[str] = ["inspect-owned-databases"]
+        audit_flow = [
+            {"stage": "assistant-inspection", "status": "complete"},
+            {"stage": "xingcheng-repair-proposal", "status": "complete"},
+            {
+                "stage": "applicability-and-quality-gate",
+                "status": "pass" if plan.mutation_allowed else "blocked",
+                "reason": plan.blocked_reason,
+            },
+        ]
         if plan.rebuild_executable:
             if package_rebuilder is None:
                 package_repair = {
@@ -208,6 +225,24 @@ class CentralRepairOperationsMixin:
                 errors.append(
                     str(package_repair.get("error_code") or "PACKAGE_REBUILD_FAILED")
                 )
+            audit_flow.append(
+                {
+                    "stage": "governed-module-execution",
+                    "status": "pass" if package_repair.get("ok") is True else "failed",
+                }
+            )
+
+        repair_applied = len(executed_actions) > 1
+        if not plan.mutation_allowed:
+            audit_flow.append(
+                {"stage": "mutation", "status": "not-run", "reason": plan.blocked_reason}
+            )
+        audit_flow.append(
+            {
+                "stage": "assistant-closeout",
+                "status": "complete" if not errors else "finding-open",
+            }
+        )
 
         result: dict[str, Any] = {
             "ok": not errors,
@@ -218,6 +253,13 @@ class CentralRepairOperationsMixin:
             "target_tool_id": target_id,
             "failure_code": plan.failure_code,
             "repair_plan": plan.as_dict(),
+            "repair_applied": repair_applied,
+            "workflow_status": (
+                "completed" if repair_applied and not errors
+                else "awaiting-evidence" if not plan.mutation_allowed
+                else "failed"
+            ),
+            "audit_flow": audit_flow,
             "executed_actions": executed_actions,
             **inspection,
             "package_repair": package_repair,

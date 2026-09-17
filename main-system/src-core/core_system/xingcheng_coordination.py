@@ -102,8 +102,17 @@ class XingchengCoordination:
             "delegated": delegated,
             "tool_state": tool_state,
             "delegation": "governed-executor-only",
-            "personality": self._personality.personality_status(),
-            "native_model": self._native_model.capability_status(),
+            "native_model": {
+                **self._native_model.capability_status(),
+                "display_name": "星澄",
+                "personality": {
+                    **self._personality.personality_status(),
+                    "database": "xingcheng_identity",
+                    "database_isolation": "dedicated",
+                },
+                "auto_learning_module": "xingcheng-auto-learning-module",
+                "auto_repair_module": "xingcheng-auto-repair-module",
+            },
             "thinking": decision_basis("xingcheng-thinking"),
             "decision": decision_basis("xingcheng"),
         }
@@ -128,8 +137,17 @@ class XingchengCoordination:
                 "empowered": list(XINGCHENG_EMPOWERED_POWERS),
                 "prohibited": list(XINGCHENG_PROHIBITED_POWERS),
             },
-            "personality": self._personality.personality_status(),
-            "native_model": self._native_model.capability_status(),
+            "native_model": {
+                **self._native_model.capability_status(),
+                "display_name": "星澄",
+                "personality": {
+                    **self._personality.personality_status(),
+                    "database": "xingcheng_identity",
+                    "database_isolation": "dedicated",
+                },
+                "auto_learning_module": "xingcheng-auto-learning-module",
+                "auto_repair_module": "xingcheng-auto-repair-module",
+            },
             "thinking": decision_basis("xingcheng-thinking"),
             "decision": decision_basis("xingcheng"),
         }

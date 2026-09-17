@@ -158,6 +158,42 @@ def audit_log(
     return entry
 
 
+def record_deprecated_confirmation(
+    repo_path: str | Path,
+    command: str,
+    actor: str,
+    *,
+    approval_path: str = "LEGACY_CONFIRM",
+) -> None:
+    """Convert a deprecated boolean approval into a legacy capability record.
+
+    Called by the gateway when an unmigrated caller still passes the legacy
+    boolean approval: the authorization becomes an audited ``LEGACY_*`` entry
+    in the capability ledger marked ``DEPRECATED_COMPATIBILITY`` instead of a
+    silent boolean path.  Failure to record never blocks the caller.
+    """
+    try:
+        from uuid import uuid4
+
+        from .capability import LEGACY_COMPATIBILITY_MARKER, repository_id_for
+        from .capability_ledger import CapabilityLedger
+        from .command_normalizer import operation_key
+
+        CapabilityLedger().record_legacy(
+            actor=actor,
+            operation=operation_key(command),
+            command_id=uuid4().hex,
+            detail=(
+                f"{LEGACY_COMPATIBILITY_MARKER}: deprecated boolean approval "
+                "(migrate to a capability token)"
+            ),
+            approval_path=approval_path,
+            repository_id=repository_id_for(repo_path),
+        )
+    except Exception:
+        pass
+
+
 def enforce(
     command: str,
     actor: str = "unknown",
@@ -166,16 +202,13 @@ def enforce(
     authority_approved: bool | None = None,
     repo_snapshot: dict[str, object] | None = None,
 ) -> tuple[bool, str]:
-    """Authorize one classified Git operation and record the decision."""
+    """Authorize one classified Git operation and record the decision.
+
+    The retired approval environment variables are no longer consulted: a
+    tier-2/3 command without an explicit parameter (or a verified capability
+    token at the gate) fails closed.
+    """
     tier = classify(command)
-    if confirmed is None:
-        confirmed = os.environ.get("GOVERNANCE_CONFIRM", "").casefold() in {
-            "1", "true", "yes",
-        }
-    if authority_approved is None:
-        authority_approved = os.environ.get(
-            "GOVERNANCE_AUTHORITY_APPROVAL", ""
-        ).casefold() in {"1", "true", "yes"}
 
     if tier == 1:
         allowed = True

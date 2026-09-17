@@ -1,0 +1,259 @@
+{
+  "audit_schema_version": "1.0.0",
+  "baseline": {
+    "baseline_id": "GPTBridgeGitBaselineV1",
+    "baseline_version": 1,
+    "digest": "a43440e80fb698c150210c7960d954ef38e28339a2ddc0dcfb72c4caf27c540d",
+    "manifest_schema_version": "1.0.0",
+    "path": "baseline/gptbridge_git_baseline_v1.json",
+    "verdict": "GIT_BASELINE_FROZEN"
+  },
+  "control_plane_version": "1.0.0",
+  "governance_version": "2.0.0",
+  "hardcoded_inventory": [
+    {
+      "constant": "DEFAULT_TIMEOUT",
+      "disposition": "manifest:timings.git_command_timeout_seconds",
+      "module": "git_repository.py",
+      "value": 60.0
+    },
+    {
+      "constant": "_SNAPSHOT_TTL",
+      "disposition": "manifest:timings.snapshot_cache_ttl_seconds",
+      "module": "git_repository.py",
+      "value": 2.0
+    },
+    {
+      "constant": "DEFAULT_TTL",
+      "disposition": "manifest:timings.git_cache_default_ttl_seconds",
+      "module": "git_cache.py",
+      "value": 2.0
+    },
+    {
+      "constant": "DEFAULT_LEASE_SECONDS",
+      "disposition": "manifest:timings.claim_lease_seconds",
+      "module": "claims.py",
+      "value": 3600.0
+    },
+    {
+      "constant": "DEFAULT_PROPOSAL_TTL_SECONDS",
+      "disposition": "manifest:timings.control_plane_proposal_ttl_seconds",
+      "module": "git_control_plane.py",
+      "value": 300.0
+    },
+    {
+      "constant": "DEFAULT_LOCK_STALL_SECONDS",
+      "disposition": "manifest:timings.control_plane_lock_stall_seconds",
+      "module": "git_control_plane.py",
+      "value": 600.0
+    },
+    {
+      "constant": "watch interval/debounce + adaptive bounds",
+      "disposition": "manifest:timings.self_commit_*",
+      "module": "self_commit.py",
+      "value": [
+        30.0,
+        60.0,
+        60.0,
+        300.0,
+        4,
+        60.0
+      ]
+    },
+    {
+      "constant": "CommitBatchPolicy defaults",
+      "disposition": "manifest:timings.commit_policy_*",
+      "module": "commit_policy.py",
+      "value": [
+        120.0,
+        900.0,
+        200,
+        60.0
+      ]
+    },
+    {
+      "constant": "PoolConfig lease/retention/backpressure",
+      "disposition": "manifest:timings.worker_pool_*",
+      "module": "worker_pool_types.py",
+      "value": [
+        1800.0,
+        300.0,
+        259200.0,
+        50
+      ]
+    },
+    {
+      "constant": "sync/health/watch/debounce CLI defaults",
+      "disposition": "manifest:timings.supervisor_*",
+      "module": "automation_supervisor.py",
+      "value": [
+        60.0,
+        20.0,
+        30.0,
+        60.0
+      ]
+    },
+    {
+      "constant": "--interval default",
+      "disposition": "manifest:timings.workspace_sync_interval_seconds",
+      "module": "workspace_sync.py",
+      "value": 60.0
+    },
+    {
+      "constant": "_git/_out default timeout + bundle/fsck timeouts",
+      "disposition": "TODO: wire to manifest:timings.disaster_recovery_*",
+      "module": "disaster_recovery.py",
+      "value": [
+        60.0,
+        300.0,
+        600.0
+      ]
+    },
+    {
+      "constant": "restart backoff 5.0*2^n cap 300.0; jitter spread 26s; health floor 60s; deep-health floor 3600s",
+      "disposition": "TODO: wire to manifest:timings.supervisor_*_backoff/jitter/floors",
+      "module": "automation_supervisor_loop.py",
+      "value": [
+        5.0,
+        300.0,
+        26,
+        60.0,
+        3600.0
+      ]
+    },
+    {
+      "constant": "DEFAULT_THRESHOLDS; COMMIT_GRAPH_NEW_COMMITS; COMMIT_GRAPH_MAX_NEW_FILTERS",
+      "disposition": "TODO: wire to manifest:timings.maintenance_*",
+      "module": "git_maintenance.py",
+      "value": [
+        2000,
+        2048,
+        50,
+        50,
+        64,
+        512
+      ]
+    },
+    {
+      "constant": "PoolThresholds busy/backpressure/degraded",
+      "disposition": "TODO: wire to manifest:timings.pool_metrics_*",
+      "module": "pool_metrics.py",
+      "value": [
+        10,
+        50,
+        1,
+        3600.0,
+        0.3
+      ]
+    },
+    {
+      "constant": "BACKPRESSURE_QUEUE_DEPTH; BUSY_ACTIVE_WORKER_FRACTION; AUDIT_LATENCY_WARN_MS",
+      "disposition": "TODO: wire to manifest:timings.control_plane_*",
+      "module": "git_control_plane.py",
+      "value": [
+        25,
+        0.75,
+        250.0
+      ]
+    },
+    {
+      "constant": "PoolConfig capacity/parallelism limits",
+      "disposition": "TODO: pool policy values, wire only with capacity review",
+      "module": "worker_pool_types.py",
+      "value": [
+        24,
+        32,
+        4,
+        16,
+        1,
+        4
+      ]
+    },
+    {
+      "constant": "SCHEMA_VERSION",
+      "disposition": "version-source: manifest.registry_schema_version mirrors this registry schema constant",
+      "module": "worker_registry.py",
+      "value": 2
+    },
+    {
+      "constant": "PoolConfig.schema_version",
+      "disposition": "version-source: manifest.worker_schema_version mirrors this runtime schema field",
+      "module": "worker_pool_types.py",
+      "value": 1
+    },
+    {
+      "constant": "audit-chain-manifest-v1",
+      "disposition": "version-source: manifest.audit_schema_version mirrors this audit chain schema id",
+      "module": "audit_chain.py",
+      "value": "audit-chain-manifest-v1"
+    },
+    {
+      "constant": "tier-policy-v1",
+      "disposition": "version-source: manifest.policy_version mirrors GitControlPlane.policy_version()",
+      "module": "git_control_plane.py",
+      "value": "tier-policy-v1"
+    },
+    {
+      "constant": "merge-tree --write-tree",
+      "disposition": "feature-source: manifest.minimum_git_version floor (Git >= 2.38)",
+      "module": "merge_precheck.py",
+      "value": "2.38.0"
+    }
+  ],
+  "hook_version": "1.0.0",
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "c5c410a70c9fddfc21627bde6326997ba0cf29283f61f95d2a13476f91fe797c",
+    "scope": "canonical-json-without-integrity-and-baseline"
+  },
+  "manifest_id": "git-governance-manifest",
+  "manifest_schema_version": "1.0.0",
+  "maximum_tested_git_version": "2.55.0",
+  "minimum_git_version": "2.38.0",
+  "policy_version": "tier-policy-v1",
+  "queue_schema_version": "1.0.0",
+  "recovery_schema_version": "1.0.0",
+  "registry_schema_version": "2.0.0",
+  "schema_evidence": {
+    "audit_schema_version": "audit_chain manifest schema 'audit-chain-manifest-v1' -> 1.0.0",
+    "control_plane_version": "git_control_plane.GitSnapshot/GitEvent field set and gptbridge-control-plane state.json; no explicit version field -> first declared schema",
+    "hook_version": "server_hooks HOOK_MANIFEST 'hook-manifest.json' carries no version field -> first declared hook manifest",
+    "maximum_tested_git_version": "git version 2.55.0.windows.1 installed and exercised by the git_tiers suite",
+    "minimum_git_version": "merge_precheck.merge_tree_check uses 'git merge-tree --write-tree' (Git >= 2.38); older features (porcelain v2, worktree, multi-pack-index, commit-graph) require less",
+    "policy_version": "git_control_plane.GitControlPlane.policy_version() == 'tier-policy-v1'",
+    "queue_schema_version": "merge_queue payload keys {next_sequence, entries}; no explicit version field exists -> first declared schema",
+    "recovery_schema_version": "recovery refs/gptbridge/recovery/<stamp>/<queue_id> + release bundle naming; no explicit version field -> first declared schema",
+    "registry_schema_version": "worker_registry.SCHEMA_VERSION == 2 -> normalized 2.0.0 (registry.json: schema_version/generation/workers/waiting/pool_state)",
+    "snapshot_schema_version": "snapshot.capture_light_snapshot key set (repository/head_revision/branch/staged_files/dirty_files/untracked_files/staged_patch_hash/unstaged_patch_hash)",
+    "worker_schema_version": "worker_pool_types.PoolConfig.schema_version == 1 -> 1.0.0"
+  },
+  "snapshot_schema_version": "1.0.0",
+  "timings": {
+    "claim_lease_seconds": 3600.0,
+    "commit_policy_debounce_seconds": 60.0,
+    "commit_policy_max_changed_files": 200,
+    "commit_policy_max_dirty_age_seconds": 900.0,
+    "commit_policy_min_interval_seconds": 120.0,
+    "control_plane_lock_stall_seconds": 600.0,
+    "control_plane_proposal_ttl_seconds": 300.0,
+    "git_cache_default_ttl_seconds": 2.0,
+    "git_command_timeout_seconds": 60.0,
+    "self_commit_adaptive_window_seconds": 60.0,
+    "self_commit_base_debounce_seconds": 60.0,
+    "self_commit_busy_commits_per_window": 4,
+    "self_commit_debounce_seconds": 60.0,
+    "self_commit_interval_seconds": 30.0,
+    "self_commit_max_debounce_seconds": 300.0,
+    "snapshot_cache_ttl_seconds": 2.0,
+    "supervisor_debounce_seconds": 60.0,
+    "supervisor_health_interval_seconds": 20.0,
+    "supervisor_sync_interval_seconds": 60.0,
+    "supervisor_watch_interval_seconds": 30.0,
+    "worker_pool_backpressure_queue_depth": 50,
+    "worker_pool_lease_renew_seconds": 300.0,
+    "worker_pool_lease_seconds": 1800.0,
+    "worker_pool_merged_branch_retention_seconds": 259200.0,
+    "workspace_sync_interval_seconds": 60.0
+  },
+  "worker_schema_version": "1.0.0"
+}

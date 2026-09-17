@@ -86,11 +86,13 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
         evidence = request.payload.get("evidence") or {}
         scope = request.payload.get("scope") or "all-system-domains"
         anomalies = self._classify_evidence(evidence)
+        patterns = self._detect_anomaly_patterns(anomalies)
         report_id = f"review-{len(self._reviews) + 1}"
         self._reviews[report_id] = {
             "kind": "global-review",
             "scope": scope,
             "anomalies": anomalies,
+            "patterns": patterns,
             "advisory": True,
             "reviewed_at": self._iso_now(),
         }
@@ -103,6 +105,7 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
                 "report_id": report_id,
                 "scope": scope,
                 "anomalies": anomalies,
+                "patterns": patterns,
             },
             self.verified_basis("A139", "A145", "A140"),
         )
@@ -125,14 +128,27 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
                 severity = "warning"
             else:
                 severity = "info" if state in {"degraded", "reviewing"} else "warning"
-            anomalies.append({
+
+            # Enhanced classification with component type
+            component_type = item.get("type", "unknown")
+            component = item.get("component")
+
+            anomaly = {
                 "type": "global-review-finding",
                 "severity": severity,
-                "component": item.get("component"),
+                "component": component,
+                "component_type": component_type,
                 "state": state or None,
                 "detail": item.get("detail"),
                 "location": item.get("component"),
-            })
+                "source": item.get("source", "information-layer"),
+            }
+
+            # Add metrics if present
+            if "metrics" in item:
+                anomaly["metrics"] = item["metrics"]
+
+            anomalies.append(anomaly)
         return anomalies
 
     async def _adjudicate_classify_anomaly(self, request: SovereignRequest) -> SovereignOutcome:
@@ -181,6 +197,51 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
         except OSError:
             pass
         self._pending_anomalies.clear()
+
+    def _detect_anomaly_patterns(self, anomalies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Detect recurring patterns in anomalies (A139 advisory)."""
+        patterns = []
+        if not anomalies:
+            return patterns
+
+        # Group by component
+        by_component: dict[str, list[dict]] = {}
+        for a in anomalies:
+            comp = a.get("component") or "unknown"
+            by_component.setdefault(comp, []).append(a)
+
+        for comp, comp_anomalies in by_component.items():
+            if len(comp_anomalies) >= 3:
+                # Recurring issue
+                severities = [a.get("severity") for a in comp_anomalies]
+                if severities.count("critical") >= 2:
+                    patterns.append({
+                        "type": "recurring-critical",
+                        "component": comp,
+                        "count": len(comp_anomalies),
+                        "severity": "critical",
+                        "detail": f"Component {comp} has {len(comp_anomalies)} anomalies with {severities.count('critical')} critical",
+                    })
+                elif len(comp_anomalies) >= 5:
+                    patterns.append({
+                        "type": "recurring-degraded",
+                        "component": comp,
+                        "count": len(comp_anomalies),
+                        "severity": "warning",
+                        "detail": f"Component {comp} has {len(comp_anomalies)} anomalies",
+                    })
+
+            # Check for escalating severity
+            severity_rank = {"info": 0, "warning": 1, "critical": 2}
+            ranked = sorted([severity_rank.get(a.get("severity"), 0) for a in comp_anomalies])
+            if len(ranked) >= 3 and ranked[-1] > ranked[0]:
+                patterns.append({
+                    "type": "escalating-severity",
+                    "component": comp,
+                    "detail": f"Severity escalating from {ranked[0]} to {ranked[-1]}",
+                })
+
+        return patterns
 
     async def _adjudicate_classify(self, request: SovereignRequest) -> SovereignOutcome:
         """A337: deterministic auxiliary classification."""

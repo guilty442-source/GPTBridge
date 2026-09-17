@@ -94,24 +94,6 @@ class AutoRepairOrchestrator:
         if classification["overall_state"] == HealthState.HEALTHY:
             return {"stage": "health_classification", "result": "healthy", "classification": classification}
 
-        # User-confirmation gate: while automatic repair execution is
-        # disabled the chain records the signal but performs no decision,
-        # no permission grant, and no mutation.  The request waits for the
-        # user to confirm this fault in the assistant panel.  An explicit
-        # per-item confirmation (user_confirmed=True) bypasses the gate.
-        from .auto_action_policy import automatic_repair_execution_allowed
-
-        if not automatic_repair_execution_allowed() and not user_confirmed:
-            return {
-                "stage": "awaiting-user-confirmation",
-                "result": "deferred",
-                "classification": classification,
-                "reason": (
-                    "automatic repair execution is disabled; "
-                    "confirm this fault in the assistant panel"
-                ),
-            }
-
         # Stage 2: Repair Decision (decision-sovereign)
         objective = self.decision_sovereign.assign_repair_objective(
             classification,
@@ -130,6 +112,26 @@ class AutoRepairOrchestrator:
 
         # Stage 4: Create Repair Plan
         plan = self._create_repair_plan(objective, grant)
+
+        # The plan is read-only evidence and must exist before the user is
+        # asked to authorize mutation.  Only execution remains gated.
+        from .auto_action_policy import automatic_repair_execution_allowed
+
+        if not automatic_repair_execution_allowed() and not user_confirmed:
+            return {
+                "stage": "awaiting-user-confirmation",
+                "result": "planned",
+                "classification": classification,
+                "objective": asdict(objective),
+                "grant": asdict(grant),
+                "plan": asdict(plan),
+                "requirements": {
+                    "permission_scope": list(grant.path_scope),
+                    "verification": list(plan.verification_criteria),
+                    "rollback": plan.rollback_plan,
+                },
+                "reason": "repair plan ready; awaiting user choice",
+            }
 
         return self._execute_verify_report(objective, grant, plan)
 

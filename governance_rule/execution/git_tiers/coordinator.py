@@ -59,15 +59,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
 
+from .branch_policy import MAIN_BRANCH, is_main, normalize_branch
 from .git_repository import GitRepository
+from .governance_manifest import GovernanceWriteBlocked, assert_write_allowed
 from .worktree_manager import WorktreeManager
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 WORKTREE_ROOT = PROJECT_ROOT.parent / "GPTBridge-worktrees"
 BARE_REPO = PROJECT_ROOT.parent / "GPTBridge.git"
-AUDIT_LEDGER = PROJECT_ROOT / "governance_rule" / "execution" / "audit" / "git_tier_audit.jsonl"
 MERGE_QUEUE_LEDGER = PROJECT_ROOT / "governance_rule" / "execution" / "audit" / "merge_queue.jsonl"
 MERGE_QUEUE_LOCK = PROJECT_ROOT / "governance_rule" / "execution" / "audit" / "merge_queue.lock"
+
+
+def _governed_coordinator_command(repo: GitRepository, args: list[str], *, actor: str):
+    """Run one integration write through the capability gate."""
+    from .capability_gate import execute_system_safe
+
+    return execute_system_safe(list(args), actor=actor, repo_path=repo.path)
 
 
 @contextmanager
@@ -182,14 +190,12 @@ class GitCoordinator:
                 continue  # skip main worktree — it's the merge target
             wt_path = Path(path_str)
             worker_id = wt_path.name
-            branch = wt.get("branch", "HEAD")
-            if branch.startswith("refs/heads/"):
-                branch = branch[len("refs/heads/"):]
+            branch = normalize_branch(wt.get("branch", "HEAD"))
             if worker_id and wt_path.exists():
                 self._slots[worker_id] = WorktreeSlot(
                     worker_id=worker_id,
                     worktree_path=wt_path,
-                    branch=branch or "main",
+                    branch=branch or MAIN_BRANCH,
                 )
 
     @property
@@ -212,6 +218,7 @@ class GitCoordinator:
         branch from main. If the worktree already exists, returns the
         existing slot.
         """
+        assert_write_allowed("coordinator.register-worker")
         if worker_id in self._slots and self._slots[worker_id].exists:
             return self._slots[worker_id]
 
@@ -241,6 +248,7 @@ class GitCoordinator:
         authority_approved: bool | None = None,
     ) -> bool:
         """Remove an AI worker only after Tier-2 and Tier-3 authorization."""
+        assert_write_allowed("coordinator.remove-worker")
         slot = self._slots.get(worker_id)
         if slot is None:
             return False
@@ -275,6 +283,13 @@ class GitCoordinator:
             operation="merge",
             status="pending",
         )
+        try:
+            assert_write_allowed("coordinator.enqueue-merge")
+        except GovernanceWriteBlocked as exc:
+            entry.status = "failed"
+            entry.detail = str(exc)[:500]
+            entry.write()
+            return entry
         entry.write()
         return entry
 
@@ -295,10 +310,15 @@ class GitCoordinator:
             operation="merge",
             status="pending",
         )
+        try:
+            assert_write_allowed("coordinator.execute-merge")
+        except GovernanceWriteBlocked as exc:
+            entry.status = "failed"
+            entry.detail = str(exc)[:500]
+            entry.write()
+            return entry
         entry.write()
-        if target == "main" and not (
-            authority_approved or os.environ.get("GOVERNANCE_AUTHORITY_APPROVAL") == "1"
-        ):
+        if is_main(target) and not authority_approved:
             entry.status = "failed"
             entry.detail = "merge to main requires authority approval"
             entry.write()
@@ -339,14 +359,24 @@ class GitCoordinator:
                     entry.write()
                     return entry
                 source_revision = GitRepository(slot.worktree_path).head()
-                fetch_result = self._repo.run(
+                fetch_gate = _governed_coordinator_command(
+                    self._repo,
                     ["fetch", str(slot.worktree_path), f"{slot.branch}:{slot.branch}"],
-                    confirmed=confirmed,
                     actor=self._actor,
                 )
-                if fetch_result.returncode != 0:
+                fetch_result = fetch_gate.execution_result
+                if (
+                    fetch_gate.allowed is False
+                    or fetch_result is None
+                    or fetch_result.returncode != 0
+                ):
                     entry.status = "failed"
-                    entry.detail = f"fetch failed: {fetch_result.stderr.strip()[:500]}"
+                    entry.detail = (
+                        "fetch failed: "
+                        f"{fetch_gate.code}:{fetch_gate.detail}"[:300]
+                        if fetch_result is None
+                        else f"fetch failed: {fetch_result.stderr.strip()[:500]}"
+                    )
                     entry.write()
                     return entry
                 fetched_revision = self._repo.run(
@@ -358,30 +388,36 @@ class GitCoordinator:
                     entry.detail = "source branch changed during merge preparation"
                     entry.write()
                     return entry
-                merge_result = self._repo.run(
+                merge_gate = _governed_coordinator_command(
+                    self._repo,
                     [
                         "merge", "--no-ff", slot.branch,
                         "-m", f"merge: {slot.worker_id}/{slot.branch} into {target}",
                     ],
-                    confirmed=confirmed,
                     actor=self._actor,
                 )
-                if merge_result.returncode != 0:
-                    self._repo.run(
-                        ["merge", "--abort"],
-                        confirmed=True,
-                        actor=self._actor,
+                merge_result = merge_gate.execution_result
+                if (
+                    merge_gate.allowed is False
+                    or merge_result is None
+                    or merge_result.returncode != 0
+                ):
+                    _governed_coordinator_command(
+                        self._repo, ["merge", "--abort"], actor=self._actor,
                     )
                     entry.status = "failed"
                     entry.detail = f"merge failed; recovery target: {snapshot['head_revision']}"
                     entry.write()
                     return entry
-                push_result = self._repo.run(
-                    ["push", "central", target],
-                    confirmed=confirmed,
-                    actor=self._actor,
+                push_gate = _governed_coordinator_command(
+                    self._repo, ["push", "central", target], actor=self._actor,
                 )
-                if push_result.returncode != 0:
+                push_result = push_gate.execution_result
+                if (
+                    push_gate.allowed is False
+                    or push_result is None
+                    or push_result.returncode != 0
+                ):
                     entry.status = "failed"
                     entry.detail = (
                         f"central push failed; local merge retained; recovery target: "

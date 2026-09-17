@@ -30,6 +30,7 @@
     "build:renderer": "vite build",
     "build:main": "vite build -c vite.main.config.ts",
     "build:templates": "vite build -c vite.templates.config.ts",
+    "build:native": ".venv\\Scripts\\python.exe src-core/core_system/native/build_native.py",
     "build:platform-renderer": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --build-renderers-only --all",
     "build:app": "npm.cmd run build:renderer && npm.cmd run build:main && npm.cmd run build:templates && npm.cmd run build:platform-renderer",
     "package:tools": "npm.cmd run build:templates && .venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --all",

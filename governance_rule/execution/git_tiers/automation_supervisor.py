@@ -17,8 +17,9 @@ automation stack.  It:
 Governance (A53/E39, A58/E44): the supervisor never pushes unless ``--push``
 is given (the synchronizer itself guards remote-sync durability), never
 force-updates, never resolves conflicts automatically, and never deletes
-refs.  All git writes flow through ``GitRepository.run`` with
-``confirmed=True`` and are recorded in the tier audit ledger.
+refs.  All git writes flow through the capability gate
+(``execute_system_safe`` → gateway) and are recorded in the tier and
+capability audit ledgers.
 
 Sub-modules (A430/E160):
   * ``automation_supervisor_state`` — state dir, registry, stop/status
@@ -47,7 +48,16 @@ from .automation_supervisor_state import (
     status,
     stop,
 )
-from .automation_supervisor_loop import _spawn_watcher, _Watcher, supervise, supervise_loop
+from .automation_supervisor_loop import (
+    DEFAULT_DEBOUNCE_SECONDS,
+    DEFAULT_HEALTH_INTERVAL_SECONDS,
+    DEFAULT_SYNC_INTERVAL_SECONDS,
+    DEFAULT_WATCH_INTERVAL_SECONDS,
+    _spawn_watcher,
+    _Watcher,
+    supervise,
+    supervise_loop,
+)
 from .automation_supervisor_persistence import (
     _install_logon,
     _install_task,
@@ -116,10 +126,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--uninstall-task", action="store_true", help="remove the Task Scheduler job")
     parser.add_argument("--install-logon", action="store_true", help="register a per-user logon Run key (no elevation)")
     parser.add_argument("--uninstall-logon", action="store_true", help="remove the per-user logon Run key")
-    parser.add_argument("--sync-interval", type=float, default=60.0, help="sync cycle seconds")
-    parser.add_argument("--health-interval", type=float, default=20.0, help="health poll seconds")
-    parser.add_argument("--watch-interval", type=float, default=30.0, help="watch poll seconds")
-    parser.add_argument("--debounce", type=float, default=60.0, help="commit stability seconds")
+    parser.add_argument("--sync-interval", type=float,
+                        default=DEFAULT_SYNC_INTERVAL_SECONDS, help="sync cycle seconds")
+    parser.add_argument("--health-interval", type=float,
+                        default=DEFAULT_HEALTH_INTERVAL_SECONDS, help="health poll seconds")
+    parser.add_argument("--watch-interval", type=float,
+                        default=DEFAULT_WATCH_INTERVAL_SECONDS, help="watch poll seconds")
+    parser.add_argument("--debounce", type=float,
+                        default=DEFAULT_DEBOUNCE_SECONDS, help="commit stability seconds")
     parser.add_argument("--commit-dirty", action="store_true",
                         help="let the sync coordinator commit (use when no watchers)")
     parser.add_argument("--push", action="store_true",

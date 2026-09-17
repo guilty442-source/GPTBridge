@@ -73,19 +73,28 @@ def record_checkpoint(
     checkpoint["path"] = str(path)
 
     if create_tag and version:
+        from .capability_gate import execute_system_safe
+
         tag = f"{RELEASE_TAG_PREFIX}{version}"
-        tagged = repo.run(
+        gate = execute_system_safe(
             [
                 "tag", "-a", tag,
                 "-m", f"governed release checkpoint {version} @ {timestamp}",
                 state["local_main_sha"] or "main",
             ],
-            confirmed=True,
-            actor=actor,
+            actor=actor, repo_path=repo.path,
         )
-        checkpoint["tag"] = tag if tagged.returncode == 0 else None
-        if tagged.returncode != 0:
-            checkpoint["tag_error"] = (tagged.stderr or "")[:200]
+        tagged = gate.execution_result
+        checkpoint["tag"] = tag if (
+            gate.allowed is not False
+            and tagged is not None
+            and tagged.returncode == 0
+        ) else None
+        if tagged is None or tagged.returncode != 0:
+            checkpoint["tag_error"] = (
+                f"{gate.code}:{gate.detail}"[:200]
+                if tagged is None else (tagged.stderr or "")[:200]
+            )
     return checkpoint
 
 

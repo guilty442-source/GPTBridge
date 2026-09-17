@@ -14,13 +14,16 @@ user's drill demands:
                         ``EXPECTED_MIGRATION_COUNT``
 
 Live-execution cells (blank DB -> HEAD, old -> HEAD upgrade, interrupted
-apply) are produced when a governed PostgreSQL connection is supplied;
-without one the report marks them ``skipped-live-unavailable`` — never
-silently PASSed.
+apply) run only through an injected bounded adapter (``run_cell``) because
+they apply DDL; the module itself never executes destructive DDL.  Without
+a connection the report marks them ``skipped-live-unavailable``; with a
+connection but no usable adapter they are marked failed (fail-closed) —
+never silently PASSed.
 """
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -193,11 +196,20 @@ def verify_migrations(directory: Path | str) -> MigrationDrillReport:
     return report
 
 
-def live_cells(connection: Any | None) -> list[dict[str, Any]]:
-    """Live migration drill cells — require a governed PG connection.
+def live_cells(
+    connection: Any | None = None,
+    *,
+    adapter: Any | None = None,
+    cell_timeout_seconds: float = 300.0,
+) -> list[dict[str, Any]]:
+    """Live migration drill cells — bounded and fail-closed.
 
-    Blank DB -> apply 001..HEAD; HEAD -> re-apply (idempotency); these
-    cannot run against SQLite because the migrations use PostgreSQL DDL.
+    Cells apply DDL (blank DB -> 001..HEAD, re-apply, interrupted apply),
+    so this module delegates each cell to an injected adapter with
+    ``run_cell(cell) -> (passed, detail)``.  Without a connection the
+    cells are ``skipped-live-unavailable``; every other incomplete setup
+    produces ``fail`` cells, and a cell reports ``pass`` only when the
+    adapter actually ran it inside the wall-clock bound.
     """
     cells = [
         "blank-db-to-head",
@@ -208,13 +220,82 @@ def live_cells(connection: Any | None) -> list[dict[str, Any]]:
         "migration-with-rls-present",
         "old-runtime-new-schema",
     ]
-    if connection is None:
+    if connection is None and adapter is None:
         return [
             {"cell": c, "status": "skipped-live-unavailable"} for c in cells
         ]
-    raise NotImplementedError(
-        "live migration drill requires a governed PostgreSQL test instance"
-    )
+    if adapter is None:
+        return [
+            {
+                "cell": c,
+                "status": "fail",
+                "engine_live": False,
+                "detail": "fail-closed:no-live-cell-adapter",
+            }
+            for c in cells
+        ]
+
+    engine_live = bool(getattr(adapter, "engine_live", False))
+    probe_detail = str(getattr(adapter, "engine_live_detail", "") or "")
+    run_cell = getattr(adapter, "run_cell", None)
+    if not engine_live:
+        detail = "fail-closed:engine-not-live"
+        if probe_detail:
+            detail = f"{detail}:{probe_detail}"[:200]
+        return [
+            {
+                "cell": c,
+                "status": "fail",
+                "engine_live": False,
+                "detail": detail,
+            }
+            for c in cells
+        ]
+    if not callable(run_cell):
+        return [
+            {
+                "cell": c,
+                "status": "fail",
+                "engine_live": True,
+                "detail": "fail-closed:adapter-missing-run_cell",
+            }
+            for c in cells
+        ]
+
+    results: list[dict[str, Any]] = []
+    for cell in cells:
+        started = time.monotonic()
+        try:
+            outcome = run_cell(cell)
+        except Exception as exc:
+            results.append({
+                "cell": cell,
+                "status": "fail",
+                "engine_live": True,
+                "detail": f"error:{exc}"[:200],
+                "duration_seconds": round(time.monotonic() - started, 3),
+            })
+            continue
+        duration = time.monotonic() - started
+        if isinstance(outcome, tuple) and len(outcome) == 2:
+            passed = bool(outcome[0])
+            detail = str(outcome[1])[:200]
+        else:
+            passed = bool(outcome)
+            detail = ""
+        if duration > float(cell_timeout_seconds):
+            passed = False
+            detail = (
+                f"timeout:{duration:.2f}s>{float(cell_timeout_seconds):.0f}s"
+            )
+        results.append({
+            "cell": cell,
+            "status": "pass" if passed else "fail",
+            "engine_live": True,
+            "detail": detail,
+            "duration_seconds": round(duration, 3),
+        })
+    return results
 
 
 __all__ = [

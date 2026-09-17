@@ -364,6 +364,9 @@ def test_windows_background_processes_cannot_open_console_windows() -> None:
     violations: list[str] = []
 
     for source_path in source_paths:
+        if not source_path.is_file():
+            # tracked file deleted in the working tree (in-flight refactor)
+            continue
         relative_path = source_path.relative_to(ROOT).as_posix()
         if "/tests/" in f"/{relative_path}" or relative_path.startswith("tests/"):
             continue

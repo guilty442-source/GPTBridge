@@ -101,14 +101,20 @@ class GovernedRuntimeWorkerMixin:
             active_channel_id: str | None = None
             try:
                 for channel_id in self._processing_channel_ids:
+                    active_channel_id = channel_id
                     candidate_channel = self._channels[channel_id]
                     candidate = await asyncio.to_thread(candidate_channel.claim)
                     if candidate is not None:
                         request = candidate
                         request_channel = candidate_channel
-                        active_channel_id = channel_id
                         break
-            except (RuntimeError, ValueError, TypeError):
+            except Exception:
+                # A transient denial (integrity re-anchor in flight, store
+                # reconnect, auth rotation) must not kill the worker task —
+                # a dead loop silently dead-letters the queue while the
+                # process keeps serving websockets.  Back off and retry.
+                if active_channel_id is not None:
+                    self._record_channel_health(active_channel_id, ok=False)
                 await asyncio.sleep(0.5)
                 continue
             if request is None:
@@ -175,7 +181,7 @@ class GovernedRuntimeWorkerMixin:
                     if not isinstance(result, dict):
                         raise permission_denied()
                     result["request_id"] = request_id
-            except (RuntimeError, ValueError, TypeError):
+            except Exception:
                 event = f"{command}_result" if command else "error"
                 result = {
                     "ok": False,
@@ -190,7 +196,7 @@ class GovernedRuntimeWorkerMixin:
                 await asyncio.to_thread(request_channel.respond, request_id, result)
                 if active_channel_id is not None:
                     self._record_channel_health(active_channel_id, ok=True)
-            except (RuntimeError, ValueError, TypeError):
+            except Exception:
                 event = f"{command}_result" if command else "error"
                 if active_channel_id is not None:
                     self._record_channel_health(active_channel_id, ok=False)
@@ -252,7 +258,7 @@ class GovernedRuntimeWorkerMixin:
                     "COMMAND_RECEIVED",
                     {"command": command, "status": "processing"},
                 )
-            except (RuntimeError, ValueError, TypeError):
+            except Exception:
                 await self.send(
                     websocket,
                     f"{command}_result" if command else "error",

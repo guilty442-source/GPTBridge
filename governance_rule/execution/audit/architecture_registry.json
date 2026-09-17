@@ -24,6 +24,14 @@
     "build-tooling",
     "git-repository"
   ],
+  "lifecycles": [
+    "resident",
+    "per-boot",
+    "per-launch",
+    "on-demand",
+    "degraded-only",
+    "retired"
+  ],
   "sovereigns": {
     "active": [
       "decision",
@@ -33,8 +41,22 @@
       "xingcheng-domain"
     ],
     "compatibility_shims": [
-      "maintenance",
-      "automation"
+      {
+        "sovereign_id": "maintenance",
+        "status": "retired",
+        "replacement": "health-maintenance-test-sub-sovereign",
+        "deprecated_since": "A302",
+        "removal_after": "zero-active-references",
+        "new_reference_forbidden": true
+      },
+      {
+        "sovereign_id": "automation",
+        "status": "deprecated",
+        "replacement": "automation-sovereign",
+        "deprecated_since": "A486",
+        "removal_after": "registry-identity-alignment",
+        "new_reference_forbidden": true
+      }
     ]
   },
   "canonical_authorities": {
@@ -302,7 +324,72 @@
       "physical_path": "Standalone tools/local-model/xingcheng",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["local-model", "postgresql"],
+      "dependencies": ["xingcheng-assistant", "local-model", "postgresql"],
+      "information_channels": ["information-channel"]
+    },
+    {
+      "component_id": "xingcheng-assistant",
+      "architectural_role": "decision",
+      "runtime_form": "electron-app",
+      "owner_sovereign": "xingcheng-domain",
+      "owner_sub_sovereign": "xingcheng-assistant-identity-group",
+      "execution_identity": "xingcheng-assistant-identity-group",
+      "physical_path": "main-system/src-ui/renderer/ui/AppXingchengDrawer.tsx",
+      "lifecycle": "resident",
+      "canonical": true,
+      "dependencies": ["xingcheng-assistant-store", "information-channel-gateway"],
+      "information_channels": ["information-channel"]
+    },
+    {
+      "component_id": "xingcheng-assistant-store",
+      "architectural_role": "data",
+      "runtime_form": "database",
+      "owner_sovereign": "xingcheng-domain",
+      "owner_sub_sovereign": "data_governance_sub_sovereign",
+      "execution_identity": "xingcheng-assistant-identity-database",
+      "physical_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
+      "lifecycle": "resident",
+      "canonical": true,
+      "dependencies": [],
+      "information_channels": []
+    },
+    {
+      "component_id": "xingcheng-personality-store",
+      "architectural_role": "data",
+      "runtime_form": "database",
+      "owner_sovereign": "xingcheng-domain",
+      "owner_sub_sovereign": "data_governance_sub_sovereign",
+      "execution_identity": "xingcheng-identity-database",
+      "physical_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
+      "lifecycle": "resident",
+      "canonical": true,
+      "dependencies": ["xingcheng"],
+      "information_channels": []
+    },
+    {
+      "component_id": "xingcheng-auto-learning-module",
+      "architectural_role": "model",
+      "runtime_form": "python-process",
+      "owner_sovereign": "xingcheng-domain",
+      "owner_sub_sovereign": "xingcheng-assistant-identity-group",
+      "execution_identity": "xingcheng-native-model",
+      "physical_path": "main-system/governance/sovereigns/xingcheng/learning_sub_sovereign.py",
+      "lifecycle": "on-demand",
+      "canonical": true,
+      "dependencies": ["xingcheng", "xingcheng-personality-store"],
+      "information_channels": ["information-channel"]
+    },
+    {
+      "component_id": "xingcheng-auto-repair-module",
+      "architectural_role": "model",
+      "runtime_form": "python-process",
+      "owner_sovereign": "xingcheng-domain",
+      "owner_sub_sovereign": "xingcheng-assistant-identity-group",
+      "execution_identity": "xingcheng-native-model",
+      "physical_path": "main-system/src-core/tasks/central_repair.py",
+      "lifecycle": "on-demand",
+      "canonical": true,
+      "dependencies": ["xingcheng", "xingcheng-auto-learning-module"],
       "information_channels": ["information-channel"]
     },
     {

@@ -53,6 +53,12 @@ async def _invoke_native_model_executor(app: Any, task: dict[str, Any]) -> dict[
         return {"status": "deferred", "reason": "app-unavailable"}
     star_service = getattr(app, "star_chat_service", None)
     if star_service is None:
+        # Try alternative service names
+        for alt_name in ("local_model_service", "native_model_service", "xingcheng_native_service"):
+            star_service = getattr(app, alt_name, None)
+            if star_service is not None:
+                break
+    if star_service is None:
         return {"status": "deferred", "reason": "native-model-unavailable"}
     try:
         spec = task.get("spec") or task.get("subject") or ""
@@ -65,7 +71,32 @@ async def _invoke_native_model_executor(app: Any, task: dict[str, Any]) -> dict[
             return {"status": "executed", "result": result}
         return {"status": "executed", "result": str(result)}
     except Exception as error:
-        return {"status": "execution-error", "error": type(error).__name__}
+        return {"status": "execution-error", "error": type(error).__name__, "detail": str(error)[:200]}
+
+
+# Fallback executor for when native model is unavailable
+async def _invoke_fallback_executor(app: Any, task: dict[str, Any]) -> dict[str, Any]:
+    """Fallback executor that performs basic syntax/structure operations without native model."""
+    op = task.get("op", "")
+    output_path = task.get("output_path")
+    subject = task.get("subject", "")
+
+    if op in ("analyze", "review-generated"):
+        # Basic static analysis
+        findings = []
+        if output_path and Path(output_path).exists():
+            content = Path(output_path).read_text(encoding="utf-8", errors="replace")
+            lines = content.count("\n") + 1
+            if lines > 500:
+                findings.append({"type": "module-size", "severity": "warning", "detail": f"{lines} lines"})
+            if "TODO" in content or "FIXME" in content:
+                findings.append({"type": "technical-debt", "severity": "info", "detail": "Contains TODO/FIXME"})
+        return {"status": "fallback-executed", "op": op, "findings": findings}
+
+    return {"status": "deferred", "reason": f"fallback-unavailable-for-op:{op}"}
+
+
+from pathlib import Path
 
 
 async def _dispatch_to_registered_module(app: Any, step: dict[str, Any]) -> dict[str, Any]:
@@ -188,8 +219,11 @@ class XingchengNativeMixin:
             task_id=task_id, event="create", task_type="program",
             detail=task,
         )
-        # Invoke the native model executor (not just an in-memory record).
+        # Try native model executor first, fallback to basic executor
         execution_result = await _invoke_native_model_executor(getattr(self, "app", None), task)
+        if execution_result.get("status") == "deferred":
+            # Try fallback executor
+            execution_result = await _invoke_fallback_executor(getattr(self, "app", None), task)
         task["execution_result"] = execution_result
         record_task_event(
             task_id=task_id, event="execute", task_type="program",
@@ -230,12 +264,39 @@ class XingchengNativeMixin:
     def _automation_decompose(self, request: SovereignRequest) -> SovereignOutcome:
         task_id = f"auto-{len(self._automation_tasks) + 1}"
         steps = request.payload.get("steps") or []
+        # Enhanced decomposition: support step dependencies and parallel groups
+        parsed_steps = []
+        for i, s in enumerate(steps):
+            if isinstance(s, dict):
+                step = {
+                    "step": s.get("step", s),
+                    "state": "pending",
+                    "dependencies": s.get("depends_on", []),
+                    "parallel_group": s.get("parallel_group"),
+                    "timeout_seconds": s.get("timeout_seconds", 300),
+                    "retry_policy": s.get("retry_policy", {"max_attempts": 3, "backoff": 2.0}),
+                }
+            else:
+                step = {
+                    "step": s,
+                    "state": "pending",
+                    "dependencies": [],
+                    "parallel_group": None,
+                    "timeout_seconds": 300,
+                    "retry_policy": {"max_attempts": 3, "backoff": 2.0},
+                }
+            parsed_steps.append(step)
         task = {
             "objective": request.payload.get("objective") or request.subject,
-            "steps": [{"step": s, "state": "pending"} for s in steps],
+            "steps": parsed_steps,
             "state": "decomposed",
             "created_at": self._iso_now(),
             "type": "automation",
+            "metadata": {
+                "step_count": len(parsed_steps),
+                "has_dependencies": any(s["dependencies"] for s in parsed_steps),
+                "parallel_groups": set(s["parallel_group"] for s in parsed_steps if s["parallel_group"]),
+            },
         }
         self._automation_tasks[task_id] = task
         record_task_event(
@@ -243,7 +304,7 @@ class XingchengNativeMixin:
             detail=task,
         )
         return accepted_outcome(
-            {"task_id": task_id, "state": "decomposed", "steps": len(steps)},
+            {"task_id": task_id, "state": "decomposed", "steps": len(parsed_steps), "metadata": task["metadata"]},
             self.verified_basis("A337"),
         )
 
@@ -259,36 +320,123 @@ class XingchengNativeMixin:
         if isinstance(task, SovereignOutcome):
             return task
         order = request.payload.get("order")
+        steps = task.get("steps", [])
+
         if isinstance(order, list) and order:
-            indexed = {i: step for i, step in enumerate(task["steps"])}
+            # User-provided order with index references
+            indexed = {i: step for i, step in enumerate(steps)}
             task["schedule"] = [indexed[i] for i in order if i in indexed]
         else:
-            task["schedule"] = list(task["steps"])
+            # Auto-schedule: topological sort based on dependencies
+            task["schedule"] = self._topological_schedule(steps)
+
+        # Group parallel steps
+        task["parallel_schedule"] = self._group_parallel_steps(task["schedule"])
         task["state"] = "scheduled"
         record_task_event(
             task_id=str(request.payload.get("task_id")),
             event="schedule", task_type="automation",
-            detail={"scheduled_steps": len(task["schedule"])},
+            detail={"scheduled_steps": len(task["schedule"]), "parallel_groups": len(task["parallel_schedule"])},
         )
         return accepted_outcome(
             {
                 "task_id": request.payload.get("task_id"),
                 "state": "scheduled",
                 "scheduled_steps": len(task["schedule"]),
+                "parallel_groups": len(task["parallel_schedule"]),
             },
             self.verified_basis("A337"),
         )
 
+    def _topological_schedule(self, steps: list[dict]) -> list[dict]:
+        """Topological sort based on step dependencies."""
+        # Build adjacency list
+        adj = {i: [] for i in range(len(steps))}
+        in_degree = {i: 0 for i in range(len(steps))}
+
+        for i, step in enumerate(steps):
+            for dep in step.get("dependencies", []):
+                if dep < len(steps):
+                    adj[dep].append(i)
+                    in_degree[i] += 1
+
+        # Kahn's algorithm
+        queue = [i for i in range(len(steps)) if in_degree[i] == 0]
+        result = []
+        while queue:
+            node = queue.pop(0)
+            result.append(steps[node])
+            for neighbor in adj[node]:
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
+
+        # Add any remaining (cycles or disconnected)
+        for i in range(len(steps)):
+            if steps[i] not in result:
+                result.append(steps[i])
+
+        return result
+
+    def _group_parallel_steps(self, scheduled_steps: list[dict]) -> list[list[dict]]:
+        """Group steps by parallel_group for concurrent execution."""
+        groups = {}
+        for step in scheduled_steps:
+            group = step.get("parallel_group") or "sequential"
+            if group not in groups:
+                groups[group] = []
+            groups[group].append(step)
+        return list(groups.values())
+
     async def _automation_dispatch(self, request: SovereignRequest) -> SovereignOutcome:
-        """Dispatch a step to its registered module (real dispatch, not a label)."""
+        """Dispatch a step or parallel group to its registered module (real dispatch, not a label)."""
         task = self._automation_task_or_refusal(request)
         if isinstance(task, SovereignOutcome):
             return task
+
         step_index = request.payload.get("step_index")
+        parallel_group = request.payload.get("parallel_group")
         steps = task.get("schedule") or task["steps"]
+
+        # Support dispatching a parallel group
+        if parallel_group is not None:
+            parallel_schedule = task.get("parallel_schedule", [])
+            if parallel_group < 0 or parallel_group >= len(parallel_schedule):
+                return refusal_outcome("INVALID_PARALLEL_GROUP", self.verified_basis("A337"))
+            group_steps = parallel_schedule[parallel_group]
+            results = []
+            for idx, step in enumerate(group_steps):
+                step_idx = steps.index(step) if step in steps else idx
+                dispatch_result = await _dispatch_to_registered_module(getattr(self, "app", None), step)
+                step["state"] = "dispatched"
+                step["dispatched_at"] = self._iso_now()
+                step["dispatch_result"] = dispatch_result
+                results.append({"step_index": step_idx, "result": dispatch_result})
+            task["state"] = "in-progress"
+            record_task_event(
+                task_id=str(request.payload.get("task_id")),
+                event="dispatch-parallel", task_type="automation",
+                detail={"parallel_group": parallel_group, "results": results},
+            )
+            return accepted_outcome(
+                {
+                    "task_id": request.payload.get("task_id"),
+                    "parallel_group": parallel_group,
+                    "dispatched_steps": len(group_steps),
+                    "results": results,
+                },
+                self.verified_basis("A337"),
+            )
+
+        # Single step dispatch
         if not isinstance(step_index, int) or step_index < 0 or step_index >= len(steps):
             return refusal_outcome("INVALID_STEP_INDEX", self.verified_basis("A337"))
         step = steps[step_index]
+
+        # Check dependencies are satisfied
+        if not self._dependencies_satisfied(step, steps):
+            return refusal_outcome("DEPENDENCIES_NOT_SATISFIED", self.verified_basis("A337"))
+
         # Real dispatch: invoke the registered module for this step.
         dispatch_result = await _dispatch_to_registered_module(getattr(self, "app", None), step)
         step["state"] = "dispatched"
@@ -311,6 +459,16 @@ class XingchengNativeMixin:
             self.verified_basis("A337"),
         )
 
+    def _dependencies_satisfied(self, step: dict, all_steps: list[dict]) -> bool:
+        """Check if all step dependencies are completed."""
+        for dep_index in step.get("dependencies", []):
+            if dep_index >= len(all_steps):
+                return False
+            dep_step = all_steps[dep_index]
+            if dep_step.get("state") not in ("completed", "success", "done", "converged"):
+                return False
+        return True
+
     async def _dispatch_to_registered_module(self, step: dict[str, Any]) -> dict[str, Any]:
         """Delegate to module-level dispatcher (A337)."""
         return await _dispatch_to_registered_module(getattr(self, "app", None), step)
@@ -319,16 +477,31 @@ class XingchengNativeMixin:
         task = self._automation_task_or_refusal(request)
         if isinstance(task, SovereignOutcome):
             return task
-        states = [s["state"] for s in task["steps"]]
-        converged = bool(states) and all(s in ("converged", "success", "done") for s in states)
-        task["state"] = "converged" if converged else task["state"]
+        steps = task.get("schedule") or task["steps"]
+        states = [s.get("state", "pending") for s in steps]
+
+        # Converged if all steps are in terminal success states
+        success_states = ("converged", "success", "done", "verified")
+        converged = bool(states) and all(s in success_states for s in states)
+
+        # Also check parallel groups
+        parallel_schedule = task.get("parallel_schedule", [])
+        parallel_converged = True
+        for group in parallel_schedule:
+            group_states = [s.get("state", "pending") for s in group]
+            if not all(s in success_states for s in group_states):
+                parallel_converged = False
+                break
+
+        final_converged = converged and parallel_converged
+        task["state"] = "converged" if final_converged else task["state"]
         record_task_event(
             task_id=str(request.payload.get("task_id")),
             event="converge", task_type="automation",
-            detail={"converged": converged, "step_states": states},
+            detail={"converged": final_converged, "step_states": states, "parallel_converged": parallel_converged},
         )
         return accepted_outcome(
-            {"task_id": request.payload.get("task_id"), "converged": converged, "step_states": states},
+            {"task_id": request.payload.get("task_id"), "converged": final_converged, "step_states": states},
             self.verified_basis("A337"),
         )
 

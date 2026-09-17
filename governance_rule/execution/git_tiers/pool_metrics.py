@@ -41,6 +41,8 @@ class PoolMetrics:
 
 @dataclass(frozen=True)
 class MetricThresholds:
+    # TODO(inventory): wire to manifest timings.pool_metrics_*
+    # (git_governance_manifest.json hardcoded_inventory).
     busy_queue_depth: int = 10
     backpressure_queue_depth: int = 50
     degraded_quarantined: int = 1

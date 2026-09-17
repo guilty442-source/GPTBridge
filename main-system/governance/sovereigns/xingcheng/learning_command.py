@@ -18,6 +18,12 @@ _logger = logging.getLogger("gptbridge.sovereign.xingcheng.learning-command")
 _LEARNING_CHILD_ID = "learning-evidence-sync-sub-sovereign"
 _COMMAND_LOG_LIMIT = 50
 
+# Learning pass triggers
+_LEARNING_TRIGGERS = frozenset({"auto-loop", "anomaly", "failure", "user-request", "scheduled"})
+
+# Maximum learning pass history
+_LEARNING_HISTORY_LIMIT = 100
+
 
 class XingchengLearningCommandMixin:
     """Parent-command surface for the learning sub-sovereign (A485)."""
@@ -27,11 +33,15 @@ class XingchengLearningCommandMixin:
     sovereign_id: str
     _learning_commands: list[dict[str, Any]]
     _learning_armed: bool
+    _learning_history: list[dict[str, Any]]
+    _last_reconciliation: dict[str, Any]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._learning_commands = []
         self._learning_armed = False
+        self._learning_history = []
+        self._last_reconciliation = {}
 
     async def _command_learning(
         self, intent: str, payload: dict[str, Any] | None = None
@@ -62,6 +72,19 @@ class XingchengLearningCommandMixin:
         }
         self._learning_commands.append(receipt)
         del self._learning_commands[:-_COMMAND_LOG_LIMIT]
+
+        # Record in history
+        history_entry = {
+            "at": receipt["at"],
+            "intent": intent,
+            "trigger": payload.get("trigger") if payload else None,
+            "accepted": receipt["accepted"],
+            "reason": receipt["reason"],
+        }
+        self._learning_history.append(history_entry)
+        if len(self._learning_history) > _LEARNING_HISTORY_LIMIT:
+            self._learning_history = self._learning_history[-_LEARNING_HISTORY_LIMIT:]
+
         if not outcome.accepted:
             _logger.info(
                 "learning command %s refused: %s", intent, receipt["reason"]
@@ -78,6 +101,22 @@ class XingchengLearningCommandMixin:
         self._learning_armed = bool(result.get("commanded"))
         return result
 
+    async def ensure_learning_automation(self) -> bool:
+        """Re-command learning until the child is materialized (A485).
+
+        ``start_supervision`` runs before the governed executor
+        materializes the sub-sovereigns, so the first ``learn.auto-start``
+        can fail closed (``TARGET_SOVEREIGN_UNAVAILABLE`` /
+        ``TARGET_SOVEREIGN_NOT_STARTED``) and nothing retried it — leaving
+        commanded learning (and its fault-message reconciliation) off for
+        the whole process generation.  The parent's auto-loop calls this
+        every cycle until the command is accepted.
+        """
+        if self._learning_armed:
+            return True
+        result = await self.start_learning_automation()
+        return bool(result.get("commanded"))
+
     async def stop_learning_automation(self) -> dict[str, Any]:
         """Disarm the child's auto-learning loop."""
         result = await self._command_learning("learn.auto-stop")
@@ -88,6 +127,8 @@ class XingchengLearningCommandMixin:
         self, trigger: str = "auto-loop"
     ) -> dict[str, Any]:
         """Command one bounded reconciliation/learning pass."""
+        if trigger not in _LEARNING_TRIGGERS:
+            trigger = "auto-loop"
         return await self._command_learning(
             "learn.reconcile", {"trigger": trigger}
         )
@@ -104,6 +145,14 @@ class XingchengLearningCommandMixin:
     async def command_learning_analysis(self) -> dict[str, Any]:
         """Request the child's learning-history analysis."""
         return await self._command_learning("learn.analyze")
+
+    async def command_learning_retry_failed(
+        self, failed_signatures: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Command retry of failed learning items."""
+        return await self._command_learning(
+            "learn.retry", {"failed": failed_signatures}
+        )
 
     def learning_status(self) -> dict[str, Any]:
         """Read-only projection of the commanded learning surface."""
@@ -128,8 +177,6 @@ class XingchengLearningCommandMixin:
             "last_command": (
                 self._learning_commands[-1] if self._learning_commands else None
             ),
-            "last_reconciliation": child_status.get("reconciliation", {}),
+            "last_reconciliation": self._last_reconciliation,
+            "history": self._learning_history[-10:],
         }
-
-
-__all__ = ["XingchengLearningCommandMixin"]

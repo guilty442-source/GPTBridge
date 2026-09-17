@@ -21,7 +21,13 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .branch_policy import can_auto_retire, is_protected, normalize_branch
+from .branch_policy import (
+    MAIN_BRANCH,
+    can_auto_retire,
+    is_main,
+    is_protected,
+    normalize_branch,
+)
 from .git_repository import GitRepository
 from .merge_queue import MergeQueue
 from .worktree_manager import WorktreeManager
@@ -88,8 +94,10 @@ def reconcile_branches(root: str | Path) -> dict[str, Any]:
     merged_into_main = {
         name
         for name in locals_
-        if name != "main"
-        and repo.run(["merge-base", "--is-ancestor", name, "main"]).returncode == 0
+        if not is_main(name)
+        and repo.run(
+            ["merge-base", "--is-ancestor", name, MAIN_BRANCH]
+        ).returncode == 0
     }
 
     now = time.time()

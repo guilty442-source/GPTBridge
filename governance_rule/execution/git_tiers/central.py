@@ -205,25 +205,36 @@ def evaluate_push_gates(root: str | Path) -> dict[str, Any]:
 
 def ensure_central(root: str | Path, *, actor: str = "governance/central") -> dict[str, Any]:
     """Create the central bare repo + ``central`` remote if absent."""
+    from .capability_gate import execute_system_safe
+
     repo = GitRepository(root)
     central_dir = central_path(root)
     created = False
     if not (central_dir / "HEAD").is_file():
-        result = repo.run(
-            ["init", "--bare", str(central_dir)],
-            confirmed=True,
-            actor=actor,
+        gate = execute_system_safe(
+            ["init", "--bare", str(central_dir)], actor=actor, repo_path=repo.path,
         )
-        if result.returncode != 0:
-            return {"created": False, "error": result.stderr.strip()[:200]}
+        result = gate.execution_result
+        if gate.allowed is False or result is None or result.returncode != 0:
+            detail = (
+                f"{gate.code}:{gate.detail}" if result is None
+                else result.stderr.strip()[:200]
+            )
+            return {"created": False, "error": detail}
         created = True
     remotes = repo.run(["remote"]).stdout.split()
     if CENTRAL_REMOTE not in remotes:
-        repo.run(
+        gate = execute_system_safe(
             ["remote", "add", CENTRAL_REMOTE, str(central_dir)],
-            confirmed=True,
-            actor=actor,
+            actor=actor, repo_path=repo.path,
         )
+        result = gate.execution_result
+        if gate.allowed is False or result is None or result.returncode != 0:
+            detail = (
+                f"{gate.code}:{gate.detail}" if result is None
+                else result.stderr.strip()[:200]
+            )
+            return {"created": created, "central_path": str(central_dir), "error": detail}
     return {"created": created, "central_path": str(central_dir)}
 
 

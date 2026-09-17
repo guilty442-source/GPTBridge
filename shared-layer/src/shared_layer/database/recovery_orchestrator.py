@@ -35,6 +35,9 @@ Codex basis:
 from __future__ import annotations
 
 import json
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 
@@ -168,6 +171,108 @@ def is_pg_recoverable(conn: Any, incident_id: str) -> bool:
         )
         row = cur.fetchone()
     return bool(row[0]) if row else False
+
+
+@dataclass
+class PgRecoveryVerificationResult:
+    """Typed evidence of a drill-backed PG recovery verification."""
+
+    drill: Any = None
+    recorded: bool = False
+    verification_id: str = ""
+    flags: dict[str, bool] = field(default_factory=dict)
+    failure_reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "recorded": self.recorded,
+            "verification_id": self.verification_id,
+            "flags": dict(self.flags),
+            "failure_reason": self.failure_reason,
+            "drill": (
+                self.drill.to_dict()
+                if hasattr(self.drill, "to_dict") else {}
+            ),
+        }
+
+
+def _drill_flag(checks: dict[str, Any], name: str) -> bool:
+    check = checks.get(name)
+    return bool(check is not None and check.passed)
+
+
+def verify_pg_recovery_with_drill(
+    conn: Any,
+    incident_id: str,
+    verified_by: str,
+    adapter: Any,
+    work_dir: str | Path | None = None,
+    *,
+    record: bool = True,
+    generation_check: Any | None = None,
+) -> PgRecoveryVerificationResult:
+    """Production entry: run a real restore drill, map evidence, record it.
+
+    Evidence mapping is fail-closed: a missing or failed drill check maps to
+    ``False`` — never inferred from an unrelated check.  ``generation_ok``
+    requires an explicit generation probe (``generation_check`` callable or
+    ``adapter.verify_generation``); without one it stays False and the
+    verification is recorded as not recoverable.  Recording is skipped when
+    ``conn`` is None; the typed result still reports ``recorded=False``.
+    """
+    from .restore_drill import run_restore_drill
+
+    if work_dir is None:
+        work_dir = Path(tempfile.mkdtemp(prefix="pg-recovery-drill-"))
+    drill = run_restore_drill(adapter, Path(work_dir))
+    checks = {check.name: check for check in drill.checks}
+
+    generation_ok = False
+    generation_detail = "not-verified:no-generation-probe"
+    probe = generation_check or getattr(adapter, "verify_generation", None)
+    if callable(probe):
+        try:
+            outcome = probe()
+            generation_ok = bool(outcome[0])
+            generation_detail = str(outcome[1])[:200]
+        except Exception as exc:
+            generation_ok = False
+            generation_detail = f"error:{exc}"[:200]
+
+    flags = {
+        "connection_ok": bool(drill.engine_live),
+        "schema_version_ok": _drill_flag(checks, "schema_version"),
+        "database_release_ok": _drill_flag(checks, "migration_head"),
+        "roles_ok": _drill_flag(checks, "rls_roles"),
+        "rls_ok": _drill_flag(checks, "rls_roles"),
+        "audit_ok": _drill_flag(checks, "audit_sequence"),
+        "transport_ok": _drill_flag(checks, "transport_state"),
+        "integrity_ok": all(_drill_flag(checks, name) for name in (
+            "resource_count",
+            "relation_count",
+            "locator_integrity",
+            "qdrant_references",
+        )),
+        "generation_ok": generation_ok,
+    }
+    reasons = [name for name, passed in flags.items() if not passed]
+    if not generation_ok:
+        reasons.append(generation_detail)
+    failure_reason = (
+        "drill-flags-not-passed:" + ",".join(reasons) if reasons else None
+    )
+    result = PgRecoveryVerificationResult(
+        drill=drill,
+        flags=flags,
+        failure_reason=failure_reason,
+    )
+    if record and conn is not None:
+        result.verification_id = record_pg_recovery_verification(
+            conn, incident_id, verified_by, **flags,
+            failure_reason=failure_reason,
+        )
+        result.recorded = bool(result.verification_id)
+    return result
 
 
 def register_unknown_commit(
@@ -382,6 +487,7 @@ def complete_chaos_drill(
 
 
 __all__ = [
+    "PgRecoveryVerificationResult",
     "register_recovery_plan",
     "open_recovery_incident",
     "transition_recovery_state",
@@ -406,4 +512,5 @@ __all__ = [
     "is_recovery_plan_certified",
     "start_chaos_drill",
     "complete_chaos_drill",
+    "verify_pg_recovery_with_drill",
 ]

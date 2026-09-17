@@ -245,6 +245,85 @@ class XingchengNativeModel(XingchengNativeModelDomainsMixin, XingchengNativeMode
         }
 
     @property
+    def system_repair_capability(self) -> dict[str, Any]:
+        """收攏編程、學習、修補規劃、自動修復管理與驗證。"""
+        from .auto_action_policy import (
+            AUTOMATIC_REPAIR_SWITCH,
+            read_automation_switches,
+        )
+
+        switches = read_automation_switches(
+            Path(getattr(self.app, "project_root", Path.cwd()))
+        )
+        return {
+            "capability_id": "xingcheng-system-repair",
+            "display_name": "自我學習與自動編程",
+            "description": "自我學習與自動編程",
+            "public_capability": True,
+            "management_owner": "星澄",
+            "responsibility_owner": "星澄",
+            "programming": self.programming_mode,
+            "modules": [
+                "xingcheng-auto-repair-module",
+                "xingcheng-auto-learning-module",
+            ],
+            "module_visibility": "internal-only",
+            "network_repair_research": {
+                "enabled": True,
+                "route": "ai-collaboration/governance-authenticated-ai-channel",
+                "providers": "registered-ai-collaboration-research-pipeline",
+                "result_role": "unverified-repair-candidates",
+                "direct_execution": False,
+            },
+            "self_update_upgrade": {
+                "enabled": True,
+                "user_switch": "none",
+                "intent": "self_upgrade",
+                "authoring": "xingcheng-programming-mode",
+                "research": "governed-network-repair-research",
+                "candidate_isolation": True,
+                "required_gates": [
+                    "permission",
+                    "isolated-tests",
+                    "independent-verification",
+                    "rollback-ready",
+                    "governed-release",
+                ],
+                "direct_active_replacement": False,
+            },
+            "repair_release_enabled": switches.get(AUTOMATIC_REPAIR_SWITCH) is True,
+            "user_control_surface": "xingcheng-assistant",
+            "assistant_role": "inspection-control-and-result-surface",
+            "repair_proposal_owner": "星澄",
+            "repair_safety_policy": {
+                "uncertain_result": "stop-and-request-evidence",
+                "force_repair": False,
+                "direct_overwrite": False,
+                "reset_as_repair": False,
+            },
+            "user_switch_cardinality": 1,
+            "user_switch_scope": "automatic-repair-only",
+            "assistant_control_switches": [
+                "system-automatic-update",
+                "system-automatic-repair",
+            ],
+            "automatic_learning_user_switch": "none",
+            "responsibilities": [
+                "fault-analysis",
+                "verified-outcome-learning",
+                "minimal-patch-generation",
+                "test-plan-generation",
+                "repair-plan-selection",
+                "post-repair-verification",
+                "governed-network-repair-research",
+                "self-update-candidate-authoring",
+                "self-upgrade-verification",
+            ],
+            "execution": "governed-executor-only",
+            "permission_issuance": False,
+        }
+
+    @property
     def model_modes(self) -> dict[str, Any]:
         """三模式收斂總覽。"""
         return {

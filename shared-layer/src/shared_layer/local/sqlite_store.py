@@ -176,7 +176,7 @@ class LocalSharedLayerStore:
             )
 
     def notify_channel(self, token: str, target_tool_id: str) -> None:
-        self._authorize(token, "process", target_tool_id)
+        self._authorize(token, "respond", target_tool_id)
 
     def notification_stamp(self) -> tuple[int, int]:
         """Cheap write stamp of the local transport store (notification probe).

@@ -169,8 +169,9 @@ class UpdateExecutionMixin:
                         self._circuit_open_until = 0
                         _logger.info("Auto-update circuit breaker reset")
 
-                # User-confirmation gate: refresh the hash baseline but do
-                # not emit automatic updates while execution is disabled.
+                # The Assistant switch is the standing user gate. Once
+                # enabled, the automation sovereign delegates detection,
+                # decision, execution, verification, and rollback stages.
                 from core_system.auto_action_policy import (
                     automatic_update_execution_allowed,
                 )

@@ -1,0 +1,1479 @@
+{
+  "baseline_id": "GPTBridgeGitBaselineV1",
+  "baseline_version": 1,
+  "kind": "golden-manifest",
+  "verdict": "GIT_BASELINE_FROZEN",
+  "blockers": [],
+  "architecture_version": {
+    "version": "gptbridge-git-architecture-v1",
+    "article": "A535",
+    "status": "ACTIVE"
+  },
+  "governance_version": "2.0.0",
+  "governance_manifest": {
+    "path": "governance_rule/execution/git_tiers/git_governance_manifest.json",
+    "digest": "c5c410a70c9fddfc21627bde6326997ba0cf29283f61f95d2a13476f91fe797c",
+    "mode": "ACTIVE"
+  },
+  "public_api_version": "git_api_v1",
+  "git": {
+    "executable": "C:\\Program Files\\Git\\cmd\\git.EXE",
+    "version": "git version 2.55.0.windows.1",
+    "minimum": "2.38.0",
+    "maximum_tested": "2.55.0"
+  },
+  "config": {
+    "model": "PoolConfig (worker_pool_types) + governance manifest timings; GitRuntimeConfig (article 521) is NOT IMPLEMENTED",
+    "digest": "0836c4c8e7aa772bf3a7bcdde0f305481fe1e5648463df031bdb8b00245160a6",
+    "sources": [
+      "git_governance_manifest.json:timings",
+      "worker_pool_types.PoolConfig defaults"
+    ]
+  },
+  "policy": {
+    "version": "tier-policy-v1",
+    "digests": {
+      "tier_policy": "21ffaaac8e909147462d1306323ac06e3f7ac4c752becaade6857525599ee0dd",
+      "branch_policy": "34518def4d96bb70",
+      "capability_policy": "ce0829c23aecaaeabf275fdd2fd18762f8e861b867b6767cc6032242061208a9"
+    }
+  },
+  "hooks": {
+    "template_dir": "E:\\GPTBridge\\governance_rule\\git-hooks",
+    "hooks": {
+      "pre-commit": {
+        "version": 1,
+        "expected_version": 1,
+        "digest": "15fc97b533f53724555d7622bccad8b987f0246dfc0ed0d3e20fc560fe37d45e",
+        "ok": true
+      },
+      "pre-merge-commit": {
+        "version": 1,
+        "expected_version": 1,
+        "digest": "2b1fc489fef2674fda40417579cb0bcf36f2af75449d229d2c8863588365d302",
+        "ok": true
+      },
+      "pre-push": {
+        "version": 1,
+        "expected_version": 1,
+        "digest": "5796ba8a9bf7995d61e29f2fe2273225a1e6e03e9466949297e54b287ce74158",
+        "ok": true
+      },
+      "pre-receive": {
+        "version": 1,
+        "expected_version": 1,
+        "digest": "c9b3206ad682aade0fa0edd7d4277aeb80bb09ed760f7c7f7bf24c9f71f7bcc2",
+        "ok": true
+      }
+    },
+    "templates_ok": true,
+    "live_generation": "hook-gen-dfe9fed329b91386dd39617b0ab60101868964afe5deacc2b1d1b4390671dba0"
+  },
+  "schema_versions": {
+    "manifest_schema_version": "1.0.0",
+    "governance_version": "2.0.0",
+    "policy_version": "tier-policy-v1",
+    "registry_schema_version": "2.0.0",
+    "audit_schema_version": "1.0.0",
+    "queue_schema_version": "1.0.0",
+    "worker_schema_version": "1.0.0",
+    "hook_version": "1.0.0",
+    "snapshot_schema_version": "1.0.0",
+    "recovery_schema_version": "1.0.0",
+    "control_plane_version": "1.0.0",
+    "minimum_git_version": "2.38.0",
+    "maximum_tested_git_version": "2.55.0"
+  },
+  "components": {
+    "runtime": {
+      "GitControlPlane": {
+        "class": "git_control_plane.GitControlPlane",
+        "status": "IMPLEMENTED"
+      },
+      "WorkerManager": {
+        "class": "worker_pool.WorkerPool + worker_registry.PoolRegistry + worker_lifecycle/worker_reconcile",
+        "status": "RESPONSIBILITY_PRESENT (no class named WorkerManager)"
+      },
+      "IntegrationManager": {
+        "class": "coordinator.Coordinator + merge_queue.MergeQueue + merge_precheck + workspace_sync",
+        "status": "RESPONSIBILITY_PARTIAL (no class named IntegrationManager)"
+      },
+      "GitExecutionGateway": {
+        "class": "git_repository.GitRepository.run + capability_gate adapter",
+        "status": "NOT_IMPLEMENTED as gateway (driver doubles as entrypoint)"
+      },
+      "EvidenceManager": {
+        "class": "audit_chain + audit_records + snapshot + recovery",
+        "status": "RESPONSIBILITY_PARTIAL (no class named EvidenceManager)"
+      },
+      "MaintenanceManager": {
+        "class": "git_maintenance.GitMaintenanceManager",
+        "status": "IMPLEMENTED (name variant)"
+      }
+    },
+    "driver": {
+      "GitProcessDriver": {
+        "class": "git_repository.GitRepository.run",
+        "status": "RESPONSIBILITY_PRESENT (single subprocess driver)"
+      }
+    },
+    "support": {
+      "GitCommandNormalizer": {
+        "class": "command_normalizer.normalize_command",
+        "status": "IMPLEMENTED"
+      },
+      "RepositoryObserver": {
+        "class": "porcelain.status_v2 + git_control_plane collectors",
+        "status": "RESPONSIBILITY_PRESENT"
+      },
+      "BranchPolicy": {
+        "class": "branch_policy",
+        "status": "IMPLEMENTED"
+      },
+      "GitRuntimeConfig": {
+        "class": "",
+        "status": "NOT_IMPLEMENTED"
+      },
+      "LockManager": {
+        "class": "locks.LOCK_ORDER + process_lock.ProcessFileLock",
+        "status": "PARTIAL (names diverge from article 508)"
+      },
+      "CapabilityVerifier": {
+        "class": "capability_verify.verify_capability",
+        "status": "IMPLEMENTED"
+      },
+      "GitInvariants": {
+        "class": "fault_injection.assert_git_invariants (test-only)",
+        "status": "PARTIAL (no production module)"
+      }
+    },
+    "mandated_runtime": [
+      "GitControlPlane",
+      "WorkerManager",
+      "IntegrationManager",
+      "GitExecutionGateway",
+      "EvidenceManager",
+      "MaintenanceManager"
+    ],
+    "modules": {
+      "modules": [
+        {
+          "module": "__init__.py",
+          "functions": 5,
+          "classes": 0,
+          "lines": 254
+        },
+        {
+          "module": "audit_chain.py",
+          "functions": 24,
+          "classes": 0,
+          "lines": 538
+        },
+        {
+          "module": "audit_records.py",
+          "functions": 31,
+          "classes": 4,
+          "lines": 490
+        },
+        {
+          "module": "automation_supervisor.py",
+          "functions": 3,
+          "classes": 0,
+          "lines": 211
+        },
+        {
+          "module": "automation_supervisor_loop.py",
+          "functions": 15,
+          "classes": 1,
+          "lines": 544
+        },
+        {
+          "module": "automation_supervisor_persistence.py",
+          "functions": 7,
+          "classes": 0,
+          "lines": 164
+        },
+        {
+          "module": "automation_supervisor_state.py",
+          "functions": 10,
+          "classes": 0,
+          "lines": 178
+        },
+        {
+          "module": "branch_policy.py",
+          "functions": 11,
+          "classes": 0,
+          "lines": 157
+        },
+        {
+          "module": "branch_reconcile.py",
+          "functions": 3,
+          "classes": 0,
+          "lines": 141
+        },
+        {
+          "module": "capability.py",
+          "functions": 25,
+          "classes": 3,
+          "lines": 435
+        },
+        {
+          "module": "capability_gate.py",
+          "functions": 11,
+          "classes": 1,
+          "lines": 380
+        },
+        {
+          "module": "capability_issue.py",
+          "functions": 6,
+          "classes": 1,
+          "lines": 243
+        },
+        {
+          "module": "capability_ledger.py",
+          "functions": 13,
+          "classes": 1,
+          "lines": 164
+        },
+        {
+          "module": "capability_time.py",
+          "functions": 3,
+          "classes": 0,
+          "lines": 28
+        },
+        {
+          "module": "capability_verify.py",
+          "functions": 19,
+          "classes": 3,
+          "lines": 331
+        },
+        {
+          "module": "central.py",
+          "functions": 7,
+          "classes": 0,
+          "lines": 250
+        },
+        {
+          "module": "claims.py",
+          "functions": 13,
+          "classes": 1,
+          "lines": 186
+        },
+        {
+          "module": "command_normalizer.py",
+          "functions": 14,
+          "classes": 1,
+          "lines": 358
+        },
+        {
+          "module": "commit_policy.py",
+          "functions": 2,
+          "classes": 5,
+          "lines": 163
+        },
+        {
+          "module": "compatibility.py",
+          "functions": 12,
+          "classes": 4,
+          "lines": 434
+        },
+        {
+          "module": "coordinator.py",
+          "functions": 17,
+          "classes": 3,
+          "lines": 521
+        },
+        {
+          "module": "disaster_recovery.py",
+          "functions": 46,
+          "classes": 8,
+          "lines": 1002
+        },
+        {
+          "module": "fault_injection.py",
+          "functions": 35,
+          "classes": 4,
+          "lines": 676
+        },
+        {
+          "module": "git_cache.py",
+          "functions": 4,
+          "classes": 0,
+          "lines": 92
+        },
+        {
+          "module": "git_concurrency.py",
+          "functions": 7,
+          "classes": 1,
+          "lines": 109
+        },
+        {
+          "module": "git_control_plane.py",
+          "functions": 54,
+          "classes": 13,
+          "lines": 1238
+        },
+        {
+          "module": "git_maintenance.py",
+          "functions": 15,
+          "classes": 1,
+          "lines": 335
+        },
+        {
+          "module": "git_perf.py",
+          "functions": 7,
+          "classes": 0,
+          "lines": 189
+        },
+        {
+          "module": "git_repository.py",
+          "functions": 21,
+          "classes": 1,
+          "lines": 472
+        },
+        {
+          "module": "governance_manifest.py",
+          "functions": 19,
+          "classes": 3,
+          "lines": 465
+        },
+        {
+          "module": "hook_versioning.py",
+          "functions": 18,
+          "classes": 2,
+          "lines": 493
+        },
+        {
+          "module": "locks.py",
+          "functions": 3,
+          "classes": 1,
+          "lines": 78
+        },
+        {
+          "module": "merge_precheck.py",
+          "functions": 3,
+          "classes": 0,
+          "lines": 100
+        },
+        {
+          "module": "merge_queue.py",
+          "functions": 19,
+          "classes": 1,
+          "lines": 302
+        },
+        {
+          "module": "pool_metrics.py",
+          "functions": 1,
+          "classes": 3,
+          "lines": 89
+        },
+        {
+          "module": "porcelain.py",
+          "functions": 7,
+          "classes": 2,
+          "lines": 151
+        },
+        {
+          "module": "process_lock.py",
+          "functions": 6,
+          "classes": 2,
+          "lines": 76
+        },
+        {
+          "module": "recovery.py",
+          "functions": 3,
+          "classes": 0,
+          "lines": 96
+        },
+        {
+          "module": "registry_migration_engine.py",
+          "functions": 41,
+          "classes": 8,
+          "lines": 1053
+        },
+        {
+          "module": "release_checkpoint.py",
+          "functions": 3,
+          "classes": 0,
+          "lines": 115
+        },
+        {
+          "module": "report.py",
+          "functions": 3,
+          "classes": 0,
+          "lines": 145
+        },
+        {
+          "module": "self_commit.py",
+          "functions": 13,
+          "classes": 0,
+          "lines": 423
+        },
+        {
+          "module": "server_hooks.py",
+          "functions": 6,
+          "classes": 0,
+          "lines": 201
+        },
+        {
+          "module": "snapshot.py",
+          "functions": 3,
+          "classes": 0,
+          "lines": 152
+        },
+        {
+          "module": "worker_identity.py",
+          "functions": 7,
+          "classes": 0,
+          "lines": 101
+        },
+        {
+          "module": "worker_lifecycle.py",
+          "functions": 9,
+          "classes": 1,
+          "lines": 228
+        },
+        {
+          "module": "worker_pool.py",
+          "functions": 30,
+          "classes": 1,
+          "lines": 561
+        },
+        {
+          "module": "worker_pool_types.py",
+          "functions": 5,
+          "classes": 7,
+          "lines": 261
+        },
+        {
+          "module": "worker_reconcile.py",
+          "functions": 3,
+          "classes": 1,
+          "lines": 97
+        },
+        {
+          "module": "worker_registry.py",
+          "functions": 8,
+          "classes": 2,
+          "lines": 155
+        },
+        {
+          "module": "worker_routing.py",
+          "functions": 5,
+          "classes": 2,
+          "lines": 121
+        },
+        {
+          "module": "workspace_sync.py",
+          "functions": 8,
+          "classes": 0,
+          "lines": 239
+        },
+        {
+          "module": "worktree_manager.py",
+          "functions": 8,
+          "classes": 1,
+          "lines": 86
+        },
+        {
+          "module": "worktree_prune.py",
+          "functions": 4,
+          "classes": 0,
+          "lines": 115
+        }
+      ],
+      "totals": {
+        "modules": 54,
+        "functions": 675,
+        "classes": 93,
+        "lines": 16186
+      }
+    }
+  },
+  "public_api": {
+    "version": "git_api_v1",
+    "surface": {
+      "git_repository.GitRepository": {
+        "kind": "class",
+        "methods": {
+          "run": "(self, args: 'list[str]', *, check: 'bool' = False, confirmed: 'bool | None' = None, authority_approved: 'bool | None' = None, actor: 'str' = 'governance/git-repository', timeout: 'float | None' = 60.0) -> 'subprocess.CompletedProcess[str]'",
+          "head": "(self) -> 'str'",
+          "current_branch": "(self) -> 'str'",
+          "is_bare": "(self) -> 'bool'",
+          "status": "(self) -> 'str'",
+          "status_v2": "(self)"
+        }
+      },
+      "git_control_plane.GitControlPlane": {
+        "kind": "class",
+        "methods": {
+          "snapshot": "(self, *, kind: 'StateKind' = <StateKind.VERIFIED: 'VERIFIED'>) -> 'GitSnapshot'",
+          "get_global_state": "(self) -> 'dict[str, Any]'",
+          "get_worker_state": "(self) -> 'dict[str, Any]'",
+          "get_queue_state": "(self) -> 'dict[str, Any]'",
+          "get_remote_state": "(self) -> 'dict[str, Any]'",
+          "get_audit_health": "(self) -> 'dict[str, Any]'",
+          "get_recovery_health": "(self) -> 'dict[str, Any]'",
+          "get_performance_health": "(self) -> 'dict[str, Any]'",
+          "build_action_proposals": "(self, snap: 'Optional[GitSnapshot]' = None) -> 'list[ActionProposal]'",
+          "validate_proposal": "(self, proposal: 'ActionProposal', *, generation: 'Optional[int]' = None, policy_digest: 'Optional[str]' = None, hook_digest: 'Optional[str]' = None) -> 'str'",
+          "request_action": "(self, proposal: 'ActionProposal', *, capability: 'Optional[CapabilityToken]' = None, legacy_env_approval: 'bool' = False, actor: 'str' = 'unknown') -> 'dict[str, Any]'",
+          "issue_capability": "(self, *, actor: 'str', operation: 'str', proposal: 'ActionProposal', worktree: 'str' = '', ref: 'str' = '', ttl: 'float' = 300.0) -> 'CapabilityToken'",
+          "consume_capability": "(self, token: 'CapabilityToken', proposal: 'ActionProposal', *, result: 'str' = 'consumed') -> 'bool'",
+          "restart_reconcile": "(self) -> 'dict[str, Any]'",
+          "decision_log": "(self) -> 'list[dict[str, Any]]'",
+          "alerts": "(self) -> 'dict[str, dict[str, Any]]'"
+        }
+      },
+      "worker_pool.WorkerPool": {
+        "kind": "class",
+        "methods": {
+          "allocate_worker": "(self, task_id: 'str', *, paths: 'tuple[str, ...]' = (), domain: 'str' = '', base_branch: 'str' = 'main', attempt: 'int' = 1, priority: 'int' = 0, actor: 'str' = 'governance/automation-supervisor', parent_task_id: 'str' = '') -> 'tuple[AllocationResult, Optional[WorkerSlot]]'",
+          "transition": "(self, worker_id: 'str', target: 'WorkerState', *, instance_id: 'str' = '') -> 'bool'",
+          "mark_activity": "(self, worker_id: 'str', instance_id: 'str' = '') -> 'None'",
+          "enqueue_merge": "(self, worker_id: 'str', source_commit: 'str', *, instance_id: 'str' = '') -> 'str'",
+          "worker_health": "(self) -> 'dict[str, Any]'",
+          "begin_drain": "(self) -> 'None'",
+          "finish_drain": "(self) -> 'None'",
+          "resume": "(self) -> 'None'",
+          "list_workers": "(self, pool_type: 'Optional[PoolType]' = None) -> 'list[WorkerSlot]'",
+          "available_capacity": "(self) -> 'dict[str, Any]'"
+        }
+      },
+      "merge_queue.MergeQueue": {
+        "kind": "class",
+        "methods": {
+          "enqueue": "(self, worker_id: 'str', branch: 'str', source_commit: 'str', *, base_main_commit: 'str' = '', task_id: 'str' = '', priority: 'int' = 0, escalated_by: 'str' = '', not_before: 'float' = 0.0) -> 'dict[str, Any]'",
+          "next_entry": "(self) -> 'dict[str, Any] | None'",
+          "mark_running": "(self, queue_id: 'str') -> 'dict[str, Any] | None'",
+          "mark_merged": "(self, queue_id: 'str', detail: 'str' = '') -> 'dict[str, Any] | None'",
+          "mark_conflicted": "(self, queue_id: 'str', reason: 'str') -> 'dict[str, Any] | None'",
+          "mark_blocked": "(self, queue_id: 'str', reason: 'str') -> 'dict[str, Any] | None'",
+          "mark_failed": "(self, queue_id: 'str', reason: 'str') -> 'dict[str, Any] | None'",
+          "cancel": "(self, queue_id: 'str', reason: 'str' = '') -> 'dict[str, Any] | None'",
+          "entries": "(self, statuses: 'Iterable[str] | None' = None) -> 'list[dict[str, Any]]'",
+          "find_entry": "(self, branch: 'str', source_commit: 'str') -> 'dict[str, Any] | None'",
+          "stats": "(self) -> 'dict[str, Any]'",
+          "is_stale": "(self, entry: 'dict[str, Any]', current_sha: 'str') -> 'bool'"
+        }
+      },
+      "worker_registry.PoolRegistry": {
+        "kind": "class",
+        "methods": {
+          "load": "(self) -> 'dict[str, Any]'",
+          "load_slots": "(self) -> 'dict[str, WorkerSlot]'",
+          "store": "(self, payload: 'dict[str, Any]') -> 'None'",
+          "store_slots": "(self, slots: 'dict[str, WorkerSlot]', *, payload: 'Optional[dict[str, Any]]' = None, extra: 'Optional[dict[str, Any]]' = None) -> 'None'"
+        }
+      },
+      "capability_gate.execute_with_capability": {
+        "kind": "callable",
+        "signature": "(command: 'str | Sequence[str]', capability: 'CapabilityToken | None' = None, *, tier: 'int | None' = None, actor: 'str' = 'unknown', repository_id: 'str' = '', repo_path: 'str | Path | None' = None, worktree_id: 'str' = '', branch: 'str' = '', target_ref: 'str' = '', proposal_generation: 'int' = 0, source_revision: 'str' = '', target_revision: 'str' = '', policy_version: 'str' = '', policy_digest: 'str' = '', ledger: 'CapabilityLedger | None' = None, runner: 'Runner | None' = None, now: 'Any' = None, require_signature: 'bool' = False, legacy_confirmed: 'bool' = False, legacy_authority_approved: 'bool' = False) -> 'GateResult'"
+      },
+      "audit_chain.append_audit": {
+        "kind": "callable",
+        "signature": "(record: 'dict[str, Any]') -> 'dict[str, Any]'"
+      },
+      "audit_chain.chain_health": {
+        "kind": "callable",
+        "signature": "() -> 'dict[str, Any]'"
+      },
+      "audit_chain.verify_tail": {
+        "kind": "callable",
+        "signature": "(count: 'int' = 64) -> 'dict[str, Any]'"
+      },
+      "recovery.create_recovery_ref": {
+        "kind": "callable",
+        "signature": "(repo: 'GitRepository', queue_id: 'str', *, target: 'str' = 'main', actor: 'str' = 'governance/workspace-sync') -> 'str'"
+      },
+      "recovery.list_recovery_refs": {
+        "kind": "callable",
+        "signature": "(repo: 'GitRepository') -> 'list[dict[str, str]]'"
+      },
+      "recovery.create_bundle": {
+        "kind": "callable",
+        "signature": "(repo: 'GitRepository', destination: 'str | Path | None' = None, *, refs: 'Iterable[str]' = ('main',), actor: 'str' = 'governance/release') -> 'Path | None'"
+      },
+      "merge_precheck.pre_merge_check": {
+        "kind": "callable",
+        "signature": "(repo: 'GitRepository', source: 'str', *, target: 'str' = 'main', other_touched: 'Iterable[Iterable[str]]' = ()) -> 'dict[str, Any]'"
+      },
+      "merge_precheck.merge_tree_check": {
+        "kind": "callable",
+        "signature": "(repo: 'GitRepository', target: 'str', source: 'str') -> 'dict[str, Any]'"
+      },
+      "hook_versioning.upgrade_hook": {
+        "kind": "callable",
+        "signature": "(source: 'str | Path', target: 'str | Path', *, hook_name: 'str | None' = None, expected_digest: 'str | None' = None, min_version: 'int | None' = None, wait_for_quiescence: 'Callable[[], None] | None' = None, activate: 'Callable[[Path], None] | None' = None, check_syntax: 'bool' = True, stage_suffix: 'str' = '.staged') -> 'HookUpgradeResult'"
+      },
+      "hook_versioning.verify_hook": {
+        "kind": "callable",
+        "signature": "(path: 'str | Path', *, hook_name: 'str | None' = None, expected_digest: 'str | None' = None, min_version: 'int | None' = None) -> 'dict[str, Any]'"
+      },
+      "hook_versioning.hook_generation": {
+        "kind": "callable",
+        "signature": "(hooks_dir: 'str | Path', *, names: 'Iterable[str]' = ('pre-commit', 'pre-merge-commit', 'pre-push', 'pre-receive')) -> 'str'"
+      },
+      "branch_policy.classify_branch": {
+        "kind": "callable",
+        "signature": "(branch: 'str') -> 'str'"
+      },
+      "branch_policy.policy_digest": {
+        "kind": "callable",
+        "signature": "() -> 'str'"
+      },
+      "git_maintenance.GitMaintenanceManager": {
+        "kind": "class",
+        "methods": {
+          "plan": "(self, *, commit_graph: 'bool' = True) -> 'dict[str, Any]'",
+          "commit_graph_status": "(self) -> 'dict[str, Any]'",
+          "run": "(self, *, dry_run: 'bool' = False, commit_graph: 'bool' = True, multi_pack_index: 'bool' = True, gc: 'bool' = True) -> 'dict[str, Any]'"
+        }
+      },
+      "registry_migration_engine.RegistryMigrationEngine": {
+        "kind": "class",
+        "methods": {
+          "classify": "(self) -> 'dict[str, TargetClassification]'",
+          "dry_run": "(self) -> 'MigrationReport'",
+          "migrate": "(self) -> 'MigrationReport'",
+          "recover": "(self) -> 'RecoveryReport'"
+        }
+      }
+    },
+    "surface_digest": "3a95784d95c5fb6b250eecf688aa113b26a9d5bf99b1fb8740cff57f541be11f"
+  },
+  "state_models": {
+    "WorkerState": {
+      "status": "DIVERGENT",
+      "expected": [
+        "ALLOCATED",
+        "READY",
+        "WORKING",
+        "DIRTY",
+        "COMMITTED",
+        "QUEUED",
+        "MERGING",
+        "MERGED",
+        "SYNCED",
+        "QUARANTINED",
+        "RETIRING",
+        "RETIRED",
+        "FAILED"
+      ],
+      "actual": [
+        "FREE",
+        "ALLOCATING",
+        "READY",
+        "WORKING",
+        "DIRTY",
+        "COMMITTED",
+        "QUEUED",
+        "MERGING",
+        "MERGED",
+        "SYNCING",
+        "RETIRING",
+        "RECYCLING",
+        "FAILED",
+        "QUARANTINED"
+      ],
+      "missing": [
+        "ALLOCATED",
+        "RETIRED",
+        "SYNCED"
+      ],
+      "extra": [
+        "ALLOCATING",
+        "FREE",
+        "RECYCLING",
+        "SYNCING"
+      ]
+    },
+    "QueueState": {
+      "status": "DIVERGENT",
+      "expected": [
+        "pending",
+        "preparing",
+        "ready",
+        "running",
+        "merged",
+        "conflicted",
+        "blocked",
+        "failed",
+        "cancelled"
+      ],
+      "actual": [
+        "blocked",
+        "cancelled",
+        "conflicted",
+        "failed",
+        "merged",
+        "pending",
+        "running"
+      ],
+      "missing": [
+        "preparing",
+        "ready"
+      ],
+      "extra": []
+    },
+    "TransactionState": {
+      "status": "NOT_IMPLEMENTED",
+      "expected": [
+        "PREPARING",
+        "SNAPSHOT_READY",
+        "RUNNING",
+        "LOCAL_COMPLETE",
+        "AUDITING",
+        "VERIFIED",
+        "COMPLETE",
+        "CONFLICT",
+        "AUDIT_FAILED",
+        "REMOTE_FAILED",
+        "RECOVERY_REQUIRED",
+        "FAILED"
+      ],
+      "actual": [],
+      "missing": [
+        "PREPARING",
+        "SNAPSHOT_READY",
+        "RUNNING",
+        "LOCAL_COMPLETE",
+        "AUDITING",
+        "VERIFIED",
+        "COMPLETE",
+        "CONFLICT",
+        "AUDIT_FAILED",
+        "REMOTE_FAILED",
+        "RECOVERY_REQUIRED",
+        "FAILED"
+      ],
+      "extra": []
+    },
+    "GlobalGitState": {
+      "status": "FROZEN_MATCH",
+      "expected": [
+        "HEALTHY",
+        "BUSY",
+        "BACKPRESSURE",
+        "DEGRADED",
+        "READ_ONLY",
+        "RECOVERY",
+        "ERROR"
+      ],
+      "actual": [
+        "HEALTHY",
+        "BUSY",
+        "BACKPRESSURE",
+        "DEGRADED",
+        "READ_ONLY",
+        "RECOVERY",
+        "ERROR"
+      ],
+      "missing": [],
+      "extra": []
+    },
+    "UpgradeState": {
+      "status": "NOT_IMPLEMENTED",
+      "expected": [
+        "PLANNED",
+        "STAGED",
+        "CANARY",
+        "ROLLING",
+        "VERIFYING",
+        "ACTIVE",
+        "ROLLED_BACK",
+        "FAILED"
+      ],
+      "actual": [],
+      "missing": [
+        "PLANNED",
+        "STAGED",
+        "CANARY",
+        "ROLLING",
+        "VERIFYING",
+        "ACTIVE",
+        "ROLLED_BACK",
+        "FAILED"
+      ],
+      "extra": []
+    },
+    "RecoveryState": {
+      "status": "NOT_IMPLEMENTED",
+      "expected": [
+        "IDLE",
+        "POINT_CREATED",
+        "RESTORING",
+        "VERIFYING",
+        "RESTORED",
+        "FAILED",
+        "UNRECOVERABLE"
+      ],
+      "actual": [],
+      "missing": [
+        "IDLE",
+        "POINT_CREATED",
+        "RESTORING",
+        "VERIFYING",
+        "RESTORED",
+        "FAILED",
+        "UNRECOVERABLE"
+      ],
+      "extra": []
+    },
+    "_other_enums": {
+      "HealthStatus": [
+        "HEALTHY",
+        "WARN",
+        "DEGRADED",
+        "ERROR",
+        "UNKNOWN"
+      ],
+      "PoolHealth": [
+        "HEALTHY",
+        "BUSY",
+        "BACKPRESSURE",
+        "DEGRADED",
+        "ERROR",
+        "POOL_DRAINING",
+        "STOPPED"
+      ],
+      "AllocationResult": [
+        "ALLOCATED",
+        "WAITING_FOR_WORKER",
+        "BACKPRESSURE",
+        "POOL_CAPACITY_STORAGE_LIMIT",
+        "POOL_DRAINING",
+        "DENIED"
+      ]
+    }
+  },
+  "lock_hierarchy": {
+    "model": "locks.LOCK_ORDER + process_lock.ProcessFileLock",
+    "actual_order": [
+      "supervisor-registry",
+      "workspace-sync",
+      "merge-queue",
+      "worktree",
+      "audit-append"
+    ],
+    "expected_order": [
+      "SUPERVISOR",
+      "WORKER_REGISTRY",
+      "WORKSPACE_SYNC",
+      "MERGE_QUEUE",
+      "MAIN_WRITE",
+      "WORKTREE_WRITE",
+      "AUDIT_APPEND",
+      "MAINTENANCE"
+    ],
+    "canonical_names_match": false,
+    "duplicate_implementations": [
+      "coordinator.py:70-103 merge-queue byte-range lock",
+      "audit_chain.py:56-81 audit append byte-range lock"
+    ],
+    "note": "canonical ordered names are supervisor-registry/workspace-sync/merge-queue/worktree/audit-append; the article 508 names (SUPERVISOR, WORKER_REGISTRY, ...) are not registered"
+  },
+  "invariants": [
+    {
+      "id": "INV-MAIN-1",
+      "statement": "main is never a worker",
+      "source": "A510"
+    },
+    {
+      "id": "INV-MAIN-2",
+      "statement": "main has no self-commit watcher",
+      "source": "A510"
+    },
+    {
+      "id": "INV-MAIN-3",
+      "statement": "main is single-writer",
+      "source": "A510"
+    },
+    {
+      "id": "INV-MAIN-4",
+      "statement": "main is clean outside integration/repair/release",
+      "source": "A510"
+    },
+    {
+      "id": "INV-WORKER-1",
+      "statement": "one active worker : one worktree",
+      "source": "A511"
+    },
+    {
+      "id": "INV-WORKER-2",
+      "statement": "one active worker : one branch",
+      "source": "A511"
+    },
+    {
+      "id": "INV-WORKER-3",
+      "statement": "at most one watcher per worker",
+      "source": "A511"
+    },
+    {
+      "id": "INV-WORKER-4",
+      "statement": "one worker_instance_id per slot",
+      "source": "A511"
+    },
+    {
+      "id": "INV-WORKER-5",
+      "statement": "no shared index between workers",
+      "source": "A511"
+    },
+    {
+      "id": "INV-MERGE-1",
+      "statement": "source SHA immutable; branch moves require re-enqueue",
+      "source": "A512"
+    },
+    {
+      "id": "INV-MERGE-2",
+      "statement": "target main SHA verified and clean",
+      "source": "A512"
+    },
+    {
+      "id": "INV-MERGE-3",
+      "statement": "merge is single-flight with recovery point + audit",
+      "source": "A512"
+    },
+    {
+      "id": "INV-PUSH-1",
+      "statement": "push=False today; only IntegrationManager may push later",
+      "source": "A513"
+    },
+    {
+      "id": "INV-PUSH-2",
+      "statement": "workers and self-commit never push; no automatic force-push",
+      "source": "A513"
+    },
+    {
+      "id": "INV-TIER-1",
+      "statement": "tier-1 read-only direct; tier-2 scoped capability",
+      "source": "A514"
+    },
+    {
+      "id": "INV-TIER-2",
+      "statement": "tier-3 authority capability; unknown fails closed tier-3",
+      "source": "A514"
+    },
+    {
+      "id": "INV-TIER-3",
+      "statement": "no confirmed-bool downgrade and no AI self-approval",
+      "source": "A514"
+    },
+    {
+      "id": "INV-CAP-1",
+      "statement": "write tokens short-lived, single-use, bound to operation/repo/worktree/ref/revision/policy/generation",
+      "source": "A515"
+    }
+  ],
+  "test_suite": {
+    "gates": {
+      "stress_50_workers": {
+        "result": "PASS",
+        "evidence": [
+          "test_git_final_gates.py::test_final_stress_50_workers PASS (temp fixture seed=524)",
+          "allocated=50, duplicate_watchers=0, duplicate_branches=0",
+          "double_merges=0, merged=50, retired=50",
+          "registry_corruption=0, audit_corruption=0, audit_records=502",
+          "registry_corruption=0, audit_corruption=0, audit_records=502",
+          "worker allocation/retirement writes now run through SYSTEM_SAFE capabilities"
+        ],
+        "measurements": {
+          "allocated": 50,
+          "duplicate_watchers": 0,
+          "duplicate_branches": 0,
+          "double_merges": 0,
+          "merged": 50,
+          "retired": 50,
+          "registry_corruption": 0,
+          "audit_corruption": 0,
+          "audit_records": 502
+        }
+      },
+      "chaos": {
+        "result": "PASS",
+        "evidence": [
+          "test_git_final_gates.py::test_final_chaos_gate PASS (temp fixture seed=525)",
+          "watcher_crash PASS, supervisor_crash PASS, merge_conflict_abort PASS",
+          "audit_tail_corruption UNVERIFIABLE_DETECTED (torn tail never silently verified)",
+          "registry_corruption_fallback PASS, lock_contention PASS",
+          "central_unavailable PASS, git_timeout PASS, source_sha_drift PASS",
+          "assert_git_invariants violations=0 after every scenario"
+        ],
+        "measurements": {
+          "scenarios": {
+            "audit_tail_corruption": "UNVERIFIABLE_DETECTED",
+            "central_unavailable": "PASS",
+            "git_timeout": "PASS",
+            "lock_contention": "PASS",
+            "merge_conflict_abort": "PASS",
+            "registry_corruption_fallback": "PASS",
+            "source_sha_drift": "PASS",
+            "supervisor_crash": "PASS",
+            "watcher_crash": "PASS"
+          },
+          "violations": 0
+        }
+      },
+      "dr": {
+        "result": "PASS",
+        "evidence": [
+          "test_disaster_recovery.py 21/21 PASS (temp repositories only)",
+          "worktree inspection now routes through the GitRepository gateway (no direct subprocess git)",
+          "recovery refs / bundles execute through SYSTEM_SAFE capabilities (update-ref, bundle create)",
+          "tier-3 denied (reset --hard / force-push / ref-delete / aggressive prune / reflog expire)"
+        ],
+        "measurements": {
+          "tests_passed": 21,
+          "tests_failed": 0
+        }
+      },
+      "rolling_upgrade": {
+        "result": "PASS",
+        "evidence": [
+          "test_git_final_gates.py::test_final_rolling_upgrade_gate PASS (24 workers, temp fixture seed=527)",
+          "migration_steps: registry-v1-to-v2, registry-v2-to-v3, queue-v1-to-v2, queue-v2-to-v3",
+          "lost_commits=0, duplicate_watchers=0, queue_duplication=0, history_rewrites=0",
+          "canary_ok=True, restore_on_failure=True, second migrate() = noop"
+        ],
+        "measurements": {
+          "workers": 24,
+          "migration_steps": [
+            "registry-v1-to-v2",
+            "registry-v2-to-v3",
+            "queue-v1-to-v2",
+            "queue-v2-to-v3"
+          ],
+          "lost_commits": 0,
+          "duplicate_watchers": 0,
+          "queue_duplication": 0,
+          "history_rewrites": 0,
+          "canary_ok": true,
+          "restore_on_failure": true
+        }
+      },
+      "performance": {
+        "result": "PASS",
+        "evidence": [
+          "test_git_final_gates.py::test_final_performance_gate PASS (regressions=[])",
+          "absolute budgets met: status<=1000, commit<=5000, audit<=500, queue_wait<=2000, merge_preparation<=10000 ms",
+          "merge-tree preflight now issues a capability per call; p95 well inside the 10s budget"
+        ],
+        "measurements": {
+          "regressions": [],
+          "candidate_p95_ms": {
+            "audit_append": 3.34,
+            "commit": 227.65,
+            "merge_preparation": 165.62,
+            "queue_wait": 382.9,
+            "status": 75.91
+          },
+          "absolute_budget_ms": {
+            "audit_append_p95_ms": 500.0,
+            "commit_p95_ms": 5000.0,
+            "merge_preparation_p95_ms": 10000.0,
+            "queue_wait_p95_ms": 2000.0,
+            "status_p95_ms": 1000.0
+          }
+        }
+      },
+      "architecture": {
+        "result": "PASS",
+        "evidence": [
+          "test_git_runtime_architecture.py 14/14 PASS (single executor, no legacy env reads, zero confirmed-bool sites, capability migration tests)",
+          "test_architecture_registry.py 19/19 PASS",
+          "static architecture gate: illegal direct git 3 -> 0, legacy env 9 -> 0, confirmed bool 31 -> 0"
+        ],
+        "measurements": {
+          "runtime_architecture_tests": 14,
+          "architecture_registry_tests": 19,
+          "confirmed_bool": 0,
+          "legacy_env": 0,
+          "illegal_direct_git": 0
+        }
+      },
+      "central_protection": {
+        "result": "PASS",
+        "evidence": [
+          "test_tier_enforcement.py 109/109 PASS (tier-3 authority required; legacy env flags are not authorization)",
+          "test_git_final_gates.py::test_final_chaos_gate central_unavailable PASS",
+          "test_fault_injection.py 31/31 PASS (central divergence detection, protected central refs)",
+          "test_git_api_contract_v1.py::test_tier3_denied_raises_permission_error PASS"
+        ],
+        "measurements": {
+          "tier_enforcement_tests": 109,
+          "fault_injection_tests": 31
+        }
+      },
+      "capability": {
+        "result": "PASS",
+        "evidence": [
+          "test_capability.py 41/41 PASS (binding, single-use, replay, expiry, mutation, AI self-issue denial)",
+          "test_git_runtime_architecture.py capability migration tests: tier-2 SYSTEM_SAFE issue+execute, tier-2 non-whitelist refusal, tier-3 automation refusal, DEPRECATED_COMPATIBILITY legacy audit",
+          "gateway deprecated boolean adapter records LEGACY_CONFIRM capability-ledger evidence"
+        ],
+        "measurements": {
+          "capability_tests": 41,
+          "migration_tests": 5,
+          "system_safe_operations": [
+            "add",
+            "branch",
+            "branch create",
+            "bundle create",
+            "commit",
+            "commit-graph write",
+            "fetch",
+            "gc",
+            "init",
+            "merge",
+            "merge-tree",
+            "multi-pack-index write",
+            "mv",
+            "push",
+            "remote add",
+            "remote set-url",
+            "restore",
+            "stash",
+            "stash apply",
+            "stash pop",
+            "stash push",
+            "switch --create",
+            "switch -c",
+            "tag --annotate",
+            "tag create",
+            "update-ref",
+            "worktree add",
+            "worktree lock",
+            "worktree prune",
+            "worktree unlock"
+          ]
+        }
+      },
+      "audit_chain": {
+        "result": "PASS",
+        "evidence": [
+          "audit_chain.chain_health(): chain_valid=True, audit_record_count=56132, epoch=2",
+          "test_audit_hook_versioning.py 20/20 PASS",
+          "stress gate: 502 chain records valid after 50-worker run, 0 corruption"
+        ],
+        "measurements": {
+          "chain_valid": true,
+          "audit_record_count": 56132,
+          "epoch": 2
+        }
+      },
+      "hooks_integrity": {
+        "result": "PASS",
+        "evidence": [
+          "hook_versioning.verify_governed_templates(): ok=True",
+          "live hook generation hook-gen-dfe9fed329b91386dd39617b0ab60101868964afe5deacc2b1d1b4390671dba0",
+          "rolling upgrade: hook replace verifies digest/version; failure restores previous hook"
+        ],
+        "measurements": {}
+      },
+      "documentation": {
+        "result": "PASS",
+        "evidence": [
+          "baseline._documentation_scan(): no stale markers in docs/worktree-architecture.md, docs/module-topology.md, AGENTS.md"
+        ],
+        "measurements": {}
+      }
+    },
+    "freeze_conditions": [
+      {
+        "condition": "all_git_writes_via_gateway",
+        "zh": "所有 Git write 經 Gateway",
+        "status": "PASS",
+        "evidence": [
+          "GitExecutionGateway class: PRESENT",
+          "production confirmed=True call sites: 0"
+        ]
+      },
+      {
+        "condition": "no_illegal_direct_subprocess_git",
+        "zh": "Direct subprocess Git 無非法 caller",
+        "status": "PASS",
+        "evidence": [
+          "illegal call sites (A375 whitelist): 0"
+        ]
+      },
+      {
+        "condition": "confirmed_bool_production_zero",
+        "zh": "confirmed bool 正式路徑 = 0",
+        "status": "PASS",
+        "evidence": [
+          "production call sites: 0"
+        ]
+      },
+      {
+        "condition": "ai_tier3_self_approval_zero",
+        "zh": "AI Tier3 self approval = 0",
+        "status": "PASS",
+        "evidence": [
+          "legacy approval env occurrences: 0",
+          "capability_gate refuses automation tier-3 legacy approval, but production paths still call GitRepository.run directly"
+        ]
+      },
+      {
+        "condition": "worker_queue_main_invariants",
+        "zh": "worker/queue/main invariants PASS",
+        "status": "PASS",
+        "evidence": [
+          "stress_50_workers: PASS",
+          "test_git_final_gates.py::test_final_stress_50_workers PASS (temp fixture seed=524)",
+          "allocated=50, duplicate_watchers=0, duplicate_branches=0",
+          "double_merges=0, merged=50, retired=50",
+          "chaos: PASS",
+          "test_git_final_gates.py::test_final_chaos_gate PASS (temp fixture seed=525)",
+          "watcher_crash PASS, supervisor_crash PASS, merge_conflict_abort PASS",
+          "audit_tail_corruption UNVERIFIABLE_DETECTED (torn tail never silently verified)"
+        ]
+      },
+      {
+        "condition": "audit_chain_pass",
+        "zh": "audit chain PASS",
+        "status": "PASS",
+        "evidence": [
+          "chain_health.chain_valid=True",
+          "audit_chain.chain_health(): chain_valid=True, audit_record_count=56132, epoch=2",
+          "test_audit_hook_versioning.py 20/20 PASS",
+          "stress gate: 502 chain records valid after 50-worker run, 0 corruption"
+        ]
+      },
+      {
+        "condition": "hooks_integrity_pass",
+        "zh": "hooks integrity PASS",
+        "status": "PASS",
+        "evidence": [
+          "governed templates ok=True",
+          "generation=hook-gen-dfe9fed329b913",
+          "hook_versioning.verify_governed_templates(): ok=True",
+          "live hook generation hook-gen-dfe9fed329b91386dd39617b0ab60101868964afe5deacc2b1d1b4390671dba0",
+          "rolling upgrade: hook replace verifies digest/version; failure restores previous hook"
+        ]
+      },
+      {
+        "condition": "central_protection_pass",
+        "zh": "central protection PASS",
+        "status": "PASS",
+        "evidence": [
+          "test_tier_enforcement.py 109/109 PASS (tier-3 authority required; legacy env flags are not authorization)",
+          "test_git_final_gates.py::test_final_chaos_gate central_unavailable PASS",
+          "test_fault_injection.py 31/31 PASS (central divergence detection, protected central refs)",
+          "test_git_api_contract_v1.py::test_tier3_denied_raises_permission_error PASS"
+        ]
+      },
+      {
+        "condition": "capability_tests_pass",
+        "zh": "capability tests PASS",
+        "status": "PASS",
+        "evidence": [
+          "test_capability.py 41/41 PASS (binding, single-use, replay, expiry, mutation, AI self-issue denial)",
+          "test_git_runtime_architecture.py capability migration tests: tier-2 SYSTEM_SAFE issue+execute, tier-2 non-whitelist refusal, tier-3 automation refusal, DEPRECATED_COMPATIBILITY legacy audit",
+          "gateway deprecated boolean adapter records LEGACY_CONFIRM capability-ledger evidence"
+        ]
+      },
+      {
+        "condition": "stress_50_workers_pass",
+        "zh": "50 worker stress PASS",
+        "status": "PASS",
+        "evidence": [
+          "test_git_final_gates.py::test_final_stress_50_workers PASS (temp fixture seed=524)",
+          "allocated=50, duplicate_watchers=0, duplicate_branches=0",
+          "double_merges=0, merged=50, retired=50",
+          "registry_corruption=0, audit_corruption=0, audit_records=502",
+          "registry_corruption=0, audit_corruption=0, audit_records=502",
+          "worker allocation/retirement writes now run through SYSTEM_SAFE capabilities"
+        ]
+      },
+      {
+        "condition": "chaos_pass",
+        "zh": "chaos PASS",
+        "status": "PASS",
+        "evidence": [
+          "test_git_final_gates.py::test_final_chaos_gate PASS (temp fixture seed=525)",
+          "watcher_crash PASS, supervisor_crash PASS, merge_conflict_abort PASS",
+          "audit_tail_corruption UNVERIFIABLE_DETECTED (torn tail never silently verified)",
+          "registry_corruption_fallback PASS, lock_contention PASS",
+          "central_unavailable PASS, git_timeout PASS, source_sha_drift PASS",
+          "assert_git_invariants violations=0 after every scenario"
+        ]
+      },
+      {
+        "condition": "dr_pass",
+        "zh": "DR PASS",
+        "status": "PASS",
+        "evidence": [
+          "test_disaster_recovery.py 21/21 PASS (temp repositories only)",
+          "worktree inspection now routes through the GitRepository gateway (no direct subprocess git)",
+          "recovery refs / bundles execute through SYSTEM_SAFE capabilities (update-ref, bundle create)",
+          "tier-3 denied (reset --hard / force-push / ref-delete / aggressive prune / reflog expire)"
+        ]
+      },
+      {
+        "condition": "rolling_upgrade_pass",
+        "zh": "rolling upgrade PASS",
+        "status": "PASS",
+        "evidence": [
+          "test_git_final_gates.py::test_final_rolling_upgrade_gate PASS (24 workers, temp fixture seed=527)",
+          "migration_steps: registry-v1-to-v2, registry-v2-to-v3, queue-v1-to-v2, queue-v2-to-v3",
+          "lost_commits=0, duplicate_watchers=0, queue_duplication=0, history_rewrites=0",
+          "canary_ok=True, restore_on_failure=True, second migrate() = noop"
+        ]
+      },
+      {
+        "condition": "performance_regression_gate_pass",
+        "zh": "performance regression gate PASS",
+        "status": "PASS",
+        "evidence": [
+          "test_git_final_gates.py::test_final_performance_gate PASS (regressions=[])",
+          "absolute budgets met: status<=1000, commit<=5000, audit<=500, queue_wait<=2000, merge_preparation<=10000 ms",
+          "merge-tree preflight now issues a capability per call; p95 well inside the 10s budget"
+        ]
+      },
+      {
+        "condition": "architecture_tests_pass",
+        "zh": "architecture tests PASS",
+        "status": "PASS",
+        "evidence": [
+          "test_git_runtime_architecture.py 14/14 PASS (single executor, no legacy env reads, zero confirmed-bool sites, capability migration tests)",
+          "test_architecture_registry.py 19/19 PASS",
+          "static architecture gate: illegal direct git 3 -> 0, legacy env 9 -> 0, confirmed bool 31 -> 0"
+        ]
+      },
+      {
+        "condition": "documentation_sync_pass",
+        "zh": "documentation sync PASS",
+        "status": "PASS",
+        "evidence": [
+          "stale findings: 0",
+          "baseline._documentation_scan(): no stale markers in docs/worktree-architecture.md, docs/module-topology.md, AGENTS.md"
+        ]
+      }
+    ],
+    "evidence_meta": {
+      "runner": "opencode / governance_rule pytest suites (post capability migration)",
+      "python": "3.11.9",
+      "platform": "Windows-10-10.0.26200-SP0",
+      "git_version": "git version 2.55.0.windows.1",
+      "repository_head": "02848dd55ca705a83ed099578e09fca534d909e3",
+      "real_repository_untouched": true,
+      "fixtures": "pytest tmp_path / fault_injection.create_test_repository",
+      "suite_results": {
+        "governance_rule/tests/test_git_final_gates.py": "4 passed (stress/chaos/rolling/performance)",
+        "governance_rule/execution/git_tiers/tests": "254 passed",
+        "governance_rule/tests/test_capability.py": "41 passed",
+        "governance_rule/tests/test_git_runtime_architecture.py": "14 passed",
+        "governance_rule/tests/test_architecture_registry.py": "19 passed",
+        "governance_rule/tests/test_audit_hook_versioning.py": "20 passed",
+        "governance_rule/execution/git_tiers/tests/test_disaster_recovery.py": "21 passed",
+        "governance_rule/execution/git_tiers/tests/test_tier_enforcement.py": "109 passed",
+        "governance_rule/execution/git_tiers/tests/test_fault_injection.py": "31 passed",
+        "governance_rule/execution/git_tiers/tests/test_git_governance_extensions.py": "18 passed",
+        "governance_rule/tests/test_git_api_contract_v1.py": "22 passed"
+      }
+    }
+  },
+  "static_allowlist": {
+    "direct_git": [],
+    "illegal_direct_git": [],
+    "audit_writers": [],
+    "confirmed_bool": [],
+    "legacy_env": [],
+    "duplicate_parsers": [],
+    "duplicate_locks": [],
+    "dependency_direction": [
+      "main-system/src-core/core_system/third_party_manager_updates.py:79"
+    ]
+  },
+  "static_counts": {
+    "direct_git": 0,
+    "illegal_direct_git": 0,
+    "audit_writers": 0,
+    "confirmed_bool": 0,
+    "legacy_env": 0,
+    "duplicate_parsers": 0,
+    "duplicate_locks": 0,
+    "dependency_direction": 1
+  },
+  "complexity": {
+    "targets": {
+      "git_drivers": 1,
+      "status_parsers": 1,
+      "audit_writers": 1,
+      "queue_owners": 1,
+      "worker_registry_owners": 1,
+      "lock_models": 1,
+      "runtime_config": 1,
+      "runtime_components": 6
+    },
+    "measured": {
+      "runtime_components": 6,
+      "runtime_components_implemented_as_named_class": 2,
+      "git_drivers": 1,
+      "git_driver_modules_executing_git": 2,
+      "status_parsers": 1,
+      "audit_writers": 1,
+      "queue_owners": 1,
+      "worker_registry_owners": 1,
+      "lock_models": 1,
+      "config_sources": 2,
+      "public_apis": 21
+    },
+    "git_driver_modules": [
+      "governance_rule/execution/git_tiers/fault_injection.py",
+      "governance_rule/execution/git_tiers/git_repository.py"
+    ],
+    "modules": {
+      "modules": 54,
+      "functions": 675,
+      "classes": 93,
+      "lines": 16186
+    },
+    "static_counts": {
+      "direct_git": 0,
+      "illegal_direct_git": 0,
+      "audit_writers": 0,
+      "confirmed_bool": 0,
+      "legacy_env": 0,
+      "duplicate_parsers": 0,
+      "duplicate_locks": 0,
+      "dependency_direction": 1
+    },
+    "notes": [
+      "config_sources=2: PoolConfig + governance manifest timings (GitRuntimeConfig missing)",
+      "runtime_components_implemented_as_named_class=2: GitControlPlane and GitMaintenanceManager(name variant)",
+      "audit_writers=1 canonical (__init__.audit_log + audit_chain); coordinator.py still has a legacy merge_queue.jsonl writer",
+      "lock_models=1 canonical (process_lock); coordinator.py and audit_chain.py carry private byte-range locks"
+    ]
+  },
+  "baseline_commit": "02848dd55ca705a83ed099578e09fca534d909e3",
+  "worktree_dirty_at_capture": true,
+  "captured_at_utc": "2026-09-16T23:44:21Z",
+  "post_freeze_policy": {
+    "allowed": [
+      "BUGFIX",
+      "SECURITY_FIX",
+      "PERFORMANCE_OPTIMIZATION",
+      "TEST_IMPROVEMENT",
+      "DOCUMENTATION",
+      "VERSIONED_MIGRATION"
+    ],
+    "forbidden_unversioned": [
+      "new manager",
+      "new coordinator",
+      "new Git driver",
+      "new audit ledger",
+      "new lock system",
+      "new state machine",
+      "parallel queue",
+      "parallel worker registry",
+      "another Git gateway"
+    ],
+    "reentry": "Git Architecture Change Proposal -> architecture version bump (A539)"
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "a43440e80fb698c150210c7960d954ef38e28339a2ddc0dcfb72c4caf27c540d",
+    "scope": "canonical-json-without-integrity-and-baseline"
+  }
+}
