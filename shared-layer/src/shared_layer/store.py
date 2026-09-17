@@ -291,7 +291,7 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
         }
 
     def notify_channel(self, token: str, target_tool_id: str) -> None:
-        self._authorize(token, "process", target_tool_id)
+        self._authorize(token, "respond", target_tool_id)
 
     def cancel_request(
         self,
@@ -411,7 +411,7 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
         *,
         lease_duration_seconds: float = 300.0,
     ) -> dict[str, Any] | None:
-        self._authorize(token, "process", target_tool_id)
+        self._authorize(token, "claim", target_tool_id)
         pool = self._get_pool()
         with pool.acquire() as connection:
             connection.execute("BEGIN")
