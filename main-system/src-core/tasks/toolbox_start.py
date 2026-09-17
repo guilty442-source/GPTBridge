@@ -9,6 +9,7 @@ live in submodules:
 # Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Dict
 
 from .toolbox_watcher import ToolWatcherMixin
@@ -29,13 +30,15 @@ class StartMixin(StartValidationMixin, StartSpawnMixin, ToolWatcherMixin):
         requested_mode = str(payload.get("runtime_mode") or "").strip().casefold()
 
         # Phase 1: validate request
-        error = self._validate_start_request(payload)
+        error = await asyncio.to_thread(self._validate_start_request, payload)
         if error is not None:
             return error
         tool_id = str(payload.get("tool_id", "")).strip()
 
         # Phase 2: resolve context (request_id, args, tool_dir, manifest)
-        error = self._resolve_start_context(payload, tool_id)
+        error = await asyncio.to_thread(
+            self._resolve_start_context, payload, tool_id
+        )
         if error is not None:
             return error
         ctx = self._start_ctx

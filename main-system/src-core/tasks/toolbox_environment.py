@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import secrets
 import socket
@@ -15,13 +14,7 @@ from .toolbox_constants import (
     MAX_TOOL_ARGUMENTS,
     MAX_TOOL_ARGUMENT_BYTES,
     MAX_TOOL_REQUEST_ID_LENGTH,
-    _MANAGED_BACKEND_TOOL_ID_ENV,
-    _MANAGED_BACKEND_WORKSPACE_ID_ENV,
-    _MANAGED_BACKEND_CODENAME_ENV,
     _TOOL_VERSION_PATTERN,
-    _TOOL_ENVIRONMENT_ALLOWLIST,
-    _TOOL_GOVERNANCE_BOOTSTRAP_ENV,
-    _is_declarable_tool_environment_key,
 )
 from .toolbox_environment_construction import EnvironmentConstructionMixin
 

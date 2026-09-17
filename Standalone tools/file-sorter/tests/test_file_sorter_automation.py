@@ -118,6 +118,46 @@ def test_adaptive_monitoring_uses_explicit_interval_tiers(tmp_path: Path) -> Non
         assert service._adaptive_scan_interval(baseline, settling=False) == interval
 
 
+def test_automation_classifies_only_into_first_level_subfolders(
+    tmp_path: Path,
+    isolated_sorter_state: Path,
+) -> None:
+    target = tmp_path / "inbox"
+    reports = target / "reports"
+    nested = reports / "2026"
+    nested.mkdir(parents=True)
+    music = target / "music"
+    music.mkdir()
+    top_report = target / "annual reports.txt"
+    top_report.write_text("report", encoding="utf-8")
+    nested_named = target / "2026 review.txt"
+    nested_named.write_text("nested-name", encoding="utf-8")
+    song = target / "song music.mp3"
+    song.write_text("music", encoding="utf-8")
+
+    profile = load_profile(target, state_root=isolated_sorter_state)
+    save_profile(profile, enabled=True, quiet_seconds=0)
+
+    first = cli.run_enabled_profiles_once(state_root=isolated_sorter_state)
+    assert first[0]["moved_count"] == 0
+    second = cli.run_enabled_profiles_once(state_root=isolated_sorter_state)
+
+    report = second[0]
+    assert report["ok"] is True
+    assert report["moved_count"] == 2
+    assert report["unmatched_count"] == 1
+    report_destination = reports / "annual reports.txt"
+    music_destination = music / "song music.mp3"
+    assert report_destination.exists()
+    assert music_destination.exists()
+    assert not top_report.exists()
+    assert not song.exists()
+    for destination in (report_destination, music_destination):
+        assert destination.parent.parent == target
+    assert nested_named.exists()
+    assert not (nested / "2026 review.txt").exists()
+
+
 def test_new_keyword_scan_returns_only_the_selected_target(
     tmp_path: Path,
     monkeypatch: Any,

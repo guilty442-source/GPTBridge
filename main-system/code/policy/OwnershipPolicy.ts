@@ -1,5 +1,5 @@
-/**
- * OwnershipPolicy.ts ?�Module ownership and assignment policy (A325/A356).
+﻿/**
+ * OwnershipPolicy.ts ?嚙瞎odule ownership and assignment policy (A325/A356).
  *
  * Immutable data only. Defines how modules are assigned to sub-sovereigns.
  */
@@ -186,7 +186,7 @@ export const OWNERSHIP_ASSIGNMENTS: OwnershipAssignment[] = [
     modulePattern: 'src-core/core_system/daily_global_cleaner*',
     owner: 'synchronization-sovereign',
     primaryDomain: 'cleanup-retention',
-    capabilities: ['global-cleaner'],
+    capabilities: ['automatic-cleanup'],
     layer: 'infrastructure',
   },
   {

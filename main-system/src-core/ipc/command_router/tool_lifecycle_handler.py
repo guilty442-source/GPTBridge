@@ -45,9 +45,12 @@ class ToolLifecycleHandler:
                 "ok": False,
                 "message": f"Tool lifecycle handler '{handler_name}' is unavailable",
             }
-        result = (
-            await handler()
-            if command == "toolbox_list_tools"
-            else await handler(payload)
-        )
+        if command == "toolbox_list_tools":
+            return f"{command}_result", await handler()
+        if command in ("toolbox_request_tool_execution", "toolbox_run_tool"):
+            governed_command = (
+                str(payload.get("command") or "").strip() or command
+            )
+            payload = {**payload, "_governed_command": governed_command}
+        result = await handler(payload)
         return f"{command}_result", result

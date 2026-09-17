@@ -4,21 +4,15 @@ import os
 import socket
 import subprocess
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Final
 from startup_core.phases_execution import StartupPhaseExecutionMixin
 
 from startup_core.startup_config import (
-    bootstrap_phases as _cfg_bootstrap_phases,
-    dependency_manifest as _cfg_dependency_manifest,
-    port as _cfg_port,
     probe_constant as _cfg_probe,
 )
 
 from startup_core.phases_constants import (
-    BOOTSTRAP_PHASES,
-    DEPENDENCY_MANIFEST,
     OLLAMA_PORT,
     OLLAMA_PROBE_TIMEOUT,
     POSTGRES_CONNECT_TIMEOUT,

@@ -82,7 +82,14 @@ function resolveFromPath(name: string): string | null {
   }
 }
 
+let cachedRuntimePathLibrary: RuntimePathLibrary | null = null
+
 export function getRuntimePathLibrary(): RuntimePathLibrary {
+  // The resolved layout is immutable for the lifetime of this process, and
+  // each uncached call runs two execSync('where.exe ...') lookups that block
+  // the Electron main event loop — this function sits on hot paths (IPC
+  // session descriptor, per-probe workspace id, watchers), so resolve once.
+  if (cachedRuntimePathLibrary) return cachedRuntimePathLibrary
   const mode: RuntimeMode = app.isPackaged ? 'packaged' : 'source-production'
   const executableDir = toAbsolute(path.dirname(app.getPath('exe')))
   const packagedResourcesRoot = toAbsolute(path.join(executableDir, 'resources'))
@@ -150,7 +157,7 @@ export function getRuntimePathLibrary(): RuntimePathLibrary {
     firstExisting(pythonSourceRepairEntryCandidates) ??
     pythonSourceRepairEntryCandidates[0]
 
-  return {
+  cachedRuntimePathLibrary = {
     mode,
     executableDir,
     workspaceRoot,
@@ -168,4 +175,5 @@ export function getRuntimePathLibrary(): RuntimePathLibrary {
     bootCoreEntryCandidates,
     pythonSourceRepairEntryCandidates,
   }
+  return cachedRuntimePathLibrary
 }

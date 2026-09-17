@@ -27,6 +27,7 @@ SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
         "main-system/tests/test_project_10000_matrix.py",
         # ── governance_rule (codex + enforcement) ─────────────────────
         "governance_rule/tests/test_governance_health.py",
+        "governance_rule/tests/test_global_cleaner_retired.py",
         # ── shared-layer (central SQL index + channel) ────────────────
         "shared-layer/tests/test_shared_layer.py",
         "shared-layer/tests/test_shared_layer_sub_sovereign.py",
@@ -51,23 +52,6 @@ SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
         "Standalone tools/local-model/tests/test_capability_composer.py",
         "Standalone tools/local-model/tests/test_capability_evaluation.py",
         "Standalone tools/local-model/tests/test_coding_expert_1000_matrix.py",
-        # ── global-cleaner (backup + cleanup infrastructure) ─────────
-        "Standalone tools/global-cleaner/tests/test_global_cleaner_layering.py",
-        "Standalone tools/global-cleaner/tests/test_global_cleaner_precision.py",
-        "Standalone tools/global-cleaner/tests/test_governed_backup_and_repair.py",
-        "Standalone tools/global-cleaner/tests/test_managed_temp_cleanup.py",
-        "Standalone tools/global-cleaner/tests/test_ai_assistant_layering.py",
-        "Standalone tools/global-cleaner/tests/test_ai_collaboration_layering.py",
-        "Standalone tools/global-cleaner/tests/test_ai_channel_governance.py",
-        "Standalone tools/global-cleaner/tests/test_file_sorter_layering.py",
-        "Standalone tools/global-cleaner/tests/test_investment_mobile_governance.py",
-        "Standalone tools/global-cleaner/tests/test_investment_mobile_layering.py",
-        "Standalone tools/global-cleaner/tests/test_main_system_boundaries.py",
-        "Standalone tools/global-cleaner/tests/test_main_system_governance_health.py",
-        "Standalone tools/global-cleaner/tests/test_shared_layer_dual_channels.py",
-        "Standalone tools/global-cleaner/tests/test_shared_layer_ownership.py",
-        "Standalone tools/global-cleaner/tests/test_shared_layer_retention.py",
-        "Standalone tools/global-cleaner/tests/test_vaultly_layering.py",
         # ── ai-collaboration (governed browser automation) ───────────
         "Standalone tools/ai-collaboration/tests/test_ai_collaboration_routing.py",
         "Standalone tools/ai-collaboration/tests/test_ai_collaboration_workflows.py",
@@ -114,6 +98,15 @@ def _declared_self_health_test_files(
             )
             continue
         tool_id = str(manifest.get("id") or "").strip()
+        lifecycle = manifest.get("lifecycle")
+        if manifest.get("enabled") is False or (
+            isinstance(lifecycle, dict)
+            and str(lifecycle.get("status") or "").strip().casefold()
+            == "retired"
+        ):
+            # A533/A534: a retired owner is source lineage evidence, not a
+            # governed executable; it declares no collectable test barrier.
+            continue
         targets = manifest.get("test_targets")
         if not tool_id or not isinstance(targets, list) or not targets:
             errors.append(
@@ -212,7 +205,6 @@ _SELF_HEALTH_AREA_WEIGHTS: tuple[tuple[str, int], ...] = (
     ("Standalone tools/ai-assistant/", 3),
     ("governance_rule/", 2),
     ("main-system/", 2),
-    ("Standalone tools/global-cleaner/", 2),
 )
 
 
@@ -223,13 +215,9 @@ def _test_file_weight(relative_path: str) -> int:
     return 1
 
 
-# global-cleaner tests import the bare top-level ``backend`` package from
-# their own ``src`` root; collecting them together with another tool's test
-# files that pre-load a different ``backend`` root breaks their imports.
-# Files from an isolated area are therefore collected in dedicated batches.
-_SELF_HEALTH_ISOLATED_AREAS: tuple[str, ...] = (
-    "Standalone tools/global-cleaner/",
-)
+# A533/A534: retired owners (e.g. global-cleaner) keep no executable test
+# barrier; their historic suites are excluded from self-health collection.
+_SELF_HEALTH_ISOLATED_AREAS: tuple[str, ...] = ()
 
 
 def _balance_chunks(

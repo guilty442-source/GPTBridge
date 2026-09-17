@@ -204,9 +204,20 @@ class ToolLocalCleanup:
     removes git-tracked content.
     """
 
-    def __init__(self, tool_id: str, tool_root: Path | str) -> None:
+    def __init__(
+        self,
+        tool_id: str,
+        tool_root: Path | str,
+        *,
+        max_cleaned_bytes: int | None = None,
+    ) -> None:
         self.tool_id = tool_id
         self.tool_root = Path(tool_root).resolve()
+        self.max_cleaned_bytes = (
+            None
+            if max_cleaned_bytes is None
+            else max(0, int(max_cleaned_bytes))
+        )
         self._git_tracked: frozenset[str] | None = None
         self._git_tracked_loaded = False
 
@@ -327,6 +338,7 @@ class ToolLocalCleanup:
                 git_tracked, self._age_days, self._is_protected,
                 cleaned_directories, skipped,
                 [cleaned_bytes], [error_count],
+                byte_quota=self.max_cleaned_bytes,
             )
             directory_names[:] = kept
             _cleanup_matching_files(
@@ -334,6 +346,7 @@ class ToolLocalCleanup:
                 git_tracked, self._age_days,
                 cleaned_files, skipped,
                 [cleaned_bytes], [error_count],
+                byte_quota=self.max_cleaned_bytes,
             )
         
         _sweep_empty_directories(
@@ -367,8 +380,15 @@ def _dir_size(path: Path) -> int:
     return total
 
 
-def run_local_cleanup(tool_id: str, tool_root: Path | str) -> dict[str, Any]:
-    return ToolLocalCleanup(tool_id, tool_root)._emit_cleanup().as_dict()
+def run_local_cleanup(
+    tool_id: str,
+    tool_root: Path | str,
+    *,
+    max_cleaned_bytes: int | None = None,
+) -> dict[str, Any]:
+    return ToolLocalCleanup(
+        tool_id, tool_root, max_cleaned_bytes=max_cleaned_bytes
+    )._emit_cleanup().as_dict()
 
 
 __all__ = [

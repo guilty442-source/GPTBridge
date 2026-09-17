@@ -16,7 +16,6 @@ from typing import Any, Dict
 
 from managers.process_utils import terminate_process_tree
 
-from .toolbox_constants import _background_subprocess_kwargs
 from core_system.tool_isolation import get_isolation_manager
 from .toolbox_start_spawn_process import SpawnProcessMixin
 
@@ -90,17 +89,29 @@ class StartSpawnMixin(SpawnProcessMixin):
         source_entry = ctx["source_entry"]
 
         running_process_ids = (
-            self._running_source_runtime_process_ids(source_entry)
+            await asyncio.to_thread(
+                self._running_source_runtime_process_ids, source_entry
+            )
             if use_source_runtime and source_entry is not None
-            else self._running_executable_process_ids(executable_file)
+            else await asyncio.to_thread(
+                self._running_executable_process_ids, executable_file
+            )
         )
         if running_process_ids and use_source_runtime and source_entry is not None:
+            try:
+                get_isolation_manager(self.project_root).mark_expected_stop(tool_id)
+            except Exception:
+                pass
             await asyncio.to_thread(self._stop_running_source_runtime, source_entry)
             for _ in range(20):
-                if not self._running_source_runtime_process_ids(source_entry):
+                if not await asyncio.to_thread(
+                    self._running_source_runtime_process_ids, source_entry
+                ):
                     break
                 await asyncio.sleep(0.1)
-            running_process_ids = self._running_source_runtime_process_ids(source_entry)
+            running_process_ids = await asyncio.to_thread(
+                self._running_source_runtime_process_ids, source_entry
+            )
         if running_process_ids:
             await self._release_tool_process(request_id)
             if background or use_source_runtime:

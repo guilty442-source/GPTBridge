@@ -70,7 +70,6 @@ SANCTIONED_AUDIT_WRITERS: tuple[str, ...] = (
     "git_tiers/audit_chain.py",
     "git_tiers/audit_records.py",
     "git_tiers/registry_migration_engine.py",
-    "git_tiers/coordinator.py",
     "baseline/",
     "tests/",
 )
@@ -90,7 +89,6 @@ SANCTIONED_LOCKS: tuple[str, ...] = (
     "git_tiers/locks.py",
     "git_tiers/process_lock.py",
     "git_tiers/audit_chain.py",
-    "git_tiers/coordinator.py",
     "baseline/",
     "tests/",
 )

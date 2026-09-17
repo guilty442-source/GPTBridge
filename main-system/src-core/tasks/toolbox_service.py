@@ -98,8 +98,11 @@ class ToolboxService(
         self._process_state_lock = asyncio.Lock()
         self._central_repair: CentralRepairService | None = None
         # Manifest cache: tool_id -> (manifest_dict, tool_dir_path).
-        # Avoids re-reading manifest.json 3+ times per tool start.
+        # Avoids re-reading manifest.json 3+ times per tool start.  The
+        # mtime/size keys keep the cache fresh when a manifest is edited
+        # while the backend keeps running.
         self._manifest_cache: dict[str, tuple[Dict[str, Any], Path]] = {}
+        self._manifest_cache_keys: dict[str, tuple[int, int]] = {}
         # Reverse cache: tool_dir_name -> tool_id, for _tool_directory_for_id.
         self._tool_dir_index: dict[str, str] | None = None
         # Callback invoked on tool activity (set by Integration Sub-Sovereign
@@ -151,23 +154,11 @@ class ToolboxService(
         return await super()._request_central_repair(tool_id, tool_dir, manifest, failure)
 
     def _collect_orphaned_source_ui_ids(self, runtime_owner_tool_id: str) -> list[str]:
-        """Return companion source UI tool ids whose owner runtime session changed."""
+        """Return open UI tool ids whose owner runtime session changed."""
         orphaned_ui_ids: list[str] = []
-        for tool_dir in self._declared_companion_tool_directories():
-            try:
-                manifest = json.loads(
-                    (tool_dir / "manifest.json").read_text(encoding="utf-8")
-                )
-                tool_id = str(manifest.get("id") or "").strip()
-                owner = self._runtime_owner_tool_id(tool_id, manifest)
-            except (OSError, ValueError, PermissionError, json.JSONDecodeError):
-                continue
-            if (
-                not tool_id
-                or owner != runtime_owner_tool_id
-                or manifest.get("has_custom_ui") is not True
-            ):
-                continue
+        for tool_id, _tool_dir, _manifest in self._owner_runtime_ui_tools(
+            runtime_owner_tool_id
+        ):
             current_ui = self._source_ui_processes.get(tool_id)
             if current_ui is None or current_ui.returncode is not None:
                 continue

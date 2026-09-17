@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require('electron')
+const { app, BrowserView, BrowserWindow, dialog, ipcMain, Menu, shell } = require('electron')
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -99,7 +99,26 @@ function createWindow() {
     },
   })
   mainWindow.once('ready-to-show', showWindow)
+  // A tool window never keeps a browser view over unrelated UI: detach on
+  // minimize/hide, re-clamp on resize, close sessions with the window.
+  mainWindow.on('minimize', detachAllBrowserSessions)
+  mainWindow.on('hide', detachAllBrowserSessions)
+  mainWindow.on('resize', () => {
+    for (const session of browserSessions.values()) {
+      if (!session.visible || !session.bounds) continue
+      const clamped = clampBrowserBounds(session.bounds)
+      if (!clamped) {
+        detachBrowserSession(session)
+        continue
+      }
+      session.bounds = clamped
+      session.view.setBounds(clamped)
+    }
+  })
   mainWindow.on('closed', () => {
+    for (const sessionId of Array.from(browserSessions.keys())) {
+      closeBrowserSession(sessionId)
+    }
     mainWindow = null
   })
   void mainWindow.loadFile(rendererEntry)
@@ -182,85 +201,193 @@ ipcMain.handle('app:ensure-backend-started', async () => ({
   runtimeMode: 'governed-source',
 }))
 
-// Embedded browser: the BrowserView session store lives in the main-system
-// Electron process.  This host proxies the tool window's requests to that
-// process over its token-guarded loopback bridge.
-const EMBEDDED_BROWSER_CHANNELS = [
-  'create',
-  'navigate',
-  'execute',
-  'show',
-  'hide',
-  'close',
-  'resize',
-  'list',
-  'url',
-  'close-module',
-]
+// ---------------------------------------------------------------------------
+// Embedded browser — hosted INSIDE this tool window.
+//
+// Each tool window owns its BrowserView so web content appears inside the
+// external-collaboration UI.  The session store of the main-system process is
+// never used from here: a tool window can no longer cover the main system.
+// Invariants: sessions are created detached, bounds are clamped to this
+// window's content area, showing requires valid bounds, and the view detaches
+// when the window is minimized, hidden or closed.
+// ---------------------------------------------------------------------------
+const browserSessions = new Map()
 
-function callEmbeddedBrowserBridge(channel, args) {
-  return new Promise((resolve) => {
-    let state = null
+function clampBrowserBounds(bounds) {
+  if (!mainWindow || mainWindow.isDestroyed()) return null
+  const content = mainWindow.getContentBounds()
+  const raw = bounds && typeof bounds === 'object' ? bounds : {}
+  const x = Math.max(0, Math.min(Math.round(Number(raw.x) || 0), content.width))
+  const y = Math.max(0, Math.min(Math.round(Number(raw.y) || 0), content.height))
+  const width = Math.max(0, Math.min(Math.round(Number(raw.width) || 0), content.width - x))
+  const height = Math.max(0, Math.min(Math.round(Number(raw.height) || 0), content.height - y))
+  if (width < 1 || height < 1) return null
+  return { x, y, width, height }
+}
+
+function detachBrowserSession(session) {
+  if (session.visible && mainWindow && !mainWindow.isDestroyed()) {
     try {
-      const statePath = path.join(
-        workspaceRoot,
-        'main-system',
-        'runtime',
-        'state',
-        'embedded-browser-bridge.json'
-      )
-      state = JSON.parse(fs.readFileSync(statePath, 'utf8'))
+      mainWindow.removeBrowserView(session.view)
     } catch {
-      resolve({ ok: false, message: 'EMBEDDED_BROWSER_BRIDGE_UNAVAILABLE' })
-      return
+      // already detached
     }
-    const port = Number(state && state.port)
-    const token = String((state && state.token) || '')
-    const host = String((state && state.host) || '127.0.0.1')
-    if (!Number.isInteger(port) || port <= 0 || port > 65535 || !token) {
-      resolve({ ok: false, message: 'EMBEDDED_BROWSER_BRIDGE_INVALID' })
-      return
-    }
-    const body = JSON.stringify({ channel, args })
-    const request = require('node:http').request(
-      {
-        host,
-        port,
-        path: '/invoke',
-        method: 'POST',
-        timeout: 15_000,
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body),
-          'X-GPTBridge-Bridge-Token': token,
-        },
-      },
-      (response) => {
-        const chunks = []
-        response.on('data', (chunk) => chunks.push(chunk))
-        response.on('end', () => {
-          try {
-            resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')))
-          } catch {
-            resolve({ ok: false, message: 'EMBEDDED_BROWSER_BRIDGE_RESPONSE_INVALID' })
-          }
-        })
-      }
-    )
-    request.on('timeout', () => request.destroy())
-    request.on('error', () =>
-      resolve({ ok: false, message: 'EMBEDDED_BROWSER_BRIDGE_UNAVAILABLE' })
-    )
-    request.write(body)
-    request.end()
-  })
+  }
+  session.visible = false
 }
 
-for (const operation of EMBEDDED_BROWSER_CHANNELS) {
-  ipcMain.handle(`embedded-browser:${operation}`, (_event, args = {}) =>
-    callEmbeddedBrowserBridge(`embedded-browser:${operation}`, args || {})
-  )
+function createBrowserSession(id, ownerModule, url, bounds) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return { ok: false, message: 'MAIN_WINDOW_NOT_AVAILABLE' }
+  }
+  const existing = browserSessions.get(id)
+  if (existing) {
+    if (url) void existing.view.webContents.loadURL(url).catch(() => {})
+    existing.url = url || existing.url
+    if (bounds) existing.bounds = clampBrowserBounds(bounds)
+    return { ok: true, id, url: existing.url }
+  }
+  const view = new BrowserView({
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  })
+  if (url) void view.webContents.loadURL(url).catch(() => {})
+  browserSessions.set(id, {
+    id,
+    view,
+    ownerModule: String(ownerModule || ''),
+    url: String(url || ''),
+    bounds: bounds ? clampBrowserBounds(bounds) : null,
+    visible: false,
+  })
+  return { ok: true, id, url: String(url || '') }
 }
+
+function findBrowserSession(id) {
+  const session = browserSessions.get(String(id || ''))
+  return session || null
+}
+
+function resizeBrowserSession(id, bounds) {
+  const session = findBrowserSession(id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  const clamped = clampBrowserBounds(bounds)
+  if (!clamped) {
+    detachBrowserSession(session)
+    session.bounds = null
+    return { ok: true, hidden: true }
+  }
+  session.bounds = clamped
+  if (session.visible) session.view.setBounds(clamped)
+  return { ok: true, hidden: false }
+}
+
+function showBrowserSession(id) {
+  const session = findBrowserSession(id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return { ok: false, message: 'MAIN_WINDOW_NOT_AVAILABLE' }
+  }
+  const clamped = session.bounds ? clampBrowserBounds(session.bounds) : null
+  if (!clamped) return { ok: false, message: 'BROWSER_VIEW_BOUNDS_REQUIRED' }
+  session.bounds = clamped
+  if (!session.visible) {
+    mainWindow.addBrowserView(session.view)
+    session.visible = true
+  }
+  session.view.setBounds(clamped)
+  mainWindow.setTopBrowserView(session.view)
+  session.view.webContents.focus()
+  return { ok: true, bounds: clamped }
+}
+
+function hideBrowserSession(id) {
+  const session = findBrowserSession(id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  detachBrowserSession(session)
+  return { ok: true }
+}
+
+function closeBrowserSession(id) {
+  const session = findBrowserSession(id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  detachBrowserSession(session)
+  try {
+    session.view.webContents.destroy()
+  } catch {
+    // already destroyed
+  }
+  browserSessions.delete(session.id)
+  return { ok: true }
+}
+
+function closeModuleBrowserSessions(ownerModule) {
+  let closed = 0
+  for (const session of Array.from(browserSessions.values())) {
+    if (session.ownerModule !== String(ownerModule || '')) continue
+    detachBrowserSession(session)
+    try {
+      session.view.webContents.destroy()
+    } catch {
+      // already destroyed
+    }
+    browserSessions.delete(session.id)
+    closed += 1
+  }
+  return closed
+}
+
+function detachAllBrowserSessions() {
+  for (const session of browserSessions.values()) detachBrowserSession(session)
+}
+
+ipcMain.handle('embedded-browser:create', (_event, args = {}) =>
+  createBrowserSession(args.id, args.ownerModule, args.url, args.bounds)
+)
+ipcMain.handle('embedded-browser:navigate', (_event, args = {}) => {
+  const session = findBrowserSession(args.id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  session.url = String(args.url || '')
+  void session.view.webContents.loadURL(session.url).catch(() => {})
+  return { ok: true }
+})
+ipcMain.handle('embedded-browser:execute', async (_event, args = {}) => {
+  const session = findBrowserSession(args.id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  try {
+    const result = await session.view.webContents.executeJavaScript(String(args.script || ''))
+    return { ok: true, result }
+  } catch (error) {
+    return { ok: false, message: String(error) }
+  }
+})
+ipcMain.handle('embedded-browser:show', (_event, args = {}) => showBrowserSession(args.id))
+ipcMain.handle('embedded-browser:hide', (_event, args = {}) => hideBrowserSession(args.id))
+ipcMain.handle('embedded-browser:close', (_event, args = {}) => closeBrowserSession(args.id))
+ipcMain.handle('embedded-browser:resize', (_event, args = {}) =>
+  resizeBrowserSession(args.id, args.bounds)
+)
+ipcMain.handle('embedded-browser:list', () =>
+  Array.from(browserSessions.values()).map((session) => ({
+    id: session.id,
+    ownerModule: session.ownerModule,
+    url: session.url,
+  }))
+)
+ipcMain.handle('embedded-browser:url', (_event, args = {}) => {
+  const session = findBrowserSession(args.id)
+  if (!session) return { ok: false, url: null }
+  let url = session.url
+  try {
+    url = session.view.webContents.getURL() || session.url
+  } catch {
+    // keep the stored url
+  }
+  return { ok: true, url }
+})
+ipcMain.handle('embedded-browser:close-module', (_event, args = {}) => ({
+  ok: true,
+  closed: closeModuleBrowserSessions(args.ownerModule),
+}))
 
 ipcMain.handle('app:get-backend-session', async () => ({
   token: String(backendSessionUrl?.searchParams.get('token') || ''),

@@ -13,48 +13,114 @@
 import { app, BrowserView, BrowserWindow, ipcMain } from 'electron'
 import path from 'node:path'
 
+interface BrowserBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 interface EmbeddedBrowserSession {
   id: string
   view: BrowserView
   ownerModule: string
   url: string
   createdAt: number
+  bounds: BrowserBounds | null
+  visible: boolean
 }
 
 const sessions = new Map<string, EmbeddedBrowserSession>()
 let mainWindowRef: BrowserWindow | null = null
 
 /**
+ * Clamp bounds to the window content area.
+ *
+ * Returns null for zero/negative-size bounds so a hidden or collapsed panel
+ * can never produce a full-window overlay (the screen-pollution defect).
+ */
+function clampBounds(bounds: BrowserBounds): BrowserBounds | null {
+  if (!mainWindowRef || mainWindowRef.isDestroyed()) return null
+  const content = mainWindowRef.getContentBounds()
+  const x = Math.max(0, Math.min(Math.round(bounds.x), content.width))
+  const y = Math.max(0, Math.min(Math.round(bounds.y), content.height))
+  const width = Math.max(0, Math.min(Math.round(bounds.width), content.width - x))
+  const height = Math.max(0, Math.min(Math.round(bounds.height), content.height - y))
+  if (width < 1 || height < 1) return null
+  return { x, y, width, height }
+}
+
+function detachView(session: EmbeddedBrowserSession): void {
+  if (
+    session.visible &&
+    mainWindowRef &&
+    !mainWindowRef.isDestroyed()
+  ) {
+    mainWindowRef.removeBrowserView(session.view)
+  }
+  session.visible = false
+}
+
+/**
  * Register the main window reference so BrowserViews can be attached.
  * Called once during app initialization.
+ *
+ * Lifecycle guards: views detach when the window is minimized, hidden or
+ * closed, and visible bounds are re-clamped on resize, so an embedded
+ * browser can never linger over unrelated UI.
  */
 export function registerEmbeddedBrowser(mainWindow: BrowserWindow): void {
   mainWindowRef = mainWindow
+  const hideAll = (): void => {
+    for (const session of sessions.values()) detachView(session)
+  }
+  mainWindow.on('minimize', hideAll)
+  mainWindow.on('hide', hideAll)
+  mainWindow.on('closed', () => {
+    closeAllSessions()
+    mainWindowRef = null
+  })
+  mainWindow.on('resize', () => {
+    for (const session of sessions.values()) {
+      if (!session.visible || !session.bounds) continue
+      const clamped = clampBounds(session.bounds)
+      if (!clamped) {
+        detachView(session)
+        continue
+      }
+      session.bounds = clamped
+      session.view.setBounds(clamped)
+    }
+  })
 }
 
 /**
  * Create or reuse an embedded browser session for a given module + key.
  *
- * The BrowserView is attached to the main window and sized to the content area.
+ * The session starts DETACHED from the window: optional bounds are stored
+ * (clamped) but nothing is displayed until an explicit ``showSession``.
  * No external browser process is launched.
  */
 export function createSession(
   id: string,
   ownerModule: string,
   url: string,
-  bounds?: { x: number; y: number; width: number; height: number },
+  bounds?: BrowserBounds,
 ): { ok: boolean; id: string; url: string; message?: string } {
   if (!mainWindowRef || mainWindowRef.isDestroyed()) {
     return { ok: false, id, url, message: 'MAIN_WINDOW_NOT_AVAILABLE' }
   }
 
-  // Reuse existing session
+  // Sessions are created DETACHED: nothing appears on screen until an
+  // explicit showSession with valid, clamped bounds.  There is no
+  // full-window default, so creating a session can never pollute the UI.
   const existing = sessions.get(id)
   if (existing) {
     existing.view.webContents.loadURL(url).catch(() => {
       // navigation errors are non-fatal
     })
     existing.url = url
+    if (bounds) existing.bounds = clampBounds(bounds)
     return { ok: true, id, url }
   }
 
@@ -66,17 +132,6 @@ export function createSession(
     },
   })
 
-  mainWindowRef.addBrowserView(view)
-
-  const contentBounds = mainWindowRef.getContentBounds()
-  const viewBounds = bounds ?? {
-    x: 0,
-    y: 35,
-    width: contentBounds.width,
-    height: contentBounds.height - 35,
-  }
-  view.setBounds(viewBounds)
-
   view.webContents.loadURL(url).catch(() => {
     // navigation errors are non-fatal
   })
@@ -87,6 +142,8 @@ export function createSession(
     ownerModule,
     url,
     createdAt: Date.now(),
+    bounds: bounds ? clampBounds(bounds) : null,
+    visible: false,
   })
 
   return { ok: true, id, url }
@@ -146,29 +203,56 @@ export async function executeScript<T = unknown>(
  */
 export function resizeSession(
   id: string,
-  bounds: { x: number; y: number; width: number; height: number },
-): { ok: boolean; message?: string } {
+  bounds: BrowserBounds,
+): { ok: boolean; message?: string; hidden?: boolean } {
   const session = sessions.get(id)
   if (!session) {
     return { ok: false, message: 'SESSION_NOT_FOUND' }
   }
-  session.view.setBounds(bounds)
-  return { ok: true }
+  const clamped = clampBounds(bounds)
+  if (!clamped) {
+    detachView(session)
+    session.bounds = null
+    return { ok: true, hidden: true }
+  }
+  session.bounds = clamped
+  if (session.visible) {
+    session.view.setBounds(clamped)
+  }
+  return { ok: true, hidden: false }
 }
 
 /**
- * Show a session (bring to front).
+ * Show a session inside its clamped bounds (bring to front).
+ *
+ * A session without valid bounds stays hidden: showing it would otherwise
+ * create the full-window overlay that polluted the screen.
  */
-export function showSession(id: string): { ok: boolean; message?: string } {
+export function showSession(id: string): {
+  ok: boolean
+  message?: string
+  bounds?: BrowserBounds
+} {
   const session = sessions.get(id)
   if (!session) {
     return { ok: false, message: 'SESSION_NOT_FOUND' }
   }
-  if (mainWindowRef && !mainWindowRef.isDestroyed()) {
-    mainWindowRef.setTopBrowserView(session.view)
-    session.view.webContents.focus()
+  if (!mainWindowRef || mainWindowRef.isDestroyed()) {
+    return { ok: false, message: 'MAIN_WINDOW_NOT_AVAILABLE' }
   }
-  return { ok: true }
+  const clamped = session.bounds ? clampBounds(session.bounds) : null
+  if (!clamped) {
+    return { ok: false, message: 'BROWSER_VIEW_BOUNDS_REQUIRED' }
+  }
+  session.bounds = clamped
+  if (!session.visible) {
+    mainWindowRef.addBrowserView(session.view)
+    session.visible = true
+  }
+  session.view.setBounds(clamped)
+  mainWindowRef.setTopBrowserView(session.view)
+  session.view.webContents.focus()
+  return { ok: true, bounds: clamped }
 }
 
 /**
@@ -179,9 +263,7 @@ export function hideSession(id: string): { ok: boolean; message?: string } {
   if (!session) {
     return { ok: false, message: 'SESSION_NOT_FOUND' }
   }
-  if (mainWindowRef && !mainWindowRef.isDestroyed()) {
-    mainWindowRef.removeBrowserView(session.view)
-  }
+  detachView(session)
   return { ok: true }
 }
 
@@ -193,9 +275,7 @@ export function closeSession(id: string): { ok: boolean; message?: string } {
   if (!session) {
     return { ok: false, message: 'SESSION_NOT_FOUND' }
   }
-  if (mainWindowRef && !mainWindowRef.isDestroyed()) {
-    mainWindowRef.removeBrowserView(session.view)
-  }
+  detachView(session)
   ;(session.view.webContents as unknown as { destroy?: () => void }).destroy?.()
   sessions.delete(id)
   return { ok: true }

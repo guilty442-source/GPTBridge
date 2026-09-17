@@ -74,14 +74,22 @@ class RepairDecisionChain:
         repairable under current policy — and the routing through
         permission validation and governed execution.
 
-        User-confirmation gate: while ``automatic_repair_execution`` is
-        disabled, no repair is decided or executed here unless the call
-        carries ``user_confirmed=True`` (an explicit per-item confirmation
-        that also required the operator release switch).
+        User-confirmation gate: the A366 execution gate applies to repair
+        *mutations* (source-code changes).  Stability-tier recovery
+        (``action == "runtime-recovery"`` — owned-database inspection and
+        governed artifact rebuild, no source mutation) is the sanctioned
+        ``automatic_repair`` scope (``restore-system-stability-only``) and
+        proceeds without the per-item confirmation gate, exactly like the
+        start-failure rebuild path.
         """
         from .auto_action_policy import automatic_repair_execution_allowed
 
-        if not automatic_repair_execution_allowed() and not user_confirmed:
+        tier = self._repair_tier(classified_signal)
+        if (
+            tier == "mutation"
+            and not automatic_repair_execution_allowed()
+            and not user_confirmed
+        ):
             return {
                 "ok": False,
                 "decision": "awaiting-user-confirmation",
@@ -112,8 +120,11 @@ class RepairDecisionChain:
                 **classified_signal,
             }
 
-        # ── Step 3: dispatch to system-programming (code change) ──
-        execution = self._dispatch_to_programming(classified_signal, decision)
+        # ── Step 3: dispatch (E127: runtime action vs code change) ──
+        if tier == "stability":
+            execution = self._dispatch_to_runtime(classified_signal, decision)
+        else:
+            execution = self._dispatch_to_programming(classified_signal, decision)
 
         # ── Step 4: independent verification ──
         verification = self._verify_independent(classified_signal, execution)
@@ -144,15 +155,17 @@ class RepairDecisionChain:
         action = str(diagnosis.get("action") or "")
         error_type = str(classified_signal.get("error_type") or "")
 
-        # Only targeted (indentation/syntax family) errors are repairable.
-        if action != "targeted":
+        # Repairable classes: ``targeted`` (indentation/syntax family,
+        # mutation tier — A366 confirmation-gated) and ``runtime-recovery``
+        # (stability tier — non-mutating governed recovery).
+        if action not in ("targeted", "runtime-recovery"):
             return {
                 "repairable": False,
-                "reason": f"action={action}; not targetable",
+                "reason": f"action={action}; not repairable",
                 "error_type": error_type,
             }
 
-        # Dev mode: never repair source automatically.
+        # Dev mode: never repair automatically.
         if os.environ.get("GPTBRIDGE_RENDERER_DEV_URL"):
             return {
                 "repairable": False,
@@ -160,11 +173,108 @@ class RepairDecisionChain:
                 "error_type": error_type,
             }
 
+        if action == "runtime-recovery" and not str(
+            diagnosis.get("tool_id") or ""
+        ):
+            return {
+                "repairable": False,
+                "reason": "runtime-recovery requires diagnosis.tool_id",
+                "error_type": error_type,
+            }
+
+        learned = self._learned_remedy(classified_signal)
+        if learned.get("ineffective"):
+            return {
+                "repairable": False,
+                "reason": (
+                    "learned-ineffective-remedy; escalate for "
+                    "user-confirmed alternative"
+                ),
+                "error_type": error_type,
+                "learned": learned,
+            }
+
         return {
             "repairable": True,
             "error_type": error_type,
             "diagnosis": diagnosis,
+            "repair_tier": self._repair_tier(classified_signal),
+            "learned": learned,
         }
+
+    # ------------------------------------------------------------------
+    # Repair tier + learned-remedy consultation
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _repair_tier(classified_signal: dict[str, Any]) -> str:
+        """Classify the repair into ``mutation`` or ``stability`` tier.
+
+        ``mutation`` (``action == "targeted"``) changes source code and is
+        A366 confirmation-gated.  ``stability`` (``action ==
+        "runtime-recovery"``) is non-mutating governed recovery — owned-
+        database inspection plus artifact rebuild — the sanctioned
+        ``automatic_repair`` scope (restore-system-stability-only).
+        """
+        diagnosis = classified_signal.get("diagnosis") or {}
+        if str(diagnosis.get("action") or "") == "runtime-recovery":
+            return "stability"
+        return "mutation"
+
+    def _learned_remedy(self, classified_signal: dict[str, Any]) -> dict[str, Any]:
+        """Consult the repair-learning store for this fault signature.
+
+        The learning loop closes here: promoted error→remedy patterns are
+        consulted before dispatch, and a remedy that repeatedly failed for
+        this exact signature is suppressed so the chain escalates instead
+        of burning retries on a proven-ineffective action.
+        """
+        empty: dict[str, Any] = {"suggested": False, "ineffective": False}
+        maintenance = getattr(self.app, "maintenance_sovereign", None)
+        suggest = getattr(maintenance, "suggest_remedy", None)
+        if suggest is None:
+            return empty
+        error_type = str(classified_signal.get("error_type") or "Unknown")
+        target_file = str(classified_signal.get("target_file") or "")
+        try:
+            suggestion = suggest(
+                error_class=error_type, message="", file_path=target_file
+            )
+        except Exception:
+            return empty
+        # ``suggest_remedy`` attaches ``_learning_store``/``_learner``
+        # lazily; read them after the call.
+        store = getattr(maintenance, "_learning_store", None)
+        result: dict[str, Any] = {"suggested": False, "ineffective": False}
+        if isinstance(suggestion, dict) and suggestion.get("suggested"):
+            result.update(
+                {
+                    "suggested": True,
+                    "remedy": str(suggestion.get("remedy") or ""),
+                    "success_rate": suggestion.get("success_rate"),
+                    "occurrence_count": suggestion.get("occurrence_count"),
+                }
+            )
+        # Suppression: the same signature's most recent outcomes all failed
+        # with the remedy this tier would apply — the remedy is learned to
+        # be ineffective for this fault, so escalate rather than retry.
+        outcomes: list[dict[str, Any]] = []
+        if store is not None:
+            try:
+                from tasks.repair_learning import _normalize_error_signature
+
+                signature_hash = _normalize_error_signature(
+                    error_type, "", file_path=target_file
+                )
+                outcomes = store.get_outcomes_for_signature(
+                    signature_hash, limit=3
+                )
+            except Exception:
+                outcomes = []
+        if len(outcomes) >= 2 and all(not o.get("ok") for o in outcomes):
+            result["ineffective"] = True
+            result["suppressed_remedy"] = str(outcomes[0].get("remedy") or "")
+        return result
 
     # ------------------------------------------------------------------
     # Step 2: Permission validation
@@ -185,13 +295,28 @@ class RepairDecisionChain:
                 "reason": "permission-sovereign-unavailable",
             }
 
+        diagnosis = classified_signal.get("diagnosis") or {}
+        if self._repair_tier(classified_signal) == "stability":
+            tool_id = str(diagnosis.get("tool_id") or "")
+            capability = "system-repair"
+            action = "runtime-recovery"
+            target = tool_id
+            data_scope = f"{tool_id}/runtime/"
+            target_tool_id = tool_id or "main-system"
+        else:
+            capability = "system-repair"
+            action = "source-repair"
+            target = str(classified_signal.get("target_file") or "")
+            data_scope = "main-system"
+            target_tool_id = "main-system"
+
         try:
             permission_sovereign.authorize(
-                capability="system-repair",
-                action="source-repair",
-                target=str(classified_signal.get("target_file") or ""),
-                data_scope="main-system",
-                target_tool_id="main-system",
+                capability=capability,
+                action=action,
+                target=target,
+                data_scope=data_scope,
+                target_tool_id=target_tool_id,
             )
             return {"authorized": True}
         except PermissionError:
@@ -254,6 +379,56 @@ class RepairDecisionChain:
             }
 
     # ------------------------------------------------------------------
+    # Step 3b: Dispatch to runtime recovery (stability tier, no mutation)
+    # ------------------------------------------------------------------
+
+    def _dispatch_to_runtime(
+        self,
+        classified_signal: dict[str, Any],
+        decision: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Delegate non-mutating runtime recovery to the governed executor.
+
+        Per E127: ``RUNTIME-ACTION:system-runtime`` and the
+        ``automatic_repair`` policy (restore-system-stability-only,
+        ``main-system-executes-central-repair-with-target-isolated-
+        database-only``).  The recovery is the governed central-repair
+        path used by the start-failure flow: owned-database inspection
+        and preservation plus, when a verified recipe applies, an
+        artifact rebuild through the governed package rebuilder.  No
+        source code is mutated here.
+        """
+        diagnosis = classified_signal.get("diagnosis") or {}
+        tool_id = str(diagnosis.get("tool_id") or "")
+        project_root = Path(getattr(self.app, "project_root", ".") or ".")
+        failure_code = str(
+            classified_signal.get("failure_code") or "TOOL_RUNTIME_CRASH"
+        )
+
+        try:
+            from tasks.central_repair import CentralRepairService
+            from tasks.package_rebuilder import ToolPackageRebuilder
+
+            repair_root = project_root / "main-system" / "data" / "automatic-repair"
+            repair_root.mkdir(parents=True, exist_ok=True)
+            service = CentralRepairService(project_root, repair_root)
+            rebuilder = ToolPackageRebuilder(project_root, project_root / "main-system")
+            result = service.repair_tool(
+                tool_id,
+                failure_code,
+                package_rebuilder=rebuilder.rebuild,
+            )
+            result["dispatch"] = "system-runtime"
+            result["learned"] = decision.get("learned") or {}
+            return result
+        except Exception as error:
+            return {
+                "ok": False,
+                "dispatch": "system-runtime",
+                "reason": f"{type(error).__name__}: {error}",
+            }
+
+    # ------------------------------------------------------------------
     # Step 4: Independent verification
     # ------------------------------------------------------------------
 
@@ -275,6 +450,23 @@ class RepairDecisionChain:
 
         if execution.get("skipped"):
             return {"ok": False, "reason": f"skipped: {execution.get('reason')}"}
+
+        if self._repair_tier(classified_signal) == "stability":
+            # Runtime recovery is verified by the governed executor's own
+            # bounded workflow verdict plus the surviving audit evidence:
+            # the repair ran its inspection/rebuild steps under a
+            # permission-validated scope and reported a completed or
+            # evidence-only workflow.  A report of errors fails closed.
+            if execution.get("errors"):
+                return {
+                    "ok": False,
+                    "reason": f"runtime-recovery-errors: {execution.get('errors')}",
+                }
+            return {
+                "ok": True,
+                "verification": "runtime-recovery-verified",
+                "workflow_status": execution.get("workflow_status"),
+            }
 
         # Independent re-compile: read the file from disk and compile it.
         from tasks.source_repair import syntax_problems

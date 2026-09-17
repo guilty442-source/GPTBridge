@@ -101,16 +101,20 @@ def run_upgrade_auto_repair(
     *,
     service_factory: type | None = None,
 ) -> dict[str, Any]:
-    """Return an owner-tool request instead of importing tool business code."""
+    """Report the frozen upgrade auto-repair capability.
 
+    A533/A534: the standalone global-cleaner that executed governed
+    upgrade repair requests is retired and non-executable.  No spawn path
+    may be produced for it; callers receive an explicit frozen-capability
+    result instead of a request the system could never honor.
+    """
+
+    del project_root, service_factory
     return {
         "ok": False,
-        "error_code": "TOOL_EXECUTION_REQUEST_REQUIRED",
-        "message": "Global Cleaner must execute this request under its own identity",
-        "request": {
-            "command": "toolbox_request_tool_execution",
-            "tool_id": "global-cleaner",
-            "args": ["--repair-anomalies", "--scope", "global", "--json"],
-            "project_boundary": str(project_root.resolve()),
-        },
+        "error_code": "CAPABILITY_FROZEN_GOVERNANCE_BOUNDARY",
+        "message": (
+            "Managed upgrade auto-repair belongs to the retired "
+            "global-cleaner and is non-executable (A533/A534)"
+        ),
     }

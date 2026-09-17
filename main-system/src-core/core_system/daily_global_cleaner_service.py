@@ -1,10 +1,14 @@
-"""Daily global cleaner service — facade.
+"""Automatic cleanup service — facade.
 
 This module provides the DailyGlobalCleanerService class.  The module
 self-cleanup sweep lives in
 :mod:`core_system.daily_global_cleaner_service_sweep`.
 
-Maintenance-owned daily trigger for the governed Global Cleaner.
+A533/A534: the standalone global-cleaner tool is retired and
+non-executable.  Automatic cleanup is owned in-process by the
+health-maintenance-test-sub-sovereign through this main-system internal
+service (bounded temp/cache/expired-log/orphan residue cleanup, retired
+trash residue revalidation, central audit events, fail-open execution).
 """
 
 from __future__ import annotations
@@ -23,17 +27,25 @@ from .daily_global_cleaner_service_run import DailyGlobalCleanerRunMixin
 
 
 class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleanerRunMixin):
-    """Maintenance-owned daily trigger for the governed Global Cleaner."""
+    """Maintenance-owned scheduling of the main-system internal cleanup."""
 
     INTERVAL_SECONDS = 24 * 60 * 60
     FAILURE_RETRY_SECONDS = 15 * 60
     STARTUP_DELAY_SECONDS = 60
-    RESPONSE_TIMEOUT_SECONDS = 30 * 60
     MODULE_CLEANUP_COMMAND = "toolbox_run_local_cleanup"
     MODULE_CLEANUP_TIMEOUT_SECONDS = 90
     STALE_RECORD_SECONDS = 2 * 24 * 60 * 60
     IN_PROCESS_MODULE_IDS = ("main-system",)
     EXCLUDED_MODULE_IDS = frozenset({"governance_rule"})
+    # Bounded cycle budget: never clean more than 1 GiB per daily cycle and
+    # never sweep more than a fixed number of retired trash roots.
+    CYCLE_BYTE_QUOTA = 1024 * 1024 * 1024
+    MAX_MODULES_PER_CYCLE = 16
+    TRASH_MAX_MODULES_PER_CYCLE = 4
+    ARCHITECTURE_REGISTRY_PATH = (
+        "governance_rule/execution/audit/architecture_registry.json"
+    )
+    TRASH_SCHEDULE_NAME = "trash-cleanup-schedule.json"
 
     def __init__(self, app: Any) -> None:
         self.app = app
@@ -122,18 +134,38 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
 
     def status(self) -> dict[str, Any]:
         state = self._load_state()
+        trash_schedule: dict[str, Any] = {}
+        try:
+            loaded = json.loads(
+                (self.state_path.parent / self.TRASH_SCHEDULE_NAME).read_text(
+                    encoding="utf-8"
+                )
+            )
+            if isinstance(loaded, dict):
+                trash_schedule = loaded
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            pass
         return {
             "enabled": True,
             "owner": "health-maintenance-test-sub-sovereign",
-            "executor": "global-cleaner",
-            "channel": "governance-authenticated-shared-layer",
+            "executor": "main-system-internal-cleanup",
+            "channel": "in-process-bounded-cleanup",
             "interval_hours": 24,
             "last_started_at": state.get("last_started_at", ""),
             "last_completed_at": state.get("last_completed_at", ""),
             "last_ok": state.get("last_ok"),
             "failure_retry_minutes": self.FAILURE_RETRY_SECONDS // 60,
             "next_due_epoch": self._next_due_epoch(state),
+            "quota": {
+                "cycle_bytes": self.CYCLE_BYTE_QUOTA,
+                "max_modules_per_cycle": self.MAX_MODULES_PER_CYCLE,
+                "trash_max_modules_per_cycle": self.TRASH_MAX_MODULES_PER_CYCLE,
+            },
             "module_cleanup": state.get("module_cleanup"),
+            "last_outcome": state.get("last_outcome"),
+            "quarantine_retention": state.get("quarantine_retention"),
+            "orphan_classification": state.get("orphan_classification"),
+            "trash_cleanup_schedule": trash_schedule,
         }
 
     def module_cleanup_status(self) -> dict[str, Any]:
@@ -142,6 +174,79 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
         state = self._load_state()
         report = state.get("module_cleanup")
         return dict(report) if isinstance(report, dict) else {}
+
+    def _trash_candidates(self) -> list[dict[str, Any]]:
+        """Registry-classified retired trash roots, revalidated per cycle.
+
+        The inspection schedule is advisory: only component ids that are
+        still classified ``trash`` + ``retired`` in the *current*
+        architecture registry are returned, so the schedule can never
+        resurrect or widen the deletion scope by itself.
+        """
+        try:
+            from tasks.repair_inspection import classify_trash_modules
+        except Exception:
+            return []
+        try:
+            classified = classify_trash_modules(Path(self.app.project_root))
+        except Exception:
+            return []
+        scheduled: set[str] = set()
+        try:
+            payload = json.loads(
+                (self.state_path.parent / self.TRASH_SCHEDULE_NAME).read_text(
+                    encoding="utf-8"
+                )
+            )
+            candidate_ids = (
+                payload.get("candidate_ids")
+                if isinstance(payload, dict)
+                else None
+            )
+            if isinstance(candidate_ids, list):
+                scheduled = {
+                    str(item).strip()
+                    for item in candidate_ids
+                    if str(item).strip()
+                }
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            scheduled = set()
+        if not scheduled:
+            return classified
+        return [
+            item
+            for item in classified
+            if str(item.get("component_id") or "") in scheduled
+        ]
+
+    def _record_cleanup_audit(self, outcome: dict[str, Any]) -> str:
+        """Append one bounded central-audit event; never raises (fail-open)."""
+
+        try:
+            from .audit_integration import build_audit_adapter
+
+            adapter = build_audit_adapter(self.app, fail_open=True)
+            return adapter.record_event(
+                action="automatic-cleanup",
+                outcome=(
+                    "success"
+                    if bool(outcome.get("findings", {}).get("modules", {}).get("ok"))
+                    and outcome.get("findings", {}).get("trash", {}).get("ok")
+                    is not False
+                    else "failure"
+                ),
+                actor_id="governance/main-system",
+                resource_id="main-system-internal-cleanup",
+                correlation_id=str(outcome.get("request_id") or ""),
+                details={
+                    "scope": ",".join(outcome.get("scope") or ()),
+                    "cleaned_bytes": int(outcome.get("cleaned_bytes") or 0),
+                    "duration_seconds": outcome.get("duration_seconds", 0),
+                    "byte_quota": int(outcome.get("byte_quota") or 0),
+                },
+            )
+        except Exception:
+            return "unavailable"
 
     def is_due(self, now: float | None = None) -> bool:
         current = time.time() if now is None else float(now)

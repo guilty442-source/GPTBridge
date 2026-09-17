@@ -1,3 +1,15 @@
+"""Model-Dialogue lightweight governed runtime entry.
+
+Design (governor directive 2026-09-17): the model dialogue must open WITHOUT
+starting the local model.  This runtime serves the dialogue UI under the
+sealed ``model-dialogue`` identity and never loads model weights: startup
+binds the governed AI channel only, and `star_chat_status`/
+`star_chat_send_message` reach xingcheng (the model owner) on demand through
+the authorized `model-dialogue -> xingcheng` AI route.  When the model is
+not running the service answers with the typed `AI_CHANNEL_NOT_CONNECTED`
+state and the UI shows "model not ready".
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -7,21 +19,30 @@ from pathlib import Path
 from typing import Any
 
 
-TOOL_ID = "star-chat"
+TOOL_ID = "model-dialogue"
 ROOT = Path(os.environ.get("GPTBRIDGE_GOVERNANCE_PROJECT_ROOT")).resolve()
 TOOL_ROOT = Path(
-    os.environ.get("GPTBRIDGE_TOOL_DIR", ROOT / "Standalone tools" / "local-model" / "model-dialogue")
+    os.environ.get(
+        "GPTBRIDGE_TOOL_DIR",
+        ROOT / "Standalone tools" / "local-model" / "model-dialogue",
+    )
 ).resolve()
-CANONICAL_TOOL_ROOT = (ROOT / "Standalone tools" / "local-model" / "model-dialogue").resolve()
+CANONICAL_TOOL_ROOT = (
+    ROOT / "Standalone tools" / "local-model" / "model-dialogue"
+).resolve()
+DIALOGUE_SERVICE_ROOT = (
+    TOOL_ROOT / "src" / "backend" / "services"
+).resolve()
 if (
     not ROOT.is_dir()
     or TOOL_ROOT != CANONICAL_TOOL_ROOT
     or not TOOL_ROOT.is_dir()
+    or not DIALOGUE_SERVICE_ROOT.is_dir()
 ):
     raise PermissionError("PERMISSION_DENIED")
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
-sys.path.insert(0, str(TOOL_ROOT / "src" / "backend" / "services"))
+sys.path.insert(0, str(DIALOGUE_SERVICE_ROOT))
 
 from governance_rule.permission_directory.registries.permissions.tool_routes import (  # noqa: E402
     authorize_ai_target,
@@ -66,6 +87,31 @@ async def execute(
     )
 
 
+def health_payload() -> dict[str, Any]:
+    """Model-optional health: the dialogue is ready without model weights."""
+    return {
+        "service_ready": True,
+        "model_service_owner": "xingcheng",
+        "model_required_for_startup": False,
+        "settings_owner": "model-dialogue",
+        "business_layer_owner": "model-dialogue",
+        "permission_profile": "local-model-platform-v1",
+        "cache_owner": "model-dialogue",
+        "cache_storage": "model-dialogue/runtime/cache",
+        "backup_owner": "model-dialogue",
+        "backup_storage": "global-cleaner/data/business/backups/model-dialogue",
+        "main_system_independent_tool": True,
+        "companion_tool": False,
+        "companion_owner": "",
+        "database_shared": True,
+        "separate_business_layer": False,
+        "separate_settings_layer": False,
+        "automatic_workflow": True,
+        "primary_language": "zh-TW",
+        "workflow_sequence": list(service.AUTOMATIC_WORKFLOW_SEQUENCE),
+    }
+
+
 async def main() -> None:
     global active_runtime
     runtime = GovernedToolRuntime(
@@ -75,26 +121,7 @@ async def main() -> None:
         startup=service.start,
         shutdown=service.shutdown,
         cancellation=service.cancel_request,
-        health=lambda: {
-            "service_ready": True,
-            "model_service_owner": "xingcheng",
-            "settings_owner": "xingcheng",
-            "business_layer_owner": "xingcheng",
-            "permission_profile": "local-model-platform-v1",
-            "cache_owner": "xingcheng",
-            "cache_storage": "local-model/runtime/cache/companions/star-chat",
-            "backup_owner": "xingcheng",
-            "backup_storage": "global-cleaner/data/business/backups/xingcheng",
-            "main_system_independent_tool": False,
-            "companion_tool": True,
-            "companion_owner": "xingcheng",
-            "database_shared": True,
-            "separate_business_layer": False,
-            "separate_settings_layer": False,
-            "automatic_workflow": True,
-            "primary_language": "zh-TW",
-            "workflow_sequence": list(service.AUTOMATIC_WORKFLOW_SEQUENCE),
-        },
+        health=health_payload,
         channel_modes={"ai": "submit"},
     )
     service.bind_channel(runtime.channel_for("ai"))

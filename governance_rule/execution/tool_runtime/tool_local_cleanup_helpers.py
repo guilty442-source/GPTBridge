@@ -35,6 +35,8 @@ def _cleanup_matching_directories(
     skipped: list[dict[str, str]],
     cleaned_bytes_ref: list[int],
     error_count_ref: list[int],
+    *,
+    byte_quota: int | None = None,
 ) -> list[str]:
     """Process matching directories for cleanup. Returns kept_directories."""
     current_raw = Path(walk_root)
@@ -86,14 +88,27 @@ def _cleanup_matching_directories(
                     }
                 )
                 continue
+            directory_bytes = _dir_size(candidate)
+            if (
+                byte_quota is not None
+                and cleaned_bytes_ref[0] + directory_bytes > byte_quota
+            ):
+                skipped.append(
+                    {
+                        "path": relative_dir.as_posix(),
+                        "reason": "cleanup byte quota reached",
+                    }
+                )
+                continue
             try:
                 if matched_rule.get("contents_only"):
                     _emit_contents(candidate, tool_root)
+                    cleaned_bytes_ref[0] += directory_bytes
                     cleaned_directories.append(
                         relative_dir.as_posix()
                     )
                     continue
-                cleaned_bytes_ref[0] += _dir_size(candidate)
+                cleaned_bytes_ref[0] += directory_bytes
                 _remove_path(candidate)
                 cleaned_directories.append(relative_dir.as_posix())
             except OSError as error:
@@ -122,6 +137,8 @@ def _cleanup_matching_files(
     skipped: list[dict[str, str]],
     cleaned_bytes_ref: list[int],
     error_count_ref: list[int],
+    *,
+    byte_quota: int | None = None,
 ) -> None:
     """Process matching files for cleanup."""
     current_raw = Path(walk_root)
@@ -159,7 +176,29 @@ def _cleanup_matching_files(
         if age_days < float(rule["min_age_days"]):
             continue
         try:
-            cleaned_bytes_ref[0] += candidate.stat(follow_symlinks=False).st_size
+            file_bytes = candidate.stat(follow_symlinks=False).st_size
+        except OSError as error:
+            error_count_ref[0] += 1
+            skipped.append(
+                {
+                    "path": relative_file,
+                    "reason": f"{type(error).__name__}: {error}",
+                }
+            )
+            continue
+        if (
+            byte_quota is not None
+            and cleaned_bytes_ref[0] + file_bytes > byte_quota
+        ):
+            skipped.append(
+                {
+                    "path": relative_file,
+                    "reason": "cleanup byte quota reached",
+                }
+            )
+            continue
+        try:
+            cleaned_bytes_ref[0] += file_bytes
             _remove_path(candidate)
             cleaned_files.append(relative_file)
         except OSError as error:

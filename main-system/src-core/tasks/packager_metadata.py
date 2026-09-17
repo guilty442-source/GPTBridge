@@ -91,6 +91,54 @@ def resolve_executable_name(tool_id: str, manifest: dict[str, Any]) -> str:
     return tool_id
 
 
+def _iter_nested_independent_tool_dirs() -> list[Path]:
+    """Declared-independent tools hosted inside a top-level tool root.
+
+    e.g. model-dialogue under local-model; it declares independence rather
+    than appearing as a companion declaration.
+    """
+    nested: list[Path] = []
+    if not PLATFORM_TOOLS_DIR.exists():
+        return nested
+    for host_dir in sorted(PLATFORM_TOOLS_DIR.iterdir(), key=lambda item: item.name.lower()):
+        if not host_dir.is_dir() or not (host_dir / "manifest.json").is_file():
+            continue
+        for manifest_path in sorted(host_dir.rglob("manifest.json")):
+            if manifest_path.parent == host_dir:
+                continue
+            manifest = load_manifest(manifest_path.parent)
+            if not manifest or manifest.get("main_system_independent_tool") is not True:
+                continue
+            if manifest.get("companion_tool") is True:
+                continue
+            lifecycle = manifest.get("lifecycle")
+            if manifest.get("enabled") is False or (
+                isinstance(lifecycle, dict)
+                and str(lifecycle.get("status") or "").casefold() == "retired"
+            ):
+                continue
+            nested.append(manifest_path.parent)
+    return nested
+
+
+def _append_nested_independent_tools(
+    tools: list[tuple[str, Path, dict[str, Any]]],
+    selected_ids: set[str] | None,
+) -> None:
+    known_ids = {tool_id for tool_id, _, _ in tools}
+    for tool_dir in _iter_nested_independent_tool_dirs():
+        manifest = load_manifest(tool_dir)
+        if not manifest:
+            continue
+        tool_id = str(manifest.get("id", tool_dir.name)).strip() or tool_dir.name
+        if tool_id in known_ids:
+            continue
+        if selected_ids is not None and tool_id not in selected_ids:
+            continue
+        known_ids.add(tool_id)
+        tools.append((tool_id, tool_dir, manifest))
+
+
 def iter_tools(
     selected_ids: set[str] | None,
     *,
@@ -105,6 +153,18 @@ def iter_tools(
             continue
         manifest = load_manifest(tool_dir)
         if not manifest:
+            continue
+        labels = manifest.get("labels")
+        if (
+            manifest.get("enabled") is False
+            or (
+                isinstance(manifest.get("lifecycle"), dict)
+                and str(manifest["lifecycle"].get("status") or "").casefold()
+                == "retired"
+            )
+            or isinstance(labels, list)
+            and any(str(label).casefold() == "trash" for label in labels)
+        ):
             continue
         tool_id = str(manifest.get("id", tool_dir.name)).strip() or tool_dir.name
         distribution = manifest.get("distribution")
@@ -126,6 +186,7 @@ def iter_tools(
         if selected_ids is not None and tool_id not in selected_ids:
             continue
         tools.append((tool_id, tool_dir, manifest))
+    _append_nested_independent_tools(tools, selected_ids)
     return tools
 
 

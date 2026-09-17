@@ -1,5 +1,5 @@
-/**
- * NativePromotionPolicy.ts ?�Native Promotion Policy (A357/A358).
+﻿/**
+ * NativePromotionPolicy.ts ?ative Promotion Policy (A357/A358).
  *
  * Immutable data only. Stores per-capability latency_budget, cpu_budget,
  * memory_budget, throughput_target, minimum_meaningful_improvement.
@@ -157,8 +157,8 @@ export const NATIVE_PROMOTION_POLICIES: NativePromotionPolicy[] = [
     promotionStatus: 'not-needed',
   },
   {
-    capabilityId: 'global-cleaner',
-    capabilityName: 'Global Cleaner',
+    capabilityId: 'automatic-cleanup',
+    capabilityName: 'Main-System Internal Automatic Cleanup',
     pythonOwner: 'health-maintenance-test-sub-sovereign',
     latencyBudgetMs: 300000,
     cpuBudgetPercent: 50,

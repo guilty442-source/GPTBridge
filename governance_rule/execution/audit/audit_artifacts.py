@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import governance_rule.execution.git_tiers
@@ -11,6 +12,24 @@ from governance_rule.execution.codex_repository import (
     format_codex_version,
     load_governance_codex,
 )
+
+
+_TEXT_POLLUTION = re.compile(
+    r"\?{2,}|\ufffd|\ufeff|ï»¿|Ã.|Â.|â(?:€|€™|€œ|€\x9d)|[\ue000-\uf8ff]"
+)
+
+
+def _contains_text_pollution(value: object) -> bool:
+    """Return whether a nested Codex value contains lossy or invalid text."""
+    if isinstance(value, str):
+        return bool(_TEXT_POLLUTION.search(value)) or any(
+            ord(character) < 32 and character not in "\n\r\t" for character in value
+        )
+    if isinstance(value, dict):
+        return any(_contains_text_pollution(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_contains_text_pollution(item) for item in value)
+    return False
 
 
 def check_codex_consistency(root: Path, errors: list[str]) -> None:
@@ -44,6 +63,17 @@ def check_codex_consistency(root: Path, errors: list[str]) -> None:
     ):
         if required_table not in tables:
             errors.append(f"Chinese codex metadata is missing: {required_table}")
+    if _contains_text_pollution(tables):
+        errors.append("Codex or Chinese codex contains text pollution")
+    architecture_root = root / "governance_rule" / "codex"
+    for path in architecture_root.glob("architecture-*.md"):
+        try:
+            content = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            errors.append(f"architecture text is invalid: {path.name}: {error}")
+            continue
+        if _contains_text_pollution(content):
+            errors.append(f"architecture text contains pollution: {path.name}")
 
 
 def check_git_tiers(root: Path, errors: list[str]) -> None:

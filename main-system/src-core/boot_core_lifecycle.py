@@ -10,10 +10,8 @@ import os
 import socket
 import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
-from typing import Any
 
 from backend_log_sink import get_backend_log_sink
 

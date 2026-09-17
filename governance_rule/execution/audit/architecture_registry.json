@@ -32,6 +32,43 @@
     "degraded-only",
     "retired"
   ],
+  "module_labels": {
+    "trash": [
+      "global-cleaner"
+    ]
+  },
+  "retired_module_cleanup_contract": {
+    "classification_auditor": "xingcheng-assistant",
+    "execution_owner": "automatic-cleanup-scheduler",
+    "required_state": "retired",
+    "required_authority_state": "non-authoritative",
+    "required_dependency_state": "zero-current-dependency",
+    "retention_required": true,
+    "audit_required": true
+  },
+  "execution_deadlines_seconds": {
+    "startup_to_main_ui_ready": 10,
+    "independent_tool_start": 5,
+    "independent_tool_stop": 5,
+    "mandatory_test_suite": 20,
+    "independent_audit_flow": 30
+  },
+  "local_model_startup_policy": {
+    "default_started": false,
+    "startup_mode": "explicit-user-switch-or-single-item-permission",
+    "shutdown_switch_required": true,
+    "automatic_restart_after_shutdown_forbidden": true
+  },
+  "model_dialogue_auto_routing_policy": {
+    "default_first_candidate": "xingcheng",
+    "fallback_conditions": [
+      "xingcheng-not-started",
+      "xingcheng-unavailable",
+      "capability-mismatch",
+      "governance-boundary-denied"
+    ],
+    "may_bypass_local_model_default_off": false
+  },
   "sovereigns": {
     "active": [
       "decision",
@@ -178,7 +215,7 @@
       "owner_sovereign": "synchronization",
       "owner_sub_sovereign": "release_update_sync_sub_sovereign",
       "execution_identity": "synchronization-sovereign",
-      "physical_path": "main-system/governance/sovereigns/synchronization",
+      "physical_path": "main-system/governance/sovereigns/automation_sovereign.py",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": ["governance_rule"],

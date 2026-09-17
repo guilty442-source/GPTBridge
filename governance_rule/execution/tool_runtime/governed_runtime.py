@@ -22,6 +22,9 @@ from governance_rule.execution.authentication import (
     LauncherIdentityAttestation,
 )
 from governance_rule.execution.integrity import AuthorityIntegrityManifest
+from governance_rule.permission_directory.registries.permissions.identity_groups import (
+    identity_group_snapshot,
+)
 
 from shared_layer.channel import SharedLayerChannel
 
@@ -95,6 +98,45 @@ def _assert_sub_sovereign(runtime: Any) -> None:
         )
 
 
+def _sealed_identity_root_match(
+    tool_id: str, root: Path, tool_root: Path, manifest_path: Path
+) -> bool:
+    """Whether a sealed-registry identity may run from this tool root.
+
+    An identity runs either inside its own registered bound root (the
+    independent tool's canonical directory, at any nesting depth) or from a
+    physical host directory that contains the identity's bound manifest —
+    the nested-owner case such as ``local-model`` hosting ``xingcheng``.
+    A tool_id that is not a sealed identity is never accepted here.
+    """
+    for identity in identity_group_snapshot().identities:
+        if str(identity.bound_tool_id or "").strip() != tool_id:
+            continue
+        for bound_root in identity.bound_roots or ():
+            bound = (
+                root / str(bound_root).format(tool_id=tool_id)
+            ).resolve()
+            try:
+                tool_root.relative_to(bound)
+                return True
+            except ValueError:
+                continue
+        binding = identity.manifest_binding
+        if binding is not None and binding.required and binding.path_template:
+            bound_manifest = (
+                root / binding.path_template.format(tool_id=tool_id)
+            ).resolve()
+            if bound_manifest == manifest_path.resolve():
+                return True
+            try:
+                bound_manifest.relative_to(tool_root)
+            except ValueError:
+                return False
+            return bound_manifest.is_file()
+        return False
+    return False
+
+
 def workspace_root(tool_id: str) -> Path:
     raw = str(os.environ.get("GPTBRIDGE_GOVERNANCE_PROJECT_ROOT") or "").strip()
     root = Path(raw).resolve() if raw else Path("E:/GPTBridge").resolve()
@@ -109,13 +151,13 @@ def workspace_root(tool_id: str) -> Path:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, ValueError, json.JSONDecodeError):
         raise permission_denied()
-    if (
-        root != Path("E:/GPTBridge").resolve()
-        or len(relative.parts) not in {1, 2}
-        or manifest.get("id") != tool_id
-    ):
+    if root != Path("E:/GPTBridge").resolve():
         raise permission_denied()
-    return root
+    if _sealed_identity_root_match(tool_id, root, tool_root, manifest_path):
+        return root
+    if len(relative.parts) in {1, 2} and manifest.get("id") == tool_id:
+        return root
+    raise permission_denied()
 
 
 def load_authentication(root: Path) -> GovernanceAuthenticationService:

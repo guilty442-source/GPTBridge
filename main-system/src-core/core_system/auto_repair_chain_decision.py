@@ -92,7 +92,7 @@ class RepairObjectiveAssigner:
             if file_path:
                 scope["paths"] = [file_path]
                 scope["action"] = "targeted_patch"
-        elif fault_code in ("EXECUTABLE_MISSING", "PACKAGE_UNVERIFIED", "INCOMPATIBLE_TOOL_RUNTIME", "STALE_TOOL_PACKAGE"):
+        elif fault_code in ("EXECUTABLE_MISSING", "PACKAGE_UNVERIFIED", "INCOMPATIBLE_TOOL_RUNTIME", "STALE_TOOL_PACKAGE", "SOURCE_RUNTIME_NOT_READY", "TOOL_RUNTIME_CRASH"):
             tool_id = evidence.get("tool_id", "")
             if tool_id:
                 scope["action"] = "rebuild_artifact"

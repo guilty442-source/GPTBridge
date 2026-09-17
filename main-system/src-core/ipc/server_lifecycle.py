@@ -8,11 +8,9 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-from urllib.parse import urlsplit
+from typing import Any
 
 import websockets  # type: ignore
 
@@ -65,16 +63,12 @@ def _install_websockets_handshake_noise_filter() -> None:
 
 _install_websockets_handshake_noise_filter()
 
-if TYPE_CHECKING:
-    from main import GPTBridgeApp
-
 from core_system.resource_maintenance import IdleMemoryMaintainer
 from .server_tokens import (
     _ipc_port,
     _shutdown_request_authorized,
     _shutdown_request_is_manual,
     _websocket_request_authorized,
-    _workspace_instance_id,
 )
 from .server_process import (
     _get_port_owner,

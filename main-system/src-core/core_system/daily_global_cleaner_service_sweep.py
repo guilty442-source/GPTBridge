@@ -15,13 +15,20 @@ from typing import Any
 class DailyGlobalCleanerSweepMixin:
     """Module self-cleanup sweep methods for DailyGlobalCleanerService."""
 
-    async def _run_module_self_cleanup_sweep(self) -> dict[str, Any]:
+    async def _run_module_self_cleanup_sweep(
+        self, byte_budget: int | None = None
+    ) -> dict[str, Any]:
         """Collect per-module self-cleanup results for the daily cycle.
 
         Execution stays devolved: running governed tools receive the reserved
         ``toolbox_run_local_cleanup`` command on their own runtime; stopped
         tools contribute their persisted last-boot cleanup record; in-process
         modules (``main-system``) run the shared bounded cleanup directly.
+
+        A533/A534: retired or disabled manifests are never commanded or
+        swept — they are lineage evidence, not active modules.  Every
+        in-process sweep is bounded by the remaining per-cycle byte quota
+        and no more than ``MAX_MODULES_PER_CYCLE`` modules are processed.
         """
 
         from governance_rule.execution.tool_runtime.tool_local_cleanup import (
@@ -32,7 +39,12 @@ class DailyGlobalCleanerSweepMixin:
 
         started_at = self._iso_now()
         modules: list[dict[str, Any]] = []
+        infrastructure_skipped_count = 0
         runtime_ready = self._runtime_ready()
+        remaining_budget = (
+            None if byte_budget is None else max(0, int(byte_budget))
+        )
+        module_cap = max(0, int(getattr(self, "MAX_MODULES_PER_CYCLE", 0) or 0))
 
         for module_id in self.IN_PROCESS_MODULE_IDS:
             module_root = Path(self.app.project_root) / module_id
@@ -50,7 +62,10 @@ class DailyGlobalCleanerSweepMixin:
                 continue
             try:
                 cleanup = await asyncio.to_thread(
-                    run_local_cleanup, module_id, module_root
+                    run_local_cleanup,
+                    module_id,
+                    module_root,
+                    max_cleaned_bytes=remaining_budget,
                 )
                 await asyncio.to_thread(
                     write_local_cleanup_state, module_root, cleanup
@@ -61,6 +76,10 @@ class DailyGlobalCleanerSweepMixin:
                     "error_code": "MODULE_CLEANUP_EXCEPTION",
                     "message": f"{type(error).__name__}: {error}",
                 }
+            if remaining_budget is not None:
+                remaining_budget = max(
+                    0, remaining_budget - int(cleanup.get("cleaned_bytes") or 0)
+                )
             modules.append(
                 {
                     "module_id": module_id,
@@ -84,8 +103,35 @@ class DailyGlobalCleanerSweepMixin:
             except Exception:
                 tools = []
         for tool in tools:
+            if module_cap and len(modules) >= module_cap:
+                modules.append(
+                    {
+                        "module_id": str(tool.get("id") or ""),
+                        "mode": "deferred",
+                        "running": False,
+                        "ok": True,
+                        "deferred": True,
+                        "reason": "MODULE_CYCLE_CAP_REACHED",
+                    }
+                )
+                continue
             tool_id = str(tool.get("id") or "").strip()
             if not tool_id or tool_id in self.EXCLUDED_MODULE_IDS:
+                continue
+            lifecycle = tool.get("lifecycle")
+            if tool.get("enabled") is False or (
+                isinstance(lifecycle, dict)
+                and str(lifecycle.get("status") or "").strip().casefold()
+                == "retired"
+            ):
+                # A533/A534: retired owners are never commanded or swept.
+                continue
+            if not self._is_sweepable_module(tool):
+                # Resident services, companion tools and hidden internal
+                # services declare their own lifecycle and are cleaned by
+                # their owning runtime; commanding them as modules both
+                # times out and misstates the module topology (A534).
+                infrastructure_skipped_count += 1
                 continue
             if str(tool.get("status") or "") == "running":
                 modules.append(
@@ -149,6 +195,7 @@ class DailyGlobalCleanerSweepMixin:
             "started_at": started_at,
             "completed_at": self._iso_now(),
             "module_count": len(modules),
+            "infrastructure_skipped_count": infrastructure_skipped_count,
             "commanded_count": sum(
                 1 for module in modules if module.get("mode") == "commanded"
             ),
@@ -167,6 +214,30 @@ class DailyGlobalCleanerSweepMixin:
             "modules": modules,
         }
         return report
+
+    @staticmethod
+    def _is_sweepable_module(tool: dict[str, Any]) -> bool:
+        """True only for registered independent tool cards.
+
+        A534: the sweep addresses the independent tool set plus the
+        in-process main-system.  Resident services (shared-layer,
+        xingcheng), companion tools (star-chat) and hidden internal
+        services (system-rescue) have no module self-cleanup command and
+        must never be commanded as tools.
+        """
+
+        if tool.get("resident_service") is True:
+            return False
+        # A default-off module may still declare that the global cleaner must
+        # not command it (e.g. local-model keeps model/RAG state and has no
+        # module self-cleanup command).
+        if tool.get("sweep_exclusion") is True:
+            return False
+        if tool.get("hidden_from_toolbox") is True:
+            return False
+        if tool.get("companion_tool") is True:
+            return False
+        return tool.get("main_system_independent_tool") is True
 
     async def _request_module_cleanup(
         self,

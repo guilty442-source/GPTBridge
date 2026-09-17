@@ -63,7 +63,8 @@ class AuditScheduler:
     async def _run_audit(self) -> dict[str, Any]:
         """執行治理審計。"""
         try:
-            result = subprocess.run(
+            result = await asyncio.to_thread(
+                subprocess.run,
                 [sys.executable, "-m", "governance_rule.execution.audit"],
                 cwd=str(Path(__file__).resolve().parents[3]),
                 capture_output=True,

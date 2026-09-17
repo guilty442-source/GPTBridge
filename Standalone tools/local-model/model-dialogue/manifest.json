@@ -64,7 +64,7 @@
   "environment": {
     "allow": []
   },
-  "has_custom_ui": false,
+  "has_custom_ui": true,
   "window": {
     "width": 900,
     "height": 720,
@@ -75,11 +75,5 @@
   "test_targets": [
     "tests/test_model_dialogue_reexport.py"
   ],
-  "companion_tools": [
-    {
-      "id": "star-chat",
-      "path": "star-chat",
-      "companion_owner": "local-model"
-    }
-  ]
+  "companion_tools": []
 }

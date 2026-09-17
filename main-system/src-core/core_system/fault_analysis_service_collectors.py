@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import pathlib
 import sqlite3
 import time
 from typing import Any
@@ -251,6 +252,35 @@ class FaultAnalysisCollectorsMixin:
             return registrations
         return registrations
 
+    def _tool_is_retired(self, tool_id: str) -> bool:
+        """True when the tool's manifest declares retirement/disablement.
+
+        A retired tool that exits (or refuses to run) is not a fault: its
+        lifecycle was ended by a governance decision, so a crash record must
+        not keep the fault surface red.  Missing/unreadable manifests are
+        treated as active (fail-open to presenting evidence).
+        """
+        if not tool_id or tool_id == "unknown":
+            return False
+        manifest = (
+            pathlib.Path(self.project_root)
+            / "Standalone tools"
+            / tool_id
+            / "manifest.json"
+        )
+        if not manifest.is_file():
+            # No governed manifest: the tool was decommissioned/removed from
+            # the current architecture (e.g. retired elsewhere in the tree),
+            # so its old crash records are historical evidence.
+            return True
+        try:
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        lifecycle = data.get("lifecycle") or {}
+        status = str(lifecycle.get("status", "") if isinstance(lifecycle, dict) else "")
+        return status == "retired" or data.get("enabled") is False
+
     def _collect_quarantine_records(self) -> list[FaultSummary]:
         """Collect tool crash quarantine records.
 
@@ -266,6 +296,8 @@ class FaultAnalysisCollectorsMixin:
             try:
                 record = json.loads(record_path.read_text(encoding="utf-8"))
                 tool_id = str(record.get("tool_id", "unknown"))
+                if self._tool_is_retired(tool_id):
+                    continue
                 quarantined_at = str(record.get("timestamp", "") or "")
                 latest_register = registrations.get(tool_id, "")
                 if latest_register and quarantined_at and latest_register > quarantined_at:

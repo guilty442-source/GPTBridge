@@ -174,7 +174,10 @@ async def process_command_task(
         raise
     except Exception as exc:
         error_id = uuid.uuid4().hex
-        print(f"[IPC] command failed ({error_id}): {type(exc).__name__}: {exc}")
+        print(
+            f"[IPC] command failed ({error_id}) [{command}]: "
+            f"{type(exc).__name__}: {exc}"
+        )
         _write_core_log_safely(
             app,
             "error",

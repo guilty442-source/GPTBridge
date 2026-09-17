@@ -41,17 +41,12 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from startup_core.startup_config import (
-    dependency_manifest as _cfg_dependency_manifest,
-)
-from startup_core.startup_config import (
     governed_startup_constant as _cfg_gs,
 )
 
-from .governed_startup_types import DependencyDeclaration, StartupGeneration
+from .governed_startup_types import  StartupGeneration
 from .governed_startup_verify import (
-    DependencyDAG,
     verify_core_ready,
-    verify_dependency_classification,
     verify_phase_order,
 )
 from .startup_executor_types import PhaseRecord, StartupResult, _iso_now

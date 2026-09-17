@@ -51,7 +51,11 @@ export function useBrowserController(setMessage: SetMessage): BrowserController 
       bounds,
     })) as BrowserResult
     if (result.ok) {
-      setBrowserSession(result.id || BROWSER_SESSION_ID)
+      const id = result.id || BROWSER_SESSION_ID
+      setBrowserSession(id)
+      // Sessions start detached; surface the view only inside these bounds.
+      await electron.invoke('embedded-browser:resize', { id, bounds })
+      await electron.invoke('embedded-browser:show', { id })
       setMessage('已開啟瀏覽器')
     } else {
       setMessage(result.message || '瀏覽器開啟失敗')

@@ -1,5 +1,5 @@
-/**
- * DependencyPolicy.ts ?�Dependency governance policy (A68/A354/A362).
+﻿/**
+ * DependencyPolicy.ts ?ependency governance policy (A68/A354/A362).
  *
  * Immutable data only. Defines layer architecture and dependency rules.
  */
@@ -63,7 +63,7 @@ export const MODULE_OWNERSHIP = {
   'update-manager': 'release-update-sync-sub-sovereign',
   'connection-watchdog': 'health-maintenance-test-sub-sovereign',
   'hot-reload': 'health-maintenance-test-sub-sovereign',
-  'global-cleaner': 'health-maintenance-test-sub-sovereign',
+  'automatic-cleanup': 'health-maintenance-test-sub-sovereign',
   'auto-repair': 'health-maintenance-test-sub-sovereign',
 } as const;
 

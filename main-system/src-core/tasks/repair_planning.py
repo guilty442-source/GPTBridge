@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any, Final, Iterable
 
 from core_system.versioning import component_version
@@ -25,6 +25,7 @@ PACKAGE_REBUILD_FAILURES: Final[frozenset[str]] = frozenset(
         "PROCESS_START_FAILED",
         "SOURCE_UI_UNAVAILABLE",
         "SOURCE_RUNTIME_NOT_READY",
+        "TOOL_RUNTIME_CRASH",
         "TOOL_VERSION_MISMATCH",
         "BACKEND_CONNECTION_FAILED",
         "FRONTEND_BACKEND_DISCONNECTED",

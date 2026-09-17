@@ -1,5 +1,5 @@
 /**
- * CapabilityRegistry.ts ?”Single explicit capability authority (A356).
+ * CapabilityRegistry.ts ?ï¿½Single explicit capability authority (A356).
  *
  * Contains governance data only. All capability declarations, ownership,
  * and promotion policies live here.
@@ -264,8 +264,8 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
       registeredAt: '2026-01-01T00:00:00Z',
     },
     {
-      id: 'global-cleaner',
-      name: 'Global Cleaner',
+      id: 'automatic-cleanup',
+      name: 'Main-System Internal Automatic Cleanup',
       owner: 'health-maintenance-test-sub-sovereign',
       language: 'Python',
       layer: 'infrastructure',

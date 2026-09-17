@@ -23,7 +23,6 @@ import {
   listSessions,
   navigateSession,
   resizeSession,
-  showSession,
 } from './embedded-browser'
 import { getRuntimePathLibrary } from './pathLibrary'
 
@@ -46,7 +45,14 @@ const HANDLERS: Record<string, BridgeHandler> = {
     navigateSession(String(args.id ?? ''), String(args.url ?? '')),
   'embedded-browser:execute': (args) =>
     executeScript(String(args.id ?? ''), String(args.script ?? '')),
-  'embedded-browser:show': (args) => showSession(String(args.id ?? '')),
+  // Tool windows host their own BrowserView inside their own window
+  // (source-tool-ui-host).  A backend-driven bridge call must never display a
+  // view over the main system window, so showing through the bridge is
+  // refused fail-closed; hide/close stay available for cleanup.
+  'embedded-browser:show': () => ({
+    ok: false,
+    message: 'EMBEDDED_BROWSER_SHOW_REQUIRES_TOOL_WINDOW',
+  }),
   'embedded-browser:hide': (args) => hideSession(String(args.id ?? '')),
   'embedded-browser:close': (args) => closeSession(String(args.id ?? '')),
   'embedded-browser:resize': (args) => {

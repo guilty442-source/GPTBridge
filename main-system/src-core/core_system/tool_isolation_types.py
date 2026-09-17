@@ -28,6 +28,9 @@ class ToolIsolationEntry:
     last_memory_mb: float = 0.0
     crashed: bool = False
     quarantined: bool = False
+    # Deliberate lifecycle stop (force-close / pre-respawn sweep): the
+    # health monitor must not record the observed exit as a crash.
+    expected_stop: bool = False
     # A266: Runtime generation isolation
     runtime_generation: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     # A266: Data authority isolation - tool owns its data directories

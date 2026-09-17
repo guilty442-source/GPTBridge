@@ -10,14 +10,11 @@ import asyncio
 import contextlib
 import json
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import websockets  # type: ignore
-
-if TYPE_CHECKING:
-    from main import GPTBridgeApp
 
 from core.ui_shell import UIShell
 from tasks.connection_watchdog import write_ipc_connection_state
@@ -234,31 +231,6 @@ async def handler(websocket, app_instance):
             app_instance, ui, heartbeat_dead, heartbeat_task,
             connection_tasks, _PROJECT_ROOT,
         )
-        # A67 condition 4: decrement the independent authenticated-IPC counter.
-        try:
-            _authed = max(0, getattr(app_instance, "_authenticated_ipc_connections", 1) - 1)
-            app_instance._authenticated_ipc_connections = _authed
-        except Exception:
-            pass
-        # Remove this UIShell from the real-time push set.
-        try:
-            app_instance._active_ui_shells.discard(ui)
-        except Exception:
-            pass
-        # A195: unregister the outbox session for this connection.
-        try:
-            publisher = getattr(app_instance, "_outbox_publisher", None)
-            if isinstance(publisher, OutboxPublisher):
-                publisher.unregister_session(ui)
-        except Exception:
-            pass
-        # A67: authenticated IPC connection count changed — push immediately.
-        notifier = getattr(app_instance, "_state_change_notifier", None)
-        if isinstance(notifier, StateChangeNotifier):
-            try:
-                asyncio.create_task(notifier.maybe_notify())
-            except Exception:
-                pass
 
 
 def _compact_pending_actions(app_instance) -> list[dict[str, Any]]:

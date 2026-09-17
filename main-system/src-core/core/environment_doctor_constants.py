@@ -11,10 +11,8 @@ import re
 import shutil
 import subprocess
 import sys
-from collections.abc import Mapping
 from pathlib import Path
 
-from typing import Any
 
 
 def _background_subprocess_kwargs() -> dict[str, int]:

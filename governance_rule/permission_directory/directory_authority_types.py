@@ -87,6 +87,12 @@ class CapabilityIdentity:
     identity_code: str
     language_name: str
     codename: str
+    # A533/A534: a registered identity may be retained as lineage/audit
+    # evidence after its tool is retired.  Retired identities keep their
+    # group, code and codename but never grant execution: the identity is
+    # excluded from active independent-tool parity, manifest requirements
+    # and source-layer ownership checks.
+    lifecycle: str = "active"
 
 
 @dataclass(frozen=True)

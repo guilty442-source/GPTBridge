@@ -7,6 +7,7 @@ from _test_special_unpacked_runtime_helpers import GovernanceStub
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 import pytest
@@ -48,17 +49,54 @@ def test_local_model_companion_tools_are_discovered() -> None:
     assert records["xingcheng"]["folder_path"] == str(
         LOCAL_MODEL_ROOT / "xingcheng"
     )
-    assert records["star-chat"]["folder_path"] == str(
-        LOCAL_MODEL_ROOT / "model-dialogue" / "star-chat"
+    assert records["model-dialogue"]["folder_path"] == str(
+        LOCAL_MODEL_ROOT / "model-dialogue"
     )
-    assert records["star-chat"]["runtime_available"] is True
-    assert service._tool_directory_for_id("star-chat") == (
-        LOCAL_MODEL_ROOT / "model-dialogue" / "star-chat"
+    assert records["model-dialogue"]["runtime_available"] is True
+    # star-chat is a companion component of model-dialogue, not an
+    # independent tool: it is not discovered as a startable record.
+    assert "star-chat" not in records
+    assert service._tool_directory_for_id("model-dialogue") == (
+        LOCAL_MODEL_ROOT / "model-dialogue"
     ).resolve()
-    assert records["star-chat"]["runtime_owner_tool_id"] == "xingcheng"
-    assert records["star-chat"]["physical_owner_root"] == "local-model"
-    service._authorize_tool_lifecycle("star-chat", "start")
-    assert governance.authorized_lifecycle[-1] == ("xingcheng", "start")
+    service._authorize_tool_lifecycle("model-dialogue", "start")
+    assert governance.authorized_lifecycle[-1] == ("model-dialogue", "start")
+
+
+def test_manifest_cache_reloads_after_manifest_edit(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    service = ToolboxService(ROOT, governance=GovernanceStub())
+    tool_dir = tmp_path / "cache-tool"
+    tool_dir.mkdir()
+    manifest_path = tool_dir / "manifest.json"
+    manifest_path.write_text(
+        json.dumps({"id": "cache-tool", "lifecycle": {"stoppable": False}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        service, "_tool_directory_for_id", lambda _tool_id: tool_dir
+    )
+
+    first, _dir = service._load_manifest_cached("cache-tool")
+    assert first["lifecycle"]["stoppable"] is False
+
+    stat_result = manifest_path.stat()
+    manifest_path.write_text(
+        json.dumps({"id": "cache-tool", "lifecycle": {"stoppable": True}}),
+        encoding="utf-8",
+    )
+    os.utime(
+        manifest_path,
+        ns=(
+            stat_result.st_mtime_ns + 1_000_000_000,
+            stat_result.st_mtime_ns + 1_000_000_000,
+        ),
+    )
+
+    refreshed, _dir = service._load_manifest_cached("cache-tool")
+    assert refreshed["lifecycle"]["stoppable"] is True
 
 
 def test_shared_layer_and_local_model_are_locked_resident_services() -> None:
@@ -75,10 +113,14 @@ def test_shared_layer_and_local_model_are_locked_resident_services() -> None:
     assert records["shared-layer"]["runtime_available"] is True
     assert shared_manifest["main_system_independent_tool"] is False
     assert local_manifest["main_system_independent_tool"] is True
+    # shared-layer stays a locked resident service.
     assert shared_manifest["lifecycle"]["stoppable"] is False
-    assert local_manifest["lifecycle"]["stoppable"] is False
     assert shared_manifest["background_service"]["auto_restart"] is True
-    assert local_manifest["background_service"]["auto_restart"] is True
+    # The local model is default-off and closable: non-resident (not started
+    # at boot) and stoppable, while the cleaner never commands it.
+    assert local_manifest["lifecycle"]["stoppable"] is True
+    assert local_manifest["background_service"]["auto_restart"] is False
+    assert local_manifest["sweep_exclusion"] is True
 
 
 @pytest.mark.parametrize("tool_id", ["governance_rule", "shared-layer", "xingcheng"])
@@ -129,39 +171,43 @@ async def test_resident_services_are_usable_without_showing_permission_denied() 
 def test_companion_tool_cache_is_owned_by_host_tool() -> None:
     governance = GovernanceStub()
     service = ToolboxService(ROOT, governance=governance)
-    tool_root = LOCAL_MODEL_ROOT / "model-dialogue" / "star-chat"
-    # star-chat is a declared companion of the local-model host running on
-    # the xingcheng runtime; its own manifest carries the runtime-owner
-    # declaration the bootstrap-binding check requires.
-    manifest = json.loads(_read_text_cached(str((tool_root / "manifest.json"))))
+    dialogue_root = LOCAL_MODEL_ROOT / "model-dialogue"
+    manifest = json.loads(_read_text_cached(str((dialogue_root / "manifest.json"))))
 
-    environment = service._tool_environment("star-chat", tool_root, manifest)
+    environment = service._tool_environment("model-dialogue", dialogue_root, manifest)
 
-    expected_cache = str(
-        (LOCAL_MODEL_ROOT / "runtime" / "cache" / "companions" / "star-chat").resolve()
+    # model-dialogue is hosted under local-model: its cache lives under the
+    # host's cache storage as a named companion compartment.
+    assert environment["GPTBRIDGE_TOOL_CACHE_ROOT"] == str(
+        (
+            LOCAL_MODEL_ROOT / "runtime" / "cache" / "companions" / "model-dialogue"
+        ).resolve()
     )
-    assert environment["GPTBRIDGE_TOOL_CACHE_ROOT"] == expected_cache
     assert environment["GPTBRIDGE_TOOL_TEMP_ROOT"] == str(
         (
             ROOT
-            / "Standalone tools"
-            / "global-cleaner"
+            / "main-system"
             / "runtime"
             / "temp"
             / "tools"
-            / "star-chat"
+            / "model-dialogue"
         ).resolve()
     )
     assert environment["TEMP"] == environment["GPTBRIDGE_TOOL_TEMP_ROOT"]
 
+    # Identity resolution: model-dialogue is its own sealed runtime
+    # identity; local-model's runtime claims the nested xingcheng identity.
+    assert service._governed_runtime_tool_id("model-dialogue") == "model-dialogue"
+    assert service._governed_runtime_tool_id("local-model") == "xingcheng"
+
     owner_environment = service._tool_environment(
-        "star-chat",
-        tool_root,
+        "model-dialogue",
+        dialogue_root,
         manifest,
-        governance_tool_id="xingcheng",
+        governance_tool_id="model-dialogue",
     )
-    assert owner_environment["GPTBRIDGE_STANDALONE_TOOL_ID"] == "star-chat"
-    assert governance.bootstrap_tool_ids[-1] == "xingcheng"
+    assert owner_environment["GPTBRIDGE_STANDALONE_TOOL_ID"] == "model-dialogue"
+    assert governance.bootstrap_tool_ids[-1] == "model-dialogue"
 
     mobile_root = ROOT / "Standalone tools" / "investment-mobile"
     mobile_manifest = json.loads(_read_text_cached(str((mobile_root / "manifest.json"))))
@@ -242,9 +288,12 @@ def test_independent_window_close_policy_covers_source_and_packaged_ui() -> None
 
 
 def test_main_startup_follows_declared_dag_and_detaches_ui() -> None:
-    phases_source = (
-        ROOT / "main-system" / "src-core" / "startup_core" / "phases.py"
-    ).read_text("utf-8")
+    phases_source = "\n".join(
+        path.read_text("utf-8")
+        for path in sorted(
+            (ROOT / "main-system" / "src-core" / "startup_core").glob("phases*.py")
+        )
+    )
     boot_source = "\n".join(
         path.read_text("utf-8")
         for path in sorted(

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocalBackendSocket } from './backendSocket'
-import { useEmbeddedBrowser } from './useEmbeddedBrowser'
+import { useEmbeddedBrowser, type BrowserBounds } from './useEmbeddedBrowser'
 import './ai-collaboration.css'
 
 type Agent = {
@@ -157,15 +157,6 @@ function socketStatusLabel(status: string): string {
   return status
 }
 
-function diagnosticsLabel(state?: string): string {
-  if (state === 'ready') return '可用'
-  if (state === 'running') return '協作中'
-  if (state === 'attention') return '需檢查'
-  if (state === 'setup') return '待設定'
-  if (state === 'empty') return '無可用 AI'
-  return '待命'
-}
-
 function waitForIpcEvent<T = Record<string, unknown>>(
   eventName: string,
   timeoutMs: number,
@@ -216,11 +207,10 @@ export function AiCollaborationWindowApp() {
   const [agentListCollapsed, setAgentListCollapsed] = useState(false)
   const [draft, setDraft] = useState('')
   const [memoryDraft, setMemoryDraft] = useState('')
-  const [message, setMessage] = useState('AI協作工具已就緒')
+  const [, setMessage] = useState('AI協作工具已就緒')
   const [busyAction, setBusyAction] = useState('')
   const [paths, setPaths] = useState({ workspace: '', database: '' })
   const [safetyNotice, setSafetyNotice] = useState('')
-  const [diagnostics, setDiagnostics] = useState<CollaborationDiagnostics | null>(null)
   const [browserResults, setBrowserResults] = useState<Record<string, string>>({})
   const loadedSelectionRef = useRef(false)
 
@@ -234,8 +224,6 @@ export function AiCollaborationWindowApp() {
   )
   const selectedAgentSummary = `${selectedAgentList.length} / ${agents.length}`
   const selectedAgentNames = selectedAgentList.map((agent) => agent.name).join('、')
-  const failedResponses = diagnostics?.collaboration?.failed_responses || 0
-  const waitingVerification = diagnostics?.collaboration?.waiting_verification || 0
 
   const request = useCallback(
     async (
@@ -281,7 +269,6 @@ export function AiCollaborationWindowApp() {
     setAgents(nextAgents)
     setMessages(Array.isArray(state.messages) ? state.messages : [])
     setMemoryItems(Array.isArray(state.memory_items) ? state.memory_items : [])
-    setDiagnostics(state.diagnostics && typeof state.diagnostics === 'object' ? state.diagnostics : null)
     setPaths({
       workspace: String(state.workspace_path || ''),
       database: String(state.database_path || ''),
@@ -334,48 +321,89 @@ export function AiCollaborationWindowApp() {
     }
   }, [loadState])
 
+  const browserRef = useRef(browser)
+  browserRef.current = browser
+
+  const browserBounds = useCallback((): BrowserBounds | null => {
+    const node = rightPanelRef.current
+    if (!node) return null
+    const rect = node.getBoundingClientRect()
+    const width = Math.round(rect.width)
+    const height = Math.round(rect.height)
+    if (width < 1 || height < 1) return null
+    return { x: Math.round(rect.x), y: Math.round(rect.y), width, height }
+  }, [])
+
+  // The panel owns the embedded browser: valid bounds show it, a collapsed
+  // or hidden panel detaches it.  Nothing is ever displayed full-window.
+  const syncBrowserBounds = useCallback(async () => {
+    const bounds = browserBounds()
+    if (!bounds) {
+      void browserRef.current.hideBrowser()
+      return
+    }
+    await browserRef.current.resize(bounds)
+    void browserRef.current.showBrowser()
+  }, [browserBounds])
+
   const handleNavigate = useCallback(
     (url: string) => {
       setUrlInput(url)
-      void browser.navigate(url)
+      const bounds = browserBounds()
+      void browserRef.current.navigate(url, bounds ?? undefined).then(() =>
+        syncBrowserBounds()
+      )
     },
-    [browser]
+    [browserBounds, syncBrowserBounds]
   )
-
-  const resizeBrowserToRight = useCallback(() => {
-    const node = rightPanelRef.current
-    if (!node) return
-    const rect = node.getBoundingClientRect()
-    void browser.resize({
-      x: Math.round(rect.x),
-      y: Math.round(rect.y),
-      width: Math.round(rect.width),
-      height: Math.round(rect.height),
-    })
-  }, [])
 
   useEffect(() => {
     let mounted = true
     const setup = async () => {
-      await browser.navigate('https://www.google.com')
+      const bounds = browserBounds()
+      await browserRef.current.navigate(
+        'https://www.google.com',
+        bounds ?? undefined
+      )
       if (!mounted) return
-      resizeBrowserToRight()
-      window.setTimeout(resizeBrowserToRight, 120)
-      void browser.showBrowser()
+      await syncBrowserBounds()
+      window.setTimeout(() => {
+        if (mounted) void syncBrowserBounds()
+      }, 120)
     }
     void setup()
 
     const handleResize = () => {
-      window.setTimeout(resizeBrowserToRight, 80)
+      window.setTimeout(() => {
+        if (mounted) void syncBrowserBounds()
+      }, 80)
+    }
+    const handleVisibility = () => {
+      if (document.hidden) void browserRef.current.hideBrowser()
+      else void syncBrowserBounds()
     }
     window.addEventListener('resize', handleResize)
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    // Layout changes (collapsing the AI list, diagnostics, panels) resize the
+    // browser stage without a window resize event; keep the view aligned.
+    const stage = rightPanelRef.current
+    const boundsObserver =
+      typeof ResizeObserver !== 'undefined' && stage
+        ? new ResizeObserver(() => {
+            if (mounted) void syncBrowserBounds()
+          })
+        : null
+    boundsObserver?.observe(stage as HTMLDivElement)
 
     return () => {
       mounted = false
+      boundsObserver?.disconnect()
       window.removeEventListener('resize', handleResize)
-      void browser.hideBrowser()
+      document.removeEventListener('visibilitychange', handleVisibility)
+      void browserRef.current.hideBrowser()
     }
-  }, [resizeBrowserToRight])
+  }, [browserBounds, syncBrowserBounds])
 
   const toggleAgent = async (agentId: string) => {
     const next = new Set(selectedAgents)
@@ -395,12 +423,15 @@ export function AiCollaborationWindowApp() {
   const openAgent = async (agentId: string) => {
     setBusyAction(`open:${agentId}`)
     try {
+      const agent = agentsById.get(agentId)
       const result = await request(
         'ai_nexus_open_agent',
         { agent_id: agentId, business_scope: 'general' },
         30000
       )
       if (result.ok === false) throw new Error(String(result.message || '開啟失敗'))
+      const targetUrl = agent?.general_url || agent?.home_url || ''
+      if (targetUrl) handleNavigate(targetUrl)
       setMessage(`${agentId} 已在內建瀏覽器開啟`)
       await loadState(true)
     } catch (error) {
@@ -413,8 +444,11 @@ export function AiCollaborationWindowApp() {
   const authorizeAgent = async (agentId: string) => {
     setBusyAction(`authorize:${agentId}`)
     try {
+      const agent = agentsById.get(agentId)
       const result = await request('ai_nexus_authorize_agent', { agent_id: agentId }, 30000)
       if (result.ok === false) throw new Error(String(result.message || '啟動授權失敗'))
+      const targetUrl = agent?.general_url || agent?.home_url || ''
+      if (targetUrl) handleNavigate(targetUrl)
       setMessage(`${agentId} 已在內建瀏覽器開啟；請完成一次登入或人機驗證`)
       await loadState(true)
     } catch (error) {
@@ -441,6 +475,9 @@ export function AiCollaborationWindowApp() {
       )) as CollaborationState
       if (result.ok === false) throw new Error(String(result.message || '開啟選取 AI 失敗'))
       applyState(result)
+      const firstSelected = selectedAgentList[0]
+      const targetUrl = firstSelected?.general_url || firstSelected?.home_url || ''
+      if (targetUrl) handleNavigate(targetUrl)
       setMessage(String(result.message || '已開啟選取 AI'))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '開啟選取 AI 失敗')
@@ -594,7 +631,7 @@ export function AiCollaborationWindowApp() {
           <div>
             <span>{socketStatusLabel(socketStatus)}</span>
             <span>{selectedAgentSummary} AI</span>
-            <span>{memoryItems.length} 筆記憶</span>
+            <span>協作記憶自動記錄</span>
           </div>
         </div>
         <div className="ai-collab-toolbar">
@@ -642,42 +679,119 @@ export function AiCollaborationWindowApp() {
             重新整理
           </button>
         </div>
+        <section className="ai-collab-top-agents" aria-label="內建 AI 清單">
+          <div className="ai-collab-top-agents-head">
+            <div>
+              <span>AI 名單</span>
+              <strong>{selectedAgentSummary}</strong>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAgentListCollapsed((value) => !value)}
+              aria-expanded={!agentListCollapsed}
+            >
+              {agentListCollapsed ? '展開' : '折疊'}
+            </button>
+          </div>
+          {agentListCollapsed ? (
+            <p className="ai-collab-muted">{selectedAgentNames || '尚未選擇 AI'}</p>
+          ) : (
+            <div className="ai-collab-agent-list ai-collab-agent-list--top">
+              {agents.length === 0 ? (
+                <p className="ai-collab-muted">AI 名單載入中，請確認後端連線...</p>
+              ) : agents.map((agent) => (
+                <article key={agent.agent_id} className="ai-collab-agent ai-collab-agent--top">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={selectedAgents.has(agent.agent_id)}
+                      onChange={() => void toggleAgent(agent.agent_id)}
+                      disabled={Boolean(busyAction)}
+                    />
+                    <span>
+                      <strong>{agent.name}</strong>
+                      <em>{agent.provider}</em>
+                    </span>
+                  </label>
+                  <span className={`ai-collab-chip ai-collab-chip--${agent.status}`}>
+                    {responseLabel(agent.status)}
+                  </span>
+                  <div className="ai-collab-agent-actions">
+                    <button type="button" onClick={() => void openAgent(agent.agent_id)} disabled={Boolean(busyAction)}>
+                      {busyAction === `open:${agent.agent_id}` ? '開啟中...' : '開啟'}
+                    </button>
+                    <button type="button" onClick={() => void authorizeAgent(agent.agent_id)} disabled={Boolean(busyAction)}>
+                      {busyAction === `authorize:${agent.agent_id}` ? '開啟中...' : '瀏覽器登入'}
+                    </button>
+                  </div>
+                  <details className="ai-collab-agent-settings">
+                    <summary>網址設定</summary>
+                    <label>
+                      <span>一般業務 URL</span>
+                      <input
+                        type="url"
+                        value={agent.general_url || ''}
+                        onChange={(event) => updateAgentSetting(agent.agent_id, 'general_url', event.target.value)}
+                        disabled={Boolean(busyAction)}
+                      />
+                    </label>
+                    <div className="ai-collab-agent-business-flags">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(agent.general_enabled)}
+                          onChange={(event) => updateAgentSetting(agent.agent_id, 'general_enabled', event.target.checked ? 1 : 0)}
+                        />
+                        一般
+                      </label>
+                      <button type="button" onClick={() => void saveAgentBusinessSettings(agent)} disabled={Boolean(busyAction)}>
+                        {busyAction === `settings:${agent.agent_id}` ? '儲存中...' : '儲存 URL'}
+                      </button>
+                    </div>
+                  </details>
+                  {agent.last_error ? <p>{agent.last_error}</p> : null}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+        <section className="ai-collab-top-composer" aria-label="協作需求輸入">
+          <div className="ai-collab-preset-row">
+            <span className="ai-collab-route-label">已選 {selectedAgents.size} 個 AI</span>
+            {PROMPT_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyPromptPreset(preset.prompt)}
+                disabled={Boolean(busyAction)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="輸入要交給已勾選 AI 的協作需求"
+            disabled={Boolean(busyAction)}
+          />
+          <button
+            type="button"
+            className="ai-collab-primary"
+            onClick={() => void sendGroupMessage()}
+            disabled={Boolean(busyAction) || !draft.trim() || selectedAgents.size === 0}
+          >
+            {busyAction === 'send' ? '協作中...' : '送出協作'}
+          </button>
+        </section>
       </header>
 
-      <section className="ai-collab-status">
-        <span>{message}</span>
-        <span>{selectedAgentNames || '尚未選擇 AI'}</span>
-      </section>
-
-      <section className={`ai-collab-diagnostics ai-collab-diagnostics--${diagnostics?.state || 'idle'}`}>
-        <div>
-          <span>整體狀態</span>
-          <strong>{diagnosticsLabel(diagnostics?.state)}</strong>
-          <p>{diagnostics?.message || '等待診斷資料'}</p>
-        </div>
-        <div>
-          <span>選取 AI</span>
-          <strong>{diagnostics?.agents?.selected ?? selectedAgents.size}</strong>
-          <p>可用 {diagnostics?.agents?.enabled ?? agents.length} / 全部 {diagnostics?.agents?.total ?? agents.length}</p>
-        </div>
-        <div>
-          <span>回覆狀態</span>
-          <strong>{failedResponses + waitingVerification}</strong>
-          <p>失敗 {failedResponses} · 待驗證 {waitingVerification}</p>
-        </div>
-        <div>
-          <span>內建瀏覽器</span>
-          <strong>{diagnostics?.browser?.available ? '可用' : '未就緒'}</strong>
-          <p>六個 AI 共用同一內建瀏覽器，以分頁切換</p>
-        </div>
-      </section>
-
-      <section className="ai-collab-workspace">
-        <div className="ai-collab-left">
+      <section className="ai-collab-workspace" aria-label="外部協作四分之一與四分之三雙欄工作區">
+        <div className="ai-collab-left" aria-label="協作輸入與 AI 清單">
 
 
       <section className="ai-collab-grid">
-        <aside className="ai-collab-panel">
+        <aside className="ai-collab-panel ai-collab-agent-card-legacy" hidden aria-hidden="true">
           <div className="ai-collab-section-head">
             <div>
               <span>AI 名單</span>
@@ -792,57 +906,12 @@ export function AiCollaborationWindowApp() {
         </aside>
 
         <section className="ai-collab-main">
-          <section className="ai-collab-panel ai-collab-composer">
-            <div className="ai-collab-section-head">
-              <div>
-                <span>協作</span>
-                <strong>依目前勾選的 AI 直接協作；最多六個 AI 同時處理</strong>
-              </div>
-            </div>
-            <div className="ai-collab-preset-row">
-              <label className="ai-collab-task-select">
-                任務路由
-                <span className="ai-collab-route-label">依勾選 AI</span>
-              </label>
-              {PROMPT_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => applyPromptPreset(preset.prompt)}
-                  disabled={Boolean(busyAction)}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-            <textarea
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="輸入要交給已勾選 AI 的協作需求"
-              disabled={Boolean(busyAction)}
-            />
-            <button
-              type="button"
-              className="ai-collab-primary"
-              onClick={() => void sendGroupMessage()}
-              disabled={Boolean(busyAction) || !draft.trim() || selectedAgents.size === 0}
-            >
-              {busyAction === 'send' ? '協作中...' : '送出協作'}
-            </button>
-          </section>
-
           <section className="ai-collab-thread">
             {messages.length === 0 ? (
               <div className="ai-collab-empty">尚無協作紀錄</div>
             ) : (
               messages.map((item) => (
-                <article key={item.message_id} className="ai-collab-message">
-                  <div className="ai-collab-message-head">
-                    <strong>需求</strong>
-                    <span>{formatClock(item.created_at)}</span>
-                  </div>
-                  <p>{item.content}</p>
-                  <div className="ai-collab-response-list">
+                  <div key={item.message_id} className="ai-collab-response-list">
                     {item.responses.map((response) => {
                       const agent = agentsById.get(response.agent_id)
                       return (
@@ -885,13 +954,12 @@ export function AiCollaborationWindowApp() {
                       )
                     })}
                   </div>
-                </article>
               ))
             )}
           </section>
         </section>
 
-        <aside className="ai-collab-panel">
+        <aside className="ai-collab-panel ai-collab-memory-card-legacy" hidden aria-hidden="true">
           <div className="ai-collab-section-head">
             <div>
               <span>共享記憶</span>
@@ -925,7 +993,7 @@ export function AiCollaborationWindowApp() {
         </aside>
       </section>
         </div>
-        <div className="ai-collab-right" ref={rightPanelRef}>
+        <div className="ai-collab-right" ref={rightPanelRef} aria-label="內建瀏覽器網頁區">
           <div className="ai-collab-browser-canvas" />
         </div>
       </section>

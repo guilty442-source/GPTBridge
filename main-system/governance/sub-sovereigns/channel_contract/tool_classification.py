@@ -8,7 +8,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-from core_system.sovereign_utils import _iso_now
 
 
 # Fallback resident service IDs used when manifest scanning is unavailable.
@@ -117,7 +116,9 @@ class ToolClassificationMixin:
     async def _start_resident_tool(
         self, toolbox: Any, permission: Any, tool_id: str
     ) -> tuple[str, dict[str, Any]]:
-        if permission is None or not permission.can_start_tool(tool_id):
+        if permission is None or not await asyncio.to_thread(
+            permission.can_start_tool, tool_id
+        ):
             return tool_id, {
                 "ok": False,
                 "tool_id": tool_id,

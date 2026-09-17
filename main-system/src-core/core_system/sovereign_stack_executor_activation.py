@@ -175,7 +175,14 @@ class SovereignStackActivationMixin:
 
         try:
             await sovereign.start()
+            step_timings["decision-sovereign-start_ms"] = int(
+                (time.monotonic() - _step_start) * 1000
+            )
+            _children_start = time.monotonic()
             report = await self._start_children(sovereign)
+            step_timings["decision-children_ms"] = int(
+                (time.monotonic() - _children_start) * 1000
+            )
             app._log(
                 {
                     "type": "sovereign_startup",
@@ -188,6 +195,7 @@ class SovereignStackActivationMixin:
             (time.monotonic() - _step_start) * 1000
         )
         app._startup_step_timings = step_timings
+        app._log({"type": "startup_step_timings", **step_timings})
         app._mark_startup_phase("sovereign_initialized")
         return startup_ok
 

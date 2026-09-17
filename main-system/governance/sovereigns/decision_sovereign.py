@@ -258,6 +258,17 @@ class DecisionSovereign(
             self.verified_basis("A152", "A154", "E127", "E128"),
         )
 
+    def decide_and_route_repair(
+        self,
+        classified_signal: dict[str, Any],
+        *,
+        user_confirmed: bool = False,
+    ) -> dict[str, Any]:
+        """A152 repair-decision entry point."""
+        return self._repair_decision_chain.decide_and_route(
+            classified_signal, user_confirmed=user_confirmed
+        )
+
     async def _adjudicate_certified_update(self, request: SovereignRequest) -> SovereignOutcome:
         """A152/A154/A330: certified update decision."""
         error, fields = self._validate_certified_update_request(request)

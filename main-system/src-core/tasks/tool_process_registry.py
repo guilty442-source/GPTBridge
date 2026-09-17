@@ -165,6 +165,36 @@ def _snapshot_processes() -> list[dict[str, Any]]:
     return _snapshot_processes_powershell()
 
 
+def _native_process_ids(
+    kind: str,
+    tool_id: str = "",
+    source_runtime_entry: str = "",
+    executable_path: str = "",
+) -> list[int] | None:
+    """Resolve one process class from the native snapshot.
+
+    Returns ``None`` when psutil is unavailable so callers fall back to the
+    PowerShell/CIM query.  The native pass costs milliseconds, where every CIM
+    call costs 1-3 seconds and dominated tool open/close latency.
+    """
+    snapshot = _snapshot_processes_native()
+    if snapshot is None:
+        return None
+    process_ids: list[int] = []
+    for proc in snapshot:
+        is_runtime, is_executable, is_ui = _match_process_to_tool(
+            proc, tool_id, source_runtime_entry, executable_path
+        )
+        matched = {
+            "source_runtime": is_runtime,
+            "executable": is_executable,
+            "source_ui": is_ui,
+        }[kind]
+        if matched:
+            process_ids.append(int(proc["pid"]))
+    return process_ids
+
+
 def _match_process_to_tool(
     proc: dict[str, Any],
     tool_id: str,
@@ -242,6 +272,11 @@ def batch_running_status(
 def running_executable_process_ids(executable_file: Path) -> list[int]:
     if os.name != "nt":
         return []
+    native = _native_process_ids(
+        "executable", executable_path=str(executable_file.resolve())
+    )
+    if native is not None:
+        return native
     environment = os.environ.copy()
     environment["GPTBRIDGE_EXECUTABLE_PATH"] = str(executable_file.resolve())
     command = (
@@ -258,6 +293,11 @@ def running_executable_process_ids(executable_file: Path) -> list[int]:
 def running_source_runtime_process_ids(entry_file: Path) -> list[int]:
     if os.name != "nt":
         return []
+    native = _native_process_ids(
+        "source_runtime", source_runtime_entry=str(entry_file.resolve())
+    )
+    if native is not None:
+        return native
     environment = os.environ.copy()
     environment["GPTBRIDGE_SOURCE_RUNTIME_ENTRY"] = str(entry_file.resolve())
     command = (
@@ -290,6 +330,9 @@ def running_packaged_backend_process_ids(tool_dir: Path) -> list[int]:
 def running_source_ui_process_ids(tool_id: str) -> list[int]:
     if os.name != "nt" or re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", tool_id) is None:
         return []
+    native = _native_process_ids("source_ui", tool_id=tool_id)
+    if native is not None:
+        return native
     environment = os.environ.copy()
     environment["GPTBRIDGE_SOURCE_UI_TOOL_ID_QUERY"] = tool_id
     command = (

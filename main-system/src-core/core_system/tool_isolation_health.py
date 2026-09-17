@@ -12,6 +12,7 @@ import os
 import subprocess
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import psutil
@@ -19,6 +20,11 @@ import psutil
 from core_system.tool_isolation_types import ToolIsolationEntry
 
 _logger = logging.getLogger("gptbridge.tool_isolation")
+
+_QUARANTINE_DEFAULT_AGE_DAYS = 14.0
+_SECONDS_PER_DAY = 24 * 60 * 60
+_STDERR_TAIL_LINES = 40
+_CRASH_FAILURE_CODE = "TOOL_RUNTIME_CRASH"
 
 
 class ToolIsolationHealthMixin:
@@ -43,6 +49,13 @@ class ToolIsolationHealthMixin:
         try:
             proc = psutil.Process(entry.pid)
             if not proc.is_running():
+                if entry.expected_stop:
+                    return {
+                        "tool_id": tool_id,
+                        "status": "stopped",
+                        "pid": entry.pid,
+                        "expected_stop": True,
+                    }
                 return {
                     "tool_id": tool_id,
                     "status": "crashed",
@@ -89,6 +102,13 @@ class ToolIsolationHealthMixin:
                 "restart_count": restart_count,
             }
         except psutil.NoSuchProcess:
+            if entry.expected_stop:
+                return {
+                    "tool_id": tool_id,
+                    "status": "stopped",
+                    "pid": entry.pid,
+                    "expected_stop": True,
+                }
             return {
                 "tool_id": tool_id,
                 "status": "crashed",
@@ -112,25 +132,45 @@ class ToolIsolationHealthMixin:
         """Register a callback called when a tool crashes."""
         self._crash_callbacks.append(callback)
 
+    def mark_expected_stop(self, tool_id: str) -> None:
+        """Mark a registered tool's upcoming stop as deliberate lifecycle.
+
+        Force-close and pre-respawn sweeps terminate the process outside
+        the isolation manager; without this marker the monitor reports the
+        observed exit as a crash and pollutes the fault evidence.
+        """
+        with self._lock:
+            entry = self._entries.get(tool_id)
+            if entry is not None:
+                entry.expected_stop = True
+
     def handle_crash(self, tool_id: str) -> dict[str, Any]:
-        """Handle a tool crash: quarantine, notify, and optionally restart."""
+        """Handle a tool crash: quarantine, notify, and signal repair."""
         with self._lock:
             entry = self._entries.get(tool_id)
         if entry is None:
             return {"tool_id": tool_id, "action": "not_registered"}
+        if entry.expected_stop:
+            # Deliberate lifecycle stop (force-close/owner shutdown): the
+            # observed exit is not a fault.  Keep the entry so the next
+            # registration cleanly replaces it.
+            return {"tool_id": tool_id, "action": "expected-stop"}
 
         policy = self.resolve_policy(tool_id)
 
         config = self._load_policy_config()
         crash_config = config.get("crash_containment", {})
+        diagnosis = self._diagnose_crash(tool_id, entry)
         if crash_config.get("isolate_on_crash", True):
-            self._quarantine_crash(tool_id, entry)
+            self._quarantine_crash(tool_id, entry, diagnosis=diagnosis)
 
         for cb in self._crash_callbacks:
             try:
                 cb(tool_id, entry)
             except Exception:
                 pass
+
+        self._signal_crash_repair(tool_id, entry, diagnosis)
 
         if not policy.restart_on_crash:
             with self._lock:
@@ -170,7 +210,120 @@ class ToolIsolationHealthMixin:
             "attempt": attempt,
         }
 
-    def _quarantine_crash(self, tool_id: str, entry: ToolIsolationEntry) -> None:
+    def _tool_stderr_tail(self, tool_id: str, entry: ToolIsolationEntry) -> list[str]:
+        """Read the bounded stderr tail captured for the crashed process.
+
+        Tool spawn redirects stderr to ``<log_root>/stderr.log`` so a crash
+        leaves diagnosable evidence instead of an empty exit code.
+        """
+        log_root = entry.log_root or str(
+            self.project_root / "main-system" / "runtime" / "logs" / "tools" / tool_id
+        )
+        path = Path(log_root) / "stderr.log"
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return []
+        lines = [line for line in text.splitlines() if line.strip()]
+        return lines[-_STDERR_TAIL_LINES:]
+
+    def _diagnose_crash(
+        self, tool_id: str, entry: ToolIsolationEntry
+    ) -> dict[str, Any]:
+        """Build the crash diagnosis from captured stderr evidence.
+
+        The stderr tail is parsed with the same ``CrashDiagnoser`` rules
+        the boot core uses for backend crashes: an indentation-family
+        traceback is ``targeted`` (source-mutation repair, user-gated);
+        anything else is a ``runtime-recovery`` candidate (stability-tier:
+        owned-database inspection plus governed artifact rebuild).  The
+        decision itself stays with the decision-sovereign (A152).
+        """
+        stderr_tail = self._tool_stderr_tail(tool_id, entry)
+        try:
+            from tasks.crash_diagnosis import CrashDiagnoser
+
+            diagnosis = dict(
+                CrashDiagnoser().diagnose(stderr_tail, self.project_root)
+            )
+        except Exception:
+            diagnosis = {
+                "action": "fallback",
+                "error_type": "",
+                "file": "",
+                "line": None,
+            }
+        diagnosis["tool_id"] = tool_id
+        diagnosis["pid"] = entry.pid
+        diagnosis["exit_code"] = (
+            entry.process.returncode
+            if entry.process.returncode is not None
+            else -1
+        )
+        diagnosis["stderr_tail"] = stderr_tail
+        diagnosis["action"] = (
+            "targeted" if diagnosis.get("action") == "targeted" else "runtime-recovery"
+        )
+        return diagnosis
+
+    def _signal_crash_repair(
+        self, tool_id: str, entry: ToolIsolationEntry, diagnosis: dict[str, Any]
+    ) -> None:
+        """Write a governed repair signal for the crash (signal-only).
+
+        The isolation monitor never repairs: it submits a signal to the
+        information layer (``repair-requests.json``) so the maintenance
+        health-classification chain and the decision-sovereign own the
+        repair decision per A152/A154/E128.  Duplicate open requests for
+        the same tool are suppressed so a crash loop cannot flood the
+        confirmation surface.
+        """
+        try:
+            from tasks.repair_coordinator import RepairCoordinator
+
+            coordinator = RepairCoordinator(self.project_root)
+            for request in coordinator._read_requests():
+                if str(request.get("status") or "") not in (
+                    "pending",
+                    "awaiting-confirmation",
+                    "executing",
+                ):
+                    continue
+                proof = request.get("decision_proof") or {}
+                request_diagnosis = proof.get("diagnosis") or {}
+                if str(request_diagnosis.get("tool_id") or "") == tool_id:
+                    return
+            coordinator.request_governed_repair(
+                failure_code=_CRASH_FAILURE_CODE,
+                owner="tool-isolation-monitor",
+                decision_proof={
+                    "source": "tool-isolation-crash-monitor",
+                    "component_id": tool_id,
+                    "diagnosis": diagnosis,
+                    "stderr_tail": diagnosis.get("stderr_tail") or [],
+                    "evidence": {
+                        "fault_code": _CRASH_FAILURE_CODE,
+                        "tool_id": tool_id,
+                        "component": tool_id,
+                        "file": diagnosis.get("file") or "",
+                    },
+                    "exit_context": {
+                        "exit_code": diagnosis.get("exit_code"),
+                        "stderr_lines": len(diagnosis.get("stderr_tail") or []),
+                    },
+                },
+                signal_only=True,
+            )
+        except Exception:
+            pass  # Best-effort: signaling never blocks containment.
+
+    def _quarantine_crash(
+        self,
+        tool_id: str,
+        entry: ToolIsolationEntry,
+        *,
+        diagnosis: dict[str, Any] | None = None,
+    ) -> None:
         """Record crash info in the quarantine directory."""
         config = self._load_policy_config()
         crash_config = config.get("crash_containment", {})
@@ -191,6 +344,14 @@ class ToolIsolationHealthMixin:
                     else -1
                 ),
             }
+            if diagnosis is not None:
+                record["diagnosis"] = {
+                    "action": diagnosis.get("action"),
+                    "error_type": diagnosis.get("error_type"),
+                    "file": diagnosis.get("file"),
+                    "line": diagnosis.get("line"),
+                    "stderr_tail": (diagnosis.get("stderr_tail") or [])[-20:],
+                }
             path = quarantine_dir / f"{tool_id}-{int(time.time())}.json"
             path.write_text(
                 json.dumps(record, ensure_ascii=False, indent=2) + "\n",
@@ -202,6 +363,69 @@ class ToolIsolationHealthMixin:
                 old_path.unlink(missing_ok=True)
         except OSError:
             pass
+
+    def purge_stale_quarantine(
+        self,
+        *,
+        max_age_days: float | None = None,
+        now: float | None = None,
+    ) -> dict[str, Any]:
+        """Retention sweep for aged crash-quarantine evidence.
+
+        Crash records are bounded per tool by ``max_quarantine_entries``;
+        this sweep additionally drops records older than the configured
+        ``max_quarantine_age_days`` so retired tools (whose records can
+        never rotate out through new crashes) do not accumulate forever.
+        Fail-open: a single unreadable or locked record is reported, never
+        raised, and the newest records always survive.
+        """
+
+        config = self._load_policy_config()
+        crash_config = config.get("crash_containment", {})
+        retention_days = max_age_days
+        if retention_days is None:
+            raw_retention = crash_config.get(
+                "max_quarantine_age_days", _QUARANTINE_DEFAULT_AGE_DAYS
+            )
+            try:
+                retention_days = float(raw_retention)
+            except (TypeError, ValueError):
+                retention_days = _QUARANTINE_DEFAULT_AGE_DAYS
+        retention_days = max(0.0, float(retention_days))
+        quarantine_dir = self.project_root / crash_config.get(
+            "quarantine_dir",
+            "main-system/runtime/state/tool-crash-quarantine",
+        )
+        current = time.time() if now is None else float(now)
+        cutoff = current - retention_days * _SECONDS_PER_DAY
+        removed: list[str] = []
+        failed: list[dict[str, str]] = []
+        if quarantine_dir.is_dir():
+            for record_path in sorted(quarantine_dir.glob("*.json")):
+                if record_path.is_symlink() or not record_path.is_file():
+                    continue
+                try:
+                    if record_path.stat().st_mtime >= cutoff:
+                        continue
+                    record_path.unlink()
+                    removed.append(record_path.name)
+                except OSError as error:
+                    failed.append(
+                        {
+                            "path": record_path.name,
+                            "reason": f"{type(error).__name__}: {error}",
+                        }
+                    )
+        return {
+            "ok": not failed,
+            "operation": "tool-crash-quarantine-retention",
+            "authority": "health-maintenance-test-sub-sovereign",
+            "quarantine_dir": str(quarantine_dir),
+            "retention_days": retention_days,
+            "removed_count": len(removed),
+            "removed": removed[:50],
+            "failed": failed[:20],
+        }
 
     def shutdown_tool(self, tool_id: str, timeout: float | None = None) -> dict[str, Any]:
         """Gracefully shut down a tool with signal escalation."""
@@ -310,7 +534,9 @@ class ToolIsolationHealthMixin:
                         break
                     with self._lock:
                         entry = self._entries.get(tid)
-                    if entry is not None and (entry.crashed or entry.quarantined):
+                    if entry is not None and (
+                        entry.crashed or entry.quarantined or entry.expected_stop
+                    ):
                         continue
                     health = self.check_tool_health(tid, light=light)
                     if health.get("status") == "crashed":

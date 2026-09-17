@@ -31,11 +31,11 @@ class GovernanceRulesHandler:
                     "shared-layer-response",
                     "result",
                 ],
-                "global-cleaner": [
-                    "global-garbage-cleanup",
-                    "managed-backup-per-owner-retention",
-                    "governed-backup-extraction",
-                    "delete-excess-logs",
+                "main-system-internal-cleanup": [
+                    "bounded-temp-cache-expired-log-orphan-cleanup",
+                    "retired-trash-residue-revalidation",
+                    "per-cycle-byte-quota",
+                    "create-verify-retain-per-owner-managed-backups",
                     "read-only-system-health-check",
                 ],
                 "main-system-central-repair": [
@@ -46,8 +46,9 @@ class GovernanceRulesHandler:
                 "direct_main_to_tool_instruction": "PERMISSION_DENIED",
                 "direct_tool_to_tool_instruction": "PERMISSION_DENIED",
                 "automatic_repair": (
-                    "governance-authorized-stability-only-with-optional-"
-                    "global-cleaner-backup-extraction-via-shared-layer"
+                    "governance-authorized-stability-only; retired-tool "
+                    "backup extraction stays frozen and non-executable "
+                    "(A533/A534)"
                 ),
                 "unauthorized_result": "PERMISSION_DENIED",
             },

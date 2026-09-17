@@ -10,7 +10,6 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-import websockets  # type: ignore
 
 from core.ui_shell import UIShell
 from tasks.state_change_notifier import StateChangeNotifier

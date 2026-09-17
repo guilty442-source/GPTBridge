@@ -376,10 +376,13 @@ export async function resolveBackendPort(): Promise<number> {
     readActiveBackendPort(),
     ...GENERATION_PORT_OFFSETS.map((offset) => configured + offset),
   ].filter(isValidPort)
-  for (const port of [...new Set(candidates)]) {
-    if (await probeBackendPort(port)) return port
-  }
-  return configured
+  const unique = [...new Set(candidates)]
+  // Probe all candidates in parallel — preference order is preserved by
+  // picking the first candidate whose probe succeeded, so a dead preferred
+  // port no longer serializes the timeout wait behind each live check.
+  const results = await Promise.all(unique.map((port) => probeBackendPort(port)))
+  const resolved = unique.find((_, index) => results[index])
+  return resolved ?? configured
 }
 
 /**

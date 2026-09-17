@@ -25,11 +25,19 @@ class BootCoreHandoverMixin:
         except (OSError, UnicodeError, json.JSONDecodeError):
             return None
         operation_id = str(payload.get("operation_id") or "")
+        # The requester writes "prepared" for a pending handover; boot_core
+        # marks a terminal status (global-success / failed-isolated /
+        # rolled-back / partial-deferred) into the same file once the
+        # operation converges.  A request that already reached a terminal
+        # state must not spawn another standby generation on every boot —
+        # retries belong to a fresh certified request, not the converged one.
+        status = str(payload.get("terminal_status") or "")
         if (
             not operation_id
             or operation_id == self._last_update_operation
             or payload.get("certified") is not True
             or not payload.get("artifact_hashes")
+            or status not in ("", "prepared")
         ):
             return None
         return payload

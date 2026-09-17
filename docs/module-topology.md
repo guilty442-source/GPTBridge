@@ -1,27 +1,41 @@
-# Module Topology — A66 Alignment
+# Module Topology — A534 Alignment
 
-## Execution Layer Modules (A66)
+## Execution Layer Modules (A534)
 
-A66 defines 9 execution-layer modules:
+A534 replaces A66/A533: the module-execution topology is main-system
+internal execution services plus exactly seven independent tools:
 
 ```
 local-model + model-dialogue + ai-assistant + investment-mobile +
-ai-collaboration + file-sorter + global-cleaner + vaultly + system-rescue
+ai-collaboration + file-sorter + vaultly
 ```
+
+Retirement notes:
+
+- `global-cleaner` is retired and non-executable. Its identity, lineage
+  and audit records remain registered as evidence; automatic cleanup is
+  owned in-process by the main-system internal cleanup service.
+- `system-rescue` is a main-system internal service only, not an
+  independent tool.
+- `xingcheng` is an independent privileged institution, outside the
+  independent-tool set.
 
 ## Physical Folder Layout
 
-| Module | Top-level Folder | Manifest | Status |
+Independent tools live under `Standalone tools/`. The retired
+global-cleaner folder remains as non-executable evidence.
+
+| Module | Folder | Manifest | Status |
 |---|---|---|---|
-| local-model (xingcheng) | `local-model/` | `local-model/manifest.json` | `running` |
-| model-dialogue (star-chat) | `local-model/model-dialogue/` | `local-model/model-dialogue/manifest.json` | `stopped` |
-| ai-assistant | `ai-assistant/` | `ai-assistant/manifest.json` | `stopped` |
-| investment-mobile | `investment-mobile/` | `investment-mobile/manifest.json` | `stopped` |
-| ai-collaboration | `ai-collaboration/` | `ai-collaboration/manifest.json` | `stopped` |
-| file-sorter | `file-sorter/` | `file-sorter/manifest.json` | `stopped` |
-| global-cleaner | `global-cleaner/` | `global-cleaner/manifest.json` | `stopped` |
-| vaultly | `vaultly/` | `vaultly/manifest.json` | `stopped` |
-| system-rescue | `system-rescue/` | `system-rescue/manifest.json` | `stopped` |
+| local-model | `Standalone tools/local-model/` | `manifest.json` | `on-demand` |
+| model-dialogue (star-chat) | `Standalone tools/local-model/model-dialogue/` | `manifest.json` | `on-demand` |
+| ai-assistant | `Standalone tools/ai-assistant/` | `manifest.json` | `on-demand` |
+| investment-mobile | `Standalone tools/investment-mobile/` | `manifest.json` | `on-demand` |
+| ai-collaboration | `Standalone tools/ai-collaboration/` | `manifest.json` | `on-demand` |
+| file-sorter | `Standalone tools/file-sorter/` | `manifest.json` | `on-demand` |
+| vaultly | `Standalone tools/vaultly/` | `manifest.json` | `on-demand` |
+| global-cleaner | `Standalone tools/global-cleaner/` | `manifest.json` | `retired` (non-executable) |
+| system-rescue (internal service) | `Standalone tools/system-rescue/` | `manifest.json` | `on-demand` |
 
 ## model-dialogue Nested Relationship
 

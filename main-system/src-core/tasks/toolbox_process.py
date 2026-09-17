@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from pathlib import Path
 from typing import Any, Dict
 
 from governance_rule.permission_directory.registries.permissions.identity_groups import (
@@ -96,6 +95,8 @@ class ProcessMixin:
                 )
             except (OSError, ValueError, json.JSONDecodeError):
                 return tool_id
+            if not isinstance(manifest, dict):
+                return tool_id
         owner = str(manifest.get("runtime_owner_tool_id") or "").strip()
         if not owner or owner == tool_id:
             return tool_id
@@ -108,6 +109,14 @@ class ProcessMixin:
             str(manifest.get("host_tool_id") or "").strip(),
             str(manifest.get("shared_permission_owner") or "").strip(),
         }
+        # A tool may also delegate its runtime to a companion it declares
+        # (e.g. model-dialogue opens on the lightweight star-chat runtime so
+        # the local model is never a start prerequisite of the window).
+        companions = manifest.get("companion_tools")
+        if isinstance(companions, list):
+            for declaration in companions:
+                if isinstance(declaration, dict):
+                    declared_owners.add(str(declaration.get("id") or "").strip())
         declared_owners.discard("")
         if owner not in declared_owners:
             raise PermissionError("PERMISSION_DENIED")

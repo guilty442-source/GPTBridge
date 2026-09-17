@@ -15,7 +15,7 @@
     "directLoad": false,
     "encapsulated": true,
     "optional": true,
-    "stoppable": false,
+    "stoppable": true,
     "disableable": true,
     "unloadable": true
   },
@@ -26,9 +26,9 @@
       "companion_owner": "local-model"
     },
     {
-      "id": "star-chat",
-      "path": "model-dialogue/star-chat",
-      "companion_owner": "xingcheng"
+      "id": "model-dialogue",
+      "path": "model-dialogue",
+      "companion_owner": "local-model"
     }
   ],
   "shared_permission_owner": "local-model",
@@ -84,8 +84,9 @@
     "allow": []
   },
   "has_custom_ui": false,
+  "sweep_exclusion": true,
   "background_service": {
-    "auto_restart": true,
+    "auto_restart": false,
     "headless": true,
     "explicit_force_close_suppresses_restart": true
   },

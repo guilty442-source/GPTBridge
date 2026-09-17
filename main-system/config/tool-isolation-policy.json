@@ -82,7 +82,8 @@
     "quarantine_dir": "main-system/runtime/state/tool-crash-quarantine",
     "capture_crash_dump": false,
     "notify_main_system": true,
-    "max_quarantine_entries": 20
+    "max_quarantine_entries": 20,
+    "max_quarantine_age_days": 14
   },
 
   "graceful_shutdown": {

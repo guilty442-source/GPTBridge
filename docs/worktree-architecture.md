@@ -115,7 +115,7 @@ Git governance tooling development (A53/E39).
 ```
 
 Each feature branch merges into `main` after verification.  The Git
-Coordinator (`governance_rule/execution/git_tiers/coordinator.py`)
+integration manager (`governance_rule/execution/git_tiers/merge_queue.py`)
 serializes merges through a merge queue so only one merge runs at a time.
 Every operation is audited with pre-operation snapshot (HEAD, branch,
 dirty files, staged files) for recovery.  `main` is the sole stable

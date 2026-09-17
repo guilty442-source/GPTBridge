@@ -30,8 +30,18 @@ def _check_package_layers(
     required_layers: frozenset[str],
     package_label: str,
     errors: list[str],
+    *,
+    retired: bool = False,
 ) -> None:
-    """Check that a package has all required layers and no stray sources."""
+    """Check that a package has all required layers and no stray sources.
+
+    A533/A534: a retired owner is non-executable evidence; its package is
+    not required to keep service layers.  Only active owners fail the
+    layer requirement (a retired package that still exists is dead data,
+    not a missing-layer fault).
+    """
+    if retired:
+        return
     package = root / package_root
     for layer in required_layers:
         if not (package / layer / "__init__.py").is_file():

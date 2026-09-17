@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 from pathlib import Path
 from typing import Any, Dict
 
@@ -75,83 +74,17 @@ class RepairMixin:
     ) -> dict[str, Any]:
         if not paths or not self.governance:
             return {"status": "skipped", "reason": "no-extraction-required"}
-        started_here = False
-        try:
-            start_result = await self.start_tool(
-                {
-                    "tool_id": "global-cleaner",
-                    "request_id": (
-                        f"central-repair-extract-start-{time.time_ns()}"
-                    ),
-                    "background": True,
-                    "runtime_mode": "source",
-                    "_auto_repair_attempted": True,
-                }
-            )
-            if start_result.get("ok") is not True:
-                return {
-                    "status": "service_start_failed",
-                    "detail": start_result,
-                }
-            if "already running" not in str(
-                start_result.get("message") or ""
-            ).casefold():
-                started_here = True
-            extraction_args = [
-                "--extract-managed-backup",
-                "--backup-owner",
-                target_tool_id,
-            ]
-            for path in paths:
-                extraction_args.extend(("--backup-path", str(path)))
-            extraction_args.append("--json")
-            extraction_request_id = (
-                f"repair-extract-{target_tool_id}-{time.time_ns()}"
-            )
-            queued = await self.request_tool_execution(
-                {
-                    "tool_id": "global-cleaner",
-                    "request_id": extraction_request_id,
-                    "_governed_command": "toolbox_request_tool_execution",
-                    "args": extraction_args,
-                }
-            )
-            if queued.get("ok") is not True:
-                return {
-                    "status": "queue_failed",
-                    "detail": queued,
-                }
-            extraction = None
-            deadline = time.monotonic() + 120
-            while time.monotonic() < deadline:
-                extraction = await asyncio.to_thread(
-                    self.permission_sovereign.tool_execution_response,
-                    "global-cleaner",
-                    extraction_request_id,
-                )
-                if extraction and extraction.get("status") in {
-                    "completed",
-                    "failed",
-                    "cancelled",
-                }:
-                    break
-                await asyncio.sleep(0.5)
-            return extraction or {
-                "status": "timed_out",
-                "request_id": extraction_request_id,
-            }
-        except (OSError, ValueError, PermissionError) as error:
-            return {"status": "failed", "message": str(error)}
-        finally:
-            if started_here:
-                await self.force_close_tool(
-                    {
-                        "tool_id": "global-cleaner",
-                        "request_id": (
-                            f"central-repair-extract-stop-{time.time_ns()}"
-                        ),
-                    }
-                )
+        # A533/A534: the standalone backup-extraction owner (global-cleaner)
+        # is retired and non-executable.  It is never spawned again; the
+        # frozen capability is reported explicitly so the repair path
+        # degrades truthfully instead of pretending extraction happened.
+        return {
+            "status": "unavailable",
+            "reason": "RETIRED_BACKUP_EXTRACTOR",
+            "error_code": "CAPABILITY_FROZEN_GOVERNANCE_BOUNDARY",
+            "target_tool_id": target_tool_id,
+            "requested_paths": list(paths),
+        }
 
     async def _retry_start_after_central_repair(
         self,

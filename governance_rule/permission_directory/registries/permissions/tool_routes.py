@@ -13,7 +13,7 @@ AUTHORIZED_TOOL_IDS: Final[frozenset[str]] = frozenset(
     {"ai-assistant", "xingcheng", "ai-collaboration", "star-chat"}
 )
 AI_CHANNEL_TOOL_IDS: Final[frozenset[str]] = (
-    AUTHORIZED_TOOL_IDS | {"investment-mobile"}
+    AUTHORIZED_TOOL_IDS | {"investment-mobile", "model-dialogue"}
 )
 XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE: Final[tuple[str, ...]] = (
     "receive-original-traditional-chinese",
@@ -54,6 +54,12 @@ AI_ROUTE_COMMANDS: Final[Mapping[tuple[str, str], frozenset[str]]] = {
             "xingcheng_infer",
         }
     ),
+    ("model-dialogue", "xingcheng"): frozenset(
+        {
+            "xingcheng_status",
+            "xingcheng_infer",
+        }
+    ),
     ("xingcheng", "ai-collaboration"): frozenset(
         {"ai_nexus_send_message"}
     ),
@@ -75,7 +81,7 @@ def _actor_tool_id(actor: str) -> str:
     if not value.startswith(_TOOL_ACTOR_PREFIX):
         raise permission_denied()
     tool_id = value[len(_TOOL_ACTOR_PREFIX) :]
-    if tool_id not in AUTHORIZED_TOOL_IDS:
+    if tool_id not in AI_CHANNEL_TOOL_IDS:
         raise permission_denied()
     return tool_id
 

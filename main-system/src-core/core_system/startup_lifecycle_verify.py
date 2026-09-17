@@ -11,7 +11,6 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from core_system.startup_lifecycle_types import (
-    HANDOFF_FLOW,
     MAX_STARTUP_CAPABILITIES,
     OFFICIAL_PLATFORM_ENTRY,
     ReadinessProof,

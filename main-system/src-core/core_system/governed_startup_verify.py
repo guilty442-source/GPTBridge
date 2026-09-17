@@ -6,12 +6,11 @@ Verification functions and the dependency DAG data structure.  Split from
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import  dataclass
 from typing import Any
 
 from core_system.governed_startup_types import (
     CORE_READY_CONDITIONS,
-    DEPENDENCY_CRITICALITY_CLASSES,
     NO_FIXED_CRITICALITY_SERVICES,
     STARTUP_PHASES,
     DependencyDeclaration,

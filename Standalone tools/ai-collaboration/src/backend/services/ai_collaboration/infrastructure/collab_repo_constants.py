@@ -56,12 +56,9 @@ DEFAULT_AGENTS: tuple[dict[str, Any], ...] = (
         "home_url": "https://www.perplexity.ai/",
         "business_capabilities": ["general", "advanced_search", "calculation"],
     },
-    {
-        "agent_id": "google-search",
-        "name": "Google Search",
-        "provider": "google-search",
-        "home_url": "https://www.google.com/",
-        "business_capabilities": ["search"],
-        "selected": False,
-    },
 )
+
+# Google Search is not an AI: it was retired from the selectable AI list.
+# Web browsing stays available through the embedded browser, and the
+# Gemini research pipeline performs its own Google-backed search.
+RETIRED_AGENT_IDS: tuple[str, ...] = ("google-search",)

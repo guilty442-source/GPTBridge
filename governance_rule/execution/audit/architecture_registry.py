@@ -203,6 +203,33 @@ def validate(payload: dict[str, Any], project_root: Path) -> list[str]:
     except ArchitectureRegistryError as error:
         return [str(error)]
 
+    module_labels = payload.get("module_labels")
+    trash = module_labels.get("trash") if isinstance(module_labels, dict) else None
+    if not isinstance(trash, list):
+        if payload.get("registry_id") == "gptbridge-architecture":
+            errors.append("architecture registry must declare module_labels.trash")
+        trash_ids: set[str] = set()
+    else:
+        trash_ids = {str(item).strip() for item in trash if str(item).strip()}
+        if len(trash_ids) != len(trash):
+            errors.append("module_labels.trash contains blank or duplicate identities")
+
+    retired_ids = {
+        component.component_id
+        for component in parsed
+        if component.lifecycle == "retired"
+    }
+    missing_trash = retired_ids - trash_ids if isinstance(trash, list) else set()
+    active_in_trash = trash_ids - retired_ids
+    if missing_trash:
+        errors.append(
+            "retired components missing trash label: " + ",".join(sorted(missing_trash))
+        )
+    if active_in_trash:
+        errors.append(
+            "non-retired components carry trash label: " + ",".join(sorted(active_in_trash))
+        )
+
     seen: set[str] = set()
     canonical_kinds: dict[str, list[str]] = {}
     for component in parsed:

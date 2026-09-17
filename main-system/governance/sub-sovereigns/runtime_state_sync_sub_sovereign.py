@@ -30,14 +30,12 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 from ._base import SubSovereignBase
 from core_system.codex_decision import decision_basis
-from core_system.sovereign_utils import _iso_now, _suppress
+from core_system.sovereign_utils import _iso_now
 from core_system.native import (
-    monotonic_seconds,
     native_available,
     resource_status,
 )

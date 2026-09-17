@@ -46,8 +46,6 @@ from uuid import uuid4
 
 from core_system.auto_repair_chain import (
     AutoRepairOrchestrator,
-    HealthSignal,
-    HealthState,
     create_auto_repair_orchestrator,
 )
 from governance_rule.execution.authentication import GovernanceAuthenticationService

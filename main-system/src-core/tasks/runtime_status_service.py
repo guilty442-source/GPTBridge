@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
 
@@ -81,8 +82,12 @@ class RuntimeStatusService:
                 isinstance(_payload, dict) and _payload.get("compact") is True
             )
             if compact:
-                return "app:get-runtime-status_result", self.compact_status()
-            return "app:get-runtime-status_result", self.startup_status()
+                return "app:get-runtime-status_result", await asyncio.to_thread(
+                    self.compact_status
+                )
+            return "app:get-runtime-status_result", await asyncio.to_thread(
+                self.startup_status
+            )
         raise ValueError(f"Unknown runtime status command: {command}")
 
     def compact_status(self, snapshot: Any | None = None) -> dict[str, Any]:

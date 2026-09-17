@@ -6,6 +6,7 @@ the domain; escape attempts fail closed.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -94,8 +95,15 @@ class XingchengDomainMixin:
         except OSError:
             return False
 
-    async def _adjudicate_observe(self, request: SovereignRequest) -> SovereignOutcome:
+    def _domain_cycle(self, manage: bool = True) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+        """One observe+analyze(+manage) pass — synchronous; call via to_thread."""
         snapshot = self._observe_domain()
+        anomalies = self._analyze_domain(snapshot)
+        actions = self._manage_domain() if manage else []
+        return snapshot, anomalies, actions
+
+    async def _adjudicate_observe(self, request: SovereignRequest) -> SovereignOutcome:
+        snapshot = await asyncio.to_thread(self._observe_domain)
         self._last_snapshot = snapshot
         return accepted_outcome(
             {"action": "observe", "domain": "owned", "snapshot": snapshot},
@@ -103,8 +111,8 @@ class XingchengDomainMixin:
         )
 
     async def _adjudicate_analyze(self, request: SovereignRequest) -> SovereignOutcome:
-        snapshot = self._last_snapshot or self._observe_domain()
-        anomalies = self._analyze_domain(snapshot)
+        snapshot = self._last_snapshot or await asyncio.to_thread(self._observe_domain)
+        anomalies = await asyncio.to_thread(self._analyze_domain, snapshot)
         return accepted_outcome(
             {"action": "analyze", "domain": "owned", "anomalies": anomalies},
             self.verified_basis("A20"),
@@ -113,8 +121,8 @@ class XingchengDomainMixin:
     async def _adjudicate_reason(self, request: SovereignRequest) -> SovereignOutcome:
         """A20 reason power: advisory conclusion from query + domain evidence."""
         query = str(request.payload.get("query") or "")
-        snapshot = self._last_snapshot or self._observe_domain()
-        anomalies = self._analyze_domain(snapshot)
+        snapshot = self._last_snapshot or await asyncio.to_thread(self._observe_domain)
+        anomalies = await asyncio.to_thread(self._analyze_domain, snapshot)
         conclusion = {
             "query": query,
             "evidence_basis": {
@@ -140,7 +148,7 @@ class XingchengDomainMixin:
         )
 
     async def _adjudicate_manage(self, request: SovereignRequest) -> SovereignOutcome:
-        actions = self._manage_domain()
+        actions = await asyncio.to_thread(self._manage_domain)
         return accepted_outcome(
             {"action": "manage", "domain": "owned", "resource": request.payload.get("resource"), "actions": actions},
             self.verified_basis("A20"),

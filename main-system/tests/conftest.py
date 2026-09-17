@@ -7,7 +7,8 @@ import pytest
 
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
-SRC_CORE = WORKSPACE_ROOT / "main-system" / "src-core"
+MAIN_SYSTEM_ROOT = WORKSPACE_ROOT / "main-system"
+SRC_CORE = MAIN_SYSTEM_ROOT / "src-core"
 SHARED_SRC = WORKSPACE_ROOT / "shared-layer" / "src"
 GOVERNANCE_RULE = WORKSPACE_ROOT / "governance_rule"
 FILE_SORTER_SERVICES = (
@@ -16,6 +17,7 @@ FILE_SORTER_SERVICES = (
 
 # Add all required paths for governance and shared-layer imports
 sys.path.insert(0, str(WORKSPACE_ROOT))
+sys.path.insert(0, str(MAIN_SYSTEM_ROOT))
 sys.path.insert(0, str(SRC_CORE))
 sys.path.insert(0, str(SHARED_SRC))
 sys.path.insert(0, str(GOVERNANCE_RULE))

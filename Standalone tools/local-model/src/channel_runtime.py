@@ -73,8 +73,13 @@ async def execute(
     try:
         requester = str(payload.pop("_governed_requester_actor", ""))
         if dialogue_service.owns(command):
-            if requester == tool_actor("star-chat"):
-                authorize_ai_target(requester, "star-chat", command)
+            if requester in {
+                tool_actor("star-chat"),
+                tool_actor("model-dialogue"),
+            }:
+                authorize_ai_target(
+                    requester, requester.rsplit("/", 1)[-1], command
+                )
             elif requester in {tool_actor(TOOL_ID), "governance/main-system"}:
                 authorize_ai_target(requester, TOOL_ID, command)
             else:
@@ -111,7 +116,14 @@ async def execute(
             and command == "xingcheng_search_investments"
         ):
             payload["allow_external_fallback"] = False
-        if requester == "governance/tool/star-chat" and command == "xingcheng_infer":
+        if (
+            requester
+            in {
+                "governance/tool/star-chat",
+                "governance/tool/model-dialogue",
+            }
+            and command == "xingcheng_infer"
+        ):
             payload["_runtime_model_selection_authorized"] = True
         if not service.owns(command):
             raise PermissionError("PERMISSION_DENIED")

@@ -23,6 +23,7 @@
     "backup_max_records_per_owner": 1,
     "replacement_order": "create-verify-publish-delete-excess-same-owner",
     "automatic_backup_owner": "global-cleaner-only",
+    "backup_execution": "frozen-retired-non-executable",
     "automatic_repair_extract": "governed-shared-layer-request-only"
   },
   "tool_settings": {
@@ -31,13 +32,13 @@
     "shared": false
   },
   "temporary_storage": {
-    "root": "Standalone tools/global-cleaner/runtime/temp",
-    "tool_root_template": "Standalone tools/global-cleaner/runtime/temp/tools/{tool_id}",
-    "shared_layer_root": "Standalone tools/global-cleaner/runtime/temp/shared-layer",
+    "root": "main-system/runtime/temp",
+    "tool_root_template": "main-system/runtime/temp/tools/{tool_id}",
+    "shared_layer_root": "main-system/runtime/temp/shared-layer",
     "scope": "ephemeral-only",
     "business_data": false,
     "cross_tool_sharing": false,
-    "cleanup_owner": "global-cleaner",
+    "cleanup_owner": "main-system-internal-cleanup",
     "active_file_behavior": "skip-locked-no-force-unlock"
   },
   "independent_tool_runtime": {

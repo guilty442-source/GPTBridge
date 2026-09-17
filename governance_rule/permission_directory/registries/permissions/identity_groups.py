@@ -125,6 +125,7 @@ GLOBAL_CLEANER_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
     identity_code="C00001",
     language_name="global_cleaner",
     codename="SWEEPER",
+    lifecycle="retired",
 )
 
 

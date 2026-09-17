@@ -119,20 +119,39 @@ class ManifestMixin(ManifestRecordMixin):
     # ------------------------------------------------------------------
 
     def _load_manifest_cached(self, tool_id: str) -> tuple[Dict[str, Any], Path]:
-        """Load and cache a tool's manifest, returning (manifest, tool_dir).
+        """Load a tool's manifest, reloading when the file changes on disk.
 
         Avoids redundant manifest.json reads during startup — a single
-        tool start previously triggered 3+ manifest reads.
+        tool start previously triggered 3+ manifest reads.  The cache is
+        mtime/size-fenced so a manifest edit (for example flipping
+        ``lifecycle.stoppable``) is visible to the running system without a
+        backend restart, which is what keeps the tool surface current.
         """
         cached = self._manifest_cache.get(tool_id)
         if cached is not None:
-            return cached
+            manifest, tool_dir = cached
+            key = self._manifest_freshness_key(tool_dir)
+            if key is not None and self._manifest_cache_keys.get(tool_id) == key:
+                return manifest, tool_dir
         tool_dir = self._tool_directory_for_id(tool_id)
         manifest = json.loads(
             (tool_dir / "manifest.json").read_text(encoding="utf-8")
         )
+        if not isinstance(manifest, dict):
+            raise ValueError(f"manifest is not a mapping: {tool_id}")
         self._manifest_cache[tool_id] = (manifest, tool_dir)
+        key = self._manifest_freshness_key(tool_dir)
+        if key is not None:
+            self._manifest_cache_keys[tool_id] = key
         return manifest, tool_dir
+
+    @staticmethod
+    def _manifest_freshness_key(tool_dir: Path) -> tuple[int, int] | None:
+        try:
+            stat_result = (tool_dir / "manifest.json").stat()
+        except OSError:
+            return None
+        return (stat_result.st_mtime_ns, stat_result.st_size)
 
     def _build_tool_dir_index(self) -> dict[str, str]:
         """Build a one-time index of tool_dir_name -> tool_id.
@@ -156,10 +175,15 @@ class ManifestMixin(ManifestRecordMixin):
                     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 except (OSError, json.JSONDecodeError):
                     continue
+                if not isinstance(manifest, dict):
+                    continue
                 tid = str(manifest.get("id") or "").strip()
                 if tid:
                     index[candidate.name] = tid
                     self._manifest_cache[tid] = (manifest, candidate)
+                    key = self._manifest_freshness_key(candidate)
+                    if key is not None:
+                        self._manifest_cache_keys[tid] = key
         self._tool_dir_index = index
         return index
 
@@ -197,8 +221,11 @@ class ManifestMixin(ManifestRecordMixin):
                 )
             except (OSError, json.JSONDecodeError):
                 continue
-            if manifest.get("id") == tool_id:
+            if isinstance(manifest, dict) and manifest.get("id") == tool_id:
                 self._manifest_cache[tool_id] = (manifest, companion)
+                key = self._manifest_freshness_key(companion)
+                if key is not None:
+                    self._manifest_cache_keys[tool_id] = key
                 return companion
         raise ValueError(f"Tool directory is unavailable: {tool_id}")
 
@@ -223,6 +250,19 @@ class ManifestMixin(ManifestRecordMixin):
             return False
         return True
 
+    @staticmethod
+    def _tool_record_is_active(tool: dict[str, Any]) -> bool:
+        """A533/A534: retired or disabled manifests never appear in the
+        toolbox tool surface — they are non-executable lineage evidence."""
+        if tool.get("enabled") is False:
+            return False
+        lifecycle = tool.get("lifecycle")
+        return not (
+            isinstance(lifecycle, dict)
+            and str(lifecycle.get("status") or "").strip().casefold()
+            == "retired"
+        )
+
     def _classify_tool(self, tool: dict[str, Any]) -> bool:
         """Classify a tool record in-place. Return True if it needs process checks."""
         tool_id = str(tool.get("id", "")).strip()
@@ -234,7 +274,8 @@ class ManifestMixin(ManifestRecordMixin):
             tool["resident_service"] = True
             tool["status"] = "running"
             return False
-        lifecycle = tool.get("lifecycle") or {}
+        lifecycle = tool.get("lifecycle")
+        lifecycle = lifecycle if isinstance(lifecycle, dict) else {}
         tool["resident_service"] = lifecycle.get("stoppable") is False
         try:
             authority_tool_id = self._runtime_owner_tool_id(tool_id, tool)
@@ -248,13 +289,23 @@ class ManifestMixin(ManifestRecordMixin):
         return authorized
 
     async def list_tools(self) -> Dict[str, Any]:
-        tools = self._load_manifest_records()
-        # First pass: classify tools and determine which need process checks.
-        # Tools that are not authorized skip process detection entirely.
-        tools_needing_checks: list[dict[str, Any]] = []
-        for tool in tools:
-            if self._classify_tool(tool):
-                tools_needing_checks.append(tool)
+        def _load_and_classify() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+            records = [
+                tool
+                for tool in self._load_manifest_records()
+                if self._tool_record_is_active(tool)
+            ]
+            needing_checks: list[dict[str, Any]] = []
+            for tool in records:
+                if self._classify_tool(tool):
+                    needing_checks.append(tool)
+            return records, needing_checks
+
+        # Manifest rglob + per-tool codex permission checks are synchronous;
+        # keep them off the event loop so the IPC channel stays responsive.
+        tools, tools_needing_checks = await asyncio.to_thread(
+            _load_and_classify
+        )
         # Batch process check: single PowerShell call for all authorized tools,
         # run in a thread to avoid blocking the async event loop.
         if tools_needing_checks:

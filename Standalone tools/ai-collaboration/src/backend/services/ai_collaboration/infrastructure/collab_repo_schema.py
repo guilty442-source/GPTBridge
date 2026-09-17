@@ -4,7 +4,7 @@ import json
 import sqlite3
 from typing import Any
 
-from .collab_repo_constants import DEFAULT_AGENTS, utc_now
+from .collab_repo_constants import DEFAULT_AGENTS, RETIRED_AGENT_IDS, utc_now
 
 _SCHEMA_SCRIPT = """
                 CREATE TABLE IF NOT EXISTS ai_nexus_agents (
@@ -166,6 +166,11 @@ class CollabRepoSchemaMixin:
         with self._connect() as connection:
             for agent in DEFAULT_AGENTS:
                 self._seed_default_agent(connection, agent, now)
+            for retired_agent_id in RETIRED_AGENT_IDS:
+                connection.execute(
+                    "DELETE FROM ai_nexus_agents WHERE agent_id = ?",
+                    (retired_agent_id,),
+                )
             rows = connection.execute(
                 "SELECT agent_id, business_capabilities_json FROM ai_nexus_agents"
             ).fetchall()

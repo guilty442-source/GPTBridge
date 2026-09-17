@@ -14,7 +14,7 @@ def _service_version() -> str:
     try:
         from core_system.versioning import component_version
 
-        return component_version("star-chat")
+        return component_version("model-dialogue")
     except Exception:
         pass
     manifest_path = Path(__file__).resolve().parents[5] / "manifest.json"
@@ -53,7 +53,7 @@ class StarChatService(StarChatHelpersMixin):
 
         self._client = GovernedRequestClient(
             channel,
-            tool_actor("star-chat"),
+            tool_actor("model-dialogue"),
             authorize_ai_route,
             transport="governance-authenticated-ai-channel",
         )
@@ -201,18 +201,18 @@ class StarChatService(StarChatHelpersMixin):
         return f"{command}_result", {
             **result,
             "client_version": self.VERSION,
-            "client_tool": "star-chat",
+            "client_tool": "model-dialogue",
             "main_system_independent_tool": True,
             "independent_only_in": "main-system",
             "model_service_owner": "xingcheng",
-            "settings_owner": "xingcheng",
-            "business_layer_owner": "xingcheng",
+            "settings_owner": "model-dialogue",
+            "business_layer_owner": "model-dialogue",
             "permission_profile": "local-model-platform-v1",
-            "cache_owner": "xingcheng",
-            "cache_storage": "local-model/runtime/cache/companions/star-chat",
-            "backup_owner": "xingcheng",
-            "backup_storage": "global-cleaner/data/business/backups/xingcheng",
-            "separated_from_model_service": False,
+            "cache_owner": "model-dialogue",
+            "cache_storage": "model-dialogue/runtime/cache",
+            "backup_owner": "model-dialogue",
+            "backup_storage": "global-cleaner/data/business/backups/model-dialogue",
+            "separated_from_model_service": True,
             "database_shared": True,
             "separate_business_layer": False,
             "separate_settings_layer": False,

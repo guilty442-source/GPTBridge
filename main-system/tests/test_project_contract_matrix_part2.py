@@ -106,27 +106,27 @@ def test_project_root_contains_only_governed_modules_and_control_files() -> None
     assert unexpected == []
 
 
-def test_temporary_storage_is_owned_by_global_cleaner() -> None:
+def test_temporary_storage_is_owned_by_main_system() -> None:
     contract = _load_json(ROOT / "main-system" / "config" / "tool-runtime-contract.json")
     temporary = contract["temporary_storage"]
-    assert temporary["root"] == "Standalone tools/global-cleaner/runtime/temp"
+    assert temporary["root"] == "main-system/runtime/temp"
     assert temporary["tool_root_template"] == (
-        "Standalone tools/global-cleaner/runtime/temp/tools/{tool_id}"
+        "main-system/runtime/temp/tools/{tool_id}"
     )
     assert temporary["shared_layer_root"] == (
-        "Standalone tools/global-cleaner/runtime/temp/shared-layer"
+        "main-system/runtime/temp/shared-layer"
     )
-    assert temporary["cleanup_owner"] == "global-cleaner"
+    assert temporary["cleanup_owner"] == "main-system-internal-cleanup"
 
     legacy_temp_roots = [
         path
         for path in ROOT.glob("*/runtime/temp")
-        if path != ROOT / "Standalone tools" / "global-cleaner" / "runtime" / "temp"
-        and path != ROOT / "main-system" / "runtime" / "temp"
+        if path != ROOT / "main-system" / "runtime" / "temp"
     ]
     assert legacy_temp_roots == []
     pytest_config = (ROOT / "pytest.ini").read_text("utf-8")
-    assert "Standalone tools/global-cleaner/runtime/temp/development/pytest-cache" in pytest_config
+    assert "main-system/runtime/temp/development/pytest-cache" in pytest_config
+    assert "global-cleaner" not in pytest_config
 
 
 def test_development_tool_configuration_is_owned_by_main_system() -> None:

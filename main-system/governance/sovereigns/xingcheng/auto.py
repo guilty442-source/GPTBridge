@@ -17,6 +17,11 @@ from .codex_drift import DRIFT_CHECK_EVERY_CYCLES
 
 _logger = logging.getLogger("gptbridge.sovereign.xingcheng.auto")
 
+# Maintenance (sqlite quick_check / cache prune / config validation) runs every
+# Nth auto-loop cycle instead of every cycle — it is idempotent housekeeping,
+# not per-cycle observation, and running it every 10s only burns I/O.
+_MANAGE_EVERY_CYCLES = 30
+
 
 class XingchengAutoMixin:
     """Full-automation upgrade — auto-loop inside owned domain."""
@@ -44,9 +49,10 @@ class XingchengAutoMixin:
         self._last_snapshot = {}
         self._pending_anomalies = []
         self._drift_cycle_counter = 0
+        self._manage_cycle_counter = 0
 
     async def _adjudicate_auto_observe(self, request: SovereignRequest) -> SovereignOutcome:
-        snapshot = self._observe_domain()
+        snapshot = await asyncio.to_thread(self._observe_domain)
         self._last_snapshot = snapshot
         return accepted_outcome(
             {"action": "auto-observe", "domain": "owned", "snapshot": snapshot},
@@ -54,8 +60,8 @@ class XingchengAutoMixin:
         )
 
     async def _adjudicate_auto_analyze(self, request: SovereignRequest) -> SovereignOutcome:
-        snapshot = self._last_snapshot or self._observe_domain()
-        anomalies = self._analyze_domain(snapshot)
+        snapshot = self._last_snapshot or await asyncio.to_thread(self._observe_domain)
+        anomalies = await asyncio.to_thread(self._analyze_domain, snapshot)
         self._auto_metrics["anomalies_detected"] += len(anomalies)
         if anomalies:
             self._pending_anomalies.extend(anomalies)
@@ -66,7 +72,7 @@ class XingchengAutoMixin:
         )
 
     async def _adjudicate_auto_manage(self, request: SovereignRequest) -> SovereignOutcome:
-        actions = self._manage_domain()
+        actions = await asyncio.to_thread(self._manage_domain)
         return accepted_outcome(
             {"action": "auto-manage", "domain": "owned", "actions": actions},
             self.verified_basis("A20"),
@@ -74,7 +80,10 @@ class XingchengAutoMixin:
 
     async def _adjudicate_auto_health_check(self, request: SovereignRequest) -> SovereignOutcome:
         self._auto_metrics["health_checks"] += 1
-        anomalies = self._analyze_domain(self._last_snapshot or self._observe_domain())
+        anomalies = await asyncio.to_thread(
+            self._analyze_domain,
+            self._last_snapshot or await asyncio.to_thread(self._observe_domain),
+        )
         if anomalies:
             self._pending_anomalies.extend(anomalies)
             self._auto_metrics["last_anomaly"] = self._iso_now()
@@ -119,13 +128,18 @@ class XingchengAutoMixin:
                 if not self._learning_armed:
                     await self.ensure_learning_automation()
 
-                # Observe
-                snapshot = self._observe_domain()
+                # Observe -> analyze -> manage: synchronous FS/sqlite work runs
+                # off the event loop; maintenance is decimated to every
+                # _MANAGE_EVERY_CYCLES cycles.
+                self._manage_cycle_counter += 1
+                manage_due = self._manage_cycle_counter >= _MANAGE_EVERY_CYCLES
+                if manage_due:
+                    self._manage_cycle_counter = 0
+                snapshot, anomalies, actions = await asyncio.to_thread(
+                    self._domain_cycle, manage_due
+                )
                 self._last_snapshot = snapshot
-                self._auto_metrics["observe_cycles"] += 1
 
-                # Analyze
-                anomalies = self._analyze_domain(snapshot)
                 if anomalies:
                     await self._process_anomalies(anomalies, batch_size)
                     # A485: anomalies trigger a parent-commanded learning
@@ -136,11 +150,6 @@ class XingchengAutoMixin:
 
                 # Reason (internal advisory)
                 self._auto_metrics["reason_cycles"] += 1
-
-                # Manage
-                actions = self._manage_domain()
-                if actions:
-                    self._auto_metrics["manage_cycles"] += 1
 
                 # A145: periodic codex-vs-implementation drift review,
                 # displayed on the 星澄 auxiliary surface (advisory).

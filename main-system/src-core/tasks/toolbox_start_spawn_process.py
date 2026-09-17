@@ -8,9 +8,38 @@ from __future__ import annotations
 import asyncio
 import subprocess
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, IO
 
 from .toolbox_constants import _background_subprocess_kwargs
+
+
+def _open_tool_stderr_log(project_root: Path, tool_id: str) -> IO[bytes] | None:
+    """Open the managed stderr log for a spawned tool process.
+
+    Crash diagnosis reads this tail instead of a lost DEVNULL stream.
+    Rotation keeps the current generation plus one previous log so the
+    file stays bounded without a sweeper.
+    """
+    try:
+        log_dir = (
+            Path(project_root)
+            / "main-system"
+            / "runtime"
+            / "logs"
+            / "tools"
+            / tool_id
+        )
+        log_dir.mkdir(parents=True, exist_ok=True)
+        current = log_dir / "stderr.log"
+        previous = log_dir / "stderr.prev.log"
+        if current.is_file():
+            try:
+                current.replace(previous)
+            except OSError:
+                pass
+        return current.open("wb")
+    except OSError:
+        return None
 
 
 class SpawnProcessMixin:
@@ -59,6 +88,8 @@ class SpawnProcessMixin:
         source_entry = ctx["source_entry"]
         python_executable = ctx["python_executable"]
 
+        stderr_log = _open_tool_stderr_log(self.project_root, tool_id)
+        stderr_target: Any = stderr_log if stderr_log is not None else subprocess.DEVNULL
         try:
             if use_source_runtime and source_entry is not None and python_executable is not None:
                 process = None
@@ -72,7 +103,7 @@ class SpawnProcessMixin:
                         cwd=str(tool_dir),
                         stdin=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
+                        stderr=stderr_target,
                         close_fds=True,
                         env=source_environment,
                         **_background_subprocess_kwargs(),
@@ -90,7 +121,7 @@ class SpawnProcessMixin:
                     cwd=str(tool_dir),
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stderr=stderr_target,
                     close_fds=True,
                     env=self._tool_environment(
                         tool_id, tool_dir, manifest, start_hidden=background,
@@ -132,6 +163,14 @@ class SpawnProcessMixin:
                     payload, tool_id, tool_dir, manifest, failure_result,
                 )
             return failure_result
+        finally:
+            # The child holds its own duplicated stderr handle; the parent
+            # copy can be closed as soon as the spawn attempt settles.
+            if stderr_log is not None:
+                try:
+                    stderr_log.close()
+                except OSError:
+                    pass
         return process
 
 

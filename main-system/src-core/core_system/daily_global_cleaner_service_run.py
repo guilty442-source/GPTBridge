@@ -1,19 +1,29 @@
-"""Daily global cleaner run mixin (A185 split).
+"""Automatic cleanup run mixin (A185 split).
 
-Contains the run_if_due method extracted from DailyGlobalCleanerService.
+Contains the ``run_if_due`` method of the main-system internal
+automatic-cleanup service (A533/A534: the retired standalone
+global-cleaner is never spawned; cleanup is executed in-process).
+
+The run is fail-open: every phase is individually guarded, the scheduler
+loop never raises, and a failed phase is recorded as evidence rather than
+aborting the cycle.
 """
 from __future__ import annotations
 
 import asyncio
 import time
+from pathlib import Path
 from typing import Any
 
 
 class DailyGlobalCleanerRunMixin:
-    """Daily global cleaner run-if-due execution."""
+    """Main-system internal automatic cleanup run-if-due execution."""
 
     app: Any
     _run_lock: object
+    CYCLE_BYTE_QUOTA: int
+    MAX_MODULES_PER_CYCLE: int
+    TRASH_MAX_MODULES_PER_CYCLE: int
 
     def is_due(self) -> bool:
         raise NotImplementedError
@@ -27,17 +37,149 @@ class DailyGlobalCleanerRunMixin:
     def _iso_now(self) -> str:
         raise NotImplementedError
 
-    def _permission_master_entry(self) -> Any:
+    async def _run_module_self_cleanup_sweep(
+        self, byte_budget: int | None = None
+    ) -> dict[str, Any]:
         raise NotImplementedError
 
-    async def _run_module_self_cleanup_sweep(self) -> dict[str, Any]:
+    def _trash_candidates(self) -> list[dict[str, Any]]:
         raise NotImplementedError
+
+    def _record_cleanup_audit(self, outcome: dict[str, Any]) -> str:
+        raise NotImplementedError
+
+    async def _cleanup_retired_trash(self, byte_budget: int) -> dict[str, Any]:
+        """Clean ephemeral residue of registry-classified retired modules.
+
+        The candidate list is revalidated against the current architecture
+        registry on every cycle (classification never authorizes deletion
+        by itself); each root is swept with the bounded tool-local cleanup
+        rules that never touch protected state, business data or
+        git-tracked content.
+        """
+        from governance_rule.execution.tool_runtime.tool_local_cleanup import (
+            run_local_cleanup,
+        )
+
+        started_at = self._iso_now()
+        candidates = self._trash_candidates()
+        results: list[dict[str, Any]] = []
+        cleaned_bytes = 0
+        remaining = max(0, int(byte_budget))
+        for candidate in candidates[: self.TRASH_MAX_MODULES_PER_CYCLE]:
+            tool_id = str(candidate.get("component_id") or "").strip()
+            raw_path = str(candidate.get("physical_path") or "").strip()
+            if not tool_id or not raw_path:
+                continue
+            tool_root = Path(self.app.project_root) / raw_path
+            if not tool_root.is_dir():
+                results.append(
+                    {"component_id": tool_id, "ok": True, "skipped": True,
+                     "reason": "NO_RESIDUE"}
+                )
+                continue
+            try:
+                result = await asyncio.to_thread(
+                    run_local_cleanup,
+                    tool_id,
+                    tool_root,
+                    max_cleaned_bytes=remaining,
+                )
+            except Exception as error:
+                results.append(
+                    {"component_id": tool_id, "ok": False,
+                     "error_code": "TRASH_CLEANUP_EXCEPTION",
+                     "message": f"{type(error).__name__}: {error}"}
+                )
+                continue
+            module_bytes = int(result.get("cleaned_bytes") or 0)
+            cleaned_bytes += module_bytes
+            remaining = max(0, remaining - module_bytes)
+            results.append(
+                {
+                    "component_id": tool_id,
+                    "ok": bool(result.get("ok")),
+                    "cleaned_bytes": module_bytes,
+                    "cleaned_files": len(result.get("cleaned_files") or []),
+                    "cleaned_directories": len(
+                        result.get("cleaned_directories") or []
+                    ),
+                    "quota_reached": bool(
+                        any(
+                            str(item.get("reason") or "").startswith(
+                                "cleanup byte quota"
+                            )
+                            for item in result.get("skipped") or []
+                        )
+                    ),
+                }
+            )
+        return {
+            "operation": "retired-trash-residue-cleanup",
+            "started_at": started_at,
+            "completed_at": self._iso_now(),
+            "candidate_count": len(candidates),
+            "processed_count": len(results),
+            "max_modules_per_cycle": self.TRASH_MAX_MODULES_PER_CYCLE,
+            "cleaned_bytes": cleaned_bytes,
+            "ok": all(item.get("ok") for item in results),
+            "results": results,
+        }
+
+    async def _purge_stale_quarantine(self) -> dict[str, Any]:
+        """Bounded retention sweep for aged crash-quarantine evidence.
+
+        A root-scoped manager is constructed instead of the process
+        singleton so a cleanup cycle never acts on another checkout's
+        state.  Retention is configured by ``max_quarantine_age_days``
+        (default 14) and never touches recent records.
+        """
+
+        from core_system.tool_isolation import ToolIsolationManager
+
+        manager = ToolIsolationManager(Path(self.app.project_root))
+        return await asyncio.to_thread(manager.purge_stale_quarantine)
+
+    def _classify_orphan_roots(self) -> dict[str, Any]:
+        """Revalidate unregistered physical roots (classification only).
+
+        The architecture registry is the single authority: this phase only
+        refreshes the garbage/review classification and never authorizes
+        removal, movement or reuse (A534: automatic cleanup is bounded and
+        revalidation is mandatory before any later destructive action).
+        """
+
+        from tasks.repair_inspection import (
+            classify_orphan_component_roots,
+        )
+
+        try:
+            candidates = classify_orphan_component_roots(
+                Path(self.app.project_root)
+            )
+        except Exception as error:
+            return {
+                "ok": False,
+                "operation": "orphan-root-classification",
+                "error_code": "ORPHAN_CLASSIFICATION_EXCEPTION",
+                "message": f"{type(error).__name__}: {error}",
+            }
+        return {
+            "ok": True,
+            "operation": "orphan-root-classification",
+            "classification_only": True,
+            "removal_authorized": False,
+            "candidate_count": len(candidates),
+            "candidates": candidates,
+        }
 
     async def run_if_due(self, *, force: bool = False) -> dict[str, Any]:
+        """Run one bounded automatic-cleanup cycle when due (or forced)."""
         async with self._run_lock:
             if not force and not self.is_due():
                 return {"ok": True, "skipped": True, "reason": "NOT_DUE"}
-            request_id = f"daily-global-cleaner-{time.time_ns()}"
+            request_id = f"automatic-cleanup-{time.time_ns()}"
+            started_monotonic = time.monotonic()
             state = self._load_state()
             state.update(
                 {
@@ -45,166 +187,102 @@ class DailyGlobalCleanerRunMixin:
                     "last_started_at": self._iso_now(),
                     "last_request_id": request_id,
                     "last_ok": False,
-                    "last_status": "starting",
+                    "last_status": "running",
                 }
             )
             state.pop("last_error", None)
-            toolbox = self.app.toolbox_service
-            permission = self._permission_master_entry()
-            if toolbox is None or permission is None:
-                error = {
-                    "ok": False,
-                    "error_code": "GOVERNED_RUNTIME_UNAVAILABLE",
-                }
-                return self._record_run_failure(
-                    state, "governed_runtime_unavailable", error, error
-                )
             self._save_state(state)
-            start_result = await self._start_cleaner(toolbox, request_id)
-            if start_result.get("ok") is not True:
-                return self._record_run_failure(
-                    state,
-                    "start_failed",
-                    start_result,
-                    {"ok": False, "stage": "start", "detail": start_result},
-                )
-            started_here = "already running" not in str(
-                start_result.get("message") or ""
-            ).casefold()
-            response: dict[str, Any] | None = None
+
+            findings: dict[str, Any] = {}
             try:
-                outcome, response = await self._execute_cleaner(
-                    toolbox, permission, request_id
+                findings["trash"] = await self._cleanup_retired_trash(
+                    self.CYCLE_BYTE_QUOTA
                 )
-                return outcome
-            finally:
-                await self._finalize_run(
-                    toolbox, started_here, request_id, response, state
-                )
-
-    def _record_run_failure(
-        self,
-        state: dict[str, Any],
-        status: str,
-        error: dict[str, Any],
-        result: dict[str, Any],
-    ) -> dict[str, Any]:
-        state.update(
-            {
-                "last_status": status,
-                "last_completed_at": self._iso_now(),
-                "last_error": error,
-            }
-        )
-        self._save_state(state)
-        return result
-
-    async def _start_cleaner(self, toolbox: Any, request_id: str) -> dict[str, Any]:
-        try:
-            return await toolbox.start_tool(
-                {
-                    "tool_id": "global-cleaner",
-                    "request_id": f"start-{request_id}",
-                    "background": True,
-                    "runtime_mode": "source",
+            except Exception as error:
+                findings["trash"] = {
+                    "ok": False,
+                    "error_code": "TRASH_CLEANUP_EXCEPTION",
+                    "message": f"{type(error).__name__}: {error}",
                 }
-            )
-        except Exception as error:
-            return {
-                "ok": False,
-                "error_code": "GLOBAL_CLEANER_START_EXCEPTION",
-                "message": f"{type(error).__name__}: {error}",
-            }
-
-    async def _execute_cleaner(
-        self, toolbox: Any, permission: Any, request_id: str
-    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
-        response: dict[str, Any] | None = None
-        queued = await toolbox.request_tool_execution(
-            {
-                "tool_id": "global-cleaner",
+            trash_bytes = int(findings["trash"].get("cleaned_bytes") or 0)
+            try:
+                findings["modules"] = await self._run_module_self_cleanup_sweep(
+                    max(0, self.CYCLE_BYTE_QUOTA - trash_bytes)
+                )
+            except Exception as error:
+                findings["modules"] = {
+                    "ok": False,
+                    "error_code": "MODULE_CLEANUP_EXCEPTION",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            try:
+                findings["quarantine"] = await self._purge_stale_quarantine()
+            except Exception as error:
+                findings["quarantine"] = {
+                    "ok": False,
+                    "error_code": "QUARANTINE_RETENTION_EXCEPTION",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            try:
+                findings["orphans"] = self._classify_orphan_roots()
+            except Exception as error:
+                findings["orphans"] = {
+                    "ok": False,
+                    "error_code": "ORPHAN_CLASSIFICATION_EXCEPTION",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            module_bytes = int(findings["modules"].get("cleaned_bytes_total") or 0)
+            cleaned_bytes = trash_bytes + module_bytes
+            outcome = {
+                "operation": "automatic-cleanup",
+                "authority": "health-maintenance-test-sub-sovereign",
+                "executor": "main-system-internal-cleanup",
                 "request_id": request_id,
-                "_governed_command": "toolbox_request_tool_execution",
-                "args": ["--governed-daily-maintenance", "--json"],
+                "scope": (
+                    "temp",
+                    "cache",
+                    "expired-log",
+                    "orphan-classification",
+                    "retired-trash-residue",
+                    "crash-quarantine-retention",
+                ),
+                "byte_quota": self.CYCLE_BYTE_QUOTA,
+                "cleaned_bytes": cleaned_bytes,
+                "duration_seconds": round(
+                    time.monotonic() - started_monotonic, 3
+                ),
+                "findings": findings,
             }
-        )
-        if queued.get("ok") is not True:
-            return {"ok": False, "stage": "queue", "detail": queued}, response
-        deadline = time.monotonic() + self.RESPONSE_TIMEOUT_SECONDS
-        while time.monotonic() < deadline:
-            response = await asyncio.to_thread(
-                permission.tool_execution_response,
-                "global-cleaner",
-                request_id,
+            outcome["audit_outcome"] = self._record_cleanup_audit(outcome)
+            ok = (
+                findings["trash"].get("ok") is not False
+                and bool(findings["modules"].get("ok"))
+                and findings["quarantine"].get("ok") is not False
+                and findings["orphans"].get("ok") is not False
             )
-            if response and response.get("status") in {
-                "completed",
-                "failed",
-                "cancelled",
-            }:
-                break
-            await asyncio.sleep(1)
-        if not response or response.get("status") != "completed":
-            return {
-                "ok": False,
-                "stage": "execute",
-                "error_code": "GLOBAL_CLEANER_TIMEOUT",
-                "detail": response,
-            }, response
-        tool_response = response.get("response")
-        ok = isinstance(tool_response, dict) and tool_response.get("ok") is True
-        return {
-            "ok": ok,
-            "stage": "completed",
-            "request_id": request_id,
-            "detail": tool_response,
-        }, response
-
-    async def _finalize_run(
-        self,
-        toolbox: Any,
-        started_here: bool,
-        request_id: str,
-        response: dict[str, Any] | None,
-        state: dict[str, Any],
-    ) -> None:
-        close_result = (
-            await toolbox.force_close_tool(
+            state.update(
                 {
-                    "tool_id": "global-cleaner",
-                    "request_id": f"stop-{request_id}",
+                    "last_completed_at": self._iso_now(),
+                    "last_ok": ok,
+                    "last_status": "completed" if ok else "degraded",
+                    "last_outcome": outcome,
+                    "module_cleanup": findings["modules"],
+                    "quarantine_retention": findings["quarantine"],
+                    "orphan_classification": findings["orphans"],
                 }
             )
-            if started_here
-            else {
-                "ok": True,
-                "delegated": True,
-                "reason": "PREEXISTING_GLOBAL_CLEANER_RETAINED",
-            }
-        )
-        result_ok = bool(
-            response
-            and response.get("status") == "completed"
-            and isinstance(response.get("response"), dict)
-            and response["response"].get("ok") is True
-        )
-        state.update(
-            {
-                "last_completed_at": self._iso_now(),
-                "last_ok": result_ok,
-                "last_status": "completed" if result_ok else "failed",
-                "last_response": response,
-                "last_close_result": close_result,
-            }
-        )
-        self._save_state(state)
-        try:
-            state["module_cleanup"] = (
-                await self._run_module_self_cleanup_sweep()
-            )
+            if not ok:
+                state["last_error"] = {
+                    "error_code": "AUTOMATIC_CLEANUP_PARTIAL",
+                    "message": "one or more cleanup phases reported failure",
+                }
             self._save_state(state)
-        except Exception:
-            pass
+            return {
+                "ok": ok,
+                "stage": "completed",
+                "request_id": request_id,
+                "detail": outcome,
+            }
 
 
 __all__ = ["DailyGlobalCleanerRunMixin"]

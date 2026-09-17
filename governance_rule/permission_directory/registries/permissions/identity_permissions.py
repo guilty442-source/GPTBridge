@@ -183,6 +183,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "independent-tool-business-storage",
             "system-channel-request-submit",
             "system-channel-request-process",
+            "ai-channel-request-submit",
         ),
     ),
 )

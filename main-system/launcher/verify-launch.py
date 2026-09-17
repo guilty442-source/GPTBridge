@@ -30,7 +30,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_ROOT = PROJECT_ROOT.parent
 JOURNAL_PATH = PROJECT_ROOT / "launcher" / "state" / "startup-journal.jsonl"
-HEALTH_URL = "http://127.0.0.1:8766/health?brief=1"
+HEALTH_URL = "http://127.0.0.1:8765/health?brief=1"
 
 DESKTOP_EXE = Path.home() / "Desktop" / "專案程式庫.exe"
 INSTALLED_EXE = (
@@ -121,7 +121,7 @@ def main() -> int:
         payload = probe_health()
         if is_ready(payload):
             break
-        time.sleep(2.0)
+        time.sleep(0.5)
     elapsed = time.monotonic() - start
 
     for line in journal_tail():

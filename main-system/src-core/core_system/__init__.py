@@ -24,6 +24,7 @@ from .system_automation_coordinator import SystemAutomationCoordinator
 
 _GOVERNANCE_EXPORTS = {
     "AutomaticLogSyncSubSovereign",
+    "AutomationSovereign",
     "ChangeAcceptanceSubSovereign",
     "ChannelContractSyncSubSovereign",
     "CleanupRetentionSyncSubSovereign",
@@ -43,7 +44,6 @@ _GOVERNANCE_EXPORTS = {
     "RuntimeStateSyncSubSovereign",
     "StartupSubSovereign",
     "SubSovereignBase",
-    "SynchronizationSovereign",
     "SystemRuntimeSovereign",
     "SystemSubSovereign",
     "XingchengSovereign",
@@ -59,6 +59,7 @@ _SERVICE_ALIASES = {
     "IntegrationSubSovereign": "ChannelContractSyncSubSovereign",
     "ThirdPartySubSovereign": "DependencySyncSubSovereign",
     "RuntimeSubSovereign": "RuntimeStateSyncSubSovereign",
+    "SynchronizationSovereign": "AutomationSovereign",
     "SystemProgrammingSovereign": "ReleaseUpdateSyncSubSovereign",
     "LearningSystemSovereign": "LearningEvidenceSyncSubSovereign",
 }

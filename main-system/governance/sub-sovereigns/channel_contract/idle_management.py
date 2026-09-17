@@ -6,7 +6,12 @@ import asyncio
 import time
 from typing import Any
 
-from core_system.sovereign_utils import _iso_now
+from core_system.sovereign_utils import  _suppress
+
+from .tool_classification import (
+    IDLE_MONITOR_INTERVAL_SECONDS,
+    IDLE_TIMEOUT_SECONDS,
+)
 
 
 class IdleManagementMixin:

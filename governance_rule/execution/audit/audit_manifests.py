@@ -18,6 +18,46 @@ from .audit_manifests_helpers import (
 )
 
 
+def _manifest_retired(manifest: dict) -> bool:
+    """A manifest is retired only through its explicit lifecycle marker.
+
+    A533/A534: a retired tool is non-executable.  Its manifest may remain
+    as lineage/audit evidence, but it is excluded from the active
+    independent-tool parity and never validated as an active tool.
+    """
+    lifecycle = manifest.get("lifecycle")
+    return (
+        isinstance(lifecycle, dict)
+        and str(lifecycle.get("status") or "").strip().casefold()
+        == "retired"
+    )
+
+
+def _validate_retired_manifest(
+    manifest_path: Path,
+    manifest: dict,
+    tool_id: str,
+    errors: list[str],
+) -> None:
+    """Validate the non-executability invariants of a retired manifest.
+
+    A retired manifest must stay disabled, non-stoppable, non-independent
+    and not running; reactivation is a failure, never a warning.
+    """
+    if not tool_id:
+        errors.append(f"retired tool manifest lacks an identifier: {manifest_path}")
+        return
+    if manifest.get("enabled") is not False:
+        errors.append(f"retired tool must be disabled: {tool_id}")
+    if manifest.get("main_system_independent_tool") is True:
+        errors.append(f"retired tool must not be an independent tool: {tool_id}")
+    lifecycle = manifest.get("lifecycle")
+    if not isinstance(lifecycle, dict) or lifecycle.get("stoppable") is not False:
+        errors.append(f"retired tool must be non-stoppable: {tool_id}")
+    if str(manifest.get("status") or "").strip().casefold() == "running":
+        errors.append(f"retired tool must not be running: {tool_id}")
+
+
 def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[str]]:
     """Verify all tool manifests and return (manifest_tool_ids, physical_owner_roots).
 
@@ -55,6 +95,9 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
         if manifest is None:
             continue
         tool_id = str(manifest.get("id") or "")
+        if _manifest_retired(manifest):
+            _validate_retired_manifest(manifest_path, manifest, tool_id, errors)
+            continue
         _validate_top_level_manifest(
             manifest_path, manifest, tool_id, label_policy, code_rules,
             errors, manifest_tool_ids, physical_owner_roots,
@@ -66,6 +109,9 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
         if manifest is None:
             continue
         tool_id = str(manifest.get("id") or "")
+        if _manifest_retired(manifest):
+            _validate_retired_manifest(manifest_path, manifest, tool_id, errors)
+            continue
         _validate_nested_manifest(
             manifest_path, manifest, tool_id, label_policy, code_rules,
             errors, manifest_tool_ids, physical_owner_roots,
@@ -79,6 +125,9 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
         if manifest is None:
             continue
         tool_id = str(manifest.get("id") or "")
+        if _manifest_retired(manifest):
+            _validate_retired_manifest(manifest_path, manifest, tool_id, errors)
+            continue
         _validate_nested_manifest(
             manifest_path, manifest, tool_id, label_policy, code_rules,
             errors, manifest_tool_ids, physical_owner_roots,
@@ -197,15 +246,30 @@ def check_tool_identity_registration(
     _NON_INDEPENDENT_TOOL_IDS = frozenset({
         "governance_rule", "shared-layer", "star-chat",
     })
+    # A533/A534: retired identities and manifests stay registered as
+    # lineage/audit evidence but are excluded from the active parity
+    # check — the approved list is compared on exactly the enabled tools.
+    retired_tool_ids = {
+        identity.bound_tool_id
+        for identity in identity_group.identities
+        if identity.lifecycle == "retired"
+    }
     registered_tool_ids = {
         identity.bound_tool_id
         for identity in identity_group.identities
         if identity.bound_tool_id != "main-system"
         and identity.bound_tool_id not in _NON_INDEPENDENT_TOOL_IDS
+        and identity.lifecycle != "retired"
     }
-    manifest_independent_ids = manifest_tool_ids - _NON_INDEPENDENT_TOOL_IDS
+    manifest_independent_ids = (
+        manifest_tool_ids - _NON_INDEPENDENT_TOOL_IDS - retired_tool_ids
+    )
     if registered_tool_ids != manifest_independent_ids:
         errors.append("each independent tool must have exactly one enabled identity")
-    approved_independent_ids = set(code_rules.approved_tool_ids) - _NON_INDEPENDENT_TOOL_IDS
+    approved_independent_ids = (
+        set(code_rules.approved_tool_ids)
+        - _NON_INDEPENDENT_TOOL_IDS
+        - retired_tool_ids
+    )
     if manifest_independent_ids != approved_independent_ids:
         errors.append("tool identifiers do not match the approved name list")

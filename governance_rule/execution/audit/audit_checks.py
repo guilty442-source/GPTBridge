@@ -6,7 +6,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Final
 
 from governance_rule.permission_directory.registries.permissions.source_ownership import (
     source_ownership_errors,
@@ -149,6 +149,10 @@ from .audit_artifacts import (
     check_integration_rule,
     check_data_layer_contract_module,
 )
+from .audit_codex_integrity import (
+    check_codex_mirror_quality,
+    check_codex_text_integrity,
+)
 from .audit_authority import (
     check_architecture_sources,
     check_identity_permissions,
@@ -179,6 +183,27 @@ from .audit_runtime_contracts import check_runtime_contracts
 from .audit_self_health import _verify_self_health_test_files
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+# Governor runtime-budget amendment (staged 2026-09-17): the ENTIRE
+# governance audit flow — every check, the self-health test-file barrier and
+# the merged verdict — must finish inside a hard 30-second wall-clock
+# deadline.  Exceeding it is fail-closed (an over-budget audit never passes).
+AUDIT_FLOW_BUDGET_SECONDS: Final[float] = 30.0
+
+
+def audit_flow_budget_error(elapsed_seconds: float) -> str | None:
+    """Return the budget violation error for one completed audit flow.
+
+    The clock is the caller's monotonic high-resolution elapsed time; an
+    elapsed time strictly greater than the budget is a failure.  No
+    configuration path may extend the budget.
+    """
+    if elapsed_seconds > AUDIT_FLOW_BUDGET_SECONDS:
+        return (
+            f"audit flow budget exceeded: {elapsed_seconds:.3f}s > "
+            f"{AUDIT_FLOW_BUDGET_SECONDS:.0f}s"
+        )
+    return None
 
 
 def _audit_workers(check_count: int) -> int:
@@ -240,7 +265,13 @@ def audit_runtime_governance(
     Startup may omit subprocess-based test collection; release and explicit
     audits retain the complete self-health barrier by default.  Every call
     performs the full read-only checks — no result is ever reused.
+
+    The whole flow is measured on a monotonic clock and must finish within
+    ``AUDIT_FLOW_BUDGET_SECONDS`` (the governor's hard 30-second budget); an
+    over-budget flow returns a fail-closed budget error in addition to any
+    check findings.
     """
+    started = time.monotonic()
     root = project_root.resolve()
     _sweep_stale_temp_files(Path(__file__).resolve().parent)
 
@@ -262,6 +293,8 @@ def audit_runtime_governance(
         lambda r: _collect(check_tool_isolation_hardening, r),
         _manifest_pair,
         lambda r: _collect(check_codex_consistency, r),
+        lambda r: _collect(check_codex_text_integrity, r),
+        lambda r: _collect(check_codex_mirror_quality, r),
         lambda r: _collect(check_architecture_registry, r),
         lambda r: _collect(check_directory_audit, r),
         lambda r: _collect(check_activation_states, r),
@@ -409,5 +442,9 @@ def audit_runtime_governance(
         results = list(executor.map(lambda check: check(root), checks))
     for result in results:
         errors.extend(result)
+
+    budget_error = audit_flow_budget_error(time.monotonic() - started)
+    if budget_error:
+        errors.append(budget_error)
 
     return errors

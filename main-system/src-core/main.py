@@ -276,6 +276,61 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
         self.startup_failures.append(failure)
         self._log({"type": "startup_failure", **failure})
 
+    def _start_loop_stall_watchdog(self) -> None:
+        """Diagnostics: dump the loop thread's stack when the loop stalls.
+
+        Enabled only when ``GPTBRIDGE_LOOP_STALL_DEBUG`` is set. A heartbeat
+        task marks time on the event loop; a daemon thread watches for gaps
+        larger than ``GPTBRIDGE_LOOP_STALL_MS`` (default 300) and appends the
+        main loop thread's live stack to ``main-system/runtime/logs/loop-stall.txt``.
+        """
+        import threading
+        import traceback
+
+        loop_thread = threading.get_ident()
+        heartbeat = {"t": time.monotonic()}
+        threshold = (
+            float(os.environ.get("GPTBRIDGE_LOOP_STALL_MS", "300")) / 1000.0
+        )
+        stall_log = (
+            self.project_root / "main-system" / "runtime" / "logs" / "loop-stall.txt"
+        )
+
+        async def _beat() -> None:
+            while True:
+                heartbeat["t"] = time.monotonic()
+                await asyncio.sleep(0.05)
+
+        def _watch() -> None:
+            while True:
+                time.sleep(0.1)
+                lag = time.monotonic() - heartbeat["t"]
+                if lag < threshold:
+                    continue
+                frame = sys._current_frames().get(loop_thread)
+                stack = (
+                    "".join(traceback.format_stack(frame))
+                    if frame is not None
+                    else "<no frame>\n"
+                )
+                try:
+                    stall_log.parent.mkdir(parents=True, exist_ok=True)
+                    with stall_log.open("a", encoding="utf-8") as handle:
+                        handle.write(
+                            "=== stall "
+                            f"{lag:.3f}s at "
+                            f"{datetime.now(timezone.utc).isoformat()} ===\n"
+                            f"{stack}\n"
+                        )
+                except OSError:
+                    pass
+                heartbeat["t"] = time.monotonic()
+
+        asyncio.get_event_loop().create_task(_beat())
+        threading.Thread(
+            target=_watch, daemon=True, name="loop-stall-watchdog"
+        ).start()
+
     async def initialize(self) -> None:
         """Initialize the mother process via the certified startup DAG.
 
@@ -295,6 +350,9 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
         already complete; we only run CAPABILITY 2 (startup_executor).
         Otherwise (standalone mode), we run the full sequence.
         """
+
+        if os.environ.get("GPTBRIDGE_LOOP_STALL_DEBUG"):
+            self._start_loop_stall_watchdog()
 
         # A40/E26: the launcher attestation is consumed at first valid load —
         # the governance authority bootstrap precedes the certified phase DAG.
@@ -325,41 +383,69 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
             await asyncio.gather(*sovereign_tasks, return_exceptions=True)
         except Exception as error:
             self._record_startup_failure("sovereign_stack_start", error)
+        self._mark_startup_phase("top_sovereigns_started")
 
         # Start decision sovereign last (orchestrates the stack)
         try:
             await self.decision_sovereign.start()
         except Exception as error:
             self._record_startup_failure("decision_sovereign", error)
+        self._mark_startup_phase("decision_sovereign_started")
 
         # Start supervision/automation loops separately (A297 separation:
         # sovereigns decide; the governed executor starts observation work).
+        _sup_timings: dict[str, int] = {}
+
+        async def _timed_supervision(name: str, coro: Any) -> None:
+            _t0 = time.monotonic()
+            try:
+                await coro
+            finally:
+                _sup_timings[name] = int((time.monotonic() - _t0) * 1000)
+
         supervision_tasks = [
-            self.permission_sovereign.start_supervision(),
-            self.system_runtime_sovereign.start_supervision(),
-            self.automation_sovereign.start_supervision(),
-            self.xingcheng_sovereign.start_supervision(),
+            _timed_supervision(
+                "permission", self.permission_sovereign.start_supervision()
+            ),
+            _timed_supervision(
+                "system-runtime",
+                self.system_runtime_sovereign.start_supervision(),
+            ),
+            _timed_supervision(
+                "automation", self.automation_sovereign.start_supervision()
+            ),
+            _timed_supervision(
+                "xingcheng", self.xingcheng_sovereign.start_supervision()
+            ),
         ]
         try:
             await asyncio.gather(*supervision_tasks, return_exceptions=True)
         except Exception as error:
             self._record_startup_failure("sovereign_supervision_start", error)
+        self._mark_startup_phase("sovereign_supervision_started")
 
         try:
-            await self.decision_sovereign.start_supervision()
+            await _timed_supervision(
+                "decision", self.decision_sovereign.start_supervision()
+            )
         except Exception as error:
             self._record_startup_failure("decision_sovereign_supervision", error)
+        self._mark_startup_phase("decision_supervision_started")
 
         # Start the system-wide automation coordinator after all
         # sovereigns are started.  The coordinator aggregates health
         # and routes cross-sovereign degradation; it does not start
         # individual sovereign loops (those start via _on_start).
         try:
-            await self.system_automation_coordinator.start()
+            await _timed_supervision(
+                "coordinator", self.system_automation_coordinator.start()
+            )
         except Exception as error:
             self._record_startup_failure(
                 "system_automation_coordinator", error
             )
+        self._log({"type": "supervision_start_timings", **_sup_timings})
+        self._mark_startup_phase("automation_coordinator_started")
 
         # Check if boot_core has already completed phases 0-5
         if startup_state in ("READY", "DEGRADED"):

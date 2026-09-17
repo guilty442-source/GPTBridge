@@ -21,26 +21,41 @@ class SovereignStackChildrenMixin:
         A failure in one does not prevent the rest from starting, and all
         failures are recorded in the report's ``startup_failures`` list.
         """
+        import time as _time
+
         from core_system.sovereign_utils import _iso_now
 
         dependency_state = sovereign._dependency_state()
 
+        _child_timings: dict[str, int] = {}
+
+        async def _timed_child(
+            tag: str, child_id: str
+        ) -> dict[str, Any]:
+            _t0 = _time.monotonic()
+            try:
+                return await self._start_child(sovereign, tag, child_id)
+            finally:
+                _child_timings[child_id] = int(
+                    (_time.monotonic() - _t0) * 1000
+                )
+
         runtime, resource, data, integration, third_party = (
             await asyncio.gather(
-                self._start_child(
-                    sovereign, "runtime", "runtime-state-sync-sub-sovereign"
+                _timed_child(
+                    "runtime", "runtime-state-sync-sub-sovereign"
                 ),
-                self._start_child(
-                    sovereign, "resource", "resource-dependency-sync-sub-sovereign"
+                _timed_child(
+                    "resource", "resource-dependency-sync-sub-sovereign"
                 ),
-                self._start_child(
-                    sovereign, "data", "data-governance-sub-sovereign"
+                _timed_child(
+                    "data", "data-governance-sub-sovereign"
                 ),
-                self._start_child(
-                    sovereign, "integration", "channel-contract-sync-sub-sovereign"
+                _timed_child(
+                    "integration", "channel-contract-sync-sub-sovereign"
                 ),
-                self._start_child(
-                    sovereign, "third_party", "dependency-sync-sub-sovereign"
+                _timed_child(
+                    "third_party", "dependency-sync-sub-sovereign"
                 ),
             )
         )
@@ -60,9 +75,13 @@ class SovereignStackChildrenMixin:
             for cid in children_of(parent_id):
                 child = getattr(parent, "_sub_sovereigns", {}).get(cid)
                 if child is not None and not getattr(child, "_started", False):
-                    remaining.append(self._start_child(sovereign, cid, cid))
+                    remaining.append(_timed_child(cid, cid))
         if remaining:
             await asyncio.gather(*remaining)
+        if _child_timings:
+            self.app._log(
+                {"type": "child_start_timings", **_child_timings}
+            )
 
         sub_sovereign_roles = [
             result.get("role", "")

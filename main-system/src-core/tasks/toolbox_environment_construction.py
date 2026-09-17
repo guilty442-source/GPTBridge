@@ -76,20 +76,17 @@ class EnvironmentConstructionMixin:
         else:
             cache_root = (isolated_tool_root / "runtime" / "cache" / "companions" / tool_id).resolve()
         cache_root.mkdir(parents=True, exist_ok=True)
-        cleaner_root = self._validated_tool_directory(
-            self.tools_dir / "global-cleaner"
-        )
-        temp_candidate = (
-            cleaner_root / "runtime" / "temp" / "tools" / tool_id
-        )
+        # A533/A534: temporary storage is owned by the main-system internal
+        # cleanup service; the retired global-cleaner is never addressed.
+        temp_owner_root = self.project_root / "main-system"
         isolated_temp_root = self._validated_tool_path(
-            cleaner_root,
-            temp_candidate,
+            temp_owner_root,
+            temp_owner_root / "runtime" / "temp" / "tools" / tool_id,
             label="Tool temporary storage",
         )
         isolated_temp_root.mkdir(parents=True, exist_ok=True)
         isolated_temp_root = self._validated_tool_path(
-            cleaner_root,
+            temp_owner_root,
             isolated_temp_root,
             label="Tool temporary storage",
         )
@@ -126,10 +123,6 @@ class EnvironmentConstructionMixin:
         child_env["GPTBRIDGE_GOVERNANCE_PROJECT_ROOT"] = str(
             self.project_root.resolve()
         )
-        if tool_id == "global-cleaner":
-            child_env["GPTBRIDGE_GLOBAL_CLEANER_TARGET_ROOT"] = str(
-                self.project_root.resolve()
-            )
         child_env.pop("GPTBRIDGE_MANAGED_STORAGE_ROOT", None)
         child_env.pop("GPTBRIDGE_SYSTEM_RESCUE_STORAGE_AUTHORITY", None)
         if start_hidden:

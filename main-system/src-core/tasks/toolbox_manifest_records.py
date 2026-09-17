@@ -103,6 +103,8 @@ class ManifestRecordMixin:
                 host_manifest = json.loads(host_manifest_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 continue
+            if not isinstance(host_manifest, dict):
+                continue
             declarations = host_manifest.get("companion_tools")
             if not isinstance(declarations, list):
                 continue
@@ -121,7 +123,7 @@ class ManifestRecordMixin:
                     )
                 except (OSError, ValueError, json.JSONDecodeError):
                     continue
-                if manifest.get("id") != declared_id:
+                if not isinstance(manifest, dict) or manifest.get("id") != declared_id:
                     continue
                 companions.append(candidate)
         return companions
@@ -150,6 +152,8 @@ class ManifestRecordMixin:
                     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 except (OSError, json.JSONDecodeError):
                     continue
+                if not isinstance(manifest, dict):
+                    continue
                 try:
                     records.append(self._manifest_to_record(tool_dir, manifest))
                 except (OSError, ValueError):
@@ -158,7 +162,11 @@ class ManifestRecordMixin:
         for tool_dir in self._declared_companion_tool_directories():
             try:
                 manifest = json.loads((tool_dir / "manifest.json").read_text(encoding="utf-8"))
-                tool_id = str(manifest.get("id") or "")
+                tool_id = (
+                    str(manifest.get("id") or "")
+                    if isinstance(manifest, dict)
+                    else ""
+                )
                 if tool_id and tool_id not in known_ids:
                     records.append(self._manifest_to_record(tool_dir, manifest))
                     known_ids.add(tool_id)
@@ -176,6 +184,8 @@ class ManifestRecordMixin:
                 try:
                     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 except (OSError, json.JSONDecodeError):
+                    continue
+                if not isinstance(manifest, dict):
                     continue
                 tool_id = str(manifest.get("id") or "")
                 if not tool_id or tool_id in known_ids:

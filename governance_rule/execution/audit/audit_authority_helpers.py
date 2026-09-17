@@ -126,6 +126,7 @@ def _validate_channel_actors(
         "governance/tool/ai-assistant",
         "governance/tool/ai-collaboration",
         "governance/tool/investment-mobile",
+        "governance/tool/model-dialogue",
         "governance/tool/xingcheng",
     }
     if ai_submit_actors != expected_ai_submit_actors:
@@ -137,6 +138,7 @@ def _validate_channel_actors(
     }
     expected_ai_process_actors = expected_ai_submit_actors - {
         "governance/tool/investment-mobile",
+        "governance/tool/model-dialogue",
     }
     if ai_process_actors != expected_ai_process_actors:
         errors.append("AI channel processing actors are invalid")

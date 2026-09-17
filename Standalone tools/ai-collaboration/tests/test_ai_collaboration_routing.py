@@ -1,6 +1,8 @@
 """Split from consolidated test_ai_collaboration.py."""
 from __future__ import annotations
 
+import sqlite3
+
 from _ai_collaboration_test_support import *  # noqa: F401,F403
 
 
@@ -12,14 +14,32 @@ def test_default_agents_include_perplexity(tmp_path: Path) -> None:
     assert agents["perplexity"]["home_url"] == "https://www.perplexity.ai/"
 
 
-def test_google_search_is_available_without_joining_general_group_by_default(
-    tmp_path: Path,
-) -> None:
+def test_google_search_is_retired_from_the_ai_list(tmp_path: Path) -> None:
     repository = AiCollaborationRepository(tmp_path)
     agents = {agent["agent_id"]: agent for agent in repository.list_agents()}
 
-    assert agents["google-search"]["provider"] == "google-search"
-    assert agents["google-search"]["selected"] == 0
+    assert "google-search" not in agents
+    assert agents["gemini"]["home_url"] == "https://gemini.google.com/"
+
+
+def test_retired_google_search_row_is_removed_on_existing_databases(
+    tmp_path: Path,
+) -> None:
+    repository = AiCollaborationRepository(tmp_path)
+    connection = sqlite3.connect(repository.db_path)
+    connection.execute(
+        "INSERT OR REPLACE INTO ai_nexus_agents "
+        "(agent_id, name, provider, home_url, enabled, selected, status, updated_at) "
+        "VALUES ('google-search', 'Google Search', 'google-search', "
+        "'https://www.google.com/', 1, 0, 'idle', '2026-09-17T00:00:00+00:00')"
+    )
+    connection.commit()
+    connection.close()
+
+    reopened = AiCollaborationRepository(tmp_path)
+    agents = {agent["agent_id"]: agent for agent in reopened.list_agents()}
+
+    assert "google-search" not in agents
 
 
 def test_general_and_investment_urls_are_saved_separately(tmp_path: Path) -> None:

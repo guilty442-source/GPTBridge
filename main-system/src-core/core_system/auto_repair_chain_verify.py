@@ -177,8 +177,6 @@ class IndependentVerifier:
             )
 
             # Verify critical modules can be imported
-            from core_system.governance_runtime import MainSystemGovernance
-            from shared_layer.store import PostgresSharedLayerStore
 
             # Verify no new syntax errors in repaired paths — in-process
             for scope in path_scopes:

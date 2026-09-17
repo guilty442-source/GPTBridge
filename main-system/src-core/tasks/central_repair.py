@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import json
-import uuid
 from pathlib import Path
 from typing import Any
 
 from .repair_learning import (
-    ErrorSignature,
+    LEARN_PROMOTION_MIN_SUCCESS_RATE,
+    LEARN_PROMOTION_THRESHOLD,
     RepairLearner,
     RepairLearningStore,
-    RepairOutcome,
-    _normalize_error_signature,
 )
 from .repair_planning import (
     CENTRAL_REPAIR_VERSION,
@@ -22,12 +20,19 @@ from .repair_planning import (
 from .repair_inspection import (
     DatabaseRecoveryInspector,
     RepairRunStore,
-    _inside,
-    _iso_now,
     database_integrity,
 )
 from .central_repair_learning import CentralRepairLearningMixin
 from .central_repair_operations import CentralRepairOperationsMixin
+
+
+# Runtime-safe action tokens a learned recipe may promote.  Learned
+# knowledge stays advisory and bounded to non-mutating stability
+# recovery; ``repair-main-system-source`` is deliberately absent so a
+# learned recipe can never self-authorize a source mutation.
+_LEARNED_RUNTIME_ACTIONS: frozenset[str] = frozenset(
+    {"inspect-owned-databases", "rebuild-tool-executable"}
+)
 
 
 class CentralRepairService(CentralRepairLearningMixin, CentralRepairOperationsMixin):
@@ -71,11 +76,56 @@ class CentralRepairService(CentralRepairLearningMixin, CentralRepairOperationsMi
         for recipe in recorded:
             if isinstance(recipe, dict) and recipe.get("recipe_id"):
                 merged[str(recipe["recipe_id"])] = {**merged.get(str(recipe["recipe_id"]), {}), **recipe}
-        # Merge learned recipes from the learning store.
+        # Merge learned recipes from the learning store.  A promoted
+        # recipe's ``remedy`` records the executed action tokens, so it
+        # maps back to structured plan actions — bounded to the
+        # runtime-safe set: learned knowledge may never promote a source
+        # mutation (``repair-main-system-source``) into an automatic
+        # recipe.  Applicability is verified only while the recipe keeps
+        # meeting the promotion thresholds AND its most recent outcomes
+        # for the same signature have not turned negative; a remedy that
+        # started failing is suppressed back to evidence collection.
         for learned in self.learning_store.get_learned_recipes():
             rid = str(learned.get("recipe_id") or "")
-            if rid:
-                merged[rid] = {**merged.get(rid, {}), **learned, "source": "learned"}
+            if not rid:
+                continue
+            entry = {**merged.get(rid, {}), **learned, "source": "learned"}
+            remedy_tokens = str(learned.get("remedy") or "")
+            actions = [
+                token.strip()
+                for token in remedy_tokens.split(",")
+                if token.strip() in _LEARNED_RUNTIME_ACTIONS
+            ]
+            entry["actions"] = actions or ["inspect-owned-databases"]
+            meets_threshold = (
+                float(learned.get("success_rate") or 0.0)
+                >= LEARN_PROMOTION_MIN_SUCCESS_RATE
+                and int(learned.get("occurrence_count") or 0)
+                >= LEARN_PROMOTION_THRESHOLD
+            )
+            suppressed = False
+            if meets_threshold and rid.startswith("learned-"):
+                try:
+                    recent = self.learning_store.get_outcomes_for_signature(
+                        rid[len("learned-"):], limit=3
+                    )
+                except Exception:
+                    recent = []
+                suppressed = len(recent) >= 2 and all(
+                    not o.get("ok") for o in recent
+                )
+            entry["verified_applicability"] = bool(
+                meets_threshold and not suppressed
+            )
+            entry["verification"] = (
+                "promoted-by-verified-repair-outcomes"
+                if entry["verified_applicability"]
+                else ""
+            )
+            if suppressed:
+                entry["automatic"] = False
+                entry["suppressed"] = True
+            merged[rid] = entry
         recipes = list(merged.values())
         payload = json.dumps(recipes, ensure_ascii=False, indent=2)
         if raw.strip() != payload.strip():

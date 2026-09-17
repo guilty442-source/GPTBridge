@@ -33,7 +33,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from .sovereign_utils import _iso_now
 
 
 class MaintenanceRepairChainMixin:
@@ -151,18 +150,26 @@ class MaintenanceRepairChainMixin:
         decision_proof = request.get("decision_proof") or {}
 
         # ── Step 1: health classification (maintenance scope: health-only) ──
-        classified = self._classify_health_signal(decision_proof)
+        classified = self._classify_health_signal(decision_proof, request=request)
 
         # ── User-confirmation gate (user directive) ──
         # While automatic repair execution is disabled, classify and queue
         # the fault for individual confirmation in the assistant panel.
         # Nothing is decided, permitted, dispatched, or mutated here.
+        # Stability-tier recovery (``runtime-recovery`` — non-mutating
+        # governed recovery under the ``automatic_repair`` stability-only
+        # scope) is not a mutation and is not gated by this switch; it
+        # proceeds straight to the decision-sovereign like the
+        # start-failure rebuild path.
         from core_system.auto_action_policy import (
             automatic_repair_execution_allowed,
             record_pending_action,
         )
 
-        if not automatic_repair_execution_allowed():
+        if (
+            not automatic_repair_execution_allowed()
+            and str(classified.get("action") or "") != "runtime-recovery"
+        ):
             try:
                 coordinator.await_user_confirmation(
                     request_id, classified=classified
@@ -271,7 +278,10 @@ class MaintenanceRepairChainMixin:
     # ------------------------------------------------------------------
 
     def _classify_health_signal(
-        self, decision_proof: dict[str, Any]
+        self,
+        decision_proof: dict[str, Any],
+        *,
+        request: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Classify a health signal from the information layer.
 
@@ -280,13 +290,46 @@ class MaintenanceRepairChainMixin:
         error type, target file and diagnosis) without making the repair
         decision.  The repair decision is owned by the
         decision-sovereign (A152).
+
+        Tool-runtime crashes carry ``failure_code == "TOOL_RUNTIME_CRASH"``
+        plus ``diagnosis.tool_id`` and preserved stderr evidence.  When the
+        parsed diagnosis is not a targetable source fault, the signal is
+        classified as ``runtime-recovery`` (stability tier): the
+        decision-sovereign dispatches non-mutating governed recovery
+        (owned-database inspection, artifact rebuild) rather than a
+        confirmation-gated source mutation.
         """
-        diagnosis = decision_proof.get("diagnosis") or {}
+        request = request or {}
+        diagnosis = dict(decision_proof.get("diagnosis") or {})
+        failure_code = str(request.get("failure_code") or "")
+        tool_id = str(
+            diagnosis.get("tool_id") or request.get("tool_id") or ""
+        )
+        action = str(diagnosis.get("action") or "")
+        if (
+            failure_code == "TOOL_RUNTIME_CRASH"
+            and tool_id
+            and action != "targeted"
+        ):
+            diagnosis["tool_id"] = tool_id
+            diagnosis["original_action"] = action
+            action = "runtime-recovery"
+        remedy = (
+            "runtime-recovery"
+            if action == "runtime-recovery"
+            else "targeted-source-repair"
+        )
         return {
             "error_type": str(diagnosis.get("error_type") or ""),
             "target_file": str(diagnosis.get("file") or ""),
-            "action": str(diagnosis.get("action") or ""),
+            "action": action,
             "diagnosis": diagnosis,
+            "failure_code": failure_code,
+            "tool_id": tool_id,
+            "stderr_tail": str(
+                decision_proof.get("stderr_tail") or diagnosis.get("stderr_tail") or ""
+            ),
+            "remedy": remedy,
         }
 
     # ------------------------------------------------------------------
@@ -312,11 +355,19 @@ class MaintenanceRepairChainMixin:
             self.record_repair_outcome(
                 error_class=str(classified.get("error_type") or "Unknown"),
                 message=str(classified.get("reason") or ""),
-                failure_code=str(request.get("failure_code") or ""),
-                remedy="targeted-source-repair",
+                failure_code=str(
+                    classified.get("failure_code")
+                    or request.get("failure_code")
+                    or ""
+                ),
+                remedy=str(
+                    classified.get("remedy") or "targeted-source-repair"
+                ),
                 ok=ok,
                 file_path=str(classified.get("target_file") or ""),
-                target_tool_id="main-system",
+                target_tool_id=str(
+                    classified.get("tool_id") or "main-system"
+                ),
                 run_id=str(request.get("request_id") or ""),
                 detail={
                     "execution": (result or {}).get("execution", {}),

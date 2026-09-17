@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import asyncio
-import json
-from pathlib import Path
 from typing import Any
 
-from .._base import SubSovereignBase
 from core_system.codex_decision import decision_basis
-from core_system.sovereign_utils import _iso_now, _suppress
+from core_system.sovereign_utils import _iso_now
 from governance_rule.execution.tool_runtime.sub_sovereign import (
     SYSTEM_INTEGRATION_AUTHORITY,
 )
 from governance_rule.execution.codex_official import official_self_declaration
+
+from .tool_classification import IDLE_TIMEOUT_SECONDS
 
 
 _INTEGRATION_SOVEREIGN = official_self_declaration("channel-contract-sync-sub-sovereign")

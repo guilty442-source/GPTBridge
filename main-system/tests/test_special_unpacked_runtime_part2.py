@@ -65,16 +65,26 @@ def test_star_is_headless_and_configured_for_governed_default_start() -> None:
     integration_source = (
         ROOT
         / "main-system"
-        / "src-core"
-        / "core_system"
-        / "integration_sub_sovereign.py"
+        / "governance"
+        / "sub-sovereigns"
+        / "channel_contract"
+        / "tool_classification.py"
+    ).read_text("utf-8") + (
+        ROOT
+        / "main-system"
+        / "governance"
+        / "sub-sovereigns"
+        / "channel_contract_sync_sub_sovereign.py"
     ).read_text("utf-8")
 
     assert manifest["has_custom_ui"] is False
     assert "window" not in manifest
     assert "executable" not in manifest
     assert not (LOCAL_MODEL_ROOT / "src" / "ui").exists()
-    assert manifest["background_service"]["auto_restart"] is True
+    # Default-off: the local model is stoppable (non-resident) and never
+    # auto-restarted; it starts only on demand.
+    assert manifest["lifecycle"]["stoppable"] is True
+    assert manifest["background_service"]["auto_restart"] is False
     assert manifest["background_service"]["headless"] is True
     assert manifest["background_service"][
         "explicit_force_close_suppresses_restart"
@@ -156,8 +166,7 @@ def test_source_runtime_environment_has_ephemeral_authenticated_ipc() -> None:
     expected_temp = str(
         (
             ROOT
-            / "Standalone tools"
-            / "global-cleaner"
+            / "main-system"
             / "runtime"
             / "temp"
             / "tools"
@@ -235,11 +244,11 @@ def test_owner_runtime_restart_reconnects_open_companion_ui(
         returncode = None
 
     service = ToolboxService(ROOT, governance=GovernanceStub())
-    service._source_runtime_environments["xingcheng"] = {
+    service._source_runtime_environments["star-chat"] = {
         "GPTBRIDGE_IPC_PORT": "43210",
         "GPTBRIDGE_IPC_SESSION_TOKEN": "a" * 64,
     }
-    service._source_ui_processes["star-chat"] = RunningProcess()  # type: ignore[assignment]
+    service._source_ui_processes["model-dialogue"] = RunningProcess()  # type: ignore[assignment]
     reconnects: list[tuple[str, str]] = []
 
     async def fake_launch(
@@ -257,7 +266,9 @@ def test_owner_runtime_restart_reconnects_open_companion_ui(
 
     asyncio.run(service._reconnect_companion_source_uis("xingcheng"))
 
-    assert reconnects == [("star-chat", "xingcheng")]
+    # No startable UI tool delegates its runtime to xingcheng any more:
+    # model-dialogue runs its own lightweight governed runtime.
+    assert reconnects == []
 
 
 def test_source_ui_runtime_session_change_is_part_of_auto_repair() -> None:
@@ -306,7 +317,10 @@ def test_force_close_verifies_no_background_process_remains(
     assert result["force_closed"] is True
     assert result["remaining_process_ids"] == []
     assert result["force_closed_process_ids"] == [43210]
-    assert len(stop_calls) == 2
+    # One native pass per process class keeps close inside the 5s budget.
+    assert len(stop_calls) == 1
+    assert result["within_budget"] is True
+    assert result["budget_ms"] == 5000
     assert "ai-assistant" in service._force_closed_tool_ids
 
 

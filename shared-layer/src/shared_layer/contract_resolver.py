@@ -30,9 +30,11 @@ _CODEX_DB_RELATIVE: Final[tuple[str, ...]] = (
 def _normalize_command_code(value: str) -> str:
     """Normalize a registered command code to the lookup form.
 
-    The codex stores ``ALPHA_ONE``; callers ask for ``alpha-one``.
+    The codex stores ``ALPHA_ONE``; callers ask for ``alpha-one`` or the
+    namespaced wire form ``alpha:one-two`` — ``_`` and ``:`` are both
+    treated as separators.
     """
-    return str(value).strip().lower().replace("_", "-")
+    return str(value).strip().lower().replace("_", "-").replace(":", "-")
 
 
 class CommandContractResolver:

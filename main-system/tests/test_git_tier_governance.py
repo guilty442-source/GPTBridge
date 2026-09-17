@@ -133,8 +133,18 @@ def test_tier2_blocked_without_confirmation(monkeypatch: pytest.MonkeyPatch) -> 
 def test_tier2_allowed_with_confirmation(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GOVERNANCE_CONFIRM", "1")
     monkeypatch.delenv("GOVERNANCE_AUTHORITY_APPROVAL", raising=False)
-    allowed, message = enforce("commit -m test", actor="test")
+    allowed, message = enforce("commit -m test", actor="test", confirmed=True)
     assert allowed is True
+    assert "tier-2" in message
+
+
+def test_tier2_ignores_retired_confirmation_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOVERNANCE_CONFIRM", "1")
+    monkeypatch.delenv("GOVERNANCE_AUTHORITY_APPROVAL", raising=False)
+    allowed, message = enforce("commit -m test", actor="test")
+    assert allowed is False
     assert "tier-2" in message
 
 
@@ -158,8 +168,20 @@ def test_tier3_blocked_with_only_confirmation(monkeypatch: pytest.MonkeyPatch) -
 def test_tier3_allowed_with_authority_approval(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GOVERNANCE_CONFIRM", raising=False)
     monkeypatch.setenv("GOVERNANCE_AUTHORITY_APPROVAL", "1")
-    allowed, message = enforce("push --force", actor="test")
+    allowed, message = enforce(
+        "push --force", actor="test", authority_approved=True
+    )
     assert allowed is True
+    assert "tier-3" in message
+
+
+def test_tier3_ignores_retired_authority_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GOVERNANCE_CONFIRM", raising=False)
+    monkeypatch.setenv("GOVERNANCE_AUTHORITY_APPROVAL", "1")
+    allowed, message = enforce("push --force", actor="test")
+    assert allowed is False
     assert "tier-3" in message
 
 

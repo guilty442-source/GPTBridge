@@ -19,3 +19,5 @@ flowchart LR
   REBUILD[Rebuild or Repair] --> CERT[Count Hash Revision Scope Locator Checks]
   CERT --> QD
 ```
+
+同步基線：A528、A537、A538；啟動 10 秒、強制測試套件 20 秒、獨立審計流程 30 秒，逾時 fail-closed。

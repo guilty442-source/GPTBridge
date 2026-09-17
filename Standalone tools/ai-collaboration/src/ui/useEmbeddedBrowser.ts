@@ -15,6 +15,13 @@ export type BrowserSession = {
   ownerModule: string
 }
 
+export type BrowserBounds = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export type EmbeddedBrowserState = {
   sessionId: string | null
   currentUrl: string
@@ -40,7 +47,7 @@ export function useEmbeddedBrowser() {
   }, [])
 
   const navigate = useCallback(
-    async (rawUrl: string) => {
+    async (rawUrl: string, bounds?: BrowserBounds) => {
       const url = normalizeUrl(rawUrl)
       if (!url) {
         setState((prev) => ({ ...prev, error: '請輸入有效的網址' }))
@@ -51,12 +58,15 @@ export function useEmbeddedBrowser() {
       try {
         if (existingId) {
           await invoke('embedded-browser:navigate', { id: existingId, url })
-          await invoke('embedded-browser:show', { id: existingId })
+          if (bounds) {
+            await invoke('embedded-browser:resize', { id: existingId, bounds })
+          }
         } else {
           const result = (await invoke('embedded-browser:create', {
             id: `${OWNER_MODULE}:browser`,
             ownerModule: OWNER_MODULE,
             url,
+            bounds,
           })) as { ok: boolean; id?: string; message?: string }
           if (!result.ok) throw new Error(result.message || '無法建立瀏覽器')
           sessionRef.current = result.id || `${OWNER_MODULE}:browser`

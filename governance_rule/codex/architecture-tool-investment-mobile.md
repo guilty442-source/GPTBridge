@@ -15,3 +15,5 @@ flowchart TB
 ```
 
 Investment Mobile 是獨立 runtime；其 cache 與連線狀態不得升格為 AI Assistant 的正式業務資料。
+
+同步基線：A528、A537、A538、A540；獨立工具啟動與關閉各自上限 5 秒，逾時 fail-closed。

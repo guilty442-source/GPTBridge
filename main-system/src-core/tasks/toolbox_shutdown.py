@@ -8,13 +8,14 @@ import json
 import os
 import re
 import stat as stat_module
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict
 
-from managers.process_utils import terminate_process_tree
 
+from .tool_lifecycle_budget import deadline_after
 from .toolbox_constants import _background_subprocess_kwargs, _run_hidden_subprocess
 from .toolbox_shutdown_force import ForceCloseMixin
 
@@ -34,14 +35,15 @@ class ShutdownMixin(ForceCloseMixin):
         source_entry: Path,
         executable_file: Path,
     ) -> tuple[set[int], list[int]]:
-        # Synchronous PowerShell process sweeps; run via asyncio.to_thread so
-        # a slow sweep cannot stall the main backend event loop.
+        # One native process pass (psutil, milliseconds): discovery and each
+        # stop share the same snapshot.  The old two-attempt PowerShell sweep
+        # cost up to sixteen 1-3s CIM calls per close.  Runs via
+        # asyncio.to_thread so it never stalls the backend event loop.
         stopped: set[int] = set()
-        for _attempt in range(2):
-            stopped.update(self._stop_running_source_runtime(source_entry))
-            stopped.update(self._stop_running_executable(executable_file))
-            stopped.update(self._stop_running_packaged_backend(tool_dir))
-            stopped.update(self._stop_running_source_ui(tool_id))
+        stopped.update(self._stop_running_source_runtime(source_entry))
+        stopped.update(self._stop_running_executable(executable_file))
+        stopped.update(self._stop_running_packaged_backend(tool_dir))
+        stopped.update(self._stop_running_source_ui(tool_id))
         remaining = sorted(
             set(self._running_source_runtime_process_ids(source_entry))
             | set(self._running_executable_process_ids(executable_file))
@@ -57,16 +59,126 @@ class ShutdownMixin(ForceCloseMixin):
         executable_file: Path,
     ) -> tuple[set[int], list[int]]:
         stopped: set[int] = set()
-        for _attempt in range(2):
-            stopped.update(self._stop_running_executable(executable_file))
-            stopped.update(self._stop_running_packaged_backend(tool_dir))
-            stopped.update(self._stop_running_source_ui(tool_id))
+        stopped.update(self._stop_running_executable(executable_file))
+        stopped.update(self._stop_running_packaged_backend(tool_dir))
+        stopped.update(self._stop_running_source_ui(tool_id))
         remaining = sorted(
             set(self._running_executable_process_ids(executable_file))
             | set(self._running_packaged_backend_process_ids(tool_dir))
             | set(self._running_source_ui_process_ids(tool_id))
         )
         return stopped, remaining
+
+    @staticmethod
+    def _require_unlinked_descriptor_paths(candidates: tuple[Path, ...]) -> None:
+        """Fail closed when any descriptor path is a link or reparse point."""
+        for candidate in candidates:
+            metadata = candidate.lstat()
+            attributes = int(getattr(metadata, "st_file_attributes", 0) or 0)
+            if stat_module.S_ISLNK(metadata.st_mode) or bool(attributes & 0x400):
+                raise ValueError("standalone backend descriptor path is linked")
+
+    def _standalone_backend_descriptor(
+        self, tool_id: str, standalone_root: Path
+    ) -> tuple[int, int, str] | None:
+        """Return the validated (pid, port, shutdown token) or None.
+
+        None means no trustworthy backend descriptor exists, so the caller
+        reports ``backend_running: False`` instead of guessing.
+        """
+        ipc_root = standalone_root / "runtime" / "ipc"
+        owner_path = ipc_root / f"standalone-{tool_id}-backend.json"
+        token_path = ipc_root / "session-token"
+        try:
+            self._require_unlinked_descriptor_paths(
+                (standalone_root, ipc_root, owner_path, token_path)
+            )
+            owner = json.loads(owner_path.read_text(encoding="utf-8"))
+            pid = int(owner.get("pid") or 0)
+            port = int(owner.get("backend_port") or 0)
+            shutdown_token = str(owner.get("shutdown_token") or "").strip()
+            expected_root = self.project_root.resolve()
+            expected_instance = hashlib.sha256(
+                os.path.normcase(str(expected_root)).replace("\\", "/").encode("utf-8")
+            ).hexdigest()[:24]
+            valid = (
+                str(owner.get("tool_id") or "") == tool_id
+                and Path(str(owner.get("project_root") or "")).resolve()
+                == expected_root
+                and str(owner.get("workspace_instance_id") or "") == expected_instance
+                and pid > 0
+                and 1024 <= port <= 65535
+                and re.fullmatch(r"[a-f0-9]{64}", shutdown_token) is not None
+            )
+            if not valid:
+                return None
+            return pid, port, shutdown_token
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            return None
+
+    @staticmethod
+    def _request_backend_shutdown(port: int, shutdown_token: str, reason: str) -> None:
+        """Best-effort graceful shutdown request (bounded HTTP timeout)."""
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{port}/shutdown",
+            data=b"",
+            headers={
+                "X-GPTBridge-Shutdown-Token": shutdown_token,
+                "X-GPTBridge-Shutdown-Reason": reason,
+            },
+            method="POST",
+        )
+        try:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(request, timeout=2):
+                pass
+        except (OSError, urllib.error.URLError):
+            pass
+
+    @staticmethod
+    def _standalone_backend_main(
+        standalone_root: Path, tool_id: str
+    ) -> Path:
+        return (
+            standalone_root
+            / "dist"
+            / "resources"
+            / "app"
+            / "independent_tool"
+            / tool_id
+            / "src"
+            / "channel_runtime.py"
+        )
+
+    async def _await_standalone_backend_exit(
+        self, pid: int, expected_main: Path, grace_seconds: float = 3.0
+    ) -> bool:
+        """Wait inside the grace window; True when the backend exited."""
+        shutdown_deadline = deadline_after(grace_seconds)
+        while time.monotonic() < shutdown_deadline:
+            if not self._validated_standalone_backend_pid(pid, expected_main):
+                return True
+            await asyncio.sleep(0.15)
+        return False
+
+    async def _force_kill_standalone_backend(
+        self, pid: int, expected_main: Path
+    ) -> None:
+        if os.name != "nt" or not self._validated_standalone_backend_pid(
+            pid, expected_main
+        ):
+            return
+        killer = await asyncio.create_subprocess_exec(
+            "taskkill",
+            "/PID",
+            str(pid),
+            "/T",
+            "/F",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+            **_background_subprocess_kwargs(),
+        )
+        await killer.communicate()
 
     async def shutdown_tool_backend(
         self,
@@ -75,7 +187,6 @@ class ShutdownMixin(ForceCloseMixin):
         reason: str = "hot-update",
     ) -> Dict[str, Any]:
         """Stop a validated standalone backend so updated Python is reloaded."""
-
         if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", tool_id):
             return {"ok": False, "error_code": "INVALID_TOOL_ID"}
         try:
@@ -96,94 +207,18 @@ class ShutdownMixin(ForceCloseMixin):
                 "error_code": "TOOL_NOT_FOUND",
                 "message": "Tool directory is unavailable",
             }
-        ipc_root = standalone_root / "runtime" / "ipc"
-        owner_path = ipc_root / f"standalone-{tool_id}-backend.json"
-        token_path = ipc_root / "session-token"
-        try:
-            for candidate in (standalone_root, ipc_root, owner_path, token_path):
-                metadata = candidate.lstat()
-                attributes = int(getattr(metadata, "st_file_attributes", 0) or 0)
-                if stat_module.S_ISLNK(metadata.st_mode) or bool(attributes & 0x400):
-                    raise ValueError("standalone backend descriptor path is linked")
-            owner = json.loads(owner_path.read_text(encoding="utf-8"))
-            pid = int(owner.get("pid") or 0)
-            port = int(owner.get("backend_port") or 0)
-            shutdown_token = str(owner.get("shutdown_token") or "").strip()
-            expected_root = self.project_root.resolve()
-            expected_instance = hashlib.sha256(
-                os.path.normcase(str(expected_root)).replace("\\", "/").encode("utf-8")
-            ).hexdigest()[:24]
-            if (
-                str(owner.get("tool_id") or "") != tool_id
-                or Path(str(owner.get("project_root") or "")).resolve()
-                != expected_root
-                or str(owner.get("workspace_instance_id") or "")
-                != expected_instance
-                or pid <= 0
-                or not 1024 <= port <= 65535
-                or not re.fullmatch(r"[a-f0-9]{64}", shutdown_token)
-            ):
-                raise ValueError("standalone backend descriptor is invalid")
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        descriptor = self._standalone_backend_descriptor(tool_id, standalone_root)
+        if descriptor is None:
             return {"ok": True, "tool_id": tool_id, "backend_running": False}
-
-        def request_shutdown() -> None:
-            request = urllib.request.Request(
-                f"http://127.0.0.1:{port}/shutdown",
-                data=b"",
-                headers={
-                    "X-GPTBridge-Shutdown-Token": shutdown_token,
-                    "X-GPTBridge-Shutdown-Reason": reason,
-                },
-                method="POST",
-            )
-            try:
-                _opener = urllib.request.build_opener(
-                    urllib.request.ProxyHandler({})
-                )
-                with _opener.open(request, timeout=5):
-                    pass
-            except (OSError, urllib.error.URLError):
-                pass
-
-        await asyncio.to_thread(request_shutdown)
-        expected_main = (
-            standalone_root
-            / "dist"
-            / "resources"
-            / "app"
-            / "independent_tool"
-            / tool_id
-            / "src"
-            / "channel_runtime.py"
+        pid, port, shutdown_token = descriptor
+        await asyncio.to_thread(
+            self._request_backend_shutdown, port, shutdown_token, reason
         )
-        for _ in range(20):
-            if not self._validated_standalone_backend_pid(
-                pid,
-                expected_main,
-            ):
-                return {"ok": True, "tool_id": tool_id, "backend_stopped": True}
-            await asyncio.sleep(0.25)
-
-        if os.name == "nt" and self._validated_standalone_backend_pid(
-            pid,
-            expected_main,
-        ):
-            killer = await asyncio.create_subprocess_exec(
-                "taskkill",
-                "/PID",
-                str(pid),
-                "/T",
-                "/F",
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
-                **_background_subprocess_kwargs(),
-            )
-            await killer.communicate()
-        if self._validated_standalone_backend_pid(
-            pid,
-            expected_main,
-        ):
+        expected_main = self._standalone_backend_main(standalone_root, tool_id)
+        if await self._await_standalone_backend_exit(pid, expected_main):
+            return {"ok": True, "tool_id": tool_id, "backend_stopped": True}
+        await self._force_kill_standalone_backend(pid, expected_main)
+        if self._validated_standalone_backend_pid(pid, expected_main):
             return {
                 "ok": False,
                 "tool_id": tool_id,

@@ -6,7 +6,14 @@
   "display_version": "1.0",
   "display_name": "全域清理",
   "status": "stopped",
-  "enabled": true,
+  "enabled": false,
+  "lifecycle": {
+    "status": "retired",
+    "stoppable": false
+  },
+  "labels": [
+    "trash"
+  ],
   "has_custom_ui": true,
   "permissions": {
     "code_scope": "tool-root-only",
@@ -142,5 +149,5 @@
     "minHeight": 600,
     "title_key": "tool.window_title"
   },
-  "main_system_independent_tool": true
+  "main_system_independent_tool": false
 }

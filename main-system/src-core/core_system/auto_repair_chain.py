@@ -114,10 +114,18 @@ class AutoRepairOrchestrator:
         plan = self._create_repair_plan(objective, grant)
 
         # The plan is read-only evidence and must exist before the user is
-        # asked to authorize mutation.  Only execution remains gated.
+        # asked to authorize mutation.  Only execution remains gated, and
+        # only for the mutation tier (``targeted_patch`` source changes).
+        # Stability-tier recovery (``artifact_rebuild`` — the governed
+        # packager path) is the sanctioned automatic_repair scope and
+        # proceeds without per-item confirmation.
         from .auto_action_policy import automatic_repair_execution_allowed
 
-        if not automatic_repair_execution_allowed() and not user_confirmed:
+        if (
+            not automatic_repair_execution_allowed()
+            and plan.method == "targeted_patch"
+            and not user_confirmed
+        ):
             return {
                 "stage": "awaiting-user-confirmation",
                 "result": "planned",
@@ -206,7 +214,23 @@ class AutoRepairOrchestrator:
                     "target": file_path,
                     "precondition": "file_has_syntax_error",
                 })
-        elif objective.fault_code in ("EXECUTABLE_MISSING", "PACKAGE_UNVERIFIED", "INCOMPATIBLE_TOOL_RUNTIME"):
+        elif objective.fault_code in (
+            "EXECUTABLE_MISSING", "PACKAGE_UNVERIFIED",
+            "INCOMPATIBLE_TOOL_RUNTIME", "STALE_TOOL_PACKAGE",
+            "SOURCE_RUNTIME_NOT_READY", "TOOL_RUNTIME_CRASH",
+        ):
+            tool_id = objective.root_cause_evidence.get("tool_id", "")
+            if tool_id:
+                steps.append({
+                    "action": "rebuild_artifact",
+                    "target": tool_id,
+                    "precondition": "owned_databases_intact",
+                })
+
+        method = self._select_plan_method(objective)
+        if not steps and method == "artifact_rebuild":
+            # Learned recipe selected a rebuild for a fault code with no
+            # static step mapping — apply the learned remedy's step.
             tool_id = objective.root_cause_evidence.get("tool_id", "")
             if tool_id:
                 steps.append({
@@ -218,13 +242,57 @@ class AutoRepairOrchestrator:
         return RepairPlan(
             plan_id=f"plan_{uuid.uuid4().hex[:12]}",
             objective_id=objective.objective_id,
-            method="targeted_patch" if objective.scope.get("action") == "patch" else "artifact_rebuild",
+            method=method,
             steps=steps,
             preimage_hashes=pre_hashes,
             verification_criteria=["compile-ok", "tests-pass", "governance-audit", "stability"],
             rollback_plan={"action": "restore_from_preimage", "hashes": pre_hashes},
             estimated_duration_seconds=60,
         )
+
+    # Runtime-safe plan methods a learned recipe may select.  Learned
+    # knowledge stays advisory and bounded to non-mutating stability
+    # recovery; ``targeted_patch`` (source mutation) is deliberately
+    # absent so a learned recipe can never self-authorize a patch.
+    _LEARNABLE_METHODS = frozenset({"artifact_rebuild"})
+
+    def _select_plan_method(self, objective: RepairObjective) -> str:
+        """Select the repair method; learned recipes may override.
+
+        The default method follows the objective scope.  When the
+        learning store holds a promoted, verified-repeatable recipe for
+        this fault code whose remedy is a runtime-safe method, the
+        learned method wins — the learning loop closes here.  Mutation
+        methods are never learned-selectable.
+        """
+        default = (
+            "targeted_patch"
+            if objective.scope.get("action") == "patch"
+            else "artifact_rebuild"
+        )
+        learned = self._learned_method_for(objective)
+        return learned or default
+
+    def _learned_method_for(self, objective: RepairObjective) -> str | None:
+        """Return the best promoted runtime-safe remedy for this fault code."""
+        try:
+            recipes = self.learning_store.get_learned_recipes()
+        except Exception:
+            return None
+        best_rate = 0.0
+        best_remedy: str | None = None
+        for recipe in recipes:
+            if str(recipe.get("error_class") or "") != objective.fault_code:
+                continue
+            remedy = str(recipe.get("remedy") or "")
+            if remedy not in self._LEARNABLE_METHODS:
+                continue
+            rate = float(recipe.get("success_rate") or 0.0)
+            count = int(recipe.get("occurrence_count") or 0)
+            if rate >= 0.8 and count >= 3 and rate > best_rate:
+                best_rate = rate
+                best_remedy = remedy
+        return best_remedy
 
     def _record_outcome(
         self,
