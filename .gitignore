@@ -97,3 +97,4 @@ __pycache__/
 # Runtime-generated governance evidence projections (星澄 A137/A139)
 **/governance/system-evidence.json
 Standalone tools/local-model/model-dialogue/xingcheng/anomalies.jsonl
+governance_rule/execution/audit/capability_ledger.jsonl
