@@ -98,3 +98,4 @@ __pycache__/
 **/governance/system-evidence.json
 Standalone tools/local-model/model-dialogue/xingcheng/anomalies.jsonl
 governance_rule/execution/audit/capability_ledger.jsonl
+governance_rule/execution/audit/codex_entry_state.json
