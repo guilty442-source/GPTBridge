@@ -129,6 +129,22 @@ class CommandChannelsMixin:
             result = await asyncio.to_thread(
                 self.fault_diagnostics.diagnose, symptom
             )
+            # Opt-in governed web research (A58): official docs / issue
+            # trackers via ai-collaboration's embedded browser agents.
+            # Results are unverified candidates, never executed repairs.
+            if payload.get("external_research") is True:
+                suspect = (
+                    (result.get("localization") or {}).get("primary_suspect")
+                    or {}
+                )
+                code = next(iter(result.get("matched_fault_code_ids") or []), "")
+                result["external_research"] = await asyncio.to_thread(
+                    self.external_research.search_repair_solutions,
+                    error_class=code or "UNKNOWN",
+                    error_message=symptom,
+                    failure_code=code,
+                    component=str(suspect.get("entity") or ""),
+                )
             return "xingcheng_diagnose_fault_result", result
 
     async def _handle_status(self, command: str, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -421,13 +437,9 @@ class CommandChannelsMixin:
                     },
                 },
                 "external_research": {
-                    "configured": False,
-                    "enabled": False,
-                    "fail_closed": True,
-                    "policy": "local-ollama-only",
+                    **self.external_research.health(),
+                    "policy": "governed-ai-channel-via-ai-collaboration",
                     "external_ai_used": False,
-                    "transport": "disabled",
-                    "queue_when_offline": False,
                 },
                 "database": database,
                 "databases": databases,

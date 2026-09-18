@@ -78,6 +78,7 @@ class LocalAiLifecycleMixin:
 
     def bind_channel(self, channel: Any) -> None:
         self._ai_channel_client = build_star_ai_channel_client(channel)
+        self.external_research.bind_channel(channel)
 
     def begin_request(self, request_id: str) -> threading.Event:
         event = threading.Event()

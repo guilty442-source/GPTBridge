@@ -48,7 +48,7 @@ class InvestmentChannelMixin:
             }
             if result.get("errors"):
                 result["external_research"] = {
-                    "configured": False,
+                    "configured": self.external_research.configured(),
                     "enabled": False,
                     "external_ai_used": False,
                     "policy": "local-market-sources-and-ollama-only",

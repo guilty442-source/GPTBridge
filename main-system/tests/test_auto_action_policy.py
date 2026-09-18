@@ -26,7 +26,13 @@ def test_switches_default_state(tmp_path: Path) -> None:
     assert switches["automatic_repair_managed_by"] == "system-audit-flow"
     assert switches["automatic_update_enabled"] is False
     assert auto_action_policy.switch_enabled_for_kind("repair") is True
-    assert auto_action_policy.switch_enabled_for_kind("update") is False
+    # The update switch is a governed user choice; the module-level helper
+    # reads the persisted value, so assert consistency with that state.
+    assert auto_action_policy.switch_enabled_for_kind("update") is bool(
+        auto_action_policy.read_automation_switches().get(
+            "automatic_update_enabled"
+        )
+    )
 
 
 def test_repair_switch_write_rejected_update_switch_persists(

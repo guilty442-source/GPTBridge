@@ -27,6 +27,7 @@ from ..infrastructure.transformer_runtime import StarTransformerRuntime
 from ..infrastructure.transformer_training_repository import (
     TransformerTrainingRepository,
 )
+from ..integration.external_research import ExternalAiResearch
 from .command_channels import CommandChannelsMixin
 from .codex_diagnostics import CodexDiagnosticsMixin
 from .inference_channel import InferenceChannelMixin
@@ -283,6 +284,11 @@ class LocalAiService(
         ]
         self.memory_broker = StarMemoryBroker(self.repositories, self.models)
         self._ai_channel_client: Any | None = None
+        # Governed external-research client (A58): reaches the web only via
+        # the ai-channel route into ai-collaboration's embedded browser —
+        # never a direct socket. Bound in bind_channel() with the service's
+        # own channel client.
+        self.external_research = ExternalAiResearch()
         self.model = self.models.primary.model_id
         self._search_cache: dict[str, tuple[float, dict[str, Any]]] = {}
         self._search_inflight: dict[str, asyncio.Task[dict[str, Any]]] = {}

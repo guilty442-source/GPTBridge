@@ -114,12 +114,7 @@ class LocalAiHealthMixin:
                 "mode": "automatic-composable-modules",
                 "module_count": len(self.modules.MODULES),
             },
-            "external_research": {
-                "configured": False,
-                "enabled": False,
-                "fail_closed": True,
-                "policy": "local-ollama-only",
-            },
+            "external_research": self.external_research.health(),
             "memory_review_required": True,
             "runtime_metrics": dict(self._runtime_metrics),
         }

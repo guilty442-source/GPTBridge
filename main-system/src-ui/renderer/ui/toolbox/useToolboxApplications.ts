@@ -171,10 +171,8 @@ export function useToolboxApplications({
           next = fetched.length ? fetched : createInitialToolboxRuntimeState()
         }
         const withSizes = await mergeLocalProjectSizes(next, true)
-        // Filter out ai-collaboration as it is now in the left sidebar
-        const filteredSizes = withSizes.filter((tool) => tool.id !== 'ai-collaboration')
         if (refreshRevision !== actionRevisionRef.current) return
-        setToolboxTools(filteredSizes)
+        setToolboxTools(withSizes)
         setToolboxSyncedAt(Date.now())
       } catch {
         // Backend metadata can be unavailable while the trusted local
@@ -183,10 +181,8 @@ export function useToolboxApplications({
           toolboxToolsRef.current,
           true
         )
-        // Filter out ai-collaboration as it is now in the left sidebar
-        const filteredSizes = withSizes.filter((tool) => tool.id !== 'ai-collaboration')
         if (refreshRevision !== actionRevisionRef.current) return
-        setToolboxTools(filteredSizes)
+        setToolboxTools(withSizes)
         setToolboxSyncedAt(Date.now())
       } finally {
         setToolboxSyncing(false)
@@ -213,21 +209,19 @@ export function useToolboxApplications({
       if (disposed) return
       const sizesById = new Map(withSizes.map((tool) => [tool.id, tool]))
       setToolboxTools((current) =>
-        current
-          .filter((tool) => tool.id !== 'ai-collaboration')
-          .map((tool) => {
-              const sized = sizesById.get(tool.id)
-              if (!sized) return tool
-              return {
-                ...tool,
-                folderPath: sized.folderPath,
-                manifestPath: sized.manifestPath,
-                codePath: sized.codePath,
-                projectSizeBytes: sized.projectSizeBytes,
-                projectFileCount: sized.projectFileCount,
-                capacityBreakdown: sized.capacityBreakdown,
-              }
-            })
+        current.map((tool) => {
+          const sized = sizesById.get(tool.id)
+          if (!sized) return tool
+          return {
+            ...tool,
+            folderPath: sized.folderPath,
+            manifestPath: sized.manifestPath,
+            codePath: sized.codePath,
+            projectSizeBytes: sized.projectSizeBytes,
+            projectFileCount: sized.projectFileCount,
+            capacityBreakdown: sized.capacityBreakdown,
+          }
+        })
       )
       setToolboxSyncedAt((current) => current ?? Date.now())
       if (

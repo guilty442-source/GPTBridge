@@ -135,8 +135,16 @@ def test_repair_research_uses_governed_network_channel() -> None:
     target, command, payload, timeout = client.call
     assert target == "ai-collaboration"
     assert command == "ai_nexus_send_message"
-    assert payload["business_scope"] == "system-repair"
-    assert payload["business_task"] == "repair-solution-research"
+    # ai-collaboration's accepted vocabulary: business_scope is limited to
+    # {general, investment} and business_task to _FIXED_TASK_CAPABILITIES;
+    # "search" dispatches the gemini fixed-owner (Google-backed retrieval in
+    # the embedded browser). The google-gemini pipeline is fenced to
+    # investment scope and "google-search" is a retired agent id, so neither
+    # may appear here.
+    assert payload["business_scope"] == "general"
+    assert payload["business_task"] == "search"
+    assert "research_pipeline" not in payload
+    assert "agent_ids" not in payload
     assert payload["execution_allowed"] is False
     assert payload["direct_database_write"] is False
     assert result["result_role"] == "unverified-repair-candidates"

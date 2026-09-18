@@ -27,7 +27,7 @@ class LocalAiCapabilityMixin:
             tool_root=self.tool_root,
             database=database_map[self.models.INVESTMENT.role],
             databases=database_map,
-            external_research_configured=False,
+            external_research_configured=self.external_research.configured(),
             star_native_model_enabled=True,
             local_transformer_enabled=self.transformer_runtime.enabled,
             remote_model_enabled=False,
@@ -41,11 +41,7 @@ class LocalAiCapabilityMixin:
                     self.models.MATHEMATICAL
                 ).mathematical_capability_catalog()
             ),
-            external_research_health={
-                "configured": False,
-                "enabled": False,
-                "fail_closed": True,
-            },
+            external_research_health=self.external_research.health(),
             memory_status=self.memory_broker.status(),
             runtime_metrics=dict(self._runtime_metrics),
             market_source_count=len(sources),

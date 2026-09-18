@@ -214,15 +214,20 @@ class ExternalAiResearch:
             "無法確認時明確標示不確定。\n"
             + json.dumps(context, ensure_ascii=False, sort_keys=True)
         )
+        # Dispatch through the fixed-responsibility vocabulary that
+        # ai-collaboration actually accepts: business_scope is limited to
+        # {general, investment} and business_task to _FIXED_TASK_CAPABILITIES;
+        # "search" routes to the gemini fixed-owner, whose embedded-browser
+        # session performs Google-backed retrieval, with chatgpt as final
+        # coordinator.  The google-gemini research_pipeline is fenced to
+        # investment scope, and "google-search" is a retired agent id.
         result = self._request_sync(
             "ai-collaboration",
             "ai_nexus_send_message",
             {
                 "content": prompt,
-                "agent_ids": ["google-search", "gemini"],
-                "business_scope": "system-repair",
-                "business_task": "repair-solution-research",
-                "research_pipeline": "google-gemini",
+                "business_scope": "general",
+                "business_task": "search",
                 "memory_context": [],
                 "memory_writeback": False,
                 "direct_database_write": False,
