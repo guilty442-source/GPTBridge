@@ -40,8 +40,14 @@ class LocalAiTeachingMixin:
             requested_intent=intent,
             reference_text=reference_text,
             response_digest=candidate_digest,
-            source_type="owner-governed-teaching-candidate",
-            received_via="star-chat-governance-authenticated-ai-channel",
+            source_type=str(
+                payload.get("source_type")
+                or "owner-governed-teaching-candidate"
+            ),
+            received_via=str(
+                payload.get("received_via")
+                or "star-chat-governance-authenticated-ai-channel"
+            ),
         )
         updates: list[dict[str, Any]] = []
         for candidate in evaluated["accepted"]:

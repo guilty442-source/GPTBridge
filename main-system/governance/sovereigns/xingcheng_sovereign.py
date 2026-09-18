@@ -59,7 +59,7 @@ from .xingcheng.codex_drift import XingchengCodexDriftMixin
 _logger = logging.getLogger("gptbridge.sovereign.xingcheng")
 
 # Owned-domain root
-_OWNED_DOMAIN_ROOT = "Standalone tools/local-model/model-dialogue/xingcheng"
+_OWNED_DOMAIN_ROOT = "Standalone tools/local-model/xingcheng"
 
 # Domain health thresholds
 _DB_MAX_SIZE_BYTES = 500 * 1024 * 1024
@@ -117,6 +117,10 @@ class XingchengSovereign(
         # A337: whole-system automation coordination executor
         "automation.decompose", "automation.schedule", "automation.dispatch",
         "automation.converge", "automation.verify-result", "automation.contain-failure",
+        # Xingcheng Main System Repair Delegation (A302)
+        "repair.main-system.inspect", "repair.main-system.targeted",
+        "repair.main-system.tool", "repair.main-system.database",
+        "repair.main-system.learn",
     })
 
     def __init__(self, app: Any | None = None) -> None:
@@ -192,8 +196,211 @@ class XingchengSovereign(
             return await self._adjudicate_auto_manage(request)
         if intent == "domain.auto-health-check":
             return await self._adjudicate_auto_health_check(request)
+        if intent == "repair.main-system.inspect":
+            return await self._adjudicate_repair_main_system_inspect(request)
+        if intent == "repair.main-system.targeted":
+            return await self._adjudicate_repair_main_system_targeted(request)
+        if intent == "repair.main-system.tool":
+            return await self._adjudicate_repair_main_system_tool(request)
+        if intent == "repair.main-system.database":
+            return await self._adjudicate_repair_main_system_database(request)
+        if intent == "repair.main-system.learn":
+            return await self._adjudicate_repair_main_system_learn(request)
 
         return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A20", "A12"))
+
+    # --- Xingcheng Main System Repair Delegation (A302) ---
+    # Governed delegation to CentralRepairService for main system repairs
+
+    async def _adjudicate_repair_main_system_inspect(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """Inspect main system for repair opportunities."""
+        from tasks.central_repair import CentralRepairService
+        from pathlib import Path
+
+        service = CentralRepairService(
+            project_root=self._project_root,
+            repair_data_root=Path(
+                getattr(self.app, "repair_data_root", "main-system/data/automatic-repair")
+            ).resolve(),
+        )
+
+        result = await asyncio.to_thread(service.inspect_owned_databases)
+
+        return accepted_outcome(
+            {
+                "action": "repair.main-system.inspect",
+                "domain": "main-system",
+                "result": result,
+            },
+            self.verified_basis("A302"),
+        )
+
+    async def _adjudicate_repair_main_system_targeted(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """Request targeted source repair on main system."""
+        from tasks.central_repair_operations import CentralRepairOperationsMixin
+        from pathlib import Path
+        from tasks.source_repair import SOURCE_ROOTS
+
+        relative_path = str(request.payload.get("relative_path", "")).strip()
+        if not relative_path:
+            return refusal_outcome(
+                "missing relative_path",
+                self.verified_basis("A302"),
+            )
+
+        # Verify path is within governed source roots
+        target = (self._project_root / relative_path).resolve()
+
+        if not any(
+            target.relative_to(self._project_root).as_posix().startswith(str(root).rstrip("/") + "/")
+            for root in SOURCE_ROOTS
+        ):
+            return refusal_outcome(
+                f"path {relative_path} outside governed source roots",
+                self.verified_basis("A302"),
+            )
+
+        service = CentralRepairService(
+            project_root=self._project_root,
+            repair_data_root=Path(
+                getattr(self.app, "repair_data_root", "main-system/data/automatic-repair")
+            ).resolve(),
+        )
+
+        result = await asyncio.to_thread(
+            service.self_repair_targeted_source,
+            relative_path,
+        )
+
+        return accepted_outcome(
+            {
+                "action": "repair.main-system.targeted",
+                "domain": "main-system",
+                "target": relative_path,
+                "result": result,
+            },
+            self.verified_basis("A302"),
+        )
+
+    async def _adjudicate_repair_main_system_tool(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """Request tool executable rebuild on main system."""
+        from tasks.central_repair import CentralRepairService
+        from pathlib import Path
+
+        tool_id = str(request.payload.get("tool_id", "")).strip()
+        if not tool_id:
+            return refusal_outcome(
+                "missing tool_id",
+                self.verified_basis("A302"),
+            )
+
+        service = CentralRepairService(
+            project_root=self._project_root,
+            repair_data_root=Path(
+                getattr(self.app, "repair_data_root", "main-system/data/automatic-repair")
+            ).resolve(),
+        )
+
+        result = await asyncio.to_thread(
+            service.rebuild_tool_executable,
+            tool_id,
+        )
+
+        return accepted_outcome(
+            {
+                "action": "repair.main-system.tool",
+                "domain": "main-system",
+                "tool_id": tool_id,
+                "result": result,
+            },
+            self.verified_basis("A302"),
+        )
+
+    async def _adjudicate_repair_main_system_database(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """Request database integrity check on main system."""
+        from tasks.central_repair import CentralRepairService
+        from pathlib import Path
+
+        service = CentralRepairService(
+            project_root=self._project_root,
+            repair_data_root=Path(
+                getattr(self.app, "repair_data_root", "main-system/data/automatic-repair")
+            ).resolve(),
+        )
+
+        result = await asyncio.to_thread(service.inspect_owned_databases)
+
+        return accepted_outcome(
+            {
+                "action": "repair.main-system.database",
+                "domain": "main-system",
+                "result": result,
+            },
+            self.verified_basis("A302"),
+        )
+
+    async def _adjudicate_repair_main_system_learn(
+        self, request: SovereignRequest
+    ) -> SovereignOutcome:
+        """Record repair outcome for learning."""
+        from tasks.repair_learning import (
+            RepairLearner,
+            RepairLearningStore,
+            ErrorSignature,
+        )
+        from pathlib import Path
+
+        payload = request.payload or {}
+        error_class = str(payload.get("error_class", ""))
+        message_pattern = str(payload.get("message_pattern", ""))
+        failure_code = str(payload.get("failure_code", ""))
+        file_context = str(payload.get("file_context", ""))
+        target_tool_id = str(payload.get("target_tool_id", ""))
+        remedy = str(payload.get("remedy", ""))
+        success = bool(payload.get("success", False))
+
+        if not error_class or not message_pattern:
+            return refusal_outcome(
+                "missing error_class or message_pattern",
+                self.verified_basis("A302"),
+            )
+
+        root = Path(getattr(self.app, "repair_data_root", "main-system/data/automatic-repair")).resolve()
+        learner = RepairLearner(RepairLearningStore(root))
+
+        signature = ErrorSignature(
+            error_class=error_class,
+            message_pattern=message_pattern,
+            failure_code=failure_code,
+            file_context=file_context,
+            target_tool_id=target_tool_id or None,
+        )
+
+        await asyncio.to_thread(
+            learner.record_outcome,
+            signature,
+            remedy,
+            success,
+        )
+
+        return accepted_outcome(
+            {
+                "action": "repair.main-system.learn",
+                "domain": "main-system",
+                "signature": signature.signature_hash,
+                "remedy": remedy,
+                "success": success,
+            },
+            self.verified_basis("A302"),
+        )
 
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest

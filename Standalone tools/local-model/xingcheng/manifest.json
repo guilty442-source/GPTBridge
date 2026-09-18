@@ -37,7 +37,7 @@
     "database_scope": "opaque-central-index-read-and-xingcheng-internal-read-write",
     "canonical_database_scope": "xingcheng-shared-repository",
     "allow_modify": [
-      "Standalone tools/local-model/model-dialogue/xingcheng-excluding-permissions"
+      "Standalone tools/local-model/xingcheng-excluding-permissions"
     ],
     "deny": [
       "governance-rule",

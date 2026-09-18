@@ -254,6 +254,9 @@ def check_tool_identity_registration(
     # independent-tool identity parity check.
     _NON_INDEPENDENT_TOOL_IDS = frozenset({
         "governance_rule", "shared-layer", "star-chat",
+        # 星澄助理 is an institution identity (auxiliary system, A156), not an
+        # independent tool — it is exempt from tool/manifest parity checks.
+        "xingcheng-assistant",
     })
     # A533/A534: retired identities and manifests stay registered as
     # lineage/audit evidence but are excluded from the active parity

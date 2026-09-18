@@ -156,7 +156,7 @@ def test_permissions_declare_owned_code_and_database_scope(
             "opaque-central-index-read-and-xingcheng-internal-read-write"
         )
         assert permissions.get("allow_modify") == [
-            "Standalone tools/local-model/model-dialogue/xingcheng-excluding-permissions"
+            "Standalone tools/local-model/xingcheng-excluding-permissions"
         ]
         assert {"governance-rule", "governance-permission-directory"}.issubset(
             set(permissions.get("deny", []))

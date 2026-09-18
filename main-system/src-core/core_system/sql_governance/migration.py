@@ -20,7 +20,7 @@ Migration lock 全域唯一。
 Production runtime 不自動修改 schema。
 """
 
-from __future__ import __annotations__
+from __future__ import annotations
 
 import hashlib
 import json

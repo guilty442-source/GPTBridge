@@ -25,9 +25,11 @@ codex ``learning-evidence-sync-sub-sovereign`` identity.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
@@ -55,6 +57,7 @@ _LEARNING_INTENTS: Final = frozenset(
         "learn.outcome",
         "learn.evidence",
         "learn.analyze",
+        "learn.teach",
     }
 )
 
@@ -93,6 +96,37 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
         self._reconcile_interval = reconcile_interval
         self._last_reconciliation: dict[str, Any] = {}
         self._auto_learning_armed = False
+        self._fault_manual_catalog: tuple[dict[str, Any], ...] = ()
+        self._fault_manual_catalog_hash = ""
+
+    def _ingest_fault_manual_catalog(self) -> None:
+        """Load the canonical fault manuals into the learning module.
+
+        Fault identities remain owned by permission-sovereign.  This method
+        transfers only maintenance-manual learning and management into the
+        星澄 learning module and never mutates the canonical Codex database.
+        """
+        root = Path(getattr(self.app, "project_root", ".")).resolve()
+        database = root / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
+        if not database.is_file():
+            self._fault_manual_catalog = ()
+            self._fault_manual_catalog_hash = ""
+            return
+        connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True)
+        connection.row_factory = sqlite3.Row
+        try:
+            records = tuple(
+                dict(row)
+                for row in connection.execute(
+                    "SELECT * FROM maintenance_manual_directory "
+                    "WHERE retired_version IS NULL ORDER BY manual_code"
+                )
+            )
+        finally:
+            connection.close()
+        payload = json.dumps(records, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        self._fault_manual_catalog = records
+        self._fault_manual_catalog_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     async def start(self) -> dict[str, Any]:
         from tasks.repair_learning import RepairLearner, RepairLearningStore
@@ -100,6 +134,7 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
         root = Path(getattr(self.app, "project_root", ".")).resolve()
         self._store = RepairLearningStore(root / "main-system" / "data" / "automatic-repair")
         self._learner = RepairLearner(self._store)
+        self._ingest_fault_manual_catalog()
         self._started = True
         # E173: activation returns a light receipt — analyze_history()
         # runs on demand in status(), not on the startup critical path.
@@ -113,6 +148,7 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
             "execution": "governed-executor-only",
             "persistence": "repair-learning-sqlite",
             "reconciliation": "commanded-by-parent",
+            "fault_manuals": len(self._fault_manual_catalog),
         }
 
     async def stop(self) -> None:
@@ -145,6 +181,14 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
             "reconcile_loop": bool(
                 self._reconcile_task is not None and not self._reconcile_task.done()
             ),
+            "fault_manual_catalog": {
+                "owner": self.sovereign_id,
+                "source": "governance-codex:maintenance_manual_directory",
+                "mode": "read-only-learning-ingestion",
+                "count": len(self._fault_manual_catalog),
+                "catalog_hash": self._fault_manual_catalog_hash,
+                "fault_directory_owner": "permission-sovereign",
+            },
         }
 
     def live_status(self) -> dict[str, Any]:
@@ -181,6 +225,8 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
             return self._adjudicate_learn_evidence(request)
         if intent == "learn.analyze":
             return self._adjudicate_learn_analyze(request)
+        if intent == "learn.teach":
+            return self._adjudicate_learn_teach(request)
         return await self._adjudicate_coordination(request)
 
     async def _adjudicate_coordination(self, request: Any) -> Any:
@@ -206,6 +252,7 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
     async def _adjudicate_learn_auto_start(self, request: Any) -> Any:
         """Arm the reconcile loop — the only path that enables auto-learning."""
         self._ensure_learner()
+        curriculum = self._apply_repair_curriculum()
         self._start_reconcile_loop()
         task = self._reconcile_task
         self._auto_learning_armed = task is not None and not task.done()
@@ -216,6 +263,7 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
                     "armed" if self._auto_learning_armed else "arm-failed"
                 ),
                 "interval_seconds": self._interval_seconds(),
+                "curriculum": curriculum,
                 "commanded_by": self.parent_sovereign_id,
                 "decision": "none",
                 "execution": "delegated-to-governed-executor",
@@ -239,6 +287,7 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
 
     async def _adjudicate_learn_reconcile(self, request: Any) -> Any:
         """Run one bounded reconciliation pass under parent command."""
+        self._ingest_fault_manual_catalog()
         receipt = await self.reconcile_once()
         return accepted_outcome(
             {
@@ -312,6 +361,144 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
             self._learn_basis(),
         )
 
+    def _adjudicate_learn_teach(self, request: Any) -> Any:
+        """Store one parent-taught repair recipe (``learn.teach``).
+
+        Taught knowledge is doctrine declared by the codex parent
+        (星澄) — ``source="taught"`` with zero outcome counters, bounded
+        to the runtime-safe remedy vocabulary so teaching can never arm
+        a source mutation.  The accepted recipe is also forwarded to
+        the model's governed teaching gate so repair doctrine settles
+        into model capability, not only the evidence store.
+        """
+        self._ensure_learner()
+        if self._learner is None:
+            return refusal_outcome("LEARNER_UNAVAILABLE", self._learn_basis())
+        signature = request.payload.get("signature") or {}
+        if not isinstance(signature, dict):
+            return refusal_outcome(
+                "INVALID_LEARNING_PAYLOAD", self._learn_basis()
+            )
+        signatures = tuple(
+            str(token).strip()
+            for token in (
+                signature.get("error_class"),
+                signature.get("failure_code"),
+                signature.get("message_pattern"),
+            )
+            if str(token or "").strip()
+        )
+        result = self._learner.teach_recipe(
+            name=str(request.payload.get("name") or ""),
+            failure_signatures=signatures,
+            remedy=str(request.payload.get("remedy") or ""),
+            verification=str(request.payload.get("verification") or ""),
+            automatic=bool(request.payload.get("automatic", True)),
+        )
+        if not result.get("taught"):
+            return refusal_outcome(
+                str(result.get("reason") or "INVALID_TEACH_PAYLOAD"),
+                self._learn_basis(),
+            )
+        recipe = result["recipe"]
+        self._emit_repair_teaching_example(recipe)
+        return accepted_outcome(
+            {
+                "command": "learn.teach",
+                "recipe": recipe,
+                "commanded_by": self.parent_sovereign_id,
+                "decision": "none",
+                "execution": "none",
+            },
+            self._learn_basis(),
+        )
+
+    def _apply_repair_curriculum(self) -> dict[str, Any]:
+        """Apply the codified repair curriculum at arm time.
+
+        The curriculum is 星澄's repair doctrine for the fault classes
+        the system actually emits — stored as taught recipes so the
+        learning module carries baseline knowledge instead of starting
+        cold.  Idempotent: re-arming refreshes the same recipe ids.
+        """
+        if self._learner is None:
+            return {"applied": 0, "reason": "learner-unavailable"}
+        from .repair_curriculum import REPAIR_CURRICULUM
+
+        applied: list[str] = []
+        for entry in REPAIR_CURRICULUM:
+            result = self._learner.teach_recipe(
+                name=str(entry.get("name") or ""),
+                failure_signatures=tuple(
+                    entry.get("failure_signatures") or ()
+                ),
+                remedy=str(entry.get("remedy") or ""),
+                verification=str(entry.get("verification") or ""),
+                automatic=bool(entry.get("automatic", True)),
+            )
+            if result.get("taught"):
+                applied.append(str(result["recipe"]["recipe_id"]))
+                self._emit_repair_teaching_example(result["recipe"])
+        return {"applied": len(applied), "recipe_ids": applied}
+
+    def _emit_repair_teaching_example(self, recipe: dict[str, Any]) -> None:
+        """Forward one repair recipe to the model's teaching gate.
+
+        The governed bridge: learning-module doctrine becomes a repair
+        teaching example submitted to ``xingcheng_submit_teaching``
+        through the shared request layer under
+        ``governance/main-system`` — repair experience settles into
+        model capability.  Best-effort: a queued submission failure
+        never fails the teach itself.
+        """
+        permission = getattr(self.app, "permission_sovereign", None)
+        submit = getattr(permission, "submit_tool_execution_request", None)
+        if submit is None:
+            return
+        signatures = "、".join(
+            str(token) for token in (recipe.get("failure_signatures") or [])
+        )
+        name = str(recipe.get("name") or "")
+        remedy = str(recipe.get("remedy") or "")
+        verification = str(recipe.get("verification") or "").strip()
+        doctrine = (
+            "修復一律經受管鏈：分類→決策→權限→調度→獨立驗證→稽核，"
+            "不得直接修改來源或略過驗證。"
+        )
+        # The teaching gate requires semantic grounding: every term in
+        # target_text must be covered by input_text + reference_text, so
+        # the full doctrine is declared in the reference.
+        reference = (
+            f"故障特徵：{signatures}。名稱：{name}。"
+            f"修復動作：{remedy}。驗證條件：{verification}。{doctrine}"
+        )
+        payload = {
+            "_governed_command": "xingcheng_submit_teaching",
+            "training_intent": "repair",
+            "input_text": (
+                f"系統故障特徵「{signatures}」（{name}）："
+                "對應的受管修復路徑與驗證條件是什麼？"
+            ),
+            "target_text": (
+                f"「{signatures}」屬於{name}。受管修復動作：{remedy}。"
+                f"驗證條件：{verification}。{doctrine}"
+            ),
+            "reference_text": reference,
+            "recipe_id": str(recipe.get("recipe_id") or ""),
+            "recipe_source": str(recipe.get("source") or ""),
+            "source_type": "xingcheng-repair-doctrine",
+            "received_via": "learn-teach-governed-bridge",
+        }
+        try:
+            import uuid
+
+            submit("xingcheng", f"learn-teach-{uuid.uuid4().hex[:20]}", payload)
+        except Exception:
+            _logger.info(
+                "repair teaching example not queued for %s",
+                recipe.get("recipe_id"),
+            )
+
     def _record_pushed_outcome(
         self, signature: dict[str, Any], outcome: dict[str, Any]
     ) -> dict[str, Any] | None:
@@ -346,12 +533,20 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
             )
         except (TypeError, ValueError):
             return None
-        return self._learner.learn_from_outcome(sig, out)
+        result = self._learner.learn_from_outcome(sig, out)
+        recipe = (result or {}).get("recipe")
+        if (result or {}).get("promoted") and isinstance(recipe, dict):
+            self._emit_repair_teaching_example(recipe)
+        return result
 
     def learn_outcome(self, signature: Any, outcome: Any) -> dict[str, Any]:
         if self._learner is None:
             return {"recorded": False, "reason": "learning-sovereign-not-ready"}
-        return self._learner.learn_from_outcome(signature, outcome)
+        result = self._learner.learn_from_outcome(signature, outcome)
+        recipe = (result or {}).get("recipe")
+        if (result or {}).get("promoted") and isinstance(recipe, dict):
+            self._emit_repair_teaching_example(recipe)
+        return result
 
     def suggest_remedy(self, signature: Any) -> dict[str, Any]:
         if self._learner is None:

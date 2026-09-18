@@ -391,5 +391,185 @@
     ],
     "verified_applicability": true,
     "verification": "promoted-by-verified-repair-outcomes"
+  },
+  {
+    "recipe_id": "taught-0817d78a44a6008c",
+    "name": "工具運行時崩潰→檢查後受管重建",
+    "failure_signatures": [
+      "TOOL_RUNTIME_CRASH",
+      "TOOL_START_FAILED",
+      "PROCESS_START_FAILED"
+    ],
+    "remedy": "inspect-owned-databases,rebuild-tool-executable",
+    "owner": "星澄",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-18T05:31:48.153202+00:00",
+    "occurrence_count": 0,
+    "success_rate": 0.0,
+    "source": "taught",
+    "verification": "owned databases inspected; rebuilt executable starts and the tool returns to ready; stderr diagnosis preserved as quarantine evidence",
+    "actions": [
+      "inspect-owned-databases",
+      "rebuild-tool-executable"
+    ],
+    "verified_applicability": true
+  },
+  {
+    "recipe_id": "taught-c70e74ec98d375c0",
+    "name": "啟動崩潰→檢查後受管重建",
+    "failure_signatures": [
+      "STARTUP_CRASH"
+    ],
+    "remedy": "inspect-owned-databases,rebuild-tool-executable",
+    "owner": "星澄",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-18T05:31:48.545479+00:00",
+    "occurrence_count": 0,
+    "success_rate": 0.0,
+    "source": "taught",
+    "verification": "health probe returns ready with a matching workspace instance id; import-family faults escalate to governed source repair instead of rebuild",
+    "actions": [
+      "inspect-owned-databases",
+      "rebuild-tool-executable"
+    ],
+    "verified_applicability": true
+  },
+  {
+    "recipe_id": "taught-4f07851d2ab93764",
+    "name": "依賴未就緒→檢查後受管重建",
+    "failure_signatures": [
+      "MODEL_RUNTIME_NOT_READY",
+      "SOURCE_RUNTIME_NOT_READY",
+      "SOURCE_UI_UNAVAILABLE",
+      "SOURCE_RUNTIME_EXITED",
+      "QDRANT_UNAVAILABLE",
+      "EMBEDDING_UNAVAILABLE"
+    ],
+    "remedy": "inspect-owned-databases,rebuild-tool-executable",
+    "owner": "星澄",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-18T05:31:48.758136+00:00",
+    "occurrence_count": 0,
+    "success_rate": 0.0,
+    "source": "taught",
+    "verification": "dependency health check reports available after governed rebuild; unrecoverable dependencies escalate for user review",
+    "actions": [
+      "inspect-owned-databases",
+      "rebuild-tool-executable"
+    ],
+    "verified_applicability": true
+  },
+  {
+    "recipe_id": "taught-a18d4813ed322a37",
+    "name": "套件與執行檔故障→受管重建",
+    "failure_signatures": [
+      "EXECUTABLE_MISSING",
+      "STALE_TOOL_PACKAGE",
+      "PACKAGE_UNVERIFIED",
+      "INCOMPATIBLE_TOOL_RUNTIME",
+      "TOOL_VERSION_MISMATCH"
+    ],
+    "remedy": "inspect-owned-databases,rebuild-tool-executable",
+    "owner": "星澄",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-18T05:31:48.965975+00:00",
+    "occurrence_count": 0,
+    "success_rate": 0.0,
+    "source": "taught",
+    "verification": "rebuilt executable launches and reports a version matching the manifest",
+    "actions": [
+      "inspect-owned-databases",
+      "rebuild-tool-executable"
+    ],
+    "verified_applicability": true
+  },
+  {
+    "recipe_id": "taught-051caeb2ab34a3d4",
+    "name": "連線故障→檢查後受管恢復",
+    "failure_signatures": [
+      "BACKEND_CONNECTION_FAILED",
+      "FRONTEND_BACKEND_DISCONNECTED",
+      "COMMAND_EXECUTION_FAILED",
+      "STREAM_CHANNEL_FAILED"
+    ],
+    "remedy": "inspect-owned-databases,rebuild-tool-executable",
+    "owner": "星澄",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-18T05:31:49.175869+00:00",
+    "occurrence_count": 0,
+    "success_rate": 0.0,
+    "source": "taught",
+    "verification": "backend /health returns 200 and the frontend WebSocket reconnects within the probe interval",
+    "actions": [
+      "inspect-owned-databases",
+      "rebuild-tool-executable"
+    ],
+    "verified_applicability": true
+  },
+  {
+    "recipe_id": "taught-7014823faa8646d1",
+    "name": "連線暫態→觀察不修",
+    "failure_signatures": [
+      "CONNECTION_DEGRADED",
+      "CONNECTION_STARTING"
+    ],
+    "remedy": "no-action-required",
+    "owner": "星澄",
+    "automatic": true,
+    "runtime_only": true,
+    "learned_at": "2026-09-18T05:31:49.383821+00:00",
+    "occurrence_count": 0,
+    "success_rate": 0.0,
+    "source": "taught",
+    "verification": "transient connection states self-recover; sustained degradation escalates to the connection-fault recipe instead of burning retries",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true
+  },
+  {
+    "recipe_id": "taught-053ed717bdf6ad39",
+    "name": "主系統崩潰→僅檢查，人工修復",
+    "failure_signatures": [
+      "MAIN_SYSTEM_CRASH_REPAIR"
+    ],
+    "remedy": "inspect-owned-databases",
+    "owner": "星澄",
+    "automatic": false,
+    "runtime_only": true,
+    "learned_at": "2026-09-18T05:31:49.583603+00:00",
+    "occurrence_count": 0,
+    "success_rate": 0.0,
+    "source": "taught",
+    "verification": "inspection evidence recorded for the fault surface; main-system source repair stays a governed manual path — never automatic",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true
+  },
+  {
+    "recipe_id": "taught-b12aa7e03ffcffcf",
+    "name": "未知故障→僅檢查留證",
+    "failure_signatures": [
+      "UNKNOWN"
+    ],
+    "remedy": "inspect-owned-databases",
+    "owner": "星澄",
+    "automatic": false,
+    "runtime_only": true,
+    "learned_at": "2026-09-18T05:31:49.786276+00:00",
+    "occurrence_count": 0,
+    "success_rate": 0.0,
+    "source": "taught",
+    "verification": "inspection evidence recorded; unknown faults never receive an automatic remedy until outcomes earn one",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true
   }
 ]

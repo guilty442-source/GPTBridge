@@ -89,7 +89,8 @@ class CentralRepairService(CentralRepairLearningMixin, CentralRepairOperationsMi
             rid = str(learned.get("recipe_id") or "")
             if not rid:
                 continue
-            entry = {**merged.get(rid, {}), **learned, "source": "learned"}
+            is_taught = str(learned.get("source") or "") == "taught"
+            entry = {**merged.get(rid, {}), **learned}
             remedy_tokens = str(learned.get("remedy") or "")
             actions = [
                 token.strip()
@@ -97,6 +98,16 @@ class CentralRepairService(CentralRepairLearningMixin, CentralRepairOperationsMi
                 if token.strip() in _LEARNED_RUNTIME_ACTIONS
             ]
             entry["actions"] = actions or ["inspect-owned-databases"]
+            if is_taught:
+                # Taught doctrine carries a declared verification
+                # statement — the same contract static REPAIR_RECIPES
+                # use — instead of outcome-earned proof.  Its zero
+                # occurrence count keeps it sorted below earned recipes.
+                declared = str(learned.get("verification") or "").strip()
+                entry["verified_applicability"] = bool(declared)
+                entry["verification"] = declared
+                merged[rid] = entry
+                continue
             meets_threshold = (
                 float(learned.get("success_rate") or 0.0)
                 >= LEARN_PROMOTION_MIN_SUCCESS_RATE

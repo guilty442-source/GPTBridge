@@ -43,6 +43,7 @@ from governance.sovereigns import (
 
 from main_shutdown import GPTBridgeAppShutdownMixin
 from core_system.maintenance_controller_integration import create_maintenance_controller_integration
+from core_system.cag_integration import create_cag_integration
 
 
 class GPTBridgeApp(GPTBridgeAppShutdownMixin):
@@ -71,6 +72,7 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
 
         # Maintenance controller integration (Database Auto Maintenance v1)
         self.maintenance_controller_integration = create_maintenance_controller_integration(self)
+        self.cag_integration = create_cag_integration(self)
 
         # New governance architecture sovereigns (A63/A64/A12/A128)
         # Decision layer sovereigns
@@ -463,6 +465,19 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
         except Exception as error:
             self._record_startup_failure("maintenance_controller", error)
         self._mark_startup_phase("maintenance_controller_started")
+
+        # Start CAG context preloading (DAG+CAG+RAG hybrid architecture)
+        # Starts after RAG orchestrator is available
+        try:
+            result = await self.cag_integration.start()
+            if result.get("ok"):
+                self.cag_ready = True
+                self._log({"type": "status", "message": "CAG context preloading started", **result})
+            else:
+                self._record_startup_failure("cag_integration", RuntimeError(result.get("reason", "unknown")))
+        except Exception as error:
+            self._record_startup_failure("cag_integration", error)
+        self._mark_startup_phase("cag_integration_started")
 
         # Check if boot_core has already completed phases 0-5
         if startup_state in ("READY", "DEGRADED"):

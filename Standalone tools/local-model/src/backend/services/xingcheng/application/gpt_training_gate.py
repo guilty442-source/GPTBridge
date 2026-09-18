@@ -27,6 +27,7 @@ class StarOllamaTrainingGate:
             "calculation",
             "analysis",
             "risk",
+            "repair",
             "self_upgrade",
         }
     )

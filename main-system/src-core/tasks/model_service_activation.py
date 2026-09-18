@@ -185,7 +185,14 @@ class ModelServiceActivationBroker:
     # -- detection ------------------------------------------------------
 
     def _has_pending_dialogue_request(self) -> bool:
-        """True when a fresh queued AI request targets the model owner."""
+        """True when a fresh queued governed request targets the model owner.
+
+        On-demand activation is demand-driven, not channel-specific: a
+        queued ``ai`` inference request needs the model runtime, and so
+        does a queued ``system`` governed command (e.g. the repair
+        teaching bridge's ``xingcheng_submit_teaching``).  Either proves
+        the owner is required and must be started.
+        """
         try:
             from shared_layer.database.connection import get_connection_manager
 
@@ -194,7 +201,7 @@ class ModelServiceActivationBroker:
                     """
                     SELECT 1
                     FROM gptbridge_transport.tool_request
-                    WHERE channel_id = 'ai'
+                    WHERE channel_id IN ('ai', 'system')
                       AND target_tool_id = %s
                       AND status = 'queued'
                       AND created_at > now() - (%s || ' minutes')::interval

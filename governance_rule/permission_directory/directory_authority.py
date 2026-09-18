@@ -247,6 +247,11 @@ IDENTITY_GROUP_FILE_SORTER: Final[str] = "identity-group-F00001"
 IDENTITY_GROUP_GLOBAL_CLEANER: Final[str] = "identity-group-C00001"
 IDENTITY_GROUP_INVESTMENT_MOBILE: Final[str] = "identity-group-I00001"
 IDENTITY_GROUP_XINGCHENG: Final[str] = "identity-group-X00001"
+# 星澄助理 institution identity group — the canonical group name is pinned by
+# the assistant identity store schema, the data-architecture contract and the
+# registry execution_identity, so the permission group reuses it verbatim
+# (名稱固定: one name for the institution everywhere).
+IDENTITY_GROUP_XINGCHENG_ASSISTANT: Final[str] = "xingcheng-assistant-identity-group"
 IDENTITY_GROUP_VAULTLY: Final[str] = "identity-group-V00001"
 IDENTITY_GROUP_SYSTEM_RESCUE: Final[str] = "identity-group-R00001"
 IDENTITY_GROUP_LOCAL_MODEL: Final[str] = "identity-group-L00001"
@@ -261,6 +266,7 @@ ACTIVE_IDENTITY_GROUP_IDS: Final[tuple[str, ...]] = (
     IDENTITY_GROUP_GLOBAL_CLEANER,
     IDENTITY_GROUP_INVESTMENT_MOBILE,
     IDENTITY_GROUP_XINGCHENG,
+    IDENTITY_GROUP_XINGCHENG_ASSISTANT,
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_LOCAL_MODEL,

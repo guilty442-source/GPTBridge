@@ -42,6 +42,22 @@ def _gpt_response(*examples: dict[str, object]) -> dict[str, object]:
     }
 
 
+# Every model the governed training pipeline may select — the tags probe
+# must report all of them so the pipeline is non-empty in tests.
+_PIPELINE_MODELS = (
+    "gpt-oss:20b",
+    "rnj-1:8b-instruct-q4_K_M",
+    "qwen3.8:27b-q4_K_M",
+    "nemotron-3.5-lightning:30b-a3b-q4_K_M",
+    "ibm/granite4.2:30b-q4_K_M",
+    "openbmb/minicpm-v4.6:q8_0",
+    "granite-code:3b",
+    "deepseek-r1:14b",
+    "qwen3.6:35b-a3b-coding",
+    StarTransformerRuntime.MODEL,
+)
+
+
 class _LocalOllamaTrainingTransport:
     def __init__(self, *examples: dict[str, object]) -> None:
         self.content = json.dumps(
@@ -50,7 +66,7 @@ class _LocalOllamaTrainingTransport:
 
     def __call__(self, method, url, payload, timeout):
         if url.endswith("/api/tags"):
-            return {"models": [{"name": StarTransformerRuntime.MODEL}]}
+            return {"models": [{"name": name} for name in _PIPELINE_MODELS]}
         if url.endswith("/api/version"):
             return {"version": "test"}
         if url.endswith("/api/chat"):
@@ -59,6 +75,17 @@ class _LocalOllamaTrainingTransport:
                 "prompt_eval_count": 20,
                 "eval_count": 20,
             }
+        raise AssertionError(url)
+
+
+class _EmptyOllamaTransport:
+    """Tags probe reports no installed models — deterministic fail-closed."""
+
+    def __call__(self, method, url, payload, timeout):
+        if url.endswith("/api/tags"):
+            return {"models": []}
+        if url.endswith("/api/version"):
+            return {"version": "test"}
         raise AssertionError(url)
 
 
@@ -295,7 +322,13 @@ def test_local_training_keeps_reference_on_loopback(tmp_path: Path) -> None:
 
 
 def test_service_fails_closed_when_ollama_training_model_is_not_ready(tmp_path: Path) -> None:
-    service = LocalAiService(tmp_path)
+    service = LocalAiService(
+        tmp_path,
+        transformer_runtime=StarTransformerRuntime(
+            enabled=True,
+            transport=_EmptyOllamaTransport(),
+        ),
+    )
 
     result = asyncio.run(
         service._train_with_ollama(

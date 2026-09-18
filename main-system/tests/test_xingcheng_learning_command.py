@@ -9,6 +9,7 @@ status surfaces the commanded learning state.
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -57,6 +58,29 @@ def test_child_does_not_self_arm_on_start(tmp_path: Path) -> None:
     assert report["reconciliation"] == "commanded-by-parent"
     assert child._reconcile_task is None
     assert child._auto_learning_armed is False
+
+
+def test_fault_manuals_are_ingested_by_learning_while_fault_owner_stays_permission(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
+    database.parent.mkdir(parents=True)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "CREATE TABLE maintenance_manual_directory ("
+            "manual_code TEXT, owner TEXT, retired_version TEXT)"
+        )
+        connection.execute(
+            "INSERT INTO maintenance_manual_directory VALUES (?,?,NULL)",
+            ("MANUAL_ONE", "learning-evidence-sync-sub-sovereign"),
+        )
+    child = LearningEvidenceSyncSubSovereign(_App(tmp_path), parent=None)
+    child._ingest_fault_manual_catalog()
+    projection = child.status()["fault_manual_catalog"]
+    assert projection["owner"] == "learning-evidence-sync-sub-sovereign"
+    assert projection["fault_directory_owner"] == "permission-sovereign"
+    assert projection["count"] == 1
+    assert projection["catalog_hash"]
 
 
 def test_auto_start_arms_learning_loop(tmp_path: Path) -> None:

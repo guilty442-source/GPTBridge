@@ -335,6 +335,7 @@ class TransformerRuntimeRoutingMixin:
             "command_execution",
             "autonomous_agent",
             "self_upgrade",
+            "repair",
         }:
             return (
                 "prepare-code-and-execution-handoff",
@@ -381,6 +382,7 @@ class TransformerRuntimeRoutingMixin:
             "command_execution",
             "autonomous_agent",
             "self_upgrade",
+            "repair",
         }:
             pipeline = [
                 ("prepare-agent-and-code", "qwen3-coder:30b-a3b-q4_K_M"),

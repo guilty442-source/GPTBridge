@@ -28,6 +28,23 @@ LEARN_PROMOTION_MIN_SUCCESS_RATE: Final[float] = 0.8
 # Maximum learned recipes to retain (LRU eviction).
 MAX_LEARNED_RECIPES: Final[int] = 50
 
+# Provenance marker for recipes taught through the governed ``learn.teach``
+# command — distinct from ``learned`` (promoted by verified outcomes) and
+# the static REPAIR_RECIPES curriculum baked into code.
+TAUGHT_RECIPE_SOURCE: Final[str] = "taught"
+
+# Remedy tokens a taught recipe may carry.  Teaching is bounded to the
+# same runtime-safe action vocabulary the learned-recipe merge accepts —
+# taught knowledge may never promote a source mutation
+# (``repair-main-system-source``) into an automatic plan.
+TEACHABLE_REMEDY_TOKENS: Final[frozenset[str]] = frozenset(
+    {
+        "inspect-owned-databases",
+        "rebuild-tool-executable",
+        "no-action-required",
+    }
+)
+
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -100,6 +117,10 @@ class LearnedRecipe:
     occurrence_count: int = 0
     success_rate: float = 0.0
     source: str = "learned"
+    # Declared verification statement for ``source == "taught"`` recipes —
+    # the same contract the static REPAIR_RECIPES carry (what must hold
+    # after execution), not outcome-earned proof.
+    verification: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -114,6 +135,7 @@ class LearnedRecipe:
             "occurrence_count": self.occurrence_count,
             "success_rate": self.success_rate,
             "source": self.source,
+            "verification": self.verification,
         }
 
 
@@ -147,7 +169,8 @@ _SCHEMA_STATEMENTS: tuple[str, ...] = (
     "learned_at TEXT NOT NULL, "
     "occurrence_count INTEGER NOT NULL DEFAULT 0, "
     "success_rate REAL NOT NULL DEFAULT 0.0, "
-    "source TEXT NOT NULL DEFAULT 'learned')",
+    "source TEXT NOT NULL DEFAULT 'learned', "
+    "verification TEXT NOT NULL DEFAULT '')",
     "CREATE INDEX IF NOT EXISTS idx_outcomes_signature "
     "ON repair_outcomes(signature_hash)",
     "CREATE INDEX IF NOT EXISTS idx_outcomes_remedy "

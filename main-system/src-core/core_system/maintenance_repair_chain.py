@@ -157,18 +157,19 @@ class MaintenanceRepairChainMixin:
         # signal proceeds to the decision-sovereign and through the
         # system-audit flow (change-acceptance intake inside the chain).
 
-        # ── Step 2: delegate repair decision to decision-sovereign ──
-        decision_sovereign = getattr(self.app, "decision_sovereign", None)
-        if decision_sovereign is None:
+        # ── Step 2: notify 星澄 internally; 星澄 autonomously starts repair ──
+        xingcheng = getattr(self.app, "xingcheng_sovereign", None)
+        autonomous_repair = getattr(xingcheng, "handle_internal_fault_repair", None)
+        if not callable(autonomous_repair):
             coordinator.acknowledge_request(
                 request_id,
-                decision="denied-no-decision-sovereign",
+                decision="denied-no-xingcheng-autonomous-repair",
                 ok=False,
             )
             self._audit_repair_outcome(request, classified, None, ok=False)
             return
 
-        result = decision_sovereign.decide_and_route_repair(classified)
+        result = autonomous_repair(classified)
         ok = bool(result.get("ok"))
         decision = str(result.get("decision") or "")
 
@@ -182,7 +183,8 @@ class MaintenanceRepairChainMixin:
         # ── Step 4: record outcome in learning store (E127: learning-system) ──
         self._audit_repair_outcome(request, classified, result, ok=ok)
 
-        # ── Step 5: UI sync ──
+        # ── Step 5: informational notification through 星澄助理 ──
+        # This is status-only: it never gates, authorizes or executes repair.
         self._sync_ui_repair_result(classified, result, ok=ok)
 
     # ------------------------------------------------------------------

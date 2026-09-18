@@ -32,6 +32,8 @@ from .repair_learning_types import (
     LEARN_PROMOTION_THRESHOLD,
     LEARN_PROMOTION_MIN_SUCCESS_RATE,
     MAX_LEARNED_RECIPES,
+    TAUGHT_RECIPE_SOURCE,
+    TEACHABLE_REMEDY_TOKENS,
     _iso_now,
     _normalize_error_signature,
     ErrorSignature,
@@ -70,6 +72,18 @@ class RepairLearningStore:
                     connection.execute(statement)
             else:
                 connection.execute("PRAGMA synchronous=NORMAL")
+                columns = {
+                    row[1]
+                    for row in connection.execute(
+                        "PRAGMA table_info(learned_recipes)"
+                    ).fetchall()
+                }
+                if columns and "verification" not in columns:
+                    connection.execute(
+                        "ALTER TABLE learned_recipes "
+                        "ADD COLUMN verification TEXT NOT NULL DEFAULT ''"
+                    )
+                    connection.commit()
         except BaseException:
             connection.close()
             raise
@@ -195,8 +209,8 @@ class RepairLearningStore:
                 "INSERT OR REPLACE INTO learned_recipes "
                 "(recipe_id, name, failure_signatures_json, remedy, owner, "
                 "automatic, runtime_only, learned_at, occurrence_count, "
-                "success_rate, source) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "success_rate, source, verification) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     recipe.recipe_id,
                     recipe.name,
@@ -209,6 +223,7 @@ class RepairLearningStore:
                     recipe.occurrence_count,
                     recipe.success_rate,
                     recipe.source,
+                    recipe.verification,
                 ),
             )
             connection.commit()
@@ -223,7 +238,7 @@ class RepairLearningStore:
             rows = connection.execute(
                 "SELECT recipe_id, name, failure_signatures_json, remedy, owner, "
                 "automatic, runtime_only, learned_at, occurrence_count, "
-                "success_rate, source "
+                "success_rate, source, verification "
                 "FROM learned_recipes ORDER BY occurrence_count DESC LIMIT ?",
                 (limit,),
             ).fetchall()
@@ -240,6 +255,7 @@ class RepairLearningStore:
                     "occurrence_count": r[8],
                     "success_rate": r[9],
                     "source": r[10],
+                    "verification": r[11],
                 }
                 for r in rows
             ]
@@ -452,10 +468,104 @@ class RepairLearner:
             "evicted_oldest": evicted,
         }
 
+    def teach_recipe(
+        self,
+        *,
+        name: str,
+        failure_signatures: tuple[str, ...] | list[str],
+        remedy: str,
+        verification: str = "",
+        automatic: bool = True,
+    ) -> dict[str, Any]:
+        """Record a parent-taught repair recipe (governed ``learn.teach``).
+
+        Taught knowledge is doctrine, not earned evidence: the recipe is
+        stored with ``source="taught"`` and zero outcome counters so the
+        audit trail always distinguishes taught knowledge from patterns
+        promoted by verified repair outcomes.  The remedy vocabulary is
+        bounded to runtime-safe tokens — teaching may never arm a source
+        mutation as an automatic plan.
+        """
+        signatures = tuple(
+            str(token).strip()
+            for token in failure_signatures
+            if str(token).strip()
+        )
+        if not signatures:
+            return {"taught": False, "reason": "failure-signatures-required"}
+        tokens = [
+            token.strip()
+            for token in str(remedy or "").split(",")
+            if token.strip()
+        ]
+        if not tokens or any(
+            token not in TEACHABLE_REMEDY_TOKENS for token in tokens
+        ):
+            return {
+                "taught": False,
+                "reason": "remedy-outside-teachable-vocabulary",
+                "allowed": sorted(TEACHABLE_REMEDY_TOKENS),
+            }
+        digest = _normalize_error_signature(
+            signatures[0], "|".join(sorted(signatures))
+        )
+        recipe = LearnedRecipe(
+            recipe_id=f"taught-{digest}",
+            name=str(name or f"Taught repair for {signatures[0]}")[:200],
+            failure_signatures=signatures,
+            remedy=",".join(tokens),
+            owner="星澄",
+            automatic=bool(automatic),
+            runtime_only=True,
+            learned_at=_iso_now(),
+            occurrence_count=0,
+            success_rate=0.0,
+            source=TAUGHT_RECIPE_SOURCE,
+            verification=str(verification or "")[:2000],
+        )
+        self.store.save_learned_recipe(recipe)
+        return {"taught": True, "recipe": recipe.as_dict()}
+
+    def _taught_remedy_for(
+        self, signature: ErrorSignature
+    ) -> dict[str, Any] | None:
+        """Cold-start knowledge: a taught recipe matching this signature.
+
+        Doctrine fills the gap before any verified outcome exists; the
+        caller only reaches this branch when outcome history is empty,
+        so earned knowledge always takes precedence over taught.
+        """
+        tokens = {
+            str(signature.error_class or ""),
+            str(signature.failure_code or ""),
+        }
+        try:
+            recipes = self.store.get_learned_recipes()
+        except Exception:
+            return None
+        for recipe in recipes:
+            if str(recipe.get("source") or "") != TAUGHT_RECIPE_SOURCE:
+                continue
+            if set(recipe.get("failure_signatures") or []) & (
+                tokens - {""}
+            ):
+                return {
+                    "suggested": True,
+                    "remedy": str(recipe.get("remedy") or ""),
+                    "success_rate": None,
+                    "occurrence_count": 0,
+                    "source": TAUGHT_RECIPE_SOURCE,
+                    "recipe_id": str(recipe.get("recipe_id") or ""),
+                }
+        return None
+
     def suggest_remedy(self, signature: ErrorSignature) -> dict[str, Any]:
         """Look up the best known remedy for an error signature."""
         outcomes = self.store.get_outcomes_for_signature(signature.signature_hash)
         if not outcomes:
+            taught = self._taught_remedy_for(signature)
+            if taught is not None:
+                return taught
             return {"suggested": False, "reason": "no history for this signature"}
         remedy_stats: dict[str, dict[str, int]] = {}
         for o in outcomes:

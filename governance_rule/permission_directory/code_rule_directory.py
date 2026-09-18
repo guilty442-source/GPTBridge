@@ -86,6 +86,7 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "governance/tool/local-model",
             "governance/tool/model-dialogue",
             "governance/tool/xingcheng",
+            "governance/tool/xingcheng-assistant",
             "governance/tool/shared-layer",
             "governance/tool/system-rescue",
             "governance/tool/vaultly",

@@ -116,6 +116,14 @@ class GPTBridgeAppShutdownMixin:
         except Exception:
             pass
 
+        # Stop CAG integration (DAG+CAG+RAG hybrid architecture)
+        try:
+            cag_integration = getattr(self, "cag_integration", None)
+            if cag_integration is not None:
+                await cag_integration.stop()
+        except Exception:
+            pass
+
         watcher = self.hot_reload_watcher  # type: ignore[attr-defined]
         if watcher is not None:
             await watcher.stop()

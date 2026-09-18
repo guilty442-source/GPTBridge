@@ -51,12 +51,42 @@ class XingchengAutoMixin:
             "model_loads": 0, "config_updates": 0, "learning_commands": 0,
             "self_upgrade_owner": _SELF_UPGRADE_OWNER,
             "self_upgrade_handling": _SELF_UPGRADE_HANDLING,
+            "internal_fault_notifications": 0,
+            "autonomous_repairs_requested": 0,
             "last_auto_cycle": "", "last_anomaly": "",
         }
         self._last_snapshot = {}
         self._pending_anomalies = []
         self._drift_cycle_counter = 0
         self._manage_cycle_counter = 0
+
+    def handle_internal_fault_repair(
+        self, classified_signal: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Receive an internal fault notice and autonomously start repair.
+
+        星澄 owns the autonomous maintenance request. Permission validation,
+        mutation and verification remain inside the governed repair chain.
+        The fault is not converted into a user-confirmation message.
+        """
+        self._auto_metrics["internal_fault_notifications"] += 1
+        decision_sovereign = getattr(self.app, "decision_sovereign", None)
+        route = getattr(decision_sovereign, "decide_and_route_repair", None)
+        if not callable(route):
+            return {
+                "ok": False,
+                "decision": "denied-no-governed-repair-route",
+                "notified_to": self.sovereign_id,
+                "autonomous_owner": self.sovereign_id,
+            }
+        self._auto_metrics["autonomous_repairs_requested"] += 1
+        result = dict(route(dict(classified_signal)))
+        result["notified_to"] = self.sovereign_id
+        result["autonomous_owner"] = self.sovereign_id
+        result["notification_channel"] = "internal-information-layer"
+        result["user_confirmation"] = "not-required"
+        result["assistant_notification"] = "status-only"
+        return result
 
     async def _adjudicate_auto_observe(self, request: SovereignRequest) -> SovereignOutcome:
         snapshot = await asyncio.to_thread(self._observe_domain)

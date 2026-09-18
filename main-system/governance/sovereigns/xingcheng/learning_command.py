@@ -154,6 +154,33 @@ class XingchengLearningCommandMixin:
             "learn.retry", {"failed": failed_signatures}
         )
 
+    async def teach_repair_knowledge(
+        self,
+        *,
+        signature: dict[str, Any],
+        remedy: str,
+        name: str = "",
+        verification: str = "",
+        automatic: bool = True,
+    ) -> dict[str, Any]:
+        """Teach the child one bounded repair doctrine entry (learn.teach).
+
+        Doctrine is stored as a ``source="taught"`` recipe — distinct
+        from outcome-earned (``learned``) knowledge — and forwarded to
+        the model's governed teaching gate so repair knowledge settles
+        into model capability as well as the evidence store.
+        """
+        return await self._command_learning(
+            "learn.teach",
+            {
+                "signature": dict(signature),
+                "remedy": str(remedy),
+                "name": str(name),
+                "verification": str(verification),
+                "automatic": bool(automatic),
+            },
+        )
+
     def learning_status(self) -> dict[str, Any]:
         """Read-only projection of the commanded learning surface."""
         child = self._sub_sovereigns.get(_LEARNING_CHILD_ID)

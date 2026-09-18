@@ -12,7 +12,7 @@ from governance_rule.permission_directory.directory_authority import (
 
 CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
     CapabilityAuthority(
-        "xingcheng-governance-source-read", "xingcheng",
+        "xingcheng-governance-source-read", "tool:xingcheng-assistant",
         "direct-authoritative-governance-snapshot-read-only", "none",
         (
             CapabilityGrant(
@@ -27,7 +27,7 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         ), False, False,
     ),
     CapabilityAuthority(
-        "xingcheng-fault-analysis-read", "xingcheng",
+        "xingcheng-fault-analysis-read", "tool:xingcheng-assistant",
         "read-only-fault-evidence-and-repair-knowledge-for-global-review",
         "none",
         (
@@ -229,7 +229,7 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         ), False, False,
     ),
     CapabilityAuthority(
-        "star-global-data-read", "tool:xingcheng",
+        "star-global-data-read", "tool:xingcheng-assistant",
         "global-central-index-visibility-and-governed-owner-resolution-request",
         "opaque-central-index-only",
         (
@@ -249,8 +249,8 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         tuple(
             CapabilityGrant(
                 action, "star-internal-data", "xingcheng-internal-data",
-                path_match="within", path_roots=("Standalone tools/local-model/model-dialogue/xingcheng",),
-                excluded_path_roots=("Standalone tools/local-model/model-dialogue/xingcheng/permissions",),
+                path_match="within", path_roots=("Standalone tools/local-model/xingcheng",),
+                excluded_path_roots=("Standalone tools/local-model/xingcheng/permissions",),
             )
             for action in (
                 "read",

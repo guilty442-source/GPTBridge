@@ -386,5 +386,5 @@
   },
   "moduleBoundary": {
     "fallbackMessage": "此模組暫時無法顯示；其他模組不受影響。"
-  },
+  }
 }

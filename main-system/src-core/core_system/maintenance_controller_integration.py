@@ -54,6 +54,7 @@ class MaintenanceControllerIntegration:
     controller: MaintenanceController | None = None
     _started: bool = False
     _start_time: float = 0.0
+    _persist_failures: int = 0
 
     async def start(self) -> dict[str, Any]:
         """Start the maintenance controller."""
@@ -241,8 +242,9 @@ class MaintenanceControllerIntegration:
                     ),
                 )
         except Exception:
-            # Log but don't fail - maintenance should not block normal operations
-            pass
+            # Log but don't fail - maintenance should not block normal operations.
+            # Failures stay countable so a broken schema/grant is observable.
+            self._persist_failures += 1
 
     def _load_pending_jobs(self) -> list[Any]:
         """Load pending maintenance jobs from PostgreSQL."""
@@ -360,20 +362,37 @@ class MaintenanceControllerIntegration:
 
         # SQLite signals
         try:
-            sqlite_dbs = []
-            for db_class in ["A", "B", "C", "D"]:
-                dbs = list_by_class(get_connection_manager().connection(), db_class=db_class)
-                for db in dbs:
-                    sqlite_dbs.append(db)
+            import sqlite3
+            from pathlib import Path
+
+            sqlite_dbs: list[dict[str, Any]] = []
+            with get_connection_manager().connection() as registry_conn:
+                for db_class in ["A", "B", "C", "D"]:
+                    sqlite_dbs.extend(
+                        list_by_class(registry_conn, db_class=db_class)
+                    )
             if sqlite_dbs:
                 health_metrics = []
                 for db in sqlite_dbs:
+                    database_path = str(db.get("database_path") or "")
+                    if not database_path or not Path(database_path).is_file():
+                        continue
                     try:
-                        conn = None  # Would need actual connection
-                        health = collect_sqlite_health(conn, db["module_id"], db["database_path"])
+                        connection = sqlite3.connect(
+                            f"file:{Path(database_path).as_posix()}?mode=ro",
+                            uri=True,
+                        )
+                        try:
+                            health = collect_sqlite_health(
+                                connection,
+                                str(db.get("module_id") or ""),
+                                database_path,
+                            )
+                        finally:
+                            connection.close()
                         health_metrics.append(health)
                     except Exception:
-                        pass
+                        continue
                 if health_metrics:
                     signals.update(build_sqlite_maintenance_signals(health_metrics))
         except Exception:
@@ -388,9 +407,17 @@ class MaintenanceControllerIntegration:
 
         # Backup signals
         try:
-            backup_dir = os.environ.get("GPTBRIDGE_BACKUP_DIR", "E:/GPTBridge/backups")
             from pathlib import Path
-            signals.update(build_backup_maintenance_signals(Path(backup_dir)))
+
+            default_backup_dir = (
+                Path(getattr(self.app, "project_root", "E:/GPTBridge"))
+                / ".backups"
+                / "git"
+            )
+            backup_dir = Path(
+                os.environ.get("GPTBRIDGE_BACKUP_DIR") or default_backup_dir
+            )
+            signals.update(build_backup_maintenance_signals(backup_dir))
         except Exception:
             pass
 
@@ -399,8 +426,11 @@ class MaintenanceControllerIntegration:
     def get_status(self) -> dict[str, Any]:
         """Get maintenance controller status."""
         if not self.controller:
-            return {"running": False}
-        return self.controller.get_status()
+            return {"running": False, "persist_failures": self._persist_failures}
+        return {
+            **self.controller.get_status(),
+            "persist_failures": self._persist_failures,
+        }
 
 
 def create_maintenance_controller_integration(app: Any) -> MaintenanceControllerIntegration:

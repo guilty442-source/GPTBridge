@@ -220,6 +220,7 @@ class LocalAiService(
         "xingcheng_diagnose_fault",
         "xingcheng_codex_alignment",
         "xingcheng_codex_mirror_check",
+        "xingcheng_submit_teaching",
     }
 
     def __init__(

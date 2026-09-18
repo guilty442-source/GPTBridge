@@ -17,6 +17,7 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
+    IDENTITY_GROUP_XINGCHENG_ASSISTANT,
     CapabilityIdentity,
     IdentityGroup,
     ManifestBinding,
@@ -210,6 +211,35 @@ XINGCHENG_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
         "opaque-central-index-read-and-xingcheng-internal-read-write"
     ),
 )
+# 星澄助理 (Xingcheng Assistant) — the auxiliary system / independent
+# privileged institution face of the 星澄 domain (A145/A156).  It is an
+# institution identity, not an independent tool: its execution units are
+# main-system-resident (assistant drawer UI, control surface, auto-learning
+# and auto-repair modules) and it holds the institution's grouped powers —
+# codex read, global read-only review and user notification — separately
+# from the native-model powers held by X00001 (non-transitive, A156).
+XINGCHENG_ASSISTANT_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
+    group_id=IDENTITY_GROUP_XINGCHENG_ASSISTANT,
+    actor="governance/tool/xingcheng-assistant",
+    bound_tool_id="xingcheng-assistant",
+    bound_roots=(
+        "main-system/governance/sovereigns/xingcheng",
+        "main-system/src-core/core_system",
+        "main-system/src-ui",
+    ),
+    manifest_binding=ManifestBinding(
+        required=False,
+        path_template="",
+        tool_id_field="",
+        maximum_bytes=0,
+        required_capabilities=(),
+        requirements=(),
+    ),
+    authentication="governance-policy-issued-capability-token",
+    identity_code="X00002",
+    language_name="xingcheng_assistant",
+    codename="AUXILIARY",
+)
 INVESTMENT_MOBILE_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     "investment-mobile",
     group_id=IDENTITY_GROUP_INVESTMENT_MOBILE,
@@ -276,6 +306,7 @@ CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     GLOBAL_CLEANER_IDENTITY,
     INVESTMENT_MOBILE_IDENTITY,
     XINGCHENG_IDENTITY,
+    XINGCHENG_ASSISTANT_IDENTITY,
     VAULTLY_IDENTITY,
     SYSTEM_RESCUE_IDENTITY,
     LOCAL_MODEL_IDENTITY,

@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-TOOL_ROOT = ROOT / "Standalone tools" / "local-model" / "model-dialogue" / "xingcheng"
+TOOL_ROOT = ROOT / "Standalone tools" / "local-model" / "xingcheng"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(TOOL_ROOT / "src"))
 

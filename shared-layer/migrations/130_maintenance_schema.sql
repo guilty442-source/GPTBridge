@@ -1,6 +1,11 @@
 -- Database Auto Maintenance v1 schema
 -- Migration 130: maintenance_jobs, maintenance_leases, maintenance_decisions
 
+CREATE SCHEMA IF NOT EXISTS gptbridge_maintenance;
+GRANT ALL ON SCHEMA gptbridge_maintenance TO gptbridge_owner;
+GRANT USAGE ON SCHEMA gptbridge_maintenance TO gptbridge_runtime;
+GRANT USAGE ON SCHEMA gptbridge_maintenance TO gptbridge_xingcheng_reader;
+
 -- Maintenance jobs table
 CREATE TABLE IF NOT EXISTS gptbridge_maintenance.maintenance_jobs (
     job_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

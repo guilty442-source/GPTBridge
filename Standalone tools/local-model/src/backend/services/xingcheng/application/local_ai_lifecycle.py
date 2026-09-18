@@ -65,6 +65,11 @@ _CODEX_DIAGNOSTICS_COMMANDS = frozenset(
         "xingcheng_codex_mirror_check",
     }
 )
+_TEACHING_COMMANDS = frozenset(
+    {
+        "xingcheng_submit_teaching",
+    }
+)
 
 
 class LocalAiLifecycleMixin:
@@ -160,4 +165,8 @@ class LocalAiLifecycleMixin:
             return await self._handle_diagnostics(command, payload)
         if command in _CODEX_DIAGNOSTICS_COMMANDS:
             return await self._handle_codex_diagnostics(command, payload)
+        if command in _TEACHING_COMMANDS:
+            return "xingcheng_submit_teaching_result", await asyncio.to_thread(
+                self._submit_teaching_example, payload
+            )
         return await self._handle_infer(command, payload)

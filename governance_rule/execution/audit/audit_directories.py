@@ -22,6 +22,15 @@ DIRECTORY_TABLES = {
     "law_structure_directory": "law_code",
 }
 
+DIRECTORY_OWNERS = {
+    table: (
+        "learning-evidence-sync-sub-sovereign"
+        if table == "maintenance_manual_directory"
+        else "permission-sovereign"
+    )
+    for table in DIRECTORY_TABLES
+}
+
 KEBAB_IDENTITY_COLUMNS = {
     "command_code_directory": "canonical_command_id",
     "fault_code_directory": "canonical_name",
@@ -125,7 +134,12 @@ def check_directory_catalog_coverage(root: Path, errors: list[str]) -> None:
         errors.append("directory format contracts do not match the master catalog exactly")
     active_tables: set[str] = set()
     for code, canonical, state, owner in catalog:
-        if str(owner) != "permission-sovereign":
+        expected_owner = (
+            "learning-evidence-sync-sub-sovereign"
+            if str(code) == "DIR_MAINTENANCE_MANUAL"
+            else "permission-sovereign"
+        )
+        if str(owner) != expected_owner:
             errors.append(f"master catalog entry {code} owner is {owner!r}")
         physical = str(canonical).replace("-", "_")
         if state == "active":
@@ -184,8 +198,10 @@ def check_directory_identity_and_format(root: Path, errors: list[str]) -> None:
                     errors.append(
                         f"{table} canonical identity is not lower-kebab-case: {kebab!r}"
                     )
-                if "owner" in row and row.get("owner") != "permission-sovereign":
-                    errors.append(f"{table} owner is not permission-sovereign")
+                if "owner" in row and row.get("owner") != DIRECTORY_OWNERS[table]:
+                    errors.append(
+                        f"{table} owner is not {DIRECTORY_OWNERS[table]}"
+                    )
                 for column in ("introduced_version", "retired_version"):
                     version = row.get(column)
                     if version is None:

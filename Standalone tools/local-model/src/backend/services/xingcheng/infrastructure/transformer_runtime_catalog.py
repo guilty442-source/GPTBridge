@@ -44,6 +44,7 @@ class TransformerRuntimeCatalog:
             "command_execution",
             "autonomous_agent",
             "self_upgrade",
+            "repair",
         }
     )
     LOW_EFFORT_MODEL_PREFERENCES: Mapping[str, tuple[str, ...]] = {
@@ -303,6 +304,7 @@ class TransformerRuntimeCatalog:
         "autonomous_agent": ("nemotron-3.5-lightning:30b-a3b-q4_K_M",),
         "training": ("gpt-oss:20b",),
         "reasoning": ("deepseek-r1:14b",),
+        "repair": ("deepseek-r1:14b", "qwen3.6:35b-a3b-coding"),
         "analysis": ("deepseek-r1:14b",),
         "risk": ("deepseek-r1:14b",),
         "data_organization": ("ibm/granite4.2:30b-q4_K_M",),

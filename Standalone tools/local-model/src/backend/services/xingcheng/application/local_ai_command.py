@@ -243,6 +243,7 @@ class LocalAiCommandMixin:
             "analysis": self.MATHEMATICAL_REVIEW_MODEL,
             "risk": self.MATHEMATICAL_REVIEW_MODEL,
             "coding": self.CODING_EXPERT_MODEL,
+            "repair": self.CODING_EXPERT_MODEL,
             "self_upgrade": self.CODING_EXPERT_MODEL,
             "command_understanding": self.COMMAND_UNDERSTANDING_MODEL,
             "command_execution": self.CODING_EXPERT_MODEL,

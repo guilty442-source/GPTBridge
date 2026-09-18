@@ -16,6 +16,7 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
+    IDENTITY_GROUP_XINGCHENG_ASSISTANT,
     IdentityPermissionBinding,
 )
 
@@ -120,12 +121,14 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "ai-channel-request-submit",
         ),
     ),
+    # 星澄 — native model / own-domain sovereign (X00001): model inference
+    # and owned-domain autonomy only.  Institution review powers live on the
+    # 星澄助理 identity group (non-transitive groups, A156).
     IdentityPermissionBinding(
         group_id=IDENTITY_GROUP_XINGCHENG,
         actor="governance/tool/xingcheng",
         capabilities=(
             "ai-channel-top-level",
-            "star-global-data-read",
             "star-internal-data-read-write",
             "star-decision",
             "independent-tool-business-logic",
@@ -135,8 +138,20 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "system-channel-request-process",
             "ai-channel-request-submit",
             "ai-channel-request-process",
+        ),
+    ),
+    # 星澄助理 — auxiliary system / independent privileged institution
+    # (X00002): codex read, global read-only review evidence and user
+    # notification powers (A144/A145/A156); no decision or execution power.
+    IdentityPermissionBinding(
+        group_id=IDENTITY_GROUP_XINGCHENG_ASSISTANT,
+        actor="governance/tool/xingcheng-assistant",
+        capabilities=(
+            "system-channel-request-submit",
+            "system-channel-request-process",
             "xingcheng-governance-source-read",
             "xingcheng-fault-analysis-read",
+            "star-global-data-read",
         ),
     ),
     IdentityPermissionBinding(
