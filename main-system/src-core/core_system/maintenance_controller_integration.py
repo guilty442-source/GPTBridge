@@ -197,6 +197,8 @@ class MaintenanceControllerIntegration:
     def _persist_job(self, job: Any) -> None:
         """Persist maintenance job to PostgreSQL."""
         try:
+            from psycopg.types.json import Jsonb
+
             settings = DatabaseSettings.from_environment()
             with get_connection_manager().connection() as conn:
                 conn.execute(
@@ -235,12 +237,15 @@ class MaintenanceControllerIntegration:
                         job.started_at,
                         job.completed_at,
                         job.lease_until,
-                        job.before_state,
-                        job.after_state,
+                        Jsonb(job.before_state or {}),
+                        Jsonb(job.after_state or {}),
                         job.result_code,
                         job.error_code,
                     ),
                 )
+                # The pool rolls back open transactions on release; a write
+                # must commit explicitly or the job record is lost.
+                conn.commit()
         except Exception:
             # Log but don't fail - maintenance should not block normal operations.
             # Failures stay countable so a broken schema/grant is observable.
@@ -418,6 +423,23 @@ class MaintenanceControllerIntegration:
                 os.environ.get("GPTBRIDGE_BACKUP_DIR") or default_backup_dir
             )
             signals.update(build_backup_maintenance_signals(backup_dir))
+        except Exception:
+            pass
+
+        # Adaptive control-plane observation (bounded, ALLOW until signals
+        # persist; the plane never changes behaviour without observed load).
+        try:
+            from shared_layer.adaptive import LoadSignals, get_plane
+
+            get_plane().observe(
+                LoadSignals(
+                    pg_latency_ms=float(signals.get("pg_latency_ms") or 0.0),
+                    lock_contention_pct=float(signals.get("lock_pressure") or 0.0),
+                    active_connections=int(signals.get("pg_connections") or 0),
+                    transport_backlog=int(signals.get("transport_backlog") or 0),
+                    reconcile_backlog=int(signals.get("reconcile_pending") or 0),
+                )
+            )
         except Exception:
             pass
 
