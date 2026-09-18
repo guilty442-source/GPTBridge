@@ -1,4 +1,4 @@
-﻿"""Tool force-close mixin (A185 split).
+"""Tool force-close mixin (A185 split).
 
 Contains the force_close_tool method extracted from ShutdownMixin.
 """
@@ -185,7 +185,7 @@ class ForceCloseMixin:
             "ok": True,
             "tool_id": tool_id,
             "request_id": request_id,
-            "message": "???函?撘??歇蝘駁??,
+            "message": "Tool is missing; treated as removed",
             "force_closed": True,
             "removed": True,
             **budget_evidence(started, TOOL_CLOSE_BUDGET_SECONDS),
