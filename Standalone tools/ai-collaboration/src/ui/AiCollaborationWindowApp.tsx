@@ -594,8 +594,8 @@ export function AiCollaborationWindowApp() {
   return (
     <main className="ai-collab-app">
       <section className="ai-collab-workspace" aria-label="外部協作雙欄工作區">
-        <div className="ai-collab-left" aria-label="協作輸入與 AI 清單">
-          <section className="ai-collab-integrated" aria-label="外部協作控制">
+        <div className="ai-collab-left" role="region" aria-label="外部協作">
+          <div className="ai-collab-integrated" role="group" aria-label="外部協作控制">
             <div className="ai-collab-top-agents-head">
               <div>
                 <span>外部協作</span>
@@ -660,9 +660,9 @@ export function AiCollaborationWindowApp() {
             <p className="ai-collab-muted" role="status">
               {message}
             </p>
-          </section>
+          </div>
           {settingsOpen ? (
-            <section className="ai-collab-settings" aria-label="設定">
+            <div className="ai-collab-settings" role="group" aria-label="設定">
               <div className="ai-collab-settings-block">
                 <span>新增 AI 名單</span>
                 <input
@@ -725,9 +725,9 @@ export function AiCollaborationWindowApp() {
                   </details>
                 ))}
               </div>
-            </section>
+            </div>
           ) : null}
-          <section className="ai-collab-top-agents" aria-label="內建 AI 清單">
+          <div className="ai-collab-top-agents" role="group" aria-label="內建 AI 清單">
             <div className="ai-collab-top-agents-head">
               <div>
                 <span>AI 名單</span>
@@ -777,8 +777,8 @@ export function AiCollaborationWindowApp() {
                 ))}
               </div>
             )}
-          </section>
-          <section className="ai-collab-top-composer" aria-label="協作需求輸入">
+          </div>
+          <div className="ai-collab-top-composer" role="group" aria-label="協作需求輸入">
             <div className="ai-collab-preset-row">
               <select
                 className="ai-collab-agent-select"
@@ -823,8 +823,8 @@ export function AiCollaborationWindowApp() {
             >
               {busyAction === 'send' ? '協作中...' : '送出協作'}
             </button>
-          </section>
-          <section className="ai-collab-responses" aria-label="AI 回應">
+          </div>
+          <div className="ai-collab-responses" role="group" aria-label="AI 回應">
             <div className="ai-collab-top-agents-head">
               <div>
                 <span>AI 回應</span>
@@ -874,7 +874,7 @@ export function AiCollaborationWindowApp() {
                 </article>
               )
             })}
-          </section>
+          </div>
         </div>
         <div className="ai-collab-right" ref={rightPanelRef} aria-label="內建瀏覽器網頁區">
           <div className="ai-collab-browser-canvas" />

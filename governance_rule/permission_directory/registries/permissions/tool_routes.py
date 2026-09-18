@@ -10,7 +10,7 @@ from governance_rule.permission_directory.execution.path_guard import (
 
 AI_CHANNEL_ID: Final[str] = "shared-layer/ai-channel"
 AUTHORIZED_TOOL_IDS: Final[frozenset[str]] = frozenset(
-    {"ai-assistant", "xingcheng", "ai-collaboration", "star-chat", "local-model"}
+    {"ai-assistant", "xingcheng", "ai-collaboration", "star-chat"}
 )
 AI_CHANNEL_TOOL_IDS: Final[frozenset[str]] = (
     AUTHORIZED_TOOL_IDS | {"investment-mobile", "model-dialogue"}
@@ -59,20 +59,11 @@ AI_ROUTE_COMMANDS: Final[Mapping[tuple[str, str], frozenset[str]]] = {
     ("model-dialogue", "xingcheng"): frozenset(
         {
             "xingcheng_status",
+            "xingcheng_infer",
             "xingcheng_codex_alignment",
             "xingcheng_codex_mirror_check",
             "xingcheng_sql_get_personality",
             "xingcheng_sql_save_personality",
-        }
-    ),
-    ("model-dialogue", "local-model"): frozenset(
-        {
-            "local_model_infer",
-            "local_model_stream",
-            "local_model_status",
-            "local_model_list_models",
-            "local_model_pull_model",
-            "local_model_delete_model",
         }
     ),
     ("xingcheng", "ai-collaboration"): frozenset(
@@ -219,7 +210,7 @@ def ai_channel_status() -> dict[str, Any]:
 MOBILE_TOOL_ID: Final[str] = "investment-mobile"
 STAR_TOOL_ID: Final[str] = "xingcheng"
 MOBILE_ACTOR: Final[str] = "governance/tool/investment-mobile"
-MOBILE_ROUTE_COMMANDS: Final[frozenset[str]] = frozenset(
+MOBILE_ROUTE_COMMAND: Final[frozenset[str]] = frozenset(
     {
         "xingcheng_mobile_get_investment_snapshot",
         "xingcheng_mobile_submit_investment_instruction",
@@ -233,7 +224,7 @@ def authorize_investment_mobile_route(
     if (
         str(requester_actor or "").strip() != MOBILE_ACTOR
         or str(target_tool_id or "").strip() != STAR_TOOL_ID
-        or str(command or "").strip() not in MOBILE_ROUTE_COMMANDS
+        or str(command or "").strip() not in MOBILE_ROUTE_COMMAND
     ):
         raise permission_denied()
 

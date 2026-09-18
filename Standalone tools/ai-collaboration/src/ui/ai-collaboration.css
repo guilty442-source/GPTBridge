@@ -27,11 +27,6 @@ body,
   border-radius: 8px;
 }
 
-/* 左欄整合為單一卡片：區段以髮線分隔，不再各自成卡 */
-.ai-collab-left > section + section {
-  border-top: 1px solid #243044;
-}
-
 .ai-collab-topbar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(460px, 2fr);
