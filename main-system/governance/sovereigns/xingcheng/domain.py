@@ -32,13 +32,16 @@ class XingchengDomainMixin:
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._auto_metrics = {
+        metrics = getattr(self, "_auto_metrics", None)
+        if metrics is None:
+            metrics = self._auto_metrics = {}
+        metrics.update({
             "observe_cycles": 0, "analyze_cycles": 0, "reason_cycles": 0,
             "manage_cycles": 0, "health_checks": 0, "anomalies_detected": 0,
             "channel_notifications": 0, "db_maintenance_runs": 0,
             "model_loads": 0, "config_updates": 0,
             "last_auto_cycle": "", "last_anomaly": "",
-        }
+        })
         self._last_snapshot = {}
         self._pending_anomalies = []
 

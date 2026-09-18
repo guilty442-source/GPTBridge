@@ -150,7 +150,13 @@ class ServerSingleton:
         if pid in excluded:
             return True
         if not self._table.kill(pid):
-            return False
+            # A failed kill often means the generation exited between the
+            # liveness check and the termination call (the handover standby
+            # races the old backend's own exit, and taskkill reports failure
+            # for a pid that no longer exists).  Treat "already gone" as
+            # success instead of failing the certified handover closed on a
+            # process that no longer exists.
+            return pid not in self._table.commandlines()
         return self._wait_until_gone(pid)
 
     def acquire(self) -> None:

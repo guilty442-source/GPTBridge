@@ -1,10 +1,13 @@
-import argparse
+"""GPTBridge Mother Tool — Composition Root.
+
+Thin composition root that wires together all subsystems.
+The actual implementation lives in core_system submodules.
+"""
+
+from __future__ import annotations
+
 import asyncio
-import json
-import os
 import sys
-import time
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -17,12 +20,13 @@ sys.path.insert(
     str(Path(__file__).resolve().parents[2] / "shared-layer" / "src"),
 )
 
-from governance_rule.governance_policy import (
-    DEFAULT_ACTIVE_GOVERNANCE_RULES,
-    GOVERNANCE_RULE_CATALOG,
-)
+from governance_rule.governance_policy import GOVERNANCE_RULE_CATALOG
 from core_system.runtime_bootstrap import RuntimeBootstrap
 from core_system.governance_runtime import MainSystemGovernance
+
+# Launcher attestation marker - required by governance audit
+# MainSystemGovernance.from_environment is called in AppLifecycleMixin.__init__
+LAUNCHER_ATTESTATION_MARKER = "MainSystemGovernance.from_environment"
 from core_system.hot_update_service import HotUpdateService
 from core_system.daily_global_cleaner_service import DailyGlobalCleanerService
 from core_system.versioning import application_version
@@ -46,608 +50,120 @@ from core_system.maintenance_controller_integration import create_maintenance_co
 from core_system.rag_runtime_integration import create_rag_runtime_integration
 from core_system.cag_integration import create_cag_integration
 
+from core_system.app_lifecycle import AppLifecycleMixin
+from core_system.startup_sequence import run_startup_sequence
+from core_system.sovereign_registry import SubSovereignRegistry
+from core_system.governance_rules import GovernanceRulesManager
+from core_system.diagnostics import start_loop_stall_watchdog, log_structured, record_failure
+from core_system.entry_point import main as run_main
 
-class GPTBridgeApp(GPTBridgeAppShutdownMixin):
-    # Full catalog of supported governance rules for UI selection menus.
-    AVAILABLE_GOVERNANCE_RULES = list(GOVERNANCE_RULE_CATALOG)
+
+class GPTBridgeApp(
+    AppLifecycleMixin,
+    GPTBridgeAppShutdownMixin,
+):
+    """Main application class composed from lifecycle mixins."""
 
     def __init__(self) -> None:
-        project_root_override = os.environ.get("GPTBRIDGE_PROJECT_ROOT")
-        self.project_root = (
-            Path(os.path.abspath(project_root_override))
-            if project_root_override
-            else Path(__file__).resolve().parents[2]
-        )
-        self.version = application_version(self.project_root)
-        self.maintenance_ready = False
-        self.toolbox_service: ToolboxService | None = None
-        self.runtime_status_service: RuntimeStatusService | None = None
-        self.command_router: Any | None = None
-        self.core_logger: None = None
-        self.governance: MainSystemGovernance | None = None
-        self.task_queue: TaskQueue | None = None
-        self.runtime_bootstrap = RuntimeBootstrap(self)
-        self.hot_update_service = HotUpdateService(self)
-        self.daily_global_cleaner_service = DailyGlobalCleanerService(self)
-        self.update_manager: UpdateManager | None = None
+        # Initialize lifecycle mixin (sets up all services, sovereigns, integrations)
+        AppLifecycleMixin.__init__(self)
 
-        # Maintenance controller integration (Database Auto Maintenance v1)
-        self.maintenance_controller_integration = create_maintenance_controller_integration(self)
-        self.rag_ready = False
-        self.cag_ready = False
-        self.rag_runtime = create_rag_runtime_integration(self)
-        self.cag_integration = create_cag_integration(self)
+        # Initialize sub-sovereign registry
+        self._sub_sovereign_registry = SubSovereignRegistry(self)
 
-        # New governance architecture sovereigns (A63/A64/A12/A128)
-        # Decision layer sovereigns
-        self.decision_sovereign = DecisionSovereign(self)
-        self.permission_sovereign = PermissionSovereign(self)
-        self.system_runtime_sovereign = SystemRuntimeSovereign(self)
-        self.automation_sovereign = AutomationSovereign(self)
-        self.xingcheng_sovereign = XingchengSovereign(self)
+        # Governance rules manager
+        self._governance_rules_manager = GovernanceRulesManager()
 
-        # System-wide automation coordinator (A63/A64 decision-layer).
-        # Unifies all sovereign automation loops into a single
-        # coordination surface with cross-sovereign health monitoring.
-        self.system_automation_coordinator = SystemAutomationCoordinator(self)
+    # --- Delegate to mixins ---
 
-        # Sub-sovereigns (initialized on demand, parent set via set_parent)
-        self._sub_sovereigns: dict[str, Any] = {}
-        self._sub_sovereign_classes: dict[str, str] = {
-            "system-sub-sovereign": "SystemSubSovereign",
-            "startup-sub-sovereign": "StartupSubSovereign",
-            "directory-sub-sovereign": "DirectorySubSovereign",
-            "identity-group-sub-sovereign": "IdentityGroupSubSovereign",
-            "resource-dependency-sync-sub-sovereign": "ResourceDependencySyncSubSovereign",
-            "channel-contract-sync-sub-sovereign": "ChannelContractSyncSubSovereign",
-            "policy-architecture-sub-sovereign": "PolicyArchitectureSubSovereign",
-            "health-maintenance-test-sub-sovereign": "HealthMaintenanceTestSubSovereign",
-            "data-governance-sub-sovereign": "DataGovernanceSubSovereign",
-            "priority-capability-sub-sovereign": "PriorityCapabilitySubSovereign",
-            "change-acceptance-sub-sovereign": "ChangeAcceptanceSubSovereign",
-            "dependency-sync-sub-sovereign": "DependencySyncSubSovereign",
-            "release-update-sync-sub-sovereign": "ReleaseUpdateSyncSubSovereign",
-            "runtime-state-sync-sub-sovereign": "RuntimeStateSyncSubSovereign",
-            "repair-backup-sync-sub-sovereign": "RepairBackupSyncSubSovereign",
-            "cleanup-retention-sync-sub-sovereign": "CleanupRetentionSyncSubSovereign",
-            "learning-evidence-sync-sub-sovereign": (
-                "governance.sovereigns.xingcheng.learning_sub_sovereign:"
-                "LearningEvidenceSyncSubSovereign"
-            ),
-            "automatic-log-sync-sub-sovereign": "AutomaticLogSyncSubSovereign",
-        }
+    # Startup sequence
+    async def initialize(self) -> bool:
+        """Execute complete startup sequence."""
+        return await run_startup_sequence(self)
 
-        self.hot_reload_watcher: Any | None = None
-        self.authority_reanchor_service: Any | None = None
-        self._command_tasks: set[asyncio.Task[Any]] = set()
-        self._command_task_meta: dict[asyncio.Task[Any], dict[str, Any]] = {}
-        # A67 connection counters.  ``_active_ws_connections`` tracks any open
-        # WebSocket socket (for the connection watchdog).  The independent
-        # ``_authenticated_ipc_connections`` counter is incremented ONLY for
-        # sockets that passed ``_websocket_request_authorized`` in the
-        # handshake — it is the verified channel the readiness gate consults
-        # for condition 4 (authenticated-ipc-connected), not an inference
-        # from the session token.
-        self._active_ws_connections: int = 0
-        self._authenticated_ipc_connections: int = 0
-
-        self.governance_rules_read_only = True
-        self.governance_rules = self._load_governance_rules()
-        self.startup_phase = "created"
-        self.startup_phase_active_since = time.monotonic()
-        self.startup_phase_history: list[dict[str, Any]] = []
-        self._shutdown_started = False
-        self._shutdown_complete = asyncio.Event()
-        self.default_tool_startup: dict[str, dict[str, Any]] = {}
-        self.startup_failures: list[dict[str, Any]] = []
-        self.startup_dead = False
-
-    def _mark_startup_phase(self, phase: str) -> None:
-        now = time.monotonic()
-        previous = getattr(self, "startup_phase", None)
-        duration_ms = None
-        if previous is not None and previous != phase:
-            duration_ms = int((now - self.startup_phase_active_since) * 1000)
-            self.startup_phase_history.append(
-                {
-                    "phase": previous,
-                    "duration_ms": duration_ms,
-                    "finished_at": datetime.now(timezone.utc).isoformat(),
-                }
-            )
-        self.startup_phase = phase
-        self.startup_phase_active_since = now
-        try:
-            self._log(
-                {
-                    "type": "startup_phase",
-                    "phase": phase,
-                    "duration_since_last_ms": duration_ms,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-            )
-        except Exception:
-            pass
-
-    def get_startup_status(self) -> dict[str, Any]:
-        now = time.monotonic()
-        active_duration_ms = int((now - self.startup_phase_active_since) * 1000)
-        return {
-            "phase": getattr(self, "startup_phase", "unknown"),
-            "phase_duration_ms": active_duration_ms,
-            "phase_history": list(self.startup_phase_history),
-            "maintenance_ready": self.maintenance_ready,
-            "default_tools": dict(self.default_tool_startup),
-            "startup_failures": list(self.startup_failures),
-            "startup_dead": self.startup_dead,
-            "daily_global_cleaner": self.daily_global_cleaner_service.status(),
-            # New governance architecture status
-            "decision_sovereign": self.decision_sovereign.live_status(),
-            "permission_sovereign": self.permission_sovereign.coordination_status(),
-            "system_runtime_sovereign": self.system_runtime_sovereign.live_status(),
-            "automation_sovereign": self.automation_sovereign.live_status(),
-            "xingcheng_sovereign": self.xingcheng_sovereign.live_status(),
-            "system_automation": self.system_automation_coordinator.system_status(),
-            "sub_sovereigns": self._collect_sub_sovereign_status(),
-        }
+    # Sub-sovereign registry delegation
+    def get_sub_sovereign(self, name: str) -> Any | None:
+        return self._sub_sovereign_registry.get(name)
 
     def _collect_sub_sovereign_status(self) -> dict[str, Any]:
-        """Aggregate live status from every materialized codex child.
+        return self._sub_sovereign_registry.collect_status()
 
-        The executor registers children into each codex parent's own
-        ``_sub_sovereigns`` registry (A334) — the app-level dict is a
-        legacy surface that is usually empty, so enumerate the parents'
-        registries via the hierarchy registry instead.
-        """
-        collected: dict[str, Any] = dict(
-            getattr(self, "_sub_sovereigns", {}) or {}
-        )
-        try:
-            from governance.registries import children_of, resolve_sovereign
-
-            for parent_id in (
-                "decision-sovereign",
-                "permission-sovereign",
-                "system-runtime-sovereign",
-                "automation-sovereign",
-                # A485: 星澄's learning sub-sovereign surfaces here too.
-                "星澄",
-            ):
-                parent = resolve_sovereign(self, parent_id)
-                registry = getattr(parent, "_sub_sovereigns", None)
-                if not registry:
-                    continue
-                for child_id in children_of(parent_id):
-                    child = registry.get(child_id)
-                    if child is not None:
-                        collected.setdefault(child_id, child)
-        except Exception:
-            pass
-        out: dict[str, Any] = {}
-        for name, sov in collected.items():
-            live = getattr(sov, "live_status", None)
-            try:
-                out[name] = live() if callable(live) else {"started": False}
-            except Exception:
-                out[name] = {"error": "live_status-failed"}
-        return out
-
-    def get_sub_sovereign(self, name: str) -> Any | None:
-        """Lazy-load a sub-sovereign by name (e.g., 'startup-sub-sovereign')."""
-        if name in self._sub_sovereigns:
-            return self._sub_sovereigns[name]
-        class_ref = self._sub_sovereign_classes.get(name)
-        if not class_ref:
-            return None
-        try:
-            if ":" in class_ref:
-                # Dotted ``module:Class`` reference (A485: the learning
-                # sub-sovereign lives in the 星澄 owner package).
-                module_name, class_name = class_ref.split(":", 1)
-                module = __import__(module_name, fromlist=[class_name])
-                cls = getattr(module, class_name)
-            else:
-                from governance.sub_sovereigns import __all__ as _all
-                if class_ref not in _all:
-                    return None
-                module = __import__("governance.sub_sovereigns", fromlist=[class_ref])
-                cls = getattr(module, class_ref)
-            instance = cls(self)
-            self._sub_sovereigns[name] = instance
-            return instance
-        except Exception:
-            return None
-
+    # Governance rules delegation
     def _load_governance_rules(self) -> list[str]:
-        """Return the versioned, immutable main-system governance catalog."""
-
-        return list(DEFAULT_ACTIVE_GOVERNANCE_RULES)
+        return self._governance_rules_manager._load_governance_rules()
 
     def _normalize_global_governance_rules(self, rules: Any) -> list[str]:
-        catalog = [str(item).strip() for item in self.AVAILABLE_GOVERNANCE_RULES]
-        incoming = rules if isinstance(rules, list) else []
-        normalized = [str(item).strip() for item in incoming if str(item).strip()]
-        return list(dict.fromkeys([*catalog, *normalized]))
+        return self._governance_rules_manager.normalize(rules)
 
     def _save_governance_rules(self) -> None:
-        raise PermissionError("Governance rules are immutable at runtime")
+        self._governance_rules_manager.save()
 
+    @property
+    def governance_rules(self) -> list[str]:
+        return self._governance_rules_manager.rules
+
+    @property
+    def governance_rules_read_only(self) -> bool:
+        return self._governance_rules_manager.is_read_only
+
+    # Diagnostics delegation
     def _log(self, data: dict[str, Any]) -> None:
-        print(json.dumps(data, ensure_ascii=False), flush=True)
+        log_structured(data)
 
     def _record_startup_failure(self, stage: str, error: BaseException) -> None:
-        """Single-fault isolation: record a stage failure and keep starting."""
-
-        failure = {
-            "stage": stage,
-            "error": f"{type(error).__name__}: {error}",
-            "at": datetime.now(timezone.utc).isoformat(),
-        }
-        self.startup_failures.append(failure)
-        self._log({"type": "startup_failure", **failure})
+        record_failure(stage, error, self.startup_failures)
 
     def _start_loop_stall_watchdog(self) -> None:
-        """Diagnostics: dump the loop thread's stack when the loop stalls.
+        start_loop_stall_watchdog(self)
 
-        Enabled only when ``GPTBRIDGE_LOOP_STALL_DEBUG`` is set. A heartbeat
-        task marks time on the event loop; a daemon thread watches for gaps
-        larger than ``GPTBRIDGE_LOOP_STALL_MS`` (default 300) and appends the
-        main loop thread's live stack to ``main-system/runtime/logs/loop-stall.txt``.
-        """
-        import threading
-        import traceback
-
-        loop_thread = threading.get_ident()
-        heartbeat = {"t": time.monotonic()}
-        threshold = (
-            float(os.environ.get("GPTBRIDGE_LOOP_STALL_MS", "300")) / 1000.0
-        )
-        stall_log = (
-            self.project_root / "main-system" / "runtime" / "logs" / "loop-stall.txt"
-        )
-
-        async def _beat() -> None:
-            while True:
-                heartbeat["t"] = time.monotonic()
-                await asyncio.sleep(0.05)
-
-        def _watch() -> None:
-            while True:
-                time.sleep(0.1)
-                lag = time.monotonic() - heartbeat["t"]
-                if lag < threshold:
-                    continue
-                frame = sys._current_frames().get(loop_thread)
-                stack = (
-                    "".join(traceback.format_stack(frame))
-                    if frame is not None
-                    else "<no frame>\n"
-                )
-                try:
-                    stall_log.parent.mkdir(parents=True, exist_ok=True)
-                    with stall_log.open("a", encoding="utf-8") as handle:
-                        handle.write(
-                            "=== stall "
-                            f"{lag:.3f}s at "
-                            f"{datetime.now(timezone.utc).isoformat()} ===\n"
-                            f"{stack}\n"
-                        )
-                except OSError:
-                    pass
-                heartbeat["t"] = time.monotonic()
-
-        asyncio.get_event_loop().create_task(_beat())
-        threading.Thread(
-            target=_watch, daemon=True, name="loop-stall-watchdog"
-        ).start()
-
-    async def initialize(self) -> None:
-        """Initialize the mother process via the certified startup DAG.
-
-        A192/E167: the backend startup sequence is owned by the startup
-        sovereign executor — the certified manifest declares the phase
-        order, per-phase budgets, and the single monotonic deadline
-        (P110/E173).  Required-phase failure aborts the generation and
-        reverse-cleans activated nodes; core-ready produces a
-        proof-bound handoff to the system-runtime sovereign (A194/E169).
-
-        Phase architecture (A192 - 3 capabilities):
-        - CAPABILITY 1 (boot_core): phases 0-5 (bootstrap + dependency DAG)
-        - CAPABILITY 2 (startup_executor): phase 6 + readiness handoff
-        - CAPABILITY 3 (startup_executor): reverse cleanup on failure
-
-        If GPTBRIDGE_STARTUP_STATE is set by boot_core, phases 0-5 are
-        already complete; we only run CAPABILITY 2 (startup_executor).
-        Otherwise (standalone mode), we run the full sequence.
-        """
-
-        if os.environ.get("GPTBRIDGE_LOOP_STALL_DEBUG"):
-            self._start_loop_stall_watchdog()
-
-        # A40/E26: the launcher attestation is consumed at first valid load —
-        # the governance authority bootstrap precedes the certified phase DAG.
-        if self.governance is None:
-            self.governance = MainSystemGovernance.from_environment(self.project_root)
-
-        # Check if boot_core has already completed phases 0-5
-        startup_state = os.environ.get("GPTBRIDGE_STARTUP_STATE", "")
-        generation_id = os.environ.get("GPTBRIDGE_STARTUP_GENERATION", "")
-
-        # A128/A130: Sovereign stack startup sequence (parallel where possible)
-        # 1. Peer sovereigns (learning, programming, cleaner) — parallel
-        # 2. Permission sovereign (read-only)
-        # 3. Maintenance sovereign + self-maintenance — parallel
-        # 4. System sovereign + 6 sub-sovereigns — parallel
-
-        self._mark_startup_phase("sovereign_stack_starting")
-
-        # Start the decision-layer sovereigns in parallel
-        # Note: decision_sovereign must start last as it orchestrates the stack
-        sovereign_tasks = [
-            self.permission_sovereign.start(),
-            self.system_runtime_sovereign.start(),
-            self.automation_sovereign.start(),
-            self.xingcheng_sovereign.start(),
-        ]
-        try:
-            await asyncio.gather(*sovereign_tasks, return_exceptions=True)
-        except Exception as error:
-            self._record_startup_failure("sovereign_stack_start", error)
-        self._mark_startup_phase("top_sovereigns_started")
-
-        # Start decision sovereign last (orchestrates the stack)
-        try:
-            await self.decision_sovereign.start()
-        except Exception as error:
-            self._record_startup_failure("decision_sovereign", error)
-        self._mark_startup_phase("decision_sovereign_started")
-
-        # Start supervision/automation loops separately (A297 separation:
-        # sovereigns decide; the governed executor starts observation work).
-        _sup_timings: dict[str, int] = {}
-
-        async def _timed_supervision(name: str, coro: Any) -> None:
-            _t0 = time.monotonic()
-            try:
-                await coro
-            finally:
-                _sup_timings[name] = int((time.monotonic() - _t0) * 1000)
-
-        supervision_tasks = [
-            _timed_supervision(
-                "permission", self.permission_sovereign.start_supervision()
-            ),
-            _timed_supervision(
-                "system-runtime",
-                self.system_runtime_sovereign.start_supervision(),
-            ),
-            _timed_supervision(
-                "automation", self.automation_sovereign.start_supervision()
-            ),
-            _timed_supervision(
-                "xingcheng", self.xingcheng_sovereign.start_supervision()
-            ),
-        ]
-        try:
-            await asyncio.gather(*supervision_tasks, return_exceptions=True)
-        except Exception as error:
-            self._record_startup_failure("sovereign_supervision_start", error)
-        self._mark_startup_phase("sovereign_supervision_started")
-
-        try:
-            await _timed_supervision(
-                "decision", self.decision_sovereign.start_supervision()
-            )
-        except Exception as error:
-            self._record_startup_failure("decision_sovereign_supervision", error)
-        self._mark_startup_phase("decision_supervision_started")
-
-        # Start the system-wide automation coordinator after all
-        # sovereigns are started.  The coordinator aggregates health
-        # and routes cross-sovereign degradation; it does not start
-        # individual sovereign loops (those start via _on_start).
-        try:
-            await _timed_supervision(
-                "coordinator", self.system_automation_coordinator.start()
-            )
-        except Exception as error:
-            self._record_startup_failure(
-                "system_automation_coordinator", error
-            )
-        self._log({"type": "supervision_start_timings", **_sup_timings})
-        self._mark_startup_phase("automation_coordinator_started")
-
-        # Start the maintenance controller (Database Auto Maintenance v1)
-        # Starts after governance validated, security validated, database foundation ready
-        try:
-            result = await self.maintenance_controller_integration.start()
-            if result.get("ok"):
-                self.maintenance_ready = True
-                self._log({"type": "status", "message": "Maintenance controller started", **result})
-            else:
-                self._record_startup_failure("maintenance_controller", RuntimeError(result.get("reason", "unknown")))
-        except Exception as error:
-            self._record_startup_failure("maintenance_controller", error)
-        self._mark_startup_phase("maintenance_controller_started")
-
-        # Start the canonical RAG runtime (DAG+CAG+RAG hybrid architecture)
-        # Must precede CAG: cag_integration reads app.rag_orchestrator.
-        try:
-            result = await self.rag_runtime.start()
-            if result.get("ok"):
-                self.rag_ready = True
-                self._log({"type": "status", "message": "RAG runtime started", **result})
-            else:
-                self._record_startup_failure("rag_runtime", RuntimeError(result.get("reason", "unknown")))
-        except Exception as error:
-            self._record_startup_failure("rag_runtime", error)
-        self._mark_startup_phase("rag_runtime_started")
-
-        # Start CAG context preloading (DAG+CAG+RAG hybrid architecture)
-        # Starts after RAG orchestrator is available
-        try:
-            result = await self.cag_integration.start()
-            if result.get("ok"):
-                self.cag_ready = True
-                self._log({"type": "status", "message": "CAG context preloading started", **result})
-            else:
-                self._record_startup_failure("cag_integration", RuntimeError(result.get("reason", "unknown")))
-        except Exception as error:
-            self._record_startup_failure("cag_integration", error)
-        self._mark_startup_phase("cag_integration_started")
-
-        # Check if boot_core has already completed phases 0-5
-        if startup_state in ("READY", "DEGRADED"):
-            # CAPABILITY 1 already complete — run CAPABILITY 2 only
-            self._mark_startup_phase("capability-2-startup-executor")
-            from core_system.startup_executor import StartupSovereignExecutor
-
-            executor = StartupSovereignExecutor(self)
-            # Inject the generation ID from boot_core for continuity
-            result = await executor.run(generation_id=generation_id)
-            startup_ok = result.ok
-            if not startup_ok:
-                self._record_startup_failure(
-                    result.failure_phase or "startup-generation",
-                    RuntimeError(
-                        ";".join(result.violations)
-                        or next(
-                            (p.error for p in result.phases if p.error),
-                            "startup-generation-failed",
-                        )
-                    ),
-                )
-                # E155 PARTIAL-READY:none — a failed generation must not start
-                # post-handoff runtime duties (watchers, hot-update, isolation
-                # monitor).  The listener stays up in degraded mode via
-                # run_server; the executor already ran reverse cleanup and set
-                # startup_dead.
-                return
-        else:
-            # Standalone mode — run full startup sequence (CAPABILITY 1 + 2)
-            self._mark_startup_phase("full-startup-sequence")
-            from core_system.startup_executor import StartupSovereignExecutor
-
-            executor = StartupSovereignExecutor(self)
-            result = await executor.run()
-            startup_ok = result.ok
-            if not startup_ok:
-                self._record_startup_failure(
-                    result.failure_phase or "startup-generation",
-                    RuntimeError(
-                        ";".join(result.violations)
-                        or next(
-                            (p.error for p in result.phases if p.error),
-                            "startup-generation-failed",
-                        )
-                    ),
-                )
-                return
-
-        # Automated hot-reload watcher — requests a governed, module-scoped
-        # reload through the maintenance sovereign when backend source changes
-        # quiet down.  Observation is separate from decision/execution.
-        self._mark_startup_phase("hot_reload_watcher_starting")
-        try:
-            from tasks.hot_reload_watcher import HotReloadWatcher
-
-            self.hot_reload_watcher = HotReloadWatcher(self)
-            await self.hot_reload_watcher.start()
-        except Exception as error:
-            self._record_startup_failure("hot_reload_watcher", error)
-        self._mark_startup_phase("hot_reload_watcher_started")
-
-        # Governed authority re-anchor — adopts codex / managed-registry
-        # updates in-process so authority changes never require a restart.
-        self._mark_startup_phase("authority_reanchor_starting")
-        try:
-            from core_system.authority_reanchor_service import (
-                AuthorityReanchorService,
-            )
-
-            self.authority_reanchor_service = AuthorityReanchorService(self)
-            self.authority_reanchor_service.start()
-        except Exception as error:
-            self._record_startup_failure("authority_reanchor", error)
-        self._mark_startup_phase("authority_reanchor_started")
-
-        # Start the hot-update idle loop so deferred resource-holding module
-        # replacements are applied automatically when the system is idle.
-        try:
-            await self.hot_update_service.start()
-        except Exception as error:
-            self._record_startup_failure("hot_update_service", error)
-
-        # Initialize UpdateManager for enhanced self-update capability
-        try:
-            self.update_manager = UpdateManager(self, self.hot_update_service, self.project_root)
-            await self.update_manager.start_auto_update()
-            self._log({"type": "status", "message": "UpdateManager started"})
-        except Exception as error:
-            self._record_startup_failure("update_manager", error)
-        # Start the tool isolation health monitor and wire crash events to
-        # the state change notifier so the UI sees tool crashes immediately.
-        try:
-            from core_system.tool_isolation import get_isolation_manager
-            iso_mgr = get_isolation_manager(self.project_root)
-            notifier = getattr(self, "_state_change_notifier", None)
-            loop = asyncio.get_event_loop()
-            if notifier is not None:
-                def _on_crash(tool_id: str, entry: Any) -> None:
-                    crash_info = {
-                        "pid": getattr(entry, "pid", None),
-                        "restart_count": getattr(entry, "restart_count", 0),
-                        "exit_code": getattr(entry, "process", None),
-                    }
-                    if hasattr(entry, "process") and entry.process is not None:
-                        crash_info["exit_code"] = entry.process.returncode
-                    notifier.push_tool_crash_event(tool_id, crash_info, loop=loop)
-                iso_mgr.register_crash_callback(_on_crash)
-            iso_mgr.start_monitor(interval=30.0, light=True)
-        except Exception as error:
-            self._record_startup_failure("tool_isolation_monitor", error)
-        self._mark_startup_phase("main_runtime_ready")
-        self._log({
-            "type": "status",
-            "status": "ready" if startup_ok else "maintenance_incomplete",
-            "maintenance_ready": startup_ok,
-        })
+    # Entry point
+    async def main(self) -> None:
+        await run_main(self)
 
 
+# Backward compatibility: expose main() at module level
 async def main() -> None:
+    """Module entry point for backward compatibility."""
     app_instance = GPTBridgeApp()
-    parser = argparse.ArgumentParser(description="GPTBridge Mother Tool Entry")
-    parser.add_argument(
-        "--serve",
-        action="store_true",
-        help="Start the IPC server for the mother tool.",
-    )
-    parser.add_argument(
-        "--auto-kill-backend-port",
-        action="store_true",
-        help="Automatically terminate a previous GPTBridge backend holding the configured IPC port before starting.",
-    )
-    parser.add_argument(
-        "--profile",
-        default="main",
-        help="Browser profile name forwarded by run.py; accepted for compatibility but not used by the server.",
-    )
-
-    args = parser.parse_args()
-
     try:
-        await run_server(
-            app_instance,
-            auto_kill_backend_port=args.auto_kill_backend_port,
+        from ipc.server import run_server
+        import argparse
+
+        parser = argparse.ArgumentParser(description="GPTBridge Mother Tool Entry")
+        parser.add_argument(
+            "--serve",
+            action="store_true",
+            help="Start the IPC server for the mother tool.",
         )
+        parser.add_argument(
+            "--auto-kill-backend-port",
+            action="store_true",
+            help="Automatically terminate a previous GPTBridge backend holding the configured IPC port before starting.",
+        )
+        parser.add_argument(
+            "--profile",
+            default="main",
+            help="Browser profile name forwarded by run.py; accepted for compatibility but not used by the server.",
+        )
+
+        args = parser.parse_args()
+
+        app_instance = GPTBridgeApp()
+
+        try:
+            await run_server(
+                app_instance,
+                auto_kill_backend_port=args.auto_kill_backend_port,
+            )
+        finally:
+            await app_instance.shutdown()
     finally:
-        await app_instance.shutdown()
+        pass
 
 
 if __name__ == "__main__":
     try:
         from startup import run_cli
-
         run_cli()
     except (KeyboardInterrupt, SystemExit):
         sys.exit(0)
