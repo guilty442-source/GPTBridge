@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import threading
+import logging
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Final
@@ -44,6 +45,9 @@ from .store_helpers import (
     normalize_id as _id,
     now_iso as _now_iso,
 )
+
+
+_logger = logging.getLogger("gptbridge.shared_layer.store")
 
 
 class _ConnectionPool:
@@ -227,6 +231,32 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
             (f"tool_request_{self._channel_id}", _id(request_id)),
         )
 
+    def _bind_identity(
+        self, connection: Any, actor: str, request_id: str = ""
+    ) -> None:
+        """Bind the short-term session identity to the current transaction.
+
+        Every transport statement is attributed to the authenticated actor
+        through ``set_config(..., local)`` (A501 session identity).  Binding is
+        metadata: a failure is logged and never fails the transport itself.
+        """
+        try:
+            from .security.session_identity import (
+                SessionIdentity,
+                apply_session_identity,
+            )
+
+            apply_session_identity(
+                connection,
+                SessionIdentity(
+                    actor_id=str(actor or ""),
+                    module_id=self._channel_id,
+                    request_id=_id(request_id) if request_id else "",
+                ),
+            )
+        except Exception:
+            _logger.warning("session identity binding skipped", exc_info=True)
+
     def submit_request(
         self,
         token: str,
@@ -246,6 +276,7 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
                 return
         pool = self._get_pool()
         with pool.acquire() as connection:
+            self._bind_identity(connection, actor, request_id)
             connection.execute(
                 "INSERT INTO gptbridge_transport.tool_request "
                 "(channel_id, request_id, requester_actor, target_tool_id, payload, status, "
@@ -302,6 +333,7 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
         actor = self._authorize(token, "cancel-request", target_tool_id)
         pool = self._get_pool()
         with pool.acquire() as connection:
+            self._bind_identity(connection, actor, request_id)
             cursor = connection.execute(
                 "UPDATE gptbridge_transport.tool_request "
                 "SET status='cancelled', updated_at=now() "
@@ -351,6 +383,7 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
         pool = self._get_pool()
         with pool.acquire() as connection:
             connection.execute("BEGIN")
+            self._bind_identity(connection, actor, request_id)
             row = connection.execute(
                 "SELECT status, response, progress FROM gptbridge_transport.tool_request "
                 "WHERE channel_id=%s AND request_id=%s AND target_tool_id=%s AND requester_actor=%s "
@@ -385,9 +418,10 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
         target_tool_id: str,
         progress: Any,
     ) -> bool:
-        self._authorize(token, "respond", target_tool_id)
+        actor = self._authorize(token, "respond", target_tool_id)
         pool = self._get_pool()
         with pool.acquire() as connection:
+            self._bind_identity(connection, actor, request_id)
             cursor = connection.execute(
                 "UPDATE gptbridge_transport.tool_request "
                 "SET progress=%s, updated_at=now() "
@@ -411,10 +445,11 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
         *,
         lease_duration_seconds: float = 300.0,
     ) -> dict[str, Any] | None:
-        self._authorize(token, "claim", target_tool_id)
+        actor = self._authorize(token, "claim", target_tool_id)
         pool = self._get_pool()
         with pool.acquire() as connection:
             connection.execute("BEGIN")
+            self._bind_identity(connection, actor)
             self._reclaim_expired_in_transaction(connection, target_tool_id)
             row = connection.execute(
                 "SELECT request_id, requester_actor, payload FROM gptbridge_transport.tool_request "
@@ -478,9 +513,10 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
         target_tool_id: str,
         response: Any,
     ) -> bool:
-        self._authorize(token, "respond", target_tool_id)
+        actor = self._authorize(token, "respond", target_tool_id)
         pool = self._get_pool()
         with pool.acquire() as connection:
+            self._bind_identity(connection, actor, request_id)
             cursor = connection.execute(
                 "UPDATE gptbridge_transport.tool_request "
                 "SET status='completed', response=%s, updated_at=now() "
@@ -516,6 +552,7 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
         actor = self._authorize(token, "request", target_tool_id)
         pool = self._get_pool()
         with pool.acquire() as connection:
+            self._bind_identity(connection, actor, push_id)
             connection.execute(
                 "INSERT INTO gptbridge_transport.tool_request "
                 "(channel_id, request_id, requester_actor, target_tool_id, payload, status, created_at, updated_at) "
