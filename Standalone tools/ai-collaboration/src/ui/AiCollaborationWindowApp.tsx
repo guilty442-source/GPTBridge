@@ -20,10 +20,29 @@ type Agent = {
   last_error: string
 }
 
+type ResponseItem = {
+  agent_id?: string
+  status?: string
+  content?: string
+  answer?: string
+  response?: string
+  text?: string
+  error?: string
+}
+
+type GroupMessage = {
+  message_id?: string
+  content?: string
+  responses?: ResponseItem[]
+}
+
 type CollaborationState = {
   ok?: boolean
   message?: string
   agents?: Agent[]
+  messages?: GroupMessage[]
+  message_id?: string
+  group_message?: GroupMessage
 }
 
 const PROMPT_PRESETS = [
@@ -58,6 +77,12 @@ function responseLabel(status: string): string {
   if (status === 'failed') return '失敗'
   if (status === 'opened') return '已開啟'
   return '待命'
+}
+
+function responseText(response: ResponseItem): string {
+  const value =
+    response.content ?? response.answer ?? response.response ?? response.text ?? ''
+  return String(value)
 }
 
 function socketStatusLabel(status: string): string {
@@ -119,9 +144,13 @@ export function AiCollaborationWindowApp() {
   const [newAgentProvider, setNewAgentProvider] = useState('')
   const [newAgentUrl, setNewAgentUrl] = useState('')
   const [draft, setDraft] = useState('')
-  const [, setMessage] = useState('AI協作工具已就緒')
+  const [message, setMessage] = useState('AI協作工具已就緒')
+  const [messageId, setMessageId] = useState('')
+  const [responses, setResponses] = useState<ResponseItem[]>([])
+  const [browserDrafts, setBrowserDrafts] = useState<Record<string, string>>({})
   const [busyAction, setBusyAction] = useState('')
   const loadedSelectionRef = useRef(false)
+  const messageIdRef = useRef('')
 
   const selectedAgentList = useMemo(
     () => agents.filter((agent) => selectedAgents.has(agent.agent_id)),
@@ -190,6 +219,15 @@ export function AiCollaborationWindowApp() {
         const result = (await request('ai_nexus_get_state', {}, 15000)) as CollaborationState
         if (result.ok === false) throw new Error(String(result.message || '載入失敗'))
         applyState(result)
+        const trackedId = messageIdRef.current
+        if (trackedId && Array.isArray(result.messages)) {
+          const tracked = result.messages.find(
+            (item) => String(item.message_id || '') === trackedId
+          )
+          if (tracked && Array.isArray(tracked.responses)) {
+            setResponses(tracked.responses)
+          }
+        }
         setMessage((prev) => {
           if (!silent) return 'AI協作工具已載入'
           if (/失敗|尚未就緒|逾時|正在載入/.test(prev)) return 'AI協作工具已載入'
@@ -504,6 +542,13 @@ export function AiCollaborationWindowApp() {
         180000
       )) as CollaborationState
       if (result.ok === false) throw new Error(String(result.message || '送出失敗'))
+      const groupMessage = result.group_message || {}
+      const nextMessageId = String(groupMessage.message_id || result.message_id || '')
+      if (nextMessageId) {
+        messageIdRef.current = nextMessageId
+        setMessageId(nextMessageId)
+      }
+      if (Array.isArray(groupMessage.responses)) setResponses(groupMessage.responses)
       setDraft('')
       if (Array.isArray(result.agents)) setAgents(result.agents)
       setMessage(String(result.message || 'AI 協作已完成'))
@@ -514,74 +559,108 @@ export function AiCollaborationWindowApp() {
     }
   }
 
+  const submitBrowserResult = async (agentId: string) => {
+    const activeMessageId = messageIdRef.current || messageId
+    if (!activeMessageId) {
+      setMessage('目前沒有等待中的瀏覽器任務')
+      return
+    }
+    const draftKey = `${activeMessageId}:${agentId}`
+    const content = (browserDrafts[draftKey] || '').trim()
+    if (!content) {
+      setMessage('請先貼上瀏覽器中的 AI 回覆')
+      return
+    }
+    setBusyAction(`browser:${agentId}`)
+    try {
+      const result = await request(
+        'ai_nexus_complete_browser_response',
+        { message_id: activeMessageId, agent_id: agentId, content },
+        60000
+      )
+      if (result.ok === false) {
+        throw new Error(String(result.message || '送出瀏覽器回覆失敗'))
+      }
+      setBrowserDrafts((current) => ({ ...current, [draftKey]: '' }))
+      setMessage(String(result.message || '已送出瀏覽器回覆'))
+      await loadState(true)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '送出瀏覽器回覆失敗')
+    } finally {
+      setBusyAction('')
+    }
+  }
+
   return (
     <main className="ai-collab-app">
-      <header className="ai-collab-topbar">
-        <div>
-          <p>獨立應用程式</p>
-          <h1>外部協作</h1>
-          <div>
-            <span>{socketStatusLabel(socketStatus)}</span>
-            <span>{selectedAgentSummary} AI</span>
-            <span>協作記憶自動記錄</span>
-          </div>
-        </div>
-        <div className="ai-collab-toolbar">
-          <form
-            className="ai-collab-url-form"
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleNavigate(urlInput)
-            }}
-          >
-            <input
-              type="text"
-              className="ai-collab-url-input"
-              value={urlInput}
-              onChange={(event) => setUrlInput(event.target.value)}
-              placeholder="輸入網址，例如 google.com 或 https://chat.openai.com"
-              disabled={browser.state.loading}
-            />
-            <button
-              type="submit"
-              className="ai-collab-primary"
-              disabled={browser.state.loading || !urlInput.trim()}
-            >
-              {browser.state.loading ? '載入中...' : '前往'}
-            </button>
-          </form>
-          <button type="button" onClick={() => void handleNavigate('https://www.google.com')}>
-            Google
-          </button>
-          <button
-            type="button"
-            onClick={() => void openSelectedAgents()}
-            disabled={Boolean(busyAction) || selectedAgents.size === 0}
-          >
-            {busyAction === 'open-selected' ? '開啟中...' : '在內建瀏覽器開啟'}
-          </button>
-          <button
-            type="button"
-            onClick={() => void exportReport()}
-            disabled={Boolean(busyAction)}
-          >
-            {busyAction === 'export-report' ? '匯出中...' : '匯出診斷'}
-          </button>
-          <button type="button" onClick={() => void loadState()} disabled={Boolean(busyAction)}>
-            重新整理
-          </button>
-          <button
-            type="button"
-            onClick={() => setSettingsOpen((value) => !value)}
-            aria-expanded={settingsOpen}
-          >
-            {settingsOpen ? '關閉設定' : '設定'}
-          </button>
-        </div>
-      </header>
-
       <section className="ai-collab-workspace" aria-label="外部協作雙欄工作區">
         <div className="ai-collab-left" aria-label="協作輸入與 AI 清單">
+          <section className="ai-collab-integrated" aria-label="外部協作控制">
+            <div className="ai-collab-top-agents-head">
+              <div>
+                <span>外部協作</span>
+                <strong>{socketStatusLabel(socketStatus)}</strong>
+              </div>
+              <span className="ai-collab-muted">
+                {selectedAgentSummary} AI｜協作記憶自動記錄
+              </span>
+            </div>
+            <form
+              className="ai-collab-url-form"
+              onSubmit={(e) => {
+                e.preventDefault()
+                handleNavigate(urlInput)
+              }}
+            >
+              <input
+                type="text"
+                className="ai-collab-url-input"
+                value={urlInput}
+                onChange={(event) => setUrlInput(event.target.value)}
+                placeholder="輸入網址，例如 google.com 或 https://chat.openai.com"
+                disabled={browser.state.loading}
+              />
+              <button
+                type="submit"
+                className="ai-collab-primary"
+                disabled={browser.state.loading || !urlInput.trim()}
+              >
+                {browser.state.loading ? '載入中...' : '前往'}
+              </button>
+            </form>
+            <div className="ai-collab-toolbar">
+              <button type="button" onClick={() => void handleNavigate('https://www.google.com')}>
+                Google
+              </button>
+              <button
+                type="button"
+                onClick={() => void openSelectedAgents()}
+                disabled={Boolean(busyAction) || selectedAgents.size === 0}
+              >
+                {busyAction === 'open-selected' ? '開啟中...' : '在內建瀏覽器開啟'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void exportReport()}
+                disabled={Boolean(busyAction)}
+              >
+                {busyAction === 'export-report' ? '匯出中...' : '匯出診斷'}
+              </button>
+              <button type="button" onClick={() => void loadState()} disabled={Boolean(busyAction)}>
+                重新整理
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettingsOpen((value) => !value)}
+                aria-expanded={settingsOpen}
+              >
+                {settingsOpen ? '關閉設定' : '設定'}
+              </button>
+            </div>
+            <p className="ai-collab-muted" role="status">
+              {message}
+            </p>
+          </section>
           {settingsOpen ? (
             <section className="ai-collab-settings" aria-label="設定">
               <div className="ai-collab-settings-block">
@@ -744,6 +823,57 @@ export function AiCollaborationWindowApp() {
             >
               {busyAction === 'send' ? '協作中...' : '送出協作'}
             </button>
+          </section>
+          <section className="ai-collab-responses" aria-label="AI 回應">
+            <div className="ai-collab-top-agents-head">
+              <div>
+                <span>AI 回應</span>
+                <strong>{responses.length}</strong>
+              </div>
+            </div>
+            {responses.length === 0 ? (
+              <p className="ai-collab-muted">送出協作後，AI 回應會顯示在這裡。</p>
+            ) : responses.map((response) => {
+              const agentId = String(response.agent_id || '')
+              const status = String(response.status || '')
+              const draftKey = `${messageId}:${agentId}`
+              const text = responseText(response)
+              return (
+                <article key={draftKey} className="ai-collab-response">
+                  <div className="ai-collab-response-head">
+                    <strong>{agentsById.get(agentId)?.name || agentId || 'AI'}</strong>
+                    <span className={`ai-collab-chip ai-collab-chip--${status}`}>
+                      {responseLabel(status)}
+                    </span>
+                  </div>
+                  {text ? <p className="ai-collab-response-body">{text}</p> : null}
+                  {status === 'awaiting-user' ? (
+                    <div className="ai-collab-browser-submit">
+                      <textarea
+                        value={browserDrafts[draftKey] || ''}
+                        onChange={(event) =>
+                          setBrowserDrafts((current) => ({
+                            ...current,
+                            [draftKey]: event.target.value,
+                          }))
+                        }
+                        placeholder="完成瀏覽器操作後，將 AI 回覆貼回這裡再送出。"
+                        disabled={Boolean(busyAction)}
+                      />
+                      <button
+                        type="button"
+                        className="ai-collab-primary"
+                        onClick={() => void submitBrowserResult(agentId)}
+                        disabled={Boolean(busyAction) || !(browserDrafts[draftKey] || '').trim()}
+                      >
+                        {busyAction === `browser:${agentId}` ? '送出中...' : '送出訊息'}
+                      </button>
+                    </div>
+                  ) : null}
+                  {response.error ? <p className="ai-collab-muted">{String(response.error)}</p> : null}
+                </article>
+              )
+            })}
           </section>
         </div>
         <div className="ai-collab-right" ref={rightPanelRef} aria-label="內建瀏覽器網頁區">
