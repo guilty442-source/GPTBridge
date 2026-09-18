@@ -24,8 +24,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Callable, ContextManager, Iterator, Mapping, Protocol
 
-from psycopg.types.json import Jsonb
-
 from .operation import Operation, OperationLease
 from .steps import StepResult, StepSpec
 from .types import SAGA_EVENTS, OperationStatus
@@ -267,7 +265,7 @@ class PostgresSagaStore:
                     operation.idempotency_key,
                     operation.correlation_id,
                     operation.fingerprint,
-                    Jsonb(dict(operation.checkpoint)),
+                    _jsonb(connection, dict(operation.checkpoint)),
                 ),
             ).fetchone()
             if row is not None:
@@ -353,7 +351,7 @@ class PostgresSagaStore:
                 (
                     operation.status.value,
                     operation.current_step,
-                    Jsonb(dict(operation.checkpoint)),
+                    _jsonb(connection, dict(operation.checkpoint)),
                     int(lease.worker_generation),
                     lease.claimed_by,
                     float(lease.claimed_at),
@@ -415,7 +413,7 @@ class PostgresSagaStore:
         validate_event_type(event_type)
         connection.execute(
             OPERATION_EVENT_INSERT_SQL,
-            (operation_id, event_type, step_id, Jsonb(dict(detail or {}))),
+            (operation_id, event_type, step_id, _jsonb(connection, dict(detail or {}))),
         )
 
     def _load_operation(self, connection: Any, operation_id: str) -> Operation | None:
@@ -449,6 +447,21 @@ class PostgresSagaStore:
 # In-memory implementation (offline mirror / tests)
 # ---------------------------------------------------------------------------
 
+
+def _jsonb(connection: Any, value: Any) -> Any:
+    """Adapt a mapping to jsonb for real psycopg connections only.
+
+    Test doubles and legacy callers keep plain mappings so parameter
+    assertions and non-PostgreSQL stores remain unchanged."""
+    try:
+        from psycopg import Connection
+        from psycopg.types.json import Jsonb
+
+        if isinstance(connection, Connection):
+            return Jsonb(value)
+    except Exception:
+        pass
+    return value
 
 @dataclass(frozen=True)
 class StoredEvent:
