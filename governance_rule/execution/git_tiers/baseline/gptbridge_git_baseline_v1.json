@@ -12,7 +12,7 @@
   "governance_version": "2.0.0",
   "governance_manifest": {
     "path": "governance_rule/execution/git_tiers/git_governance_manifest.json",
-    "digest": "c5c410a70c9fddfc21627bde6326997ba0cf29283f61f95d2a13476f91fe797c",
+    "digest": "50079b979195438a5693186b6e8256fbe1f235168b53cc0ad11e2fb5216a87f7",
     "mode": "ACTIVE"
   },
   "public_api_version": "git_api_v1",
@@ -248,12 +248,6 @@
           "lines": 331
         },
         {
-          "module": "central.py",
-          "functions": 7,
-          "classes": 0,
-          "lines": 250
-        },
-        {
           "module": "claims.py",
           "functions": 13,
           "classes": 1,
@@ -398,6 +392,12 @@
           "lines": 115
         },
         {
+          "module": "repo_sync.py",
+          "functions": 5,
+          "classes": 0,
+          "lines": 170
+        },
+        {
           "module": "report.py",
           "functions": 3,
           "classes": 0,
@@ -408,12 +408,6 @@
           "functions": 13,
           "classes": 0,
           "lines": 423
-        },
-        {
-          "module": "server_hooks.py",
-          "functions": 6,
-          "classes": 0,
-          "lines": 201
         },
         {
           "module": "snapshot.py",
@@ -483,10 +477,10 @@
         }
       ],
       "totals": {
-        "modules": 54,
-        "functions": 675,
+        "modules": 53,
+        "functions": 667,
         "classes": 93,
-        "lines": 16186
+        "lines": 15905
       }
     }
   },
@@ -996,20 +990,20 @@
           "watcher_crash PASS, supervisor_crash PASS, merge_conflict_abort PASS",
           "audit_tail_corruption UNVERIFIABLE_DETECTED (torn tail never silently verified)",
           "registry_corruption_fallback PASS, lock_contention PASS",
-          "central_unavailable PASS, git_timeout PASS, source_sha_drift PASS",
+          "origin_unavailable PASS, git_timeout PASS, source_sha_drift PASS",
           "assert_git_invariants violations=0 after every scenario"
         ],
         "measurements": {
           "scenarios": {
             "audit_tail_corruption": "UNVERIFIABLE_DETECTED",
-            "central_unavailable": "PASS",
             "git_timeout": "PASS",
             "lock_contention": "PASS",
             "merge_conflict_abort": "PASS",
             "registry_corruption_fallback": "PASS",
             "source_sha_drift": "PASS",
             "supervisor_crash": "PASS",
-            "watcher_crash": "PASS"
+            "watcher_crash": "PASS",
+            "origin_unavailable": "PASS"
           },
           "violations": 0
         }
@@ -1089,19 +1083,6 @@
           "confirmed_bool": 0,
           "legacy_env": 0,
           "illegal_direct_git": 0
-        }
-      },
-      "central_protection": {
-        "result": "PASS",
-        "evidence": [
-          "test_tier_enforcement.py 109/109 PASS (tier-3 authority required; legacy env flags are not authorization)",
-          "test_git_final_gates.py::test_final_chaos_gate central_unavailable PASS",
-          "test_fault_injection.py 31/31 PASS (central divergence detection, protected central refs)",
-          "test_git_api_contract_v1.py::test_tier3_denied_raises_permission_error PASS"
-        ],
-        "measurements": {
-          "tier_enforcement_tests": 109,
-          "fault_injection_tests": 31
         }
       },
       "capability": {
@@ -1252,17 +1233,6 @@
         ]
       },
       {
-        "condition": "central_protection_pass",
-        "zh": "central protection PASS",
-        "status": "PASS",
-        "evidence": [
-          "test_tier_enforcement.py 109/109 PASS (tier-3 authority required; legacy env flags are not authorization)",
-          "test_git_final_gates.py::test_final_chaos_gate central_unavailable PASS",
-          "test_fault_injection.py 31/31 PASS (central divergence detection, protected central refs)",
-          "test_git_api_contract_v1.py::test_tier3_denied_raises_permission_error PASS"
-        ]
-      },
-      {
         "condition": "capability_tests_pass",
         "zh": "capability tests PASS",
         "status": "PASS",
@@ -1294,7 +1264,7 @@
           "watcher_crash PASS, supervisor_crash PASS, merge_conflict_abort PASS",
           "audit_tail_corruption UNVERIFIABLE_DETECTED (torn tail never silently verified)",
           "registry_corruption_fallback PASS, lock_contention PASS",
-          "central_unavailable PASS, git_timeout PASS, source_sha_drift PASS",
+          "origin_unavailable PASS, git_timeout PASS, source_sha_drift PASS",
           "assert_git_invariants violations=0 after every scenario"
         ]
       },
@@ -1424,10 +1394,10 @@
       "governance_rule/execution/git_tiers/git_repository.py"
     ],
     "modules": {
-      "modules": 54,
-      "functions": 675,
+      "modules": 53,
+      "functions": 667,
       "classes": 93,
-      "lines": 16186
+      "lines": 15905
     },
     "static_counts": {
       "direct_git": 0,
@@ -1473,7 +1443,7 @@
   },
   "integrity": {
     "algorithm": "sha256",
-    "digest": "a43440e80fb698c150210c7960d954ef38e28339a2ddc0dcfb72c4caf27c540d",
+    "digest": "f16ae929bb0fd0d8749270c1c88bffdfba421e864b4fa94ea067d1b00610a358",
     "scope": "canonical-json-without-integrity-and-baseline"
   }
 }

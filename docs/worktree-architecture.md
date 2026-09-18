@@ -7,7 +7,7 @@ version service, the repository uses Git worktrees as the layering mechanism.
 
 ```text
 E:\GPTBridge                       main        (stable release)
-E:\GPTBridge-worktrees\
+E:\GPTBridge\.worktrees\
 ├─ local-model                     local-model (local model development)
 ├─ rag                             rag         (RAG four-sub-architecture)
 ├─ ui                              ui          (interface layer)
@@ -35,7 +35,7 @@ Stable release branch. All merged, verified code.
 | Independent Tools | `ai-assistant/`, `ai-collaboration/`, etc. | governed-executor |
 | Scripts | `scripts/` | — |
 
-### local-model (E:\GPTBridge-worktrees\local-model)
+### local-model (E:\GPTBridge\.worktrees\local-model)
 
 Local model platform development — Xingcheng core, model hub, model dialogue.
 
@@ -51,7 +51,7 @@ Local model platform development — Xingcheng core, model hub, model dialogue.
 | Model Config | `local-model/config/` | xingcheng |
 | Model Tests | `local-model/tests/` | language-review-sub-sovereign |
 
-### rag (E:\GPTBridge-worktrees\rag)
+### rag (E:\GPTBridge\.worktrees\rag)
 
 RAG four-sub-architecture development (A52/E38).
 
@@ -66,7 +66,7 @@ RAG four-sub-architecture development (A52/E38).
 | RAG CLI | `local-model/src/rag_cli.py` | interface |
 | RAG Tests | `local-model/tests/test_local_rag.py` | validation |
 
-### ui (E:\GPTBridge-worktrees\ui)
+### ui (E:\GPTBridge\.worktrees\ui)
 
 Interface layer development (P20/A45/E31 — presentation only, no decide/exec).
 
@@ -78,7 +78,7 @@ Interface layer development (P20/A45/E31 — presentation only, no decide/exec).
 | Path Library | `main-system/src-ui/main/pathLibrary.ts` | TypeScript |
 | TS Checkers | `governance_rule/execution/typescript/` | TypeScript |
 
-### git (E:\GPTBridge-worktrees\git)
+### git (E:\GPTBridge\.worktrees\git)
 
 Git governance tooling development (A53/E39).
 
@@ -107,10 +107,10 @@ Git governance tooling development (A53/E39).
                        |
                   git_tiers
                        |
-               Local Bare Repo
-                       |
-                 Merge Queue
-                       |
+               Integration Worktree
+                        |
+                  Merge Queue
+                        |
                      main
 ```
 
@@ -119,12 +119,10 @@ integration manager (`governance_rule/execution/git_tiers/merge_queue.py`)
 serializes merges through a merge queue so only one merge runs at a time.
 Every operation is audited with pre-operation snapshot (HEAD, branch,
 dirty files, staged files) for recovery.  `main` is the sole stable
-release branch and the source of truth for the central bare repository
-(`E:\GPTBridge.git`) and GitHub mirror (`origin`).
+release branch and the source of truth for the GitHub mirror (`origin`).
 
-## Central + Mirror
+## Origin Mirror
 
 | Remote | URL | Role |
 | --- | --- | --- |
-| `central` | `E:\GPTBridge.git` | Local bare repo, central authority |
 | `origin` | `github.com/guilty442-source/GPTBridge.git` | GitHub mirror |

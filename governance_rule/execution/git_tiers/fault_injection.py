@@ -3,14 +3,13 @@
 Test-only fault injection for the governed Git stack.  Every injector
 operates exclusively on a ``TestRepoFixture`` produced by
 ``create_test_repository()`` — a temporary root carrying the
-``gptbridge-test-repo`` marker.  Injecting into the real repository,
-the real central bare repo, or any origin is refused at construction.
+``gptbridge-test-repo`` marker.  Injecting into the real repository or
+any origin is refused at construction.
 
 Layout (§219)::
 
     TempRoot/
       main/            primary worktree (branch: main)
-      central.git/     bare central
       worktrees/wNNN/  worker worktrees (branch: wNNN)
       audit/           audit store
       recovery/        recovery bundles
@@ -140,7 +139,6 @@ class TestRepoFixture:
     test_run_id: str
     seed: int
     main: Path
-    central: Path
     worktrees_dir: Path
     audit_dir: Path
     recovery_dir: Path
@@ -176,7 +174,6 @@ def create_test_repository(
     worktree_count: int = 0,
     file_count: int = 1,
     conflict_pattern: Optional[str] = None,
-    bare_central: bool = True,
     origin_mirror: bool = False,
     audit_enabled: bool = True,
     hooks_enabled: bool = True,
@@ -188,7 +185,6 @@ def create_test_repository(
     root.mkdir(parents=True, exist_ok=True)
 
     main = root / "main"
-    central = root / "central.git"
     worktrees_dir = root / "worktrees"
     audit_dir = root / "audit"
     recovery_dir = root / "recovery"
@@ -219,11 +215,7 @@ def create_test_repository(
     for b in range(branch_count):
         _git(main, "branch", f"topic-{b}")
 
-    # Bare central + optional origin mirror.
-    if bare_central:
-        _git(root, "init", "--bare", str(central))
-        _git(main, "remote", "add", "central", str(central))
-        _git(main, "push", "central", "main")
+    # Optional origin mirror.
     if origin_mirror:
         origin = root / "origin.git"
         _git(root, "init", "--bare", str(origin))
@@ -249,7 +241,7 @@ def create_test_repository(
 
     fixture = TestRepoFixture(
         root=root, test_run_id=run_id, seed=seed, main=main,
-        central=central, worktrees_dir=worktrees_dir,
+        worktrees_dir=worktrees_dir,
         audit_dir=audit_dir, recovery_dir=recovery_dir,
         registry_dir=registry_dir, logs_dir=logs_dir,
         workers=workers,
@@ -385,18 +377,6 @@ class FaultInjectionManager:
                               encoding="utf-8")
         return self._record("hook_failure", {"hook": hook, "mode": mode})
 
-    def inject_central_unavailable(self) -> dict[str, Any]:
-        """Move the bare central aside (reversible)."""
-        moved = self.fixture.central.with_name("central.git.offline")
-        if self.fixture.central.exists():
-            self.fixture.central.rename(moved)
-        return self._record("central_unavailable", {"moved_to": str(moved)})
-
-    def restore_central(self) -> None:
-        moved = self.fixture.central.with_name("central.git.offline")
-        if moved.exists():
-            moved.rename(self.fixture.central)
-
     def inject_origin_unavailable(self) -> dict[str, Any]:
         _git(self.fixture.main, "remote", "set-url", "origin",
              str(self.fixture.root / "nonexistent-origin.git"),
@@ -496,7 +476,6 @@ class FaultInjectionManager:
         signal = self.fixture.root / "disk-pressure.signal"
         if signal.exists():
             signal.unlink()
-        self.restore_central()
 
     def inject_gitfile_break(self, worker_index: int = 0) -> dict[str, Any]:
         """§261 — corrupt the worktree .git link file."""

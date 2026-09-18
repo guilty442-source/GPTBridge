@@ -20,71 +20,10 @@ type Agent = {
   last_error: string
 }
 
-type AgentResponse = {
-  response_id: string
-  message_id: string
-  agent_id: string
-  status: string
-  content: string
-  error: string
-  error_code?: string
-  created_at: string
-  updated_at: string
-}
-
-type GroupMessage = {
-  message_id: string
-  role: string
-  content: string
-  selected_agents: string[]
-  created_at: string
-  responses: AgentResponse[]
-}
-
-type MemoryItem = {
-  memory_id: string
-  kind: string
-  title: string
-  content: string
-}
-
-type CollaborationDiagnostics = {
-  state?: string
-  message?: string
-  agents?: {
-    total?: number
-    selected?: number
-    enabled?: number
-    status_counts?: Record<string, number>
-  }
-  collaboration?: {
-    message_count?: number
-    memory_count?: number
-    task_count?: number
-    completed_responses?: number
-    failed_responses?: number
-    waiting_verification?: number
-    latest_message_id?: string
-  }
-  browser?: {
-    product?: string
-    available?: boolean
-    mode?: string
-    automation?: boolean
-  }
-  generated_at?: string
-}
-
 type CollaborationState = {
   ok?: boolean
   message?: string
   agents?: Agent[]
-  messages?: GroupMessage[]
-  memory_items?: MemoryItem[]
-  diagnostics?: CollaborationDiagnostics
-  database_path?: string
-  workspace_path?: string
-  safety_notice?: string
 }
 
 const PROMPT_PRESETS = [
@@ -110,18 +49,6 @@ const PROMPT_PRESETS = [
   },
 ]
 
-function formatClock(value: string): string {
-  const timestamp = Date.parse(value)
-  if (!Number.isFinite(timestamp)) return ''
-  return new Date(timestamp).toLocaleString('zh-TW', {
-    hour12: false,
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
 function responseLabel(status: string): string {
   if (status === 'completed') return '完成'
   if (status === 'running') return '執行中'
@@ -131,22 +58,6 @@ function responseLabel(status: string): string {
   if (status === 'failed') return '失敗'
   if (status === 'opened') return '已開啟'
   return '待命'
-}
-
-function browserActionMessage(response: AgentResponse): string {
-  if (response.error_code === 'BROWSER_LOGIN_OR_INPUT_REQUIRED') {
-    return '內建瀏覽器尚未登入此 AI。請按左側「瀏覽器登入」完成一次登入，再重新送出。'
-  }
-  if (response.error_code === 'BROWSER_VERIFICATION_REQUIRED') {
-    return '此 AI 正等待 Cloudflare／人機驗證。請在同一個內建瀏覽器分頁完成驗證，再重新送出。'
-  }
-  if (response.error_code === 'BROWSER_RESPONSE_CAPTURE_REQUIRED') {
-    return '訊息已送出，但尚未自動擷取回覆；可等待完成後貼到下方。'
-  }
-  if (response.error_code === 'BROWSER_SEND_CONTROL_NOT_FOUND') {
-    return '已開啟 AI 頁面，但找不到可用的送出按鈕；請檢查頁面登入狀態。'
-  }
-  return '請在內建瀏覽器完成操作後，將完整結果貼到下方。'
 }
 
 function socketStatusLabel(status: string): string {
@@ -201,17 +112,15 @@ export function AiCollaborationWindowApp() {
   const rightPanelRef = useRef<HTMLDivElement>(null)
   const [urlInput, setUrlInput] = useState('')
   const [agents, setAgents] = useState<Agent[]>([])
-  const [messages, setMessages] = useState<GroupMessage[]>([])
-  const [memoryItems, setMemoryItems] = useState<MemoryItem[]>([])
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set())
   const [agentListCollapsed, setAgentListCollapsed] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [newAgentName, setNewAgentName] = useState('')
+  const [newAgentProvider, setNewAgentProvider] = useState('')
+  const [newAgentUrl, setNewAgentUrl] = useState('')
   const [draft, setDraft] = useState('')
-  const [memoryDraft, setMemoryDraft] = useState('')
   const [, setMessage] = useState('AI協作工具已就緒')
   const [busyAction, setBusyAction] = useState('')
-  const [paths, setPaths] = useState({ workspace: '', database: '' })
-  const [safetyNotice, setSafetyNotice] = useState('')
-  const [browserResults, setBrowserResults] = useState<Record<string, string>>({})
   const loadedSelectionRef = useRef(false)
 
   const selectedAgentList = useMemo(
@@ -255,10 +164,6 @@ export function AiCollaborationWindowApp() {
         )
       }
       const response = await waitPromise
-      const maybeMemoryItems = (response as CollaborationState).memory_items
-      if (Array.isArray(maybeMemoryItems)) {
-        setMemoryItems(maybeMemoryItems)
-      }
       return response
     },
     [sendCommand, waitUntilConnected]
@@ -267,13 +172,6 @@ export function AiCollaborationWindowApp() {
   const applyState = useCallback((state: CollaborationState) => {
     const nextAgents = Array.isArray(state.agents) ? state.agents : []
     setAgents(nextAgents)
-    setMessages(Array.isArray(state.messages) ? state.messages : [])
-    setMemoryItems(Array.isArray(state.memory_items) ? state.memory_items : [])
-    setPaths({
-      workspace: String(state.workspace_path || ''),
-      database: String(state.database_path || ''),
-    })
-    setSafetyNotice(String(state.safety_notice || ''))
     if (!loadedSelectionRef.current && nextAgents.length > 0) {
       loadedSelectionRef.current = true
       setSelectedAgents(
@@ -420,6 +318,19 @@ export function AiCollaborationWindowApp() {
     }
   }
 
+  const selectSingleAgent = async (agentId: string) => {
+    if (!agentId) return
+    setSelectedAgents(new Set([agentId]))
+    try {
+      const result = (await request('ai_nexus_set_agent_selection', {
+        agent_ids: [agentId],
+      })) as CollaborationState
+      if (Array.isArray(result.agents)) setAgents(result.agents)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '儲存 AI 名單失敗')
+    }
+  }
+
   const openAgent = async (agentId: string) => {
     setBusyAction(`open:${agentId}`)
     try {
@@ -534,6 +445,35 @@ export function AiCollaborationWindowApp() {
     }
   }
 
+  const addAgent = async () => {
+    if (!newAgentName.trim()) {
+      setMessage('請輸入 AI 名稱')
+      return
+    }
+    if (!newAgentUrl.trim()) {
+      setMessage('請輸入 AI 網址')
+      return
+    }
+    setBusyAction('add-agent')
+    try {
+      const result = (await request('ai_nexus_add_agent', {
+        name: newAgentName.trim(),
+        provider: newAgentProvider.trim(),
+        home_url: newAgentUrl.trim(),
+      })) as CollaborationState
+      if (result.ok === false) throw new Error(String(result.message || '新增 AI 失敗'))
+      if (Array.isArray(result.agents)) setAgents(result.agents)
+      setNewAgentName('')
+      setNewAgentProvider('')
+      setNewAgentUrl('')
+      setMessage(String(result.message || '已新增 AI'))
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '新增 AI 失敗')
+    } finally {
+      setBusyAction('')
+    }
+  }
+
   const applyPromptPreset = (prompt: string) => {
     setDraft((current) => {
       const trimmed = current.trim()
@@ -565,58 +505,10 @@ export function AiCollaborationWindowApp() {
       )) as CollaborationState
       if (result.ok === false) throw new Error(String(result.message || '送出失敗'))
       setDraft('')
-      if (Array.isArray(result.messages)) setMessages(result.messages)
       if (Array.isArray(result.agents)) setAgents(result.agents)
       setMessage(String(result.message || 'AI 協作已完成'))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'AI 協作送出失敗')
-    } finally {
-      setBusyAction('')
-    }
-  }
-
-  const saveMemory = async () => {
-    if (!memoryDraft.trim()) {
-      setMessage('請輸入共享記憶內容')
-      return
-    }
-    setBusyAction('memory')
-    try {
-      const result = (await request('ai_nexus_add_memory', {
-        kind: 'note',
-        content: memoryDraft,
-      })) as CollaborationState
-      if (result.ok === false) throw new Error(String(result.message || '儲存失敗'))
-      setMemoryDraft('')
-      if (Array.isArray(result.memory_items)) setMemoryItems(result.memory_items)
-      setMessage('共享記憶已儲存')
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '儲存共享記憶失敗')
-    } finally {
-      setBusyAction('')
-    }
-  }
-
-  const completeBrowserResponse = async (messageId: string, agentId: string) => {
-    const key = `${messageId}:${agentId}`
-    const content = String(browserResults[key] || '').trim()
-    if (!content) {
-      setMessage('請貼上該責任 AI 在內建瀏覽器回傳的完整結果')
-      return
-    }
-    setBusyAction(`browser-result:${key}`)
-    try {
-      const result = await request('ai_nexus_complete_browser_response', {
-        message_id: messageId,
-        agent_id: agentId,
-        content,
-      })
-      if (result.ok === false) throw new Error(String(result.message || '提交失敗'))
-      applyState(result as CollaborationState)
-      setBrowserResults((current) => ({ ...current, [key]: '' }))
-      setMessage(String(result.message || '瀏覽器結果已提交'))
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '提交瀏覽器結果失敗')
     } finally {
       setBusyAction('')
     }
@@ -678,54 +570,57 @@ export function AiCollaborationWindowApp() {
           <button type="button" onClick={() => void loadState()} disabled={Boolean(busyAction)}>
             重新整理
           </button>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen((value) => !value)}
+            aria-expanded={settingsOpen}
+          >
+            {settingsOpen ? '關閉設定' : '設定'}
+          </button>
         </div>
-        <section className="ai-collab-top-agents" aria-label="內建 AI 清單">
-          <div className="ai-collab-top-agents-head">
-            <div>
-              <span>AI 名單</span>
-              <strong>{selectedAgentSummary}</strong>
-            </div>
-            <button
-              type="button"
-              onClick={() => setAgentListCollapsed((value) => !value)}
-              aria-expanded={!agentListCollapsed}
-            >
-              {agentListCollapsed ? '展開' : '折疊'}
-            </button>
-          </div>
-          {agentListCollapsed ? (
-            <p className="ai-collab-muted">{selectedAgentNames || '尚未選擇 AI'}</p>
-          ) : (
-            <div className="ai-collab-agent-list ai-collab-agent-list--top">
-              {agents.length === 0 ? (
-                <p className="ai-collab-muted">AI 名單載入中，請確認後端連線...</p>
-              ) : agents.map((agent) => (
-                <article key={agent.agent_id} className="ai-collab-agent ai-collab-agent--top">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selectedAgents.has(agent.agent_id)}
-                      onChange={() => void toggleAgent(agent.agent_id)}
-                      disabled={Boolean(busyAction)}
-                    />
-                    <span>
-                      <strong>{agent.name}</strong>
-                      <em>{agent.provider}</em>
-                    </span>
-                  </label>
-                  <span className={`ai-collab-chip ai-collab-chip--${agent.status}`}>
-                    {responseLabel(agent.status)}
-                  </span>
-                  <div className="ai-collab-agent-actions">
-                    <button type="button" onClick={() => void openAgent(agent.agent_id)} disabled={Boolean(busyAction)}>
-                      {busyAction === `open:${agent.agent_id}` ? '開啟中...' : '開啟'}
-                    </button>
-                    <button type="button" onClick={() => void authorizeAgent(agent.agent_id)} disabled={Boolean(busyAction)}>
-                      {busyAction === `authorize:${agent.agent_id}` ? '開啟中...' : '瀏覽器登入'}
-                    </button>
-                  </div>
-                  <details className="ai-collab-agent-settings">
-                    <summary>網址設定</summary>
+      </header>
+
+      <section className="ai-collab-workspace" aria-label="外部協作雙欄工作區">
+        <div className="ai-collab-left" aria-label="協作輸入與 AI 清單">
+          {settingsOpen ? (
+            <section className="ai-collab-settings" aria-label="設定">
+              <div className="ai-collab-settings-block">
+                <span>新增 AI 名單</span>
+                <input
+                  type="text"
+                  value={newAgentName}
+                  onChange={(event) => setNewAgentName(event.target.value)}
+                  placeholder="AI 名稱，例如 Copilot"
+                  disabled={Boolean(busyAction)}
+                />
+                <input
+                  type="text"
+                  value={newAgentProvider}
+                  onChange={(event) => setNewAgentProvider(event.target.value)}
+                  placeholder="提供者（可留空）"
+                  disabled={Boolean(busyAction)}
+                />
+                <input
+                  type="url"
+                  value={newAgentUrl}
+                  onChange={(event) => setNewAgentUrl(event.target.value)}
+                  placeholder="https://..."
+                  disabled={Boolean(busyAction)}
+                />
+                <button
+                  type="button"
+                  className="ai-collab-primary"
+                  onClick={() => void addAgent()}
+                  disabled={Boolean(busyAction) || !newAgentName.trim() || !newAgentUrl.trim()}
+                >
+                  {busyAction === 'add-agent' ? '新增中...' : '新增 AI'}
+                </button>
+              </div>
+              <div className="ai-collab-settings-block">
+                <span>各 AI 網址設定</span>
+                {agents.map((agent) => (
+                  <details key={agent.agent_id} className="ai-collab-agent-settings">
+                    <summary>{agent.name}</summary>
                     <label>
                       <span>一般業務 URL</span>
                       <input
@@ -749,249 +644,107 @@ export function AiCollaborationWindowApp() {
                       </button>
                     </div>
                   </details>
-                  {agent.last_error ? <p>{agent.last_error}</p> : null}
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-        <section className="ai-collab-top-composer" aria-label="協作需求輸入">
-          <div className="ai-collab-preset-row">
-            <span className="ai-collab-route-label">已選 {selectedAgents.size} 個 AI</span>
-            {PROMPT_PRESETS.map((preset) => (
+                ))}
+              </div>
+            </section>
+          ) : null}
+          <section className="ai-collab-top-agents" aria-label="內建 AI 清單">
+            <div className="ai-collab-top-agents-head">
+              <div>
+                <span>AI 名單</span>
+                <strong>{selectedAgentSummary}</strong>
+              </div>
               <button
-                key={preset.id}
                 type="button"
-                onClick={() => applyPromptPreset(preset.prompt)}
-                disabled={Boolean(busyAction)}
+                onClick={() => setAgentListCollapsed((value) => !value)}
+                aria-expanded={!agentListCollapsed}
               >
-                {preset.label}
+                {agentListCollapsed ? '展開' : '折疊'}
               </button>
-            ))}
-          </div>
-          <textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="輸入要交給已勾選 AI 的協作需求"
-            disabled={Boolean(busyAction)}
-          />
-          <button
-            type="button"
-            className="ai-collab-primary"
-            onClick={() => void sendGroupMessage()}
-            disabled={Boolean(busyAction) || !draft.trim() || selectedAgents.size === 0}
-          >
-            {busyAction === 'send' ? '協作中...' : '送出協作'}
-          </button>
-        </section>
-      </header>
-
-      <section className="ai-collab-workspace" aria-label="外部協作四分之一與四分之三雙欄工作區">
-        <div className="ai-collab-left" aria-label="協作輸入與 AI 清單">
-
-
-      <section className="ai-collab-grid">
-        <aside className="ai-collab-panel ai-collab-agent-card-legacy" hidden aria-hidden="true">
-          <div className="ai-collab-section-head">
-            <div>
-              <span>AI 名單</span>
-              <strong>{selectedAgentSummary}</strong>
             </div>
-            <button
-              type="button"
-              onClick={() => setAgentListCollapsed((value) => !value)}
-              aria-expanded={!agentListCollapsed}
-            >
-              {agentListCollapsed ? '展開' : '折疊'}
-            </button>
-          </div>
-          {agentListCollapsed ? (
-            <p className="ai-collab-muted">{selectedAgentNames || '尚未選擇 AI'}</p>
-          ) : (
-            <div className="ai-collab-agent-list">
-              {agents.length === 0 ? (
-                <p className="ai-collab-muted">AI 名單載入中，請確認後端連線...</p>
-              ) : (
-                agents.map((agent) => (
-                  <article key={agent.agent_id} className="ai-collab-agent">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selectedAgents.has(agent.agent_id)}
-                      onChange={() => void toggleAgent(agent.agent_id)}
-                      disabled={Boolean(busyAction)}
-                    />
-                    <span>
-                      <strong>{agent.name}</strong>
-                      <em>{agent.provider}</em>
-                      <small>
-                        {(agent.business_capabilities || []).map((capability) => ({
-                          search: '搜尋',
-                          advanced_search: '高階搜尋',
-                          calculation: '計算',
-                          longform: '長文',
-                          reasoning: '推理',
-                          social_media: '社群監測',
-                          trends: '時事潮流',
-                          breaking_news: '突發新聞',
-                          google_retrieval: 'Google 擷取',
-                          general: '一般',
-                          comprehensive: '綜合能力',
-                          orchestration: '統籌',
-                        }[capability] || capability)).join(' · ')}
-                      </small>
-                    </span>
-                  </label>
-                  <span className={`ai-collab-chip ai-collab-chip--${agent.status}`}>
-                    {responseLabel(agent.status)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void openAgent(agent.agent_id)}
-                    disabled={Boolean(busyAction)}
-                  >
-                    {busyAction === `open:${agent.agent_id}` ? '開啟中...' : '開啟'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void authorizeAgent(agent.agent_id)}
-                    disabled={Boolean(busyAction)}
-                  >
-                    {busyAction === `authorize:${agent.agent_id}`
-                      ? '開啟中...'
-                      : '瀏覽器登入'}
-                  </button>
-                  <small>共用同一個內建瀏覽器，自動送出並擷取回覆；不使用 CLI 或 API</small>
-                  <div className="ai-collab-agent-business">
+            {agentListCollapsed ? (
+              <p className="ai-collab-muted">{selectedAgentNames || '尚未選擇 AI'}</p>
+            ) : (
+              <div className="ai-collab-agent-list ai-collab-agent-list--top">
+                {agents.length === 0 ? (
+                  <p className="ai-collab-muted">AI 名單載入中，請確認後端連線...</p>
+                ) : agents.map((agent) => (
+                  <article key={agent.agent_id} className="ai-collab-agent ai-collab-agent--top">
                     <label>
-                      <span>一般業務 URL</span>
                       <input
-                        type="url"
-                        value={agent.general_url || ''}
-                        onChange={(event) =>
-                          updateAgentSetting(agent.agent_id, 'general_url', event.target.value)
-                        }
+                        type="checkbox"
+                        checked={selectedAgents.has(agent.agent_id)}
+                        onChange={() => void toggleAgent(agent.agent_id)}
                         disabled={Boolean(busyAction)}
                       />
+                      <span>
+                        <strong>{agent.name}</strong>
+                        <em>{agent.provider}</em>
+                      </span>
                     </label>
-                    <div className="ai-collab-agent-business-flags">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(agent.general_enabled)}
-                          onChange={(event) =>
-                            updateAgentSetting(
-                              agent.agent_id,
-                              'general_enabled',
-                              event.target.checked ? 1 : 0
-                            )
-                          }
-                        />
-                        一般
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => void saveAgentBusinessSettings(agent)}
-                        disabled={Boolean(busyAction)}
-                      >
-                        {busyAction === `settings:${agent.agent_id}` ? '儲存中...' : '儲存 URL'}
+                    <span className={`ai-collab-chip ai-collab-chip--${agent.status}`}>
+                      {responseLabel(agent.status)}
+                    </span>
+                    <div className="ai-collab-agent-actions">
+                      <button type="button" onClick={() => void openAgent(agent.agent_id)} disabled={Boolean(busyAction)}>
+                        {busyAction === `open:${agent.agent_id}` ? '開啟中...' : '開啟'}
+                      </button>
+                      <button type="button" onClick={() => void authorizeAgent(agent.agent_id)} disabled={Boolean(busyAction)}>
+                        {busyAction === `authorize:${agent.agent_id}` ? '開啟中...' : '瀏覽器登入'}
                       </button>
                     </div>
-                  </div>
-                  {agent.last_error ? <p>{agent.last_error}</p> : null}
-                </article>
-              )))}
-            </div>
-          )}
-        </aside>
-
-        <section className="ai-collab-main">
-          <section className="ai-collab-thread">
-            {messages.length === 0 ? (
-              <div className="ai-collab-empty">尚無協作紀錄</div>
-            ) : (
-              messages.map((item) => (
-                  <div key={item.message_id} className="ai-collab-response-list">
-                    {item.responses.map((response) => {
-                      const agent = agentsById.get(response.agent_id)
-                      return (
-                        <section key={response.response_id} className="ai-collab-response">
-                          <div>
-                            <strong>{agent?.name || response.agent_id}</strong>
-                            <span className={`ai-collab-chip ai-collab-chip--${response.status}`}>
-                              {responseLabel(response.status)}
-                            </span>
-                          </div>
-                          <pre>
-                            {response.content
-                              || (response.status === 'awaiting-user'
-                                ? browserActionMessage(response)
-                                : response.error || '等待回覆')}
-                          </pre>
-                          {response.status === 'awaiting-user' ? (
-                            <div>
-                              <textarea
-                                value={browserResults[`${item.message_id}:${response.agent_id}`] || ''}
-                                onChange={(event) =>
-                                  setBrowserResults((current) => ({
-                                    ...current,
-                                    [`${item.message_id}:${response.agent_id}`]: event.target.value,
-                                  }))
-                                }
-                                placeholder="在內建瀏覽器完成操作後，貼上該 AI 的完整結果"
-                                disabled={Boolean(busyAction)}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => void completeBrowserResponse(item.message_id, response.agent_id)}
-                                disabled={Boolean(busyAction)}
-                              >
-                                儲存瀏覽器結果
-                              </button>
-                            </div>
-                          ) : null}
-                        </section>
-                      )
-                    })}
-                  </div>
-              ))
+                    {agent.last_error ? <p>{agent.last_error}</p> : null}
+                  </article>
+                ))}
+              </div>
             )}
           </section>
-        </section>
-
-        <aside className="ai-collab-panel ai-collab-memory-card-legacy" hidden aria-hidden="true">
-          <div className="ai-collab-section-head">
-            <div>
-              <span>共享記憶</span>
-              <strong>{memoryItems.length}</strong>
+          <section className="ai-collab-top-composer" aria-label="協作需求輸入">
+            <div className="ai-collab-preset-row">
+              <select
+                className="ai-collab-agent-select"
+                value={selectedAgents.size === 1 ? Array.from(selectedAgents)[0] : ''}
+                onChange={(event) => void selectSingleAgent(event.target.value)}
+                disabled={Boolean(busyAction) || agents.length === 0}
+                aria-label="選擇協作 AI"
+              >
+                <option value="">
+                  {selectedAgents.size === 0
+                    ? '選擇 AI…'
+                    : `已選 ${selectedAgents.size} 個 AI`}
+                </option>
+                {agents.map((agent) => (
+                  <option key={agent.agent_id} value={agent.agent_id}>
+                    {agent.name}
+                  </option>
+                ))}
+              </select>
+              {PROMPT_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => applyPromptPreset(preset.prompt)}
+                  disabled={Boolean(busyAction)}
+                >
+                  {preset.label}
+                </button>
+              ))}
             </div>
-          </div>
-          <textarea
-            className="ai-collab-memory-input"
-            value={memoryDraft}
-            onChange={(event) => setMemoryDraft(event.target.value)}
-            placeholder="輸入要保存於 AI 協作工具自身資料庫的記憶"
-            disabled={Boolean(busyAction)}
-          />
-          <button type="button" onClick={() => void saveMemory()} disabled={Boolean(busyAction)}>
-            儲存記憶
-          </button>
-          <div className="ai-collab-memory-list">
-            {memoryItems.slice(0, 8).map((item) => (
-              <article key={item.memory_id} className="ai-collab-memory">
-                <strong>{item.title}</strong>
-                <p>{item.content}</p>
-              </article>
-            ))}
-          </div>
-          <section className="ai-collab-system">
-            <span>資料庫：{paths.database || '尚未載入'}</span>
-            <span>工作區：{paths.workspace || '尚未載入'}</span>
-            <span>瀏覽器：內建瀏覽器（受治理 Embedded BrowserView）</span>
-            {safetyNotice ? <p>{safetyNotice}</p> : null}
+            <textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="輸入要交給已勾選 AI 的協作需求"
+              disabled={Boolean(busyAction)}
+            />
+            <button
+              type="button"
+              className="ai-collab-primary"
+              onClick={() => void sendGroupMessage()}
+              disabled={Boolean(busyAction) || !draft.trim() || selectedAgents.size === 0}
+            >
+              {busyAction === 'send' ? '協作中...' : '送出協作'}
+            </button>
           </section>
-        </aside>
-      </section>
         </div>
         <div className="ai-collab-right" ref={rightPanelRef} aria-label="內建瀏覽器網頁區">
           <div className="ai-collab-browser-canvas" />

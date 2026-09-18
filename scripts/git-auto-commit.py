@@ -2,7 +2,7 @@
 """git-auto-commit.py — per-worktree automatic self-commit entry point.
 
 Usage:
-  python scripts/git-auto-commit.py --worktree E:/GPTBridge-worktrees/ui --watch
+  python scripts/git-auto-commit.py --worktree E:/GPTBridge/.worktrees/ui --watch
   python scripts/git-auto-commit.py --all --once
   python scripts/git-auto-commit.py --all --watch   (spawns one watcher per worktree)
 

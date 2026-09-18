@@ -54,6 +54,7 @@ const HISTORY_BUDGET_BY_INTENSITY: Record<TaskIntensity, number> = {
 const DEFAULT_MODEL = 'gemma4:e2b-it-qat'
 const PROGRAMMING_FOLDER_STORAGE_KEY = 'star-chat.programming-folder.v1'
 const CONVERSATION_MODE_STORAGE_KEY = 'star-chat.conversation-mode.v1'
+const PERSONA_STORAGE_KEY = 'star-chat.persona.v1'
 const AUTO_MODEL: ModelOption = {
   name: '',
   label: '自動模型路由（速度、推理與能力強度）',
@@ -226,6 +227,10 @@ export function StarChatWindowApp() {
   const [activeStage, setActiveStage] = useState('準備處理')
   const [programmingFolder, setProgrammingFolder] = useState('')
   const [folderError, setFolderError] = useState('')
+  const [persona, setPersona] = useState(() =>
+    window.localStorage.getItem(PERSONA_STORAGE_KEY) || ''
+  )
+  const [personaStatus, setPersonaStatus] = useState('')
   const [scrolledAway, setScrolledAway] = useState(false)
   const messagesRef = useRef<HTMLDivElement | null>(null)
   const endRef = useRef<HTMLDivElement | null>(null)
@@ -324,6 +329,39 @@ export function StarChatWindowApp() {
     if (remembered) setProgrammingFolder(remembered)
   }, [])
 
+  const xingchengRouteSelected = selectedModel === STAR_NATIVE_MODEL.name
+
+  useEffect(() => {
+    if (!connected || !xingchengRouteSelected) return
+    let disposed = false
+    void request('star_chat_get_persona', {}, 30_000).then((result) => {
+      if (disposed) return
+      if (typeof result.persona_text === 'string' && result.persona_text !== persona) {
+        setPersona(result.persona_text)
+        window.localStorage.setItem(PERSONA_STORAGE_KEY, result.persona_text)
+      }
+    }).catch(() => undefined)
+    return () => { disposed = true }
+    // Load the canonical persona once per route/connect change, not on edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, xingchengRouteSelected, request])
+
+  const savePersona = async () => {
+    const personaText = persona.trim()
+    window.localStorage.setItem(PERSONA_STORAGE_KEY, personaText)
+    setPersonaStatus('儲存中…')
+    try {
+      const result = await request('star_chat_save_persona', {
+        persona_text: personaText,
+      }, 30_000)
+      setPersonaStatus(result.ok === false
+        ? String(result.message || '人格儲存失敗')
+        : '星澄人格已儲存')
+    } catch (error) {
+      setPersonaStatus(error instanceof Error ? error.message : '人格儲存失敗')
+    }
+  }
+
   useEffect(() => {
     if (!generating) {
       setThinkingSeconds(0)
@@ -372,6 +410,7 @@ export function StarChatWindowApp() {
           task_intensity: taskIntensity,
           conversation_mode: conversationMode,
           previous_conversation_mode: pendingModeTransition,
+          persona: persona.trim(),
           context_budget_characters: hardwareContext.characters,
           local_hardware_profile: {
             memory_gb: hardwareContext.memoryGb,
@@ -450,6 +489,35 @@ export function StarChatWindowApp() {
         notice: false,
         failed: content !== '已停止產生回答。',
       } : item))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const runDiagnostic = async (command: string, label: string) => {
+    if (generating || !connected) return
+    const assistantId = crypto.randomUUID()
+    setMessages((current) => [
+      ...current,
+      { id: crypto.randomUUID(), role: 'user', content: label },
+      { id: assistantId, role: 'assistant', content: '檢查中…', notice: true },
+    ])
+    setGenerating(true)
+    setGenerationPhase('thinking')
+    setActiveStage('法典檢查')
+    try {
+      const result = await request(command, {}, 310_000)
+      const text = typeof result.response === 'string' && result.response.trim()
+        ? result.response.trim()
+        : responseText(result)
+      setMessages((current) => current.map((item) => item.id === assistantId
+        ? { ...item, content: text, notice: false, failed: result.ok === false }
+        : item))
+    } catch (error) {
+      const content = error instanceof Error ? error.message : '檢查失敗。'
+      setMessages((current) => current.map((item) => item.id === assistantId
+        ? { ...item, content, notice: false, failed: true }
+        : item))
     } finally {
       setGenerating(false)
     }
@@ -547,6 +615,21 @@ export function StarChatWindowApp() {
                 </optgroup> : null
               })}
             </select></label>
+            {xingchengRouteSelected && <label className="model-picker persona-editor">
+              <span>星澄人格</span>
+              <textarea
+                aria-label="設定星澄人格"
+                value={persona}
+                onChange={(event) => { setPersona(event.target.value); setPersonaStatus('') }}
+                placeholder="描述星澄的性格、語氣與回應風格；一般對話模式會以此人格回應。"
+                disabled={generating || !connected}
+                rows={4}
+              />
+              <div className="persona-actions">
+                <button type="button" onClick={() => void savePersona()} disabled={generating || !connected}>儲存人格</button>
+                {personaStatus && <small>{personaStatus}</small>}
+              </div>
+            </label>}
               </div>
             </details>
             <button className="ghost-button" onClick={() => setMessages([])} disabled={generating || messages.length === 0}>清除本次對話</button>
@@ -596,6 +679,10 @@ export function StarChatWindowApp() {
               {generating
                 ? <button className="stop-button" aria-label="停止產生回答" title="停止產生回答" onClick={stopGenerating}>■</button>
                 : <button aria-label="送出訊息" onClick={() => void sendMessage()} disabled={!draft.trim() || !connected}>↑</button>}
+            </div>
+            <div className="governance-checks">
+              <button type="button" disabled={generating || !connected} onClick={() => void runDiagnostic('star_chat_codex_alignment', '法典 × 實作對齊檢查')}>法典 × 實作對齊</button>
+              <button type="button" disabled={generating || !connected} onClick={() => void runDiagnostic('star_chat_architecture_sync', '中文法典 × 架構圖同步檢查')}>法典 × 架構圖同步</button>
             </div>
             <small className="composer-hint">{conversationMode === 'chat' ? 'Chat 一般對話' : 'Coding 程式工作'} · Enter 送出 · Shift + Enter 換行 · 上下文依本機負載自動調整</small>
           </div>

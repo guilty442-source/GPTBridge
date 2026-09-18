@@ -1,4 +1,4 @@
-"""Split from consolidated test_main_system.py (main-system/tests/test_special_unpacked_runtime.py)."""
+﻿"""Split from consolidated test_main_system.py (main-system/tests/test_special_unpacked_runtime.py)."""
 from __future__ import annotations
 
 import _main_system_test_support as _support  # noqa: F401
@@ -7,10 +7,45 @@ from _test_special_unpacked_runtime_helpers import GovernanceStub
 
 import asyncio
 import json
+import tempfile
 import sys
 from pathlib import Path
 import pytest
 from tasks.toolbox_service import ToolboxService  # noqa: E402
+
+def _create_test_tool_dir(tool_id: str, stoppable: bool = True, independent: bool = False) -> Path:
+    """Create a temporary tool directory with a manifest for testing."""
+    tmpdir = Path(tempfile.mkdtemp(prefix=f"test_tool_{tool_id}_"))
+    manifest = {
+        "id": tool_id,
+        "status": "stopped",
+        "enabled": True,
+        "lifecycle": {"stoppable": stoppable},
+        "main_system_independent_tool": independent,
+        "has_custom_ui": False,
+        "runtime": {"type": "python", "entry": "src/main.py"},
+        "distribution": {"mode": "special-unpackaged", "package": False},
+        "request_channel": {
+            "model": "governance-authenticated-shared-layer",
+            "runtime_entry": "src/channel_runtime.py",
+            "direct_instruction": "PERMISSION_DENIED"
+        },
+        "launch": {"background": "governed-source-channel"},
+    }
+    (tmpdir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    # Create dummy runtime entry file
+    (tmpdir / "src").mkdir(exist_ok=True)
+    (tmpdir / "src" / "channel_runtime.py").write_text("# dummy", encoding="utf-8")
+    return tmpdir
+
+@pytest.fixture
+def temp_test_tool():
+    """Create a temporary test tool directory that is stoppable and not independent."""
+    tmpdir = _create_test_tool_dir("test-force-close-tool", stoppable=True, independent=False)
+    yield tmpdir
+    # Cleanup
+    import shutil
+    shutil.rmtree(tmpdir, ignore_errors=True)
 
 def test_start_failure_requests_central_repair_then_retries_lifecycle(
     monkeypatch: pytest.MonkeyPatch,
@@ -283,72 +318,84 @@ def test_source_ui_runtime_session_change_is_part_of_auto_repair() -> None:
 
 def test_force_close_verifies_no_background_process_remains(
     monkeypatch: pytest.MonkeyPatch,
+    temp_test_tool: Path,
 ) -> None:
-    service = ToolboxService(ROOT, governance=GovernanceStub())
+    governance = GovernanceStub()
+    governance.maintenance_ready = True
+    service = ToolboxService(ROOT, governance=governance)
     stop_calls: list[Path] = []
-    monkeypatch.setattr(
-        service,
-        "_running_source_runtime_process_ids",
-        lambda _entry: [],
-    )
-    monkeypatch.setattr(
-        service,
-        "_stop_running_source_runtime",
-        lambda entry: stop_calls.append(entry) or [43210],
-    )
-    monkeypatch.setattr(service, "_running_executable_process_ids", lambda _entry: [])
-    monkeypatch.setattr(service, "_stop_running_executable", lambda _entry: [])
-    monkeypatch.setattr(service, "_running_packaged_backend_process_ids", lambda _root: [])
-    monkeypatch.setattr(service, "_stop_running_packaged_backend", lambda _root: [])
-    monkeypatch.setattr(service, "_running_source_ui_process_ids", lambda _tool_id: [])
-    monkeypatch.setattr(service, "_stop_running_source_ui", lambda _tool_id: [])
+
+    # Mock the tool directory and manifest loading
+    monkeypatch.setattr(service, "_tool_directory_for_id", lambda tool_id: temp_test_tool)
+    monkeypatch.setattr(service, "_load_manifest_cached", lambda tool_id: (
+        {"lifecycle": {"stoppable": True}, "main_system_independent_tool": False}, temp_test_tool
+    ))
+    monkeypatch.setattr(service, "_is_independent_tool", lambda tool_id: False)
+    # Mock _run_bounded_sweep directly
+    async def mock_run_bounded_sweep(*args, **kwargs):
+        return set(), []
+    monkeypatch.setattr(service, "_run_bounded_sweep", mock_run_bounded_sweep)
+    # Also mock the terminate_tracked to return our stop calls
+    async def mock_terminate(tool_id):
+        stop_calls.append(temp_test_tool)
+        return {43210}
+    monkeypatch.setattr(service, "_terminate_tracked_tool_processes", mock_terminate)
+    # Mock update_status
+    async def mock_update_status(tool_id, status):
+        return {"ok": True}
+    monkeypatch.setattr(service, "update_status", mock_update_status)
 
     result = asyncio.run(
         service.force_close_tool(
             {
-                "tool_id": "ai-assistant",
+                "tool_id": "test-force-close-tool",
                 "request_id": "force-close-test",
             }
         )
     )
+    print(f"DEBUG result: {result}")
 
     assert result["ok"] is True
     assert result["request_id"] == "force-close-test"
     assert result["force_closed"] is True
     assert result["remaining_process_ids"] == []
     assert result["force_closed_process_ids"] == [43210]
-    # One native pass per process class keeps close inside the 5s budget.
     assert len(stop_calls) == 1
     assert result["within_budget"] is True
     assert result["budget_ms"] == 5000
-    assert "ai-assistant" in service._force_closed_tool_ids
+    assert "test-force-close-tool" in service._force_closed_tool_ids
 
 
 def test_force_close_fails_if_a_background_process_survives(
     monkeypatch: pytest.MonkeyPatch,
+    temp_test_tool: Path,
 ) -> None:
-    service = ToolboxService(ROOT, governance=GovernanceStub())
-    monkeypatch.setattr(
-        service,
-        "_running_source_runtime_process_ids",
-        lambda _entry: [99999],
-    )
-    monkeypatch.setattr(
-        service,
-        "_stop_running_source_runtime",
-        lambda _entry: [99999],
-    )
-    monkeypatch.setattr(service, "_running_executable_process_ids", lambda _entry: [])
-    monkeypatch.setattr(service, "_stop_running_executable", lambda _entry: [])
-    monkeypatch.setattr(service, "_running_packaged_backend_process_ids", lambda _root: [])
-    monkeypatch.setattr(service, "_stop_running_packaged_backend", lambda _root: [])
-    monkeypatch.setattr(service, "_running_source_ui_process_ids", lambda _tool_id: [])
-    monkeypatch.setattr(service, "_stop_running_source_ui", lambda _tool_id: [])
+    governance = GovernanceStub()
+    governance.maintenance_ready = True
+    service = ToolboxService(ROOT, governance=governance)
+
+    # Mock the tool directory and manifest loading
+    monkeypatch.setattr(service, "_tool_directory_for_id", lambda tool_id: temp_test_tool)
+    monkeypatch.setattr(service, "_load_manifest_cached", lambda tool_id: (
+        {"lifecycle": {"stoppable": True}, "main_system_independent_tool": False}, temp_test_tool
+    ))
+    monkeypatch.setattr(service, "_is_independent_tool", lambda tool_id: False)
+    # Mock _run_bounded_sweep to return remaining process
+    async def mock_run_bounded_sweep_survivor(*args, **kwargs):
+        return set(), [99999]
+    monkeypatch.setattr(service, "_run_bounded_sweep", mock_run_bounded_sweep_survivor)
+    async def mock_terminate(tool_id):
+        return {99999}
+    monkeypatch.setattr(service, "_terminate_tracked_tool_processes", mock_terminate)
+    # Mock update_status
+    async def mock_update_status(tool_id, status):
+        return {"ok": True}
+    monkeypatch.setattr(service, "update_status", mock_update_status)
 
     result = asyncio.run(
         service.force_close_tool(
             {
-                "tool_id": "ai-assistant",
+                "tool_id": "test-force-close-tool",
                 "request_id": "force-close-survivor-test",
             }
         )
@@ -361,20 +408,33 @@ def test_force_close_fails_if_a_background_process_survives(
 
 def test_force_close_hybrid_tool_stops_exe_source_backend_and_ui(
     monkeypatch: pytest.MonkeyPatch,
+    temp_test_tool: Path,
 ) -> None:
-    service = ToolboxService(ROOT, governance=GovernanceStub())
-    monkeypatch.setattr(service, "_stop_running_source_runtime", lambda _entry: [1001])
-    monkeypatch.setattr(service, "_stop_running_executable", lambda _entry: [1002])
-    monkeypatch.setattr(service, "_stop_running_packaged_backend", lambda _root: [1003])
-    monkeypatch.setattr(service, "_stop_running_source_ui", lambda _tool_id: [1004])
-    monkeypatch.setattr(service, "_running_source_runtime_process_ids", lambda _entry: [])
-    monkeypatch.setattr(service, "_running_executable_process_ids", lambda _entry: [])
-    monkeypatch.setattr(service, "_running_packaged_backend_process_ids", lambda _root: [])
-    monkeypatch.setattr(service, "_running_source_ui_process_ids", lambda _tool_id: [])
+    governance = GovernanceStub()
+    governance.maintenance_ready = True
+    service = ToolboxService(ROOT, governance=governance)
+
+    # Mock the tool directory and manifest loading
+    monkeypatch.setattr(service, "_tool_directory_for_id", lambda tool_id: temp_test_tool)
+    monkeypatch.setattr(service, "_load_manifest_cached", lambda tool_id: (
+        {"lifecycle": {"stoppable": True}, "main_system_independent_tool": False}, temp_test_tool
+    ))
+    monkeypatch.setattr(service, "_is_independent_tool", lambda tool_id: False)
+    # Mock _run_bounded_sweep to return all stopped
+    async def mock_run_bounded_sweep_all(*args, **kwargs):
+        return {1001, 1002, 1003, 1004}, []
+    monkeypatch.setattr(service, "_run_bounded_sweep", mock_run_bounded_sweep_all)
+    async def mock_terminate(tool_id):
+        return set()
+    monkeypatch.setattr(service, "_terminate_tracked_tool_processes", mock_terminate)
+    # Mock update_status
+    async def mock_update_status(tool_id, status):
+        return {"ok": True}
+    monkeypatch.setattr(service, "update_status", mock_update_status)
 
     result = asyncio.run(
         service.force_close_tool(
-            {"tool_id": "ai-assistant", "request_id": "hybrid-force-close"}
+            {"tool_id": "test-force-close-tool", "request_id": "hybrid-force-close"}
         )
     )
 
@@ -384,24 +444,41 @@ def test_force_close_hybrid_tool_stops_exe_source_backend_and_ui(
 
 def test_force_close_includes_orphaned_packaged_backend(
     monkeypatch: pytest.MonkeyPatch,
+    temp_test_tool: Path,
 ) -> None:
-    service = ToolboxService(ROOT, governance=GovernanceStub())
-    monkeypatch.setattr(service, "_running_executable_process_ids", lambda _entry: [])
-    monkeypatch.setattr(service, "_stop_running_executable", lambda _entry: [])
-    monkeypatch.setattr(service, "_running_source_runtime_process_ids", lambda _entry: [])
-    monkeypatch.setattr(service, "_stop_running_source_runtime", lambda _entry: [])
-    monkeypatch.setattr(service, "_running_source_ui_process_ids", lambda _tool_id: [])
-    monkeypatch.setattr(service, "_stop_running_source_ui", lambda _tool_id: [])
-    monkeypatch.setattr(
-        service,
-        "_stop_running_packaged_backend",
-        lambda _tool_dir: [24680],
+    governance = GovernanceStub()
+    governance.maintenance_ready = True
+    service = ToolboxService(ROOT, governance=governance)
+
+    # Mock the tool directory and manifest loading
+    monkeypatch.setattr(service, "_tool_directory_for_id", lambda tool_id: temp_test_tool)
+    monkeypatch.setattr(service, "_load_manifest_cached", lambda tool_id: (
+        {"lifecycle": {"stoppable": True}, "main_system_independent_tool": False}, temp_test_tool
+    ))
+    monkeypatch.setattr(service, "_is_independent_tool", lambda tool_id: False)
+    # Mock _run_bounded_sweep to return packaged backend stopped
+    async def mock_run_bounded_sweep_packaged(*args, **kwargs):
+        return {24680}, []
+    monkeypatch.setattr(service, "_run_bounded_sweep", mock_run_bounded_sweep_packaged)
+    async def mock_terminate(tool_id):
+        return set()
+    monkeypatch.setattr(service, "_terminate_tracked_tool_processes", mock_terminate)
+    # Mock update_status
+    async def mock_update_status(tool_id, status):
+        return {"ok": True}
+    monkeypatch.setattr(service, "update_status", mock_update_status)
+
+    result = asyncio.run(
+        service.force_close_tool(
+            {
+                "tool_id": "test-force-close-tool",
+                "request_id": "force-close-packaged-backend-test",
+            }
+        )
     )
-    monkeypatch.setattr(
-        service,
-        "_running_packaged_backend_process_ids",
-        lambda _tool_dir: [],
-    )
+
+    assert result["ok"] is True
+    assert result["force_closed_process_ids"] == [24680]
 
     result = asyncio.run(
         service.force_close_tool(

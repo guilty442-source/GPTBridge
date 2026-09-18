@@ -1347,7 +1347,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 131  # 001 through 129 plus the two historical duplicates
+EXPECTED_MIGRATION_COUNT = 132  # 001 through 130
 
 
 @dataclass

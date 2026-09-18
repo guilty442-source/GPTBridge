@@ -131,4 +131,19 @@ class ConnectionManager:
                     self._connection_count -= 1
 
 
-__all__ = ["ConnectionManager", "database_dsn"]
+_MANAGER: "ConnectionManager | None" = None
+_MANAGER_LOCK = Lock()
+
+
+def get_connection_manager() -> "ConnectionManager":
+    """Lazy process-wide connection manager for maintenance telemetry."""
+    global _MANAGER
+    with _MANAGER_LOCK:
+        if _MANAGER is None:
+            manager = ConnectionManager(DatabaseSettings.from_environment())
+            manager.open()
+            _MANAGER = manager
+        return _MANAGER
+
+
+__all__ = ["ConnectionManager", "database_dsn", "get_connection_manager"]

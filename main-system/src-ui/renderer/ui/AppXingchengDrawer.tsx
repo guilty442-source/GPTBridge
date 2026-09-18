@@ -424,19 +424,22 @@ export function XingchengDrawer({
           </div>
           {(
             [
-              ['automatic_repair_enabled', xr.switchRepair, repairSwitchOn],
-              ['automatic_update_enabled', xr.switchUpdate, updateSwitchOn],
-            ] as Array<[string, string, boolean]>
-          ).map(([switchName, label, enabled]) => (
+              ['automatic_repair_enabled', xr.switchRepair, repairSwitchOn, true],
+              ['automatic_update_enabled', xr.switchUpdate, updateSwitchOn, false],
+            ] as Array<[string, string, boolean, boolean]>
+          ).map(([switchName, label, enabled, managed]) => (
             <div className="xingcheng-switch" key={switchName}>
-              <span className="xingcheng-switch__label">{label}</span>
+              <span className="xingcheng-switch__label">
+                {label}
+                {managed ? ` · ${xr.switchManaged}` : ''}
+              </span>
               <button
                 type="button"
                 className="xingcheng-switch__toggle"
                 data-tone={enabled ? 'on' : 'off'}
                 data-testid={`switch-${switchName}`}
-                disabled={switchBusy === switchName}
-                onClick={() => void onSwitch(switchName, !enabled)}
+                disabled={managed || switchBusy === switchName}
+                onClick={managed ? undefined : () => void onSwitch(switchName, !enabled)}
               >
                 {enabled ? xr.switchOn : xr.switchOff}
               </button>

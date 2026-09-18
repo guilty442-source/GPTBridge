@@ -25,10 +25,12 @@ from typing import Any, Final
 
 from . import TIER3_OPS, audit_log, classify
 from . import audit_chain
+from .paths import BACKUP_ROOT_RELATIVE, contained
 
 RECOVERY_REF_PREFIX: Final[str] = "refs/gptbridge/recovery/"
 AUTOMATION_STATE_RELATIVE: Final[str] = "gptbridge-automation"
-DEFAULT_BACKUP_ROOT: Final[str] = r"E:\GPTBridge-backups\git"
+#: Backup root, relative to the repository root (A201 containment).
+DEFAULT_BACKUP_ROOT: Final[str] = BACKUP_ROOT_RELATIVE.as_posix()
 
 BUNDLE_KINDS: Final[frozenset[str]] = frozenset(
     {"release", "pre-migration", "governance-structure", "ref-maintenance", "manual"}
@@ -88,7 +90,6 @@ class RecoveryPoint:
     recovery_id: str
     timestamp: str
     main_revision: str
-    central_main_revision: str
     origin_main_revision: str
     queue_id: str
     source_branch: str
@@ -109,7 +110,6 @@ class BundleManifest:
     created_at: str
     source_repository: str
     main_revision: str
-    central_revision: str
     origin_revision: str
     included_refs: list[str]
     audit_sequence: int
@@ -160,7 +160,6 @@ class RecoveryPlan:
     repository_state: str
     known_good_revision: str
     current_revision: str
-    central_revision: str
     origin_revision: str
     recovery_points: list[str]
     bundle_available: list[str]
@@ -182,8 +181,11 @@ class GitDisasterRecovery:
         enable_audit: bool = True,
     ) -> None:
         self.root = Path(root).resolve()
-        self.backup_root = Path(
-            backup_root or os.environ.get("GPTBRIDGE_GIT_BACKUP_ROOT") or DEFAULT_BACKUP_ROOT
+        configured = backup_root or os.environ.get("GPTBRIDGE_GIT_BACKUP_ROOT")
+        self.backup_root = contained(
+            self.root,
+            configured or DEFAULT_BACKUP_ROOT,
+            purpose="backup-root",
         )
         self.enable_audit = enable_audit
 
@@ -341,7 +343,6 @@ class GitDisasterRecovery:
             recovery_id=recovery_id,
             timestamp=time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime()),
             main_revision=main,
-            central_main_revision=self.ref_value("refs/remotes/central/main"),
             origin_main_revision=self.ref_value("refs/remotes/origin/main"),
             queue_id=queue_id,
             source_branch=source_branch,
@@ -438,7 +439,6 @@ class GitDisasterRecovery:
             created_at=time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime()),
             source_repository=str(self.root),
             main_revision=main,
-            central_revision=self.ref_value("refs/remotes/central/main"),
             origin_revision=self.ref_value("refs/remotes/origin/main"),
             included_refs=self._included_refs(),
             audit_sequence=self.audit_sequence(),
@@ -584,17 +584,15 @@ class GitDisasterRecovery:
 
     def revision_matrix(self) -> dict[str, Any]:
         local = self.ref_value("refs/heads/main")
-        central = self.ref_value("refs/remotes/central/main")
         origin = self.ref_value("refs/remotes/origin/main")
         matrix: dict[str, Any] = {
             "local": local,
-            "central": central,
             "origin": origin,
             "classification": "UNKNOWN",
             "ancestry": {},
             "missing_commits": {},
         }
-        refs = {"local": local, "central": central, "origin": origin}
+        refs = {"local": local, "origin": origin}
         for name, sha in refs.items():
             matrix["ancestry"][name] = {
                 other: bool(sha and other_sha and sha != other_sha and self._is_ancestor(sha, other_sha))
@@ -607,24 +605,12 @@ class GitDisasterRecovery:
             matrix["classification"] = "UNKNOWN"
         elif len(set(present.values())) == 1:
             matrix["classification"] = "ALL_EQUAL"
+        elif self._is_ancestor(local, origin):
+            matrix["classification"] = "ORIGIN_AHEAD"
+        elif self._is_ancestor(origin, local):
+            matrix["classification"] = "LOCAL_AHEAD"
         else:
-            ahead = [
-                name
-                for name, sha in present.items()
-                if all(self._is_ancestor(other_sha, sha) for other, other_sha in present.items() if other != name)
-            ]
-            if len(ahead) == 1:
-                matrix["classification"] = {
-                    "local": "LOCAL_AHEAD",
-                    "central": "CENTRAL_AHEAD",
-                    "origin": "ORIGIN_AHEAD",
-                }[ahead[0]]
-            elif len(present) >= 3:
-                matrix["classification"] = "MULTI_DIVERGED"
-            elif "local" in present and "central" in present:
-                matrix["classification"] = "LOCAL_DIVERGED"
-            else:
-                matrix["classification"] = "CENTRAL_DIVERGED"
+            matrix["classification"] = "LOCAL_DIVERGED"
         for name, sha in present.items():
             counts = self._try(["rev-list", "--count", f"refs/heads/main..{sha}"])
             matrix["missing_commits"][name] = int(counts or 0) if counts.isdigit() else 0
@@ -826,8 +812,8 @@ class GitDisasterRecovery:
         if self.hook_integrity()["state"] == "FAILED":
             triggers.append("hook-integrity-failure")
         matrix = self.revision_matrix()
-        if matrix["classification"] in ("MULTI_DIVERGED", "CENTRAL_DIVERGED", "LOCAL_DIVERGED"):
-            triggers.append("central-divergence-unknown")
+        if matrix["classification"] in ("MULTI_DIVERGED", "LOCAL_DIVERGED"):
+            triggers.append("remote-divergence-unknown")
         return triggers
 
     def evaluate_emergency_mode(self, *, auto_apply: bool = False) -> dict[str, Any]:
@@ -856,7 +842,6 @@ class GitDisasterRecovery:
             repository_state=diagnosis.state,
             known_good_revision=points[-1].main_revision if points else "",
             current_revision=main,
-            central_revision=matrix["central"],
             origin_revision=matrix["origin"],
             recovery_points=[point.recovery_id for point in points][-10:],
             bundle_available=[str(entry.get("name") or "") for entry in bundles][-5:],

@@ -32,6 +32,26 @@ class ToolPackageRebuilder:
             / "platform_packager.py"
         ).resolve()
 
+    def _tool_manifest_root(self, target_id: str) -> Path | None:
+        """Resolve the tool's registered root under ``Standalone tools``.
+
+        Tools live under ``Standalone tools/<tool>`` (and one level deeper
+        for nested companions), not at the project root.  The governed
+        target is the directory whose manifest declares ``id`` equal to
+        the target — the same rule the packager's ``iter_tools`` uses.
+        """
+        tools_root = self.project_root / "Standalone tools"
+        if not tools_root.is_dir():
+            return None
+        for manifest_path in sorted(tools_root.rglob("manifest.json")):
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                continue
+            if isinstance(manifest, dict) and str(manifest.get("id") or "") == target_id:
+                return manifest_path.parent
+        return None
+
     @staticmethod
     def _is_regular_file(path: Path) -> bool:
         try:
@@ -54,7 +74,7 @@ class ToolPackageRebuilder:
         if (
             self.package_script != expected_script
             or not self._is_regular_file(self.package_script)
-            or not (self.project_root / target_id / "manifest.json").is_file()
+            or self._tool_manifest_root(target_id) is None
         ):
             return {"ok": False, "error_code": "PACKAGE_REBUILDER_UNAVAILABLE"}
 

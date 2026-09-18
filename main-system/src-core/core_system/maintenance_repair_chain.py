@@ -152,98 +152,10 @@ class MaintenanceRepairChainMixin:
         # ── Step 1: health classification (maintenance scope: health-only) ──
         classified = self._classify_health_signal(decision_proof, request=request)
 
-        # ── User-confirmation gate (user directive) ──
-        # While automatic repair execution is disabled, classify and queue
-        # the fault for individual confirmation in the assistant panel.
-        # Nothing is decided, permitted, dispatched, or mutated here.
-        # Stability-tier recovery (``runtime-recovery`` — non-mutating
-        # governed recovery under the ``automatic_repair`` stability-only
-        # scope) is not a mutation and is not gated by this switch; it
-        # proceeds straight to the decision-sovereign like the
-        # start-failure rebuild path.
-        from core_system.auto_action_policy import (
-            automatic_repair_execution_allowed,
-            record_pending_action,
-        )
-
-        if (
-            not automatic_repair_execution_allowed()
-            and str(classified.get("action") or "") != "runtime-recovery"
-        ):
-            try:
-                coordinator.await_user_confirmation(
-                    request_id, classified=classified
-                )
-            except Exception:
-                pass
-            try:
-                project_root = getattr(coordinator, "project_root", None)
-                if project_root is not None:
-                    from datetime import datetime, timedelta, timezone
-
-                    from core_system.auto_action_policy import (
-                        CONFIRMATION_TTL_SECONDS,
-                    )
-
-                    expires_at = (
-                        datetime.now(timezone.utc)
-                        + timedelta(seconds=CONFIRMATION_TTL_SECONDS)
-                    ).isoformat()
-                    failure_code = str(request.get("failure_code") or "")
-                    target_file = str(classified.get("target_file") or "")
-                    record_pending_action(
-                        project_root,
-                        kind="repair",
-                        summary=(
-                            f"{failure_code or 'fault'}"
-                            f" ({classified.get('error_type') or 'unknown'})"
-                        ),
-                        detail={
-                            "request_id": request_id,
-                            "failure_code": failure_code,
-                            "owner": str(request.get("owner") or ""),
-                            "classified": classified,
-                            "requested_at": str(request.get("requested_at") or ""),
-                        },
-                        action_id=f"repair-{request_id}",
-                        binding={
-                            "fault_id": request_id,
-                            "scope": target_file or failure_code or "main-system",
-                            "target": target_file or failure_code or "main-system",
-                            "proposed_method": (
-                                str(classified.get("action") or "")
-                                or "targeted-source-repair"
-                            ),
-                            "risk": str(
-                                decision_proof.get("severity")
-                                or decision_proof.get("risk")
-                                or "unclassified"
-                            ),
-                            "rollback": (
-                                "governed repair backup + independent verification; "
-                                "failed verification rolls back"
-                            ),
-                            "expires_at": expires_at,
-                        },
-                    )
-            except Exception:
-                pass
-            try:
-                asyncio.create_task(
-                    self._notify_ui(
-                        "maintenance:repair-awaiting-confirmation",
-                        {
-                            "request_id": request_id,
-                            "failure_code": str(request.get("failure_code") or ""),
-                            "error_type": str(classified.get("error_type") or ""),
-                            "target_file": str(classified.get("target_file") or ""),
-                            "requires_user_confirmation": True,
-                        },
-                    )
-                )
-            except Exception:
-                pass
-            return
+        # Autonomous repair (governor directive 2026-09-18): the
+        # per-item user-confirmation gate is retired — every classified
+        # signal proceeds to the decision-sovereign and through the
+        # system-audit flow (change-acceptance intake inside the chain).
 
         # ── Step 2: delegate repair decision to decision-sovereign ──
         decision_sovereign = getattr(self.app, "decision_sovereign", None)
@@ -320,6 +232,7 @@ class MaintenanceRepairChainMixin:
             else "targeted-source-repair"
         )
         return {
+            "request_id": str(request.get("request_id") or ""),
             "error_type": str(diagnosis.get("error_type") or ""),
             "target_file": str(diagnosis.get("file") or ""),
             "action": action,
@@ -350,30 +263,42 @@ class MaintenanceRepairChainMixin:
         is recorded in the persistent learning store (E127:
         ``LEARNING:learning-system``) and the audit ledger.
         """
+        # ``denied-*`` decisions are negative decisions, not failed
+        # repairs — recording them as ok=0 outcomes pollutes the fault
+        # surface and skews learned-remedy suppression statistics.
+        decision = str((result or {}).get("decision") or "")
+        if decision.startswith("denied-"):
+            return
+
         # Record in the learning store.
         try:
+            failure_code = str(
+                classified.get("failure_code")
+                or request.get("failure_code")
+                or ""
+            )
+            error_class = str(classified.get("error_type") or "Unknown")
+            target_tool_id = str(classified.get("tool_id") or "main-system")
             self.record_repair_outcome(
-                error_class=str(classified.get("error_type") or "Unknown"),
+                error_class=error_class,
                 message=str(classified.get("reason") or ""),
-                failure_code=str(
-                    classified.get("failure_code")
-                    or request.get("failure_code")
-                    or ""
-                ),
+                failure_code=failure_code,
                 remedy=str(
                     classified.get("remedy") or "targeted-source-repair"
                 ),
                 ok=ok,
                 file_path=str(classified.get("target_file") or ""),
-                target_tool_id=str(
-                    classified.get("tool_id") or "main-system"
-                ),
+                target_tool_id=target_tool_id,
                 run_id=str(request.get("request_id") or ""),
                 detail={
                     "execution": (result or {}).get("execution", {}),
                     "verification": (result or {}).get("verification", {}),
-                    "decision": (result or {}).get("decision", ""),
+                    "decision": decision,
                     "request_id": str(request.get("request_id") or ""),
+                    "failure_code": failure_code,
+                    "error_class": error_class,
+                    "target_tool_id": target_tool_id,
+                    "audit": (result or {}).get("audit", {}),
                 },
             )
         except Exception:
@@ -405,6 +330,7 @@ class MaintenanceRepairChainMixin:
                         "error_type": str(classified.get("error_type") or ""),
                         "decision": str(result.get("decision") or ""),
                         "verification": result.get("verification", {}),
+                        "audit": result.get("audit", {}),
                         "health_authority": self.ROLE,
                         "decision_authority": "decision-sovereign",
                     },

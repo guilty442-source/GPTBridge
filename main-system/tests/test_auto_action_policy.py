@@ -19,21 +19,30 @@ class _App:
         self.project_root = project_root
 
 
-def test_switches_default_to_frozen(tmp_path: Path) -> None:
+def test_switches_default_state(tmp_path: Path) -> None:
     switches = auto_action_policy.read_automation_switches(tmp_path)
-    assert switches["automatic_repair_enabled"] is False
+    # Repair switch retired: reads as managed-by-system audit flow.
+    assert switches["automatic_repair_enabled"] is True
+    assert switches["automatic_repair_managed_by"] == "system-audit-flow"
     assert switches["automatic_update_enabled"] is False
-    assert auto_action_policy.switch_enabled_for_kind("repair") is False
+    assert auto_action_policy.switch_enabled_for_kind("repair") is True
     assert auto_action_policy.switch_enabled_for_kind("update") is False
 
 
-def test_set_switch_persists_and_audits(tmp_path: Path) -> None:
+def test_repair_switch_write_rejected_update_switch_persists(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError):
+        auto_action_policy.set_automation_switch(
+            tmp_path, "automatic_repair_enabled", False, actor="test-user"
+        )
+
     record = auto_action_policy.set_automation_switch(
-        tmp_path, "automatic_repair_enabled", True, actor="test-user"
+        tmp_path, "automatic_update_enabled", True, actor="test-user"
     )
-    assert record["automatic_repair_enabled"] is True
+    assert record["automatic_update_enabled"] is True
     switches = auto_action_policy.read_automation_switches(tmp_path)
-    assert switches["automatic_repair_enabled"] is True
+    assert switches["automatic_update_enabled"] is True
     assert switches["updated_by"] == "test-user"
 
     audit_path = tmp_path.joinpath(*auto_action_policy.SWITCH_AUDIT_RELATIVE)
@@ -42,7 +51,7 @@ def test_set_switch_persists_and_audits(tmp_path: Path) -> None:
         for line in audit_path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert entries[-1]["switch"] == "automatic_repair_enabled"
+    assert entries[-1]["switch"] == "automatic_update_enabled"
     assert entries[-1]["previous"] is False
     assert entries[-1]["enabled"] is True
 

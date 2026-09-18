@@ -245,6 +245,13 @@ class ProcessMixin:
                 self._request_kinds.get(request_id),
             )
 
+    async def tool_process_active(self, tool_id: str) -> bool:
+        """True when a live governed process currently backs ``tool_id``."""
+        _request_id, process, _kind = await self._active_tool_process(tool_id)
+        if process is not None and process.returncode is None:
+            return True
+        return bool(self._started_request_by_tool.get(tool_id))
+
     async def _started_tool_process(
         self,
         tool_id: str,

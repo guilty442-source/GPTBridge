@@ -185,12 +185,14 @@ class ConnectionAuditMixin:
             self._record_learning(
                 failure_code, from_state, to_state, ok=False, run_id=event.event_id
             )
-        elif is_recovery and self._last_fault is not None:
-            failure_code, fault_from, fault_to = self._last_fault
-            self._last_fault = None
-            self._record_learning(
-                failure_code, fault_from, fault_to, ok=True, run_id=event.event_id
-            )
+        elif is_recovery:
+            if self._last_fault is not None:
+                failure_code, fault_from, fault_to = self._last_fault
+                self._last_fault = None
+                self._record_learning(
+                    failure_code, fault_from, fault_to, ok=True, run_id=event.event_id
+                )
+            self._absorb_recovered_connection_faults(run_id=event.event_id)
 
     def _record_learning(
         self,
@@ -252,6 +254,70 @@ class ConnectionAuditMixin:
             if not ok:
                 self._learning_store.record_error(sig)
             self._learning_store.record_outcome(outcome)
+
+    def _absorb_recovered_connection_faults(self, *, run_id: str) -> None:
+        """Absorb outstanding watchdog failure evidence after recovery.
+
+        A transition into ``connected`` proves every earlier
+        watchdog-recorded fault resolved — including faults recorded by a
+        previous watchdog generation, whose open fault never reaches this
+        process's ``_last_fault``.  Each unabsorbed ``connection-watchdog``
+        failure outcome gets a ``no-action-required`` reconciliation marker
+        (``detail.source_outcome_id``): the evidence row is never deleted,
+        it only leaves the live fault surface.  The marker carries
+        ``ok=True`` under the absorbed signature so the learning store also
+        sees the signature resolved.
+        """
+        store = self._learning_store
+        if store is None:
+            return
+        try:
+            from uuid import uuid4
+
+            from .repair_learning import (
+                NON_ACTIONABLE_REMEDY,
+                RECONCILIATION_SOURCE_FIELD,
+                RepairOutcome,
+                absorbed_outcome_ids,
+            )
+
+            connection = store._connect()
+            try:
+                absorbed = absorbed_outcome_ids(connection)
+                rows = connection.execute(
+                    "SELECT outcome_id, signature_hash, detail_json "
+                    "FROM repair_outcomes WHERE ok = 0 AND remedy = ? "
+                    "ORDER BY recorded_at DESC LIMIT 200",
+                    ("connection-watchdog",),
+                ).fetchall()
+            finally:
+                connection.close()
+            for outcome_id, signature_hash, detail_json in rows:
+                if str(outcome_id) in absorbed:
+                    continue
+                detail: dict[str, Any] = {}
+                try:
+                    parsed = json.loads(detail_json or "{}")
+                    if isinstance(parsed, dict):
+                        detail = parsed
+                except (TypeError, ValueError):
+                    detail = {}
+                store.record_outcome(
+                    RepairOutcome(
+                        run_id=run_id or uuid4().hex,
+                        signature_hash=str(signature_hash or ""),
+                        remedy=NON_ACTIONABLE_REMEDY,
+                        ok=True,
+                        detail={
+                            RECONCILIATION_SOURCE_FIELD: str(outcome_id),
+                            "reason": "connection-recovered",
+                            "from_state": str(detail.get("from_state") or ""),
+                            "to_state": str(detail.get("to_state") or ""),
+                        },
+                    )
+                )
+        except Exception:
+            pass  # Reconciliation is best-effort; never break probing.
 
     def _write_state(self) -> None:
         """Write connection state to the state file for observability."""

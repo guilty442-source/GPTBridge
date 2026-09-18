@@ -57,10 +57,10 @@ Hooks are installed in `.git/hooks/` and shared across all worktrees.
 | Worktree | Path | Branch |
 | --- | --- | --- |
 | Main | `E:\GPTBridge` | `main` |
-| Git | `E:\GPTBridge-worktrees\git` | `git` |
-| Local Model | `E:\GPTBridge-worktrees\local-model` | `local-model` |
-| RAG | `E:\GPTBridge-worktrees\rag` | `rag` |
-| UI | `E:\GPTBridge-worktrees\ui` | `ui` |
+| Git | `E:\GPTBridge\.worktrees\git` | `git` |
+| Local Model | `E:\GPTBridge\.worktrees\local-model` | `local-model` |
+| RAG | `E:\GPTBridge\.worktrees\rag` | `rag` |
+| UI | `E:\GPTBridge\.worktrees\ui` | `ui` |
 
 Worktrees share the same `.git` directory. Hooks, config, and objects are common.
 
@@ -74,10 +74,10 @@ The service only commits — it **never pushes**.
 & main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --all --once
 
 # One-shot, single worktree
-& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --worktree E:\GPTBridge-worktrees\ui --once
+& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --worktree E:\GPTBridge\.worktrees\ui --once
 
 # Long-running watcher for one worktree (interval + stability debounce in seconds)
-& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --worktree E:\GPTBridge-worktrees\ui --watch --interval 30 --debounce 60
+& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --worktree E:\GPTBridge\.worktrees\ui --watch --interval 30 --debounce 60
 
 # Spawn one background watcher per worktree (no console window)
 & main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --all --watch
@@ -147,6 +147,37 @@ Design notes:
   cycle until a human resolves them.
 
 Implementation: `governance_rule/execution/git_tiers/automation_supervisor.py`.
+
+## On-Demand Model Activation (Lazy 星澄)
+
+`model-dialogue` opens without the local model (governor directive 2026-09-17).
+When a dialogue message is sent while the model owner (`local-model`, runtime
+identity `xingcheng`) is not running:
+
+- `model-dialogue` submits the infer request to the governed AI channel and
+  reports `正在啟動星澄模型服務…` through send progress (activation window).
+- `ModelServiceActivationBroker` (`main-system/src-core/tasks/model_service_activation.py`),
+  started by the startup executor, detects the queued `ai -> xingcheng` request
+  and starts `local-model` through the governed `ToolboxService.start_tool`
+  path (background, audited, throttled with backoff; stale rows and expired
+  deadlines are ignored).  Status: `main-system/runtime/state/model-service-activation.json`.
+- The xingcheng runtime claims the request and answers with the user-selected
+  or auto-routed model.
+- Isolation budget: `main-system/config/tool-isolation-policy.json` must cover
+  the physical tool id `local-model` (2048 MB) — the model runtime registers
+  under that id, not only under `xingcheng`.
+
+### 星澄法典診斷指令（唯讀）
+
+| 指令（xingcheng） | 對話按鈕（model-dialogue） | 用途 |
+| --- | --- | --- |
+| `xingcheng_codex_alignment` | 法典 × 實作對齊 | architecture registry（法典 == registry == permission routes == module manifests == 實體目錄）、formal rules 對應、法典摘要 |
+| `xingcheng_codex_mirror_check` | 法典 × 架構圖同步 | 中文鏡像（版本、身分集合、必要表、五段鏈、hash、汙染、replacement damage）＋`architecture-*.md` 缺陷／工具文件覆蓋缺口 |
+
+- 實作：`Standalone tools/local-model/src/backend/services/xingcheng/application/codex_diagnostics.py`；
+  架構文件檢查：`governance_rule/execution/audit/architecture_docs.py`（診斷用，尚未納入硬性 audit）。
+- 路由：`tool_routes.py` 中 `(model-dialogue|star-chat) -> xingcheng` 已含兩指令（唯讀註冊檔已恢復 read-only）。
+- model-dialogue 於送出前若 owner 未啟動，會先走懶啟動；報告以 zh-TW 摘要顯示於對話。
 
 ## Resource Governor
 

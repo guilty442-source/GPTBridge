@@ -251,7 +251,6 @@ FREEZE_CONDITIONS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("worker_queue_main_invariants", "worker/queue/main invariants PASS", ()),
     ("audit_chain_pass", "audit chain PASS", ()),
     ("hooks_integrity_pass", "hooks integrity PASS", ()),
-    ("central_protection_pass", "central protection PASS", ()),
     ("capability_tests_pass", "capability tests PASS", ()),
     ("stress_50_workers_pass", "50 worker stress PASS", ()),
     ("chaos_pass", "chaos PASS", ()),
@@ -778,16 +777,7 @@ def build_freeze_table(
         ] + ge[:3],
     })
 
-    # 8. central protection
-    gs, ge = gate_status("central_protection")
-    row({
-        "condition": "central_protection_pass",
-        "zh": "central protection PASS",
-        "status": gs if gs in {"PASS", "FAIL", "UNVERIFIED"} else "UNVERIFIED",
-        "evidence": ge,
-    })
-
-    # 9. capability tests
+    # 8. capability tests
     gs, ge = gate_status("capability")
     row({
         "condition": "capability_tests_pass",

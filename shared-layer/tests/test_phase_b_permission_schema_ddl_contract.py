@@ -132,7 +132,7 @@ class TestQueryAllowlistPhaseB:
 
 
 class TestSchemaContractRegistryPhaseB:
-    def test_expected_migration_count_is_125(self):
+    def test_expected_migration_count_is_132(self):
         import pathlib
 
         migrations = pathlib.Path(__file__).resolve().parents[1] / "migrations"

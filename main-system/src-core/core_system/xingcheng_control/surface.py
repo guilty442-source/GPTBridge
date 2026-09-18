@@ -1,9 +1,9 @@
 """Xingcheng Control Surface — User-facing manual release switches (A366, A380).
 
 A366: CONTROL-SURFACE: 星澄 auxiliary system owns the user-facing control surface for
-automatic repair and automatic update. It exposes two independent explicit user-operated
-manual release switches: repair_release and update_release. The user alone decides
-whether each switch is enabled; default is disabled.
+automatic repair and automatic update. Its release controls apply only to system repair
+and system update. Xingcheng self-upgrade is an owned-domain internal lifecycle and is
+never controlled by these switches.
 
 A380: 星澄 auxiliary system provides two independent user-operated manual release switches:
 repair_release and update_release. The user alone decides whether each switch is enabled;
@@ -217,11 +217,10 @@ class XingchengControlSurface:
             project_root = getattr(self.app, "project_root", None)
             if project_root:
                 if switch_id == REPAIR_RELEASE_SWITCH:
-                    set_automation_switch(
-                        project_root, AUTOMATIC_REPAIR_SWITCH,
-                        state == SwitchState.ENABLED, actor="xingcheng-control"
-                    )
-                elif switch_id == UPDATE_RELEASE_SWITCH:
+                    # Retired: autonomous repair is managed by the
+                    # system-audit flow; nothing to sync.
+                    return
+                if switch_id == UPDATE_RELEASE_SWITCH:
                     set_automation_switch(
                         project_root, AUTOMATIC_UPDATE_SWITCH,
                         state == SwitchState.ENABLED, actor="xingcheng-control"
@@ -230,8 +229,8 @@ class XingchengControlSurface:
             _logger.warning("XingchengControlSurface: failed to sync automation switch: %s", exc)
 
     def is_repair_release_enabled(self) -> bool:
-        """Check if automatic repair release is enabled."""
-        return self.store.get_switch(REPAIR_RELEASE_SWITCH).state == SwitchState.ENABLED
+        """Automatic repair is managed by the system-audit flow (retired switch)."""
+        return True
 
     def is_update_release_enabled(self) -> bool:
         """Check if automatic update release is enabled."""

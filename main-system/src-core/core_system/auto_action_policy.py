@@ -152,12 +152,16 @@ def read_automation_switches(project_root: str | Path | None = None) -> dict[str
     loaded = _read_state_file(path)
     data: dict[str, Any] = loaded if isinstance(loaded, dict) else {}
     return {
-        AUTOMATIC_REPAIR_SWITCH: bool(
-            data.get(AUTOMATIC_REPAIR_SWITCH, False)
-        ),
+        # Governor directive (2026-09-18): the automatic-repair user switch
+        # is retired — autonomous repair executes through the governed
+        # chain under the system-audit flow.  The reported value is pinned
+        # on so the control surface reflects the standing policy instead
+        # of a stale persisted toggle.
+        AUTOMATIC_REPAIR_SWITCH: True,
         AUTOMATIC_UPDATE_SWITCH: bool(
             data.get(AUTOMATIC_UPDATE_SWITCH, False)
         ),
+        "automatic_repair_managed_by": "system-audit-flow",
         "updated_at": str(data.get("updated_at") or ""),
         "updated_by": str(data.get("updated_by") or ""),
     }
@@ -198,6 +202,11 @@ def set_automation_switch(
     """Set one switch explicitly and audit the change (A366 AUDIT)."""
     if switch not in SWITCH_NAMES:
         raise ValueError(f"unknown automation switch: {switch}")
+    if switch == AUTOMATIC_REPAIR_SWITCH:
+        raise ValueError(
+            "automatic_repair_enabled was removed: autonomous repair runs "
+            "under the system-audit flow (governor directive 2026-09-18)"
+        )
     root = Path(project_root) if project_root else _project_root()
     current = read_automation_switches(root)
     previous = bool(current.get(switch, False))
@@ -224,8 +233,16 @@ def set_automation_switch(
 
 
 def automatic_repair_execution_allowed() -> bool:
-    """True when the standing automatic-repair switch is enabled."""
-    return bool(read_automation_switches().get(AUTOMATIC_REPAIR_SWITCH))
+    """Automatic repair executes under the system-audit flow — always True.
+
+    Governor directive (2026-09-18): the A366 user-facing
+    ``automatic_repair_enabled`` switch is retired.  Autonomous repair
+    proceeds through the governed chain (decision > permission >
+    change-acceptance audit intake > dispatch > independent verification >
+    audit ledger) instead of a per-item user-confirmation gate.  The
+    update switch (``automatic_update_enabled``) is unchanged.
+    """
+    return True
 
 
 def automatic_update_execution_allowed() -> bool:
@@ -245,6 +262,9 @@ def switch_enabled_for_kind(kind: str) -> bool:
     switch = switch_for_kind(kind)
     if not switch:
         return False
+    if switch == AUTOMATIC_REPAIR_SWITCH:
+        # Retired gate — repairs run under the system-audit flow.
+        return True
     return bool(read_automation_switches().get(switch, False))
 
 

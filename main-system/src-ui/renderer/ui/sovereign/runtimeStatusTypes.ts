@@ -66,6 +66,7 @@ export interface PendingActionApproval {
 
 export interface AutomationSwitches {
   automatic_repair_enabled?: boolean
+  automatic_repair_managed_by?: string
   automatic_update_enabled?: boolean
   updated_at?: string
   updated_by?: string

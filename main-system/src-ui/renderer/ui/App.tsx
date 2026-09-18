@@ -8,6 +8,7 @@ import { mainSystemLocale } from '@/locales/main-system'
 import { useAppState } from '@/ui/useAppState'
 import { XingchengDrawer } from '@/ui/AppXingchengDrawer'
 import { CapacityDrawer } from '@/ui/AppCapacityDrawer'
+import { ExternalCollaborationDrawer } from '@/ui/AppExternalCollaborationDrawer'
 import { ModuleBoundary } from '@/shared/components/ModuleBoundary'
 import { useRuntimeStatusField } from '@/shared/hooks/useRuntimeStatusField'
 import { filterActiveFaults } from '@/shared/utils/faultPresentation'
@@ -19,6 +20,7 @@ const tp = mainSystemLocale.thirdParty
 const xr = mainSystemLocale.xingchengReport
 const app = mainSystemLocale.app
 const tb = mainSystemLocale.toolbox
+const ec = mainSystemLocale.externalCollaboration
 
 function displayVersion(value: string): string {
   const match = /^(\d+)\.(\d+)(?:\.\d+)?$/.exec(value.trim())
@@ -155,6 +157,7 @@ export default function App() {
   const [drawerXingcheng, setDrawerXingcheng] = useState(false)
   const [drawerCapacity, setDrawerCapacity] = useState(false)
   const [drawerThirdParty, setDrawerThirdParty] = useState(false)
+  const [drawerExternalCollaboration, setDrawerExternalCollaboration] = useState(false)
 
   return (
     <div className="product-shell">
@@ -292,6 +295,20 @@ export default function App() {
           <button
             type="button"
             className="drawer-trigger"
+            onClick={() => setDrawerExternalCollaboration(true)}
+          >
+            <span className="drawer-trigger__icon" aria-hidden="true">外</span>
+            <span className="drawer-trigger__text">
+              <strong>{ec.title}</strong>
+              <small>{ec.subtitle}</small>
+            </span>
+            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="drawer-trigger"
             onClick={() => setDrawerThirdParty(true)}
           >
             <span className="drawer-trigger__icon" aria-hidden="true">T</span>
@@ -360,6 +377,22 @@ export default function App() {
       >
         <ModuleBoundary name="第三方軟體">
           <ThirdPartyPanel />
+        </ModuleBoundary>
+      </Drawer>
+
+      <Drawer
+        open={drawerExternalCollaboration}
+        onClose={() => setDrawerExternalCollaboration(false)}
+        title={ec.title}
+        eyebrow={ec.eyebrow}
+        icon="外"
+      >
+        <ModuleBoundary name="外部協作">
+          <ExternalCollaborationDrawer
+            sendCommand={sendCommand}
+            waitForIpcEvent={waitForIpcEvent}
+            backendSocket={backendSocket}
+          />
         </ModuleBoundary>
       </Drawer>
 

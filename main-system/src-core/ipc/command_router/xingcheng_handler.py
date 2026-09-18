@@ -66,6 +66,16 @@ class XingchengConfirmationHandler:
                 "error_code": "MISSING_ENABLED_STATE",
                 "message": "enabled (boolean) is required",
             }
+        if kind == "repair":
+            # Retired: autonomous repair runs under the system-audit flow.
+            return event_name, {
+                "ok": False,
+                "error_code": "SWITCH_RETIRED",
+                "message": (
+                    "repair_release was retired: autonomous repair runs "
+                    "under the system-audit flow"
+                ),
+            }
         switches = set_automation_switch(
             getattr(self.app, "project_root", None),
             switch,

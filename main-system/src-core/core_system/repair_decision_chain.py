@@ -74,31 +74,21 @@ class RepairDecisionChain:
         repairable under current policy — and the routing through
         permission validation and governed execution.
 
-        User-confirmation gate: the A366 execution gate applies to repair
-        *mutations* (source-code changes).  Stability-tier recovery
-        (``action == "runtime-recovery"`` — owned-database inspection and
-        governed artifact rebuild, no source mutation) is the sanctioned
-        ``automatic_repair`` scope (``restore-system-stability-only``) and
-        proceeds without the per-item confirmation gate, exactly like the
-        start-failure rebuild path.
+        Autonomous repair (governor directive 2026-09-18): the A366
+        per-item user-confirmation gate is retired for both tiers —
+        ``targeted`` (mutation) and ``runtime-recovery`` (stability)
+        repairs proceed through the governed chain and are registered
+        with the change-acceptance sub-sovereign as system-audit intake
+        before dispatch; acceptance is recorded with the verification
+        result.  ``user_confirmed`` remains accepted so explicit one-time
+        manual commands stay lawful within their scope.
         """
-        from .auto_action_policy import automatic_repair_execution_allowed
-
         tier = self._repair_tier(classified_signal)
-        if (
-            tier == "mutation"
-            and not automatic_repair_execution_allowed()
-            and not user_confirmed
-        ):
-            return {
-                "ok": False,
-                "decision": "awaiting-user-confirmation",
-                "reason": (
-                    "automatic repair execution is disabled; "
-                    "confirm this fault in the assistant panel"
-                ),
-                **classified_signal,
-            }
+
+        # Governor directive (2026-09-18): the per-item user-confirmation
+        # gate is retired — autonomous repairs execute through this chain
+        # under the system-audit flow (change-acceptance intake before
+        # dispatch, acceptance recorded with the verification result).
 
         # ── Step 1: repair decision ──
         decision = self._decide_repairable(classified_signal)
@@ -120,23 +110,102 @@ class RepairDecisionChain:
                 **classified_signal,
             }
 
-        # ── Step 3: dispatch (E127: runtime action vs code change) ──
+        # ── Step 3: system-audit intake (change-acceptance) ──
+        audit_change_id = str(
+            classified_signal.get("request_id")
+            or classified_signal.get("fault_id")
+            or ""
+        )
+        acceptance = self._change_acceptance()
+        audit_intake = "skipped-unavailable"
+        if acceptance is not None and audit_change_id:
+            submitted = acceptance.submit_change(
+                audit_change_id,
+                {
+                    "kind": "autonomous-repair",
+                    "tier": tier,
+                    "failure_code": str(
+                        classified_signal.get("failure_code") or ""
+                    ),
+                    "action": str(classified_signal.get("action") or ""),
+                    "tool_id": str(classified_signal.get("tool_id") or ""),
+                    "target_file": str(
+                        classified_signal.get("target_file") or ""
+                    ),
+                    "decision": decision,
+                    "permission": permission,
+                },
+            )
+            if not submitted:
+                return {
+                    "ok": False,
+                    "decision": "denied-audit-conflict",
+                    "reason": (
+                        "change-acceptance refused the repair submission "
+                        "(conflicting or malformed change spec)"
+                    ),
+                    **classified_signal,
+                }
+            audit_intake = "submitted"
+
+        # ── Step 4: dispatch (E127: runtime action vs code change) ──
         if tier == "stability":
             execution = self._dispatch_to_runtime(classified_signal, decision)
         else:
             execution = self._dispatch_to_programming(classified_signal, decision)
 
-        # ── Step 4: independent verification ──
+        # ── Step 5: independent verification ──
         verification = self._verify_independent(classified_signal, execution)
 
         ok = bool(verification.get("ok"))
+        audit_accepted = False
+        if audit_intake == "submitted":
+            audit_accepted = bool(
+                acceptance.accept_change(
+                    audit_change_id,
+                    {
+                        "ok": ok,
+                        "execution": execution,
+                        "verification": verification,
+                    },
+                )
+            )
         return {
             "ok": ok,
             "decision": "approved-repair-completed" if ok else "approved-repair-failed",
             "execution": execution,
             "verification": verification,
+            "audit": {
+                "flow": "system-audit",
+                "change_id": audit_change_id,
+                "intake": audit_intake,
+                "accepted": audit_accepted,
+            },
             **classified_signal,
         }
+
+    def _change_acceptance(self) -> Any:
+        """Locate the change-acceptance sub-sovereign (system-audit intake).
+
+        Autonomous repairs register as changes before dispatch and record
+        acceptance with the verification result — the audit trail lives on
+        the sovereign, not on a user-confirmation queue.
+        """
+        app = getattr(self, "app", None)
+        holders = (
+            getattr(app, "_sub_sovereigns", None),
+            getattr(
+                getattr(app, "decision_sovereign", None),
+                "_sub_sovereigns",
+                None,
+            ),
+        )
+        for holder in holders:
+            if isinstance(holder, dict):
+                sovereign = holder.get("change-acceptance-sub-sovereign")
+                if sovereign is not None:
+                    return sovereign
+        return None
 
     # ------------------------------------------------------------------
     # Step 1: Repair decision

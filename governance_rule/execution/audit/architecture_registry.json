@@ -106,9 +106,7 @@
     { "from": "self-commit-service", "to": "integration-plane" },
     { "from": "integration-plane", "to": "git-tier-plane" },
     { "from": "integration-plane", "to": "recovery-plane" },
-    { "from": "git-tier-plane", "to": "central-bare" },
-    { "from": "recovery-plane", "to": "central-bare" },
-    { "from": "central-bare", "to": "origin-mirror" }
+    { "from": "git-tier-plane", "to": "origin-mirror" }
   ],
   "execution_model": {
     "sovereign": "decision",
@@ -553,7 +551,7 @@
       "owner_sovereign": "synchronization",
       "owner_sub_sovereign": "release_update_sync_sub_sovereign",
       "execution_identity": "ai-worker-plane",
-      "physical_path": "E:/GPTBridge-worktrees",
+      "physical_path": "E:/GPTBridge/.worktrees",
       "lifecycle": "resident",
       "canonical": false,
       "dependencies": [],
@@ -599,19 +597,6 @@
       "information_channels": ["recovery-points", "recovery-refs", "verified-bundles", "dr-manifests"]
     },
     {
-      "component_id": "central-bare",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "git-repository",
-      "owner_sovereign": "synchronization",
-      "owner_sub_sovereign": "release_update_sync_sub_sovereign",
-      "execution_identity": "central-bare",
-      "physical_path": "E:/GPTBridge.git",
-      "lifecycle": "resident",
-      "canonical": false,
-      "dependencies": ["git-tier-plane", "recovery-plane"],
-      "information_channels": ["fetch", "push"]
-    },
-    {
       "component_id": "origin-mirror",
       "architectural_role": "development-maintenance",
       "runtime_form": "external-service",
@@ -622,7 +607,7 @@
       "external_locator": "https://github.com/guilty442-source/GPTBridge.git",
       "lifecycle": "resident",
       "canonical": false,
-      "dependencies": ["central-bare"],
+      "dependencies": ["git-tier-plane"],
       "information_channels": ["remote-mirror"]
     },
     {

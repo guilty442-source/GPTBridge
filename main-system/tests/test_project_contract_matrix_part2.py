@@ -87,7 +87,11 @@ def test_project_root_contains_only_governed_modules_and_control_files() -> None
         "Standalone tools",
     }
     allowed_files = {".gitignore", "pytest.ini", ".env", ".markdownlint.json", "AGENTS.md"}
-    allowed_directories = allowed_directories | {".kilo"}
+    allowed_directories = allowed_directories | {
+        ".kilo",
+        ".worktrees",
+        ".backups",
+    }
 
     unexpected = sorted(
         entry.name

@@ -52,12 +52,18 @@ AI_ROUTE_COMMANDS: Final[Mapping[tuple[str, str], frozenset[str]]] = {
         {
             "xingcheng_status",
             "xingcheng_infer",
+            "xingcheng_codex_alignment",
+            "xingcheng_codex_mirror_check",
         }
     ),
     ("model-dialogue", "xingcheng"): frozenset(
         {
             "xingcheng_status",
             "xingcheng_infer",
+            "xingcheng_codex_alignment",
+            "xingcheng_codex_mirror_check",
+            "xingcheng_sql_get_personality",
+            "xingcheng_sql_save_personality",
         }
     ),
     ("xingcheng", "ai-collaboration"): frozenset(

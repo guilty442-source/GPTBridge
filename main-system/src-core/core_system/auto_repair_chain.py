@@ -113,33 +113,11 @@ class AutoRepairOrchestrator:
         # Stage 4: Create Repair Plan
         plan = self._create_repair_plan(objective, grant)
 
-        # The plan is read-only evidence and must exist before the user is
-        # asked to authorize mutation.  Only execution remains gated, and
-        # only for the mutation tier (``targeted_patch`` source changes).
-        # Stability-tier recovery (``artifact_rebuild`` — the governed
-        # packager path) is the sanctioned automatic_repair scope and
-        # proceeds without per-item confirmation.
-        from .auto_action_policy import automatic_repair_execution_allowed
-
-        if (
-            not automatic_repair_execution_allowed()
-            and plan.method == "targeted_patch"
-            and not user_confirmed
-        ):
-            return {
-                "stage": "awaiting-user-confirmation",
-                "result": "planned",
-                "classification": classification,
-                "objective": asdict(objective),
-                "grant": asdict(grant),
-                "plan": asdict(plan),
-                "requirements": {
-                    "permission_scope": list(grant.path_scope),
-                    "verification": list(plan.verification_criteria),
-                    "rollback": plan.rollback_plan,
-                },
-                "reason": "repair plan ready; awaiting user choice",
-            }
+        # Governor directive (2026-09-18): the per-item user-confirmation
+        # gate is retired — both tiers (``targeted_patch`` mutation and
+        # ``artifact_rebuild`` stability recovery) execute through this
+        # chain under the system-audit flow.  The plan remains read-only
+        # evidence recorded ahead of execution.
 
         return self._execute_verify_report(objective, grant, plan)
 

@@ -85,10 +85,14 @@ class StarChatHelpersMixin:
                 f"模式切換通知：使用者已從 {previous_mode.title()} 切換至 "
                 f"{mode.title()}。請先完成角色與處理策略切換，再回應最新訊息。\n\n"
             )
+        persona = cls._bounded_text(payload.get("persona"), 4_000)
+        persona_block = (
+            f"星澄人格設定：\n{persona}\n\n" if persona else ""
+        )
         context = cls._conversation_context(payload)
         if not context:
-            return f"{transition}{instruction}\n\n使用者最新訊息：{message}"
-        return f"{transition}{instruction}\n\n以下是同一段對話的最近內容：\n{context}\n\n使用者最新訊息：{message}"
+            return f"{transition}{persona_block}{instruction}\n\n使用者最新訊息：{message}"
+        return f"{transition}{persona_block}{instruction}\n\n以下是同一段對話的最近內容：\n{context}\n\n使用者最新訊息：{message}"
 
     @classmethod
     def _conversation_mode(cls, payload: dict[str, Any]) -> str:
@@ -223,6 +227,7 @@ class StarChatHelpersMixin:
             "previous_conversation_mode",
             "context_budget_characters",
             "local_hardware_profile",
+            "persona",
         }
     )
 
@@ -259,6 +264,7 @@ class StarChatHelpersMixin:
             ) if conversation_mode == "coding" else "",
             "conversation_mode": conversation_mode,
             "interaction_mode": f"model-dialogue-{conversation_mode}",
+            "persona": self._bounded_text(payload.get("persona"), 4_000),
             "context_budget_characters": self._context_budget(payload),
             "reasoning_level": controls["reasoning_level"],
             "reasoning_effort": controls["reasoning_effort"],

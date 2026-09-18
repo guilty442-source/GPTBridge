@@ -18,25 +18,41 @@ from . import audit_chain
 from .automation_supervisor_state import status as supervisor_status
 from .branch_policy import classify_branch, policy_digest
 from .branch_reconcile import reconcile_branches
-from .central import evaluate_push_gates, tri_state
 from .claims import ClaimRegistry
 from .git_maintenance import maintenance_safe, object_stats
 from .git_perf import batch_ref_snapshot, snapshot as perf_snapshot
 from .git_repository import GitRepository
 from .merge_queue import MergeQueue
 from .recovery import list_recovery_refs
-from .server_hooks import server_hook_health
+from .repo_sync import sync_state
 from .worktree_manager import WorktreeManager
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _hook_health(repo: GitRepository) -> dict[str, Any]:
+    """Local hook inventory (read-only)."""
+    result = repo.run(["rev-parse", "--git-common-dir"])
+    raw = (result.stdout or "").strip()
+    git_dir = Path(raw)
+    if not git_dir.is_absolute():
+        git_dir = repo.path / git_dir
+    hooks_dir = git_dir.resolve() / "hooks"
+    present: list[str] = []
+    if hooks_dir.is_dir():
+        present = sorted(
+            path.name for path in hooks_dir.iterdir()
+            if path.is_file() and not path.name.endswith(".sample")
+        )
+    return {"hooks_dir": str(hooks_dir), "present": present, "count": len(present)}
 
 
 def build_report(root: str | Path) -> dict[str, Any]:
     repo = GitRepository(root)
     manager = WorktreeManager(repo)
     worktrees = manager.list_worktrees()
-    state = tri_state(root)
-    hooks = server_hook_health(root)
+    state = sync_state(root)
+    hooks = _hook_health(repo)
     queue = MergeQueue(root)
     reconcile = reconcile_branches(root)
     try:
@@ -71,11 +87,8 @@ def build_report(root: str | Path) -> dict[str, Any]:
     report = {
         "A_repository_topology": {
             "root": str(Path(root).resolve()),
-            "central_path": state["central_path"],
-            "central_exists": state["central_exists"],
             "origin": "origin remote (GitHub mirror)",
             "local_main_sha": state["local_main_sha"],
-            "central_main_sha": state["central_main_sha"],
             "origin_main_sha": state["origin_main_sha"],
             "sync_state": state["state"],
         },
@@ -97,10 +110,9 @@ def build_report(root: str | Path) -> dict[str, Any]:
             "last_sync_result": sup.get("last_sync_result"),
             "push": sup.get("push", False),
         },
-        "H_central_health": {
+        "H_remote_sync": {
             "state": state["state"],
             "relations": state["relations"],
-            "write_enabled": hooks["central_write_enabled"],
         },
         "I_audit_health": audit_chain.chain_health(),
         "J_hook_health": hooks,
@@ -120,9 +132,9 @@ def build_report(root: str | Path) -> dict[str, Any]:
 def _risks(state: dict[str, Any], hooks: dict[str, Any], queue: MergeQueue) -> list[str]:
     risks: list[str] = []
     if state["state"] in {"DIVERGED", "MISSING_REF"}:
-        risks.append(f"central sync state: {state['state']}")
-    if hooks["server_hook_health"] != "HEALTHY":
-        risks.append(f"server hooks: {hooks['server_hook_health']}")
+        risks.append(f"remote sync state: {state['state']}")
+    if not hooks.get("present"):
+        risks.append("no governed hooks installed")
     stats = queue.stats()
     if stats["blocked"] or stats["conflicted"]:
         risks.append(

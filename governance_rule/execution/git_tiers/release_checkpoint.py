@@ -4,7 +4,7 @@ A completed merge into ``main`` is *not* a release.  This module records a
 checkpoint — durable version evidence, not activation authority:
 
     main SHA + audit sequence + governance audit result
-    + central SHA + origin SHA (when push is enabled) + timestamp.
+    + origin SHA (when push is enabled) + timestamp.
 
 Checkpoints are JSON records under
 ``<git-common>/gptbridge-automation/releases/`` and may additionally create
@@ -19,8 +19,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .central import tri_state
 from .git_repository import GitRepository
+from .repo_sync import sync_state
 
 RELEASE_TAG_PREFIX = "release/gptbridge/"
 
@@ -49,17 +49,16 @@ def record_checkpoint(
 ) -> dict[str, Any]:
     """Record a release checkpoint; optionally tag it (never pushed)."""
     repo = GitRepository(root)
-    state = tri_state(root)
+    state = sync_state(root)
     timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     checkpoint = {
         "timestamp": timestamp,
         "main_sha": state["local_main_sha"],
-        "central_sha": state["central_main_sha"],
         "origin_sha": state["origin_main_sha"],
         "governance_audit": audit_result,
         "audit_sequence": audit_sequence,
         "queue_id": queue_id,
-        "tri_state": state["state"],
+        "sync_state": state["state"],
     }
     directory = _releases_dir(root)
     name = f"{timestamp.replace(':', '')}-{(state['local_main_sha'] or 'none')[:12]}"

@@ -171,8 +171,10 @@ export function useToolboxApplications({
           next = fetched.length ? fetched : createInitialToolboxRuntimeState()
         }
         const withSizes = await mergeLocalProjectSizes(next, true)
+        // Filter out ai-collaboration as it is now in the left sidebar
+        const filteredSizes = withSizes.filter((tool) => tool.id !== 'ai-collaboration')
         if (refreshRevision !== actionRevisionRef.current) return
-        setToolboxTools(withSizes)
+        setToolboxTools(filteredSizes)
         setToolboxSyncedAt(Date.now())
       } catch {
         // Backend metadata can be unavailable while the trusted local
@@ -181,8 +183,10 @@ export function useToolboxApplications({
           toolboxToolsRef.current,
           true
         )
+        // Filter out ai-collaboration as it is now in the left sidebar
+        const filteredSizes = withSizes.filter((tool) => tool.id !== 'ai-collaboration')
         if (refreshRevision !== actionRevisionRef.current) return
-        setToolboxTools(withSizes)
+        setToolboxTools(filteredSizes)
         setToolboxSyncedAt(Date.now())
       } finally {
         setToolboxSyncing(false)
@@ -209,8 +213,9 @@ export function useToolboxApplications({
       if (disposed) return
       const sizesById = new Map(withSizes.map((tool) => [tool.id, tool]))
       setToolboxTools((current) =>
-        current.length
-          ? current.map((tool) => {
+        current
+          .filter((tool) => tool.id !== 'ai-collaboration')
+          .map((tool) => {
               const sized = sizesById.get(tool.id)
               if (!sized) return tool
               return {
@@ -223,7 +228,6 @@ export function useToolboxApplications({
                 capacityBreakdown: sized.capacityBreakdown,
               }
             })
-          : withSizes
       )
       setToolboxSyncedAt((current) => current ?? Date.now())
       if (

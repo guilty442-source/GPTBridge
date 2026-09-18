@@ -3,7 +3,7 @@
   "baseline": {
     "baseline_id": "GPTBridgeGitBaselineV1",
     "baseline_version": 1,
-    "digest": "a43440e80fb698c150210c7960d954ef38e28339a2ddc0dcfb72c4caf27c540d",
+    "digest": "f16ae929bb0fd0d8749270c1c88bffdfba421e864b4fa94ea067d1b00610a358",
     "manifest_schema_version": "1.0.0",
     "path": "baseline/gptbridge_git_baseline_v1.json",
     "verdict": "GIT_BASELINE_FROZEN"
@@ -203,7 +203,7 @@
   "hook_version": "1.0.0",
   "integrity": {
     "algorithm": "sha256",
-    "digest": "c5c410a70c9fddfc21627bde6326997ba0cf29283f61f95d2a13476f91fe797c",
+    "digest": "50079b979195438a5693186b6e8256fbe1f235168b53cc0ad11e2fb5216a87f7",
     "scope": "canonical-json-without-integrity-and-baseline"
   },
   "manifest_id": "git-governance-manifest",
@@ -217,7 +217,7 @@
   "schema_evidence": {
     "audit_schema_version": "audit_chain manifest schema 'audit-chain-manifest-v1' -> 1.0.0",
     "control_plane_version": "git_control_plane.GitSnapshot/GitEvent field set and gptbridge-control-plane state.json; no explicit version field -> first declared schema",
-    "hook_version": "server_hooks HOOK_MANIFEST 'hook-manifest.json' carries no version field -> first declared hook manifest",
+    "hook_version": "hook_versioning.EXPECTED_HOOK_VERSIONS maps the four governed hooks (pre-commit/pre-merge-commit/pre-push/pre-receive) -> 1.0.0",
     "maximum_tested_git_version": "git version 2.55.0.windows.1 installed and exercised by the git_tiers suite",
     "minimum_git_version": "merge_precheck.merge_tree_check uses 'git merge-tree --write-tree' (Git >= 2.38); older features (porcelain v2, worktree, multi-pack-index, commit-graph) require less",
     "policy_version": "git_control_plane.GitControlPlane.policy_version() == 'tier-policy-v1'",

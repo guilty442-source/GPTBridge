@@ -148,3 +148,136 @@ def test_low_success_rate_remedy_is_never_promoted(tmp_path: Path) -> None:
         )
 
     assert learner.store.get_learned_recipes() == []
+
+
+def _learning_db_path(root: Path) -> Path:
+    return (
+        root
+        / "main-system"
+        / "data"
+        / "automatic-repair"
+        / "repair-learning.sqlite3"
+    )
+
+
+def test_recovery_absorbs_open_fault_outcome(tmp_path: Path) -> None:
+    import sqlite3
+
+    from tasks.repair_learning import RepairLearningStore, absorbed_outcome_ids
+
+    store = RepairLearningStore(
+        tmp_path / "main-system" / "data" / "automatic-repair"
+    )
+    watchdog = ConnectionWatchdog(tmp_path)
+    watchdog.set_learning_store(store)
+
+    snapshot = watchdog.snapshot
+    watchdog._record_event("connected", "degraded", snapshot)
+    watchdog._record_event("degraded", "connected", snapshot)
+
+    with sqlite3.connect(_learning_db_path(tmp_path)) as connection:
+        absorbed = absorbed_outcome_ids(connection)
+        failure_rows = connection.execute(
+            "SELECT outcome_id FROM repair_outcomes WHERE ok = 0"
+        ).fetchall()
+        markers = connection.execute(
+            "SELECT signature_hash, ok, detail_json FROM repair_outcomes "
+            "WHERE remedy = 'no-action-required'"
+        ).fetchall()
+
+    assert failure_rows, "expected a recorded failure outcome"
+    assert {row[0] for row in failure_rows} <= absorbed
+    assert markers, "expected a reconciliation marker"
+    assert all(ok == 1 for _sig, ok, _detail in markers)
+
+
+def test_recovery_absorbs_faults_from_previous_generation(
+    tmp_path: Path,
+) -> None:
+    import sqlite3
+
+    from tasks.repair_learning import RepairLearningStore, absorbed_outcome_ids
+
+    store = RepairLearningStore(
+        tmp_path / "main-system" / "data" / "automatic-repair"
+    )
+    first = ConnectionWatchdog(tmp_path)
+    first.set_learning_store(store)
+    first._record_event("connected", "disconnected", first.snapshot)
+
+    # New watchdog generation: _last_fault is empty, first probe already
+    # observes "connected" (unknown -> connected recovery transition).
+    second = ConnectionWatchdog(tmp_path)
+    second.set_learning_store(store)
+    second._record_event("unknown", "connected", second.snapshot)
+
+    with sqlite3.connect(_learning_db_path(tmp_path)) as connection:
+        absorbed = absorbed_outcome_ids(connection)
+        open_failures = connection.execute(
+            "SELECT outcome_id FROM repair_outcomes WHERE ok = 0 "
+            "AND remedy = 'connection-watchdog'"
+        ).fetchall()
+
+    assert open_failures, "expected a recorded failure outcome"
+    assert {row[0] for row in open_failures} <= absorbed
+
+
+def test_absorption_is_idempotent_across_recoveries(tmp_path: Path) -> None:
+    import sqlite3
+
+    from tasks.repair_learning import RepairLearningStore
+
+    store = RepairLearningStore(
+        tmp_path / "main-system" / "data" / "automatic-repair"
+    )
+    watchdog = ConnectionWatchdog(tmp_path)
+    watchdog.set_learning_store(store)
+
+    watchdog._record_event("connected", "degraded", watchdog.snapshot)
+    watchdog._record_event("degraded", "connected", watchdog.snapshot)
+    watchdog._record_event("degraded", "connected", watchdog.snapshot)
+
+    with sqlite3.connect(_learning_db_path(tmp_path)) as connection:
+        markers = connection.execute(
+            "SELECT COUNT(*) FROM repair_outcomes "
+            "WHERE remedy = 'no-action-required'"
+        ).fetchone()[0]
+
+    assert markers == 1
+
+
+def test_absorption_leaves_other_remedy_failures(tmp_path: Path) -> None:
+    import sqlite3
+
+    from tasks.repair_learning import (
+        RepairLearningStore,
+        RepairOutcome,
+        absorbed_outcome_ids,
+    )
+
+    store = RepairLearningStore(
+        tmp_path / "main-system" / "data" / "automatic-repair"
+    )
+    watchdog = ConnectionWatchdog(tmp_path)
+    watchdog.set_learning_store(store)
+
+    store.record_outcome(
+        RepairOutcome(
+            run_id="other-run",
+            signature_hash="other-signature",
+            remedy="rebuild-tool-executable",
+            ok=False,
+            detail={"failure_code": "TOOL_RUNTIME_CRASH"},
+        )
+    )
+    watchdog._record_event("connected", "degraded", watchdog.snapshot)
+    watchdog._record_event("degraded", "connected", watchdog.snapshot)
+
+    with sqlite3.connect(_learning_db_path(tmp_path)) as connection:
+        absorbed = absorbed_outcome_ids(connection)
+        other = connection.execute(
+            "SELECT outcome_id FROM repair_outcomes "
+            "WHERE remedy = 'rebuild-tool-executable'"
+        ).fetchall()
+
+    assert other and other[0][0] not in absorbed

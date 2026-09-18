@@ -132,6 +132,19 @@ class CollabSvcAgentsMixin:
             "message": f"已選擇 {len(selected)} 個 AI。",
         }
 
+    async def _add_agent(self, payload: dict[str, Any]) -> dict[str, Any]:
+        agent = self.repository.add_agent(
+            name=str(payload.get("name") or "").strip(),
+            provider=str(payload.get("provider") or "").strip(),
+            home_url=str(payload.get("home_url") or "").strip(),
+        )
+        return {
+            "ok": True,
+            "agent": agent,
+            "agents": self.repository.list_agents(),
+            "message": f"已新增 AI：{agent['name']}。",
+        }
+
     async def _update_agent_business_settings(
         self, payload: dict[str, Any]
     ) -> dict[str, Any]:

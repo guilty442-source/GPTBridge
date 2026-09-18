@@ -42,6 +42,7 @@ from governance.sovereigns import (
 )
 
 from main_shutdown import GPTBridgeAppShutdownMixin
+from core_system.maintenance_controller_integration import create_maintenance_controller_integration
 
 
 class GPTBridgeApp(GPTBridgeAppShutdownMixin):
@@ -67,6 +68,9 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
         self.hot_update_service = HotUpdateService(self)
         self.daily_global_cleaner_service = DailyGlobalCleanerService(self)
         self.update_manager: UpdateManager | None = None
+
+        # Maintenance controller integration (Database Auto Maintenance v1)
+        self.maintenance_controller_integration = create_maintenance_controller_integration(self)
 
         # New governance architecture sovereigns (A63/A64/A12/A128)
         # Decision layer sovereigns
@@ -446,6 +450,19 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
             )
         self._log({"type": "supervision_start_timings", **_sup_timings})
         self._mark_startup_phase("automation_coordinator_started")
+
+        # Start the maintenance controller (Database Auto Maintenance v1)
+        # Starts after governance validated, security validated, database foundation ready
+        try:
+            result = await self.maintenance_controller_integration.start()
+            if result.get("ok"):
+                self.maintenance_ready = True
+                self._log({"type": "status", "message": "Maintenance controller started", **result})
+            else:
+                self._record_startup_failure("maintenance_controller", RuntimeError(result.get("reason", "unknown")))
+        except Exception as error:
+            self._record_startup_failure("maintenance_controller", error)
+        self._mark_startup_phase("maintenance_controller_started")
 
         # Check if boot_core has already completed phases 0-5
         if startup_state in ("READY", "DEGRADED"):

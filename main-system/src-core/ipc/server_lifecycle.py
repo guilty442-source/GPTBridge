@@ -76,6 +76,7 @@ from .server_process import (
     _kill_process,
 )
 from .server_handler import handler, _runtime_status_push_loop
+from .server_singleton import ServerSingleton, SingletonBusyError
 from .server_http import http_response
 from .server_lifecycle_health import _handle_health_request, _parse_request_path
 # Health request handling lives in server_lifecycle_health.py:
@@ -128,10 +129,36 @@ TRUSTED_WEBSOCKET_ORIGINS = (
 # Server entry point
 # ------------------------------------------------------------------
 
+async def _acquire_backend_singleton() -> ServerSingleton | None:
+    """Exit older backend generations before binding.
+
+    Returns the held singleton, or ``None`` when the guard itself is
+    unavailable (psutil missing) so the legacy port-guard path still runs.
+    Raises :class:`SingletonBusyError` fail-closed when an old generation
+    cannot be terminated.
+    """
+    singleton = ServerSingleton(Path(__file__).resolve().parents[2])
+    try:
+        await asyncio.to_thread(singleton.acquire)
+    except SingletonBusyError:
+        raise
+    except Exception as error:
+        print(f"[IPC] single-instance guard unavailable: {type(error).__name__}")
+        return None
+    return singleton
+
+
 async def run_server(app_instance, auto_kill_backend_port: bool = False):
     ipc_port = _ipc_port()
     memory_task: asyncio.Task[Any] | None = None
     memory_maintainer: IdleMemoryMaintainer | None = None
+    singleton: ServerSingleton | None = None
+    if auto_kill_backend_port:
+        try:
+            singleton = await _acquire_backend_singleton()
+        except SingletonBusyError as error:
+            print(f"[IPC] {error}; refusing to start a second backend generation.")
+            return
     try:
         async def bound_handler(ws):
             await handler(ws, app_instance)
@@ -274,3 +301,5 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
         if memory_maintainer is not None:
             await memory_maintainer.stop(memory_task)
         await app_instance.shutdown()
+        if singleton is not None:
+            singleton.release()

@@ -71,14 +71,23 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
     manifest_tool_ids: set[str] = set()
     physical_owner_roots: set[str] = set()
 
+    # A201-contained artifact roots hold worktree/backup copies, never the
+    # authoritative tool manifests: exclude them from root-level discovery.
+    artifact_roots = frozenset({"worktrees", "backups"})
+
+    def _scanned(manifest_path: Path) -> bool:
+        first = manifest_path.relative_to(root).parts[0]
+        return not first.startswith(".") and first not in artifact_roots
+
     standalone_dir = root / "Standalone tools"
     depth4_manifests = sorted(
-        p for p in root.glob("*/*/*/*/manifest.json")
-        if not p.relative_to(root).parts[0].startswith(".")
+        p for p in root.glob("*/*/*/*/manifest.json") if _scanned(p)
     )
 
     # Pass 1: depth-1 manifests (direct children of project root)
     for manifest_path in sorted(root.glob("*/manifest.json")):
+        if not _scanned(manifest_path):
+            continue
         manifest = _load_manifest(manifest_path, errors)
         if manifest is None:
             continue

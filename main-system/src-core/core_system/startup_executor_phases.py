@@ -136,6 +136,15 @@ class StartupExecutorPhasesMixin:
                 governance=app.governance,
                 permission_sovereign=app.permission_sovereign,
             )
+        if getattr(app, "model_service_activation", None) is None:
+            from tasks.model_service_activation import (
+                ModelServiceActivationBroker,
+            )
+
+            app.model_service_activation = ModelServiceActivationBroker(
+                app, app.toolbox_service
+            )
+            await app.model_service_activation.start()
         if app.runtime_status_service is None:
             from tasks.runtime_status_service import RuntimeStatusService
 

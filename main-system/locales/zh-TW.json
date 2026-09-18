@@ -154,13 +154,13 @@
     "empty": "目前沒有異常紀錄。",
     "pendingTitle": "待確認修復與更新",
     "pendingEmpty": "目前沒有待確認項目。",
-    "pendingHint": "可啟用自動開關，或只對指定項目授予一次性許可；偵測與診斷持續運作。",
+    "pendingHint": "修復項目由系統審計流程自動處理；更新項目可啟用自動開關或只對指定項目授予一次性許可；偵測與診斷持續運作。",
     "switchesTitle": "自動執行開關",
     "switchRepair": "自動修復",
     "switchUpdate": "自動更新",
     "switchOn": "已啟用",
     "switchOff": "未啟用",
-    "switchAttribution": "狀態由使用者設定並持久保存",
+    "switchAttribution": "自動修復由系統審計流程管理；更新開關狀態由使用者設定並持久保存",
     "nativeModelTitle": "星澄",
     "nativeModelSwitch": "星澄",
     "nativeModelRunning": "已啟動",
@@ -221,7 +221,9 @@
     "globalFaultsMessage": "訊息",
     "globalFaultsAction": "建議動作",
     "globalFaultsClose": "關閉明細",
-    "globalFaultsState": "全域故障 {count} 處"
+    "globalFaultsState": "全域故障 {count} 處",
+    "switchManaged": "系統審計管理",
+    "switchRepairManagedHint": "自主修復已啟用，由系統審計流程把關"
   },
   "thirdParty": {
     "eyebrow": "第三方軟體管理",
@@ -281,6 +283,7 @@
     "thirdPartyMgmt": "第三方軟體管理",
     "systemMgmt": "系統管理",
     "autoUpdate": "自動更新",
+    "externalCollaboration": "外部協作",
     "settingsDesc": "詳細設定不干擾日常工具操作"
   },
   "sovereign": {
@@ -358,7 +361,30 @@
     "noOverride": "無覆寫權",
     "delegatedToExecutor": "已交由受治理執行器"
   },
+  "externalCollaboration": {
+    "eyebrow": "遠端 AI 協作",
+    "title": "外部協作",
+    "subtitle": "遠端 AI 名單、群組詢問、共享記憶、協作診斷與報告匯出",
+    "launch": "啟動外部協作",
+    "launching": "啟動中…",
+    "description": "透過內嵌瀏覽器與多個 AI 服務協作，支援一般模式最多六組並行、最終協調由 ChatGPT 擔任、搜尋由 Gemini 提供。",
+    "status": "狀態",
+    "statusStopped": "未啟動",
+    "statusRunning": "執行中",
+    "statusError": "異常",
+    "windowTitle": "外部協作視窗",
+    "closeOnExit": "關閉視窗時結束程序",
+    "aiList": "AI 服務清單",
+    "groupQuery": "群組詢問",
+    "sharedMemory": "共享記憶",
+    "collaborativeDiagnosis": "協作診斷",
+    "reportExport": "報告匯出",
+    "maxParallel": "最多並行",
+    "coordinator": "最終協調",
+    "searchProvider": "搜尋提供者",
+    "capabilityFallback": "能力回退策略"
+  },
   "moduleBoundary": {
     "fallbackMessage": "此模組暫時無法顯示；其他模組不受影響。"
-  }
+  },
 }

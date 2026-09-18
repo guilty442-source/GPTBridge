@@ -23,7 +23,7 @@ Design constraints (A53/E39 + A58/E44 governance):
 
 Usage:
   python -m governance_rule.execution.git_tiers.self_commit \\
-      --worktree E:/GPTBridge-worktrees/ui --watch --interval 30 --debounce 60
+      --worktree E:/GPTBridge/.worktrees/ui --watch --interval 30 --debounce 60
 
   python -m governance_rule.execution.git_tiers.self_commit --once --all
 """

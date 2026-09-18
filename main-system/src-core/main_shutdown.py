@@ -48,40 +48,12 @@ class GPTBridgeAppShutdownMixin:
             get_isolation_manager().stop_monitor()
         except Exception:
             pass
-        toolbox = self.toolbox_service  # type: ignore[attr-defined]
-        if toolbox is not None:
-            for record in toolbox._load_manifest_records():
-                if record.get("has_custom_ui") is not True:
-                    continue
-                tool_id = str(record.get("id") or "").strip()
-                if not tool_id:
-                    continue
-                try:
-                    result = await toolbox.force_close_tool(
-                        {
-                            "tool_id": tool_id,
-                            "request_id": f"main-window-close-{tool_id}-{time.time_ns()}",
-                            "reason": "main-window-closed",
-                        }
-                    )
-                    if result.get("ok") is not True:
-                        self._log(  # type: ignore[attr-defined]
-                            {
-                                "type": "warning",
-                                "message": "tool backend did not exit during window shutdown",
-                                "tool_id": tool_id,
-                                "error_code": str(result.get("error_code") or ""),
-                            }
-                        )
-                except Exception as error:
-                    self._log(  # type: ignore[attr-defined]
-                        {
-                            "type": "warning",
-                            "message": "tool backend shutdown failed during window shutdown",
-                            "tool_id": tool_id,
-                            "error_type": type(error).__name__,
-                        }
-                    )
+
+        # NOTE: Do NOT force-close independent/standalone tools on main system shutdown.
+        # Each standalone tool runs in its own process and manages its own lifecycle.
+        # The main system only stops its own internal services and sovereigns.
+        # Independent tools with has_custom_ui and main_system_independent_tool=true
+        # are NOT force-closed here; they continue running in their own processes.
 
         # Stop sub-sovereigns
         for sov in self._sub_sovereigns.values():  # type: ignore[attr-defined]
@@ -98,6 +70,14 @@ class GPTBridgeAppShutdownMixin:
         # route degradation signals while sovereigns are shutting down.
         try:
             await self.system_automation_coordinator.stop()  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        # Stop the on-demand model activation broker before the toolbox
+        # service goes away so no activation races the shutdown.
+        try:
+            broker = getattr(self, "model_service_activation", None)
+            if broker is not None:
+                await broker.stop()
         except Exception:
             pass
         for _sovereign in (
@@ -127,6 +107,15 @@ class GPTBridgeAppShutdownMixin:
                 await _service.stop()
             except Exception:
                 pass
+
+        # Stop maintenance controller (Database Auto Maintenance v1)
+        try:
+            maintenance_integration = getattr(self, "maintenance_controller_integration", None)
+            if maintenance_integration is not None:
+                await maintenance_integration.stop()
+        except Exception:
+            pass
+
         watcher = self.hot_reload_watcher  # type: ignore[attr-defined]
         if watcher is not None:
             await watcher.stop()

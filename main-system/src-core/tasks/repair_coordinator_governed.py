@@ -16,7 +16,6 @@ from core_system.auto_repair_chain import (
 
 from .repair_coordinator_types import _iso_now
 from .repair_coordinator_governed_helpers import (
-    _record_awaiting_confirmation,
     _execute_crash_repair,
 )
 
@@ -90,20 +89,8 @@ class RepairGovernedMixin:
             )
             chain_result = self._orchestrator.process_health_signal(signal, actor=owner)
             report.update(chain_result)
-            if chain_result.get("stage") == "awaiting-user-confirmation":
-                _record_awaiting_confirmation(
-                    request_record, decision_proof, request_id,
-                    failure_code, owner, self.project_root,
-                    self._read_requests, self._write_requests,
-                    chain_result,
-                )
-                report["request_id"] = request_id
-                report["ok"] = True
-                report["reason"] = (
-                    "repair plan ready; awaiting user confirmation"
-                )
-            else:
-                report["ok"] = chain_result.get("stage") == "complete"
+            report["request_id"] = request_id
+            report["ok"] = chain_result.get("stage") == "complete"
             self.release(owner=owner, failure_code=failure_code)
             return report
 
@@ -119,21 +106,9 @@ class RepairGovernedMixin:
             return report
 
         # Crash repair: backend is dead, decision-sovereign unavailable.
-        from core_system.auto_action_policy import (
-            automatic_repair_execution_allowed,
-        )
-
-        if not automatic_repair_execution_allowed():
-            request_record["status"] = "awaiting-confirmation"
-            request_record["awaiting_confirmation_at"] = _iso_now()
-            requests = self._read_requests()
-            requests.append(request_record)
-            self._write_requests(requests)
-            report["request_id"] = request_id
-            report["ok"] = True
-            report["reason"] = "automatic repair frozen; awaiting user confirmation"
-            self.release(owner=owner, failure_code=failure_code)
-            return report
+        # Governor directive (2026-09-18): the user-confirmation gate is
+        # retired — governed crash repair proceeds under the system-audit
+        # flow without waiting for a user switch.
 
         _execute_crash_repair(
             request_record, request_id, repair_executor, report,

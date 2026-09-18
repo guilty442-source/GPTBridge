@@ -1,100 +1,13 @@
 """Repair coordinator governed helpers (A185 split).
 
-Contains the confirmation recording and crash repair execution helpers
-extracted from request_governed_repair.
+Contains the crash repair execution helper extracted from
+request_governed_repair.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .repair_coordinator_types import _iso_now
-
-
-def _record_awaiting_confirmation(
-    request_record: dict[str, Any],
-    decision_proof: dict[str, Any],
-    request_id: str,
-    failure_code: str,
-    owner: str,
-    project_root: Any,
-    read_requests_fn: Any,
-    write_requests_fn: Any,
-    chain_result: dict[str, Any] | None = None,
-) -> None:
-    """Record an awaiting-confirmation request and pending action."""
-    request_record["status"] = "awaiting-confirmation"
-    request_record["awaiting_confirmation_at"] = _iso_now()
-    chain_result = chain_result or {}
-    request_record["repair_plan"] = chain_result.get("plan") or {}
-    request_record["repair_requirements"] = chain_result.get("requirements") or {}
-    request_record["repair_objective"] = chain_result.get("objective") or {}
-    request_record["classified"] = {
-        "error_type": str(
-            decision_proof.get("error_type")
-            or (decision_proof.get("diagnosis") or {}).get("error_type")
-            or ""
-        ),
-        "target_file": str(
-            (decision_proof.get("diagnosis") or {}).get("file") or ""
-        ),
-        "action": str(
-            (decision_proof.get("diagnosis") or {}).get("action") or ""
-        ),
-    }
-    requests = read_requests_fn()
-    requests.append(request_record)
-    write_requests_fn(requests)
-    try:
-        from core_system.auto_action_policy import (
-            CONFIRMATION_TTL_SECONDS,
-            record_pending_action,
-        )
-
-        classified = request_record.get("classified") or {}
-        repair_plan = request_record.get("repair_plan") or {}
-        repair_requirements = request_record.get("repair_requirements") or {}
-        expires_at = (
-            datetime.now(timezone.utc)
-            + timedelta(seconds=CONFIRMATION_TTL_SECONDS)
-        ).isoformat()
-        failure_code_str = str(failure_code or "fault")
-        target_file = str(classified.get("target_file") or "")
-        record_pending_action(
-            project_root,
-            kind="repair",
-            summary=(
-                f"{failure_code_str}"
-                f" ({classified.get('error_type') or 'unknown'})"
-            ),
-            detail={
-                "request_id": request_id,
-                "failure_code": failure_code_str,
-                "owner": owner,
-                "classified": classified,
-                "repair_plan": repair_plan,
-                "repair_requirements": repair_requirements,
-                "requested_at": request_record["requested_at"],
-            },
-            action_id=f"repair-{request_id}",
-            binding={
-                "fault_id": request_id,
-                "scope": target_file or failure_code_str,
-                "target": target_file or failure_code_str,
-                "proposed_method": (
-                    str(repair_plan.get("method") or classified.get("action") or "")
-                    or "targeted-source-repair"
-                ),
-                "risk": str(decision_proof.get("severity") or "unclassified"),
-                "rollback": (
-                    "governed repair backup + independent verification; "
-                    "failed verification rolls back"
-                ),
-                "expires_at": expires_at,
-            },
-        )
-    except Exception:
-        pass
 
 
 def _execute_crash_repair(
@@ -134,6 +47,5 @@ def _execute_crash_repair(
 
 
 __all__ = [
-    "_record_awaiting_confirmation",
     "_execute_crash_repair",
 ]

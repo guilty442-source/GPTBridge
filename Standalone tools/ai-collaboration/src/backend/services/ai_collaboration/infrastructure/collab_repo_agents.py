@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import re
 import sqlite3
 from typing import Any
 from urllib.parse import urlparse
@@ -75,6 +76,51 @@ class CollabRepoAgentsMixin:
         if address is not None and not address.is_global:
             raise ValueError("URL 不可指向私人或保留網路位址")
         return normalized
+
+    def add_agent(
+        self,
+        *,
+        name: str,
+        provider: str,
+        home_url: str,
+    ) -> dict[str, Any]:
+        normalized_name = str(name or "").strip()
+        if not normalized_name:
+            raise ValueError("請輸入 AI 名稱")
+        normalized_url = self._validated_external_url(home_url)
+        normalized_provider = str(provider or "").strip() or "custom"
+        existing = self.list_agents()
+        if any(agent["name"] == normalized_name for agent in existing):
+            raise ValueError("已存在同名 AI")
+        slug = re.sub(r"[^a-z0-9]+", "-", normalized_name.casefold()).strip("-")
+        agent_id = f"custom-{slug or 'ai'}"
+        taken = {agent["agent_id"] for agent in existing}
+        candidate = agent_id
+        suffix = 2
+        while candidate in taken:
+            candidate = f"{agent_id}-{suffix}"
+            suffix += 1
+        agent_id = candidate
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO ai_nexus_agents
+                (agent_id, name, provider, home_url, general_url, investment_url, star_training_url,
+                 general_enabled, investment_enabled, business_capabilities_json,
+                 enabled, selected, status, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, '', 1, 1, '["general"]', 1, 0, 'idle', ?)
+                """,
+                (
+                    agent_id,
+                    normalized_name,
+                    normalized_provider,
+                    normalized_url,
+                    normalized_url,
+                    normalized_url,
+                    utc_now(),
+                ),
+            )
+        return self.get_agents([agent_id])[0]
 
     def save_agent_business_settings(
         self,

@@ -9,7 +9,7 @@ audited).  It is a safety anchor only — actual recovery stays a Tier-2/3
 classified operation; ``reset --hard`` is never used automatically.
 Refs are listed/retired through governance, never auto-deleted.
 
-Optional ``git bundle`` checkpoints under ``E:\\GPTBridge-backup\\git``
+Optional ``git bundle`` checkpoints under ``<repo-root>\\.backups\\git``
 are available for releases — never per ordinary commit.
 """
 from __future__ import annotations
@@ -19,9 +19,10 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .git_repository import GitRepository
+from .paths import BACKUP_ROOT_RELATIVE, contained
 
 RECOVERY_PREFIX = "refs/gptbridge/recovery/"
-BACKUP_ROOT = Path("E:/GPTBridge-backup/git")
+BACKUP_ROOT = BACKUP_ROOT_RELATIVE
 
 
 def create_recovery_ref(
@@ -72,11 +73,14 @@ def create_bundle(
     """Write a release-checkpoint bundle; never for ordinary commits."""
     from .capability_gate import execute_system_safe
 
-    dest_dir = BACKUP_ROOT
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    head = repo.head()[:12] or "unknown"
-    path = Path(destination) if destination else dest_dir / f"gptbridge-{stamp}-{head}.bundle"
+    if destination:
+        path = contained(repo.path, destination, purpose="bundle-destination")
+    else:
+        dest_dir = contained(repo.path, BACKUP_ROOT, purpose="bundle-root")
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+        head = repo.head()[:12] or "unknown"
+        path = dest_dir / f"gptbridge-{stamp}-{head}.bundle"
     gate = execute_system_safe(
         ["bundle", "create", str(path), *refs],
         actor=actor, repo_path=repo.path,

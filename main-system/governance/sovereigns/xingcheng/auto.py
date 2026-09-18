@@ -22,6 +22,11 @@ _logger = logging.getLogger("gptbridge.sovereign.xingcheng.auto")
 # not per-cycle observation, and running it every 10s only burns I/O.
 _MANAGE_EVERY_CYCLES = 30
 
+# 星澄的模型與人格升級屬於 owned-domain 內部生命週期，不受星澄助理的
+# system update release switch 控制。該開關只控制主系統更新流程。
+_SELF_UPGRADE_OWNER = "xingcheng"
+_SELF_UPGRADE_HANDLING = "owned-domain-internal"
+
 
 class XingchengAutoMixin:
     """Full-automation upgrade — auto-loop inside owned domain."""
@@ -44,6 +49,8 @@ class XingchengAutoMixin:
             "manage_cycles": 0, "health_checks": 0, "anomalies_detected": 0,
             "channel_notifications": 0, "db_maintenance_runs": 0,
             "model_loads": 0, "config_updates": 0, "learning_commands": 0,
+            "self_upgrade_owner": _SELF_UPGRADE_OWNER,
+            "self_upgrade_handling": _SELF_UPGRADE_HANDLING,
             "last_auto_cycle": "", "last_anomaly": "",
         }
         self._last_snapshot = {}
@@ -199,4 +206,11 @@ class XingchengAutoMixin:
             "enabled": self._auto_enabled,
             "metrics": dict(self._auto_metrics),
             "pending_anomalies": len(self._pending_anomalies),
+            "self_upgrade": {
+                "owner": _SELF_UPGRADE_OWNER,
+                "handling": _SELF_UPGRADE_HANDLING,
+                "user_switch": False,
+                "assistant_release_switch": False,
+                "scope": "xingcheng-owned-domain-only",
+            },
         }

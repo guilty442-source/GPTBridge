@@ -111,7 +111,12 @@
     "learned_at": "2026-09-06T11:58:18.690727+00:00",
     "occurrence_count": 2,
     "success_rate": 1.0,
-    "source": "learned"
+    "source": "learned",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true,
+    "verification": "promoted-by-verified-repair-outcomes"
   },
   {
     "recipe_id": "learned-eb66415204a70968",
@@ -127,7 +132,12 @@
     "learned_at": "2026-09-07T04:23:26.983846+00:00",
     "occurrence_count": 2,
     "success_rate": 1.0,
-    "source": "learned"
+    "source": "learned",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true,
+    "verification": "promoted-by-verified-repair-outcomes"
   },
   {
     "recipe_id": "learned-b8710b1dcdfd3240",
@@ -143,7 +153,13 @@
     "learned_at": "2026-09-09T06:38:47.110501+00:00",
     "occurrence_count": 2,
     "success_rate": 1.0,
-    "source": "learned"
+    "source": "learned",
+    "actions": [
+      "inspect-owned-databases",
+      "rebuild-tool-executable"
+    ],
+    "verified_applicability": true,
+    "verification": "promoted-by-verified-repair-outcomes"
   },
   {
     "recipe_id": "current-layout-import-failure",
@@ -169,7 +185,12 @@
     "recorded_at": "2026-09-14T16:14:56+0800",
     "learned_at": "2026-09-14T16:14:56+0800",
     "occurrence_count": 1,
-    "success_rate": 1.0
+    "success_rate": 1.0,
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": false,
+    "verification": ""
   },
   {
     "recipe_id": "current-layout-canonical-roots",
@@ -196,7 +217,12 @@
     "recorded_at": "2026-09-14T16:14:56+0800",
     "learned_at": "2026-09-14T16:14:56+0800",
     "occurrence_count": 1,
-    "success_rate": 1.0
+    "success_rate": 1.0,
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": false,
+    "verification": ""
   },
   {
     "recipe_id": "learned-79315166ea24f469",
@@ -212,7 +238,12 @@
     "learned_at": "2026-09-14T08:28:17.470899+00:00",
     "occurrence_count": 2,
     "success_rate": 1.0,
-    "source": "learned"
+    "source": "learned",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true,
+    "verification": "promoted-by-verified-repair-outcomes"
   },
   {
     "recipe_id": "learned-960156cd06984b49",
@@ -228,7 +259,12 @@
     "learned_at": "2026-09-14T08:28:17.489531+00:00",
     "occurrence_count": 2,
     "success_rate": 1.0,
-    "source": "learned"
+    "source": "learned",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true,
+    "verification": "promoted-by-verified-repair-outcomes"
   },
   {
     "recipe_id": "learned-5bd3d524203a3130",
@@ -244,7 +280,12 @@
     "learned_at": "2026-09-14T08:28:17.535270+00:00",
     "occurrence_count": 2,
     "success_rate": 1.0,
-    "source": "learned"
+    "source": "learned",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true,
+    "verification": "promoted-by-verified-repair-outcomes"
   },
   {
     "recipe_id": "learned-902e215e76047dcd",
@@ -260,7 +301,12 @@
     "learned_at": "2026-09-14T08:28:17.631953+00:00",
     "occurrence_count": 2,
     "success_rate": 1.0,
-    "source": "learned"
+    "source": "learned",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true,
+    "verification": "promoted-by-verified-repair-outcomes"
   },
   {
     "recipe_id": "learned-21fe74b45a12a3b1",
@@ -276,7 +322,12 @@
     "learned_at": "2026-09-14T08:28:17.650542+00:00",
     "occurrence_count": 2,
     "success_rate": 1.0,
-    "source": "learned"
+    "source": "learned",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true,
+    "verification": "promoted-by-verified-repair-outcomes"
   },
   {
     "recipe_id": "learned-945f20a4d1ed04b0",
@@ -292,7 +343,12 @@
     "learned_at": "2026-09-14T08:28:17.669259+00:00",
     "occurrence_count": 2,
     "success_rate": 1.0,
-    "source": "learned"
+    "source": "learned",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true,
+    "verification": "promoted-by-verified-repair-outcomes"
   },
   {
     "recipe_id": "learned-a445ad5b1f783e98",
@@ -308,7 +364,12 @@
     "learned_at": "2026-09-14T08:28:17.687937+00:00",
     "occurrence_count": 2,
     "success_rate": 1.0,
-    "source": "learned"
+    "source": "learned",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true,
+    "verification": "promoted-by-verified-repair-outcomes"
   },
   {
     "recipe_id": "learned-538d00badb864527",
@@ -324,6 +385,11 @@
     "learned_at": "2026-09-16T03:11:04.547841+00:00",
     "occurrence_count": 5,
     "success_rate": 1.0,
-    "source": "learned"
+    "source": "learned",
+    "actions": [
+      "inspect-owned-databases"
+    ],
+    "verified_applicability": true,
+    "verification": "promoted-by-verified-repair-outcomes"
   }
 ]

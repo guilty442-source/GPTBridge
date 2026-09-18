@@ -67,12 +67,21 @@ class XingchengCommandHandler:
                 "message": "enabled (boolean) is required",
             }
 
-        state = SwitchState.ENABLED if enabled else SwitchState.DISABLED
-        status = self.control_surface.set_switch("xingcheng.repair_release", state, "authenticated-ui")
-        return "xingcheng-set-repair-release_result", {"ok": True, "switches": self._get_all_switches_status()}
+        # Governor directive (2026-09-18): the repair-release switch is
+        # retired — autonomous repair runs under the system-audit flow
+        # and is no longer gated by a user toggle.
+        return "xingcheng-set-repair-release_result", {
+            "ok": False,
+            "error_code": "SWITCH_RETIRED",
+            "message": (
+                "repair_release was retired: autonomous repair runs "
+                "under the system-audit flow"
+            ),
+            "switches": self._get_all_switches_status(),
+        }
 
     async def _handle_set_update_release(self, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
-        """Handle xingcheng-set-update-release."""
+        """Handle the system update switch; never gate Xingcheng self-upgrade."""
         enabled = payload.get("enabled")
         if not isinstance(enabled, bool):
             return "xingcheng-set-update-release_result", {
@@ -165,8 +174,11 @@ class XingchengCommandHandler:
         update = self.control_surface.store.get_switch("xingcheng.update_release")
         return {
             "repair_release": {
-                "enabled": repair.state.value == "enabled",
-                "state": repair.state.value,
+                # Retired switch: reported as managed by the system-audit
+                # flow so the panel no longer shows a dead toggle.
+                "enabled": True,
+                "state": "managed",
+                "managed_by": "system-audit-flow",
                 "enabled_at": repair.enabled_at,
                 "disabled_at": repair.disabled_at,
                 "enabled_by": repair.enabled_by,

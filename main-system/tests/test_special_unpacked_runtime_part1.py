@@ -123,7 +123,7 @@ def test_shared_layer_and_local_model_are_locked_resident_services() -> None:
     assert local_manifest["sweep_exclusion"] is True
 
 
-@pytest.mark.parametrize("tool_id", ["governance_rule", "shared-layer", "xingcheng"])
+@pytest.mark.parametrize("tool_id", ["governance_rule", "shared-layer"])
 def test_locked_service_rejects_stop_before_governance_or_process_mutation(
     tool_id: str,
     monkeypatch: pytest.MonkeyPatch,

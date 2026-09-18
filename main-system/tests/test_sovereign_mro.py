@@ -65,6 +65,14 @@ def test_mixin_init_chain_runs() -> None:
     assert xingcheng._program_tasks == {}
     assert xingcheng._auto_metrics["observe_cycles"] == 0
     assert xingcheng._auto_enabled is True
+    self_upgrade = xingcheng.auto_status()["self_upgrade"]
+    assert self_upgrade == {
+        "owner": "xingcheng",
+        "handling": "owned-domain-internal",
+        "user_switch": False,
+        "assistant_release_switch": False,
+        "scope": "xingcheng-owned-domain-only",
+    }
     assert xingcheng.app is None  # SovereignBase.__init__ ran
 
 

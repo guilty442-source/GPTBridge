@@ -30,6 +30,11 @@ from .audit_chain import chained_audit_log
 from .branch_policy import MAIN_BRANCH, is_ephemeral, normalize_branch
 from .git_repository import GitRepository
 from .merge_queue import MergeQueue
+from .paths import (
+    EPHEMERAL_WORKTREES_RELATIVE,
+    PERSISTENT_WORKTREES_DIRNAME,
+    contained,
+)
 from .process_lock import ProcessFileLock
 from .worker_identity import (
     attempt_id_for, build_branch_name, next_worker_id, valid_git_branch,
@@ -46,8 +51,7 @@ from .worker_routing import route_task
 
 CONFIG_FILE = "config.json"
 CONFLICT_STATS_FILE = "conflict_stats.json"
-PERSISTENT_ROOT_NAME = "GPTBridge-worktrees"
-WORKERS_ROOT_NAME = "GPTBridge-workers"
+PERSISTENT_ROOT_NAME = PERSISTENT_WORKTREES_DIRNAME
 WORKER_POOL_ACTOR = "governance/worker-pool"
 
 #: Retirement keeps the documented audited legacy adapter (see
@@ -89,9 +93,13 @@ def load_pool_config(root: str | Path) -> PoolConfig:
     for key in PoolConfig.__dataclass_fields__:
         if key in data:
             setattr(config, key, data[key])
-    if not config.workers_root:
+    if config.workers_root:
         config.workers_root = str(
-            Path(root).resolve().parent / WORKERS_ROOT_NAME
+            contained(root, config.workers_root, purpose="workers-root")
+        )
+    else:
+        config.workers_root = str(
+            contained(root, EPHEMERAL_WORKTREES_RELATIVE, purpose="workers-root")
         )
     return config
 
@@ -133,7 +141,11 @@ class WorkerPool(LifecycleMixin, ReconcileMixin):
         for name in self.config.persistent_workers:
             if name in slots:
                 continue
-            path = self.root.parent / PERSISTENT_ROOT_NAME / name
+            path = contained(
+                self.root,
+                Path(PERSISTENT_ROOT_NAME) / name,
+                purpose="persistent-worktree",
+            )
             slots[name] = WorkerSlot(
                 worker_id=name,
                 instance_id=new_instance_id(),
@@ -309,7 +321,7 @@ class WorkerPool(LifecycleMixin, ReconcileMixin):
             raise RuntimeError(f"branch-name-invalid:{slot.branch}")
         if not is_ephemeral(slot.branch):
             raise RuntimeError(f"branch-not-ephemeral:{slot.branch}")
-        path = Path(slot.worktree_path)
+        path = contained(self.root, slot.worktree_path, purpose="worker-worktree")
         if not path.exists():
             gate = _governed_worker_command(
                 self.repo,
@@ -419,20 +431,20 @@ class WorkerPool(LifecycleMixin, ReconcileMixin):
         queue_depth: int,
         disk_free_fraction: float,
         main_healthy: bool,
-        central_healthy: bool,
+        origin_healthy: bool,
     ) -> bool:
         """§62: stop pool growth on pressure — workers keep working."""
         active = (
             queue_depth >= self.config.backpressure_queue_depth
             or disk_free_fraction <= self.config.backpressure_free_fraction
             or not main_healthy
-            or not central_healthy
+            or not origin_healthy
         )
         self.set_backpressure(
             active,
             reason=(
                 f"queue={queue_depth} disk={disk_free_fraction:.2f} "
-                f"main={main_healthy} central={central_healthy}"
+                f"main={main_healthy} origin={origin_healthy}"
             ),
         )
         return active

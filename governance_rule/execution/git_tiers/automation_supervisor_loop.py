@@ -337,24 +337,19 @@ def _initial_registry(
 
 
 def _health_surfaces(root: str | Path) -> dict[str, object]:
-    """Extended supervisor health: central, hooks, queue, audit, claims."""
+    """Extended supervisor health: sync, queue, audit, claims."""
     health: dict[str, object] = {}
     try:
-        from .central import tri_state
+        from .repo_sync import sync_state
         from .merge_queue import MergeQueue
-        from .server_hooks import server_hook_health
         from . import audit_chain
 
-        state = tri_state(root)
-        health["central"] = {
+        state = sync_state(root)
+        health["sync"] = {
             "state": state["state"],
             "local_main_sha": state["local_main_sha"],
-            "central_main_sha": state["central_main_sha"],
             "origin_main_sha": state["origin_main_sha"],
         }
-        hooks = server_hook_health(root)
-        health["server_hook_health"] = hooks["server_hook_health"]
-        health["central_write_enabled"] = hooks["central_write_enabled"]
         health["merge_queue"] = MergeQueue(root).stats()
         health["audit"] = audit_chain.chain_health()
         try:

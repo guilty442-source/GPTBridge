@@ -154,22 +154,41 @@ class CentralRepairOperationsMixin:
             or target_id in {"governance-rule", "main-system"}
         ):
             raise PermissionError("PERMISSION_DENIED")
-        target_root = (self.project_root / target_id).resolve()
         if target_id == "shared-layer":
             target_root = (self.project_root / "shared-layer").resolve()
             if not (target_root / "src" / "shared_layer" / "store.py").is_file():
                 raise PermissionError("PERMISSION_DENIED")
         else:
-            manifest_path = target_root / "manifest.json"
-            try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            except (OSError, UnicodeError, json.JSONDecodeError) as error:
-                raise PermissionError("PERMISSION_DENIED") from error
-            if str(manifest.get("id") or "") != target_id:
-                raise PermissionError("PERMISSION_DENIED")
+            target_root = self._resolve_tool_root(target_id)
         if not _inside(target_root, self.project_root):
             raise PermissionError("PERMISSION_DENIED")
         return target_id, target_root
+
+    def _resolve_tool_root(self, target_id: str) -> Path:
+        """Resolve a tool id to its registered root under ``Standalone tools``.
+
+        Tools live under ``Standalone tools/<tool>`` (and one level deeper
+        for nested companions such as ``local-model/model-dialogue``), not
+        at the project root.  The directory that carries a manifest whose
+        declared ``id`` equals the target is the governed target root —
+        matching how the toolbox resolves tool directories.
+        """
+        tools_root = (self.project_root / "Standalone tools").resolve()
+        if not tools_root.is_dir():
+            raise PermissionError("PERMISSION_DENIED")
+        for manifest_path in sorted(tools_root.rglob("manifest.json")):
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                continue
+            if not isinstance(manifest, dict):
+                continue
+            if str(manifest.get("id") or "") != target_id:
+                continue
+            target_root = manifest_path.parent.resolve()
+            if _inside(target_root, tools_root):
+                return target_root
+        raise PermissionError("PERMISSION_DENIED")
 
     def repair_tool(
         self,

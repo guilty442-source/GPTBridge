@@ -28,6 +28,7 @@ from ..infrastructure.transformer_training_repository import (
     TransformerTrainingRepository,
 )
 from .command_channels import CommandChannelsMixin
+from .codex_diagnostics import CodexDiagnosticsMixin
 from .inference_channel import InferenceChannelMixin
 from .investment_channel import InvestmentChannelMixin
 from .local_ai_embedding import LocalAiEmbeddingMixin
@@ -73,6 +74,7 @@ class LocalAiService(
     LocalAiCapabilityMixin,
     LocalAiTeachingMixin,
     CommandChannelsMixin,
+    CodexDiagnosticsMixin,
     InvestmentChannelMixin,
     InferenceChannelMixin,
 ):
@@ -216,6 +218,8 @@ class LocalAiService(
         "xingcheng_git_history",
         "xingcheng_platform_status",
         "xingcheng_diagnose_fault",
+        "xingcheng_codex_alignment",
+        "xingcheng_codex_mirror_check",
     }
 
     def __init__(

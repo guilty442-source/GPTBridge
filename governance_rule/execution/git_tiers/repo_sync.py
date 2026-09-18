@@ -1,20 +1,19 @@
-"""Central bare repository authority (task §15, A375 release topology).
+"""Local repository sync state against the origin mirror (task §15).
 
-``E:\\GPTBridge.git`` is the governed local integration receiver:
-    worker branch -> main integration worktree -> central bare -> origin.
+There is no local bare receiver: the integration worktree ``main`` is the
+single local delivery authority and ``origin`` is the remote mirror.
 
 This module provides *verification and state* capability only — the push
 stage stays disabled (``push=False``) unless explicitly enabled by a
-governed caller.  Three revisions are always recorded explicitly and never
+governed caller.  Two revisions are always recorded explicitly and never
 assumed equal:
 
     local_main_sha   refs/heads/main            (integration worktree)
-    central_main_sha refs/heads/main @ central  (bare receiver)
     origin_main_sha  refs/remotes/origin/main   (remote tracking)
 
-Sync states: IN_SYNC | LOCAL_AHEAD | CENTRAL_AHEAD | ORIGIN_AHEAD |
-DIVERGED | MISSING_REF.  DIVERGED never triggers automatic merge, reset
-or force-push — it is reported and the cycle stops.
+Sync states: IN_SYNC | LOCAL_AHEAD | ORIGIN_AHEAD | DIVERGED | MISSING_REF.
+DIVERGED never triggers automatic merge, reset or force-push — it is
+reported and the cycle stops.
 """
 from __future__ import annotations
 
@@ -29,20 +28,13 @@ SYNC_STATES = frozenset(
     {
         "IN_SYNC",
         "LOCAL_AHEAD",
-        "CENTRAL_AHEAD",
         "ORIGIN_AHEAD",
         "DIVERGED",
         "MISSING_REF",
     }
 )
-CENTRAL_REMOTE = "central"
 ORIGIN_REMOTE = "origin"
 MAIN_REF = "refs/heads/main"
-
-
-def central_path(root: str | Path) -> Path:
-    """The canonical central bare repo: sibling ``GPTBridge.git``."""
-    return Path(root).resolve().parent / "GPTBridge.git"
 
 
 def _sha(repo: GitRepository, ref: str) -> str | None:
@@ -72,19 +64,12 @@ def _pairwise(
     return "diverged"
 
 
-def tri_state(
+def sync_state(
     root: str | Path, *, live_remote: bool = False
 ) -> dict[str, Any]:
-    """Resolve the three main revisions and classify the sync state."""
+    """Resolve the two main revisions and classify the sync state."""
     repo = GitRepository(root)
-    central_dir = central_path(root)
     local_main_sha = _sha(repo, MAIN_REF)
-
-    central_main_sha = None
-    central_exists = (central_dir / "HEAD").is_file()
-    if central_exists:
-        central_repo = GitRepository(central_dir)
-        central_main_sha = _sha(central_repo, MAIN_REF)
 
     if live_remote:
         result = repo.run(["ls-remote", ORIGIN_REMOTE, MAIN_REF])
@@ -94,36 +79,23 @@ def tri_state(
         origin_main_sha = _sha(repo, f"refs/remotes/{ORIGIN_REMOTE}/main")
 
     relations = {
-        "local_vs_central": _pairwise(repo, local_main_sha, central_main_sha),
         "local_vs_origin": _pairwise(repo, local_main_sha, origin_main_sha),
-        "central_vs_origin": (
-            _pairwise(GitRepository(central_dir), central_main_sha, origin_main_sha)
-            if central_exists and origin_main_sha
-            else ("missing" if not central_exists else _pairwise(repo, central_main_sha, origin_main_sha))
-        ),
     }
 
     missing = [
         name
         for name, sha in (
             ("local", local_main_sha),
-            ("central", central_main_sha),
             ("origin", origin_main_sha),
         )
         if not sha
     ]
     if missing:
         state = "MISSING_REF"
-    elif "diverged" in relations.values():
-        state = "DIVERGED"
-    elif all(rel == "equal" for rel in relations.values()):
+    elif relations["local_vs_origin"] == "equal":
         state = "IN_SYNC"
-    elif relations["local_vs_central"] == "ahead" or relations[
-        "local_vs_origin"
-    ] == "ahead":
+    elif relations["local_vs_origin"] == "ahead":
         state = "LOCAL_AHEAD"
-    elif relations["local_vs_central"] == "behind":
-        state = "CENTRAL_AHEAD"
     elif relations["local_vs_origin"] == "behind":
         state = "ORIGIN_AHEAD"
     else:
@@ -132,12 +104,9 @@ def tri_state(
     return {
         "state": state,
         "local_main_sha": local_main_sha,
-        "central_main_sha": central_main_sha,
         "origin_main_sha": origin_main_sha,
         "missing": missing,
         "relations": relations,
-        "central_path": str(central_dir),
-        "central_exists": central_exists,
         "live_remote": live_remote,
     }
 
@@ -146,10 +115,8 @@ def evaluate_push_gates(root: str | Path) -> dict[str, Any]:
     """Evaluate the governed push sequence WITHOUT pushing.
 
     Order (each gate must pass before the next would run):
-      main clean -> governance audit PASS -> central/main ancestor check
-      -> [push central] -> verify central/main == local main
-      -> origin/main ancestor check -> [push origin] -> fetch/verify
-      -> tri-state re-verification.
+      main clean -> governance audit PASS -> origin/main ancestor check
+      -> [push origin] -> fetch/verify -> sync-state re-verification.
 
     With push disabled this reports gate readiness only.
     """
@@ -172,15 +139,8 @@ def evaluate_push_gates(root: str | Path) -> dict[str, Any]:
     gates.append({"gate": "governance-audit", "passed": audit.returncode == 0,
                   "detail": (audit.stdout or "")[-200:]})
 
-    state = tri_state(root)
-    central_sha = state["central_main_sha"]
+    state = sync_state(root)
     local_sha = state["local_main_sha"]
-    central_ancestor = bool(
-        central_sha and local_sha and _is_ancestor(repo, central_sha, local_sha)
-    )
-    gates.append({"gate": "central-ancestor", "passed": central_ancestor,
-                  "detail": "central missing or not ancestor" if not central_ancestor else ""})
-
     origin_sha = state["origin_main_sha"]
     origin_ancestor = bool(
         origin_sha and local_sha and _is_ancestor(repo, origin_sha, local_sha)
@@ -188,8 +148,6 @@ def evaluate_push_gates(root: str | Path) -> dict[str, Any]:
     gates.append({"gate": "origin-ancestor", "passed": origin_ancestor,
                   "detail": "origin missing or not ancestor" if not origin_ancestor else ""})
 
-    gates.append({"gate": "push-central", "passed": False, "skipped": True,
-                  "detail": "push disabled (push=false)"})
     gates.append({"gate": "push-origin", "passed": False, "skipped": True,
                   "detail": "push disabled (push=false)"})
 
@@ -199,52 +157,14 @@ def evaluate_push_gates(root: str | Path) -> dict[str, Any]:
         "all_gates_passed": all(
             g["passed"] for g in gates if not g.get("skipped")
         ),
-        "tri_state": state,
+        "sync_state": state,
     }
 
 
-def ensure_central(root: str | Path, *, actor: str = "governance/central") -> dict[str, Any]:
-    """Create the central bare repo + ``central`` remote if absent."""
-    from .capability_gate import execute_system_safe
-
-    repo = GitRepository(root)
-    central_dir = central_path(root)
-    created = False
-    if not (central_dir / "HEAD").is_file():
-        gate = execute_system_safe(
-            ["init", "--bare", str(central_dir)], actor=actor, repo_path=repo.path,
-        )
-        result = gate.execution_result
-        if gate.allowed is False or result is None or result.returncode != 0:
-            detail = (
-                f"{gate.code}:{gate.detail}" if result is None
-                else result.stderr.strip()[:200]
-            )
-            return {"created": False, "error": detail}
-        created = True
-    remotes = repo.run(["remote"]).stdout.split()
-    if CENTRAL_REMOTE not in remotes:
-        gate = execute_system_safe(
-            ["remote", "add", CENTRAL_REMOTE, str(central_dir)],
-            actor=actor, repo_path=repo.path,
-        )
-        result = gate.execution_result
-        if gate.allowed is False or result is None or result.returncode != 0:
-            detail = (
-                f"{gate.code}:{gate.detail}" if result is None
-                else result.stderr.strip()[:200]
-            )
-            return {"created": created, "central_path": str(central_dir), "error": detail}
-    return {"created": created, "central_path": str(central_dir)}
-
-
 __all__ = [
-    "CENTRAL_REMOTE",
     "MAIN_REF",
     "ORIGIN_REMOTE",
     "SYNC_STATES",
-    "central_path",
-    "ensure_central",
     "evaluate_push_gates",
-    "tri_state",
+    "sync_state",
 ]

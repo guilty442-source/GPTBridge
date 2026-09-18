@@ -33,8 +33,8 @@ from . import audit_chain
 from . import automation_supervisor_state
 from . import git_perf
 from .audit_chain import chain_health, verify_tail
-from .central import central_path, tri_state
 from .git_repository import GitRepository
+from .repo_sync import sync_state
 from .governance_manifest import timing as _manifest_timing
 from .merge_queue import MergeQueue
 from .worker_registry import PoolRegistry
@@ -90,7 +90,6 @@ class Dimension(str, Enum):
     LOCKS = "locks"
     AUDIT = "audit"
     HOOKS = "hooks"
-    CENTRAL = "central"
     ORIGIN = "origin"
     RECOVERY = "recovery"
     PERFORMANCE = "performance"
@@ -115,7 +114,6 @@ class ReasonCode(str, Enum):
     LOCK_STALL = "LOCK_STALL_WARNING"
     AUDIT_CHAIN_INVALID = "AUDIT_CHAIN_INVALID"
     AUDIT_LATENCY_HIGH = "AUDIT_LATENCY_HIGH"
-    CENTRAL_DIVERGED = "CENTRAL_DIVERGED"
     ORIGIN_DIVERGED = "ORIGIN_DIVERGED"
     HOOK_HASH_MISMATCH = "HOOK_HASH_MISMATCH"
     OBJECT_CORRUPTION = "OBJECT_CORRUPTION"
@@ -145,7 +143,6 @@ class EventType(str, Enum):
     MERGE_CONFLICT = "MERGE_CONFLICT"
     AUDIT_FAILED = "AUDIT_FAILED"
     SYNC_COMPLETED = "SYNC_COMPLETED"
-    CENTRAL_DIVERGED = "CENTRAL_DIVERGED"
     HOOK_INVALID = "HOOK_INVALID"
     RECOVERY_POINT_CREATED = "RECOVERY_POINT_CREATED"
     BACKPRESSURE_ENTERED = "BACKPRESSURE_ENTERED"
@@ -235,7 +232,6 @@ class GitSnapshot:
     global_state: str
     repository_mode: str = "worktree"
     main_revision: str = ""
-    central_revision: str = ""
     origin_revision: str = ""
     main_dirty: bool = False
     worktree_count: int = 0
@@ -255,7 +251,6 @@ class GitSnapshot:
     audit_chain_valid: bool = True
     audit_latency_ms: float = 0.0
     hook_health: str = HealthStatus.HEALTHY.value
-    central_hook_health: str = HealthStatus.UNKNOWN.value
     last_successful_sync: float = 0.0
     last_successful_merge: float = 0.0
     last_successful_bundle: float = 0.0
@@ -521,13 +516,11 @@ class GitControlPlane:
         }
 
     def _collect_remotes(self) -> dict[str, Any]:
-        """Central + origin truth via ancestor checks (§181)."""
-        tri = tri_state(self.root, live_remote=False)
+        """Origin truth via ancestor checks (§181)."""
+        state = sync_state(self.root, live_remote=False)
         return {
-            "central_revision": tri.get("central_main") or "",
-            "origin_revision": tri.get("origin_main") or "",
-            "remote_relations": tri.get("relations", {}),
-            "central_exists": bool(tri.get("central_exists", True)),
+            "origin_revision": state.get("origin_main_sha") or "",
+            "remote_relations": state.get("relations", {}),
         }
 
     def _collect_recovery(self) -> dict[str, Any]:
@@ -647,7 +640,6 @@ class GitControlPlane:
             global_state=GitGlobalState.ERROR.value,
             repository_mode=state.get("repository_mode", "worktree"),
             main_revision=state.get("main_revision", ""),
-            central_revision=remotes.get("central_revision", ""),
             origin_revision=remotes.get("origin_revision", ""),
             main_dirty=bool(state.get("main_dirty")),
             worktree_count=int(state.get("worktree_count", 0)),
@@ -769,19 +761,11 @@ class GitControlPlane:
         _add(Dimension.HOOKS, hook_status, hook_codes)
 
         relations = remotes.get("remote_relations", {})
-        lvc = relations.get("local_vs_central", "")
         lvo = relations.get("local_vs_origin", "")
         if remotes.get("unknown"):
-            _add(Dimension.CENTRAL, HealthStatus.UNKNOWN,
-                 [ReasonCode.STATE_UNKNOWN])
             _add(Dimension.ORIGIN, HealthStatus.UNKNOWN,
                  [ReasonCode.STATE_UNKNOWN])
         else:
-            if lvc == "diverged":
-                _add(Dimension.CENTRAL, HealthStatus.DEGRADED,
-                     [ReasonCode.CENTRAL_DIVERGED])
-            else:
-                _add(Dimension.CENTRAL, HealthStatus.HEALTHY, [ReasonCode.OK])
             if lvo == "diverged":
                 _add(Dimension.ORIGIN, HealthStatus.DEGRADED,
                      [ReasonCode.ORIGIN_DIVERGED])
@@ -816,7 +800,7 @@ class GitControlPlane:
         critical_unknown = any(
             statuses.get(d) == HealthStatus.UNKNOWN.value
             for d in (Dimension.REPOSITORY.value, Dimension.AUDIT.value,
-                      Dimension.HOOKS.value, Dimension.CENTRAL.value,
+                      Dimension.HOOKS.value, Dimension.ORIGIN.value,
                       Dimension.RECOVERY.value)
         )
         if statuses.get(Dimension.REPOSITORY.value) == HealthStatus.ERROR.value:
@@ -833,7 +817,7 @@ class GitControlPlane:
         degraded = (
             snap.main_dirty
             or statuses.get(Dimension.WATCHERS.value) == HealthStatus.DEGRADED.value
-            or statuses.get(Dimension.CENTRAL.value) == HealthStatus.DEGRADED.value
+            or statuses.get(Dimension.ORIGIN.value) == HealthStatus.DEGRADED.value
             or statuses.get(Dimension.LOCKS.value) == HealthStatus.DEGRADED.value
         )
         if degraded:
@@ -1209,14 +1193,14 @@ _PROPOSAL_SPECS: dict[str, dict[str, Any]] = {
         "command_plan": ["pause worker allocation"],
         "risk_tier": 1,
     },
-    ReasonCode.CENTRAL_DIVERGED.value: {
-        "description": "central diverged from local main",
+    ReasonCode.ORIGIN_DIVERGED.value: {
+        "description": "origin diverged from local main",
         "command_plan": ["inspect divergence", "propose reconcile plan"],
         "risk_tier": 3, "affected_refs": [MAIN_REF],
     },
     ReasonCode.OBJECT_CORRUPTION.value: {
         "description": "repository object corruption; propose recovery",
-        "command_plan": ["fsck detail", "propose restore-from-central"],
+        "command_plan": ["fsck detail", "propose restore-from-bundle"],
         "risk_tier": 3, "affected_refs": [MAIN_REF],
     },
     ReasonCode.AUDIT_CHAIN_INVALID.value: {

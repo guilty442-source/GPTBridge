@@ -78,7 +78,11 @@ class AutomationSwitchesHandler:
         except ValueError as error:
             return "app:set-automation-switch_result", {
                 "ok": False,
-                "error_code": "UNKNOWN_SWITCH",
+                "error_code": (
+                    "SWITCH_RETIRED"
+                    if switch == "automatic_repair_enabled"
+                    else "UNKNOWN_SWITCH"
+                ),
                 "message": str(error),
                 "switches": read_automation_switches(
                     getattr(self.app, "project_root", None)

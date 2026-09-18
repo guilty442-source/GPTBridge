@@ -105,6 +105,13 @@ h1 { margin: 5px 0 0; font-size: clamp(25px, 3vw, 34px); font-weight: 620; lette
 .programming-folder-picker small { color: #e98c91; letter-spacing: 0; }
 .programming-folder-picker .folder-scan-summary { color: #72bca8; }
 .compact-picker select { min-width: 96px; max-width: 118px; }
+.persona-editor textarea { width: 100%; box-sizing: border-box; min-height: 84px; padding: 9px 11px; resize: vertical; border: 1px solid rgba(108, 175, 157, .24); border-radius: 9px; outline: 0; background: #0b1920; color: #cce2dc; font-size: 12px; line-height: 1.6; }
+.persona-editor textarea:focus { border-color: rgba(85, 215, 179, .48); }
+.persona-editor textarea:disabled { opacity: .45; }
+.persona-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.persona-actions button { border: 1px solid rgba(85, 215, 179, .4); background: rgba(15, 118, 110, .25); border-radius: 8px; padding: 6px 14px; color: #d7f2ea; font-size: 11px; font-weight: 700; cursor: pointer; }
+.persona-actions button:disabled { opacity: .45; cursor: default; }
+.persona-actions small { color: #7fa89f; font-size: 10px; }
 
 .chat-workspace { min-height: 0; overflow: hidden; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .messages { position: relative; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scroll-behavior: smooth; padding: 30px clamp(30px, 7vw, 100px); scrollbar-color: #23463e transparent; }
@@ -209,3 +216,8 @@ h1 { margin: 5px 0 0; font-size: clamp(25px, 3vw, 34px); font-weight: 620; lette
   .advanced-settings-panel { position: fixed; left: 16px; right: 16px; top: auto; width: auto; grid-template-columns: 1fr; }
   .advanced-settings-panel .model-picker:last-child { grid-column: auto; }
 }
+
+.governance-checks { margin: 0 0 8px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.governance-checks button { padding: 6px 12px; border: 1px solid rgba(86, 218, 182, .28); border-radius: 999px; background: rgba(13, 28, 35, .68); color: #9fe6d4; font-size: 11px; cursor: pointer; transition: .18s ease; }
+.governance-checks button:hover:not(:disabled) { border-color: rgba(86, 218, 182, .6); color: #dff8f1; }
+.governance-checks button:disabled { opacity: .45; cursor: default; }

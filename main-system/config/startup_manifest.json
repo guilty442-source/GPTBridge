@@ -1,12 +1,10 @@
 {
   "schema": "gptbridge-startup-manifest-v1",
   "comment": "A191/A192 — Startup DAG and supervisor constants. Loaded by startup_core.startup_config at boot time. Editing this file adjusts startup order, dependency contracts, probe deadlines, and restart policy without source-code changes.",
-
   "bootstrap_phases": [
     "environment-check",
     "governance-audit"
   ],
-
   "dependency_manifest": [
     {
       "identity": "postgresql",
@@ -39,7 +37,6 @@
       "shutdown_order": 10
     }
   ],
-
   "probe_constants": {
     "ollama_probe_timeout": 0.5,
     "postgres_connect_timeout": 1.0,
@@ -49,17 +46,23 @@
     "dependency_probe_timeout": 0.75,
     "startup_gate_deadline_seconds": 8.0
   },
-
   "ports": {
     "ollama": 11434,
     "postgresql": 5432,
     "qdrant": 6333,
     "health_probe": 8765
   },
-
   "supervisor": {
     "max_restarts": 10,
-    "backoff_schedule_seconds": [2, 5, 10, 20, 30, 45, 60],
+    "backoff_schedule_seconds": [
+      2,
+      5,
+      10,
+      20,
+      30,
+      45,
+      60
+    ],
     "healthy_uptime_reset_seconds": 60,
     "health_probe_timeout": 2.0,
     "health_probe_interval": 5.0,
@@ -67,7 +70,6 @@
     "crash_repair_uptime_threshold": 30.0,
     "startup_dead_grace_seconds": 45.0
   },
-
   "governed_startup": {
     "startup_deadline_ms": 30000,
     "phase_budget_ms": {

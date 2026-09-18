@@ -49,6 +49,18 @@ _TERMINAL_REPAIR_REQUEST_STATUSES = frozenset(
         "dismissed",
         "superseded",
         "reconciled-non-actionable",
+        # Decided requests: the sovereign chain finished (denied or
+        # executed to completion).  Failure evidence still surfaces via
+        # the learning-store collector — presenting the request itself
+        # as pending would double-count it.
+        "denied-not-repairable",
+        "denied-permission",
+        "denied-audit-conflict",
+        "denied-no-decision-sovereign",
+        "approved-repair-completed",
+        "approved-repair-failed",
+        "completed",
+        "failed",
     }
 )
 
