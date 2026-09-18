@@ -24,6 +24,7 @@ runtime/
 governance_rule/execution/audit/git_tier_audit.jsonl
 governance_rule/execution/audit/codex_read_audit.jsonl
 governance_rule/execution/audit/git_audit_chain/
+governance_rule/execution/audit/archive/
 governance_rule/execution/audit/merge_queue.jsonl
 governance_rule/execution/audit/merge_queue.lock
 governance_rule/runtime/sovereign_execution_audit.jsonl

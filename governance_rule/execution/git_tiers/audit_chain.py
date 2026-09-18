@@ -42,6 +42,50 @@ LEGACY_MARKER = "legacy-unhashed"
 
 _CHAIN_DIR_ENV = "GPTBRIDGE_AUDIT_CHAIN_DIR"
 
+# Auto-rotate the live chain segment at a size ceiling so an unbounded
+# append cannot exhaust disk while governed automation is busy.  Rotation
+# preserves sequence/hash continuity (see ``rotate``); retention prunes
+# only rotated, finalized segments older than the window.
+_CHAIN_ROTATION_BYTES_ENV = "GPTBRIDGE_AUDIT_CHAIN_ROTATION_BYTES"
+_CHAIN_ROTATION_BYTES_DEFAULT = 128 << 20
+_CHAIN_RETENTION_HOURS_ENV = "GPTBRIDGE_AUDIT_CHAIN_RETENTION_HOURS"
+_CHAIN_RETENTION_HOURS_DEFAULT = 24
+
+
+def _chain_rotation_bytes() -> int:
+    raw = os.environ.get(_CHAIN_ROTATION_BYTES_ENV, "").strip()
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return _CHAIN_ROTATION_BYTES_DEFAULT
+    return value if value > 0 else _CHAIN_ROTATION_BYTES_DEFAULT
+
+
+def _chain_retention_hours() -> int:
+    raw = os.environ.get(_CHAIN_RETENTION_HOURS_ENV, "").strip()
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return _CHAIN_RETENTION_HOURS_DEFAULT
+    return value if value > 0 else _CHAIN_RETENTION_HOURS_DEFAULT
+
+
+def _prune_archived_segments(directory: Path) -> None:
+    """Retire rotated (finalized) chain segments older than the window."""
+    retention = _chain_retention_hours()
+    if retention <= 0:
+        return
+    cutoff = time.time() - retention * 3600
+    archive_root = directory / ARCHIVE_DIR
+    if not archive_root.is_dir():
+        return
+    for candidate in archive_root.rglob("*.jsonl"):
+        try:
+            if candidate.stat().st_mtime < cutoff:
+                candidate.unlink()
+        except OSError:
+            continue
+
 
 def _chain_dir() -> Path:
     override = os.environ.get(_CHAIN_DIR_ENV, "").strip()
@@ -153,9 +197,32 @@ def _ensure_epoch(directory: Path, state: dict[str, Any]) -> dict[str, Any]:
     return manifest
 
 
+def _maybe_auto_rotate(directory: Path) -> None:
+    """Rotate the live segment when it exceeds the size ceiling.
+
+    Called outside ``audit-append.lock`` (``rotate`` takes that lock
+    itself).  Racing callers are safe: once one rotates, the live segment
+    is tiny and subsequent calls return ``below-threshold``/``empty``.
+    """
+    ceiling = _chain_rotation_bytes()
+    if ceiling <= 0:
+        return
+    current = directory / CURRENT_FILE
+    try:
+        if current.stat().st_size < ceiling:
+            return
+    except OSError:
+        return
+    try:
+        rotate(max_bytes=ceiling)
+    except Exception:
+        return
+
+
 def append_audit(record: dict[str, Any]) -> dict[str, Any]:
     """Append one record to the hash chain; returns the chained record."""
     directory = _chain_dir()
+    _maybe_auto_rotate(directory)
     lock_path = directory / "audit-append.lock"
     with _locked(lock_path):
         state = _load_state(directory)
@@ -490,6 +557,7 @@ def rotate(*, max_bytes: int | None = None, force: bool = False) -> dict[str, An
         state["last_hash"] = chained["record_hash"]
         _write_json_atomic(directory / CHAIN_STATE_FILE, state)
         _ensure_epoch(directory, state)
+        _prune_archived_segments(directory)
         return {
             "rotated": True,
             "epoch": state["epoch"],

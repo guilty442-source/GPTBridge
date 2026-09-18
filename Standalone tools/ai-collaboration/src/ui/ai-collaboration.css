@@ -21,11 +21,15 @@ body,
   box-sizing: border-box;
 }
 
-.ai-collab-topbar,
-.ai-collab-left > section {
+.ai-collab-topbar {
   border: 1px solid #243044;
   background: #111827;
   border-radius: 8px;
+}
+
+/* 左欄整合為單一卡片：區段以髮線分隔，不再各自成卡 */
+.ai-collab-left > section + section {
+  border-top: 1px solid #243044;
 }
 
 .ai-collab-topbar {
@@ -206,11 +210,14 @@ body,
 
 .ai-collab-left {
   display: grid;
-  gap: 12px;
+  gap: 0;
   align-content: start;
   overflow: auto;
   min-width: 0;
-  padding-right: 4px;
+  padding-right: 0;
+  border: 1px solid #243044;
+  background: #111827;
+  border-radius: 8px;
   scrollbar-gutter: stable;
 }
 

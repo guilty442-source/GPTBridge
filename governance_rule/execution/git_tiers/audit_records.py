@@ -37,6 +37,79 @@ CHAIN_CURRENT_FILE = "current.jsonl"
 
 _APPEND_LOCK = threading.Lock()
 
+# The flat ledger is append-only and unbounded by design; without a ceiling
+# it grows without limit under sustained governed automation.  Rotation
+# archives a full segment under ``audit/archive/flat/<YYYY-MM>/`` and pruning
+# retires segments older than the retention window, so steady-state disk is
+# bounded.  Both knobs are env-overridable (bytes, hours).
+_FLAT_ROTATION_BYTES_ENV = "GPTBRIDGE_AUDIT_FLAT_ROTATION_BYTES"
+_FLAT_ROTATION_BYTES_DEFAULT = 256 << 20
+_FLAT_ARCHIVE_RETENTION_HOURS_ENV = "GPTBRIDGE_AUDIT_FLAT_RETENTION_HOURS"
+_FLAT_ARCHIVE_RETENTION_HOURS_DEFAULT = 24
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value
+
+
+def flat_rotation_bytes() -> int:
+    return _env_int(_FLAT_ROTATION_BYTES_ENV, _FLAT_ROTATION_BYTES_DEFAULT)
+
+
+def _prune_archives(archive_root: Path, retention_hours: int) -> None:
+    if retention_hours <= 0 or not archive_root.is_dir():
+        return
+    cutoff = time.time() - retention_hours * 3600
+    for candidate in archive_root.rglob("*.jsonl"):
+        try:
+            if candidate.stat().st_mtime < cutoff:
+                candidate.unlink()
+        except OSError:
+            continue
+
+
+def rotate_flat_ledger_if_large(
+    path: Path, *, max_bytes: int | None = None, retention_hours: int | None = None
+) -> bool:
+    """Archive a full flat ledger segment that exceeds ``max_bytes``.
+
+    The rename is atomic on one volume and every flat-ledger writer reopens
+    the path per append, so a segment may be rotated between appends without
+    tearing a record: the next append starts a fresh file.  Returns True when
+    a segment was archived (and stale archived segments pruned).
+    """
+    ceiling = flat_rotation_bytes() if max_bytes is None else max_bytes
+    if ceiling <= 0:
+        return False
+    try:
+        if path.stat().st_size < ceiling:
+            return False
+    except OSError:
+        return False
+    month = time.strftime("%Y-%m", time.localtime())
+    archive_dir = path.parent / "archive" / "flat" / month
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    target = archive_dir / f"{path.name}-{int(time.time())}.jsonl"
+    try:
+        os.replace(path, target)
+    except OSError:
+        return False
+    _prune_archives(
+        archive_dir.parent,
+        _env_int(
+            _FLAT_ARCHIVE_RETENTION_HOURS_ENV,
+            _FLAT_ARCHIVE_RETENTION_HOURS_DEFAULT,
+        )
+        if retention_hours is None
+        else retention_hours,
+    )
+    return True
+
 
 class AuditRecordError(ValueError):
     """A record does not match a known audit schema generation."""
@@ -320,10 +393,12 @@ def stamp_audit_record(
 
 def _append_line(path: Path, record: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    line = json.dumps(record, ensure_ascii=False, sort_keys=True, default=str)
-    with _APPEND_LOCK, path.open("a", encoding="utf-8") as handle:
-        handle.write(line + "\n")
-        handle.flush()
+    with _APPEND_LOCK:
+        rotate_flat_ledger_if_large(path)
+        line = json.dumps(record, ensure_ascii=False, sort_keys=True, default=str)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+            handle.flush()
 
 
 def append_audit_record(

@@ -190,6 +190,7 @@ class LocalCleanupResult:
     cleaned_bytes: int
     started_at: str
     completed_at: str
+    dead_code_scan: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {**asdict(self)}
@@ -353,7 +354,23 @@ class ToolLocalCleanup:
             self.tool_root, self._can_sweep_empty,
             cleaned_directories, skipped, [error_count],
         )
-        
+
+        # Dead-code detection rides the same daily cycle — report-only:
+        # candidates go to the persisted cleanup state for governed review;
+        # nothing here ever deletes source files.
+        dead_code_scan: dict[str, Any] | None = None
+        try:
+            from .tool_dead_code_scan import scan_dead_code
+
+            dead_code_scan = scan_dead_code(self.tool_root)
+        except (ImportError, OSError, ValueError, RuntimeError) as error:
+            dead_code_scan = {
+                "ok": False,
+                "operation": "dead-code-scan",
+                "error": f"{type(error).__name__}: {error}",
+                "candidates": [],
+            }
+
         return LocalCleanupResult(
             ok=error_count == 0,
             operation="local-self-cleanup",
@@ -366,6 +383,7 @@ class ToolLocalCleanup:
             cleaned_bytes=cleaned_bytes,
             started_at=started_at,
             completed_at=_iso_now(),
+            dead_code_scan=dead_code_scan,
         )
 
 

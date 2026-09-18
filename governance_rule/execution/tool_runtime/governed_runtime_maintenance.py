@@ -123,6 +123,22 @@ class GovernedRuntimeMaintenanceMixin:
                 "skipped": [{"reason": f"{type(error).__name__}: {error}"}],
                 "cleaned_bytes": 0,
             }
+        # Error-path results lack dead_code_scan; run one here so the
+        # report still refreshes when the hygiene sweep itself failed.
+        if "dead_code_scan" not in result:
+            try:
+                from .tool_dead_code_scan import scan_dead_code
+
+                result["dead_code_scan"] = await asyncio.to_thread(
+                    scan_dead_code, self.tool_root
+                )
+            except (ImportError, OSError, ValueError, RuntimeError) as error:
+                result["dead_code_scan"] = {
+                    "ok": False,
+                    "operation": "dead-code-scan",
+                    "error": f"{type(error).__name__}: {error}",
+                    "candidates": [],
+                }
         self._last_local_cleanup = result
         with contextlib.suppress(Exception):
             await asyncio.to_thread(
@@ -134,6 +150,7 @@ class GovernedRuntimeMaintenanceMixin:
 
     def _local_cleanup_health(self) -> dict[str, Any]:
         last = self._last_local_cleanup or {}
+        dead_code = last.get("dead_code_scan") or {}
         return {
             "local_cleanup": {
                 "enabled": self.local_cleanup_enabled,
@@ -142,6 +159,8 @@ class GovernedRuntimeMaintenanceMixin:
                 "cleaned_files": last.get("cleaned_files") or [],
                 "cleaned_directories": last.get("cleaned_directories") or [],
                 "cleaned_bytes": last.get("cleaned_bytes") or 0,
+                "dead_code_candidates": dead_code.get("candidate_count") or 0,
+                "dead_code_scan_ok": dead_code.get("ok"),
             }
         }
 

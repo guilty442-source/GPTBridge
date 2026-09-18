@@ -82,6 +82,52 @@ AUDIT_PATH: Final[Path] = (
 )
 _AUDIT_LOCK = threading.Lock()
 
+# The codex read-audit ledger appends once per codex read; without a size
+# ceiling it grows without bound.  Rotation archives a full segment under
+# ``audit/archive/codex-read/<YYYY-MM>/`` and pruning retires archived
+# segments older than the retention window.  Both knobs are env-overridable.
+_AUDIT_ROTATION_BYTES_ENV: Final[str] = "GPTBRIDGE_CODEX_AUDIT_ROTATION_BYTES"
+_AUDIT_ROTATION_BYTES_DEFAULT: Final[int] = 256 << 20
+_AUDIT_RETENTION_HOURS_ENV: Final[str] = "GPTBRIDGE_CODEX_AUDIT_RETENTION_HOURS"
+_AUDIT_RETENTION_HOURS_DEFAULT: Final[int] = 24
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _rotate_codex_read_audit_if_large() -> None:
+    """Archive a full codex read-audit segment that exceeds the ceiling."""
+    ceiling = _env_int(_AUDIT_ROTATION_BYTES_ENV, _AUDIT_ROTATION_BYTES_DEFAULT)
+    if ceiling <= 0:
+        return
+    try:
+        if AUDIT_PATH.stat().st_size < ceiling:
+            return
+    except OSError:
+        return
+    month = time.strftime("%Y-%m", time.localtime())
+    archive_dir = AUDIT_PATH.parent / "archive" / "codex-read" / month
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    target = archive_dir / f"{AUDIT_PATH.name}-{int(time.time())}.jsonl"
+    try:
+        os.replace(AUDIT_PATH, target)
+    except OSError:
+        return
+    retention = _env_int(_AUDIT_RETENTION_HOURS_ENV, _AUDIT_RETENTION_HOURS_DEFAULT)
+    if retention > 0:
+        cutoff = time.time() - retention * 3600
+        for candidate in archive_dir.parent.rglob("*.jsonl"):
+            try:
+                if candidate.stat().st_mtime < cutoff:
+                    candidate.unlink()
+            except OSError:
+                continue
+
 # ---------------------------------------------------------------------------
 # Persistent entry state (A435): revocation generation, minted session
 # nonces, and dual-key grants survive restarts so replay and revocation
@@ -317,6 +363,8 @@ def record_session_audit(
     }
     try:
         AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _AUDIT_LOCK:
+            _rotate_codex_read_audit_if_large()
         with _AUDIT_LOCK, AUDIT_PATH.open("a", encoding="utf-8") as handle:
             if os.name == "nt":
                 # Cross-process byte-range lock: two processes appending to

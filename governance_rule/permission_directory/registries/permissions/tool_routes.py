@@ -10,7 +10,7 @@ from governance_rule.permission_directory.execution.path_guard import (
 
 AI_CHANNEL_ID: Final[str] = "shared-layer/ai-channel"
 AUTHORIZED_TOOL_IDS: Final[frozenset[str]] = frozenset(
-    {"ai-assistant", "xingcheng", "ai-collaboration", "star-chat"}
+    {"ai-assistant", "xingcheng", "ai-collaboration", "star-chat", "local-model"}
 )
 AI_CHANNEL_TOOL_IDS: Final[frozenset[str]] = (
     AUTHORIZED_TOOL_IDS | {"investment-mobile", "model-dialogue"}
@@ -59,11 +59,20 @@ AI_ROUTE_COMMANDS: Final[Mapping[tuple[str, str], frozenset[str]]] = {
     ("model-dialogue", "xingcheng"): frozenset(
         {
             "xingcheng_status",
-            "xingcheng_infer",
             "xingcheng_codex_alignment",
             "xingcheng_codex_mirror_check",
             "xingcheng_sql_get_personality",
             "xingcheng_sql_save_personality",
+        }
+    ),
+    ("model-dialogue", "local-model"): frozenset(
+        {
+            "local_model_infer",
+            "local_model_stream",
+            "local_model_status",
+            "local_model_list_models",
+            "local_model_pull_model",
+            "local_model_delete_model",
         }
     ),
     ("xingcheng", "ai-collaboration"): frozenset(
