@@ -88,7 +88,12 @@ REPAIR_CURRICULUM: Final[tuple[dict[str, Any], ...]] = (
         "remedy": "inspect-owned-databases,rebuild-tool-executable",
         "verification": (
             "backend /health returns 200 and the frontend WebSocket "
-            "reconnects within the probe interval"
+            "reconnects within the probe interval; an attached launcher "
+            "holds no child-process handle, so backend liveness is proven "
+            "only by the direct /health probe (matching workspace "
+            "instance id + backend_runtime_ready), never by "
+            "launcher-reported status — sustained probe loss routes to "
+            "governed respawn instead of assumed-alive"
         ),
     },
     {
@@ -99,9 +104,10 @@ REPAIR_CURRICULUM: Final[tuple[dict[str, Any], ...]] = (
         ),
         "remedy": "no-action-required",
         "verification": (
-            "transient connection states self-recover; sustained "
-            "degradation escalates to the connection-fault recipe instead "
-            "of burning retries"
+            "transient connection states self-recover; probe failures "
+            "during backend generation handover are expected and resolve "
+            "on their own — require sustained failure before escalating "
+            "to the connection-fault recipe instead of burning retries"
         ),
     },
     {

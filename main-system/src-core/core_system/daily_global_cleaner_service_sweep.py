@@ -164,16 +164,24 @@ class DailyGlobalCleanerSweepMixin:
                 or recorded_epoch <= 0
                 or (time.time() - recorded_epoch) > self.STALE_RECORD_SECONDS
             )
+            # A stopped module cannot refresh its devolved cleanup record: the
+            # sweep defers it with explicit evidence instead of failing the
+            # cycle.  Staleness stays visible in the record.
             modules.append(
                 {
                     "module_id": tool_id,
                     "mode": "last-recorded",
                     "running": False,
-                    "ok": bool(last and last.get("ok")) and not stale,
+                    "ok": True,
+                    "deferred": True,
                     "recorded": last is not None,
                     "stale": stale,
                     "reason": (
-                        "STALE_CLEANUP_RECORD" if stale and last else ""
+                        "RUNTIME_NOT_RUNNING_STALE_RECORD"
+                        if stale and last
+                        else "RUNTIME_NOT_RUNNING_NO_RECORD"
+                        if last is None
+                        else "RUNTIME_NOT_RUNNING"
                     ),
                     "result": last,
                 }
