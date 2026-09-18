@@ -102,6 +102,13 @@ class StarNativeInferenceMixin:
                 "也不得補造證據中沒有的錯誤碼：\n"
                 + "\n".join(diagnostic_lines)
             )
+        rag_lines = self._rag_grounding_lines(payload.get("rag_context"))
+        if rag_lines:
+            generation_grounding = (
+                f"{generation_grounding}\n以下是本地受管語料檢索到的相關知識片段；"
+                "僅作為參考上下文，不得聲稱為已驗證事實，引用時須保留來源：\n"
+                + "\n".join(rag_lines)
+            )
         return generation_grounding
 
     def _generate_and_score(
@@ -425,6 +432,27 @@ class StarNativeInferenceMixin:
                     f"維護手冊 {manual.get('manual_code')}: "
                     f"{str(manual.get('ordered_steps') or '')[:400]}"
                 )
+        return lines
+
+    @staticmethod
+    def _rag_grounding_lines(rag_context: Any) -> list[str]:
+        """Flatten bounded local-RAG citations into grounding lines."""
+        if not isinstance(rag_context, Mapping):
+            return []
+        citations = rag_context.get("citations")
+        if not isinstance(citations, list):
+            return []
+        lines: list[str] = []
+        for item in citations[:4]:
+            if not isinstance(item, Mapping):
+                continue
+            excerpt = str(item.get("excerpt") or "").strip()
+            if not excerpt:
+                continue
+            source = str(
+                item.get("title") or item.get("source") or "local-corpus"
+            ).strip()
+            lines.append(f"[{source}] {excerpt[:360]}")
         return lines
 
     @staticmethod

@@ -228,6 +228,7 @@ class TransformerRuntimeContextMixin:
                 "coding_result",
                 "self_repair",
                 "fault_diagnostics",
+                "rag_context",
                 "evidence",
                 "instruction_execution",
                 "parallel_model_results",

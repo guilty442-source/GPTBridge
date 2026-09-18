@@ -1,4 +1,4 @@
-"""Split from consolidated test_main_system.py (main-system/tests/test_special_unpacked_runtime.py)."""
+﻿"""Split from consolidated test_main_system.py (main-system/tests/test_special_unpacked_runtime.py)."""
 from __future__ import annotations
 
 import _main_system_test_support as _support  # noqa: F401
@@ -330,7 +330,6 @@ def test_force_close_verifies_no_background_process_remains(
     monkeypatch.setattr(service, "_load_manifest_cached", lambda tool_id: (
         {"lifecycle": {"stoppable": True}, "main_system_independent_tool": False}, temp_test_tool
     ))
-    monkeypatch.setattr(service, "_is_independent_tool", lambda tool_id: False)
     # Mock _run_bounded_sweep directly
     async def mock_run_bounded_sweep(*args, **kwargs):
         return set(), []
@@ -379,7 +378,6 @@ def test_force_close_fails_if_a_background_process_survives(
     monkeypatch.setattr(service, "_load_manifest_cached", lambda tool_id: (
         {"lifecycle": {"stoppable": True}, "main_system_independent_tool": False}, temp_test_tool
     ))
-    monkeypatch.setattr(service, "_is_independent_tool", lambda tool_id: False)
     # Mock _run_bounded_sweep to return remaining process
     async def mock_run_bounded_sweep_survivor(*args, **kwargs):
         return set(), [99999]
@@ -419,7 +417,6 @@ def test_force_close_hybrid_tool_stops_exe_source_backend_and_ui(
     monkeypatch.setattr(service, "_load_manifest_cached", lambda tool_id: (
         {"lifecycle": {"stoppable": True}, "main_system_independent_tool": False}, temp_test_tool
     ))
-    monkeypatch.setattr(service, "_is_independent_tool", lambda tool_id: False)
     # Mock _run_bounded_sweep to return all stopped
     async def mock_run_bounded_sweep_all(*args, **kwargs):
         return {1001, 1002, 1003, 1004}, []
@@ -455,7 +452,6 @@ def test_force_close_includes_orphaned_packaged_backend(
     monkeypatch.setattr(service, "_load_manifest_cached", lambda tool_id: (
         {"lifecycle": {"stoppable": True}, "main_system_independent_tool": False}, temp_test_tool
     ))
-    monkeypatch.setattr(service, "_is_independent_tool", lambda tool_id: False)
     # Mock _run_bounded_sweep to return packaged backend stopped
     async def mock_run_bounded_sweep_packaged(*args, **kwargs):
         return {24680}, []

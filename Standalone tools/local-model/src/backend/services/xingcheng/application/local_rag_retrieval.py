@@ -406,6 +406,62 @@ class LocalRagRetrievalMixin:
             "available_to_all_local_models": canonical_ready,
         }
 
+    def infer_context(
+        self,
+        question: str,
+        *,
+        top_k: int = 4,
+        candidate_limit: int = 12,
+    ) -> dict[str, Any] | None:
+        """Bounded read-only retrieval for inference grounding.
+
+        Never blocks on canonical startup: the canonical path is consulted
+        only while already ready (peeked), otherwise the bounded local
+        mirror serves — matching the degraded-cache role. Skips the LLM
+        router and answer generation; returns citations only. Any
+        retrieval failure returns None so inference is never blocked.
+        """
+        question = str(question or "").strip()
+        if not question:
+            return None
+        canonical_ready = (
+            self.canonical is not None and self.canonical.peek_ready()
+        )
+        try:
+            matches, pending_reconciliation = self._retrieve_ranked(
+                question,
+                (XINGCHENG_MODULE_ID,),
+                max(8, min(48, int(candidate_limit))),
+                canonical_ready,
+            )
+        except (OSError, RuntimeError, ValueError, sqlite3.Error):
+            return None
+        if not matches:
+            return None
+        reranked, reranker = self.reranker.rerank(
+            question, matches[:candidate_limit], size="0.6b"
+        )
+        citations = self._citations(reranked[: max(1, min(12, int(top_k)))])
+        if not citations:
+            return None
+        canonical = canonical_ready and not pending_reconciliation
+        return {
+            "citations": citations,
+            "retrieval": (
+                "canonical-qdrant-dense+postgresql-fts+index-state+rrf"
+                if canonical
+                else "local-vector-degraded-cache+local-sqlite3-fts+rrf"
+            ),
+            "canonical": canonical,
+            "authority": (
+                "canonical-qdrant-postgresql"
+                if canonical
+                else "non-canonical-reconciliation-required"
+            ),
+            "reranker": reranker,
+            "network_used": False,
+        }
+
     def status(self) -> dict[str, Any]:
         vector_status = self.vector_store.status()
         vector_ready = vector_status.get("available") is True

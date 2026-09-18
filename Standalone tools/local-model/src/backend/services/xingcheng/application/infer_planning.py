@@ -426,6 +426,13 @@ class InferPlanningMixin:
             inference_payload["fault_diagnostics"] = (
                 self.fault_diagnostics.diagnose(prompt)
             )
+        # Local-RAG grounding: bounded read-only retrieval from the
+        # governed corpus (canonical-first while warm, bounded local
+        # mirror otherwise). Skipped when the corpus is empty; failure
+        # never blocks inference.
+        rag_context = self._infer_rag_context(prompt)
+        if rag_context:
+            inference_payload["rag_context"] = rag_context
         if planned_intent in {"analysis", "risk"} and not native_model_requested:
             governed_parameters = self.investment_repository.investment_parameter_values()
             requested_parameters = inference_payload.get("analysis_parameters")

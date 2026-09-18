@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from typing import Any
 
 import numpy as np
@@ -8,6 +9,59 @@ from .investment_analysis import analyze_investments
 
 
 class LocalAiEmbeddingMixin:
+    def _infer_rag_context(self, prompt: str) -> dict[str, Any] | None:
+        """Bounded local-RAG grounding for inference.
+
+        Cheap gate first: when the local corpus is empty and canonical is
+        not already warm, skip retrieval entirely so inference never pays
+        embed/rerank latency for a guaranteed-empty result. Any failure
+        returns None — retrieval must never block or break inference.
+        """
+        question = str(prompt or "").strip()
+        if not question:
+            return None
+        canonical_ready = (
+            self.local_rag.canonical is not None
+            and self.local_rag.canonical.peek_ready()
+        )
+        try:
+            document_count = int(
+                (self.local_rag.repository.status() or {}).get(
+                    "document_count"
+                )
+                or 0
+            )
+        except (OSError, RuntimeError, ValueError, sqlite3.Error):
+            document_count = 0
+        if document_count <= 0 and not canonical_ready:
+            return None
+        context = self.local_rag.infer_context(question)
+        if not isinstance(context, dict):
+            return None
+        citations = [
+            {
+                "citation_id": str(item.get("citation_id") or ""),
+                "title": str(item.get("title") or "")[:200],
+                "source": str(item.get("source") or "")[:200],
+                "excerpt": str(item.get("excerpt") or "")[:360],
+            }
+            for item in (context.get("citations") or [])[:4]
+            if isinstance(item, dict) and str(item.get("excerpt") or "").strip()
+        ]
+        if not citations:
+            return None
+        return {
+            "citations": citations,
+            "retrieval": str(context.get("retrieval") or ""),
+            "canonical": context.get("canonical") is True,
+            "authority": str(context.get("authority") or ""),
+            "role": (
+                "canonical-qdrant-postgresql"
+                if context.get("canonical") is True
+                else "bounded-degraded-cache"
+            ),
+        }
+
     def _embedding_retrieval(
         self, payload: dict[str, Any], prompt: str
     ) -> list[dict[str, Any]]:
@@ -94,6 +148,7 @@ class LocalAiEmbeddingMixin:
             "analysis": analysis,
             "market_research": market_research,
             "fault_diagnostics": payload.get("fault_diagnostics"),
+            "rag_context": payload.get("rag_context"),
             "evidence": embedding_retrieval,
             "embedding_retrieval": {
                 "enabled": bool(embedding_retrieval),

@@ -12,6 +12,13 @@ Boundaries:
   that.  It only ensures a consumer exists.
 - Every activation goes through ``ToolboxService.start_tool`` (capability
   gate, isolation registry, audit, quarantine/backoff) — no side channel.
+- Only user-driven ``ai``-channel dialogue requests activate the owner.
+  Queued ``system``-channel internal commands (e.g. the repair teaching
+  bridge) never auto-start the model: the model only runs when a user
+  actually talks to it or starts it directly.
+- An explicit toolbox force-close of the owner suppresses re-activation for
+  the rest of the pending window, so pre-existing queued requests stop
+  being enough to resurrect the model after the user turned it off.
 - Stale queued rows and requests past their deadline are ignored; attempts
   are throttled and backed off, so a failing owner is never restart-looped.
 """
@@ -42,6 +49,23 @@ _DEFAULT_MIN_BACKOFF_SECONDS = 15.0
 _DEFAULT_MAX_BACKOFF_SECONDS = 180.0
 _PENDING_WINDOW_MINUTES = 10
 
+_ACTIVE_BROKER: "ModelServiceActivationBroker | None" = None
+
+
+def note_explicit_owner_stop(tool_id: str) -> None:
+    """Notify the broker that the user explicitly force-closed a tool.
+
+    Only ``OWNER_TOOL_ID`` is relevant; other tools are silently ignored.
+    When the owner is stopped explicitly, pending pre-existing queued
+    requests must no longer trigger a fresh on-demand activation for the
+    remainder of their pending window.
+    """
+    if tool_id != OWNER_TOOL_ID:
+        return
+    broker = _ACTIVE_BROKER
+    if broker is not None:
+        broker.note_explicit_owner_stop()
+
 
 class ModelServiceActivationBroker:
     """Starts the model-owner tool when a dialogue request is waiting."""
@@ -57,6 +81,7 @@ class ModelServiceActivationBroker:
         min_backoff: float = _DEFAULT_MIN_BACKOFF_SECONDS,
         max_backoff: float = _DEFAULT_MAX_BACKOFF_SECONDS,
     ) -> None:
+        global _ACTIVE_BROKER
         self.app = app
         self.toolbox = toolbox_service
         self.idle_interval = max(0.5, float(idle_interval))
@@ -73,6 +98,8 @@ class ModelServiceActivationBroker:
         self._attempts = 0
         self._last_result: dict[str, Any] = {}
         self._last_decision = ""
+        self._explicit_stop_at = 0.0
+        _ACTIVE_BROKER = self
 
     # -- lifecycle ------------------------------------------------------
 
@@ -182,34 +209,76 @@ class ModelServiceActivationBroker:
         )
         return "start-failed"
 
+    def note_explicit_owner_stop(self) -> None:
+        """Remember an explicit close of the owner so it is not resurrected.
+
+        After the user force-closes the model runtime, queued requests that
+        already existed before that moment are treated as non-triggering for
+        the rest of their pending window.  Requests arriving after the stop
+        still activate on demand — that is the intended dialogue behaviour.
+        """
+        self._explicit_stop_at = time.time()
+        # Cooldown so the next observed request waits before a fresh attempt.
+        self._next_attempt_at = time.monotonic() + self.cooldown
+        _logger.info(
+            "model owner explicit stop recorded at %.0f; pre-stop queued "
+            "requests will not auto-start the model",
+            self._explicit_stop_at,
+        )
+
     # -- detection ------------------------------------------------------
 
     def _has_pending_dialogue_request(self) -> bool:
-        """True when a fresh queued governed request targets the model owner.
+        """True when a fresh queued ``ai`` request needs the model owner.
 
-        On-demand activation is demand-driven, not channel-specific: a
-        queued ``ai`` inference request needs the model runtime, and so
-        does a queued ``system`` governed command (e.g. the repair
-        teaching bridge's ``xingcheng_submit_teaching``).  Either proves
-        the owner is required and must be started.
+        Activation is demand-driven, user-facing and ``ai``-channel only:
+        a queued ``ai`` inference request proves the owner is required.
+        Queued ``system``-channel internal commands (e.g. the repair
+        teaching bridge) do NOT auto-start the model; the model only runs
+        when a user drives it.
+
+        Requests that were already queued before an explicit force-close of
+        the owner (``explicit_stop_at``) are ignored for the rest of their
+        pending window, so the user's explicit stop is honoured.
         """
+        explicit_stop_at = self._explicit_stop_at
         try:
             from shared_layer.database.connection import get_connection_manager
 
             with get_connection_manager().connection() as conn:
-                row = conn.execute(
-                    """
-                    SELECT 1
-                    FROM gptbridge_transport.tool_request
-                    WHERE channel_id IN ('ai', 'system')
-                      AND target_tool_id = %s
-                      AND status = 'queued'
-                      AND created_at > now() - (%s || ' minutes')::interval
-                      AND (deadline_at IS NULL OR deadline_at > now())
-                    LIMIT 1
-                    """,
-                    (TARGET_TOOL_ID, str(_PENDING_WINDOW_MINUTES)),
-                ).fetchone()
+                if explicit_stop_at > 0.0:
+                    row = conn.execute(
+                        """
+                        SELECT 1
+                        FROM gptbridge_transport.tool_request
+                        WHERE channel_id = 'ai'
+                          AND target_tool_id = %s
+                          AND status = 'queued'
+                          AND created_at > now() - (%s || ' minutes')::interval
+                          AND created_at > to_timestamp(%s)
+                          AND (deadline_at IS NULL OR deadline_at > now())
+                        LIMIT 1
+                        """,
+                        (
+                            TARGET_TOOL_ID,
+                            str(_PENDING_WINDOW_MINUTES),
+                            explicit_stop_at,
+                        ),
+                    ).fetchone()
+                else:
+                    row = conn.execute(
+                        """
+                        SELECT 1
+                        FROM gptbridge_transport.tool_request
+                        WHERE channel_id = 'ai'
+                          AND target_tool_id = %s
+                          AND status = 'queued'
+                          AND created_at > now() - (%s || ' minutes')::interval
+                          AND (deadline_at IS NULL OR deadline_at > now())
+                        LIMIT 1
+                        """,
+                        (TARGET_TOOL_ID, str(_PENDING_WINDOW_MINUTES)),
+                    ).fetchone()
                 return row is not None
         except Exception as error:
             _logger.debug("pending dialogue probe unavailable: %s", error)
@@ -229,6 +298,7 @@ class ModelServiceActivationBroker:
             "next_attempt_in": max(0.0, round(self._next_attempt_at - time.monotonic(), 1)),
             "last_result_ok": self._last_result.get("ok"),
             "last_pid": self._last_result.get("pid"),
+            "explicit_stop_at": round(self._explicit_stop_at, 1),
             "last_error": self._last_result.get("message")
             or self._last_result.get("error_code"),
         }
@@ -256,4 +326,5 @@ __all__ = [
     "ModelServiceActivationBroker",
     "OWNER_TOOL_ID",
     "TARGET_TOOL_ID",
+    "note_explicit_owner_stop",
 ]

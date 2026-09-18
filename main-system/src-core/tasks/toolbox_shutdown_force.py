@@ -259,16 +259,6 @@ class ForceCloseMixin:
         tool_id = str(payload.get("tool_id", "")).strip()
         command_request_id = str(payload.get("request_id") or "").strip()
 
-        # Check if tool is independent - if so, refuse force-close from main system
-        if self._is_independent_tool(tool_id):
-            return {
-                "ok": False,
-                "tool_id": tool_id,
-                "request_id": command_request_id,
-                "error_code": "INDEPENDENT_TOOL_PROTECTED",
-                "message": "Independent tool lifecycle is managed separately; main system cannot force-close it",
-            }
-
         error = self._force_close_authorization(tool_id, command_request_id)
         if error is not None:
             return error
@@ -279,6 +269,12 @@ class ForceCloseMixin:
         except Exception:
             pass
         self._force_closed_tool_ids.add(tool_id)
+        try:
+            from .model_service_activation import note_explicit_owner_stop
+
+            note_explicit_owner_stop(tool_id)
+        except Exception:
+            pass
         force_closed_process_ids = await self._terminate_tracked_tool_processes(
             tool_id
         )
@@ -300,19 +296,6 @@ class ForceCloseMixin:
         return self._close_success_result(
             tool_id, command_request_id, started, force_closed_process_ids
         )
-
-    def _is_independent_tool(self, tool_id: str) -> bool:
-        """Check if a tool is declared as main-system independent."""
-        try:
-            tool_dir = self._tool_directory_for_id(tool_id)
-            manifest_path = tool_dir / "manifest.json"
-            if not manifest_path.exists():
-                return False
-            import json
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            return bool(manifest.get("main_system_independent_tool") is True)
-        except Exception:
-            return False
 
 
 def failure(message: str, code: str) -> Dict[str, Any]:

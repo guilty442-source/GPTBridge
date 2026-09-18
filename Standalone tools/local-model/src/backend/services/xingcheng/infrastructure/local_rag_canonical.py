@@ -209,6 +209,15 @@ class CanonicalRagAdapter:
         self._ready = False
         return False
 
+    def peek_ready(self) -> bool:
+        """Non-blocking readiness snapshot.
+
+        Never starts the adapter thread and never waits on the init event —
+        safe for latency-sensitive call sites (e.g. inference grounding)
+        that must not stall on canonical startup.
+        """
+        return bool(self._enabled and self._ready)
+
     def mark_unhealthy(self, error: str) -> None:
         self._ready = False
         self._last_error = error
