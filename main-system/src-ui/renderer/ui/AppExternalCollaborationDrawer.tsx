@@ -84,15 +84,15 @@ export function ExternalCollaborationDrawer({
       <section className="ec-section">
         <h4>{ec.aiList}</h4>
         <ul className="ec-feature-list">
-          <li><strong>ChatGPT</strong> — {ec.coordinator}（固定）</li>
-          <li><strong>Gemini</strong> — {ec.searchProvider}、進階搜尋</li>
-          <li><strong>Perplexity</strong> — 計算、進階搜尋</li>
-          <li><strong>Claude</strong> — 長文本</li>
-          <li><strong>DeepSeek</strong> — 推理</li>
-          <li><strong>Grok</strong> — 社交媒體、趨勢、即時新聞</li>
+          <li><strong>{ec.ai01}</strong> — {ec.coordinator}{ec.coordinatorFixed}</li>
+          <li><strong>{ec.ai02}</strong> — {ec.searchProvider}{ec.searchProviderAdvanced}</li>
+          <li><strong>{ec.ai03}</strong> — {ec.calculationAdvancedSearch}</li>
+          <li><strong>{ec.ai04}</strong> — {ec.longText}</li>
+          <li><strong>{ec.ai05}</strong> — {ec.reasoning}</li>
+          <li><strong>{ec.ai06}</strong> — {ec.socialMediaTrendsNews}</li>
         </ul>
         <p className="ec-detail">
-          {ec.maxParallel}：6 組並行 · {ec.coordinator}：ChatGPT · 搜尋：Gemini
+          {ec.detailMaxParallel}
         </p>
       </section>
 
@@ -130,13 +130,13 @@ export function ExternalCollaborationDrawer({
           disabled={busy || !connected || status !== 'running'}
           onClick={handleStop}
         >
-          {busy ? '關閉中…' : t.stop}
+          {busy ? ec.closing : t.stop}
         </button>
       </section>
 
       {!connected && (
         <p className="ec-disconnected">
-          後端未連線，無法操作外部協作工具。
+          {ec.disconnectedMessage}
         </p>
       )}
     </div>

@@ -80,6 +80,13 @@ class GPTBridgeAppShutdownMixin:
                 await broker.stop()
         except Exception:
             pass
+        # Release the saga runtime assembly (no background thread).
+        try:
+            saga_runtime = getattr(self, "saga_runtime", None)
+            if saga_runtime is not None:
+                saga_runtime.stop()
+        except Exception:
+            pass
         for _sovereign in (
             self.automation_sovereign,  # type: ignore[attr-defined]
             self.xingcheng_sovereign,  # type: ignore[attr-defined]

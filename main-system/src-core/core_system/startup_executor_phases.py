@@ -145,6 +145,13 @@ class StartupExecutorPhasesMixin:
                 app, app.toolbox_service
             )
             await app.model_service_activation.start()
+        if getattr(app, "saga_runtime", None) is None:
+            from core_system.saga_runtime_integration import (
+                create_saga_runtime_integration,
+            )
+
+            app.saga_runtime = create_saga_runtime_integration(app)
+            await app.saga_runtime.start()
         if app.runtime_status_service is None:
             from tasks.runtime_status_service import RuntimeStatusService
 

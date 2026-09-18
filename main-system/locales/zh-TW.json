@@ -383,12 +383,12 @@
     "coordinator": "最終協調",
     "searchProvider": "搜尋提供者",
     "capabilityFallback": "能力回退策略",
-    "chatGPT": "ChatGPT",
-    "gemini": "Gemini",
-    "perplexity": "Perplexity",
-    "claude": "Claude",
-    "deepSeek": "DeepSeek",
-    "grok": "Grok",
+    "aiChatGPT": "ChatGPT",
+    "aiGemini": "Gemini",
+    "aiPerplexity": "Perplexity",
+    "aiClaude": "Claude",
+    "aiDeepSeek": "DeepSeek",
+    "aiGrok": "Grok",
     "coordinatorFixed": "（固定）",
     "searchProviderAdvanced": "、進階搜尋",
     "calculationAdvancedSearch": "計算、進階搜尋",
@@ -397,7 +397,9 @@
     "socialMediaTrendsNews": "社交媒體、趨勢、即時新聞",
     "detailMaxParallel": "最多並行：6 組並行 · 最終協調：ChatGPT · 搜尋：Gemini",
     "closing": "關閉中…",
-    "disconnectedMessage": "後端未連線，無法操作外部協作工具。"
+    "disconnectedMessage": "後端未連線，無法操作外部協作工具。",
+    "icon": "外",
+    "moduleBoundaryName": "外部協作"
   },
   "moduleBoundary": {
     "fallbackMessage": "此模組暫時無法顯示；其他模組不受影響。"

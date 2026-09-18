@@ -297,7 +297,7 @@ export default function App() {
             className="drawer-trigger"
             onClick={() => setDrawerExternalCollaboration(true)}
           >
-            <span className="drawer-trigger__icon" aria-hidden="true">外</span>
+            <span className="drawer-trigger__icon" aria-hidden="true">{ec.icon}</span>
             <span className="drawer-trigger__text">
               <strong>{ec.title}</strong>
               <small>{ec.subtitle}</small>
@@ -385,9 +385,9 @@ export default function App() {
         onClose={() => setDrawerExternalCollaboration(false)}
         title={ec.title}
         eyebrow={ec.eyebrow}
-        icon="外"
+        icon={ec.icon}
       >
-        <ModuleBoundary name="外部協作">
+        <ModuleBoundary name={ec.moduleBoundaryName}>
           <ExternalCollaborationDrawer
             sendCommand={sendCommand}
             waitForIpcEvent={waitForIpcEvent}

@@ -54,6 +54,13 @@ def register(
     connection.execute(_REGISTER, (module_id, database_path, db_class, description))
 
 
+def _field(row: Any, index: int, key: str) -> Any:
+    """Row access that tolerates both tuple and dict_row connections."""
+    if isinstance(row, dict):
+        return row.get(key)
+    return row[index]
+
+
 def get_class(
     connection: Connection[Any],
     *,
@@ -67,15 +74,17 @@ def get_class(
     if not row:
         return None
     return {
-        "module_id": str(row[0]),
-        "database_path": str(row[1]),
-        "db_class": str(row[2]),
-        "synchronous": str(row[3]),
-        "backup_frequency_seconds": int(row[4]),
-        "integrity_check_frequency_seconds": int(row[5]),
-        "retention_days": int(row[6]),
-        "reconcile_required": bool(row[7]),
-        "description": str(row[8]) if row[8] else "",
+        "module_id": str(_field(row, 0, "module_id")),
+        "database_path": str(_field(row, 1, "database_path")),
+        "db_class": str(_field(row, 2, "db_class")),
+        "synchronous": str(_field(row, 3, "synchronous_setting")),
+        "backup_frequency_seconds": int(_field(row, 4, "backup_frequency_seconds")),
+        "integrity_check_frequency_seconds": int(
+            _field(row, 5, "integrity_check_frequency_seconds")
+        ),
+        "retention_days": int(_field(row, 6, "retention_days")),
+        "reconcile_required": bool(_field(row, 7, "reconcile_required")),
+        "description": str(_field(row, 8, "description") or ""),
     }
 
 
@@ -88,9 +97,9 @@ def list_by_class(
     rows = connection.execute(_LIST_BY_CLASS, (db_class,)).fetchall()
     return [
         {
-            "module_id": str(r[0]),
-            "database_path": str(r[1]),
-            "description": str(r[2]) if r[2] else "",
+            "module_id": str(_field(r, 0, "module_id")),
+            "database_path": str(_field(r, 1, "database_path")),
+            "description": str(_field(r, 2, "description") or ""),
         }
         for r in rows
     ]
